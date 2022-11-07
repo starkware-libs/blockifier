@@ -5,47 +5,9 @@
     ],
     "compiler_version": "0.10.2",
     "data": [
-        "0x40780017fff7fff",
-        "0x1",
-        "0x208b7fff7fff7ffe",
-        "0x400380007ffc7ffd",
-        "0x482680017ffc8000",
-        "0x1",
-        "0x208b7fff7fff7ffe",
-        "0x20780017fff7ffd",
-        "0x5",
-        "0x480680017fff8000",
-        "0x0",
-        "0x208b7fff7fff7ffe",
-        "0x482680017ffc8000",
-        "0x1",
-        "0x482680017ffd8000",
-        "0x800000000000011000000000000000000000000000000000000000000000000",
-        "0x1104800180018000",
-        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff8",
-        "0x480280007ffc8000",
-        "0x48307ffe7fff8000",
-        "0x208b7fff7fff7ffe",
-        "0x1104800180018000",
-        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffec",
-        "0x480680017fff8000",
-        "0x9",
-        "0x400080007ffe7fff",
-        "0x480680017fff8000",
-        "0x10",
-        "0x400080017ffd7fff",
-        "0x480680017fff8000",
+        "0x400780017fff7ffd",
         "0x19",
-        "0x400080027ffc7fff",
-        "0x48127ffc7fff8000",
-        "0x480680017fff8000",
-        "0x3",
-        "0x1104800180018000",
-        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe5",
-        "0x480a7ffd7fff8000",
-        "0x48127ffe7fff8000",
-        "0x1104800180018000",
-        "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffdd",
+        "0x208b7fff7fff7ffe",
         "0x208b7fff7fff7ffe"
     ],
     "debug_info": {
@@ -53,29 +15,16 @@
         "instruction_locations": {
             "0": {
                 "accessible_scopes": [
-                    "starkware.cairo.common.alloc",
-                    "starkware.cairo.common.alloc.alloc"
+                    "__main__",
+                    "__main__.with_arg"
                 ],
                 "flow_tracking_data": null,
-                "hints": [
-                    {
-                        "location": {
-                            "end_col": 38,
-                            "end_line": 3,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/alloc.cairo"
-                            },
-                            "start_col": 5,
-                            "start_line": 3
-                        },
-                        "n_prefix_newlines": 0
-                    }
-                ],
+                "hints": [],
                 "inst": {
-                    "end_col": 12,
+                    "end_col": 21,
                     "end_line": 4,
                     "input_file": {
-                        "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/alloc.cairo"
+                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
                     },
                     "start_col": 5,
                     "start_line": 4
@@ -83,16 +32,16 @@
             },
             "2": {
                 "accessible_scopes": [
-                    "starkware.cairo.common.alloc",
-                    "starkware.cairo.common.alloc.alloc"
+                    "__main__",
+                    "__main__.with_arg"
                 ],
                 "flow_tracking_data": null,
                 "hints": [],
                 "inst": {
-                    "end_col": 40,
+                    "end_col": 8,
                     "end_line": 5,
                     "input_file": {
-                        "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/alloc.cairo"
+                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
                     },
                     "start_col": 5,
                     "start_line": 5
@@ -100,637 +49,77 @@
             },
             "3": {
                 "accessible_scopes": [
-                    "starkware.cairo.common.serialize",
-                    "starkware.cairo.common.serialize.serialize_word"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 32,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/serialize.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 3
-                }
-            },
-            "4": {
-                "accessible_scopes": [
-                    "starkware.cairo.common.serialize",
-                    "starkware.cairo.common.serialize.serialize_word"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 36,
-                    "end_line": 4,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/serialize.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 38,
-                            "end_line": 2,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/serialize.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 15,
-                                    "end_line": 5,
-                                    "input_file": {
-                                        "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/serialize.cairo"
-                                    },
-                                    "start_col": 5,
-                                    "start_line": 5
-                                },
-                                "While trying to retrieve the implicit argument 'output_ptr' in:"
-                            ],
-                            "start_col": 21,
-                            "start_line": 2
-                        },
-                        "While expanding the reference 'output_ptr' in:"
-                    ],
-                    "start_col": 22,
-                    "start_line": 4
-                }
-            },
-            "6": {
-                "accessible_scopes": [
-                    "starkware.cairo.common.serialize",
-                    "starkware.cairo.common.serialize.serialize_word"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 15,
-                    "end_line": 5,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/serialize.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 5
-                }
-            },
-            "7": {
-                "accessible_scopes": [
                     "__main__",
-                    "__main__.array_sum"
+                    "__main__.without_arg"
                 ],
                 "flow_tracking_data": null,
                 "hints": [],
                 "inst": {
-                    "end_col": 7,
+                    "end_col": 8,
                     "end_line": 9,
                     "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
+                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
                     },
                     "start_col": 5,
                     "start_line": 9
                 }
-            },
-            "9": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 22,
-                    "end_line": 10,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 21,
-                    "start_line": 10
-                }
-            },
-            "11": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 10,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 9,
-                    "start_line": 10
-                }
-            },
-            "12": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 46,
-                    "end_line": 14,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 39,
-                    "start_line": 14
-                }
-            },
-            "14": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 61,
-                    "end_line": 14,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 53,
-                    "start_line": 14
-                }
-            },
-            "16": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 62,
-                    "end_line": 14,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 25,
-                    "start_line": 14
-                }
-            },
-            "18": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 22,
-                    "end_line": 15,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 17,
-                    "start_line": 15
-                }
-            },
-            "19": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 36,
-                    "end_line": 15,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 17,
-                    "start_line": 15
-                }
-            },
-            "20": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.array_sum"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 38,
-                    "end_line": 15,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 15
-                }
-            },
-            "21": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 22,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 17,
-                    "start_line": 22
-                }
-            },
-            "23": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 21,
-                    "end_line": 25,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 20,
-                    "start_line": 25
-                }
-            },
-            "25": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 22,
-                    "end_line": 25,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 25
-                }
-            },
-            "26": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 26,
-                    "end_line": 26,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 24,
-                    "start_line": 26
-                }
-            },
-            "28": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 27,
-                    "end_line": 26,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 26
-                }
-            },
-            "29": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 26,
-                    "end_line": 27,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 24,
-                    "start_line": 27
-                }
-            },
-            "31": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 27,
-                    "end_line": 27,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 27
-                }
-            },
-            "32": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 13,
-                    "end_line": 22,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 34,
-                            "end_line": 30,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                            },
-                            "start_col": 31,
-                            "start_line": 30
-                        },
-                        "While expanding the reference 'ptr' in:"
-                    ],
-                    "start_col": 10,
-                    "start_line": 22
-                }
-            },
-            "33": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 51,
-                    "end_line": 30,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 41,
-                    "start_line": 30
-                }
-            },
-            "35": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 52,
-                    "end_line": 30,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 17,
-                    "start_line": 30
-                }
-            },
-            "37": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 28,
-                    "end_line": 18,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 38,
-                            "end_line": 2,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/starkware/src/starkware/cairo/common/serialize.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 24,
-                                    "end_line": 33,
-                                    "input_file": {
-                                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                                    },
-                                    "start_col": 5,
-                                    "start_line": 33
-                                },
-                                "While trying to retrieve the implicit argument 'output_ptr' in:"
-                            ],
-                            "start_col": 21,
-                            "start_line": 2
-                        },
-                        "While expanding the reference 'output_ptr' in:"
-                    ],
-                    "start_col": 11,
-                    "start_line": 18
-                }
-            },
-            "38": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 13,
-                    "end_line": 30,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 23,
-                            "end_line": 33,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                            },
-                            "start_col": 20,
-                            "start_line": 33
-                        },
-                        "While expanding the reference 'sum' in:"
-                    ],
-                    "start_col": 10,
-                    "start_line": 30
-                }
-            },
-            "39": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 33,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 33
-                }
-            },
-            "41": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.main"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 15,
-                    "end_line": 35,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/array_sum.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 35
-                }
             }
         }
     },
-    "hints": {
-        "0": [
-            {
-                "accessible_scopes": [
-                    "starkware.cairo.common.alloc",
-                    "starkware.cairo.common.alloc.alloc"
-                ],
-                "code": "memory[ap] = segments.add()",
-                "flow_tracking_data": {
-                    "ap_tracking": {
-                        "group": 0,
-                        "offset": 0
-                    },
-                    "reference_ids": {}
-                }
-            }
-        ]
-    },
+    "hints": {},
     "identifiers": {
-        "__main__.alloc": {
-            "destination": "starkware.cairo.common.alloc.alloc",
-            "type": "alias"
-        },
-        "__main__.array_sum": {
+        "__main__.with_arg": {
             "decorators": [],
-            "pc": 7,
+            "pc": 0,
             "type": "function"
         },
-        "__main__.array_sum.Args": {
-            "full_name": "__main__.array_sum.Args",
+        "__main__.with_arg.Args": {
+            "full_name": "__main__.with_arg.Args",
             "members": {
-                "arr": {
-                    "cairo_type": "felt*",
-                    "offset": 0
-                },
-                "size": {
+                "num": {
                     "cairo_type": "felt",
-                    "offset": 1
-                }
-            },
-            "size": 2,
-            "type": "struct"
-        },
-        "__main__.array_sum.ImplicitArgs": {
-            "full_name": "__main__.array_sum.ImplicitArgs",
-            "members": {},
-            "size": 0,
-            "type": "struct"
-        },
-        "__main__.array_sum.Return": {
-            "cairo_type": "(sum: felt)",
-            "type": "type_definition"
-        },
-        "__main__.array_sum.SIZEOF_LOCALS": {
-            "type": "const",
-            "value": 0
-        },
-        "__main__.main": {
-            "decorators": [],
-            "pc": 21,
-            "type": "function"
-        },
-        "__main__.main.ARRAY_SIZE": {
-            "type": "const",
-            "value": 3
-        },
-        "__main__.main.Args": {
-            "full_name": "__main__.main.Args",
-            "members": {},
-            "size": 0,
-            "type": "struct"
-        },
-        "__main__.main.ImplicitArgs": {
-            "full_name": "__main__.main.ImplicitArgs",
-            "members": {
-                "output_ptr": {
-                    "cairo_type": "felt*",
                     "offset": 0
                 }
             },
             "size": 1,
             "type": "struct"
         },
-        "__main__.main.Return": {
+        "__main__.with_arg.ImplicitArgs": {
+            "full_name": "__main__.with_arg.ImplicitArgs",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__main__.with_arg.Return": {
             "cairo_type": "()",
             "type": "type_definition"
         },
-        "__main__.main.SIZEOF_LOCALS": {
+        "__main__.with_arg.SIZEOF_LOCALS": {
             "type": "const",
             "value": 0
         },
-        "__main__.serialize_word": {
-            "destination": "starkware.cairo.common.serialize.serialize_word",
-            "type": "alias"
-        },
-        "starkware.cairo.common.alloc.alloc": {
+        "__main__.without_arg": {
             "decorators": [],
-            "pc": 0,
+            "pc": 3,
             "type": "function"
         },
-        "starkware.cairo.common.alloc.alloc.Args": {
-            "full_name": "starkware.cairo.common.alloc.alloc.Args",
+        "__main__.without_arg.Args": {
+            "full_name": "__main__.without_arg.Args",
             "members": {},
             "size": 0,
             "type": "struct"
         },
-        "starkware.cairo.common.alloc.alloc.ImplicitArgs": {
-            "full_name": "starkware.cairo.common.alloc.alloc.ImplicitArgs",
+        "__main__.without_arg.ImplicitArgs": {
+            "full_name": "__main__.without_arg.ImplicitArgs",
             "members": {},
             "size": 0,
             "type": "struct"
         },
-        "starkware.cairo.common.alloc.alloc.Return": {
-            "cairo_type": "(ptr: felt*)",
+        "__main__.without_arg.Return": {
+            "cairo_type": "()",
             "type": "type_definition"
         },
-        "starkware.cairo.common.alloc.alloc.SIZEOF_LOCALS": {
+        "__main__.without_arg.SIZEOF_LOCALS": {
             "type": "const",
             "value": 0
         },
@@ -933,41 +322,6 @@
         "starkware.cairo.common.math.TRUE": {
             "destination": "starkware.cairo.common.bool.TRUE",
             "type": "alias"
-        },
-        "starkware.cairo.common.serialize.serialize_word": {
-            "decorators": [],
-            "pc": 3,
-            "type": "function"
-        },
-        "starkware.cairo.common.serialize.serialize_word.Args": {
-            "full_name": "starkware.cairo.common.serialize.serialize_word.Args",
-            "members": {
-                "word": {
-                    "cairo_type": "felt",
-                    "offset": 0
-                }
-            },
-            "size": 1,
-            "type": "struct"
-        },
-        "starkware.cairo.common.serialize.serialize_word.ImplicitArgs": {
-            "full_name": "starkware.cairo.common.serialize.serialize_word.ImplicitArgs",
-            "members": {
-                "output_ptr": {
-                    "cairo_type": "felt*",
-                    "offset": 0
-                }
-            },
-            "size": 1,
-            "type": "struct"
-        },
-        "starkware.cairo.common.serialize.serialize_word.Return": {
-            "cairo_type": "()",
-            "type": "type_definition"
-        },
-        "starkware.cairo.common.serialize.serialize_word.SIZEOF_LOCALS": {
-            "type": "const",
-            "value": 0
         },
         "starkware.starknet.common.storage.ADDR_BOUND": {
             "type": "const",

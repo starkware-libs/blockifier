@@ -1,4 +1,4 @@
-%builtins output
+%lang starknet
 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.serialize import serialize_word
