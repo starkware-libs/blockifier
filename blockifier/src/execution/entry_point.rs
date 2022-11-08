@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use cairo_rs::cairo_run;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::vm::errors::cairo_run_errors::CairoRunError;
+
+use super::cairo_run::{cairo_run, CairoRunConfig};
 
 pub struct ExecuteEntryPoint {
     contract_file_path: PathBuf,
@@ -17,18 +18,12 @@ impl ExecuteEntryPoint {
     }
 
     pub fn execute(&self) -> Result<(), Box<CairoRunError>> {
-        // TODO(AlonH, 15/11/2022): Create config struct for these.
-        let (trace_enabled, print_output, proof_mode, layout) = (false, false, false, "all");
-        cairo_run::cairo_run(
+        cairo_run(
             &self.contract_file_path,
             &self.entry_point,
-            trace_enabled,
-            print_output,
-            layout,
-            proof_mode,
+            CairoRunConfig::default(),
             &BuiltinHintProcessor::new_empty(),
-        )?;
-        Ok(())
+        )
     }
 }
 
