@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+use anyhow::Result;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
-use cairo_rs::vm::errors::cairo_run_errors::CairoRunError;
 
 use super::cairo_run::{cairo_run, CairoRunConfig};
 
@@ -18,7 +18,7 @@ impl EntryPoint {
         Self { contract_file_path, selector }
     }
 
-    pub fn execute(&self) -> Result<(), Box<CairoRunError>> {
+    pub fn execute(&self) -> Result<()> {
         cairo_run(
             &self.contract_file_path,
             &self.selector,

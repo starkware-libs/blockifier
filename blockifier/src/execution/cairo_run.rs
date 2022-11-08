@@ -1,8 +1,8 @@
 use std::path::Path;
+use anyhow::{Context, Result};
 
 use cairo_rs::cairo_run;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::vm::errors::cairo_run_errors::CairoRunError;
 
 #[derive(Debug)]
 pub enum Layout {
@@ -38,7 +38,7 @@ pub fn cairo_run(
     entry_point_name: &str,
     config: CairoRunConfig,
     hint_executor: &dyn HintProcessor,
-) -> Result<(), Box<CairoRunError>> {
+) -> Result<()> {
     let layout: String = config.layout.into();
     cairo_run::cairo_run(
         path,
@@ -48,6 +48,9 @@ pub fn cairo_run(
         &layout,
         config.proof_mode,
         hint_executor,
-    )?;
+    ).context(format!(
+        "Failed to execute entry point '{}' in file path '{}'.",
+        entry_point_name, path.display()
+    ))?;
     Ok(())
 }

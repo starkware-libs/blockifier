@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 # This is how they instructed to use their package.
 cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" }
+anyhow = "1.0.66"
 
 [dev-dependencies]
 pretty_assertions = "1.2.1"
