@@ -23,6 +23,19 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - run: cargo +nightly-2022-07-27 fmt --all -- --check
 
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt
+          toolchain: nightly-2022-07-27
+      - uses: Swatinem/rust-cache@v1
+      - run:
+          pip install cairo-lang;
+          cargo test -- --include-ignored
+
   udeps:
     runs-on: ubuntu-latest
     steps:
