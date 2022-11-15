@@ -56,13 +56,18 @@ pub fn cairo_run(
         .pc
         .unwrap();
 
-    let mut args = Vec::<MaybeRelocatable>::new();
+    cairo_runner.initialize_builtins(&mut vm)?;
+    cairo_runner.initialize_segments(&mut vm, None);
+
+    let mut args = Vec::new();
+    for (_name, builtin_runner) in vm.get_builtin_runners().iter() {
+        args.append(&mut builtin_runner.initial_stack());
+    }
     for arg in &call_entry_point.call_data {
         // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
         args.push(MaybeRelocatable::Int(bigint!(*arg)));
     }
 
-    cairo_runner.initialize_function_runner(&mut vm)?;
     cairo_runner.run_from_entrypoint(
         entry_point_pc,
         args.iter().map(|x| x as &dyn Any).collect(),
