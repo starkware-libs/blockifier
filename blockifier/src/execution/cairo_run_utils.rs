@@ -42,13 +42,28 @@ pub fn cairo_run(
     config: CairoRunConfig,
     hint_executor: &dyn HintProcessor,
 ) -> Result<()> {
-    let layout: String = config.layout.into();
+    // Initialize runner objects.
     let program =
         Program::from_file(&call_entry_point.contract_file_path, Some(&call_entry_point.name))?;
 
+    let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
 
+    cairo_runner.initialize_builtins(&mut vm)?;
+    cairo_runner.initialize_segments(&mut vm, None);
+
+    // Prepare run arguments.
+    let mut args = Vec::new();
+    for (_name, builtin_runner) in vm.get_builtin_runners().iter() {
+        args.append(&mut builtin_runner.initial_stack());
+    }
+    for arg in &call_entry_point.call_data {
+        // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
+        args.push(MaybeRelocatable::Int(bigint!(*arg)));
+    }
+
+    // Get initial PC.
     let entry_point_pc = program
         .identifiers
         .get(&format!("__main__.{}", &call_entry_point.name))
@@ -62,18 +77,7 @@ pub fn cairo_run(
         .pc
         .unwrap_or_else(|| panic!("Identifier {} is not an entry point.", &call_entry_point.name));
 
-    cairo_runner.initialize_builtins(&mut vm)?;
-    cairo_runner.initialize_segments(&mut vm, None);
-
-    let mut args = Vec::new();
-    for (_name, builtin_runner) in vm.get_builtin_runners().iter() {
-        args.append(&mut builtin_runner.initial_stack());
-    }
-    for arg in &call_entry_point.call_data {
-        // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
-        args.push(MaybeRelocatable::Int(bigint!(*arg)));
-    }
-
+    // Run.
     cairo_runner.run_from_entrypoint(
         entry_point_pc,
         args.iter().map(|x| x as &dyn Any).collect(),
