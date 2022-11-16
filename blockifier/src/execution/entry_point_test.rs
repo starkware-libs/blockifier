@@ -18,3 +18,11 @@ fn test_entry_point_with_arg() -> Result<()> {
     assert_eq!(entry_point.execute()?, ());
     Ok(())
 }
+
+#[test]
+#[should_panic(expected = "is not an entry point.")]
+fn test_non_entry_point_call() {
+    let test_contract = "./feature_contracts/compiled/simple_contract.json";
+    let entry_point = CallEntryPoint::new(test_contract, "with_arg.Args", vec![]);
+    let _result = entry_point.execute();
+}
