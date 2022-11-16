@@ -48,13 +48,19 @@ pub fn cairo_run(
 
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
-    // TODO(AlonH, 21/11/2022): Remove `unwrap`s and handle errors instead.
+
     let entry_point_pc = program
         .identifiers
         .get(&format!("__main__.{}", &call_entry_point.name))
-        .unwrap()
+        .unwrap_or_else(|| {
+            panic!(
+                "Entry point {} not found in {}.",
+                &call_entry_point.name,
+                &call_entry_point.contract_file_path.display()
+            )
+        })
         .pc
-        .unwrap();
+        .unwrap_or_else(|| panic!("Identifier {} is not an entry point.", &call_entry_point.name));
 
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
