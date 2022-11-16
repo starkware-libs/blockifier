@@ -24,3 +24,20 @@ func bitwise_and{bitwise_ptr: BitwiseBuiltin*}(x: felt, y: felt) {
     assert x_and_y = 15;
     ret;
 }
+
+@external
+func sqrt{range_check_ptr}(value: felt) {
+    alloc_locals;
+    local root: felt;
+
+    %{
+        from starkware.python.math_utils import isqrt
+        value = ids.value % PRIME
+        assert value < 2 ** 250, f"value={value} is outside of the range [0, 2**250)."
+        assert 2 ** 250 < PRIME
+        ids.root = isqrt(value)
+    %}
+
+    assert root = 9;
+    ret;
+}

@@ -59,1792 +59,30 @@
         "0x480680017fff8000",
         "0x0",
         "0x48127ffb7fff8000",
+        "0x208b7fff7fff7ffe",
+        "0x40780017fff7fff",
+        "0x1",
+        "0x400780017fff8000",
+        "0x9",
+        "0x208b7fff7fff7ffe",
+        "0x482680017ffd8000",
+        "0x1",
+        "0x402a7ffd7ffc7fff",
+        "0x480280017ffb8000",
+        "0x480280007ffd8000",
+        "0x1104800180018000",
+        "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff7",
+        "0x40780017fff7fff",
+        "0x1",
+        "0x480280007ffb8000",
+        "0x48127ffd7fff8000",
+        "0x480280027ffb8000",
+        "0x480680017fff8000",
+        "0x0",
+        "0x48127ffb7fff8000",
         "0x208b7fff7fff7ffe"
     ],
-    "debug_info": {
-        "file_contents": {
-            "autogen/starknet/arg_processor/01cba52f8515996bb9d7070bde81ff39281d096d7024a558efcba6e1fd2402cf.cairo": "assert [cast(fp + (-4), felt*)] = __calldata_actual_size;\n",
-            "autogen/starknet/arg_processor/21547716a061e2d5c1fbc21409bbc4a0dbad7277bc48f3425581d30e52c0c16a.cairo": "let __calldata_arg_y = [__calldata_ptr];\nlet __calldata_ptr = __calldata_ptr + 1;\n",
-            "autogen/starknet/arg_processor/690bbb610fe504e77e30ce6bc8741446dea11d3eb17ba4d8d3125b5d2921f8ef.cairo": "let __calldata_arg_x = [__calldata_ptr];\nlet __calldata_ptr = __calldata_ptr + 1;\n",
-            "autogen/starknet/arg_processor/b6ab5670c07bd19d8e43acf3c7827462fbb6ba8a0d936f65848fa340b4ca2e97.cairo": "let __calldata_arg_num = [__calldata_ptr];\nlet __calldata_ptr = __calldata_ptr + 1;\n",
-            "autogen/starknet/arg_processor/c31620b02d4d706f0542c989b2aadc01b0981d1f6a5933a8fe4937ace3d70d92.cairo": "let __calldata_actual_size =  __calldata_ptr - cast([cast(fp + (-3), felt**)], felt*);\n",
-            "autogen/starknet/external/bitwise_and/3f2c77ab4e9866f148094b3f3c2497496b7ce8700b8370e7f1bc10658a33d640.cairo": "let syscall_ptr = [cast([cast(fp + (-5), felt**)] + 0, felt*)];\n",
-            "autogen/starknet/external/bitwise_and/49d309e10714616d9a009dadfd0d46c4df8993f3a7b068464041acad397efbb7.cairo": "let bitwise_ptr = [cast([cast(fp + (-5), felt**)] + 2, starkware.cairo.common.cairo_builtins.BitwiseBuiltin**)];\n",
-            "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo": "let ret_value = __wrapped_func{bitwise_ptr=bitwise_ptr}(x=__calldata_arg_x, y=__calldata_arg_y,);\n%{ memory[ap] = segments.add() %}        // Allocate memory for return value.\ntempvar retdata: felt*;\nlet retdata_size = 0;\n",
-            "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo": "return (syscall_ptr,range_check_ptr,bitwise_ptr,retdata_size,retdata);\n",
-            "autogen/starknet/external/bitwise_and/fd099223670ab5d428127810c2328d37c65c29951c7abc7cebaa651b40be0a6a.cairo": "let range_check_ptr = [cast([cast(fp + (-5), felt**)] + 1, felt*)];\n",
-            "autogen/starknet/external/with_arg/3f2c77ab4e9866f148094b3f3c2497496b7ce8700b8370e7f1bc10658a33d640.cairo": "let syscall_ptr = [cast([cast(fp + (-5), felt**)] + 0, felt*)];\n",
-            "autogen/starknet/external/with_arg/b078b31a5af77a743f441514d44e0fed7a3526f331083b6e244cfd7d5d7869c1.cairo": "let bitwise_ptr = [cast([cast(fp + (-5), felt**)] + 2, felt*)];\n",
-            "autogen/starknet/external/with_arg/e8d5ad5a0751d896a41c7af8e4dae9d42696f2cecd4da7a4ffcc451afba6da44.cairo": "let ret_value = __wrapped_func{}(num=__calldata_arg_num,);\n%{ memory[ap] = segments.add() %}        // Allocate memory for return value.\ntempvar retdata: felt*;\nlet retdata_size = 0;\n",
-            "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo": "return (syscall_ptr,range_check_ptr,bitwise_ptr,retdata_size,retdata);\n",
-            "autogen/starknet/external/with_arg/fd099223670ab5d428127810c2328d37c65c29951c7abc7cebaa651b40be0a6a.cairo": "let range_check_ptr = [cast([cast(fp + (-5), felt**)] + 1, felt*)];\n",
-            "autogen/starknet/external/without_arg/3f2c77ab4e9866f148094b3f3c2497496b7ce8700b8370e7f1bc10658a33d640.cairo": "let syscall_ptr = [cast([cast(fp + (-5), felt**)] + 0, felt*)];\n",
-            "autogen/starknet/external/without_arg/b078b31a5af77a743f441514d44e0fed7a3526f331083b6e244cfd7d5d7869c1.cairo": "let bitwise_ptr = [cast([cast(fp + (-5), felt**)] + 2, felt*)];\n",
-            "autogen/starknet/external/without_arg/dea87e21810c5054c7ac0edc4fbbd20c423f211a2599b2da1352b95a8ad2b5c7.cairo": "let ret_value = __wrapped_func{}();\n%{ memory[ap] = segments.add() %}        // Allocate memory for return value.\ntempvar retdata: felt*;\nlet retdata_size = 0;\n",
-            "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo": "return (syscall_ptr,range_check_ptr,bitwise_ptr,retdata_size,retdata);\n",
-            "autogen/starknet/external/without_arg/fd099223670ab5d428127810c2328d37c65c29951c7abc7cebaa651b40be0a6a.cairo": "let range_check_ptr = [cast([cast(fp + (-5), felt**)] + 1, felt*)];\n"
-        },
-        "instruction_locations": {
-            "0": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 21,
-                    "end_line": 7,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 7
-                }
-            },
-            "2": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 8,
-                    "end_line": 8,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 8
-                }
-            },
-            "3": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 40,
-                    "end_line": 2,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/b6ab5670c07bd19d8e43acf3c7827462fbb6ba8a0d936f65848fa340b4ca2e97.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 24,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 45,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/arg_processor/c31620b02d4d706f0542c989b2aadc01b0981d1f6a5933a8fe4937ace3d70d92.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "parent_location": [
-                                                {
-                                                    "end_col": 57,
-                                                    "end_line": 1,
-                                                    "input_file": {
-                                                        "filename": "autogen/starknet/arg_processor/01cba52f8515996bb9d7070bde81ff39281d096d7024a558efcba6e1fd2402cf.cairo"
-                                                    },
-                                                    "parent_location": [
-                                                        {
-                                                            "end_col": 14,
-                                                            "end_line": 6,
-                                                            "input_file": {
-                                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                                            },
-                                                            "start_col": 6,
-                                                            "start_line": 6
-                                                        },
-                                                        "While handling calldata of"
-                                                    ],
-                                                    "start_col": 35,
-                                                    "start_line": 1
-                                                },
-                                                "While expanding the reference '__calldata_actual_size' in:"
-                                            ],
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While handling calldata of"
-                                    ],
-                                    "start_col": 31,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference '__calldata_ptr' in:"
-                            ],
-                            "start_col": 15,
-                            "start_line": 6
-                        },
-                        "While handling calldata argument 'num'"
-                    ],
-                    "start_col": 22,
-                    "start_line": 2
-                }
-            },
-            "5": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 58,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/01cba52f8515996bb9d7070bde81ff39281d096d7024a558efcba6e1fd2402cf.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While handling calldata of"
-                    ],
-                    "start_col": 1,
-                    "start_line": 1
-                }
-            },
-            "6": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 42,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/b6ab5670c07bd19d8e43acf3c7827462fbb6ba8a0d936f65848fa340b4ca2e97.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 24,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 56,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/with_arg/e8d5ad5a0751d896a41c7af8e4dae9d42696f2cecd4da7a4ffcc451afba6da44.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 38,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference '__calldata_arg_num' in:"
-                            ],
-                            "start_col": 15,
-                            "start_line": 6
-                        },
-                        "While handling calldata argument 'num'"
-                    ],
-                    "start_col": 26,
-                    "start_line": 1
-                }
-            },
-            "7": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 14,
-                    "end_line": 6,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 6,
-                    "start_line": 6
-                }
-            },
-            "9": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [
-                    {
-                        "location": {
-                            "end_col": 34,
-                            "end_line": 2,
-                            "input_file": {
-                                "filename": "autogen/starknet/external/with_arg/e8d5ad5a0751d896a41c7af8e4dae9d42696f2cecd4da7a4ffcc451afba6da44.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 14,
-                                    "end_line": 6,
-                                    "input_file": {
-                                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                    },
-                                    "start_col": 6,
-                                    "start_line": 6
-                                },
-                                "While constructing the external wrapper for:"
-                            ],
-                            "start_col": 1,
-                            "start_line": 2
-                        },
-                        "n_prefix_newlines": 0
-                    }
-                ],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/e8d5ad5a0751d896a41c7af8e4dae9d42696f2cecd4da7a4ffcc451afba6da44.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 1,
-                    "start_line": 3
-                }
-            },
-            "11": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 63,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/3f2c77ab4e9866f148094b3f3c2497496b7ce8700b8370e7f1bc10658a33d640.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 20,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 9,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'syscall_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 19,
-                    "start_line": 1
-                }
-            },
-            "12": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 67,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/fd099223670ab5d428127810c2328d37c65c29951c7abc7cebaa651b40be0a6a.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 36,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 21,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'range_check_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 23,
-                    "start_line": 1
-                }
-            },
-            "13": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 63,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/b078b31a5af77a743f441514d44e0fed7a3526f331083b6e244cfd7d5d7869c1.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 48,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 37,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'bitwise_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 19,
-                    "start_line": 1
-                }
-            },
-            "14": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 21,
-                    "end_line": 4,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/e8d5ad5a0751d896a41c7af8e4dae9d42696f2cecd4da7a4ffcc451afba6da44.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 61,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 49,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'retdata_size' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 20,
-                    "start_line": 4
-                }
-            },
-            "16": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 16,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/e8d5ad5a0751d896a41c7af8e4dae9d42696f2cecd4da7a4ffcc451afba6da44.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 69,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 14,
-                                            "end_line": 6,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 6
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 62,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'retdata' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 9,
-                    "start_line": 3
-                }
-            },
-            "17": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.with_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 71,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/with_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 14,
-                            "end_line": 6,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 6
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 1,
-                    "start_line": 1
-                }
-            },
-            "18": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 8,
-                    "end_line": 13,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 13
-                }
-            },
-            "19": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 58,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/01cba52f8515996bb9d7070bde81ff39281d096d7024a558efcba6e1fd2402cf.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While handling calldata of"
-                    ],
-                    "start_col": 1,
-                    "start_line": 1
-                }
-            },
-            "20": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 17,
-                    "end_line": 12,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 6,
-                    "start_line": 12
-                }
-            },
-            "22": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [
-                    {
-                        "location": {
-                            "end_col": 34,
-                            "end_line": 2,
-                            "input_file": {
-                                "filename": "autogen/starknet/external/without_arg/dea87e21810c5054c7ac0edc4fbbd20c423f211a2599b2da1352b95a8ad2b5c7.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 17,
-                                    "end_line": 12,
-                                    "input_file": {
-                                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                    },
-                                    "start_col": 6,
-                                    "start_line": 12
-                                },
-                                "While constructing the external wrapper for:"
-                            ],
-                            "start_col": 1,
-                            "start_line": 2
-                        },
-                        "n_prefix_newlines": 0
-                    }
-                ],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/dea87e21810c5054c7ac0edc4fbbd20c423f211a2599b2da1352b95a8ad2b5c7.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 1,
-                    "start_line": 3
-                }
-            },
-            "24": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 63,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/3f2c77ab4e9866f148094b3f3c2497496b7ce8700b8370e7f1bc10658a33d640.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 20,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 12,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 12
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 9,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'syscall_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 19,
-                    "start_line": 1
-                }
-            },
-            "25": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 67,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/fd099223670ab5d428127810c2328d37c65c29951c7abc7cebaa651b40be0a6a.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 36,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 12,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 12
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 21,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'range_check_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 23,
-                    "start_line": 1
-                }
-            },
-            "26": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 63,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/b078b31a5af77a743f441514d44e0fed7a3526f331083b6e244cfd7d5d7869c1.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 48,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 12,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 12
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 37,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'bitwise_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 19,
-                    "start_line": 1
-                }
-            },
-            "27": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 21,
-                    "end_line": 4,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/dea87e21810c5054c7ac0edc4fbbd20c423f211a2599b2da1352b95a8ad2b5c7.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 61,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 12,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 12
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 49,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'retdata_size' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 20,
-                    "start_line": 4
-                }
-            },
-            "29": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 16,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/dea87e21810c5054c7ac0edc4fbbd20c423f211a2599b2da1352b95a8ad2b5c7.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 69,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 12,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 12
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 62,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'retdata' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 9,
-                    "start_line": 3
-                }
-            },
-            "30": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.without_arg"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 71,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/without_arg/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 12,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 12
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 1,
-                    "start_line": 1
-                }
-            },
-            "31": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 22,
-                    "end_line": 18,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 18
-                }
-            },
-            "32": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 22,
-                    "end_line": 19,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 19
-                }
-            },
-            "33": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 24,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 22,
-                    "start_line": 24
-                }
-            },
-            "35": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 25,
-                    "end_line": 24,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 24
-                }
-            },
-            "36": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__main__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 8,
-                    "end_line": 25,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 25
-                }
-            },
-            "37": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 40,
-                    "end_line": 2,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/21547716a061e2d5c1fbc21409bbc4a0dbad7277bc48f3425581d30e52c0c16a.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 64,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 45,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/arg_processor/c31620b02d4d706f0542c989b2aadc01b0981d1f6a5933a8fe4937ace3d70d92.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "parent_location": [
-                                                {
-                                                    "end_col": 57,
-                                                    "end_line": 1,
-                                                    "input_file": {
-                                                        "filename": "autogen/starknet/arg_processor/01cba52f8515996bb9d7070bde81ff39281d096d7024a558efcba6e1fd2402cf.cairo"
-                                                    },
-                                                    "parent_location": [
-                                                        {
-                                                            "end_col": 17,
-                                                            "end_line": 17,
-                                                            "input_file": {
-                                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                                            },
-                                                            "start_col": 6,
-                                                            "start_line": 17
-                                                        },
-                                                        "While handling calldata of"
-                                                    ],
-                                                    "start_col": 35,
-                                                    "start_line": 1
-                                                },
-                                                "While expanding the reference '__calldata_actual_size' in:"
-                                            ],
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While handling calldata of"
-                                    ],
-                                    "start_col": 31,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference '__calldata_ptr' in:"
-                            ],
-                            "start_col": 57,
-                            "start_line": 17
-                        },
-                        "While handling calldata argument 'y'"
-                    ],
-                    "start_col": 22,
-                    "start_line": 2
-                }
-            },
-            "39": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 58,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/01cba52f8515996bb9d7070bde81ff39281d096d7024a558efcba6e1fd2402cf.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While handling calldata of"
-                    ],
-                    "start_col": 1,
-                    "start_line": 1
-                }
-            },
-            "40": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 112,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/49d309e10714616d9a009dadfd0d46c4df8993f3a7b068464041acad397efbb7.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 46,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 55,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 44,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'bitwise_ptr' in:"
-                            ],
-                            "start_col": 18,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 19,
-                    "start_line": 1
-                }
-            },
-            "41": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 40,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/690bbb610fe504e77e30ce6bc8741446dea11d3eb17ba4d8d3125b5d2921f8ef.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 55,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 75,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 59,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference '__calldata_arg_x' in:"
-                            ],
-                            "start_col": 48,
-                            "start_line": 17
-                        },
-                        "While handling calldata argument 'x'"
-                    ],
-                    "start_col": 24,
-                    "start_line": 1
-                }
-            },
-            "42": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 40,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/arg_processor/21547716a061e2d5c1fbc21409bbc4a0dbad7277bc48f3425581d30e52c0c16a.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 64,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 95,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 79,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference '__calldata_arg_y' in:"
-                            ],
-                            "start_col": 57,
-                            "start_line": 17
-                        },
-                        "While handling calldata argument 'y'"
-                    ],
-                    "start_col": 24,
-                    "start_line": 1
-                }
-            },
-            "43": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 17,
-                    "end_line": 17,
-                    "input_file": {
-                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                    },
-                    "start_col": 6,
-                    "start_line": 17
-                }
-            },
-            "45": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [
-                    {
-                        "location": {
-                            "end_col": 34,
-                            "end_line": 2,
-                            "input_file": {
-                                "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 17,
-                                    "end_line": 17,
-                                    "input_file": {
-                                        "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                    },
-                                    "start_col": 6,
-                                    "start_line": 17
-                                },
-                                "While constructing the external wrapper for:"
-                            ],
-                            "start_col": 1,
-                            "start_line": 2
-                        },
-                        "n_prefix_newlines": 0
-                    }
-                ],
-                "inst": {
-                    "end_col": 24,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 1,
-                    "start_line": 3
-                }
-            },
-            "47": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 63,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/3f2c77ab4e9866f148094b3f3c2497496b7ce8700b8370e7f1bc10658a33d640.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 20,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 9,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'syscall_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 19,
-                    "start_line": 1
-                }
-            },
-            "48": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 67,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/fd099223670ab5d428127810c2328d37c65c29951c7abc7cebaa651b40be0a6a.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 36,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 21,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'range_check_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 23,
-                    "start_line": 1
-                }
-            },
-            "49": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 55,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 48,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 37,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'bitwise_ptr' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 44,
-                    "start_line": 1
-                }
-            },
-            "50": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 21,
-                    "end_line": 4,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 61,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 49,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'retdata_size' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 20,
-                    "start_line": 4
-                }
-            },
-            "52": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 16,
-                    "end_line": 3,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/a2c6695b530ebb411f566a300bfa8492a29dcc22454eb3a6c21aa3a14dd9a183.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "parent_location": [
-                                {
-                                    "end_col": 69,
-                                    "end_line": 1,
-                                    "input_file": {
-                                        "filename": "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                                    },
-                                    "parent_location": [
-                                        {
-                                            "end_col": 17,
-                                            "end_line": 17,
-                                            "input_file": {
-                                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                                            },
-                                            "start_col": 6,
-                                            "start_line": 17
-                                        },
-                                        "While constructing the external wrapper for:"
-                                    ],
-                                    "start_col": 62,
-                                    "start_line": 1
-                                },
-                                "While expanding the reference 'retdata' in:"
-                            ],
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 9,
-                    "start_line": 3
-                }
-            },
-            "53": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__",
-                    "__wrappers__",
-                    "__wrappers__.bitwise_and"
-                ],
-                "flow_tracking_data": null,
-                "hints": [],
-                "inst": {
-                    "end_col": 71,
-                    "end_line": 1,
-                    "input_file": {
-                        "filename": "autogen/starknet/external/bitwise_and/f85b692526c29aa822856d125182bc8650dd9cdf5ac054bafffa66c4cacefb81.cairo"
-                    },
-                    "parent_location": [
-                        {
-                            "end_col": 17,
-                            "end_line": 17,
-                            "input_file": {
-                                "filename": "/home/alon/workspace/blockifier2/blockifier/test_contracts/simple_contract.cairo"
-                            },
-                            "start_col": 6,
-                            "start_line": 17
-                        },
-                        "While constructing the external wrapper for:"
-                    ],
-                    "start_col": 1,
-                    "start_line": 1
-                }
-            }
-        }
-    },
+    "debug_info": null,
     "hints": {
         "9": [
             {
@@ -1899,6 +137,44 @@
                     "reference_ids": {}
                 }
             }
+        ],
+        "56": [
+            {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__",
+                    "__main__.sqrt"
+                ],
+                "code": "from starkware.python.math_utils import isqrt\nvalue = ids.value % PRIME\nassert value < 2 ** 250, f\"value={value} is outside of the range [0, 2**250).\"\nassert 2 ** 250 < PRIME\nids.root = isqrt(value)",
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 6,
+                        "offset": 1
+                    },
+                    "reference_ids": {
+                        "__main__.sqrt.root": 1,
+                        "__main__.sqrt.value": 0
+                    }
+                }
+            }
+        ],
+        "66": [
+            {
+                "accessible_scopes": [
+                    "__main__",
+                    "__main__",
+                    "__wrappers__",
+                    "__wrappers__.sqrt"
+                ],
+                "code": "memory[ap] = segments.add()",
+                "flow_tracking_data": {
+                    "ap_tracking": {
+                        "group": 7,
+                        "offset": 6
+                    },
+                    "reference_ids": {}
+                }
+            }
         ]
     },
     "identifiers": {
@@ -1946,6 +222,73 @@
         "__main__.bitwise_and.SIZEOF_LOCALS": {
             "type": "const",
             "value": 0
+        },
+        "__main__.sqrt": {
+            "decorators": [
+                "external"
+            ],
+            "pc": 54,
+            "type": "function"
+        },
+        "__main__.sqrt.Args": {
+            "full_name": "__main__.sqrt.Args",
+            "members": {
+                "value": {
+                    "cairo_type": "felt",
+                    "offset": 0
+                }
+            },
+            "size": 1,
+            "type": "struct"
+        },
+        "__main__.sqrt.ImplicitArgs": {
+            "full_name": "__main__.sqrt.ImplicitArgs",
+            "members": {
+                "range_check_ptr": {
+                    "cairo_type": "felt",
+                    "offset": 0
+                }
+            },
+            "size": 1,
+            "type": "struct"
+        },
+        "__main__.sqrt.Return": {
+            "cairo_type": "()",
+            "type": "type_definition"
+        },
+        "__main__.sqrt.SIZEOF_LOCALS": {
+            "type": "const",
+            "value": 1
+        },
+        "__main__.sqrt.root": {
+            "cairo_type": "felt",
+            "full_name": "__main__.sqrt.root",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 6,
+                        "offset": 1
+                    },
+                    "pc": 56,
+                    "value": "[cast(fp, felt*)]"
+                }
+            ],
+            "type": "reference"
+        },
+        "__main__.sqrt.value": {
+            "cairo_type": "felt",
+            "full_name": "__main__.sqrt.value",
+            "references": [
+                {
+                    "ap_tracking_data": {
+                        "group": 6,
+                        "offset": 0
+                    },
+                    "pc": 54,
+                    "value": "[cast(fp + (-3), felt*)]"
+                }
+            ],
+            "type": "reference"
         },
         "__main__.with_arg": {
             "decorators": [
@@ -2038,6 +381,41 @@
             "type": "alias"
         },
         "__wrappers__.bitwise_and_encode_return.memcpy": {
+            "destination": "starkware.cairo.common.memcpy.memcpy",
+            "type": "alias"
+        },
+        "__wrappers__.sqrt": {
+            "decorators": [
+                "external"
+            ],
+            "pc": 59,
+            "type": "function"
+        },
+        "__wrappers__.sqrt.Args": {
+            "full_name": "__wrappers__.sqrt.Args",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__wrappers__.sqrt.ImplicitArgs": {
+            "full_name": "__wrappers__.sqrt.ImplicitArgs",
+            "members": {},
+            "size": 0,
+            "type": "struct"
+        },
+        "__wrappers__.sqrt.Return": {
+            "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+            "type": "type_definition"
+        },
+        "__wrappers__.sqrt.SIZEOF_LOCALS": {
+            "type": "const",
+            "value": 0
+        },
+        "__wrappers__.sqrt.__wrapped_func": {
+            "destination": "__main__.sqrt",
+            "type": "alias"
+        },
+        "__wrappers__.sqrt_encode_return.memcpy": {
             "destination": "starkware.cairo.common.memcpy.memcpy",
             "type": "alias"
         },
@@ -2975,6 +1353,23 @@
     "main_scope": "__main__",
     "prime": "0x800000000000011000000000000000000000000000000000000000000000001",
     "reference_manager": {
-        "references": []
+        "references": [
+            {
+                "ap_tracking_data": {
+                    "group": 6,
+                    "offset": 0
+                },
+                "pc": 54,
+                "value": "[cast(fp + (-3), felt*)]"
+            },
+            {
+                "ap_tracking_data": {
+                    "group": 6,
+                    "offset": 1
+                },
+                "pc": 56,
+                "value": "[cast(fp, felt*)]"
+            }
+        ]
     }
 }
