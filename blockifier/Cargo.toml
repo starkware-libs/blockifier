@@ -7,9 +7,11 @@ edition = "2021"
 
 [dependencies]
 # This is how they instructed to use their package.
+anyhow = "1.0.66"
 cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" }
 num-bigint = "0.4"
-anyhow = "1.0.66"
+#starknet_api =  { git = "https://github.com/starkware-libs/starknet-api.git" }
+starknet_api =  { path = "../../papyrus/crates/starknet_api" }
 
 [dev-dependencies]
 pretty_assertions = "1.2.1"
