@@ -63,7 +63,7 @@ pub fn cairo_run(
     for (_name, builtin_runner) in vm.get_builtin_runners().iter() {
         args.append(&mut builtin_runner.initial_stack());
     }
-    for arg in &call_entry_point.call_data {
+    for arg in &call_entry_point.calldata {
         // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
         args.push(MaybeRelocatable::Int(bigint!(*arg)));
     }
