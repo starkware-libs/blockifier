@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
+use num_bigint::BigInt;
 
 use super::cairo_run_utils::{cairo_run, CairoRunConfig};
 
@@ -20,7 +21,8 @@ impl CallEntryPoint {
         Self { contract_file_path, name, calldata }
     }
 
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<Vec<BigInt>> {
+        // Returns the output of the entry point execution.
         cairo_run(self, CairoRunConfig::default(), &BuiltinHintProcessor::new_empty())
     }
 }
