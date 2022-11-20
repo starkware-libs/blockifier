@@ -10,14 +10,14 @@ pub struct CallEntryPoint {
     pub contract_file_path: PathBuf,
     // TODO(AlonH, 15/12/2022): Change to selector.
     pub name: String,
-    pub call_data: Vec<i32>,
+    pub calldata: Vec<i32>,
 }
 
 impl CallEntryPoint {
-    pub fn new(contract_file_path: &str, name: &str, call_data: Vec<i32>) -> Self {
+    pub fn new(contract_file_path: &str, name: &str, calldata: Vec<i32>) -> Self {
         let contract_file_path = PathBuf::from(contract_file_path);
         let name = name.to_string();
-        Self { contract_file_path, name, call_data }
+        Self { contract_file_path, name, calldata }
     }
 
     pub fn execute(&self) -> Result<()> {
