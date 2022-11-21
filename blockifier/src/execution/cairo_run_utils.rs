@@ -8,7 +8,8 @@ use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
+use starknet_api::StarkFelt;
 
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -35,6 +36,10 @@ impl CairoRunConfig {
     pub fn default() -> Self {
         Self { enable_trace: false, print_output: false, layout: Layout::All, proof_mode: false }
     }
+}
+
+pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
+    BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
 
 pub fn cairo_run(
@@ -67,9 +72,13 @@ pub fn cairo_run(
         .collect();
     args.push(Box::new(os_context));
     // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
-    args.push(Box::new(MaybeRelocatable::Int(bigint!(call_entry_point.calldata.len()))));
-    let calldata: Vec<MaybeRelocatable> =
-        call_entry_point.calldata.iter().map(|arg| MaybeRelocatable::Int(bigint!(*arg))).collect();
+    args.push(Box::new(MaybeRelocatable::Int(bigint!(call_entry_point.calldata.0.len()))));
+    let calldata: Vec<MaybeRelocatable> = call_entry_point
+        .calldata
+        .0
+        .iter()
+        .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
+        .collect();
     args.push(Box::new(calldata));
 
     cairo_runner.run_from_entrypoint(
@@ -111,4 +120,34 @@ fn get_return_values(vm: &VirtualMachine) -> Result<Vec<BigInt>> {
         })
         .collect();
     values
+}
+
+#[cfg(test)]
+mod tests {
+    use num_bigint::BigInt;
+    use num_traits::{One, Zero};
+
+    use super::*;
+
+    #[test]
+    fn felt_to_bigint_conversion() {
+        // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
+        let stark_prime = "0x800000000000011000000000000000000000000000000000000000000000001";
+        let felts = vec![
+            // TODO(Adi, 29/11/2022): Remove the 'StarkFelt::from_u64' conversions once there is a
+            // From<u64> trait for StarkFelt.
+            StarkFelt::from_u64(0),
+            StarkFelt::from_u64(1),
+            StarkFelt::from_hex(stark_prime)
+                .expect("The conversion of STARK prime to `StarkFelt` has failed."),
+        ];
+        let expected_bigints: Vec<BigInt> = vec![
+            Zero::zero(),
+            One::one(),
+            BigInt::new(Sign::Plus, vec![1, 0, 0, 0, 0, 0, 17, 134217728]),
+        ];
+        let converted_bigints: Vec<BigInt> = felts.iter().map(|x| felt_to_bigint(*x)).collect();
+
+        assert_eq!(converted_bigints, expected_bigints);
+    }
 }
