@@ -5,9 +5,11 @@ use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 use num_bigint::BigInt;
 
 use super::cairo_run_utils::{cairo_run, CairoRunConfig};
+use super::contract_class::ContractClass;
 
 pub struct CallEntryPoint {
     /// Represents a Cairo entry point of a StarkNet contract.
+    pub contract_class: ContractClass,
     pub contract_file_path: PathBuf,
     // TODO(AlonH, 15/12/2022): Change to selector.
     pub name: String,
@@ -15,10 +17,15 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn new(contract_file_path: &str, name: &str, calldata: Vec<i32>) -> Self {
+    pub fn new(
+        contract_class: ContractClass,
+        contract_file_path: &str,
+        name: &str,
+        calldata: Vec<i32>,
+    ) -> Self {
         let contract_file_path = PathBuf::from(contract_file_path);
         let name = name.to_string();
-        Self { contract_file_path, name, calldata }
+        Self { contract_class, contract_file_path, name, calldata }
     }
 
     pub fn execute(&self) -> Result<Vec<BigInt>> {
