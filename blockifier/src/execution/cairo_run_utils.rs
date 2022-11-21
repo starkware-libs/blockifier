@@ -9,7 +9,8 @@ use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
+use starknet_api::StarkFelt;
 
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -37,6 +38,10 @@ impl CairoRunConfig {
     }
 }
 
+pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
+    BigInt::from_bytes_be(Sign::Plus, felt.bytes())
+}
+
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
@@ -62,9 +67,14 @@ pub fn execute_call_entry_point(
         .collect();
     args.push(Box::new(execution_context));
     // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
-    args.push(Box::new(MaybeRelocatable::Int(bigint!(call_entry_point.calldata.len()))));
-    let calldata: Vec<MaybeRelocatable> =
-        call_entry_point.calldata.iter().map(|arg| MaybeRelocatable::Int(bigint!(*arg))).collect();
+    // TODO(Adi, 29/11/2022): Remove the '.0' access, once derive-more is used in starknet_api.
+    let calldata: Vec<MaybeRelocatable> = call_entry_point
+        .calldata
+        .0
+        .iter()
+        .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
+        .collect();
+    args.push(Box::new(MaybeRelocatable::Int(bigint!(calldata.len()))));
     args.push(Box::new(calldata));
 
     // Resolve initial PC from EP indicator.
