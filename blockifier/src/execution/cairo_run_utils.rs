@@ -8,7 +8,8 @@ use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
+use starknet_api::StarkFelt;
 
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -35,6 +36,10 @@ impl CairoRunConfig {
     pub fn default() -> Self {
         Self { enable_trace: false, print_output: false, layout: Layout::All, proof_mode: false }
     }
+}
+
+pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
+    BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
 
 pub fn cairo_run(
@@ -67,9 +72,14 @@ pub fn cairo_run(
         .collect();
     args.push(Box::new(os_context));
     // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
-    args.push(Box::new(MaybeRelocatable::Int(bigint!(call_entry_point.calldata.len()))));
-    let calldata: Vec<MaybeRelocatable> =
-        call_entry_point.calldata.iter().map(|arg| MaybeRelocatable::Int(bigint!(*arg))).collect();
+    let calldata = &call_entry_point.calldata.0;
+    args.push(Box::new(MaybeRelocatable::Int(bigint!(calldata.len()))));
+    let calldata: Vec<MaybeRelocatable> = call_entry_point
+        .calldata
+        .0
+        .iter()
+        .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
+        .collect();
     args.push(Box::new(calldata));
 
     cairo_runner.run_from_entrypoint(
