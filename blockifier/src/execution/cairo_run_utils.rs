@@ -49,12 +49,15 @@ pub fn cairo_run(
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
     // TODO(AlonH, 21/11/2022): Remove `unwrap`s and handle errors instead.
-    let entry_point_pc = program
-        .identifiers
-        .get(&format!("__wrappers__.{}", &call_entry_point.name))
-        .unwrap()
-        .pc
-        .unwrap();
+    let entry_point_identifier =
+        match program.identifiers.get(&format!("__wrappers__.{}", &call_entry_point.name)) {
+            Some(identifier) => identifier,
+            None => bail!(EntrypointNotFound(call_entry_point.name.clone())),
+        };
+    let entry_point_pc = match entry_point_identifier.pc {
+        Some(pc) => pc,
+        None => bail!(EntrypointNotFound(call_entry_point.name.clone())),
+    };
 
     cairo_runner.initialize_function_runner(&mut vm)?;
 
