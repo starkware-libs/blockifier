@@ -3,6 +3,7 @@ use std::any::Any;
 use anyhow::{bail, Result};
 use cairo_rs::bigint;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
+use cairo_rs::types::errors::program_errors::ProgramError::EntrypointNotFound;
 use cairo_rs::types::program::Program;
 use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
@@ -49,12 +50,16 @@ pub fn cairo_run(
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
     // TODO(AlonH, 21/11/2022): Remove `unwrap`s and handle errors instead.
-    let entry_point_pc = program
-        .identifiers
-        .get(&format!("__wrappers__.{}", &call_entry_point.name))
-        .unwrap()
-        .pc
-        .unwrap();
+    let entry_point_not_found_error = EntrypointNotFound(call_entry_point.name.clone());
+    let entry_point_identifier =
+        match program.identifiers.get(&format!("__wrappers__.{}", &call_entry_point.name)) {
+            Some(identifier) => identifier,
+            None => bail!(entry_point_not_found_error),
+        };
+    let entry_point_pc = match entry_point_identifier.pc {
+        Some(pc) => pc,
+        None => bail!(entry_point_not_found_error),
+    };
 
     cairo_runner.initialize_function_runner(&mut vm)?;
 
