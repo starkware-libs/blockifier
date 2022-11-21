@@ -4,6 +4,7 @@ use anyhow::Result;
 use cairo_rs::bigint;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
+use starknet_api::{CallData, StarkFelt};
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
@@ -23,19 +24,22 @@ fn test_entry_point_without_arg() -> Result<()> {
         create_test_contract_class(),
         TEST_CONTRACT_PROGRAM_PATH,
         "without_arg",
-        vec![],
+        CallData(vec![]),
     );
     assert_eq!(entry_point.execute()?, Vec::<BigInt>::new());
     Ok(())
 }
 
+// TODO(Adi, 29/11/2022): Remove the 'StarkFelt::from_u64' conversions once there is a From<u64>
+// trait for StarkFelt.
 #[test]
 fn test_entry_point_with_arg() -> Result<()> {
+    let calldata = CallData(vec![StarkFelt::from_u64(25)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         TEST_CONTRACT_PROGRAM_PATH,
         "with_arg",
-        vec![25],
+        calldata,
     );
     assert_eq!(entry_point.execute()?, Vec::<BigInt>::new());
     Ok(())
@@ -43,11 +47,12 @@ fn test_entry_point_with_arg() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_builtin() -> Result<()> {
+    let calldata = CallData(vec![StarkFelt::from_u64(47), StarkFelt::from_u64(31)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         TEST_CONTRACT_PROGRAM_PATH,
         "bitwise_and",
-        vec![47, 31],
+        calldata,
     );
     assert_eq!(entry_point.execute()?, Vec::<BigInt>::new());
     Ok(())
@@ -55,11 +60,12 @@ fn test_entry_point_with_builtin() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_hint() -> Result<()> {
+    let calldata = CallData(vec![StarkFelt::from_u64(81)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         TEST_CONTRACT_PROGRAM_PATH,
         "sqrt",
-        vec![81],
+        calldata,
     );
     assert_eq!(entry_point.execute()?, Vec::<BigInt>::new());
     Ok(())
@@ -67,11 +73,12 @@ fn test_entry_point_with_hint() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_return_value() -> Result<()> {
+    let calldata = CallData(vec![StarkFelt::from_u64(23)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         TEST_CONTRACT_PROGRAM_PATH,
         "return_result",
-        vec![23],
+        calldata,
     );
     assert_eq!(entry_point.execute()?, vec![bigint!(23)]);
     Ok(())
