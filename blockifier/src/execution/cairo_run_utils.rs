@@ -42,22 +42,15 @@ pub fn cairo_run(
     config: CairoRunConfig,
     hint_executor: &dyn HintProcessor,
 ) -> Result<Vec<BigInt>> {
-    let layout: String = config.layout.into();
+    // Instantiate Cairo runner.
     let program =
         Program::from_file(&call_entry_point.contract_file_path, Some(&call_entry_point.name))?;
-
+    let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
-    // TODO(AlonH, 21/11/2022): Remove `unwrap`s and handle errors instead.
-    let entry_point_pc = program
-        .identifiers
-        .get(&format!("__wrappers__.{}", &call_entry_point.name))
-        .unwrap()
-        .pc
-        .unwrap();
-
     cairo_runner.initialize_function_runner(&mut vm)?;
 
+    // Prepare arguments for run.
     let mut args: Vec<Box<dyn Any>> = Vec::new();
     // TODO(AlonH, 21/12/2022): Push the entry point selector to args once it is used.
     let os_context: Vec<MaybeRelocatable> = vm
@@ -72,6 +65,16 @@ pub fn cairo_run(
         call_entry_point.calldata.iter().map(|arg| MaybeRelocatable::Int(bigint!(*arg))).collect();
     args.push(Box::new(calldata));
 
+    // Resolve initial PC from EP indicator.
+    // TODO(AlonH, 21/11/2022): Remove `unwrap`s and handle errors instead.
+    let entry_point_pc = program
+        .identifiers
+        .get(&format!("__wrappers__.{}", &call_entry_point.name))
+        .unwrap()
+        .pc
+        .unwrap();
+
+    // Run.
     cairo_runner.run_from_entrypoint(
         entry_point_pc,
         args.iter().map(|x| x.as_ref()).collect(),
