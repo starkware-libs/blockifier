@@ -37,17 +37,37 @@ impl CairoRunConfig {
     }
 }
 
-pub fn cairo_run(
+/// Executes a contract entry point and returns its output.
+pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     config: CairoRunConfig,
     hint_executor: &dyn HintProcessor,
 ) -> Result<Vec<BigInt>> {
-    let layout: String = config.layout.into();
+    // Instantiate Cairo runner.
     let program =
         Program::from_file(&call_entry_point.contract_file_path, Some(&call_entry_point.name))?;
-
+    let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
+    cairo_runner.initialize_function_runner(&mut vm)?;
+
+    // Prepare arguments for run.
+    let mut args: Vec<Box<dyn Any>> = Vec::new();
+    // TODO(AlonH, 21/12/2022): Push the entry point selector to args once it is used.
+    // Holds pointers for all builtins which are given as implicit arguments to the entry point.
+    let execution_context: Vec<MaybeRelocatable> = vm
+        .get_builtin_runners()
+        .iter()
+        .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack())
+        .collect();
+    args.push(Box::new(execution_context));
+    // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
+    args.push(Box::new(MaybeRelocatable::Int(bigint!(call_entry_point.calldata.len()))));
+    let calldata: Vec<MaybeRelocatable> =
+        call_entry_point.calldata.iter().map(|arg| MaybeRelocatable::Int(bigint!(*arg))).collect();
+    args.push(Box::new(calldata));
+
+    // Resolve initial PC from EP indicator.
     // TODO(AlonH, 21/11/2022): Remove `unwrap`s and handle errors instead.
     let entry_point_pc = program
         .identifiers
@@ -56,22 +76,7 @@ pub fn cairo_run(
         .pc
         .unwrap();
 
-    cairo_runner.initialize_function_runner(&mut vm)?;
-
-    let mut args: Vec<Box<dyn Any>> = Vec::new();
-    // TODO(AlonH, 21/12/2022): Push the entry point selector to args once it is used.
-    let os_context: Vec<MaybeRelocatable> = vm
-        .get_builtin_runners()
-        .iter()
-        .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack())
-        .collect();
-    args.push(Box::new(os_context));
-    // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
-    args.push(Box::new(MaybeRelocatable::Int(bigint!(call_entry_point.calldata.len()))));
-    let calldata: Vec<MaybeRelocatable> =
-        call_entry_point.calldata.iter().map(|arg| MaybeRelocatable::Int(bigint!(*arg))).collect();
-    args.push(Box::new(calldata));
-
+    // Run.
     cairo_runner.run_from_entrypoint(
         entry_point_pc,
         args.iter().map(|x| x.as_ref()).collect(),
@@ -82,25 +87,23 @@ pub fn cairo_run(
         hint_executor,
     )?;
 
-    get_return_values(&vm)
+    extract_execution_return_data(&vm)
 }
 
-fn get_return_values(vm: &VirtualMachine) -> Result<Vec<BigInt>> {
-    let [ret_data_size, ret_data_ptr]: [MaybeRelocatable; 2] = vm
+fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<BigInt>> {
+    let [return_data_size, return_data_ptr]: [MaybeRelocatable; 2] = vm
         .get_return_values(2)?
         .try_into()
         .unwrap_or_else(|_| panic!("Return values should be of size 2."));
-    // Convert ret_data_size from MaybeRelocatable to BigInt.
-    let ret_data_size = match ret_data_size {
-        MaybeRelocatable::Int(ret_data_size) => ret_data_size,
+
+    let return_data_size = match return_data_size {
+        // TODO(AlonH, 21/12/2022): Handle case where res_data_size is larger than usize.
+        MaybeRelocatable::Int(return_data_size) => return_data_size.bits() as usize,
         relocatable => bail!(VirtualMachineError::ExpectedInteger(relocatable)),
     };
-    // Convert ret_data_size from BigInt to usize.
-    // TODO(AlonH, 21/12/2022): Handle case where res_data_size is larger than usize.
-    let ret_data_size = ret_data_size.bits() as usize;
 
-    let values = vm.get_range(&ret_data_ptr, ret_data_size)?;
-    // Extract BigInt values.
+    let values = vm.get_range(&return_data_ptr, return_data_size)?;
+    // Extract values as `BigInt`.
     let values: Result<Vec<BigInt>> = values
         .into_iter()
         .map(|x| x.as_deref().cloned())
