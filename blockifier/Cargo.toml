@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# This is how they instructed to use their package.
-cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" }
-num-bigint = "0.4"
 anyhow = "1.0.66"
+cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" } # This is how they instructed to use their package.
+num-bigint = "0.4"
+starknet_api =  { git = "https://github.com/starkware-libs/starknet-api.git" }
 
 [dev-dependencies]
 pretty_assertions = "1.2.1"
