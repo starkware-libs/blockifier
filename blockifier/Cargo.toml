@@ -7,8 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.66"
-# This is how they instructed to use their package.
-cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" }
+cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" } # This is how they instructed to use their package.
 num-bigint = "0.4"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.81" , features = ["arbitrary_precision"]}
