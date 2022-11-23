@@ -26,14 +26,13 @@ impl From<Layout> for String {
 
 pub struct CairoRunConfig {
     pub enable_trace: bool,
-    pub print_output: bool,
     pub layout: Layout,
     pub proof_mode: bool,
 }
 
 impl CairoRunConfig {
     pub fn default() -> Self {
-        Self { enable_trace: false, print_output: false, layout: Layout::All, proof_mode: false }
+        Self { enable_trace: false, layout: Layout::All, proof_mode: false }
     }
 }
 
