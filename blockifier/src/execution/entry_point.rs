@@ -4,10 +4,10 @@ use anyhow::Result;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use num_bigint::BigInt;
 
-use super::cairo_run_utils::{cairo_run, CairoRunConfig};
+use super::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
 
+/// Represents a call to an entry point of a StarkNet contract.
 pub struct CallEntryPoint {
-    /// Represents a Cairo entry point of a StarkNet contract.
     pub contract_file_path: PathBuf,
     // TODO(AlonH, 15/12/2022): Change to selector.
     pub name: String,
@@ -23,6 +23,10 @@ impl CallEntryPoint {
 
     pub fn execute(&self) -> Result<Vec<BigInt>> {
         // Returns the output of the entry point execution.
-        cairo_run(self, CairoRunConfig::default(), &BuiltinHintProcessor::new_empty())
+        execute_call_entry_point(
+            self,
+            CairoRunConfig::default(),
+            &BuiltinHintProcessor::new_empty(),
+        )
     }
 }
