@@ -1,23 +1,26 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
-use starknet_api::{CallData, StarkFelt};
+use starknet_api::{CallData, EntryPoint, EntryPointSelector, EntryPointType, StarkFelt};
 
 use super::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
 use crate::execution::contract_class::ContractClass;
 
 /// Represents a call to an entry point of a StarkNet contract.
 pub struct CallEntryPoint {
-    /// Represents a Cairo entry point of a StarkNet contract.
     pub contract_class: ContractClass,
-    // TODO(AlonH, 15/12/2022): Change to selector.
-    pub name: String,
+    pub entry_point_type: EntryPointType,
+    pub entry_point_selector: EntryPointSelector,
     pub calldata: CallData,
 }
 
 impl CallEntryPoint {
-    pub fn new(contract_class: ContractClass, name: &str, calldata: CallData) -> Self {
-        let name = name.to_string();
-        Self { contract_class, name, calldata }
+    pub fn new(
+        contract_class: ContractClass,
+        entry_point_type: EntryPointType,
+        entry_point_selector: EntryPointSelector,
+        calldata: CallData,
+    ) -> Self {
+        Self { contract_class, entry_point_type, entry_point_selector, calldata }
     }
 
     pub fn execute(&self) -> Result<Vec<StarkFelt>> {
@@ -27,5 +30,18 @@ impl CallEntryPoint {
             CairoRunConfig::default(),
             &BuiltinHintProcessor::new_empty(),
         )
+    }
+
+    pub fn find_entry_point_in_contract(&self) -> Result<&EntryPoint> {
+        let entry_points_of_same_type =
+            &self.contract_class.entry_points_by_type[&self.entry_point_type];
+
+        // TODO(Noa, 30/12/22): Handle the case where filtered_entry_points.len() == 0 and
+        // entry_points.len() > 0
+
+        entry_points_of_same_type
+            .iter()
+            .find(|ep| ep.selector == self.entry_point_selector)
+            .context(format!("Entry point {:#?} not found in contract", self.entry_point_selector))
     }
 }

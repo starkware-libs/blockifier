@@ -62,6 +62,13 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
     }
 }
 
+// TODO(Noa, 30/12/22): Remove after integrating with FN (EntryPointOffset contains usize (and not
+// StarkFelt\StarkHash).
+pub fn usize_try_from_starkfelt(felt: StarkFelt) -> Result<usize> {
+    let as_bytes: [u8; 8] = felt.bytes()[24..32].try_into()?;
+    Ok(usize::from_be_bytes(as_bytes))
+}
+
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
@@ -97,17 +104,8 @@ pub fn execute_call_entry_point(
     ));
 
     // Resolve initial PC from EP indicator.
-    let entry_point_not_found_error =
-        ProgramError::EntrypointNotFound(call_entry_point.name.clone());
-    let entry_point_identifier =
-        match program.identifiers.get(&format!("__wrappers__.{}", &call_entry_point.name)) {
-            Some(identifier) => identifier,
-            None => bail!(entry_point_not_found_error),
-        };
-    let entry_point_pc = match entry_point_identifier.pc {
-        Some(pc) => pc,
-        None => bail!(entry_point_not_found_error),
-    };
+    let entry_point = call_entry_point.find_entry_point_in_contract()?;
+    let entry_point_pc = usize_try_from_starkfelt(entry_point.offset.0)?;
 
     // Run.
     cairo_runner.run_from_entrypoint(
