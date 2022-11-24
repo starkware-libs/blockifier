@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
 // TODO(Gilad, 1/12/2022) remove anyhow from this file and use thiserror.
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use starknet_api::{ClassHash, ContractAddress, Nonce, StarkFelt, StorageKey};
+
+#[cfg(test)]
+#[path = "cached_state_test.rs"]
+mod test;
 
 /// Holds read and write requests.
 ///
@@ -11,12 +15,36 @@ use starknet_api::{ClassHash, ContractAddress, Nonce, StarkFelt, StorageKey};
 pub struct CachedState<SR: StateReader> {
     pub state_reader: SR,
     // Invariant: StateCache is a private type.
-    _cache: StateCache,
+    cache: StateCache,
 }
 
 impl<SR: StateReader> CachedState<SR> {
     pub fn new(state_reader: SR) -> Self {
-        Self { state_reader, _cache: StateCache::default() }
+        Self { state_reader, cache: StateCache::default() }
+    }
+
+    pub fn get_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> Result<&StarkFelt> {
+        if self.cache.get_storage_at(contract_address, key).is_none() {
+            let storage_value = self.state_reader.get_storage_at(contract_address, key)?;
+            self.cache.insert_storage_initial_value(&contract_address, &key, *storage_value);
+        }
+
+        self.cache
+            .get_storage_at(contract_address, key)
+            .with_context(|| format!("Cannot retrieve '{contract_address:?}' from the cache."))
+    }
+
+    pub fn set_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+        value: StarkFelt,
+    ) {
+        self.cache.set_storage_writes(contract_address, key, value);
     }
 }
 
@@ -42,8 +70,24 @@ pub trait StateReader {
     }
 }
 
-// Used Internally by StateCache.
 type ContractStorageKey = (ContractAddress, StorageKey);
+
+pub struct DictStateReader {
+    pub contract_storage_key_to_felt: HashMap<ContractStorageKey, StarkFelt>,
+}
+
+impl StateReader for DictStateReader {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> Result<&StarkFelt> {
+        let contract_storage_key = (contract_address, key);
+        self.contract_storage_key_to_felt
+            .get(&contract_storage_key)
+            .with_context(|| format!("{contract_address:?} should have a nonce."))
+    }
+}
 
 /// Holds read and write requests.
 // Invariant: cannot delete keys from fields.
@@ -52,10 +96,43 @@ struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     _nonce_initial_values: HashMap<ContractAddress, Nonce>,
     _class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    _storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
 
     // Writer's cached information.
     _nonce_writes: HashMap<ContractAddress, Nonce>,
     _class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    _storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+    storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+}
+
+impl StateCache {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> Option<&StarkFelt> {
+        let contract_storage_key = (contract_address, key);
+        self.storage_writes
+            .get(&contract_storage_key)
+            .or_else(|| self.storage_initial_values.get(&contract_storage_key))
+    }
+
+    pub fn insert_storage_initial_value(
+        &mut self,
+        contract_address: &ContractAddress,
+        key: &StorageKey,
+        value: StarkFelt,
+    ) {
+        let contract_storage_key = (*contract_address, *key);
+        self.storage_initial_values.insert(contract_storage_key, value);
+    }
+
+    fn set_storage_writes(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+        value: StarkFelt,
+    ) {
+        let contract_storage_key = (contract_address, key);
+        self.storage_writes.insert(contract_storage_key, value);
+    }
 }
