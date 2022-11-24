@@ -1,9 +1,14 @@
 use std::any::Any;
+use std::collections::HashMap;
 
 use anyhow::{bail, Result};
 use cairo_rs::bigint;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::types::errors::program_errors::ProgramError::EntrypointNotFound;
+use cairo_rs::serde::deserialize_program::{
+    deserialize_array_of_bigint_hex, deserialize_bigint_hex, HintParams, Identifier,
+    ReferenceManager,
+};
+use cairo_rs::types::errors::program_errors::ProgramError;
 use cairo_rs::types::program::Program;
 use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
@@ -49,8 +54,7 @@ pub fn execute_call_entry_point(
     hint_executor: &dyn HintProcessor,
 ) -> Result<Vec<BigInt>> {
     // Instantiate Cairo runner.
-    let program =
-        Program::from_file(&call_entry_point.contract_file_path, Some(&call_entry_point.name))?;
+    let program = convert_program_to_cairo_runner_format(&call_entry_point.contract_class.program)?;
     let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
@@ -78,7 +82,8 @@ pub fn execute_call_entry_point(
     ));
 
     // Resolve initial PC from EP indicator.
-    let entry_point_not_found_error = EntrypointNotFound(call_entry_point.name.clone());
+    let entry_point_not_found_error =
+        ProgramError::EntrypointNotFound(call_entry_point.name.clone());
     let entry_point_identifier =
         match program.identifiers.get(&format!("__wrappers__.{}", &call_entry_point.name)) {
             Some(identifier) => identifier,
@@ -127,4 +132,47 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<BigInt>> {
         })
         .collect();
     values
+}
+
+// TODO(Noa, 01/12/2022): Change this temporary solution.
+pub fn convert_program_to_cairo_runner_format(
+    program: &starknet_api::Program,
+) -> Result<Program, ProgramError> {
+    let program = program.clone();
+    let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
+
+    let start = match identifiers.get("__main__.__start__") {
+        Some(identifier) => identifier.pc,
+        None => None,
+    };
+    let end = match identifiers.get("__main__.__end__") {
+        Some(identifier) => identifier.pc,
+        None => None,
+    };
+
+    Ok(Program {
+        builtins: serde_json::from_value::<Vec<String>>(program.builtins)?,
+        prime: deserialize_bigint_hex(program.prime)?,
+        data: deserialize_array_of_bigint_hex(program.data)?,
+        constants: {
+            let mut constants = HashMap::new();
+            for (key, value) in identifiers.iter() {
+                if value.type_.as_deref() == Some("const") {
+                    let value = value
+                        .value
+                        .clone()
+                        .ok_or_else(|| ProgramError::ConstWithoutValue(key.to_owned()))?;
+                    constants.insert(key.to_owned(), value);
+                }
+            }
+
+            constants
+        },
+        main: None,
+        start,
+        end,
+        hints: serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?,
+        reference_manager: serde_json::from_value::<ReferenceManager>(program.reference_manager)?,
+        identifiers,
+    })
 }
