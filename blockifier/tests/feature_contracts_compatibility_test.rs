@@ -1,3 +1,4 @@
+use std::env::temp_dir;
 use std::fs;
 use std::process::Command;
 
@@ -43,16 +44,16 @@ fn verify_feature_contracts_compatibility() -> Result<()> {
         );
         let existing_compiled_contents = fs::read_to_string(&existing_compiled_path)
             .context(format!("Cannot read {existing_compiled_path}."))?;
-        let expected_compiled_output = Command::new("starknet-compile")
-            .args([&path_str, "--no_debug_info"])
-            .output()
-            .unwrap()
-            .stdout;
 
-        assert_eq!(
-            String::from_utf8(expected_compiled_output).unwrap(),
-            existing_compiled_contents
-        );
+        let temp_file = temp_dir().join("temp_compiled.json");
+
+        let f = temp_file.to_string_lossy();
+
+        Command::new("starknet-compile")
+            .args([&path_str, "--no_debug_info", "--output", &f])
+            .status()?;
+
+        assert_eq!(fs::read_to_string(temp_file)?, existing_compiled_contents);
     }
     Ok(())
 }

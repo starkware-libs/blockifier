@@ -33,7 +33,7 @@ jobs:
           toolchain: nightly-2022-07-27
       - uses: Swatinem/rust-cache@v1
       - run:
-          pip install cairo-lang;
+          pip3.9 install cairo-lang starknet-py;
           cargo test -- --include-ignored
 
   udeps:
