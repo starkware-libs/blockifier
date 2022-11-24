@@ -3,13 +3,13 @@ use std::any::Any;
 use anyhow::{bail, Result};
 use cairo_rs::bigint;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
-use cairo_rs::types::errors::program_errors::ProgramError::EntrypointNotFound;
 use cairo_rs::types::program::Program;
 use cairo_rs::types::relocatable::MaybeRelocatable;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
+use starknet_api::{EntryPoint, StarkFelt};
 
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -37,15 +37,22 @@ impl CairoRunConfig {
     }
 }
 
+// TODO(Noa, 30/12/22): Consider changing EntryPointOffset to contain usize (and not
+// StarkFelt\StarkHash) or moving this function to impl StarkHash.
+pub fn usize_try_from_starkfelt(hash: &StarkFelt) -> Result<usize> {
+    let as_bytes: [u8; 8] = hash.bytes()[24..32].try_into()?;
+    Ok(usize::from_be_bytes(as_bytes))
+}
+
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     config: CairoRunConfig,
     hint_executor: &dyn HintProcessor,
+    entry_point: &EntryPoint,
 ) -> Result<Vec<BigInt>> {
     // Instantiate Cairo runner.
-    let program =
-        Program::from_file(&call_entry_point.contract_file_path, Some(&call_entry_point.name))?;
+    let program = Program::from_file(&call_entry_point.contract_file_path, None)?;
     let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
@@ -68,16 +75,7 @@ pub fn execute_call_entry_point(
     args.push(Box::new(calldata));
 
     // Resolve initial PC from EP indicator.
-    let entry_point_not_found_error = EntrypointNotFound(call_entry_point.name.clone());
-    let entry_point_identifier =
-        match program.identifiers.get(&format!("__wrappers__.{}", &call_entry_point.name)) {
-            Some(identifier) => identifier,
-            None => bail!(entry_point_not_found_error),
-        };
-    let entry_point_pc = match entry_point_identifier.pc {
-        Some(pc) => pc,
-        None => bail!(entry_point_not_found_error),
-    };
+    let entry_point_pc = usize_try_from_starkfelt(&entry_point.offset.0)?;
 
     // Run.
     cairo_runner.run_from_entrypoint(
