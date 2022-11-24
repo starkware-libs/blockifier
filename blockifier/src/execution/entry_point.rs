@@ -9,7 +9,6 @@ use crate::execution::contract_class::ContractClass;
 
 /// Represents a call to an entry point of a StarkNet contract.
 pub struct CallEntryPoint {
-    /// Represents a Cairo entry point of a StarkNet contract.
     pub contract_class: ContractClass,
     pub contract_file_path: PathBuf,
     // TODO(AlonH, 15/12/2022): Change to selector.
