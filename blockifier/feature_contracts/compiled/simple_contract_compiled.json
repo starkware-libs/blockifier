@@ -148,7 +148,7 @@
             "range_check",
             "bitwise"
         ],
-        "compiler_version": "0.10.1",
+        "compiler_version": "0.10.2",
         "data": [
             "0x480680017fff8000",
             "0x4c69627261727943616c6c",
