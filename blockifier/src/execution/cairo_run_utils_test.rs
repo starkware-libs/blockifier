@@ -2,7 +2,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
 use starknet_api::StarkFelt;
 
-use crate::execution::cairo_run_utils::felt_to_bigint;
+use crate::execution::cairo_run_utils::{bigint_to_felt, felt_to_bigint};
 
 fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<BigInt>) {
     // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
@@ -21,8 +21,8 @@ fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<BigInt>)
         StarkFelt::from_hex(STARK_PRIME_MINUS_ONE).expect(felt_from_hex_error_message),
     ];
     let bigints = vec![
-        Zero::zero(),
-        One::one(),
+        BigInt::zero(),
+        BigInt::one(),
         BigInt::new(Sign::Plus, vec![1234]),
         // This prime constant is taken from examples in the cairo-rs crate.
         // Note: the BigInt digits are ordered least significant digit first.
@@ -39,4 +39,15 @@ fn test_felt_to_bigint() {
     let converted_bigints: Vec<BigInt> = felts.iter().map(|x| felt_to_bigint(*x)).collect();
 
     assert_eq!(converted_bigints, expected_bigints);
+}
+
+#[test]
+fn test_bigint_to_felt() {
+    let (expected_felts, bigints) = get_tested_felts_and_corresponding_bigints();
+    let converted_felts: Vec<StarkFelt> = bigints
+        .iter()
+        .map(|x| bigint_to_felt(x).expect("BigInt to StarkFelt conversion has failed."))
+        .collect();
+
+    assert_eq!(converted_felts, expected_felts);
 }

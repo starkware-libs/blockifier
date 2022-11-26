@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
-use num_bigint::BigInt;
-use starknet_api::CallData;
+use starknet_api::{CallData, StarkFelt};
 
 use super::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
 use crate::execution::contract_class::ContractClass;
@@ -30,8 +29,7 @@ impl CallEntryPoint {
         Self { contract_class, contract_file_path, name, calldata }
     }
 
-    // TODO(Adi, 27/11/2022): Change BigInt to StarkFelt.
-    pub fn execute(&self) -> Result<Vec<BigInt>> {
+    pub fn execute(&self) -> Result<Vec<StarkFelt>> {
         // Returns the output of the entry point execution.
         execute_call_entry_point(
             self,
