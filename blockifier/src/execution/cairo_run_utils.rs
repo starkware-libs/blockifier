@@ -10,6 +10,8 @@ use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
+use num_traits::Signed;
+use starknet_api::StarkFelt;
 
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -37,12 +39,26 @@ impl CairoRunConfig {
     }
 }
 
+pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
+    // TODO(Adi, 29/11/2022): Make sure lambdaclass always maintain that their bigints' are
+    // non-negative.
+    if bigint.is_negative() {
+        bail!("The given BigInt, {}, is negative.", bigint)
+    }
+
+    let bigint_hex = format!("{bigint:#x}");
+    match StarkFelt::from_hex(&bigint_hex) {
+        Ok(felt) => Ok(felt),
+        Err(e) => bail!(e),
+    }
+}
+
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     config: CairoRunConfig,
     hint_executor: &dyn HintProcessor,
-) -> Result<Vec<BigInt>> {
+) -> Result<Vec<StarkFelt>> {
     // Instantiate Cairo runner.
     let program =
         Program::from_file(&call_entry_point.contract_file_path, Some(&call_entry_point.name))?;
@@ -93,7 +109,7 @@ pub fn execute_call_entry_point(
     extract_execution_return_data(&vm)
 }
 
-fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<BigInt>> {
+fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<StarkFelt>> {
     let [return_data_size, return_data_ptr]: [MaybeRelocatable; 2] = vm
         .get_return_values(2)?
         .try_into()
@@ -106,12 +122,12 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<BigInt>> {
     };
 
     let values = vm.get_range(&return_data_ptr, return_data_size)?;
-    // Extract values as `BigInt`.
-    let values: Result<Vec<BigInt>> = values
+    // Extract values as `StarkFelt`.
+    let values: Result<Vec<StarkFelt>> = values
         .into_iter()
         .map(|x| x.as_deref().cloned())
         .map(|x| match x {
-            Some(MaybeRelocatable::Int(value)) => Ok(value),
+            Some(MaybeRelocatable::Int(value)) => Ok(bigint_to_felt(&value)?),
             Some(relocatable) => bail!(VirtualMachineError::ExpectedInteger(relocatable)),
             None => bail!(VirtualMachineError::NoneInMemoryRange),
         })
