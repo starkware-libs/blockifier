@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use anyhow::{bail, Result};
 use cairo_rs::bigint;
-use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
+use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, deserialize_bigint_hex, HintParams, Identifier,
     ReferenceManager,
@@ -19,6 +19,7 @@ use num_traits::Signed;
 use starknet_api::StarkFelt;
 
 use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::syscall_utils::{add_syscall_hints, SyscallHandler};
 
 #[derive(Debug)]
 pub enum Layout {
@@ -66,24 +67,34 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     config: CairoRunConfig,
-    hint_executor: &dyn HintProcessor,
 ) -> Result<Vec<StarkFelt>> {
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&call_entry_point.contract_class.program)?;
     let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
     let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
-    cairo_runner.initialize_function_runner(&mut vm)?;
+    cairo_runner.initialize_builtins(&mut vm)?;
+    cairo_runner.initialize_segments(&mut vm, None);
+    let syscall_segment = vm.add_memory_segment();
+    let mut syscall_handler = SyscallHandler::new(syscall_segment.clone());
+    let mut hint_processor = BuiltinHintProcessor::new_empty();
+    add_syscall_hints(&mut hint_processor, &mut syscall_handler);
+    cairo_runner
+        .exec_scopes
+        .assign_or_update_variable("syscall_handler", Box::new(syscall_handler));
 
     // Prepare arguments for run.
     let mut args: Vec<Box<dyn Any>> = Vec::new();
     // TODO(AlonH, 21/12/2022): Push the entry point selector to args once it is used.
-    // Holds pointers for all builtins which are given as implicit arguments to the entry point.
-    let execution_context: Vec<MaybeRelocatable> = vm
-        .get_builtin_runners()
-        .iter()
-        .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack())
-        .collect();
+    // Holds pointers for the syscall handler and for the used builtins, which are all given as
+    // implicit arguments to the entry point.
+    let mut execution_context = Vec::<MaybeRelocatable>::new();
+    execution_context.push(syscall_segment.into());
+    execution_context.extend(
+        vm.get_builtin_runners()
+            .iter()
+            .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack()),
+    );
     args.push(Box::new(execution_context));
     // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
     // TODO(Adi, 29/11/2022): Remove the '.0' access, once derive-more is used in starknet_api.
@@ -117,13 +128,15 @@ pub fn execute_call_entry_point(
         true,
         true,
         &mut vm,
-        hint_executor,
+        &hint_processor,
     )?;
 
-    extract_execution_return_data(&vm)
+    Ok(extract_execution_return_data(&vm)?)
 }
 
-fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<StarkFelt>> {
+fn extract_execution_return_data(
+    vm: &VirtualMachine,
+) -> Result<Vec<StarkFelt>, VirtualMachineError> {
     let [return_data_size, return_data_ptr]: [MaybeRelocatable; 2] = vm
         .get_return_values(2)?
         .try_into()
@@ -132,20 +145,13 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> Result<Vec<StarkFelt>> 
     let return_data_size = match return_data_size {
         // TODO(AlonH, 21/12/2022): Handle case where res_data_size is larger than usize.
         MaybeRelocatable::Int(return_data_size) => return_data_size.bits() as usize,
-        relocatable => bail!(VirtualMachineError::ExpectedInteger(relocatable)),
+        relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable)),
     };
 
     let values = vm.get_range(&return_data_ptr, return_data_size)?;
     // Extract values as `StarkFelt`.
-    let values: Result<Vec<StarkFelt>> = values
-        .into_iter()
-        .map(|x| x.as_deref().cloned())
-        .map(|x| match x {
-            Some(MaybeRelocatable::Int(value)) => Ok(bigint_to_felt(&value)?),
-            Some(relocatable) => bail!(VirtualMachineError::ExpectedInteger(relocatable)),
-            None => bail!(VirtualMachineError::NoneInMemoryRange),
-        })
-        .collect();
+    let values: Result<Vec<StarkFelt>, VirtualMachineError> =
+        values.into_iter().map(|x| x.as_deref().cloned()).map(get_felt_from_memory_cell).collect();
     values
 }
 
@@ -190,4 +196,17 @@ pub fn convert_program_to_cairo_runner_format(
         reference_manager: serde_json::from_value::<ReferenceManager>(program.reference_manager)?,
         identifiers,
     })
+}
+
+pub fn get_felt_from_memory_cell(
+    memory_cell: Option<MaybeRelocatable>,
+) -> Result<StarkFelt, VirtualMachineError> {
+    match memory_cell {
+        Some(MaybeRelocatable::Int(value)) => {
+            // TODO(AlonH, 21/12/2022): Return appropriate error.
+            bigint_to_felt(&value).map_err(|_| VirtualMachineError::BigintToUsizeFail)
+        }
+        Some(relocatable) => Err(VirtualMachineError::ExpectedInteger(relocatable)),
+        None => Err(VirtualMachineError::NoneInMemoryRange),
+    }
 }
