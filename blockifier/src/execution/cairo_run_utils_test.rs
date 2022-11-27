@@ -36,7 +36,7 @@ fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<BigInt>)
 #[test]
 fn test_felt_to_bigint() {
     let (felts, expected_bigints) = get_tested_felts_and_corresponding_bigints();
-    let converted_bigints: Vec<BigInt> = felts.iter().map(|x| felt_to_bigint(*x)).collect();
+    let converted_bigints: Vec<BigInt> = felts.iter().map(felt_to_bigint).collect();
 
     assert_eq!(converted_bigints, expected_bigints);
 }

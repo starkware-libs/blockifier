@@ -38,7 +38,7 @@ impl CairoRunConfig {
     }
 }
 
-pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
+pub fn felt_to_bigint(felt: &StarkFelt) -> BigInt {
     BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
 
@@ -73,7 +73,7 @@ pub fn execute_call_entry_point(
     args.push(Box::new(
         calldata
             .iter()
-            .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
+            .map(|arg| MaybeRelocatable::Int(felt_to_bigint(arg)))
             .collect::<Vec<MaybeRelocatable>>(),
     ));
 
