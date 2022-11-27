@@ -55,3 +55,11 @@ fn test_entry_point_with_return_value() -> Result<()> {
     assert_eq!(entry_point.execute()?, vec![StarkFelt::from_u64(23)]);
     Ok(())
 }
+
+#[test]
+fn test_entry_point_with_syscall() -> Result<()> {
+    let calldata = CallData(vec![StarkFelt::from_u64(1234)]);
+    let entry_point = CallEntryPoint::new(create_test_contract_class(), "get_value", calldata);
+    assert_eq!(entry_point.execute()?, vec![StarkFelt::from_u64(17)]);
+    Ok(())
+}

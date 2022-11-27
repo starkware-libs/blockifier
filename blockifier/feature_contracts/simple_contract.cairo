@@ -1,6 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
+from starkware.starknet.common.syscalls import storage_read
 
 @external
 func without_arg() {
@@ -45,4 +46,10 @@ func sqrt{range_check_ptr}(value: felt) {
 
     assert root = 9;
     return ();
+}
+
+@external
+func get_value{syscall_ptr: felt*}(address: felt) -> (res: felt) {
+    let (value) = storage_read(address=address);
+    return (res=value);
 }
