@@ -46,6 +46,17 @@ impl<SR: StateReader> CachedState<SR> {
     ) {
         self.cache.set_storage_writes(contract_address, key, value);
     }
+
+    pub fn get_nonce_at(&mut self, contract_address: ContractAddress) -> Result<&Nonce> {
+        if self.cache.get_storage_at(contract_address, key).is_none() {
+            let storage_value = self.state_reader.get_storage_at(contract_address, key)?;
+            self.cache.try_insert_storage_initial_value(&contract_address, &key, *storage_value)?;
+        }
+
+        self.cache
+            .get_storage_at(contract_address, key)
+            .with_context(|| format!("Cannot retrieve '{contract_address:?}' from the cache."))
+    }
 }
 
 /// A read-only API for accessing StarkNet global state.
@@ -60,9 +71,7 @@ pub trait StateReader {
     }
 
     /// Returns the nonce of the given contract instance (represented by its address).
-    fn get_nonce_at(&self, _contract_address: ContractAddress) -> Result<&Nonce> {
-        unimplemented!();
-    }
+    fn get_nonce_at(&self, _contract_address: ContractAddress) -> Result<&Nonce>;
 
     /// Returns the class hash of the contract class at the given address.
     fn get_class_hash_at(&self, _contract_address: ContractAddress) -> Result<&ClassHash> {
@@ -94,12 +103,12 @@ impl StateReader for DictStateReader {
 #[derive(Default)]
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
-    _nonce_initial_values: HashMap<ContractAddress, Nonce>,
+    nonce_initial_values: HashMap<ContractAddress, Nonce>,
     _class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
 
     // Writer's cached information.
-    _nonce_writes: HashMap<ContractAddress, Nonce>,
+    nonce_writes: HashMap<ContractAddress, Nonce>,
     _class_hash_writes: HashMap<ContractAddress, ClassHash>,
     storage_writes: HashMap<ContractStorageKey, StarkFelt>,
 }
@@ -129,6 +138,36 @@ impl StateCache {
             self.storage_initial_values.get(&contract_storage_key)
         );
         self.storage_initial_values.insert(contract_storage_key, value);
+        Ok(())
+    }
+
+    fn set_storage_writes(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+        value: StarkFelt,
+    ) {
+        let contract_storage_key = (contract_address, key);
+        self.storage_writes.insert(contract_storage_key, value);
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> Option<&Nonce> {
+        self.storage_writes
+            .get(&contract_address)
+            .or_else(|| self.nonce_initial_values.get(&contract_address))
+    }
+
+    pub fn try_insert_nonce_initial_value(
+        &mut self,
+        contract_address: &ContractAddress,
+        nonce: Nonce,
+    ) -> Result<()> {
+        ensure!(
+            !self.nonce_initial_values.contains_key(&contract_address),
+            "{contract_address:?} already has initial value {:?}",
+            self.nonce_initial_values.get(&contract_address)
+        );
+        self.nonce_initial_values.insert(contract_address, nonce);
         Ok(())
     }
 
