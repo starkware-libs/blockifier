@@ -1,2 +1,3 @@
 [build]
-rustflags = ["-Dwarnings", "-Dfuture-incompatible", "-Dnonstandard-style", "-Drust-2018-idioms", "-Dunused" , "-Dclippy::unwrap_used"]
+# TODO(AlonH, 21/12/2022): Remove "-Aclippy::result-large-err" once errors are handled.
+rustflags = ["-Dwarnings", "-Dfuture-incompatible", "-Dnonstandard-style", "-Drust-2018-idioms", "-Dunused", "-Dclippy::unwrap_used", "-Aclippy::result-large-err"]
