@@ -14,3 +14,9 @@ pub struct StorageRead {
     pub request: StorageReadRequest,
     pub response: StorageReadResponse,
 }
+
+pub struct StorageWrite {
+    pub selector: StarkFelt,
+    pub address: StarkFelt,
+    pub value: StarkFelt,
+}

@@ -16,7 +16,9 @@ use num_bigint::BigInt;
 use starknet_api::StarkFelt;
 
 use crate::execution::cairo_run_utils::{felt_to_bigint, get_felt_from_memory_cell};
-use crate::execution::syscall_structs::{StorageRead, StorageReadRequest, StorageReadResponse};
+use crate::execution::syscall_structs::{
+    StorageRead, StorageReadRequest, StorageReadResponse, StorageWrite,
+};
 
 pub struct SyscallHandler {
     pub expected_syscall_ptr: Relocatable,
@@ -58,6 +60,32 @@ pub fn storage_read(
     Ok(())
 }
 
+pub fn storage_write(
+    vm: &mut VirtualMachine,
+    exec_scopes: &mut ExecutionScopes,
+    ids_data: &HashMap<String, HintReference>,
+    ap_tracking: &ApTracking,
+    _constants: &HashMap<String, BigInt>,
+) -> Result<(), VirtualMachineError> {
+    let syscall_handler = exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
+    let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
+    // TODO(AlonH, 21/12/2022): Return error instead of panic.
+    assert_eq!(&syscall_ptr, &syscall_handler.expected_syscall_ptr);
+
+    let selector = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
+    let address = get_felt_from_memory_cell(vm.get_maybe(&(&syscall_ptr + 1))?)?;
+    let value = get_felt_from_memory_cell(vm.get_maybe(&(&syscall_ptr + 2))?)?;
+    let request = StorageWrite { selector, address, value };
+
+    // TODO(AlonH, 21/12/2022): Perform state write.
+    assert_eq!(request.value, StarkFelt::from_u64(18));
+
+    let syscall_size = mem::size_of::<StorageWrite>() / mem::size_of::<BigInt>();
+    syscall_handler.expected_syscall_ptr = &syscall_handler.expected_syscall_ptr + syscall_size;
+
+    Ok(())
+}
+
 pub fn add_syscall_hints(
     hint_processor: &mut BuiltinHintProcessor,
     _syscall_handler: &mut SyscallHandler,
@@ -68,5 +96,13 @@ pub fn add_syscall_hints(
             "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
         ),
         storage_read_hint,
+    );
+
+    let storage_write_hint = HintFunc(Box::new(storage_write));
+    hint_processor.add_hint(
+        String::from(
+            "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        ),
+        storage_write_hint,
     );
 }
