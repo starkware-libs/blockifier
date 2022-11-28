@@ -5,7 +5,6 @@
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import (
-    call_contract,
     deploy,
     get_caller_address,
     get_contract_address,
