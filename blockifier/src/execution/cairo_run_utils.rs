@@ -18,6 +18,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
 use starknet_api::StarkFelt;
 
+use crate::errors::conversion_errors::ConversionError;
 use crate::execution::entry_point::CallEntryPoint;
 
 #[derive(Debug)]
@@ -48,17 +49,14 @@ pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
     BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
 
-pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
+pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt, ConversionError> {
     // TODO(Adi, 29/11/2022): Make sure lambdaclass always maintain that their bigints' are
     // non-negative.
     if bigint.is_negative() {
-        bail!("The given BigInt, {}, is negative.", bigint)
-    }
-
-    let bigint_hex = format!("{bigint:#x}");
-    match StarkFelt::from_hex(&bigint_hex) {
-        Ok(felt) => Ok(felt),
-        Err(e) => bail!(e),
+        Err(ConversionError::NegativeBigInt { bigint: bigint.clone() })
+    } else {
+        let bigint_hex = format!("{bigint:#x}");
+        Ok(StarkFelt::from_hex(&bigint_hex)?)
     }
 }
 
