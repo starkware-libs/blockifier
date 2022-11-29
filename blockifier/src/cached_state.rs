@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 use anyhow::{Context, Result};
 use starknet_api::{ClassHash, ContractAddress, Nonce, StarkFelt, StorageKey};
@@ -88,7 +89,24 @@ pub trait StateReader {
     }
 }
 
-type ContractStorageKey = (ContractAddress, StorageKey);
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+#[error("Failed to fetch {key} from current state.")]
+pub struct StateReaderError {
+    key: String,
+}
+
+impl From<ContractAddress> for StateReaderError {
+    fn from(key: ContractAddress) -> Self {
+        Self { key: format!("{key:?}") }
+    }
+}
+impl From<ContractStorageKey> for StateReaderError {
+    fn from(key: ContractStorageKey) -> Self {
+        Self { key: format!("{key:?}") }
+    }
+}
+
+pub type ContractStorageKey = (ContractAddress, StorageKey);
 
 /// A simple implementation of `StateReader` using `HashMap`s for storage.
 #[derive(Default)]
