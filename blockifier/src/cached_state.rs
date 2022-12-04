@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use starknet_api::{ClassHash, ContractAddress, Nonce, StarkFelt, StorageKey};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 
 /// Caches read and write requests.
 ///

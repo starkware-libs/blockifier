@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
-use starknet_api::{CallData, EntryPoint, EntryPointSelector, EntryPointType, StarkFelt};
+use starknet_api::core::EntryPointSelector;
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::{EntryPoint, EntryPointType};
+use starknet_api::transaction::CallData;
 
 use super::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
 use crate::execution::contract_class::ContractClass;

@@ -1,6 +1,6 @@
 use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
-use starknet_api::StarkFelt;
+use starknet_api::hash::StarkFelt;
 
 use crate::execution::cairo_run_utils::{bigint_to_felt, felt_to_bigint};
 
