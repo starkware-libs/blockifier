@@ -85,7 +85,9 @@ pub fn execute_call_entry_point(
 
     // Prepare arguments for run.
     let mut args: Vec<Box<dyn Any>> = Vec::new();
-    // TODO(AlonH, 21/12/2022): Push the entry point selector to args once it is used.
+    args.push(Box::new(MaybeRelocatable::Int(felt_to_bigint(
+        call_entry_point.entry_point_selector.0,
+    ))));
     let mut implicit_args = Vec::<MaybeRelocatable>::new();
     implicit_args.push(syscall_segment.into());
     implicit_args.extend(
