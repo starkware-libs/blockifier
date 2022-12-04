@@ -16,6 +16,8 @@ const BITWISE_AND_SELECTOR: &str =
 const SQRT_SELECTOR: &str = "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309";
 const RETURN_RESULT_SELECTOR: &str =
     "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701";
+const GET_VALUE_SELECTOR: &str =
+    "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
 
 fn create_test_contract_class() -> ContractClass {
     let path = PathBuf::from(TEST_CONTRACT_PATH);
@@ -100,5 +102,17 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
         format!("{}", entry_point.execute().unwrap_err()),
         format!("Entry point {:#?} not found in contract", entry_point.entry_point_selector)
     );
+    Ok(())
+}
+
+#[test]
+fn test_entry_point_with_syscall() -> Result<()> {
+    let entry_point = CallEntryPoint::new(
+        create_test_contract_class(),
+        EntryPointType::External,
+        EntryPointSelector(StarkHash::from_hex(GET_VALUE_SELECTOR)?),
+        CallData(vec![StarkFelt::from_u64(1234)]),
+    );
+    assert_eq!(entry_point.execute()?, vec![StarkFelt::from_u64(17)]);
     Ok(())
 }
