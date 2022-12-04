@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
-use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use starknet_api::{CallData, EntryPoint, EntryPointSelector, EntryPointType, StarkFelt};
 
-use super::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
+use crate::execution::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
 use crate::execution::contract_class::ContractClass;
 
 /// Represents a call to an entry point of a StarkNet contract.
@@ -25,11 +24,7 @@ impl CallEntryPoint {
 
     pub fn execute(&self) -> Result<Vec<StarkFelt>> {
         // Returns the output of the entry point execution.
-        execute_call_entry_point(
-            self,
-            CairoRunConfig::default(),
-            &BuiltinHintProcessor::new_empty(),
-        )
+        execute_call_entry_point(self, CairoRunConfig::default())
     }
 
     pub fn find_entry_point_in_contract(&self) -> Result<&EntryPoint> {
