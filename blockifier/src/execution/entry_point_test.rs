@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use pretty_assertions::assert_eq;
-use starknet_api::{CallData, EntryPointSelector, EntryPointType, StarkFelt, StarkHash};
+use starknet_api::core::EntryPointSelector;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::EntryPointType;
+use starknet_api::transaction::CallData;
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;

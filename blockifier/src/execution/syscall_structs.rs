@@ -3,7 +3,7 @@ use std::mem;
 
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::{StarkFelt, StarkHash};
+use starknet_api::hash::{StarkFelt, StarkHash};
 
 use crate::execution::cairo_run_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::entry_point::EntryPointResult;

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
-use starknet_api::{shash, StarkHash};
+use starknet_api::hash::StarkHash;
+use starknet_api::shash;
 
 use super::*;
 

@@ -15,7 +15,7 @@ use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
-use starknet_api::StarkFelt;
+use starknet_api::hash::StarkFelt;
 
 use crate::execution::entry_point::{CallEntryPoint, EntryPointResult};
 use crate::execution::syscall_handling::initialize_syscall_handler;
@@ -144,7 +144,7 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> EntryPointResult<Vec<St
 
 // TODO(Noa, 01/12/2022): Change this temporary solution.
 pub fn convert_program_to_cairo_runner_format(
-    program: &starknet_api::Program,
+    program: &starknet_api::state::Program,
 ) -> Result<Program, ProgramError> {
     let program = program.clone();
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
