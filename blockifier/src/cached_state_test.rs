@@ -29,6 +29,7 @@ fn get_and_set_storage_value() -> Result<()> {
             ((contract_address0, key0), storage_val0),
             ((contract_address1, key1), storage_val1),
         ]),
+        ..Default::default()
     });
     assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), storage_val0);
     assert_eq!(*state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
@@ -42,5 +43,55 @@ fn get_and_set_storage_value() -> Result<()> {
     state.set_storage_at(contract_address1, key1, modified_storage_value1);
     assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
     assert_eq!(*state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
+    Ok(())
+}
+
+#[test]
+fn nonce_get_uninitialized() -> Result<()> {
+    let mut state = CachedState::new(DictStateReader::default());
+    let contract_address = ContractAddress::try_from(shash!("0x1"))?;
+
+    assert_eq!(*state.get_nonce_at(contract_address).unwrap(), uninitialized_nonce());
+    Ok(())
+}
+
+#[test]
+fn gets_nonce() -> Result<()> {
+    let contract_address = ContractAddress::try_from(shash!("0x0"))?;
+    let initial_nonce = Nonce::new(shash!("0x1"));
+    let mut state = CachedState::new(DictStateReader {
+        contract_address_to_nonce: HashMap::from([(contract_address, initial_nonce)]),
+        ..Default::default()
+    });
+    assert_eq!(*state.get_nonce_at(contract_address).unwrap(), initial_nonce);
+    Ok(())
+}
+
+#[test]
+fn increments_nonce() -> Result<()> {
+    let contract_address1 = ContractAddress::try_from(shash!("0x100"))?;
+    let contract_address2 = ContractAddress::try_from(shash!("0x200"))?;
+    let initial_nonce1 = Nonce::new(shash!("0x1"));
+    let initial_nonce2 = Nonce::new(shash!("0x1"));
+    let mut state = CachedState::new(DictStateReader {
+        contract_address_to_nonce: HashMap::from([
+            (contract_address1, initial_nonce1),
+            (contract_address2, initial_nonce2),
+        ]),
+        ..Default::default()
+    });
+
+    state.increment_nonce(contract_address1)?;
+    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), Nonce::new(shash!("0x2")));
+    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), Nonce::new(shash!("0x1")));
+
+    state.increment_nonce(contract_address1)?;
+    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), Nonce::new(shash!("0x3")));
+    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), Nonce::new(shash!("0x1")));
+
+    state.increment_nonce(contract_address2)?;
+    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), Nonce::new(shash!("0x3")));
+    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), Nonce::new(shash!("0x2")));
+
     Ok(())
 }
