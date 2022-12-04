@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 use cairo_rs::bigint;
 use cairo_rs::hint_processor::hint_processor_definition::HintProcessor;
 use cairo_rs::serde::deserialize_program::{
-    deserialize_array_of_bigint_hex, deserialize_bigint_hex, HintParams, Identifier,
+    deserialize_array_of_bigint_hex, deserialize_bigint_hex, Attribute, HintParams, Identifier,
     ReferenceManager,
 };
 use cairo_rs::types::errors::program_errors::ProgramError;
@@ -79,7 +79,8 @@ pub fn execute_call_entry_point(
     let program = convert_program_to_cairo_runner_format(&call_entry_point.contract_class.program)?;
     let layout: String = config.layout.into();
     let mut cairo_runner = CairoRunner::new(&program, &layout, config.proof_mode)?;
-    let mut vm = VirtualMachine::new(program.prime, config.enable_trace);
+    let mut vm =
+        VirtualMachine::new(program.prime, config.enable_trace, program.error_message_attributes);
     cairo_runner.initialize_function_runner(&mut vm)?;
 
     // Prepare arguments for run.
@@ -187,5 +188,9 @@ pub fn convert_program_to_cairo_runner_format(
         hints: serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?,
         reference_manager: serde_json::from_value::<ReferenceManager>(program.reference_manager)?,
         identifiers,
+        error_message_attributes: serde_json::from_value::<Vec<Attribute>>(program.attributes)?
+            .into_iter()
+            .filter(|attr| attr.name == "error_message")
+            .collect(),
     })
 }
