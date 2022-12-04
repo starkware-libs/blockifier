@@ -4,6 +4,8 @@ use std::fmt::Debug;
 use anyhow::{Context, Result};
 use starknet_api::{ClassHash, ContractAddress, Nonce, StarkFelt, StorageKey};
 
+use crate::BlockifierError;
+
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
@@ -69,6 +71,40 @@ impl<SR: StateReader> CachedState<SR> {
             .get_nonce_at(contract_address)
             .with_context(|| format!("Cannot retrieve '{contract_address:?}' from the cache."))
     }
+
+    pub fn get_class_hash_at(
+        &mut self,
+        contract_address: ContractAddress,
+    ) -> Result<&ClassHash, StateReaderError> {
+        if self.cache.get_class_hash_at(contract_address).is_none() {
+            let class_hash = self.state_reader.get_class_hash_at(contract_address)?;
+            self.cache.set_class_hash_initial_values(contract_address, class_hash);
+        }
+
+        let class_hash = self
+            .cache
+            .get_class_hash_at(contract_address)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        Ok(class_hash)
+    }
+
+    pub fn set_contract_hash(
+        &mut self,
+        contract_address: ContractAddress,
+        class_hash: ClassHash,
+    ) -> Result<(), BlockifierError> {
+        if contract_address == uninitialized_contract_address() {
+            return Err(BlockifierError::OutOfRangeAddress);
+        }
+
+        let current_class_hash = self.get_class_hash_at(contract_address)?;
+        if *current_class_hash != uninitialized_class_hash() {
+            return Err(BlockifierError::ContractAddressUnavailable { contract_address });
+        }
+
+        self.cache.set_class_hash_writes(contract_address, class_hash);
+        Ok(())
+    }
 }
 
 /// A read-only API for accessing StarkNet global state.
@@ -87,9 +123,10 @@ pub trait StateReader {
 
     /// Returns the class hash of the contract class at the given contract instance;
     /// uninitialized class hash, if the address is unassigned.
-    fn get_class_hash_at(&self, _contract_address: ContractAddress) -> Result<ClassHash> {
-        unimplemented!();
-    }
+    fn get_class_hash_at(
+        &self,
+        contract_address: ContractAddress,
+    ) -> Result<ClassHash, StateReaderError>;
 }
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -116,6 +153,7 @@ pub type ContractStorageKey = (ContractAddress, StorageKey);
 pub struct DictStateReader {
     pub contract_storage_key_to_value: HashMap<ContractStorageKey, StarkFelt>,
     pub contract_address_to_nonce: HashMap<ContractAddress, Nonce>,
+    pub contract_address_to_class_hash: HashMap<ContractAddress, ClassHash>,
 }
 
 impl StateReader for DictStateReader {
@@ -141,6 +179,18 @@ impl StateReader for DictStateReader {
             .unwrap_or_else(uninitialized_nonce);
         Ok(nonce)
     }
+
+    fn get_class_hash_at(
+        &self,
+        contract_address: ContractAddress,
+    ) -> Result<ClassHash, StateReaderError> {
+        let class_hash = self
+            .contract_address_to_class_hash
+            .get(&contract_address)
+            .copied()
+            .unwrap_or_else(uninitialized_class_hash);
+        Ok(class_hash)
+    }
 }
 
 /// Caches read and write requests.
@@ -149,12 +199,12 @@ impl StateReader for DictStateReader {
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
-    _class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
+    class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
-    _class_hash_writes: HashMap<ContractAddress, ClassHash>,
+    class_hash_writes: HashMap<ContractAddress, ClassHash>,
     storage_writes: HashMap<ContractStorageKey, StarkFelt>,
 }
 
@@ -203,19 +253,34 @@ impl StateCache {
     fn set_nonce_writes(&mut self, contract_address: ContractAddress, nonce: Nonce) {
         self.nonce_writes.insert(contract_address, nonce);
     }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> Option<&ClassHash> {
+        self.class_hash_writes
+            .get(&contract_address)
+            .or_else(|| self.class_hash_initial_values.get(&contract_address))
+    }
+
+    fn set_class_hash_initial_values(
+        &mut self,
+        contract_address: ContractAddress,
+        class_hash: ClassHash,
+    ) {
+        self.class_hash_initial_values.insert(contract_address, class_hash);
+    }
+
+    fn set_class_hash_writes(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
+        self.class_hash_writes.insert(contract_address, class_hash);
+    }
 }
 
-// TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `TryFrom`
-fn u64_try_from_starkfelt(hash: StarkFelt) -> Result<u64> {
-    let as_bytes: [u8; 8] = hash.bytes()[24..32].try_into()?;
-    Ok(u64::from_be_bytes(as_bytes))
+fn uninitialized_contract_address() -> ContractAddress {
+    // Generates the 0 address, which we consider to be uninitialized.
+    ContractAddress::default()
 }
 
-// TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `From`
-fn nonce_try_from_u64(num: u64) -> Result<Nonce> {
-    let num_hex = format!("0x{num:x}");
-    let felt = StarkFelt::from_hex(&num_hex)?;
-    Ok(Nonce::new(felt))
+fn uninitialized_class_hash() -> ClassHash {
+    // Generates the 0 hash, which we consider to be uninitialized.
+    ClassHash::default()
 }
 
 fn uninitialized_felt() -> StarkFelt {
@@ -229,4 +294,17 @@ fn uninitialized_storage() -> StarkFelt {
 
 fn uninitialized_nonce() -> Nonce {
     Nonce::new(uninitialized_felt())
+}
+
+// TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `TryFrom`
+fn u64_try_from_starkfelt(hash: StarkFelt) -> Result<u64> {
+    let as_bytes: [u8; 8] = hash.bytes()[24..32].try_into()?;
+    Ok(u64::from_be_bytes(as_bytes))
+}
+
+// TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `From`
+fn nonce_try_from_u64(num: u64) -> Result<Nonce> {
+    let num_hex = format!("0x{num:x}");
+    let felt = StarkFelt::from_hex(&num_hex)?;
+    Ok(Nonce::new(felt))
 }
