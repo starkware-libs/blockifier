@@ -1,5 +1,7 @@
 use anyhow::Result;
-use starknet_api::{ClassHash, ContractAddress, Nonce, StarkFelt, StorageKey};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 
 /// A read-only API for accessing StarkNet global state.
 pub trait StateReader {
