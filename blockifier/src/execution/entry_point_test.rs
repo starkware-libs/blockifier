@@ -32,22 +32,20 @@ fn test_entry_point_without_arg() -> Result<()> {
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_hex(WITHOUT_ARG_SELECTOR)?),
+        EntryPointSelector(StarkHash::try_from(WITHOUT_ARG_SELECTOR)?),
         CallData(vec![]),
     );
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
-// TODO(Adi, 29/11/2022): Remove the 'StarkFelt::from_u64' conversions once there is a From<u64>
-// trait for StarkFelt.
 #[test]
 fn test_entry_point_with_arg() -> Result<()> {
-    let calldata = CallData(vec![StarkFelt::from_u64(25)]);
+    let calldata = CallData(vec![StarkFelt::from(25)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_hex(WITH_ARG_SELECTOR)?),
+        EntryPointSelector(StarkHash::try_from(WITH_ARG_SELECTOR)?),
         calldata,
     );
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
@@ -56,11 +54,11 @@ fn test_entry_point_with_arg() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_builtin() -> Result<()> {
-    let calldata = CallData(vec![StarkFelt::from_u64(47), StarkFelt::from_u64(31)]);
+    let calldata = CallData(vec![StarkFelt::from(47), StarkFelt::from(31)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_hex(BITWISE_AND_SELECTOR)?),
+        EntryPointSelector(StarkHash::try_from(BITWISE_AND_SELECTOR)?),
         calldata,
     );
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
@@ -69,11 +67,11 @@ fn test_entry_point_with_builtin() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_hint() -> Result<()> {
-    let calldata = CallData(vec![StarkFelt::from_u64(81)]);
+    let calldata = CallData(vec![StarkFelt::from(81)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_hex(SQRT_SELECTOR)?),
+        EntryPointSelector(StarkHash::try_from(SQRT_SELECTOR)?),
         calldata,
     );
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
@@ -82,14 +80,14 @@ fn test_entry_point_with_hint() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_return_value() -> Result<()> {
-    let calldata = CallData(vec![StarkFelt::from_u64(23)]);
+    let calldata = CallData(vec![StarkFelt::from(23)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_hex(RETURN_RESULT_SELECTOR)?),
+        EntryPointSelector(StarkHash::try_from(RETURN_RESULT_SELECTOR)?),
         calldata,
     );
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from_u64(23)]);
+    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(23)]);
     Ok(())
 }
 
@@ -98,7 +96,7 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_u64(2)),
+        EntryPointSelector(StarkHash::from(2)),
         CallData(vec![]),
     );
     assert_eq!(
@@ -113,9 +111,9 @@ fn test_entry_point_with_syscall() -> Result<()> {
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
-        EntryPointSelector(StarkHash::from_hex(GET_VALUE_SELECTOR)?),
-        CallData(vec![StarkFelt::from_u64(1234)]),
+        EntryPointSelector(StarkHash::try_from(GET_VALUE_SELECTOR)?),
+        CallData(vec![StarkFelt::from(1234)]),
     );
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from_u64(17)]);
+    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(17)]);
     Ok(())
 }

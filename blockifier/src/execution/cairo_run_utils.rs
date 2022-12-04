@@ -55,7 +55,7 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
     }
 
     let bigint_hex = format!("{bigint:#x}");
-    match StarkFelt::from_hex(&bigint_hex) {
+    match StarkFelt::try_from(bigint_hex.as_str()) {
         Ok(felt) => Ok(felt),
         Err(e) => bail!(e),
     }
