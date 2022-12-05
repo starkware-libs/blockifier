@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use starknet_api::hash::StarkHash;
 use starknet_api::shash;
@@ -26,7 +27,7 @@ fn get_and_set_storage_value() -> Result<()> {
     let storage_val1: StarkFelt = shash!("0x5");
 
     let mut state = CachedState::new(DictStateReader {
-        contract_storage_key_to_value: HashMap::from([
+        storage_view: HashMap::from([
             ((contract_address0, key0), storage_val0),
             ((contract_address1, key1), storage_val1),
         ]),
@@ -63,7 +64,7 @@ fn get_and_increment_nonce() -> Result<()> {
     let initial_nonce = Nonce(shash!("0x1"));
 
     let mut state = CachedState::new(DictStateReader {
-        contract_address_to_nonce: HashMap::from([
+        address_to_nonce: HashMap::from([
             (contract_address1, initial_nonce),
             (contract_address2, initial_nonce),
         ]),
@@ -86,6 +87,28 @@ fn get_and_increment_nonce() -> Result<()> {
     let nonce2_plus_one = Nonce(shash!("0x2"));
     assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
     assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), nonce2_plus_one);
+
+    Ok(())
+}
+
+#[test]
+fn get_contract_class() -> Result<()> {
+    // Positive flow.
+    let existing_class_hash = ClassHash(shash!("0x100"));
+    let contract_class = ContractClass::default();
+    let mut state = CachedState::new(DictStateReader {
+        class_hash_to_class: HashMap::from([(
+            existing_class_hash,
+            Rc::new(contract_class.clone()),
+        )]),
+        ..Default::default()
+    });
+    assert_eq!(*state.get_contract_class(&existing_class_hash).unwrap(), contract_class);
+
+    // Negative flow.
+    let missing_class_hash = ClassHash(shash!("0x101"));
+    assert_matches!(state.get_contract_class(&missing_class_hash),
+    Err(StateReaderError::UndeclaredClassHash(class_hash)) if class_hash == missing_class_hash);
 
     Ok(())
 }
