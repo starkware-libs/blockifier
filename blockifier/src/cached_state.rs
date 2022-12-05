@@ -1,13 +1,19 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use anyhow::{Context, Result};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
+use crate::execution::contract_class::ContractClass;
+use crate::execution::errors::PreExecutionError;
+
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
+
+type ContractClassMapping = HashMap<ClassHash, Rc<ContractClass>>;
 
 /// Caches read and write requests.
 ///
@@ -16,13 +22,14 @@ mod test;
 #[derive(Default)]
 pub struct CachedState<SR: StateReader> {
     pub state_reader: SR,
-    // Invariant: the cache should remain private.
+    // Invariant: following attributes should remain private.
     cache: StateCache,
+    class_hash_to_class: ContractClassMapping,
 }
 
 impl<SR: StateReader> CachedState<SR> {
     pub fn new(state_reader: SR) -> Self {
-        Self { state_reader, cache: StateCache::default() }
+        Self { state_reader, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
 
     pub fn get_storage_at(
@@ -67,7 +74,20 @@ impl<SR: StateReader> CachedState<SR> {
         let next_nonce = u64_try_from_starkfelt(current_nonce.0)? + 1_u64;
         let next_nonce = nonce_try_from_u64(next_nonce)?;
         self.cache.set_nonce_value(contract_address, next_nonce);
+
         Ok(())
+    }
+
+    pub fn get_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> Result<Rc<ContractClass>, PreExecutionError> {
+        if !self.class_hash_to_class.contains_key(class_hash) {
+            let contract_class = self.state_reader.get_contract_class(class_hash)?;
+            self.class_hash_to_class.insert(*class_hash, Rc::clone(&contract_class));
+        }
+
+        Ok(Rc::clone(self.class_hash_to_class.get(class_hash).unwrap()))
     }
 }
 
@@ -91,6 +111,13 @@ pub trait StateReader {
     fn get_class_hash_at(&self, _contract_address: ContractAddress) -> Result<ClassHash> {
         unimplemented!();
     }
+
+    /// Returns the contract class of the given class hash;
+    /// UndeclaredClassHash Error if the class hash is undeclared.
+    fn get_contract_class(
+        &self,
+        class_hash: &ClassHash,
+    ) -> Result<Rc<ContractClass>, PreExecutionError>;
 }
 
 type ContractStorageKey = (ContractAddress, StorageKey);
@@ -98,8 +125,10 @@ type ContractStorageKey = (ContractAddress, StorageKey);
 /// A simple implementation of `StateReader` using `HashMap`s for storage.
 #[derive(Default)]
 pub struct DictStateReader {
-    pub contract_storage_key_to_value: HashMap<ContractStorageKey, StarkFelt>,
-    pub contract_address_to_nonce: HashMap<ContractAddress, Nonce>,
+    pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
+    pub address_to_nonce: HashMap<ContractAddress, Nonce>,
+    pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
+    pub class_hash_to_class: ContractClassMapping,
 }
 
 impl StateReader for DictStateReader {
@@ -109,18 +138,24 @@ impl StateReader for DictStateReader {
         key: StorageKey,
     ) -> Result<StarkFelt> {
         let contract_storage_key = (contract_address, key);
-        let value = self
-            .contract_storage_key_to_value
-            .get(&contract_storage_key)
-            .copied()
-            .unwrap_or_default();
+        let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
         Ok(value)
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> Result<Nonce> {
-        let nonce =
-            self.contract_address_to_nonce.get(&contract_address).copied().unwrap_or_default();
+        let nonce = self.address_to_nonce.get(&contract_address).copied().unwrap_or_default();
         Ok(nonce)
+    }
+
+    fn get_contract_class(
+        &self,
+        class_hash: &ClassHash,
+    ) -> Result<Rc<ContractClass>, PreExecutionError> {
+        let contract_class = self.class_hash_to_class.get(class_hash);
+        match contract_class {
+            Some(contract_class) => Ok(Rc::clone(contract_class)),
+            None => Err(PreExecutionError::UndeclaredClassHash(*class_hash)),
+        }
     }
 }
 

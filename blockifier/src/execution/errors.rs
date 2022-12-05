@@ -1,6 +1,6 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::errors as cairo_rs_vm_errors;
-use starknet_api::core::EntryPointSelector;
+use starknet_api::core::{ClassHash, EntryPointSelector};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -8,6 +8,8 @@ use thiserror::Error;
 pub enum PreExecutionError {
     #[error("Entry point {0:#?} not found in contract.")]
     EntryPointNotFound(EntryPointSelector),
+    #[error("Class with hash {0:#?} is not declared.")]
+    UndeclaredClassHash(ClassHash),
     #[error(transparent)]
     ProgramError(#[from] cairo_rs::types::errors::program_errors::ProgramError),
     #[error(transparent)]
