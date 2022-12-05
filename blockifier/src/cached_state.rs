@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use anyhow::{Context, Result};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::StorageKey;
+use starknet_api::state::{ContractClass, StorageKey};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -18,11 +19,16 @@ pub struct CachedState<SR: StateReader> {
     pub state_reader: SR,
     // Invariant: the cache should remain private.
     cache: StateCache,
+    contract_class_cache: HashMap<ClassHash, Rc<ContractClass>>,
 }
 
 impl<SR: StateReader> CachedState<SR> {
     pub fn new(state_reader: SR) -> Self {
-        Self { state_reader, cache: StateCache::default() }
+        Self {
+            state_reader,
+            cache: StateCache::default(),
+            contract_class_cache: HashMap::default(),
+        }
     }
 
     pub fn get_storage_at(
@@ -69,6 +75,20 @@ impl<SR: StateReader> CachedState<SR> {
         self.cache.set_nonce_value(contract_address, next_nonce);
         Ok(())
     }
+
+    pub fn get_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> Result<Option<Rc<ContractClass>>> {
+        if !self.contract_class_cache.contains_key(class_hash) {
+            let contract_class = self.state_reader.get_contract_class(class_hash)?;
+            // TODO(Noa, 01/01/23): Consider optimizing by storing the None value in the cache
+            if let Some(contract_class) = contract_class {
+                self.contract_class_cache.insert(*class_hash, Rc::clone(&contract_class));
+            }
+        }
+        Ok(self.contract_class_cache.get(class_hash).cloned())
+    }
 }
 
 /// A read-only API for accessing StarkNet global state.
@@ -91,6 +111,9 @@ pub trait StateReader {
     fn get_class_hash_at(&self, _contract_address: ContractAddress) -> Result<ClassHash> {
         unimplemented!();
     }
+
+    /// Returns the contract class of the given class hash; None if the class hash is uninitialized.
+    fn get_contract_class(&self, class_hash: &ClassHash) -> Result<Option<Rc<ContractClass>>>;
 }
 
 type ContractStorageKey = (ContractAddress, StorageKey);
@@ -100,6 +123,7 @@ type ContractStorageKey = (ContractAddress, StorageKey);
 pub struct DictStateReader {
     pub contract_storage_key_to_value: HashMap<ContractStorageKey, StarkFelt>,
     pub contract_address_to_nonce: HashMap<ContractAddress, Nonce>,
+    pub contract_hash_to_class: HashMap<ClassHash, Rc<ContractClass>>,
 }
 
 impl StateReader for DictStateReader {
@@ -121,6 +145,11 @@ impl StateReader for DictStateReader {
         let nonce =
             self.contract_address_to_nonce.get(&contract_address).copied().unwrap_or_default();
         Ok(nonce)
+    }
+
+    fn get_contract_class(&self, class_hash: &ClassHash) -> Result<Option<Rc<ContractClass>>> {
+        let contract_class = self.contract_hash_to_class.get(class_hash).cloned();
+        Ok(contract_class)
     }
 }
 

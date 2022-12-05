@@ -89,3 +89,20 @@ fn get_and_increment_nonce() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn get_contract_class() -> Result<()> {
+    let contract_hash = ClassHash(shash!("0x100"));
+    let contract_class = ContractClass::default();
+    let contract_class_rc1 = Rc::new(contract_class);
+    let contract_class_rc2 = Rc::clone(&contract_class_rc1);
+    let contract_hash_not_found = ClassHash(shash!("0x101"));
+    let mut state = CachedState::new(DictStateReader {
+        contract_hash_to_class: HashMap::from([(contract_hash, contract_class_rc1)]),
+        ..Default::default()
+    });
+    assert_eq!(state.get_contract_class(&contract_hash_not_found).unwrap(), None);
+    assert_eq!(state.get_contract_class(&contract_hash).unwrap().unwrap(), contract_class_rc2);
+
+    Ok(())
+}
