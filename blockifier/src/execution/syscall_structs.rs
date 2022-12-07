@@ -3,18 +3,25 @@ use std::mem;
 
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkFelt;
 
-use crate::execution::cairo_run_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::entry_point::EntryPointResult;
+use crate::execution::errors::SyscallExecutionError;
+use crate::execution::execution_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::syscall_handling::SyscallHandler;
 
 pub type ReadRequestResult = EntryPointResult<Box<dyn SyscallRequest>>;
 pub type ExecutionResult = EntryPointResult<Box<dyn SyscallResponse>>;
 pub type WriteResponseResult = EntryPointResult<()>;
 
-const STORAGE_READ_SELECTOR: &str = "0x53746f7261676552656164";
-const STORAGE_WRITE_SELECTOR: &str = "0x53746f726167655772697465";
+const STORAGE_READ_SELECTOR_BYTES: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 83, 116, 111, 114, 97, 103, 101,
+    82, 101, 97, 100,
+];
+const STORAGE_WRITE_SELECTOR_BYTES: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 83, 116, 111, 114, 97, 103, 101,
+    87, 114, 105, 116, 101,
+];
 
 pub trait SyscallRequest {
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult
@@ -105,12 +112,27 @@ pub struct SyscallInfo {
     pub syscall_response_size: usize,
 }
 
-// TODO(AlonH, 21/12/2022): Define and use a syscall selector enum instead of `StarkHash`.
-pub fn get_syscall_info() -> HashMap<StarkHash, SyscallInfo> {
-    let selector_error_msg = "Syscall selector should be able to turn into a `StarkHash`.";
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum SyscallSelector {
+    Read,
+    Write,
+}
+
+impl SyscallSelector {
+    pub fn parse_selector(selector: StarkFelt) -> EntryPointResult<Self> {
+        let selector_bytes: [u8; 32] = selector.bytes().try_into().unwrap();
+        match selector_bytes {
+            STORAGE_READ_SELECTOR_BYTES => Ok(Self::Read),
+            STORAGE_WRITE_SELECTOR_BYTES => Ok(Self::Write),
+            bytes => Err(SyscallExecutionError::InvalidSyscallSelector(bytes).into()),
+        }
+    }
+}
+
+pub fn get_syscall_info() -> HashMap<SyscallSelector, SyscallInfo> {
     [
         (
-            StarkHash::try_from(STORAGE_READ_SELECTOR).expect(selector_error_msg),
+            SyscallSelector::Read,
             SyscallInfo {
                 syscall_request_factory: Box::new(StorageReadRequest::read),
                 syscall_request_size: size_in_felts::<StorageReadRequest>(),
@@ -118,7 +140,7 @@ pub fn get_syscall_info() -> HashMap<StarkHash, SyscallInfo> {
             },
         ),
         (
-            StarkHash::try_from(STORAGE_WRITE_SELECTOR).expect(selector_error_msg),
+            SyscallSelector::Write,
             SyscallInfo {
                 syscall_request_factory: Box::new(StorageWriteRequest::read),
                 syscall_request_size: size_in_felts::<StorageWriteRequest>(),

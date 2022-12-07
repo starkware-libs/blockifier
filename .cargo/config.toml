@@ -1,4 +1,3 @@
 [build]
 # Configuration for these lints should be placed in `.clippy.toml` at the crate root.
-# TODO(AlonH, 21/12/2022): Remove "-Aclippy::result-large-err" once errors are handled.
-rustflags = ["-Dwarnings", "-Dfuture-incompatible", "-Dnonstandard-style", "-Drust-2018-idioms", "-Dunused", "-Aclippy::result-large-err"]
+rustflags = ["-Dwarnings", "-Dfuture-incompatible", "-Dnonstandard-style", "-Drust-2018-idioms", "-Dunused"]
