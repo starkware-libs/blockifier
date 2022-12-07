@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use anyhow::Result;
 use pretty_assertions::assert_eq;
 use starknet_api::core::EntryPointSelector;
@@ -9,6 +7,7 @@ use starknet_api::transaction::CallData;
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
+use crate::transaction::transaction_utils::get_contract_class;
 
 const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/simple_contract_compiled.json";
 const WITHOUT_ARG_SELECTOR: &str =
@@ -23,8 +22,7 @@ const GET_VALUE_SELECTOR: &str =
     "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
 
 fn create_test_contract_class() -> ContractClass {
-    let path = PathBuf::from(TEST_CONTRACT_PATH);
-    ContractClass::from_file(&path).expect("File must contain the content of a compiled contract.")
+    get_contract_class(TEST_CONTRACT_PATH)
 }
 
 #[test]
