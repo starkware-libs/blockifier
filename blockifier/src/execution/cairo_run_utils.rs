@@ -127,7 +127,7 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> EntryPointResult<Vec<St
     let return_data_size = match return_data_size {
         // TODO(AlonH, 21/12/2022): Handle case where res_data_size is larger than usize.
         MaybeRelocatable::Int(return_data_size) => return_data_size.bits() as usize,
-        relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable)),
+        relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
     let values = vm.get_continuous_range(&return_data_ptr, return_data_size)?;
@@ -190,9 +190,9 @@ pub fn get_felt_from_memory_cell(
     match memory_cell {
         Some(MaybeRelocatable::Int(value)) => {
             // TODO(AlonH, 21/12/2022): Return appropriate error.
-            bigint_to_felt(&value).map_err(|_| VirtualMachineError::BigintToUsizeFail)
+            bigint_to_felt(&value).map_err(|_| VirtualMachineError::BigintToUsizeFail.into())
         }
-        Some(relocatable) => Err(VirtualMachineError::ExpectedInteger(relocatable)),
-        None => Err(VirtualMachineError::NoneInMemoryRange),
+        Some(relocatable) => Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
+        None => Err(VirtualMachineError::NoneInMemoryRange.into()),
     }
 }
