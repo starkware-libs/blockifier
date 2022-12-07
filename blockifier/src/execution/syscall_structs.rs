@@ -3,7 +3,7 @@ use std::mem;
 
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::{StarkFelt, StarkHash};
+use starknet_api::hash::{StarkFelt, StarkHash};
 
 use crate::execution::cairo_run_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::entry_point::EntryPointResult;
@@ -41,7 +41,7 @@ impl SyscallRequest for StorageReadRequest {
 
     fn execute(&self, _syscall_handler: &SyscallHandler) -> ExecutionResult {
         // TODO(AlonH, 21/12/2022): Perform state read.
-        let value = StarkFelt::from_u64(17);
+        let value = StarkFelt::from(17);
         Ok(Box::new(StorageReadResponse { value }))
     }
 }
@@ -74,7 +74,7 @@ pub struct SyscallInfo {
 pub fn get_syscall_info() -> HashMap<StarkHash, SyscallInfo> {
     let selector_error_msg = "Syscall selector should be able to turn into a `StarkHash`.";
     [(
-        StarkHash::from_hex(STORAGE_READ_SELECTOR).expect(selector_error_msg),
+        StarkHash::try_from(STORAGE_READ_SELECTOR).expect(selector_error_msg),
         SyscallInfo {
             syscall_request_factory: Box::new(StorageReadRequest::read),
             syscall_request_size: size_in_felts::<StorageReadRequest>(),

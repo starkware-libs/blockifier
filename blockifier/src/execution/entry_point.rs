@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
-use starknet_api::{CallData, EntryPoint, EntryPointSelector, EntryPointType, StarkFelt};
+use starknet_api::core::EntryPointSelector;
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::{EntryPoint, EntryPointType};
+use starknet_api::transaction::CallData;
 
 use crate::execution::cairo_run_utils::{execute_call_entry_point, CairoRunConfig};
 use crate::execution::contract_class::ContractClass;

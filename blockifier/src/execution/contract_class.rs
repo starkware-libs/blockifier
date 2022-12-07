@@ -5,7 +5,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use starknet_api::{EntryPoint, EntryPointType, Program};
+use starknet_api::state::{EntryPoint, EntryPointType, Program};
 
 /// Represents a StarkNet contract class.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize, Serialize)]

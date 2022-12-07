@@ -15,7 +15,7 @@ use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
-use starknet_api::StarkFelt;
+use starknet_api::hash::StarkFelt;
 
 use crate::execution::entry_point::{CallEntryPoint, EntryPointResult};
 use crate::execution::syscall_handling::initialize_syscall_handler;
@@ -55,17 +55,10 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
     }
 
     let bigint_hex = format!("{bigint:#x}");
-    match StarkFelt::from_hex(&bigint_hex) {
+    match StarkFelt::try_from(bigint_hex.as_str()) {
         Ok(felt) => Ok(felt),
         Err(e) => bail!(e),
     }
-}
-
-// TODO(Noa, 30/12/22): Remove after integrating with FN (EntryPointOffset contains usize (and not
-// StarkFelt\StarkHash).
-pub fn usize_try_from_starkfelt(felt: &StarkFelt) -> Result<usize> {
-    let as_bytes: [u8; 8] = felt.bytes()[24..32].try_into()?;
-    Ok(usize::from_be_bytes(as_bytes))
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -107,7 +100,7 @@ pub fn execute_call_entry_point(
 
     // Resolve initial PC from EP indicator.
     let entry_point = call_entry_point.find_entry_point_in_contract()?;
-    let entry_point_pc = usize_try_from_starkfelt(&entry_point.offset.0)?;
+    let entry_point_pc = entry_point.offset.0;
 
     // Run.
     cairo_runner.run_from_entrypoint(
@@ -144,7 +137,7 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> EntryPointResult<Vec<St
 
 // TODO(Noa, 01/12/2022): Change this temporary solution.
 pub fn convert_program_to_cairo_runner_format(
-    program: &starknet_api::Program,
+    program: &starknet_api::state::Program,
 ) -> Result<Program, ProgramError> {
     let program = program.clone();
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;

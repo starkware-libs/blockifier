@@ -1,6 +1,6 @@
 use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
-use starknet_api::StarkFelt;
+use starknet_api::hash::StarkFelt;
 
 use crate::execution::cairo_run_utils::{bigint_to_felt, felt_to_bigint};
 
@@ -12,15 +12,13 @@ fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<BigInt>)
 
     let felt_from_hex_error_message = "`StarkFelt` construction from hex has failed.";
     let felts = vec![
-        // TODO(Adi, 29/11/2022): Remove the 'StarkFelt::from_u64' conversions once there is a
-        // From<u64> trait for StarkFelt.
-        StarkFelt::from_u64(0),
-        StarkFelt::from_u64(1),
-        StarkFelt::from_u64(1234),
+        StarkFelt::from(0),
+        StarkFelt::from(1),
+        StarkFelt::from(1234),
         // TODO(Adi, 10/12/2022): The construction of a StarkFelt holding the STARK prime should
         // fail once full-node have a field representation; remove this test case.
-        StarkFelt::from_hex(STARK_PRIME).expect(felt_from_hex_error_message),
-        StarkFelt::from_hex(STARK_PRIME_MINUS_ONE).expect(felt_from_hex_error_message),
+        StarkFelt::try_from(STARK_PRIME).expect(felt_from_hex_error_message),
+        StarkFelt::try_from(STARK_PRIME_MINUS_ONE).expect(felt_from_hex_error_message),
     ];
     let bigints = vec![
         BigInt::zero(),
