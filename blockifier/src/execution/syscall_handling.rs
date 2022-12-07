@@ -9,13 +9,15 @@ use cairo_rs::hint_processor::hint_processor_definition::HintReference;
 use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::types::relocatable::Relocatable;
+use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 
 use crate::execution::cairo_run_utils::get_felt_from_memory_cell;
 use crate::execution::entry_point::EntryPointResult;
-use crate::execution::syscall_structs::get_syscall_info;
+use crate::execution::errors::SyscallExecutionError;
+use crate::execution::syscall_structs::{get_syscall_info, SyscallSelector};
 
 /// Responsible for managing the state of StarkNet syscalls.
 pub struct SyscallHandler {
@@ -28,6 +30,15 @@ impl SyscallHandler {
     }
 }
 
+pub fn verify_syscall_ptr(ptr: &Relocatable, expected_ptr: &Relocatable) -> EntryPointResult<()> {
+    if ptr != expected_ptr {
+        return Err(
+            SyscallExecutionError::BadSyscallPointer(expected_ptr.clone(), ptr.clone()).into()
+        );
+    }
+    Ok(())
+}
+
 /// Infers and executes the next syscall.
 /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
 pub fn execute_syscall(
@@ -36,13 +47,13 @@ pub fn execute_syscall(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, BigInt>,
-) -> EntryPointResult<()> {
+) -> Result<(), VirtualMachineError> {
     let syscall_handler = execution_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
     let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-    // TODO(AlonH, 21/12/2022): Return error instead of panic.
-    assert_eq!(&syscall_ptr, &syscall_handler.expected_syscall_ptr);
+    verify_syscall_ptr(&syscall_ptr, &syscall_handler.expected_syscall_ptr)?;
 
-    let selector = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
+    let selector_felt = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
+    let selector = SyscallSelector::parse_selector(selector_felt)?;
     let syscall_infos = get_syscall_info();
     let syscall_info = syscall_infos
         .get(&selector)
