@@ -10,7 +10,6 @@ use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::transaction::transaction_utils::get_contract_class;
 
@@ -32,14 +31,10 @@ const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
 // TODO(Noa, 30/12/22): Move it to a test_utils.rs file and use it in cached_state_test.rs (same for
 // the relevant constants above)
-fn create_test_contract_class() -> ContractClass {
-    get_contract_class(TEST_CONTRACT_PATH)
-}
-
 fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([(
         ClassHash(shash!(TEST_CLASS_HASH)),
-        Rc::new(create_test_contract_class()),
+        Rc::new(get_contract_class(TEST_CONTRACT_PATH)),
     )]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
 }

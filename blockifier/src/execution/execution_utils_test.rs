@@ -1,5 +1,6 @@
 use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
+use pretty_assertions::assert_eq;
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::execution_utils::{bigint_to_felt, felt_to_bigint};
