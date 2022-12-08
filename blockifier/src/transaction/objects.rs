@@ -3,6 +3,10 @@ use std::collections::HashMap;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
+use crate::transaction::errors::TransactionExecutionError;
+
+pub type TransactionResult<T> = Result<T, TransactionExecutionError>;
+
 // TODO(Adi, 10/12/2022): Change to the Python class definition, once the 'execute' function of
 // 'CallEntryPoint' returns a CallInfo.
 pub type CallInfo = Vec<StarkFelt>;
