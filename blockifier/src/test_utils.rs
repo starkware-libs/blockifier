@@ -9,6 +9,14 @@ use starknet_api::shash;
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
 
+pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
+// TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
+pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
+// TODO(Adi, 10/02/2022): Replace with 'account_contract_without_validations' once the syscalls are
+// implemented.
+pub const ACCOUNT_CONTRACT_PATH: &str =
+    "./feature_contracts/compiled/account_without_some_syscalls_compiled.json";
+
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/simple_contract_compiled.json";
 pub const WITHOUT_ARG_SELECTOR: &str =
     "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
@@ -25,7 +33,7 @@ pub const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
 pub const TEST_DEPLOY_SELECTOR: &str =
     "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
-pub const TEST_CLASS_HASH: &str = "0x1";
+pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
 // TODO(Adi, 25/12/2022): Consider removing this function once we use the starknet_api transaction
