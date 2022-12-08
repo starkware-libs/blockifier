@@ -2,6 +2,8 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::execution::errors::EntryPointExecutionError;
+
 #[derive(Error, Debug)]
 pub enum FeeTransferError {
     #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
@@ -10,6 +12,8 @@ pub enum FeeTransferError {
 
 #[derive(Error, Debug)]
 pub enum TransactionExecutionError {
+    #[error(transparent)]
+    EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error(transparent)]
     FeeTransferError(#[from] FeeTransferError),
     #[error(

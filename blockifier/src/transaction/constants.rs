@@ -10,3 +10,5 @@ pub const VALIDATE_ENTRY_POINT_SELECTOR: &str =
 // implemented.
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_some_syscalls_compiled.json";
+// TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
+pub const ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x0";
