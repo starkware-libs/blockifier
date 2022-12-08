@@ -14,6 +14,8 @@ pub mod test;
 
 pub type EntryPointResult<T> = Result<T, EntryPointExecutionError>;
 
+// TODO(Adi, 15/10/2023): Change calldata field to have a reference to a CallData object and change
+// calldata cloning everywhere. Same for objects containing CallEntryPoint, and for retdata.
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
