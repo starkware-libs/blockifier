@@ -13,6 +13,7 @@ num-integer = "0.1.45"
 num-traits = "0.2"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.81" , features = ["arbitrary_precision"]}
+sha3 = "0.10.6"
 starknet_api =  { git = "https://github.com/starkware-libs/starknet-api", features=["testing"] }
 thiserror = "1.0.37"
 
