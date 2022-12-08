@@ -6,7 +6,6 @@ pub const EXECUTE_ENTRY_POINT_SELECTOR: &str =
 pub const VALIDATE_ENTRY_POINT_SELECTOR: &str =
     "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775";
 
-// TODO(Adi, 10/02/2022): Replace with 'account_contract_without_validations' once the syscalls are
-// implemented.
-pub const ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_without_some_syscalls_compiled.json";
+// The index of the beginning of the called contract calldata in the invoke transaction
+// `__execute__` calldata.
+pub const CALL_CONTRACT_CALLDATA_INDEX: usize = 3;
