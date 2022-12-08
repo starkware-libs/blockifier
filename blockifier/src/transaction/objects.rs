@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use starknet_api::transaction::Fee;
 
 use crate::execution::entry_point::CallInfo;
+use crate::transaction::errors::TransactionExecutionError;
+
+pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
 // TODO(Adi, 10/12/2022): Add a 'transaction_type' field.
 /// Contains the information gathered by the execution of a transaction.
