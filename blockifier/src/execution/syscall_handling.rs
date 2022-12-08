@@ -17,7 +17,7 @@ use num_bigint::BigInt;
 use crate::execution::cairo_run_utils::get_felt_from_memory_cell;
 use crate::execution::entry_point::EntryPointResult;
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::syscall_structs::{get_syscall_info, SyscallSelector};
+use crate::execution::syscall_structs::{SyscallRequest, SyscallSelector};
 
 /// Responsible for managing the state of StarkNet syscalls.
 pub struct SyscallHandler {
@@ -54,19 +54,13 @@ pub fn execute_syscall(
 
     let selector_felt = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
     let selector = SyscallSelector::parse_selector(selector_felt)?;
-    let syscall_infos = get_syscall_info();
-    let syscall_info = syscall_infos
-        .get(&selector)
-        // TODO(AlonH, 21/12/2022): Return error instead of panic.
-        .unwrap_or_else(|| panic!("{:?} is not a valid selector.", selector));
-    let request = (syscall_info.syscall_request_factory)(vm, &syscall_ptr)?;
+    let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
 
     let response = request.execute(syscall_handler)?;
-    response.write(vm, &(&syscall_ptr + syscall_info.syscall_request_size))?;
+    response.write(vm, &(&syscall_ptr + request.size()))?;
 
-    syscall_handler.expected_syscall_ptr = &syscall_handler.expected_syscall_ptr
-        + syscall_info.syscall_request_size
-        + syscall_info.syscall_response_size;
+    syscall_handler.expected_syscall_ptr =
+        &syscall_handler.expected_syscall_ptr + request.size() + response.size();
 
     Ok(())
 }
