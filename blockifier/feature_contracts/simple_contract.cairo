@@ -1,7 +1,7 @@
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
-from starkware.starknet.common.syscalls import storage_read, storage_write
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
+from starkware.starknet.common.syscalls import storage_read, storage_write, library_call
 
 @external
 func without_arg() {
@@ -53,4 +53,18 @@ func get_value{syscall_ptr: felt*}(address: felt) -> (result: felt) {
     storage_write(address=address, value=18);
     let (value) = storage_read(address=address);
     return (result=value);
+}
+
+@external
+@raw_output
+func test_library_call{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    class_hash: felt, selector: felt, calldata_len: felt, calldata: felt*
+) -> (retdata_size: felt, retdata: felt*) {
+    let (retdata_size: felt, retdata: felt*) = library_call(
+        class_hash=class_hash,
+        function_selector=selector,
+        calldata_size=calldata_len,
+        calldata=calldata,
+    );
+    return (retdata_size=retdata_size, retdata=retdata);
 }
