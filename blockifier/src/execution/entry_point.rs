@@ -8,6 +8,10 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{execute_call_entry_point, CairoRunConfig};
 
+#[cfg(test)]
+#[path = "entry_point_test.rs"]
+pub mod entry_point_test;
+
 pub type EntryPointResult<T> = Result<T, EntryPointExecutionError>;
 
 /// Represents a call to an entry point of a StarkNet contract.
