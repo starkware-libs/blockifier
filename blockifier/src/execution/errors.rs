@@ -1,14 +1,17 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::errors::memory_errors::MemoryError;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
+use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
     #[error(transparent)]
-    VirtualMachineError(#[from] VirtualMachineError),
+    StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     SyscallExecutionError(#[from] SyscallExecutionError),
+    #[error(transparent)]
+    VirtualMachineError(#[from] VirtualMachineError),
 }
 
 impl From<MemoryError> for EntryPointExecutionError {
