@@ -7,6 +7,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
+use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -29,18 +30,20 @@ fn create_test_contract_class() -> ContractClass {
 
 #[test]
 fn test_entry_point_without_arg() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
         EntryPointSelector(StarkHash::try_from(WITHOUT_ARG_SELECTOR)?),
         CallData(vec![]),
     );
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_arg() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(25)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
@@ -48,12 +51,13 @@ fn test_entry_point_with_arg() -> Result<()> {
         EntryPointSelector(StarkHash::try_from(WITH_ARG_SELECTOR)?),
         calldata,
     );
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_builtin() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(47), StarkFelt::from(31)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
@@ -61,12 +65,13 @@ fn test_entry_point_with_builtin() -> Result<()> {
         EntryPointSelector(StarkHash::try_from(BITWISE_AND_SELECTOR)?),
         calldata,
     );
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_hint() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(81)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
@@ -74,12 +79,13 @@ fn test_entry_point_with_hint() -> Result<()> {
         EntryPointSelector(StarkHash::try_from(SQRT_SELECTOR)?),
         calldata,
     );
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_return_value() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(23)]);
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
@@ -87,12 +93,13 @@ fn test_entry_point_with_return_value() -> Result<()> {
         EntryPointSelector(StarkHash::try_from(RETURN_RESULT_SELECTOR)?),
         calldata,
     );
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(23)]);
+    assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(23)]);
     Ok(())
 }
 
 #[test]
 fn test_entry_point_not_found_in_contract() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
@@ -100,7 +107,7 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
         CallData(vec![]),
     );
     assert_eq!(
-        format!("{}", entry_point.execute().unwrap_err()),
+        format!("{}", entry_point.execute(state).unwrap_err()),
         format!("Entry point {:#?} not found in contract", entry_point.entry_point_selector)
     );
     Ok(())
@@ -108,12 +115,13 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_syscall() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let entry_point = CallEntryPoint::new(
         create_test_contract_class(),
         EntryPointType::External,
         EntryPointSelector(StarkHash::try_from(GET_VALUE_SELECTOR)?),
         CallData(vec![StarkFelt::from(1234)]),
     );
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(17)]);
+    assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(18)]);
     Ok(())
 }
