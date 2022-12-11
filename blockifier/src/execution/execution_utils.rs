@@ -17,8 +17,13 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
+use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, EntryPointResult};
 use crate::execution::syscall_handling::initialize_syscall_handler;
+
+#[cfg(test)]
+#[path = "execution_utils_test.rs"]
+pub mod test;
 
 #[derive(Debug)]
 pub enum Layout {
@@ -65,6 +70,7 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     config: CairoRunConfig,
+    state: CachedState<DictStateReader>,
 ) -> Result<Vec<StarkFelt>> {
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&call_entry_point.contract_class.program)?;
@@ -74,7 +80,8 @@ pub fn execute_call_entry_point(
         VirtualMachine::new(program.prime, config.enable_trace, program.error_message_attributes);
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
-    let (syscall_segment, hint_processor) = initialize_syscall_handler(&mut cairo_runner, &mut vm);
+    let (syscall_segment, hint_processor) =
+        initialize_syscall_handler(&mut cairo_runner, &mut vm, state);
 
     // Prepare arguments for run.
     let mut args: Vec<Box<dyn Any>> = Vec::new();
