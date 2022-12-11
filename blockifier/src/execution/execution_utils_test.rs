@@ -2,7 +2,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
 use starknet_api::hash::StarkFelt;
 
-use crate::execution::cairo_run_utils::{bigint_to_felt, felt_to_bigint};
+use crate::execution::execution_utils::{bigint_to_felt, felt_to_bigint};
 
 fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<BigInt>) {
     // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
