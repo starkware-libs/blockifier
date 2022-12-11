@@ -114,6 +114,6 @@ fn test_entry_point_with_syscall() -> Result<()> {
         EntryPointSelector(StarkHash::try_from(GET_VALUE_SELECTOR)?),
         CallData(vec![StarkFelt::from(1234)]),
     );
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(17)]);
+    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(18)]);
     Ok(())
 }
