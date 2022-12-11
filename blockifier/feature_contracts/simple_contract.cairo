@@ -50,7 +50,7 @@ func sqrt{range_check_ptr}(value: felt) {
 
 @external
 func get_value{syscall_ptr: felt*}(address: felt) -> (result: felt) {
-    let (value) = storage_read(address=address);
     storage_write(address=address, value=18);
+    let (value) = storage_read(address=address);
     return (result=value);
 }
