@@ -17,7 +17,11 @@ use num_bigint::BigInt;
 use crate::execution::entry_point::EntryPointResult;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
-use crate::execution::syscall_structs::{get_syscall_info, SyscallSelector};
+use crate::execution::syscall_structs::SyscallRequest;
+
+#[cfg(test)]
+#[path = "syscall_handling_test.rs"]
+mod test;
 
 /// Responsible for managing the state of StarkNet syscalls.
 pub struct SyscallHandler {
@@ -51,24 +55,19 @@ pub fn execute_syscall(
     _constants: &HashMap<String, BigInt>,
 ) -> Result<(), VirtualMachineError> {
     let syscall_handler = execution_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
-    let syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
+    let mut syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
     syscall_handler.verify_syscall_ptr(&syscall_ptr)?;
 
-    let selector_felt = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
-    let selector = SyscallSelector::parse_selector(selector_felt)?;
-    let syscall_infos = get_syscall_info();
-    let syscall_info = syscall_infos
-        .get(&selector)
-        // TODO(AlonH, 21/12/2022): Return error instead of panic.
-        .unwrap_or_else(|| panic!("{:?} is not a valid selector.", selector));
-    let request = (syscall_info.syscall_request_factory)(vm, &syscall_ptr)?;
+    let selector = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
+    let selector_size = 1;
+    syscall_ptr = &syscall_ptr + selector_size;
+    let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
 
     let response = request.execute(syscall_handler)?;
-    response.write(vm, &(&syscall_ptr + syscall_info.syscall_request_size))?;
+    response.write(vm, &(&syscall_ptr + request.size()))?;
 
-    syscall_handler.expected_syscall_ptr = &syscall_handler.expected_syscall_ptr
-        + syscall_info.syscall_request_size
-        + syscall_info.syscall_response_size;
+    syscall_handler.expected_syscall_ptr =
+        &syscall_handler.expected_syscall_ptr + selector_size + request.size() + response.size();
 
     Ok(())
 }
