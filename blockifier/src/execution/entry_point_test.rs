@@ -4,6 +4,7 @@ use anyhow::Result;
 use pretty_assertions::assert_eq;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
@@ -22,6 +23,8 @@ const RETURN_RESULT_SELECTOR: &str =
     "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701";
 const GET_VALUE_SELECTOR: &str =
     "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
+const TEST_LIBRARY_CALL_SELECTOR: &str =
+    "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
 
 fn create_test_contract_class() -> ContractClass {
     let path = PathBuf::from(TEST_CONTRACT_PATH);
@@ -123,5 +126,18 @@ fn test_entry_point_with_syscall() -> Result<()> {
         CallData(vec![StarkFelt::from(1234)]),
     );
     assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(18)]);
+    Ok(())
+}
+
+#[test]
+fn test_entry_point_with_library_call() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
+    let entry_point = CallEntryPoint::new(
+        create_test_contract_class(),
+        EntryPointType::External,
+        EntryPointSelector(StarkHash::try_from(TEST_LIBRARY_CALL_SELECTOR)?),
+        CallData(vec![shash!(1), shash!(2), shash!(3), shash!(4), shash!(5), shash!(6)]),
+    );
+    assert_eq!(entry_point.execute(state)?, vec![shash!(45), shash!(91)]);
     Ok(())
 }

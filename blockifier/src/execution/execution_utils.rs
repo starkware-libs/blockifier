@@ -48,6 +48,12 @@ impl CairoRunConfig {
     }
 }
 
+pub fn felt_to_usize(felt: StarkFelt) -> usize {
+    let (int_bytes, _rest) = felt.bytes().split_at(std::mem::size_of::<usize>());
+    // TODO(AlonH, 21/12/2022): Add error when felt is larger than usize (rest is not all zeros).
+    usize::from_be_bytes(int_bytes.try_into().unwrap())
+}
+
 pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
     BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
@@ -137,7 +143,16 @@ fn extract_execution_return_data(vm: &VirtualMachine) -> EntryPointResult<Vec<St
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    let values = vm.get_continuous_range(&return_data_ptr, return_data_size)?;
+    // TODO(AlonH, 21/12/2022): Handle @raw_output decorator.
+    get_felt_range(vm, &return_data_ptr, return_data_size)
+}
+
+pub fn get_felt_range(
+    vm: &VirtualMachine,
+    ptr: &MaybeRelocatable,
+    size: usize,
+) -> EntryPointResult<Vec<StarkFelt>> {
+    let values = vm.get_continuous_range(ptr, size)?;
     // Extract values as `StarkFelt`.
     let values: EntryPointResult<Vec<StarkFelt>> =
         values.into_iter().map(|x| get_felt_from_memory_cell(Some(x))).collect();
