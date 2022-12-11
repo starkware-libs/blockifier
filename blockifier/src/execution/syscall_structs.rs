@@ -1,6 +1,8 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::ContractAddress;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::shash;
 
 use crate::execution::entry_point::EntryPointResult;
 use crate::execution::errors::SyscallExecutionError;
@@ -42,10 +44,13 @@ impl StorageReadRequest {
         Ok(SyscallRequest::StorageRead(StorageReadRequest { address }))
     }
 
-    pub fn execute(&self, _syscall_handler: &SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Perform state read.
-        let value = StarkFelt::from(17);
-        Ok(SyscallResponse::Read(StorageReadResponse { value }))
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let address = self.address.try_into()?;
+        // TODO(AlonH, 21/12/2022): Use actual contract address once it's part of the entry point.
+        let contract_address = ContractAddress::try_from(shash!("0x1")).unwrap();
+        // TODO(AlonH, 21/12/2022): Remove unwrap once errors are created for state.
+        let value = syscall_handler.state.get_storage_at(contract_address, address).unwrap();
+        Ok(SyscallResponse::Read(StorageReadResponse { value: *value }))
     }
 }
 
@@ -83,9 +88,11 @@ impl StorageWriteRequest {
         Ok(SyscallRequest::StorageWrite(StorageWriteRequest { address, value }))
     }
 
-    pub fn execute(&self, _syscall_handler: &SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Perform state write.
-        assert_eq!(self.value, StarkFelt::try_from(18).unwrap());
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let address = self.address.try_into()?;
+        // TODO(AlonH, 21/12/2022): Use actual contract address once it's part of the entry point.
+        let contract_address = ContractAddress::try_from(shash!("0x1")).unwrap();
+        syscall_handler.state.set_storage_at(contract_address, address, self.value);
         Ok(SyscallResponse::Write(EmptyResponse {}))
     }
 }
@@ -115,7 +122,7 @@ impl SyscallRequest {
         }
     }
 
-    pub fn execute(&self, syscall_handler: &SyscallHandler) -> ExecutionResult {
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
         match self {
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
             SyscallRequest::StorageWrite(request) => request.execute(syscall_handler),
