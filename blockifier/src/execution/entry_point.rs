@@ -19,15 +19,6 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn new(
-        contract_class: ContractClass,
-        entry_point_type: EntryPointType,
-        entry_point_selector: EntryPointSelector,
-        calldata: CallData,
-    ) -> Self {
-        Self { contract_class, entry_point_type, entry_point_selector, calldata }
-    }
-
     pub fn execute(&self) -> Result<Vec<StarkFelt>> {
         // Returns the output of the entry point execution.
         execute_call_entry_point(self, CairoRunConfig::default())

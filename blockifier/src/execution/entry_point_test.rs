@@ -4,6 +4,7 @@ use anyhow::Result;
 use pretty_assertions::assert_eq;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
@@ -27,14 +28,21 @@ fn create_test_contract_class() -> ContractClass {
     ContractClass::from_file(&path).expect("File must contain the content of a compiled contract.")
 }
 
+fn trivial_external_entrypoint() -> CallEntryPoint {
+    CallEntryPoint {
+        contract_class: create_test_contract_class(),
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: EntryPointSelector(StarkHash::from(0)),
+        calldata: CallData(vec![]),
+    }
+}
+
 #[test]
 fn test_entry_point_without_arg() -> Result<()> {
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::try_from(WITHOUT_ARG_SELECTOR)?),
-        CallData(vec![]),
-    );
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
     Ok(())
 }
@@ -42,12 +50,11 @@ fn test_entry_point_without_arg() -> Result<()> {
 #[test]
 fn test_entry_point_with_arg() -> Result<()> {
     let calldata = CallData(vec![StarkFelt::from(25)]);
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::try_from(WITH_ARG_SELECTOR)?),
+    let entry_point = CallEntryPoint {
         calldata,
-    );
+        entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
     Ok(())
 }
@@ -55,12 +62,11 @@ fn test_entry_point_with_arg() -> Result<()> {
 #[test]
 fn test_entry_point_with_builtin() -> Result<()> {
     let calldata = CallData(vec![StarkFelt::from(47), StarkFelt::from(31)]);
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::try_from(BITWISE_AND_SELECTOR)?),
+    let entry_point = CallEntryPoint {
         calldata,
-    );
+        entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
     Ok(())
 }
@@ -68,12 +74,11 @@ fn test_entry_point_with_builtin() -> Result<()> {
 #[test]
 fn test_entry_point_with_hint() -> Result<()> {
     let calldata = CallData(vec![StarkFelt::from(81)]);
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::try_from(SQRT_SELECTOR)?),
+    let entry_point = CallEntryPoint {
         calldata,
-    );
+        entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
     Ok(())
 }
@@ -81,24 +86,21 @@ fn test_entry_point_with_hint() -> Result<()> {
 #[test]
 fn test_entry_point_with_return_value() -> Result<()> {
     let calldata = CallData(vec![StarkFelt::from(23)]);
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::try_from(RETURN_RESULT_SELECTOR)?),
+    let entry_point = CallEntryPoint {
         calldata,
-    );
+        entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(entry_point.execute()?, vec![StarkFelt::from(23)]);
     Ok(())
 }
 
 #[test]
 fn test_entry_point_not_found_in_contract() -> Result<()> {
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::from(2)),
-        CallData(vec![]),
-    );
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(StarkHash::from(2)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(
         format!("{}", entry_point.execute().unwrap_err()),
         format!("Entry point {:#?} not found in contract", entry_point.entry_point_selector)
@@ -108,12 +110,12 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_syscall() -> Result<()> {
-    let entry_point = CallEntryPoint::new(
-        create_test_contract_class(),
-        EntryPointType::External,
-        EntryPointSelector(StarkHash::try_from(GET_VALUE_SELECTOR)?),
-        CallData(vec![StarkFelt::from(1234)]),
-    );
+    let calldata = CallData(vec![StarkFelt::from(1234)]);
+    let entry_point = CallEntryPoint {
+        calldata,
+        entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
     assert_eq!(entry_point.execute()?, vec![StarkFelt::from(17)]);
     Ok(())
 }
