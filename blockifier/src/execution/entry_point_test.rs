@@ -8,6 +8,7 @@ use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
+use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
 
@@ -39,70 +40,76 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
 
 #[test]
 fn test_entry_point_without_arg() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_arg() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(25)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_builtin() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(47), StarkFelt::from(31)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_hint() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(81)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute()?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
     Ok(())
 }
 
 #[test]
 fn test_entry_point_with_return_value() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(23)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(23)]);
+    assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(23)]);
     Ok(())
 }
 
 #[test]
 fn test_entry_point_not_found_in_contract() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(StarkHash::from(2)),
         ..trivial_external_entrypoint()
     };
     assert_eq!(
-        format!("{}", entry_point.execute().unwrap_err()),
+        format!("{}", entry_point.execute(state).unwrap_err()),
         format!("Entry point {:#?} not found in contract", entry_point.entry_point_selector)
     );
     Ok(())
@@ -110,12 +117,13 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_syscall() -> Result<()> {
+    let state: CachedState<DictStateReader> = CachedState::default();
     let calldata = CallData(vec![StarkFelt::from(1234)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute()?, vec![StarkFelt::from(17)]);
+    assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(18)]);
     Ok(())
 }

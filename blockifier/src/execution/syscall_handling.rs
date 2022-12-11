@@ -14,6 +14,7 @@ use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 
+use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::EntryPointResult;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
@@ -26,11 +27,12 @@ mod test;
 /// Responsible for managing the state of StarkNet syscalls.
 pub struct SyscallHandler {
     pub expected_syscall_ptr: Relocatable,
+    pub state: CachedState<DictStateReader>,
 }
 
 impl SyscallHandler {
-    pub fn new(initial_syscall_ptr: Relocatable) -> Self {
-        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr }
+    pub fn new(initial_syscall_ptr: Relocatable, state: CachedState<DictStateReader>) -> Self {
+        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state }
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> EntryPointResult<()> {
@@ -91,10 +93,11 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
 pub fn initialize_syscall_handler(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
+    state: CachedState<DictStateReader>,
 ) -> (Relocatable, BuiltinHintProcessor) {
     let syscall_segment = vm.add_memory_segment();
     let mut hint_processor = BuiltinHintProcessor::new_empty();
-    let syscall_handler = SyscallHandler::new(syscall_segment.clone());
+    let syscall_handler = SyscallHandler::new(syscall_segment.clone(), state);
     add_syscall_hints(&mut hint_processor);
     cairo_runner
         .exec_scopes

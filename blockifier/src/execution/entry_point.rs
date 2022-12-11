@@ -4,9 +4,14 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPoint, EntryPointType};
 use starknet_api::transaction::CallData;
 
+use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{execute_call_entry_point, CairoRunConfig};
+
+#[cfg(test)]
+#[path = "entry_point_test.rs"]
+pub mod test;
 
 pub type EntryPointResult<T> = Result<T, EntryPointExecutionError>;
 
@@ -19,9 +24,9 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(&self) -> Result<Vec<StarkFelt>> {
+    pub fn execute(&self, state: CachedState<DictStateReader>) -> Result<Vec<StarkFelt>> {
         // Returns the output of the entry point execution.
-        execute_call_entry_point(self, CairoRunConfig::default())
+        execute_call_entry_point(self, CairoRunConfig::default(), state)
     }
 
     pub fn find_entry_point_in_contract(&self) -> Result<&EntryPoint> {
