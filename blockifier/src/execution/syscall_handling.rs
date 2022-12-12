@@ -15,10 +15,9 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::EntryPointResult;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
-use crate::execution::syscall_structs::SyscallRequest;
+use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
 
 #[cfg(test)]
 #[path = "syscall_handling_test.rs"]
@@ -35,13 +34,12 @@ impl SyscallHandler {
         SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state }
     }
 
-    pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> EntryPointResult<()> {
+    pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> SyscallResult<()> {
         if actual_ptr != &self.expected_syscall_ptr {
             return Err(SyscallExecutionError::BadSyscallPointer(
                 self.expected_syscall_ptr.clone(),
                 actual_ptr.clone(),
-            )
-            .into());
+            ));
         }
         Ok(())
     }

@@ -5,16 +5,16 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::shash;
 use starknet_api::state::StorageKey;
 
-use crate::execution::entry_point::EntryPointResult;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_to_bigint, felt_to_usize, get_felt_from_memory_cell, get_felt_range,
 };
 use crate::execution::syscall_handling::SyscallHandler;
 
-pub type ReadRequestResult = EntryPointResult<SyscallRequest>;
-pub type ExecutionResult = EntryPointResult<SyscallResponse>;
-pub type WriteResponseResult = EntryPointResult<()>;
+pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
+pub type ReadRequestResult = SyscallResult<SyscallRequest>;
+pub type ExecutionResult = SyscallResult<SyscallResponse>;
+pub type WriteResponseResult = SyscallResult<()>;
 
 // TODO(AlonH, 21/12/2022): Create using const function.
 pub const LIBRARY_CALL_SELECTOR_BYTES: [u8; 32] = [
@@ -177,7 +177,7 @@ impl SyscallRequest {
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
-            bytes => Err(SyscallExecutionError::InvalidSyscallSelector(bytes).into()),
+            bytes => Err(SyscallExecutionError::InvalidSyscallSelector(bytes)),
         }
     }
 
