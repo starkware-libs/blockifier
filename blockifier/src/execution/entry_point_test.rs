@@ -112,7 +112,7 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
     };
     assert_eq!(
         format!("{}", entry_point.execute(state).unwrap_err()),
-        format!("Entry point {:#?} not found in contract", entry_point.entry_point_selector)
+        format!("Entry point {:#?} not found in contract.", entry_point.entry_point_selector)
     );
     Ok(())
 }
