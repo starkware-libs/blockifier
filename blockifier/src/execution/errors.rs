@@ -1,5 +1,6 @@
 use cairo_rs::types::errors::program_errors::ProgramError;
 use cairo_rs::types::relocatable::Relocatable;
+use cairo_rs::vm::errors::exec_scope_errors::ExecScopeError;
 use cairo_rs::vm::errors::memory_errors::MemoryError;
 use cairo_rs::vm::errors::runner_errors::RunnerError;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
@@ -86,5 +87,11 @@ pub enum PostProcessingError {
 impl From<MemoryError> for PostProcessingError {
     fn from(error: MemoryError) -> Self {
         Self::VirtualMachineError(VirtualMachineError::MemoryError(error))
+    }
+}
+
+impl From<ExecScopeError> for PostProcessingError {
+    fn from(error: ExecScopeError) -> Self {
+        Self::VirtualMachineError(VirtualMachineError::MainScopeError(error))
     }
 }

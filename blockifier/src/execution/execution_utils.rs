@@ -19,11 +19,11 @@ use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::{CallEntryPoint, EntryPointResult};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, EntryPointResult};
 use crate::execution::errors::{
     ExecutionPreparationError, PostProcessingError, RunEntryPointError,
 };
-use crate::execution::syscall_handling::initialize_syscall_handler;
+use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHandler};
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
@@ -102,7 +102,7 @@ pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     config: CairoRunConfig,
     state: CachedState<DictStateReader>,
-) -> EntryPointResult<Vec<StarkFelt>> {
+) -> EntryPointResult<CallInfo> {
     let (mut cairo_runner, mut vm, syscall_segment, hint_processor) =
         instantiate_cairo_runner(call_entry_point, config, state)?;
 
@@ -136,7 +136,7 @@ pub fn execute_call_entry_point(
 
     run_entry_point(&mut cairo_runner, &mut vm, entry_point_pc, args, hint_processor)?;
 
-    Ok(extract_execution_return_data(&vm)?)
+    Ok(create_call_info(&mut cairo_runner, &mut vm, call_entry_point)?)
 }
 
 pub fn run_entry_point(
@@ -156,6 +156,21 @@ pub fn run_entry_point(
         &hint_processor,
     )?;
     Ok(())
+}
+
+pub fn create_call_info(
+    cairo_runner: &mut CairoRunner,
+    vm: &mut VirtualMachine,
+    call_entry_point: &CallEntryPoint,
+) -> Result<CallInfo, PostProcessingError> {
+    let retdata = extract_execution_return_data(vm)?;
+    let execution = CallExecution { retdata };
+    let syscall_handler = cairo_runner.exec_scopes.get::<SyscallHandler>("syscall_handler")?;
+    Ok(CallInfo {
+        call: call_entry_point.clone(),
+        execution,
+        internal_calls: syscall_handler.internal_calls,
+    })
 }
 
 fn extract_execution_return_data(
