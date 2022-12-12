@@ -15,6 +15,7 @@ pub mod test;
 pub type EntryPointResult<T> = Result<T, EntryPointExecutionError>;
 
 /// Represents a call to an entry point of a StarkNet contract.
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
     pub contract_class: ContractClass,
     pub entry_point_type: EntryPointType,
@@ -23,7 +24,7 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(&self, state: CachedState<DictStateReader>) -> EntryPointResult<Vec<StarkFelt>> {
+    pub fn execute(&self, state: CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
         // Returns the output of the entry point execution.
         execute_call_entry_point(self, CairoRunConfig::default(), state)
     }
@@ -40,4 +41,16 @@ impl CallEntryPoint {
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
         }
     }
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct CallExecution {
+    pub retdata: Vec<StarkFelt>,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct CallInfo {
+    pub call: CallEntryPoint,
+    pub execution: CallExecution,
+    pub internal_calls: Vec<CallInfo>,
 }

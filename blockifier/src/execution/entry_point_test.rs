@@ -40,6 +40,7 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
     }
 }
 
+// TODO(AlonH, 21/12/2022): Compare the whole CallInfo in tests.
 #[test]
 fn test_entry_point_without_arg() -> Result<()> {
     let state: CachedState<DictStateReader> = CachedState::default();
@@ -47,7 +48,7 @@ fn test_entry_point_without_arg() -> Result<()> {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
     Ok(())
 }
 
@@ -60,7 +61,7 @@ fn test_entry_point_with_arg() -> Result<()> {
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
     Ok(())
 }
 
@@ -73,7 +74,7 @@ fn test_entry_point_with_builtin() -> Result<()> {
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
     Ok(())
 }
 
@@ -86,7 +87,7 @@ fn test_entry_point_with_hint() -> Result<()> {
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, Vec::<StarkFelt>::new());
+    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
     Ok(())
 }
 
@@ -99,7 +100,7 @@ fn test_entry_point_with_return_value() -> Result<()> {
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(23)]);
+    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![StarkFelt::from(23)]);
     Ok(())
 }
 
@@ -126,7 +127,7 @@ fn test_entry_point_with_syscall() -> Result<()> {
         entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, vec![StarkFelt::from(18)]);
+    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![StarkFelt::from(18)]);
     Ok(())
 }
 
@@ -139,6 +140,6 @@ fn test_entry_point_with_library_call() -> Result<()> {
         calldata,
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?, vec![shash!(45), shash!(91)]);
+    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![shash!(45), shash!(91)]);
     Ok(())
 }

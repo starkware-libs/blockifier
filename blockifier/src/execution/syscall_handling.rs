@@ -15,6 +15,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 
 use crate::cached_state::{CachedState, DictStateReader};
+use crate::execution::entry_point::CallInfo;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
@@ -27,11 +28,12 @@ mod test;
 pub struct SyscallHandler {
     pub expected_syscall_ptr: Relocatable,
     pub state: CachedState<DictStateReader>,
+    pub internal_calls: Vec<CallInfo>,
 }
 
 impl SyscallHandler {
     pub fn new(initial_syscall_ptr: Relocatable, state: CachedState<DictStateReader>) -> Self {
-        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state }
+        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state, internal_calls: vec![] }
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> SyscallResult<()> {
