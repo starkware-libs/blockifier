@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
-// TODO(Adi, 10/12/2022): Change to the Python class definition, once the 'execute' function of
-// 'CallEntryPoint' returns a CallInfo.
-pub type CallInfo = Vec<StarkFelt>;
+use crate::execution::entry_point::CallInfo;
 
 // TODO(Adi, 10/12/2022): Add a 'transaction_type' field.
 /// Contains the information gathered by the execution of a transaction.
