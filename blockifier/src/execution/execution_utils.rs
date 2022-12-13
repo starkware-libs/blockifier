@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::mem;
 
 use anyhow::{bail, Result};
 use cairo_rs::bigint;
@@ -19,11 +20,11 @@ use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::{CallEntryPoint, EntryPointResult};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, EntryPointResult};
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::execution::syscall_handling::initialize_syscall_handler;
+use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHandler};
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
@@ -108,7 +109,7 @@ pub fn prepare_call_arguments(
 pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     state: CachedState<DictStateReader>,
-) -> EntryPointResult<Vec<StarkFelt>> {
+) -> EntryPointResult<CallInfo> {
     let mut execution_context = instantiate_cairo_runner(call_entry_point, state)?;
     let args = prepare_call_arguments(
         call_entry_point,
@@ -128,7 +129,7 @@ pub fn execute_call_entry_point(
         &execution_context.hint_processor,
     )?;
 
-    Ok(extract_execution_return_data(&execution_context.vm)?)
+    Ok(create_call_info(&mut execution_context.runner, &execution_context.vm, call_entry_point)?)
 }
 
 pub fn run_entry_point(
@@ -148,6 +149,19 @@ pub fn run_entry_point(
         hint_processor,
     )?;
     Ok(())
+}
+
+pub fn create_call_info(
+    cairo_runner: &mut CairoRunner,
+    vm: &VirtualMachine,
+    call_entry_point: &CallEntryPoint,
+) -> Result<CallInfo, PostExecutionError> {
+    let retdata = extract_execution_return_data(vm)?;
+    let execution = CallExecution { retdata };
+    let syscall_handler =
+        cairo_runner.exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
+    let inner_calls = mem::take(&mut syscall_handler.inner_calls);
+    Ok(CallInfo { call: call_entry_point.clone(), execution, inner_calls })
 }
 
 fn extract_execution_return_data(

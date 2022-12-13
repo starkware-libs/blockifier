@@ -15,6 +15,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 
 use crate::cached_state::{CachedState, DictStateReader};
+use crate::execution::entry_point::CallInfo;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
@@ -23,15 +24,17 @@ use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
 #[path = "syscall_handling_test.rs"]
 mod test;
 
-/// Responsible for managing the state of StarkNet syscalls.
+/// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHandler {
-    pub expected_syscall_ptr: Relocatable,
+    expected_syscall_ptr: Relocatable,
     pub state: CachedState<DictStateReader>,
+    /// Inner calls invoked by the current execution.
+    pub inner_calls: Vec<CallInfo>,
 }
 
 impl SyscallHandler {
     pub fn new(initial_syscall_ptr: Relocatable, state: CachedState<DictStateReader>) -> Self {
-        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state }
+        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state, inner_calls: vec![] }
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> SyscallResult<()> {
