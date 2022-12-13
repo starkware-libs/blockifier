@@ -7,7 +7,7 @@ use starknet_api::state::StorageKey;
 
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    felt_to_bigint, felt_to_usize, get_felt_from_memory_cell, get_felt_range,
+    felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
 };
 use crate::execution::syscall_handling::SyscallHandler;
 
@@ -143,7 +143,7 @@ impl LibraryCallRequest {
         let calldata_size = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2))?)?;
 
         let calldata_ptr = vm.get_maybe(&(ptr + 3))?.unwrap();
-        let calldata = get_felt_range(vm, &calldata_ptr, felt_to_usize(calldata_size))?;
+        let calldata = get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?;
 
         Ok(SyscallRequest::LibraryCall(LibraryCallRequest {
             class_hash,

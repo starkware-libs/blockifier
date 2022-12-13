@@ -30,12 +30,6 @@ use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHand
 #[path = "execution_utils_test.rs"]
 pub mod test;
 
-pub fn felt_to_usize(felt: StarkFelt) -> usize {
-    let (usize_bytes, _rest) = felt.bytes().split_at(std::mem::size_of::<usize>());
-    // TODO(AlonH, 21/12/2022): Add error when felt is larger than usize (rest is not all zeros).
-    usize::from_be_bytes(usize_bytes.try_into().unwrap())
-}
-
 pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
     BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
