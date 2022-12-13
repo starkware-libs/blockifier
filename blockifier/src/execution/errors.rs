@@ -30,8 +30,8 @@ pub enum PostExecutionError {
 
 #[derive(Debug, Error)]
 pub enum SyscallExecutionError {
-    #[error("Bad syscall_ptr, Expected {0:?}, got {1:?}.")]
-    BadSyscallPointer(Relocatable, Relocatable),
+    #[error("Bad syscall_ptr, Expected {expected_ptr:?}, got {actual_ptr:?}.")]
+    BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
     InnerCallExecutionError(Box<EntryPointExecutionError>),
     #[error("Invalid syscall selector: {0:?}.")]

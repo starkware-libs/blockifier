@@ -39,10 +39,10 @@ impl SyscallHandler {
 
     pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> SyscallResult<()> {
         if actual_ptr != &self.expected_syscall_ptr {
-            return Err(SyscallExecutionError::BadSyscallPointer(
-                self.expected_syscall_ptr.clone(),
-                actual_ptr.clone(),
-            ));
+            return Err(SyscallExecutionError::BadSyscallPointer {
+                expected_ptr: self.expected_syscall_ptr.clone(),
+                actual_ptr: actual_ptr.clone(),
+            });
         }
         Ok(())
     }
