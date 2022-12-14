@@ -30,8 +30,33 @@ pub const STORAGE_WRITE_SELECTOR_BYTES: [u8; 32] = [
     87, 114, 105, 116, 101,
 ];
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct EmptyResponse {}
+macro_rules! replace_expr {
+    ($_t:tt $sub:expr) => {
+        $sub
+    };
+}
+
+/// Used to declare syscall request and response structs.
+macro_rules! declare_with_size {
+    (pub struct $name:ident {
+        $(pub $fname:ident : $ftype:ty,)*
+    }) => {
+        #[derive(Debug, PartialEq, Eq)]
+        pub struct $name {
+            $($fname : $ftype),*
+        }
+
+        impl $name {
+            pub const fn size(&self) -> usize {
+                {0usize $(+ replace_expr!($fname 1usize))*}
+            }
+        }
+    }
+}
+
+declare_with_size! {
+    pub struct EmptyResponse {}
+}
 
 impl EmptyResponse {
     pub fn write(&self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
@@ -39,11 +64,10 @@ impl EmptyResponse {
     }
 }
 
-pub const STORAGE_READ_REQUEST_SIZE: usize = 1;
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct StorageReadRequest {
-    pub address: StorageKey,
+declare_with_size! {
+    pub struct StorageReadRequest {
+        pub address: StorageKey,
+    }
 }
 
 impl StorageReadRequest {
@@ -62,11 +86,10 @@ impl StorageReadRequest {
     }
 }
 
-pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct StorageReadResponse {
-    pub value: StarkFelt,
+declare_with_size! {
+    pub struct StorageReadResponse {
+        pub value: StarkFelt,
+    }
 }
 
 impl StorageReadResponse {
@@ -76,13 +99,12 @@ impl StorageReadResponse {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct StorageWriteRequest {
-    pub address: StorageKey,
-    pub value: StarkFelt,
+declare_with_size! {
+    pub struct StorageWriteRequest {
+        pub address: StorageKey,
+        pub value: StarkFelt,
+    }
 }
-
-pub const STORAGE_WRITE_REQUEST_SIZE: usize = 2;
 
 impl StorageWriteRequest {
     pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
@@ -100,17 +122,14 @@ impl StorageWriteRequest {
     }
 }
 
-pub const STORAGE_WRITE_RESPONSE_SIZE: usize = 0;
-
 pub type StorageWriteResponse = EmptyResponse;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct CallContractResponse {
-    pub retdata_size: StarkFelt,
-    pub retdata: Vec<StarkFelt>,
+declare_with_size! {
+    pub struct CallContractResponse {
+        pub retdata_size: StarkFelt,
+        pub retdata: Vec<StarkFelt>,
+    }
 }
-
-pub const CALL_CONTRACT_RESPONSE_SIZE: usize = 2;
 
 impl CallContractResponse {
     pub fn write(&self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
@@ -126,15 +145,14 @@ impl CallContractResponse {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct LibraryCallRequest {
-    pub class_hash: StarkFelt,
-    pub function_selector: StarkFelt,
-    pub calldata_size: StarkFelt,
-    pub calldata: Vec<StarkFelt>,
+declare_with_size! {
+    pub struct LibraryCallRequest {
+        pub class_hash: StarkFelt,
+        pub function_selector: StarkFelt,
+        pub calldata_size: StarkFelt,
+        pub calldata: Vec<StarkFelt>,
+    }
 }
-
-pub const LIBRARY_CALL_REQUEST_SIZE: usize = 4;
 
 impl LibraryCallRequest {
     pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
@@ -164,8 +182,6 @@ impl LibraryCallRequest {
 
 pub type LibraryCallResponse = CallContractResponse;
 
-pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyscallRequest {
     LibraryCall(LibraryCallRequest),
@@ -194,9 +210,9 @@ impl SyscallRequest {
 
     pub fn size(&self) -> usize {
         match self {
-            SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
-            SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
-            SyscallRequest::StorageWrite(_) => STORAGE_WRITE_REQUEST_SIZE,
+            SyscallRequest::LibraryCall(request) => request.size(),
+            SyscallRequest::StorageRead(request) => request.size(),
+            SyscallRequest::StorageWrite(request) => request.size(),
         }
     }
 }
@@ -219,9 +235,9 @@ impl SyscallResponse {
 
     pub fn size(&self) -> usize {
         match self {
-            SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
-            SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
-            SyscallResponse::StorageWrite(_) => STORAGE_WRITE_RESPONSE_SIZE,
+            SyscallResponse::LibraryCall(response) => response.size(),
+            SyscallResponse::StorageRead(response) => response.size(),
+            SyscallResponse::StorageWrite(response) => response.size(),
         }
     }
 }
