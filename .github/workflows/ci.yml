@@ -20,7 +20,7 @@ jobs:
         with:
           components: rustfmt
           toolchain: nightly-2022-11-03
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly-2022-11-03 fmt --all -- --check
 
   run-tests:
@@ -31,7 +31,7 @@ jobs:
         with:
           components: rustfmt
           toolchain: nightly-2022-11-03
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run:
           pip install cairo-lang;
           cargo test -- --include-ignored
@@ -41,24 +41,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@master
+        name: "Rust Toolchain Setup"
         with:
           toolchain: nightly-2022-11-03
-        name: "Rust Toolchain Setup"
-      - uses: actions/cache@v3
-        name: "Cache Setup"
+      - uses: Swatinem/rust-cache@v2
         id: "cache-cargo"
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
-        run:
-          wget https://github.com/est31/cargo-udeps/releases/download/v0.1.30/cargo-udeps-v0.1.30-x86_64-unknown-linux-gnu.tar.gz;
-          tar -xzf cargo-udeps-v0.1.30-x86_64-unknown-linux-gnu.tar.gz;
-          cargo-udeps-v0.1.30-x86_64-unknown-linux-gnu/cargo-udeps udeps
+        name: "Download and run cargo-udeps"
+        run: |
+          wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+          cargo-udeps-*/cargo-udeps udeps
         env:
           RUSTUP_TOOLCHAIN: nightly-2022-11-03
 
@@ -70,5 +62,5 @@ jobs:
         with:
           components: clippy
           toolchain: stable
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features
