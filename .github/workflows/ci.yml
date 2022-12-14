@@ -32,8 +32,12 @@ jobs:
           components: rustfmt
           toolchain: nightly-2022-11-03
       - uses: Swatinem/rust-cache@v1
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
       - run:
-          pip install cairo-lang;
+          pip install -r blockifier/tests/requirements.txt;
           cargo test -- --include-ignored
 
   udeps:
