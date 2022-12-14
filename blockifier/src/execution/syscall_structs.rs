@@ -16,19 +16,9 @@ pub type ReadRequestResult = SyscallResult<SyscallRequest>;
 pub type ExecutionResult = SyscallResult<SyscallResponse>;
 pub type WriteResponseResult = SyscallResult<()>;
 
-// TODO(AlonH, 21/12/2022): Create using const function.
-pub const LIBRARY_CALL_SELECTOR_BYTES: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 76, 105, 98, 114, 97, 114, 121,
-    67, 97, 108, 108,
-];
-pub const STORAGE_READ_SELECTOR_BYTES: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 83, 116, 111, 114, 97, 103, 101,
-    82, 101, 97, 100,
-];
-pub const STORAGE_WRITE_SELECTOR_BYTES: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 83, 116, 111, 114, 97, 103, 101,
-    87, 114, 105, 116, 101,
-];
+pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
+pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
+pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct EmptyResponse {}
@@ -175,12 +165,14 @@ pub enum SyscallRequest {
 
 impl SyscallRequest {
     pub fn read(selector: StarkFelt, vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
-        let selector_bytes: [u8; 32] = selector.bytes().try_into().unwrap();
-        match selector_bytes {
+        let selector_bytes: &[u8] = selector.bytes();
+        // Remove leading zero bytes from selector.
+        let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
+        match &selector_bytes[first_non_zero..32] {
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
-            bytes => Err(SyscallExecutionError::InvalidSyscallSelector(bytes)),
+            _ => Err(SyscallExecutionError::InvalidSyscallSelector(selector)),
         }
     }
 
