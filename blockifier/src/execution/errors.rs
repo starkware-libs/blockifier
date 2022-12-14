@@ -1,8 +1,14 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::errors as cairo_rs_vm_errors;
-use starknet_api::core::EntryPointSelector;
+use starknet_api::core::{ClassHash, EntryPointSelector};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum StateReaderError {
+    #[error("Class with hash {0:#?} is not declared.")]
+    UndeclaredClassHash(ClassHash),
+}
 
 #[derive(Debug, Error)]
 pub enum PreExecutionError {
@@ -12,6 +18,8 @@ pub enum PreExecutionError {
     ProgramError(#[from] cairo_rs::types::errors::program_errors::ProgramError),
     #[error(transparent)]
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
+    #[error(transparent)]
+    UndeclaredClassHash(#[from] StateReaderError),
 }
 
 impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {
