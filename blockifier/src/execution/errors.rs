@@ -4,6 +4,8 @@ use starknet_api::core::EntryPointSelector;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::state::errors::StateReaderError;
+
 #[derive(Debug, Error)]
 pub enum PreExecutionError {
     #[error("Entry point {0:#?} not found in contract.")]
@@ -12,6 +14,8 @@ pub enum PreExecutionError {
     ProgramError(#[from] cairo_rs::types::errors::program_errors::ProgramError),
     #[error(transparent)]
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
+    #[error(transparent)]
+    UndeclaredClassHash(#[from] StateReaderError),
 }
 
 impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {
