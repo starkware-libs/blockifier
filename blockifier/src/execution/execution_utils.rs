@@ -117,12 +117,12 @@ pub fn prepare_call_arguments(
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_call_entry_point(
-    call_entry_point: &CallEntryPoint,
+    call_entry_point: CallEntryPoint,
     state: CachedState<DictStateReader>,
 ) -> EntryPointResult<CallInfo> {
-    let mut execution_context = initialize_execution_context(call_entry_point, state)?;
+    let mut execution_context = initialize_execution_context(&call_entry_point, state)?;
     let args = prepare_call_arguments(
-        call_entry_point,
+        &call_entry_point,
         &execution_context.vm,
         execution_context.syscall_segment,
     );
@@ -160,14 +160,14 @@ pub fn run_entry_point(
 pub fn create_call_info(
     cairo_runner: &mut CairoRunner,
     vm: &VirtualMachine,
-    call_entry_point: &CallEntryPoint,
+    call_entry_point: CallEntryPoint,
 ) -> Result<CallInfo, PostExecutionError> {
     let retdata = extract_execution_return_data(vm)?;
     let execution = CallExecution { retdata };
     let syscall_handler =
         cairo_runner.exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
     let inner_calls = mem::take(&mut syscall_handler.inner_calls);
-    Ok(CallInfo { call: call_entry_point.clone(), execution, inner_calls })
+    Ok(CallInfo { call: call_entry_point, execution, inner_calls })
 }
 
 fn extract_execution_return_data(
