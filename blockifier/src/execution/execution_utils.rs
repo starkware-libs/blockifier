@@ -56,11 +56,11 @@ pub struct ExecutionContext {
 }
 
 pub fn instantiate_cairo_runner(
-    call_entry_point: &CallEntryPoint,
+    program: &starknet_api::state::Program,
     state: CachedState<DictStateReader>,
 ) -> Result<ExecutionContext, PreExecutionError> {
     // Instantiate Cairo runner.
-    let program = convert_program_to_cairo_runner_format(&call_entry_point.contract_class.program)?;
+    let program = convert_program_to_cairo_runner_format(program)?;
     let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
     let mut vm = VirtualMachine::new(program.prime, false, program.error_message_attributes);
     cairo_runner.initialize_builtins(&mut vm)?;
@@ -104,7 +104,10 @@ pub fn execute_call_entry_point(
     call_entry_point: &CallEntryPoint,
     state: CachedState<DictStateReader>,
 ) -> EntryPointResult<CallInfo> {
-    let mut execution_context = instantiate_cairo_runner(call_entry_point, state)?;
+    // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
+    let mut mut_state = state;
+    let contract_class = mut_state.get_contract_class(&call_entry_point.class_hash)?;
+    let mut execution_context = instantiate_cairo_runner(&contract_class.program, mut_state)?;
     let args = prepare_call_arguments(
         call_entry_point,
         &execution_context.vm,
@@ -112,7 +115,7 @@ pub fn execute_call_entry_point(
     );
 
     // Resolve initial PC from EP indicator.
-    let entry_point = call_entry_point.find_entry_point_in_contract()?;
+    let entry_point = call_entry_point.find_entry_point_in_contract(&contract_class)?;
     let entry_point_pc = entry_point.offset.0;
 
     run_entry_point(
