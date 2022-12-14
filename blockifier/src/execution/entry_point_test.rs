@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use anyhow::Result;
 use pretty_assertions::assert_eq;
-use starknet_api::core::EntryPointSelector;
+use starknet_api::core::{ClassHash, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
@@ -24,14 +27,26 @@ const GET_VALUE_SELECTOR: &str =
     "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
 const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
+const TEST_CLASS_HASH: &str = "0x1";
+
+// TODO(Noa, 30/12/22): Move it to a test_utils.rs file and use it in cached_state_test.rs (same for
+// the relevant constants above)
 
 fn create_test_contract_class() -> ContractClass {
     get_contract_class(TEST_CONTRACT_PATH)
 }
 
+fn create_test_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = HashMap::from([(
+        ClassHash(shash!(TEST_CLASS_HASH)),
+        Rc::new(create_test_contract_class()),
+    )]);
+    CachedState::new(DictStateReader { class_hash_to_class, ..DictStateReader::default() })
+}
+
 fn trivial_external_entrypoint() -> CallEntryPoint {
     CallEntryPoint {
-        contract_class: create_test_contract_class(),
+        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(StarkHash::from(0)),
         calldata: CallData(vec![]),
@@ -41,7 +56,7 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
 // TODO(AlonH, 21/12/2022): Compare the whole CallInfo in tests.
 #[test]
 fn test_entry_point_without_arg() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
@@ -52,7 +67,7 @@ fn test_entry_point_without_arg() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_arg() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let calldata = CallData(vec![StarkFelt::from(25)]);
     let entry_point = CallEntryPoint {
         calldata,
@@ -65,7 +80,7 @@ fn test_entry_point_with_arg() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_builtin() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let calldata = CallData(vec![StarkFelt::from(47), StarkFelt::from(31)]);
     let entry_point = CallEntryPoint {
         calldata,
@@ -78,7 +93,7 @@ fn test_entry_point_with_builtin() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_hint() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let calldata = CallData(vec![StarkFelt::from(81)]);
     let entry_point = CallEntryPoint {
         calldata,
@@ -91,7 +106,7 @@ fn test_entry_point_with_hint() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_return_value() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let calldata = CallData(vec![StarkFelt::from(23)]);
     let entry_point = CallEntryPoint {
         calldata,
@@ -104,7 +119,7 @@ fn test_entry_point_with_return_value() -> Result<()> {
 
 #[test]
 fn test_entry_point_not_found_in_contract() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(StarkHash::from(2)),
         ..trivial_external_entrypoint()
@@ -118,7 +133,7 @@ fn test_entry_point_not_found_in_contract() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_syscall() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let calldata = CallData(vec![StarkFelt::from(1234)]);
     let entry_point = CallEntryPoint {
         calldata,
@@ -131,7 +146,7 @@ fn test_entry_point_with_syscall() -> Result<()> {
 
 #[test]
 fn test_entry_point_with_library_call() -> Result<()> {
-    let state: CachedState<DictStateReader> = CachedState::default();
+    let state = create_test_state();
     let calldata = CallData(vec![shash!(1), shash!(2), shash!(3), shash!(4), shash!(5), shash!(6)]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(StarkHash::try_from(TEST_LIBRARY_CALL_SELECTOR)?),

@@ -15,7 +15,7 @@ pub enum PreExecutionError {
     #[error(transparent)]
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
     #[error(transparent)]
-    UndeclaredClassHash(#[from] StateReaderError),
+    StateReaderError(#[from] StateReaderError),
 }
 
 impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {
@@ -80,4 +80,12 @@ pub enum EntryPointExecutionError {
     /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
+}
+
+// TODO(Noa, 30/12/22): Find a better way to implement the desired transitive relation.
+impl From<StateReaderError> for EntryPointExecutionError {
+    fn from(error: StateReaderError) -> Self {
+        let pre_exec_error: PreExecutionError = error.into();
+        pre_exec_error.into()
+    }
 }
