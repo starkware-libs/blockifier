@@ -24,8 +24,9 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(&self, state: CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
-        // Returns the output of the entry point execution.
+    pub fn execute(&mut self, state: CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
+        // Moves ownership of `self` into the call info and returns it (`self` will be replaced with
+        // the default value of `CallEntryPoint`).
         execute_call_entry_point(self, state)
     }
 
