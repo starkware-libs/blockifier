@@ -81,3 +81,11 @@ pub enum EntryPointExecutionError {
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
 }
+
+// TODO(Noa, 30/12/22): Find a better way to implement the desired transitive relation.
+impl From<StateReaderError> for EntryPointExecutionError {
+    fn from(error: StateReaderError) -> Self {
+        let pre_exec_error: PreExecutionError = error.into();
+        pre_exec_error.into()
+    }
+}
