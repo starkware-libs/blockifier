@@ -16,10 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly-2022-11-03
         with:
           components: rustfmt
-          toolchain: nightly-2022-11-03
       - uses: Swatinem/rust-cache@v1
       - run: cargo +nightly-2022-11-03 fmt --all -- --check
 
@@ -40,12 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly-2022-11-03
         name: "Rust Toolchain Setup"
-        with:
-          profile: minimal
-          toolchain: nightly-2022-11-03
-          override: true
       - uses: actions/cache@v3
         name: "Cache Setup"
         id: "cache-cargo"
