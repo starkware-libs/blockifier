@@ -15,7 +15,7 @@ pub enum PreExecutionError {
     #[error(transparent)]
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
     #[error(transparent)]
-    UndeclaredClassHash(#[from] StateReaderError),
+    StateReaderError(#[from] StateReaderError),
 }
 
 impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {
