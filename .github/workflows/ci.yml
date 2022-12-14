@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           components: rustfmt
           toolchain: nightly-2022-11-03
@@ -40,12 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        name: "Rust Toolchain Setup"
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: nightly-2022-11-03
-          override: true
+        name: "Rust Toolchain Setup"
       - uses: actions/cache@v3
         name: "Cache Setup"
         id: "cache-cargo"
