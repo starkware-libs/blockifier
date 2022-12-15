@@ -1,9 +1,13 @@
+use std::mem;
+
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::shash;
-use starknet_api::state::StorageKey;
+use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::{EntryPointType, StorageKey};
+use starknet_api::transaction::CallData;
 
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
@@ -155,11 +159,28 @@ impl LibraryCallRequest {
         }))
     }
 
-    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Execute library call.
+    pub fn execute(&mut self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let storage_address = syscall_handler.storage_address;
+        let calldata = CallData(mem::take(&mut self.calldata));
+        let entry_point_selector = EntryPointSelector(self.function_selector);
+        let class_hash = ClassHash(self.class_hash);
+        let entry_point = CallEntryPoint {
+            class_hash,
+            entry_point_type: EntryPointType::External,
+            entry_point_selector,
+            calldata,
+            storage_address,
+        };
+        // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
+        // becomes a reference. Important note: until then, outer state will not change in
+        // the inner call.
+        let call_info = entry_point.execute(syscall_handler.state.clone())?;
+        let retdata = call_info.execution.retdata.clone();
+        syscall_handler.inner_calls.push(call_info);
+
         Ok(SyscallResponse::LibraryCall(LibraryCallResponse {
-            retdata_size: shash!(2),
-            retdata: vec![shash!(45), shash!(91)],
+            retdata_size: StarkFelt::from(retdata.len() as u64),
+            retdata,
         }))
     }
 }
@@ -186,7 +207,7 @@ impl SyscallRequest {
         }
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(&mut self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
         match self {
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),

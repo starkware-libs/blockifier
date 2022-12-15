@@ -77,7 +77,7 @@ pub fn execute_syscall(
     let selector = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
     let selector_size = 1;
     syscall_ptr = &syscall_ptr + selector_size;
-    let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
+    let mut request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
 
     let response = request.execute(syscall_handler)?;
     response.write(vm, &(&syscall_ptr + request.size()))?;
