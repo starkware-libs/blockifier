@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
@@ -28,6 +28,7 @@ const GET_VALUE_SELECTOR: &str =
 const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
 const TEST_CLASS_HASH: &str = "0x1";
+const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
 // TODO(Noa, 30/12/22): Move it to a test_utils.rs file and use it in cached_state_test.rs (same for
 // the relevant constants above)
@@ -49,6 +50,7 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(StarkHash::from(0)),
         calldata: CallData(vec![]),
+        storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
     }
 }
 
