@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use pretty_assertions::assert_eq;
-use starknet_api::core::EntryPointSelector;
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
@@ -37,6 +37,7 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(StarkHash::from(0)),
         calldata: CallData(vec![]),
+        storage_address: ContractAddress::try_from(shash!("0x1")).unwrap(),
     }
 }
 

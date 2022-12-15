@@ -1,4 +1,4 @@
-use starknet_api::core::EntryPointSelector;
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPoint, EntryPointType};
 use starknet_api::transaction::CallData;
@@ -21,6 +21,7 @@ pub struct CallEntryPoint {
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     pub calldata: CallData,
+    pub storage_address: ContractAddress,
 }
 
 impl CallEntryPoint {
