@@ -1,9 +1,11 @@
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::shash;
-use starknet_api::state::StorageKey;
+use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::{EntryPointType, StorageKey};
+use starknet_api::transaction::CallData;
 
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
@@ -33,7 +35,7 @@ pub const STORAGE_WRITE_SELECTOR_BYTES: [u8; 32] = [
 pub struct EmptyResponse {}
 
 impl EmptyResponse {
-    pub fn write(&self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
+    pub fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -70,7 +72,7 @@ pub struct StorageReadResponse {
 }
 
 impl StorageReadResponse {
-    pub fn write(&self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, felt_to_bigint(self.value))?;
         Ok(())
     }
@@ -115,14 +117,14 @@ pub struct CallContractResponse {
 pub const CALL_CONTRACT_RESPONSE_SIZE: usize = 2;
 
 impl CallContractResponse {
-    pub fn write(&self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, felt_to_bigint(self.retdata_size))?;
 
         // Write response payload to the memory.
         let segment = vm.add_memory_segment();
         vm.insert_value(&(ptr + 1), &segment)?;
         let data: Vec<MaybeRelocatable> =
-            self.retdata.iter().map(|x| felt_to_bigint(*x).into()).collect();
+            self.retdata.into_iter().map(|x| felt_to_bigint(x).into()).collect();
         vm.load_data(&segment.into(), data)?;
         Ok(())
     }
@@ -130,36 +132,48 @@ impl CallContractResponse {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct LibraryCallRequest {
-    pub class_hash: StarkFelt,
-    pub function_selector: StarkFelt,
-    pub calldata_size: StarkFelt,
-    pub calldata: Vec<StarkFelt>,
+    pub class_hash: ClassHash,
+    pub function_selector: EntryPointSelector,
+    pub calldata: CallData,
 }
 
 pub const LIBRARY_CALL_REQUEST_SIZE: usize = 4;
 
 impl LibraryCallRequest {
     pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
-        let class_hash = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
-        let function_selector = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+        let function_selector =
+            EntryPointSelector(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?);
         let calldata_size = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2))?)?;
 
         let calldata_ptr = vm.get_maybe(&(ptr + 3))?.unwrap();
-        let calldata = get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?;
+        let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
 
         Ok(SyscallRequest::LibraryCall(LibraryCallRequest {
             class_hash,
             function_selector,
-            calldata_size,
             calldata,
         }))
     }
 
-    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Execute library call.
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let entry_point = CallEntryPoint {
+            class_hash: self.class_hash,
+            entry_point_type: EntryPointType::External,
+            entry_point_selector: self.function_selector,
+            calldata: self.calldata,
+            storage_address: syscall_handler.storage_address,
+        };
+        // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
+        // becomes a reference. Important note: until then, outer state will not change in
+        // the inner call.
+        let call_info = entry_point.execute(syscall_handler.state.clone())?;
+        let retdata = call_info.execution.retdata.clone();
+        syscall_handler.inner_calls.push(call_info);
+
         Ok(SyscallResponse::LibraryCall(LibraryCallResponse {
-            retdata_size: shash!(2),
-            retdata: vec![shash!(45), shash!(91)],
+            retdata_size: StarkFelt::from(retdata.len() as u64),
+            retdata,
         }))
     }
 }
@@ -186,7 +200,7 @@ impl SyscallRequest {
         }
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
         match self {
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
@@ -211,7 +225,7 @@ pub enum SyscallResponse {
 }
 
 impl SyscallResponse {
-    pub fn write(&self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         match self {
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),

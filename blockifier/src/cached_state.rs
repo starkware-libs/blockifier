@@ -20,7 +20,7 @@ type ContractClassMapping = HashMap<ClassHash, Rc<ContractClass>>;
 ///
 /// Writer functionality is built-in, whereas Reader functionality is injected through
 /// initialization.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CachedState<SR: StateReader> {
     pub state_reader: SR,
     // Invariant: following attributes should remain private.
@@ -99,7 +99,7 @@ impl<SR: StateReader> CachedState<SR> {
 type ContractStorageKey = (ContractAddress, StorageKey);
 
 /// A simple implementation of `StateReader` using `HashMap`s for storage.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DictStateReader {
     pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
@@ -134,7 +134,7 @@ impl StateReader for DictStateReader {
 
 /// Caches read and write requests.
 // Invariant: cannot delete keys from fields.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,

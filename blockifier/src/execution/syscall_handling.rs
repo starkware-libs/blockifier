@@ -78,12 +78,13 @@ pub fn execute_syscall(
     let selector_size = 1;
     syscall_ptr = &syscall_ptr + selector_size;
     let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
+    syscall_ptr = &syscall_ptr + request.size();
 
     let response = request.execute(syscall_handler)?;
-    response.write(vm, &(&syscall_ptr + request.size()))?;
+    let response_size = response.size();
+    response.write(vm, &syscall_ptr)?;
 
-    syscall_handler.expected_syscall_ptr =
-        &syscall_handler.expected_syscall_ptr + selector_size + request.size() + response.size();
+    syscall_handler.expected_syscall_ptr = &syscall_ptr + response_size;
 
     Ok(())
 }
