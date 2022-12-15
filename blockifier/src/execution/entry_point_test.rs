@@ -148,12 +148,18 @@ fn test_entry_point_with_syscall() -> Result<()> {
 #[test]
 fn test_entry_point_with_library_call() -> Result<()> {
     let state = create_test_state();
-    let calldata = CallData(vec![shash!(1), shash!(2), shash!(3), shash!(4), shash!(5), shash!(6)]);
+    let calldata = CallData(vec![
+        shash!(TEST_CLASS_HASH),
+        shash!(RETURN_RESULT_SELECTOR),
+        shash!(1),
+        shash!(91),
+    ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(StarkHash::try_from(TEST_LIBRARY_CALL_SELECTOR)?),
         calldata,
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![shash!(45), shash!(91)]);
+    // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
+    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![shash!(91)]);
     Ok(())
 }
