@@ -14,7 +14,6 @@ use crate::state::errors::StateReaderError;
 mod test;
 
 pub type StateReaderResult<T> = Result<T, StateReaderError>;
-pub type ContractClassResult = StateReaderResult<Rc<ContractClass>>;
 type ContractClassMapping = HashMap<ClassHash, Rc<ContractClass>>;
 
 /// Caches read and write requests.
@@ -80,7 +79,10 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(())
     }
 
-    pub fn get_contract_class(&mut self, class_hash: &ClassHash) -> ContractClassResult {
+    pub fn get_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> StateReaderResult<Rc<ContractClass>> {
         if !self.class_hash_to_class.contains_key(class_hash) {
             let contract_class = self.state_reader.get_contract_class(class_hash)?;
             self.class_hash_to_class.insert(*class_hash, Rc::clone(&contract_class));
@@ -116,7 +118,7 @@ pub trait StateReader {
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_contract_class(&self, class_hash: &ClassHash) -> ContractClassResult;
+    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<Rc<ContractClass>>;
 }
 
 type ContractStorageKey = (ContractAddress, StorageKey);
@@ -146,7 +148,7 @@ impl StateReader for DictStateReader {
         Ok(nonce)
     }
 
-    fn get_contract_class(&self, class_hash: &ClassHash) -> ContractClassResult {
+    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<Rc<ContractClass>> {
         let contract_class = self.class_hash_to_class.get(class_hash);
         match contract_class {
             Some(contract_class) => Ok(Rc::clone(contract_class)),
