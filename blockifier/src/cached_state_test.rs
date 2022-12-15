@@ -7,6 +7,55 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{patky, shash};
 
 use super::*;
+use crate::state::errors::StateReaderError;
+
+// General errors
+
+#[test]
+fn state_reader_errors_are_propagated() {
+    // Simulates data-retrieval errors, e.g. timeouts when trying to fetch from a DB.
+    pub struct NoGoodStateReader;
+
+    // TODO(Gilad, 10/12/2022) add and test the other methods once they support errors.
+    impl StateReader for NoGoodStateReader {
+        fn get_storage_at(
+            &self,
+            _contract_address: ContractAddress,
+            _key: StorageKey,
+        ) -> StateReaderResult<StarkFelt> {
+            unimplemented!();
+        }
+
+        fn get_nonce_at(&self, _contract_address: ContractAddress) -> StateReaderResult<Nonce> {
+            unimplemented!();
+        }
+
+        fn get_class_hash_at(
+            &self,
+            _contract_address: ContractAddress,
+        ) -> Result<ClassHash, StateReaderError> {
+            Err(StateReaderError::ReadError(
+                "All i do is fail fail fail no matter what".to_string(),
+            ))
+        }
+
+        fn get_contract_class(
+            &self,
+            _class_hash: &ClassHash,
+        ) -> StateReaderResult<Rc<ContractClass>> {
+            unimplemented!();
+        }
+    }
+
+    let mut cached_state = CachedState::new(NoGoodStateReader {});
+    let contract_address = ContractAddress(patky!("0x1"));
+    let class_hash = ClassHash(shash!("0x10"));
+    let cached_state_set_error =
+        cached_state.set_contract_hash(contract_address, class_hash).unwrap_err();
+    assert_matches!(cached_state_set_error, StateError::StateReaderError { .. });
+}
+
+// api-specific tests
 
 #[test]
 fn get_uninitialized_storage_value() {
@@ -105,4 +154,50 @@ fn get_contract_class() {
     let missing_class_hash = ClassHash(shash!("0x101"));
     assert_matches!(state.get_contract_class(&missing_class_hash),
     Err(StateReaderError::UndeclaredClassHash(class_hash)) if class_hash == missing_class_hash);
+}
+
+#[test]
+fn get_uninitialized_class_hash_value() {
+    let mut state = CachedState::new(DictStateReader::default());
+    let valid_contract_address = ContractAddress(patky!("0x1"));
+
+    assert_eq!(*state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
+}
+
+#[test]
+fn set_and_get_contract_hash() {
+    let contract_address = ContractAddress(patky!("0x1"));
+    let mut state = CachedState::new(DictStateReader::default());
+    let class_hash = ClassHash(shash!("0x10"));
+
+    assert!(state.set_contract_hash(contract_address, class_hash).is_ok());
+    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
+}
+
+#[test]
+fn cannot_set_class_hash_to_deployed_address() {
+    let contract_address = ContractAddress(patky!("0x1"));
+    let deployed_class_hash = ClassHash(shash!("0x10"));
+    let mut state = CachedState::new(DictStateReader {
+        address_to_class_hash: HashMap::from([(contract_address, deployed_class_hash)]),
+        ..Default::default()
+    });
+
+    let new_class_hash = ClassHash(shash!("0x100"));
+    assert_matches!(
+        state.set_contract_hash(contract_address, new_class_hash).unwrap_err(),
+        StateError::UnavailableContractAddress(..)
+    );
+}
+
+#[test]
+fn cannot_set_class_hash_to_uninitialized_contract() {
+    let mut state = CachedState::new(DictStateReader::default());
+
+    let uninitialized_contract_address = ContractAddress::default();
+    let class_hash = ClassHash(shash!("0x100"));
+    assert_matches!(
+        state.set_contract_hash(uninitialized_contract_address, class_hash).unwrap_err(),
+        StateError::OutOfRangeContractAddress
+    );
 }
