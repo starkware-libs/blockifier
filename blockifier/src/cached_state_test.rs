@@ -7,6 +7,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{patky, shash};
 
 use super::*;
+use crate::state::errors::StateReaderError;
 
 #[test]
 fn get_uninitialized_storage_value() {
@@ -106,5 +107,51 @@ fn get_contract_class() {
     assert_matches!(
         state.get_contract_class(&missing_class_hash).unwrap_err(),
         StateError::StateReaderError(StateReaderError::UndeclaredClassHash(undeclared)) if undeclared == missing_class_hash
+    );
+}
+
+#[test]
+fn get_uninitialized_class_hash_value() {
+    let mut state = CachedState::new(DictStateReader::default());
+    let valid_contract_address = ContractAddress(patky!("0x1"));
+
+    assert_eq!(*state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
+}
+
+#[test]
+fn set_and_get_contract_hash() {
+    let contract_address = ContractAddress(patky!("0x1"));
+    let mut state = CachedState::new(DictStateReader::default());
+    let class_hash = ClassHash(shash!("0x10"));
+
+    assert!(state.set_contract_hash(contract_address, class_hash).is_ok());
+    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
+}
+
+#[test]
+fn cannot_set_class_hash_to_deployed_address() {
+    let contract_address = ContractAddress(patky!("0x1"));
+    let deployed_class_hash = ClassHash(shash!("0x10"));
+    let mut state = CachedState::new(DictStateReader {
+        address_to_class_hash: HashMap::from([(contract_address, deployed_class_hash)]),
+        ..Default::default()
+    });
+
+    let new_class_hash = ClassHash(shash!("0x100"));
+    assert_matches!(
+        state.set_contract_hash(contract_address, new_class_hash).unwrap_err(),
+        StateError::UnavailableContractAddress(..)
+    );
+}
+
+#[test]
+fn cannot_set_class_hash_to_uninitialized_contract() {
+    let mut state = CachedState::new(DictStateReader::default());
+
+    let uninitialized_contract_address = ContractAddress::default();
+    let class_hash = ClassHash(shash!("0x100"));
+    assert_matches!(
+        state.set_contract_hash(uninitialized_contract_address, class_hash).unwrap_err(),
+        StateError::OutOfRangeContractAddress
     );
 }
