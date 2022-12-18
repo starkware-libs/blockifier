@@ -28,6 +28,8 @@ const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
 const TEST_LIBRARY_CALL_TREE_SELECTOR: &str =
     "0x301fa9c721a93ca8d34dba228387cbbe889a0676e88c3e74161d8da0041d2ad";
+const TEST_CALL_CONTRACT_SELECTOR: &str =
+    "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c";
 const TEST_CLASS_HASH: &str = "0x1";
 const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
@@ -42,7 +44,15 @@ fn create_test_state() -> CachedState<DictStateReader> {
         ClassHash(shash!(TEST_CLASS_HASH)),
         Rc::new(create_test_contract_class()),
     )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+    let address_to_class_hash = HashMap::from([(
+        ContractAddress(shash!(TEST_CONTRACT_ADDRESS).try_into().unwrap()),
+        ClassHash(shash!(TEST_CLASS_HASH)),
+    )]);
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
 }
 
 fn trivial_external_entrypoint() -> CallEntryPoint {
@@ -255,4 +265,22 @@ fn test_entry_point_with_library_call_tree() {
     };
 
     assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
+}
+
+#[test]
+fn test_entry_point_with_call_contract() {
+    let mut state = create_test_state();
+    let calldata = CallData(vec![
+        shash!(TEST_CONTRACT_ADDRESS),         // Contract address.
+        shash!(WRITE_AND_READ_VALUE_SELECTOR), // Function selector.
+        shash!(2),                             // Calldata length.
+        shash!(405),                           // Calldata.
+        shash!(48),
+    ]);
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_CALL_CONTRACT_SELECTOR)),
+        calldata,
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(entry_point.execute(&mut state).unwrap().execution.retdata, vec![shash!(48)]);
 }

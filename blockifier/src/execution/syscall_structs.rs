@@ -1,7 +1,7 @@
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::CallData;
@@ -18,6 +18,7 @@ pub type ReadRequestResult = SyscallResult<SyscallRequest>;
 pub type ExecutionResult = SyscallResult<SyscallResponse>;
 pub type WriteResponseResult = SyscallResult<()>;
 
+pub const CALL_CONTRACT_SELECTOR_BYTES: &[u8] = b"CallContract";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
 pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
@@ -100,6 +101,55 @@ pub const STORAGE_WRITE_RESPONSE_SIZE: usize = 0;
 pub type StorageWriteResponse = EmptyResponse;
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct CallContractRequest {
+    pub contract_address: ContractAddress,
+    pub function_selector: EntryPointSelector,
+    pub calldata: CallData,
+}
+
+pub const CALL_CONTRACT_REQUEST_SIZE: usize = 4;
+
+impl CallContractRequest {
+    pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
+        let contract_address =
+            ContractAddress(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?.try_into()?);
+        let function_selector =
+            EntryPointSelector(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?);
+        let calldata_size = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2))?)?;
+        let calldata_ptr = match vm.get_maybe(&(ptr + 3))? {
+            Some(ptr) => ptr,
+            None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
+        };
+        let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
+
+        Ok(SyscallRequest::CallContract(CallContractRequest {
+            contract_address,
+            function_selector,
+            calldata,
+        }))
+    }
+
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let class_hash = *syscall_handler.state.get_class_hash_at(self.contract_address)?;
+        let entry_point = CallEntryPoint {
+            class_hash,
+            entry_point_type: EntryPointType::External,
+            entry_point_selector: self.function_selector,
+            calldata: self.calldata,
+            storage_address: self.contract_address,
+        };
+        let call_info = entry_point.execute(&mut syscall_handler.state)?;
+        let retdata = call_info.execution.retdata.clone();
+        syscall_handler.inner_calls.push(call_info);
+
+        Ok(SyscallResponse::CallContract(CallContractResponse {
+            retdata_size: StarkFelt::from(retdata.len() as u64),
+            retdata,
+        }))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct CallContractResponse {
     pub retdata_size: StarkFelt,
     pub retdata: Vec<StarkFelt>,
@@ -174,6 +224,7 @@ pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyscallRequest {
+    CallContract(CallContractRequest),
     LibraryCall(LibraryCallRequest),
     StorageRead(StorageReadRequest),
     StorageWrite(StorageWriteRequest),
@@ -185,6 +236,7 @@ impl SyscallRequest {
         // Remove leading zero bytes from selector.
         let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
         match &selector_bytes[first_non_zero..32] {
+            CALL_CONTRACT_SELECTOR_BYTES => CallContractRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
@@ -194,6 +246,7 @@ impl SyscallRequest {
 
     pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
         match self {
+            SyscallRequest::CallContract(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
             SyscallRequest::StorageWrite(request) => request.execute(syscall_handler),
@@ -202,6 +255,7 @@ impl SyscallRequest {
 
     pub fn size(&self) -> usize {
         match self {
+            SyscallRequest::CallContract(_) => CALL_CONTRACT_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
             SyscallRequest::StorageWrite(_) => STORAGE_WRITE_REQUEST_SIZE,
@@ -211,6 +265,7 @@ impl SyscallRequest {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyscallResponse {
+    CallContract(CallContractResponse),
     LibraryCall(LibraryCallResponse),
     StorageRead(StorageReadResponse),
     StorageWrite(EmptyResponse),
@@ -219,6 +274,7 @@ pub enum SyscallResponse {
 impl SyscallResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         match self {
+            SyscallResponse::CallContract(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
             SyscallResponse::StorageWrite(response) => response.write(vm, ptr),
@@ -227,6 +283,7 @@ impl SyscallResponse {
 
     pub fn size(&self) -> usize {
         match self {
+            SyscallResponse::CallContract(_) => CALL_CONTRACT_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
             SyscallResponse::StorageWrite(_) => STORAGE_WRITE_RESPONSE_SIZE,

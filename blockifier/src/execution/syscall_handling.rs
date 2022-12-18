@@ -107,6 +107,12 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
         String::from(
             "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
         ),
+        execute_syscall_hint.clone(),
+    );
+    hint_processor.add_hint(
+        String::from(
+            "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        ),
         execute_syscall_hint,
     );
 }
