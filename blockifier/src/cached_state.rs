@@ -8,12 +8,12 @@ use starknet_api::state::StorageKey;
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateReaderError;
+use crate::state::state_reader::{StateReader, StateReaderResult};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
 
-pub type StateReaderResult<T> = Result<T, StateReaderError>;
 type ContractClassMapping = HashMap<ClassHash, Rc<ContractClass>>;
 
 /// Caches read and write requests.
@@ -94,31 +94,6 @@ impl<SR: StateReader> CachedState<SR> {
                 .expect("The class hash must appear in the cache."),
         ))
     }
-}
-
-/// A read-only API for accessing StarkNet global state.
-pub trait StateReader {
-    /// Returns the storage value under the given key in the given contract instance (represented by
-    /// its address).
-    /// Default: 0 for an uninitialized contract address.
-    fn get_storage_at(
-        &self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> Result<StarkFelt>;
-
-    /// Returns the nonce of the given contract instance.
-    /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> Result<Nonce>;
-
-    /// Returns the class hash of the contract class at the given contract instance.
-    /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&self, _contract_address: ContractAddress) -> Result<ClassHash> {
-        unimplemented!();
-    }
-
-    /// Returns the contract class of the given class hash.
-    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<Rc<ContractClass>>;
 }
 
 type ContractStorageKey = (ContractAddress, StorageKey);
