@@ -19,7 +19,7 @@ use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
-use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
+use crate::execution::syscalls::{SyscallRequest, SyscallResult};
 
 #[cfg(test)]
 #[path = "syscall_handling_test.rs"]
@@ -106,6 +106,12 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
     hint_processor.add_hint(
         String::from(
             "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        ),
+        execute_syscall_hint.clone(),
+    );
+    hint_processor.add_hint(
+        String::from(
+            "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
         ),
         execute_syscall_hint.clone(),
     );
