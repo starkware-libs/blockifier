@@ -152,6 +152,7 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
 
     let uninitialized_contract_address = ContractAddress::default();
     let class_hash = ClassHash(shash!("0x100"));
+    let _a = 2;
     assert_matches!(
         state.set_contract_hash(uninitialized_contract_address, class_hash).unwrap_err(),
         StateError::OutOfRangeContractAddress
