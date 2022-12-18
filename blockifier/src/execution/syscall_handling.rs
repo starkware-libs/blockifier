@@ -13,9 +13,10 @@ use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
+use starknet_api::core::ContractAddress;
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::CallInfo;
+use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
@@ -28,13 +29,25 @@ mod test;
 pub struct SyscallHandler {
     expected_syscall_ptr: Relocatable,
     pub state: CachedState<DictStateReader>,
+    pub storage_address: ContractAddress,
     /// Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
 }
 
 impl SyscallHandler {
-    pub fn new(initial_syscall_ptr: Relocatable, state: CachedState<DictStateReader>) -> Self {
-        SyscallHandler { expected_syscall_ptr: initial_syscall_ptr, state, inner_calls: vec![] }
+    pub fn new(
+        initial_syscall_ptr: Relocatable,
+        state: CachedState<DictStateReader>,
+        // TODO(AlonH, 21/12/2022): Consider referencing outer_call when lifetimes make it possible
+        // (LambdaClass).
+        storage_address: ContractAddress,
+    ) -> Self {
+        SyscallHandler {
+            expected_syscall_ptr: initial_syscall_ptr,
+            state,
+            inner_calls: vec![],
+            storage_address,
+        }
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> SyscallResult<()> {
@@ -101,10 +114,12 @@ pub fn initialize_syscall_handler(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
     state: CachedState<DictStateReader>,
+    call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, BuiltinHintProcessor) {
     let syscall_segment = vm.add_memory_segment();
     let mut hint_processor = BuiltinHintProcessor::new_empty();
-    let syscall_handler = SyscallHandler::new(syscall_segment.clone(), state);
+    let syscall_handler =
+        SyscallHandler::new(syscall_segment.clone(), state, call_entry_point.storage_address);
     add_syscall_hints(&mut hint_processor);
     cairo_runner
         .exec_scopes
