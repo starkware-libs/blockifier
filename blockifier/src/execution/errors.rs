@@ -46,6 +46,8 @@ pub enum SyscallExecutionError {
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
+    StateError(#[from] StateError),
+    #[error(transparent)]
     VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
 }
 
