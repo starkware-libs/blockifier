@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use starknet_api::core::ClassHash;
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
-use starknet_api::shash;
+use starknet_api::{patky, shash};
 
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
@@ -25,6 +25,8 @@ pub const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
 pub const TEST_NESTED_LIBRARY_CALL_SELECTOR: &str =
     "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331";
+pub const TEST_CALL_CONTRACT_SELECTOR: &str =
+    "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c";
 pub const TEST_DEPLOY_SELECTOR: &str =
     "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
 pub const TEST_CLASS_HASH: &str = "0x1";
@@ -44,5 +46,13 @@ pub fn get_test_contract_class() -> ContractClass {
 pub fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class =
         HashMap::from([(ClassHash(shash!(TEST_CLASS_HASH)), Rc::new(get_test_contract_class()))]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+    let address_to_class_hash = HashMap::from([(
+        ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
+        ClassHash(shash!(TEST_CLASS_HASH)),
+    )]);
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
 }
