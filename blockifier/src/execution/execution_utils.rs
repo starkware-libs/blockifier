@@ -71,7 +71,7 @@ pub fn initialize_execution_context(
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
     let (syscall_segment, hint_processor) =
-        initialize_syscall_handler(&mut cairo_runner, &mut vm, mut_state);
+        initialize_syscall_handler(&mut cairo_runner, &mut vm, mut_state, call_entry_point);
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call_entry_point.resolve_entry_point_pc(&contract_class)?;
