@@ -112,13 +112,13 @@ impl StateReader for DictStateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> Result<StarkFelt> {
+    ) -> StateReaderResult<StarkFelt> {
         let contract_storage_key = (contract_address, key);
         let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
         Ok(value)
     }
 
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> Result<Nonce> {
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateReaderResult<Nonce> {
         let nonce = self.address_to_nonce.get(&contract_address).copied().unwrap_or_default();
         Ok(nonce)
     }

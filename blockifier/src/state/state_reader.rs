@@ -19,15 +19,18 @@ pub trait StateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> Result<StarkFelt>;
+    ) -> StateReaderResult<StarkFelt>;
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> Result<Nonce>;
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateReaderResult<Nonce>;
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&self, _contract_address: ContractAddress) -> Result<ClassHash> {
+    fn get_class_hash_at(
+        &self,
+        _contract_address: ContractAddress,
+    ) -> StateReaderResult<ClassHash> {
         unimplemented!();
     }
 
