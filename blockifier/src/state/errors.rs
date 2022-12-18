@@ -1,4 +1,5 @@
 use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -11,12 +12,16 @@ pub enum StateReaderError {
     ReadError(String),
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+// TODO(Gilad, 1/12/2022): Derive partialeq/eq in StarknetApiError (or document why that shouldn't
+// be done), then derive them here as well.
+#[derive(Error, Debug)]
 pub enum StateError {
     #[error("Cannot deploy contract at address 0.")]
     OutOfRangeContractAddress,
     #[error("Requested {0:?} is unavailable for deployment.")]
     UnavailableContractAddress(ContractAddress),
+    #[error(transparent)]
+    StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     StateReaderError(#[from] StateReaderError),
 }

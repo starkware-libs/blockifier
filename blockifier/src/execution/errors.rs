@@ -4,7 +4,7 @@ use starknet_api::core::EntryPointSelector;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::state::errors::StateReaderError;
+use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
 pub enum PreExecutionError {
@@ -15,7 +15,7 @@ pub enum PreExecutionError {
     #[error(transparent)]
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
     #[error(transparent)]
-    StateReaderError(#[from] StateReaderError),
+    StateError(#[from] StateError),
 }
 
 impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {
