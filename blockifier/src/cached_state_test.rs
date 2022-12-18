@@ -105,6 +105,8 @@ fn get_contract_class() {
     let missing_class_hash = ClassHash(shash!("0x101"));
     assert_matches!(
         state.get_contract_class(&missing_class_hash).unwrap_err(),
-        StateError::StateReaderError(StateReaderError::UndeclaredClassHash(undeclared)) if undeclared == missing_class_hash
+        StateError::StateReaderError(
+            StateReaderError::UndeclaredClassHash(undeclared)
+        ) if undeclared == missing_class_hash
     );
 }
