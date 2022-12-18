@@ -1,6 +1,7 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::errors as cairo_rs_vm_errors;
 use starknet_api::core::EntryPointSelector;
+use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -39,7 +40,7 @@ pub enum SyscallExecutionError {
     #[error(transparent)]
     InnerCallExecutionError(Box<EntryPointExecutionError>),
     #[error("Invalid syscall selector: {0:?}.")]
-    InvalidSyscallSelector([u8; 32]),
+    InvalidSyscallSelector(StarkFelt),
     #[error(transparent)]
     MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
     #[error(transparent)]
