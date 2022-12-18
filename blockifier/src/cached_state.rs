@@ -92,11 +92,12 @@ impl<SR: StateReader> CachedState<SR> {
             self.class_hash_to_class.insert(*class_hash, Rc::clone(&contract_class));
         }
 
-        Ok(Rc::clone(
+        let value = Rc::clone(
             self.class_hash_to_class
                 .get(class_hash)
                 .expect("The class hash must appear in the cache."),
-        ))
+        );
+        Ok(value)
     }
 }
 
@@ -163,6 +164,12 @@ impl StateCache {
             .or_else(|| self.storage_initial_values.get(&contract_storage_key))
     }
 
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> Option<&Nonce> {
+        self.nonce_writes
+            .get(&contract_address)
+            .or_else(|| self.nonce_initial_values.get(&contract_address))
+    }
+
     pub fn set_storage_initial_value(
         &mut self,
         contract_address: ContractAddress,
@@ -181,12 +188,6 @@ impl StateCache {
     ) {
         let contract_storage_key = (contract_address, key);
         self.storage_writes.insert(contract_storage_key, value);
-    }
-
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> Option<&Nonce> {
-        self.nonce_writes
-            .get(&contract_address)
-            .or_else(|| self.nonce_initial_values.get(&contract_address))
     }
 
     fn set_nonce_initial_value(&mut self, contract_address: ContractAddress, nonce: Nonce) {
