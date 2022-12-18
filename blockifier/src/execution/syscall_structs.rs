@@ -1,6 +1,5 @@
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::core::ContractAddress;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::shash;
 use starknet_api::state::StorageKey;
@@ -54,8 +53,7 @@ impl StorageReadRequest {
     }
 
     pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Use actual contract address once it's part of the entry point.
-        let contract_address = ContractAddress::try_from(shash!("0x1")).unwrap();
+        let contract_address = syscall_handler.outer_call.storage_address;
         // TODO(AlonH, 21/12/2022): Remove unwrap once errors are created for state.
         let value = syscall_handler.state.get_storage_at(contract_address, self.address).unwrap();
         Ok(SyscallResponse::StorageRead(StorageReadResponse { value: *value }))
@@ -93,8 +91,7 @@ impl StorageWriteRequest {
     }
 
     pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Use actual contract address once it's part of the entry point.
-        let contract_address = ContractAddress::try_from(shash!("0x1")).unwrap();
+        let contract_address = syscall_handler.outer_call.storage_address;
         syscall_handler.state.set_storage_at(contract_address, self.address, self.value);
         Ok(SyscallResponse::StorageWrite(EmptyResponse {}))
     }
