@@ -96,6 +96,40 @@ impl<SR: StateReader> CachedState<SR> {
         );
         Ok(contract_class)
     }
+
+    pub fn get_class_hash_at(
+        &mut self,
+        contract_address: ContractAddress,
+    ) -> StateResult<&ClassHash> {
+        if self.cache.get_class_hash_at(contract_address).is_none() {
+            let class_hash = self.state_reader.get_class_hash_at(contract_address)?;
+            self.cache.set_class_hash_initial_value(contract_address, class_hash);
+        }
+
+        let class_hash = self
+            .cache
+            .get_class_hash_at(contract_address)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        Ok(class_hash)
+    }
+
+    pub fn set_contract_hash(
+        &mut self,
+        contract_address: ContractAddress,
+        class_hash: ClassHash,
+    ) -> StateResult<()> {
+        if contract_address == ContractAddress::default() {
+            return Err(StateError::OutOfRangeContractAddress);
+        }
+
+        let current_class_hash = self.get_class_hash_at(contract_address)?;
+        if *current_class_hash != ClassHash::default() {
+            return Err(StateError::UnavailableContractAddress(contract_address));
+        }
+
+        self.cache.set_class_hash_write(contract_address, class_hash);
+        Ok(())
+    }
 }
 
 type ContractStorageKey = (ContractAddress, StorageKey);
@@ -132,6 +166,12 @@ impl StateReader for DictStateReader {
             None => Err(StateReaderError::UndeclaredClassHash(*class_hash)),
         }
     }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateReaderResult<ClassHash> {
+        let class_hash =
+            self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
+        Ok(class_hash)
+    }
 }
 
 /// Caches read and write requests.
@@ -140,12 +180,12 @@ impl StateReader for DictStateReader {
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
-    _class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
+    class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
-    _class_hash_writes: HashMap<ContractAddress, ClassHash>,
+    class_hash_writes: HashMap<ContractAddress, ClassHash>,
     storage_writes: HashMap<ContractStorageKey, StarkFelt>,
 }
 
@@ -193,5 +233,23 @@ impl StateCache {
 
     fn set_nonce_value(&mut self, contract_address: ContractAddress, nonce: Nonce) {
         self.nonce_writes.insert(contract_address, nonce);
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> Option<&ClassHash> {
+        self.class_hash_writes
+            .get(&contract_address)
+            .or_else(|| self.class_hash_initial_values.get(&contract_address))
+    }
+
+    fn set_class_hash_initial_value(
+        &mut self,
+        contract_address: ContractAddress,
+        class_hash: ClassHash,
+    ) {
+        self.class_hash_initial_values.insert(contract_address, class_hash);
+    }
+
+    fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
+        self.class_hash_writes.insert(contract_address, class_hash);
     }
 }
