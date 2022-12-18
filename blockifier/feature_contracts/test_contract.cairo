@@ -2,7 +2,7 @@
 
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
-from starkware.starknet.common.syscalls import storage_read, storage_write, library_call, deploy
+from starkware.starknet.common.syscalls import storage_read, storage_write, library_call, deploy, call_contract
 
 @external
 func without_arg() {
@@ -93,6 +93,20 @@ func test_nested_library_call{syscall_ptr: felt*}(
     );
 
     return (result=0);
+
+@external
+@raw_output
+func test_call_contract{syscall_ptr: felt*}(
+    contract_address: felt, function_selector, calldata_len, calldata: felt*
+) -> (retdata_size: felt, retdata: felt*) {
+    let (retdata_size: felt, retdata: felt*) = call_contract(
+        contract_address=contract_address,
+        function_selector=function_selector,
+        calldata_size=calldata_len,
+        calldata=calldata,
+    );
+    return (retdata_size=retdata_size, retdata=retdata);
+}
 }
 
 @external

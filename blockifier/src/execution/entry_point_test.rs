@@ -8,9 +8,9 @@ use starknet_api::transaction::CallData;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
 use crate::test_utils::{
     create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR,
-    TEST_NESTED_LIBRARY_CALL_SELECTOR, TEST_STORAGE_READ_WRITE_SELECTOR, WITHOUT_ARG_SELECTOR,
-    WITH_ARG_SELECTOR,
+    TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR,
+    TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
+    TEST_STORAGE_READ_WRITE_SELECTOR, WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
 };
 
 fn trivial_external_entrypoint() -> CallEntryPoint {
@@ -160,8 +160,10 @@ fn test_entry_point_with_library_call() {
         calldata,
         ..trivial_external_entrypoint()
     };
-    // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
-    assert_eq!(entry_point.execute(&mut state).unwrap().execution.retdata, vec![shash!(91)]);
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![shash!(91)] }
+    );
 }
 
 #[test]
@@ -244,5 +246,26 @@ fn test_entry_point_with_deploy() {
     assert_eq!(
         entry_point.execute(&mut state).unwrap().execution,
         CallExecution { retdata: vec![shash!(0)] }
+    );
+}
+
+#[test]
+fn test_entry_point_with_call_contract() {
+    let mut state = create_test_state();
+    let calldata = CallData(vec![
+        shash!(TEST_CONTRACT_ADDRESS),            // Contract address.
+        shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
+        shash!(2),                                // Calldata length.
+        shash!(405),                              // Calldata.
+        shash!(48),
+    ]);
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_CALL_CONTRACT_SELECTOR)),
+        calldata,
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![shash!(48)] }
     );
 }
