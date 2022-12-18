@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use anyhow::{Context, Result};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::execution::contract_class::ContractClass;
-use crate::state::errors::StateReaderError;
+use crate::state::errors::{StateError, StateReaderError};
 use crate::state::state_reader::{StateReader, StateReaderResult};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
 
+pub type StateResult<T> = Result<T, StateError>;
 type ContractClassMapping = HashMap<ClassHash, Rc<ContractClass>>;
 
 /// Caches read and write requests.
@@ -37,15 +37,16 @@ impl<SR: StateReader> CachedState<SR> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> Result<&StarkFelt> {
+    ) -> StateResult<&StarkFelt> {
         if self.cache.get_storage_at(contract_address, key).is_none() {
             let storage_value = self.state_reader.get_storage_at(contract_address, key)?;
             self.cache.set_storage_initial_value(contract_address, key, storage_value);
         }
 
-        self.cache.get_storage_at(contract_address, key).with_context(|| {
-            format!("Cannot retrieve '{contract_address:?}' and '{key:?}' from the cache.")
-        })
+        let value = self.cache.get_storage_at(contract_address, key).unwrap_or_else(|| {
+            panic!("Cannot retrieve '{contract_address:?}' and '{key:?}' from the cache.")
+        });
+        Ok(value)
     }
 
     pub fn set_storage_at(
@@ -57,22 +58,24 @@ impl<SR: StateReader> CachedState<SR> {
         self.cache.set_storage_value(contract_address, key, value);
     }
 
-    pub fn get_nonce_at(&mut self, contract_address: ContractAddress) -> Result<&Nonce> {
+    pub fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<&Nonce> {
         if self.cache.get_nonce_at(contract_address).is_none() {
             let nonce = self.state_reader.get_nonce_at(contract_address)?;
             self.cache.set_nonce_initial_value(contract_address, nonce);
         }
 
-        self.cache
+        let value = self
+            .cache
             .get_nonce_at(contract_address)
-            .with_context(|| format!("Cannot retrieve '{contract_address:?}' from the cache."))
+            .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        Ok(value)
     }
 
     // TODO(Gilad, 1/12/22) consider moving some this logic into starknet-api; Nonce should
     // be able to increment itself.
-    pub fn increment_nonce(&mut self, contract_address: ContractAddress) -> Result<()> {
+    pub fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
         let current_nonce = *self.get_nonce_at(contract_address)?;
-        let next_nonce = u64_try_from_starkfelt(current_nonce.0)? + 1_u64;
+        let next_nonce = u64_try_from_starkfelt(current_nonce.0) + 1_u64;
         let next_nonce = nonce_try_from_u64(next_nonce)?;
         self.cache.set_nonce_value(contract_address, next_nonce);
 
@@ -194,15 +197,18 @@ impl StateCache {
     }
 }
 
-// TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `TryFrom`
-// Also, check why are we using u64 and not BigInt (we are losing information in the cast).
-fn u64_try_from_starkfelt(hash: StarkFelt) -> Result<u64> {
-    let as_bytes: [u8; 8] = hash.bytes()[24..32].try_into()?;
-    Ok(u64::from_be_bytes(as_bytes))
+// TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `TryFrom`, with error instead of
+// TODO(Gilad, 1/12/2022): check why are we using u64 and not BigInt (we are losing information in
+// the cast).
+fn u64_try_from_starkfelt(hash: StarkFelt) -> u64 {
+    // TODO(Gilad, 1/12/2022): `stark_felt.bytes()` should return the actual size of the field,
+    // &[u8; 32], rather than &[u8] (unsized-coercion makes this change seamless).
+    let as_bytes: [u8; 8] = hash.bytes()[24..32].try_into().unwrap();
+    u64::from_be_bytes(as_bytes)
 }
 
 // TODO(Gilad, 1/12/2022): Move this to Starknet_api and convert to `From`
-fn nonce_try_from_u64(num: u64) -> Result<Nonce> {
+fn nonce_try_from_u64(num: u64) -> StateResult<Nonce> {
     let num_hex = format!("0x{num:x}");
     let felt = StarkFelt::try_from(num_hex.as_str())?;
     Ok(Nonce(felt))
