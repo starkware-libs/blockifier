@@ -3,7 +3,7 @@ use std::mem;
 use anyhow::Result;
 use starknet_api::hash::StarkFelt;
 
-use crate::execution::syscall_structs::{
+use crate::execution::syscalls::{
     StorageReadRequest, StorageReadResponse, StorageWriteRequest, StorageWriteResponse,
     STORAGE_READ_REQUEST_SIZE, STORAGE_READ_RESPONSE_SIZE, STORAGE_WRITE_REQUEST_SIZE,
     STORAGE_WRITE_RESPONSE_SIZE,

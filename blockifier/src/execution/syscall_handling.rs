@@ -8,18 +8,22 @@ use cairo_rs::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_v
 use cairo_rs::hint_processor::hint_processor_definition::HintReference;
 use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::types::relocatable::Relocatable;
+use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
-use starknet_api::core::ContractAddress;
+use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::CallData;
 
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::execution_utils::get_felt_from_memory_cell;
-use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
+use crate::execution::execution_utils::{
+    felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
+};
+use crate::execution::syscalls::{SyscallRequest, SyscallResult};
 
 #[cfg(test)]
 #[path = "syscall_handling_test.rs"]
@@ -110,6 +114,12 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
         execute_syscall_hint.clone(),
     );
     hint_processor.add_hint(
+        String::from(
+            "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        ),
+        execute_syscall_hint.clone(),
+    );
+    hint_processor.add_hint(
         String::from("syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)"),
         execute_syscall_hint,
     );
@@ -135,4 +145,70 @@ pub fn initialize_syscall_handler(
         .exec_scopes
         .assign_or_update_variable("syscall_handler", Box::new(syscall_handler));
     (syscall_segment, hint_processor)
+}
+
+// TODO(Noa, 26/12/2022): Consider implementing it as a From trait.
+pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
+    if felt == StarkFelt::from(0) {
+        Ok(false)
+    } else if felt == StarkFelt::from(1) {
+        Ok(true)
+    } else {
+        Err(SyscallExecutionError::InvalidSyscallInput {
+            input: felt,
+            info: String::from(
+                "The deploy_from_zero field in the deploy system call must be 0 or 1.",
+            ),
+        })
+    }
+}
+
+pub fn write_retdata(
+    vm: &mut VirtualMachine,
+    ptr: &Relocatable,
+    retdata: Vec<StarkFelt>,
+) -> SyscallResult<()> {
+    let retdata_size = felt_to_bigint(StarkFelt::from(retdata.len() as u64));
+    vm.insert_value(ptr, retdata_size)?;
+
+    // Write response payload to the memory.
+    let segment = vm.add_memory_segment();
+    vm.insert_value(&(ptr + 1), &segment)?;
+    let data: Vec<MaybeRelocatable> =
+        retdata.into_iter().map(|x| felt_to_bigint(x).into()).collect();
+    vm.load_data(&segment.into(), data)?;
+
+    Ok(())
+}
+
+pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
+    let calldata_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
+    let calldata_ptr = match vm.get_maybe(&(ptr + 1))? {
+        Some(ptr) => ptr,
+        None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
+    };
+    let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
+
+    Ok(calldata)
+}
+
+pub fn read_call_params(
+    vm: &VirtualMachine,
+    ptr: &Relocatable,
+) -> SyscallResult<(EntryPointSelector, CallData)> {
+    let function_selector = EntryPointSelector(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+    let calldata = read_calldata(vm, &(ptr + 1))?;
+
+    Ok((function_selector, calldata))
+}
+
+pub fn execute_inner_call(
+    call_entry_point: CallEntryPoint,
+    syscall_handler: &mut SyscallHandler,
+) -> SyscallResult<Vec<StarkFelt>> {
+    let call_info = call_entry_point.execute(&mut syscall_handler.state)?;
+    let retdata = call_info.execution.retdata.clone();
+    syscall_handler.inner_calls.push(call_info);
+
+    Ok(retdata)
 }
