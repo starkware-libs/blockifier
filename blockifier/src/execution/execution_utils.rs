@@ -58,11 +58,9 @@ pub struct ExecutionContext {
 
 pub fn initialize_execution_context(
     call_entry_point: &CallEntryPoint,
-    state: CachedState<DictStateReader>,
+    state: &mut CachedState<DictStateReader>,
 ) -> Result<ExecutionContext, PreExecutionError> {
-    // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
-    let mut mut_state = state;
-    let contract_class = mut_state.get_contract_class(&call_entry_point.class_hash)?;
+    let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
@@ -71,7 +69,7 @@ pub fn initialize_execution_context(
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
     let (syscall_segment, hint_processor) =
-        initialize_syscall_handler(&mut cairo_runner, &mut vm, mut_state, call_entry_point);
+        initialize_syscall_handler(&mut cairo_runner, &mut vm, state, call_entry_point);
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call_entry_point.resolve_entry_point_pc(&contract_class)?;
@@ -118,7 +116,7 @@ pub fn prepare_call_arguments(
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
     call_entry_point: CallEntryPoint,
-    state: CachedState<DictStateReader>,
+    state: &mut CachedState<DictStateReader>,
 ) -> EntryPointResult<CallInfo> {
     let mut execution_context = initialize_execution_context(&call_entry_point, state)?;
     let args = prepare_call_arguments(
@@ -135,7 +133,8 @@ pub fn execute_entry_point_call(
         &execution_context.hint_processor,
     )?;
 
-    Ok(create_call_info(execution_context.runner, execution_context.vm, call_entry_point)?)
+    let inner_calls = finalize_syscall_handler(execution_context.runner, state)?;
+    Ok(create_call_info(execution_context.vm, call_entry_point, inner_calls)?)
 }
 
 pub fn run_entry_point(
@@ -157,16 +156,25 @@ pub fn run_entry_point(
     Ok(())
 }
 
-pub fn create_call_info(
+pub fn finalize_syscall_handler(
     mut cairo_runner: CairoRunner,
+    state: &mut CachedState<DictStateReader>,
+) -> Result<Vec<CallInfo>, PostExecutionError> {
+    let syscall_handler =
+        cairo_runner.exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
+    // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
+    // becomes a reference.
+    *state = syscall_handler.state.clone();
+    Ok(mem::take(&mut syscall_handler.inner_calls))
+}
+
+pub fn create_call_info(
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
+    inner_calls: Vec<CallInfo>,
 ) -> Result<CallInfo, PostExecutionError> {
     let retdata = extract_execution_return_data(vm)?;
     let execution = CallExecution { retdata };
-    let syscall_handler =
-        cairo_runner.exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
-    let inner_calls = mem::take(&mut syscall_handler.inner_calls);
     Ok(CallInfo { call: call_entry_point, execution, inner_calls })
 }
 
