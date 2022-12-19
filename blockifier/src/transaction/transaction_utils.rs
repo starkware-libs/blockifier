@@ -1,19 +1,9 @@
-use std::path::PathBuf;
-
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallInfo;
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::TransactionExecutionResult;
-
-// TODO(Adi, 10/12/2022): Remove this function once we use the starknet_api transaction struct
-// instead of our own, which contains a `contract_path` instead of a `contract_address`.
-pub fn get_contract_class(contract_path: &str) -> ContractClass {
-    let path = PathBuf::from(contract_path);
-    ContractClass::from_file(&path).expect("File must contain the content of a compiled contract.")
-}
 
 pub fn calculate_tx_fee() -> Fee {
     Fee(1)
