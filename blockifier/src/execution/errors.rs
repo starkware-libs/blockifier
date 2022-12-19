@@ -39,6 +39,8 @@ pub enum SyscallExecutionError {
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
     InnerCallExecutionError(Box<EntryPointExecutionError>),
+    #[error("Invalid syscall input: {input:?}: {info:}")]
+    InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
     #[error(transparent)]

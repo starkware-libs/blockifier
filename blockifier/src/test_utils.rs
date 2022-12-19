@@ -23,6 +23,8 @@ pub const GET_VALUE_SELECTOR: &str =
     "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
 pub const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
+pub const TEST_DEPLOY_SELECTOR: &str =
+    "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
 pub const TEST_CLASS_HASH: &str = "0x1";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 

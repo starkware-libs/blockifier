@@ -1,7 +1,7 @@
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::CallData;
@@ -18,11 +18,12 @@ pub type ReadRequestResult = SyscallResult<SyscallRequest>;
 pub type ExecutionResult = SyscallResult<SyscallResponse>;
 pub type WriteResponseResult = SyscallResult<()>;
 
+pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
 pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct EmptyResponse {}
 
 impl EmptyResponse {
@@ -33,7 +34,7 @@ impl EmptyResponse {
 
 pub const STORAGE_READ_REQUEST_SIZE: usize = 1;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {
     pub address: StorageKey,
 }
@@ -57,7 +58,7 @@ impl StorageReadRequest {
 
 pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadResponse {
     pub value: StarkFelt,
 }
@@ -69,7 +70,7 @@ impl StorageReadResponse {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
     pub address: StorageKey,
     pub value: StarkFelt,
@@ -99,7 +100,7 @@ pub const STORAGE_WRITE_RESPONSE_SIZE: usize = 0;
 
 pub type StorageWriteResponse = EmptyResponse;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct CallContractResponse {
     pub retdata_size: StarkFelt,
     pub retdata: Vec<StarkFelt>,
@@ -109,19 +110,11 @@ pub const CALL_CONTRACT_RESPONSE_SIZE: usize = 2;
 
 impl CallContractResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, felt_to_bigint(self.retdata_size))?;
-
-        // Write response payload to the memory.
-        let segment = vm.add_memory_segment();
-        vm.insert_value(&(ptr + 1), &segment)?;
-        let data: Vec<MaybeRelocatable> =
-            self.retdata.into_iter().map(|x| felt_to_bigint(x).into()).collect();
-        vm.load_data(&segment.into(), data)?;
-        Ok(())
+        write_retdata(vm, ptr, self.retdata)
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct LibraryCallRequest {
     pub class_hash: ClassHash,
     pub function_selector: EntryPointSelector,
@@ -135,12 +128,7 @@ impl LibraryCallRequest {
         let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
         let function_selector =
             EntryPointSelector(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?);
-        let calldata_size = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2))?)?;
-        let calldata_ptr = match vm.get_maybe(&(ptr + 3))? {
-            Some(ptr) => ptr,
-            None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
-        };
-        let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
+        let calldata = read_calldata(vm, &(ptr + 2))?;
 
         Ok(SyscallRequest::LibraryCall(LibraryCallRequest {
             class_hash,
@@ -175,8 +163,58 @@ pub type LibraryCallResponse = CallContractResponse;
 
 pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
+pub struct DeployRequest {
+    pub class_hash: ClassHash,
+    pub contract_address_salt: StarkFelt,
+    pub constructor_calldata: CallData,
+    pub deploy_from_zero: bool,
+}
+
+pub const DEPLOY_REQUEST_SIZE: usize = 5;
+
+impl DeployRequest {
+    pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
+        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+        let contract_address_salt = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        let constructor_calldata = read_calldata(vm, &(ptr + 2))?;
+        let deploy_from_zero = felt_to_bool(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 4))?)?)?;
+
+        Ok(SyscallRequest::Deploy(DeployRequest {
+            class_hash,
+            contract_address_salt,
+            constructor_calldata,
+            deploy_from_zero,
+        }))
+    }
+
+    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        // TODO(Noa, 26/12/2022): Execute deploy.
+        Ok(SyscallResponse::Deploy(DeployResponse {
+            contract_address: ContractAddress::default(),
+            constructor_retdata: vec![],
+        }))
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DeployResponse {
+    pub contract_address: ContractAddress,
+    pub constructor_retdata: Vec<StarkFelt>,
+}
+
+pub const DEPLOY_RESPONSE_SIZE: usize = 3;
+
+impl DeployResponse {
+    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        vm.insert_value(ptr, felt_to_bigint(*self.contract_address.0.key()))?;
+        write_retdata(vm, ptr, self.constructor_retdata)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub enum SyscallRequest {
+    Deploy(DeployRequest),
     LibraryCall(LibraryCallRequest),
     StorageRead(StorageReadRequest),
     StorageWrite(StorageWriteRequest),
@@ -188,6 +226,7 @@ impl SyscallRequest {
         // Remove leading zero bytes from selector.
         let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
         match &selector_bytes[first_non_zero..32] {
+            DEPLOY_SELECTOR_BYTES => DeployRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
@@ -197,6 +236,7 @@ impl SyscallRequest {
 
     pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
         match self {
+            SyscallRequest::Deploy(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
             SyscallRequest::StorageWrite(request) => request.execute(syscall_handler),
@@ -205,6 +245,7 @@ impl SyscallRequest {
 
     pub fn size(&self) -> usize {
         match self {
+            SyscallRequest::Deploy(_) => DEPLOY_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
             SyscallRequest::StorageWrite(_) => STORAGE_WRITE_REQUEST_SIZE,
@@ -212,8 +253,9 @@ impl SyscallRequest {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum SyscallResponse {
+    Deploy(DeployResponse),
     LibraryCall(LibraryCallResponse),
     StorageRead(StorageReadResponse),
     StorageWrite(EmptyResponse),
@@ -222,6 +264,7 @@ pub enum SyscallResponse {
 impl SyscallResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         match self {
+            SyscallResponse::Deploy(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
             SyscallResponse::StorageWrite(response) => response.write(vm, ptr),
@@ -230,9 +273,55 @@ impl SyscallResponse {
 
     pub fn size(&self) -> usize {
         match self {
+            SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
             SyscallResponse::StorageWrite(_) => STORAGE_WRITE_RESPONSE_SIZE,
         }
     }
+}
+
+// TODO(Noa, 26/12/2022): Consider implementing it as a From trait.
+pub fn felt_to_bool(felt: StarkFelt) -> Result<bool, SyscallExecutionError> {
+    if felt == StarkFelt::from(0) {
+        Ok(false)
+    } else if felt == StarkFelt::from(1) {
+        Ok(true)
+    } else {
+        Err(SyscallExecutionError::InvalidSyscallInput {
+            input: felt,
+            info: String::from(
+                "The deploy_from_zero field in the deploy system call must be 0 or 1.",
+            ),
+        })
+    }
+}
+
+fn write_retdata(
+    vm: &mut VirtualMachine,
+    ptr: &Relocatable,
+    retdata: Vec<StarkFelt>,
+) -> WriteResponseResult {
+    let retdata_size = felt_to_bigint(StarkFelt::from(retdata.len() as u64));
+    vm.insert_value(ptr, retdata_size)?;
+
+    // Write response payload to the memory.
+    let segment = vm.add_memory_segment();
+    vm.insert_value(&(ptr + 1), &segment)?;
+    let data: Vec<MaybeRelocatable> =
+        retdata.into_iter().map(|x| felt_to_bigint(x).into()).collect();
+    vm.load_data(&segment.into(), data)?;
+
+    Ok(())
+}
+
+fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
+    let calldata_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
+    let calldata_ptr = match vm.get_maybe(&(ptr + 1))? {
+        Some(ptr) => ptr,
+        None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
+    };
+    let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
+
+    Ok(calldata)
 }
