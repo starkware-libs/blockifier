@@ -7,9 +7,9 @@ use starknet_api::transaction::CallData;
 
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
 use crate::test_utils::{
-    create_test_state, BITWISE_AND_SELECTOR, GET_VALUE_SELECTOR, RETURN_RESULT_SELECTOR,
-    SQRT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR,
-    TEST_LIBRARY_CALL_SELECTOR, WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
+    create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR,
+    TEST_STORAGE_READ_WRITE_SELECTOR, WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
 };
 
 fn trivial_external_entrypoint() -> CallEntryPoint {
@@ -128,10 +128,10 @@ fn test_entry_point_with_syscall() {
     let mut state = create_test_state();
     let key = shash!(1234);
     let value = shash!(18);
-    let calldata = CallData(vec![key]);
+    let calldata = CallData(vec![key, value]);
     let entry_point = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
+        entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
         ..trivial_external_entrypoint()
     };
     let storage_address = entry_point.storage_address;
@@ -148,10 +148,11 @@ fn test_entry_point_with_syscall() {
 fn test_entry_point_with_library_call() {
     let mut state = create_test_state();
     let calldata = CallData(vec![
-        shash!(TEST_CLASS_HASH),        // Class hash.
-        shash!(RETURN_RESULT_SELECTOR), // Function selector.
-        shash!(1),                      // Calldata length.
-        shash!(91),                     // Calldata.
+        shash!(TEST_CLASS_HASH),                  // Class hash.
+        shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
+        shash!(2),                                // Calldata length.
+        shash!(1234),                             // Calldata.
+        shash!(91),
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
@@ -160,6 +161,69 @@ fn test_entry_point_with_library_call() {
     };
     // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
     assert_eq!(entry_point.execute(&mut state).unwrap().execution.retdata, vec![shash!(91)]);
+}
+
+#[test]
+fn test_entry_point_with_nested_library_call() {
+    let mut state = create_test_state();
+    let (key, value) = (255, 44);
+    let calldata = CallData(vec![
+        shash!(TEST_CLASS_HASH),                  // Class hash.
+        shash!(TEST_LIBRARY_CALL_SELECTOR),       // Library call function selector.
+        shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
+        shash!(2),                                // Calldata length.
+        shash!(key),                              // Calldata.
+        shash!(value),
+    ]);
+
+    // Create expected call info tree.
+    let main_entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_NESTED_LIBRARY_CALL_SELECTOR)),
+        calldata,
+        ..trivial_external_entrypoint()
+    };
+    let nested_storage_entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
+        calldata: CallData(vec![shash!(key + 1), shash!(value + 1)]),
+        ..trivial_external_entrypoint()
+    };
+    let library_entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
+        calldata: CallData(vec![
+            shash!(TEST_CLASS_HASH),                  // Class hash.
+            shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
+            shash!(2),                                // Calldata length.
+            shash!(key + 1),                          // Calldata.
+            shash!(value + 1),
+        ]),
+        ..trivial_external_entrypoint()
+    };
+    let storage_entry_point = CallEntryPoint {
+        calldata: CallData(vec![shash!(key), shash!(value)]),
+        ..nested_storage_entry_point.clone()
+    };
+    let nested_storage_call_info = CallInfo {
+        call: nested_storage_entry_point,
+        execution: CallExecution { retdata: vec![shash!(value + 1)] },
+        inner_calls: vec![],
+    };
+    let library_call_info = CallInfo {
+        call: library_entry_point,
+        execution: CallExecution { retdata: vec![shash!(value + 1)] },
+        inner_calls: vec![nested_storage_call_info],
+    };
+    let storage_call_info = CallInfo {
+        call: storage_entry_point,
+        execution: CallExecution { retdata: vec![shash!(value)] },
+        inner_calls: vec![],
+    };
+    let expected_call_info = CallInfo {
+        call: main_entry_point.clone(),
+        execution: CallExecution { retdata: vec![shash!(0)] },
+        inner_calls: vec![library_call_info, storage_call_info],
+    };
+
+    assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
 }
 
 #[test]
