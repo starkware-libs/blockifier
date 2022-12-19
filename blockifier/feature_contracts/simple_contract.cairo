@@ -2,6 +2,7 @@
 
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.starknet.common.syscalls import storage_read, storage_write, library_call
+from starkware.cairo.common.registers import get_fp_and_pc
 
 @external
 func without_arg() {
@@ -49,10 +50,10 @@ func sqrt{range_check_ptr}(value: felt) {
 }
 
 @external
-func get_value{syscall_ptr: felt*}(address: felt) -> (result: felt) {
-    storage_write(address=address, value=18);
-    let (value) = storage_read(address=address);
-    return (result=value);
+func write_and_read_value{syscall_ptr: felt*}(address: felt, value: felt) -> (result: felt) {
+    storage_write(address=address, value=value);
+    let (read_value) = storage_read(address=address);
+    return (result=read_value);
 }
 
 @external
@@ -67,4 +68,29 @@ func test_library_call{syscall_ptr: felt*}(
         calldata=calldata,
     );
     return (retdata_size=retdata_size, retdata=retdata);
+}
+
+@external
+func test_library_call_tree{syscall_ptr: felt*}(
+    class_hash: felt, lib_selector: felt, val_selector: felt, calldata_len: felt, calldata: felt*,
+) -> (result: felt) {
+    alloc_locals;
+    local lib_calldata: (felt, felt, felt, felt, felt) = (class_hash, val_selector, calldata_len,
+        calldata[0]+1, calldata[1]+1);
+    let (__fp__, _) = get_fp_and_pc();
+    let (retdata_size: felt, retdata: felt*) = library_call(
+        class_hash=class_hash,
+        function_selector=lib_selector,
+        calldata_size=5,
+        calldata=cast(&lib_calldata, felt*),
+    );
+
+    let (retdata_size: felt, retdata: felt*) = library_call(
+        class_hash=class_hash,
+        function_selector=val_selector,
+        calldata_size=calldata_len,
+        calldata=calldata,
+    );
+
+    return (result=0);
 }

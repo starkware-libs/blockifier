@@ -22,10 +22,12 @@ const BITWISE_AND_SELECTOR: &str =
 const SQRT_SELECTOR: &str = "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309";
 const RETURN_RESULT_SELECTOR: &str =
     "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701";
-const GET_VALUE_SELECTOR: &str =
-    "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
+const WRITE_AND_READ_VALUE_SELECTOR: &str =
+    "0x1f783137eb5a76ea78d40b2df927e9bbaa115c253d25733c517807674c667c1";
 const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
+const TEST_LIBRARY_CALL_TREE_SELECTOR: &str =
+    "0x301fa9c721a93ca8d34dba228387cbbe889a0676e88c3e74161d8da0041d2ad";
 const TEST_CLASS_HASH: &str = "0x1";
 const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
@@ -159,10 +161,10 @@ fn test_entry_point_with_syscall() {
     let mut state = create_test_state();
     let key = shash!(1234);
     let value = shash!(18);
-    let calldata = CallData(vec![key]);
+    let calldata = CallData(vec![key, value]);
     let entry_point = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
+        entry_point_selector: EntryPointSelector(shash!(WRITE_AND_READ_VALUE_SELECTOR)),
         ..trivial_external_entrypoint()
     };
     let storage_address = entry_point.storage_address;
@@ -179,10 +181,11 @@ fn test_entry_point_with_syscall() {
 fn test_entry_point_with_library_call() {
     let mut state = create_test_state();
     let calldata = CallData(vec![
-        shash!(TEST_CLASS_HASH),        // Class hash.
-        shash!(RETURN_RESULT_SELECTOR), // Function selector.
-        shash!(1),                      // Calldata length.
-        shash!(91),                     // Calldata.
+        shash!(TEST_CLASS_HASH),               // Class hash.
+        shash!(WRITE_AND_READ_VALUE_SELECTOR), // Function selector.
+        shash!(2),                             // Calldata length.
+        shash!(1234),                          // Calldata.
+        shash!(91),
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
@@ -191,4 +194,65 @@ fn test_entry_point_with_library_call() {
     };
     // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
     assert_eq!(entry_point.execute(&mut state).unwrap().execution.retdata, vec![shash!(91)]);
+}
+
+#[test]
+fn test_entry_point_with_library_call_tree() {
+    let mut state = create_test_state();
+    let (key, value) = (1235, 92);
+    let calldata = CallData(vec![
+        shash!(TEST_CLASS_HASH),               // Class hash.
+        shash!(TEST_LIBRARY_CALL_SELECTOR),    // Function selector.
+        shash!(WRITE_AND_READ_VALUE_SELECTOR), // Function selector.
+        shash!(2),                             // Calldata length.
+        shash!(key),                           // Calldata.
+        shash!(value),
+    ]);
+    let main_entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_TREE_SELECTOR)),
+        calldata,
+        ..trivial_external_entrypoint()
+    };
+    let deep_value_entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(WRITE_AND_READ_VALUE_SELECTOR)),
+        calldata: CallData(vec![shash!(key + 1), shash!(value + 1)]),
+        ..trivial_external_entrypoint()
+    };
+    let library_entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
+        calldata: CallData(vec![
+            shash!(TEST_CLASS_HASH),               // Class hash.
+            shash!(WRITE_AND_READ_VALUE_SELECTOR), // Function selector.
+            shash!(2),                             // Calldata length.
+            shash!(key + 1),                       // Calldata.
+            shash!(value + 1),
+        ]),
+        ..trivial_external_entrypoint()
+    };
+    let value_entry_point = CallEntryPoint {
+        calldata: CallData(vec![shash!(key), shash!(value)]),
+        ..deep_value_entry_point.clone()
+    };
+    let deep_value_call_info = CallInfo {
+        call: deep_value_entry_point,
+        execution: CallExecution { retdata: vec![shash!(value + 1)] },
+        inner_calls: vec![],
+    };
+    let library_call_info = CallInfo {
+        call: library_entry_point,
+        execution: CallExecution { retdata: vec![shash!(value + 1)] },
+        inner_calls: vec![deep_value_call_info],
+    };
+    let value_call_info = CallInfo {
+        call: value_entry_point,
+        execution: CallExecution { retdata: vec![shash!(value)] },
+        inner_calls: vec![],
+    };
+    let expected_call_info = CallInfo {
+        call: main_entry_point.clone(),
+        execution: CallExecution { retdata: vec![shash!(0)] },
+        inner_calls: vec![library_call_info, value_call_info],
+    };
+
+    assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
 }
