@@ -50,10 +50,10 @@ func sqrt{range_check_ptr}(value: felt) {
 }
 
 @external
-func get_value{syscall_ptr: felt*}(address: felt) -> (result: felt) {
-    storage_write(address=address, value=18);
-    let (value) = storage_read(address=address);
-    return (result=value);
+func test_storage_read_write{syscall_ptr: felt*}(address: felt, value: felt) -> (result: felt) {
+    storage_write(address=address, value=value);
+    let (read_value) = storage_read(address=address);
+    return (result=read_value);
 }
 
 @external
@@ -68,6 +68,31 @@ func test_library_call{syscall_ptr: felt*}(
         calldata=calldata,
     );
     return (retdata_size=retdata_size, retdata=retdata);
+}
+
+@external
+func test_nested_library_call{syscall_ptr: felt*}(
+    class_hash: felt, lib_selector: felt, nested_selector: felt, calldata_len: felt, calldata: felt*
+) -> (result: felt) {
+    alloc_locals;
+    assert calldata_len = 2;
+    local nested_library_calldata: felt* = new (class_hash, nested_selector, 2,
+        calldata[0] + 1, calldata[1] + 1);
+    let (retdata_size: felt, retdata: felt*) = library_call(
+        class_hash=class_hash,
+        function_selector=lib_selector,
+        calldata_size=5,
+        calldata=nested_library_calldata,
+    );
+
+    let (retdata_size: felt, retdata: felt*) = library_call(
+        class_hash=class_hash,
+        function_selector=nested_selector,
+        calldata_size=calldata_len,
+        calldata=calldata,
+    );
+
+    return (result=0);
 }
 
 @external
