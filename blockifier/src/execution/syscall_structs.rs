@@ -21,6 +21,7 @@ pub type WriteResponseResult = SyscallResult<()>;
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
 pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
+pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct EmptyResponse {}
@@ -176,10 +177,65 @@ pub type LibraryCallResponse = CallContractResponse;
 pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct DeployRequest {
+    pub class_hash: ClassHash,
+    pub contract_address_salt: StarkFelt,
+    pub constructor_calldata: CallData,
+    pub deploy_from_zero: StarkFelt,
+}
+
+pub const DEPLOY_REQUEST_SIZE: usize = 5;
+
+impl DeployRequest {
+    pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
+        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+        let contract_address_salt = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        let constructor_calldata_size = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2))?)?;
+        let constructor_calldata_ptr = match vm.get_maybe(&(ptr + 3))? {
+            Some(ptr) => ptr,
+            None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
+        };
+        let constructor_calldata = CallData(get_felt_range(
+            vm,
+            &constructor_calldata_ptr,
+            constructor_calldata_size.try_into()?,
+        )?);
+        let deploy_from_zero = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 4))?)?;
+
+        Ok(SyscallRequest::Deploy(DeployRequest {
+            class_hash,
+            contract_address_salt,
+            constructor_calldata,
+            deploy_from_zero,
+        }))
+    }
+
+    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        // TODO(Noa, 26/12/2022): Execute deploy.
+        Ok(SyscallResponse::Deploy(DeployResponse { address: StarkFelt::from(0) }))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct DeployResponse {
+    pub address: StarkFelt,
+}
+
+pub const DEPLOY_RESPONSE_SIZE: usize = 1;
+
+impl DeployResponse {
+    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        vm.insert_value(ptr, felt_to_bigint(self.address))?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum SyscallRequest {
     LibraryCall(LibraryCallRequest),
     StorageRead(StorageReadRequest),
     StorageWrite(StorageWriteRequest),
+    Deploy(DeployRequest),
 }
 
 impl SyscallRequest {
@@ -191,6 +247,7 @@ impl SyscallRequest {
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
+            DEPLOY_SELECTOR_BYTES => DeployRequest::read(vm, ptr),
             _ => Err(SyscallExecutionError::InvalidSyscallSelector(selector)),
         }
     }
@@ -200,6 +257,7 @@ impl SyscallRequest {
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
             SyscallRequest::StorageWrite(request) => request.execute(syscall_handler),
+            SyscallRequest::Deploy(request) => request.execute(syscall_handler),
         }
     }
 
@@ -208,6 +266,7 @@ impl SyscallRequest {
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
             SyscallRequest::StorageWrite(_) => STORAGE_WRITE_REQUEST_SIZE,
+            SyscallRequest::Deploy(_) => DEPLOY_REQUEST_SIZE,
         }
     }
 }
@@ -217,6 +276,7 @@ pub enum SyscallResponse {
     LibraryCall(LibraryCallResponse),
     StorageRead(StorageReadResponse),
     StorageWrite(EmptyResponse),
+    Deploy(DeployResponse),
 }
 
 impl SyscallResponse {
@@ -225,6 +285,7 @@ impl SyscallResponse {
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
             SyscallResponse::StorageWrite(response) => response.write(vm, ptr),
+            SyscallResponse::Deploy(response) => response.write(vm, ptr),
         }
     }
 
@@ -233,6 +294,7 @@ impl SyscallResponse {
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
             SyscallResponse::StorageWrite(_) => STORAGE_WRITE_RESPONSE_SIZE,
+            SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
         }
     }
 }

@@ -27,6 +27,8 @@ const GET_VALUE_SELECTOR: &str =
     "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
 const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
+const TEST_DEPLOY_SELECTOR: &str =
+    "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
 const TEST_CLASS_HASH: &str = "0x1";
 const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
@@ -161,5 +163,24 @@ fn test_entry_point_with_library_call() -> Result<()> {
     };
     // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
     assert_eq!(entry_point.execute(state)?.execution.retdata, vec![shash!(91)]);
+    Ok(())
+}
+
+#[test]
+fn test_entry_point_with_deploy() -> Result<()> {
+    let state = create_test_state();
+    let calldata = CallData(vec![
+        shash!(TEST_CLASS_HASH), // Class hash.
+        shash!(1),               // Contract_address_salt.
+        shash!(1),               // Calldata length.
+        shash!(91),              // Calldata.
+        shash!(0),               // Deploy_from_zero
+    ]);
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(StarkHash::try_from(TEST_DEPLOY_SELECTOR)?),
+        calldata,
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![shash!(0)]);
     Ok(())
 }
