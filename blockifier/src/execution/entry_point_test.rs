@@ -8,8 +8,8 @@ use starknet_api::transaction::CallData;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
 use crate::test_utils::{
     create_test_state, BITWISE_AND_SELECTOR, GET_VALUE_SELECTOR, RETURN_RESULT_SELECTOR,
-    SQRT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_LIBRARY_CALL_SELECTOR,
-    WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
+    SQRT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR,
+    TEST_LIBRARY_CALL_SELECTOR, WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
 };
 
 fn trivial_external_entrypoint() -> CallEntryPoint {
@@ -142,4 +142,24 @@ fn test_entry_point_with_library_call() {
     };
     // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
     assert_eq!(entry_point.execute(state).unwrap().execution.retdata, vec![shash!(91)]);
+}
+
+#[test]
+fn test_entry_point_with_deploy() {
+    let state = create_test_state();
+    let calldata = CallData(vec![
+        shash!(TEST_CLASS_HASH), // Class hash.
+        shash!(1),               // Contract_address_salt.
+        shash!(1),               // Calldata length.
+        shash!(91),              // Calldata.
+    ]);
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
+        calldata,
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(
+        entry_point.execute(state).unwrap().execution,
+        CallExecution { retdata: vec![shash!(0)] }
+    );
 }
