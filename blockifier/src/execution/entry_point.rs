@@ -27,7 +27,7 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(self, state: CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
+    pub fn execute(self, state: &mut CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
         execute_entry_point_call(self, state)
     }
 
