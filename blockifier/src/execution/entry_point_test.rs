@@ -55,7 +55,7 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
 
 #[test]
 fn test_call_info() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
@@ -65,58 +65,70 @@ fn test_call_info() {
         execution: CallExecution { retdata: vec![] },
         inner_calls: vec![],
     };
-    assert_eq!(entry_point.execute(state).unwrap(), expected_call_info);
+    assert_eq!(entry_point.execute(&mut state).unwrap(), expected_call_info);
 }
 
 #[test]
 fn test_entry_point_without_arg() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![] }
+    );
 }
 
 #[test]
 fn test_entry_point_with_arg() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let calldata = CallData(vec![shash!(25)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![] }
+    );
 }
 
 #[test]
 fn test_entry_point_with_builtin() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let calldata = CallData(vec![shash!(47), shash!(31)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![] }
+    );
 }
 
 #[test]
 fn test_entry_point_with_hint() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let calldata = CallData(vec![shash!(81)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![] }
+    );
 }
 
 #[test]
 fn test_entry_point_with_return_value() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let calldata = CallData(vec![shash!(23)]);
     let entry_point = CallEntryPoint {
         calldata,
@@ -124,42 +136,48 @@ fn test_entry_point_with_return_value() {
         ..trivial_external_entrypoint()
     };
     assert_eq!(
-        entry_point.execute(state).unwrap().execution,
+        entry_point.execute(&mut state).unwrap().execution,
         CallExecution { retdata: vec![shash!(23)] }
     );
 }
 
 #[test]
 fn test_entry_point_not_found_in_contract() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(2)),
         ..trivial_external_entrypoint()
     };
     assert_eq!(
         format!("Entry point {:#?} not found in contract.", entry_point.entry_point_selector),
-        format!("{}", entry_point.execute(state).unwrap_err())
+        format!("{}", entry_point.execute(&mut state).unwrap_err())
     );
 }
 
 #[test]
 fn test_entry_point_with_syscall() {
-    let state = create_test_state();
-    let calldata = CallData(vec![shash!(1234)]);
+    let mut state = create_test_state();
+    let key = shash!(1234);
+    let value = shash!(18);
+    let calldata = CallData(vec![key]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
         ..trivial_external_entrypoint()
     };
+    let storage_address = entry_point.storage_address;
     assert_eq!(
-        entry_point.execute(state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(18)] }
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![value] }
     );
+    // Verify that the state has changed.
+    let value_from_state = *state.get_storage_at(storage_address, key.try_into().unwrap()).unwrap();
+    assert_eq!(value_from_state, value);
 }
 
 #[test]
 fn test_entry_point_with_library_call() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let calldata = CallData(vec![
         shash!(TEST_CLASS_HASH),        // Class hash.
         shash!(RETURN_RESULT_SELECTOR), // Function selector.
@@ -172,5 +190,5 @@ fn test_entry_point_with_library_call() {
         ..trivial_external_entrypoint()
     };
     // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
-    assert_eq!(entry_point.execute(state).unwrap().execution.retdata, vec![shash!(91)]);
+    assert_eq!(entry_point.execute(&mut state).unwrap().execution.retdata, vec![shash!(91)]);
 }
