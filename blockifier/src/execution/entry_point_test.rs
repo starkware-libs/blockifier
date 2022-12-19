@@ -9,31 +9,12 @@ use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
-use crate::transaction::transaction_utils::get_contract_class;
-
-const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/simple_contract_compiled.json";
-const WITHOUT_ARG_SELECTOR: &str =
-    "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
-const WITH_ARG_SELECTOR: &str = "0xe7def693d16806ca2a2f398d8de5951344663ba77f340ed7a958da731872fc";
-const BITWISE_AND_SELECTOR: &str =
-    "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95";
-const SQRT_SELECTOR: &str = "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309";
-const RETURN_RESULT_SELECTOR: &str =
-    "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701";
-const GET_VALUE_SELECTOR: &str =
-    "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
-const TEST_LIBRARY_CALL_SELECTOR: &str =
-    "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
-const TEST_CLASS_HASH: &str = "0x1";
-const TEST_CONTRACT_ADDRESS: &str = "0x100";
-
-// TODO(Noa, 30/12/22): Move it to a test_utils.rs file and use it in cached_state_test.rs (same for
-// the relevant constants above)
-fn create_test_contract_class() -> ContractClass {
-    get_contract_class(TEST_CONTRACT_PATH)
-}
+use crate::test_utils::{
+    create_test_contract_class, BITWISE_AND_SELECTOR, GET_VALUE_SELECTOR, RETURN_RESULT_SELECTOR,
+    SQRT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_LIBRARY_CALL_SELECTOR,
+    WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
+};
 
 fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([(
