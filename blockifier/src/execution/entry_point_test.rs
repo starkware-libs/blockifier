@@ -1,17 +1,16 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use anyhow::Result;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkHash;
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
 use crate::transaction::transaction_utils::get_contract_class;
 
 const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/simple_contract_compiled.json";
@@ -48,105 +47,118 @@ fn trivial_external_entrypoint() -> CallEntryPoint {
     CallEntryPoint {
         class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(StarkHash::from(0)),
+        entry_point_selector: EntryPointSelector(shash!(0)),
         calldata: CallData(vec![]),
         storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
     }
 }
 
-// TODO(AlonH, 21/12/2022): Compare the whole CallInfo in tests.
 #[test]
-fn test_entry_point_without_arg() -> Result<()> {
+fn test_call_info() {
     let state = create_test_state();
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
-    Ok(())
+    let expected_call_info = CallInfo {
+        call: entry_point.clone(),
+        execution: CallExecution { retdata: vec![] },
+        inner_calls: vec![],
+    };
+    assert_eq!(entry_point.execute(state).unwrap(), expected_call_info);
 }
 
 #[test]
-fn test_entry_point_with_arg() -> Result<()> {
+fn test_entry_point_without_arg() {
     let state = create_test_state();
-    let calldata = CallData(vec![StarkFelt::from(25)]);
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
+}
+
+#[test]
+fn test_entry_point_with_arg() {
+    let state = create_test_state();
+    let calldata = CallData(vec![shash!(25)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
-    Ok(())
+    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
 }
 
 #[test]
-fn test_entry_point_with_builtin() -> Result<()> {
+fn test_entry_point_with_builtin() {
     let state = create_test_state();
-    let calldata = CallData(vec![StarkFelt::from(47), StarkFelt::from(31)]);
+    let calldata = CallData(vec![shash!(47), shash!(31)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
-    Ok(())
+    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
 }
 
 #[test]
-fn test_entry_point_with_hint() -> Result<()> {
+fn test_entry_point_with_hint() {
     let state = create_test_state();
-    let calldata = CallData(vec![StarkFelt::from(81)]);
+    let calldata = CallData(vec![shash!(81)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, Vec::<StarkFelt>::new());
-    Ok(())
+    assert_eq!(entry_point.execute(state).unwrap().execution, CallExecution { retdata: vec![] });
 }
 
 #[test]
-fn test_entry_point_with_return_value() -> Result<()> {
+fn test_entry_point_with_return_value() {
     let state = create_test_state();
-    let calldata = CallData(vec![StarkFelt::from(23)]);
+    let calldata = CallData(vec![shash!(23)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![StarkFelt::from(23)]);
-    Ok(())
+    assert_eq!(
+        entry_point.execute(state).unwrap().execution,
+        CallExecution { retdata: vec![shash!(23)] }
+    );
 }
 
 #[test]
-fn test_entry_point_not_found_in_contract() -> Result<()> {
+fn test_entry_point_not_found_in_contract() {
     let state = create_test_state();
     let entry_point = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(StarkHash::from(2)),
+        entry_point_selector: EntryPointSelector(shash!(2)),
         ..trivial_external_entrypoint()
     };
     assert_eq!(
-        format!("{}", entry_point.execute(state).unwrap_err()),
-        format!("Entry point {:#?} not found in contract.", entry_point.entry_point_selector)
+        format!("Entry point {:#?} not found in contract.", entry_point.entry_point_selector),
+        format!("{}", entry_point.execute(state).unwrap_err())
     );
-    Ok(())
 }
 
 #[test]
-fn test_entry_point_with_syscall() -> Result<()> {
+fn test_entry_point_with_syscall() {
     let state = create_test_state();
-    let calldata = CallData(vec![StarkFelt::from(1234)]);
+    let calldata = CallData(vec![shash!(1234)]);
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(GET_VALUE_SELECTOR)),
         ..trivial_external_entrypoint()
     };
-    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![StarkFelt::from(18)]);
-    Ok(())
+    assert_eq!(
+        entry_point.execute(state).unwrap().execution,
+        CallExecution { retdata: vec![shash!(18)] }
+    );
 }
 
 #[test]
-fn test_entry_point_with_library_call() -> Result<()> {
+fn test_entry_point_with_library_call() {
     let state = create_test_state();
     let calldata = CallData(vec![
         shash!(TEST_CLASS_HASH),        // Class hash.
@@ -155,11 +167,10 @@ fn test_entry_point_with_library_call() -> Result<()> {
         shash!(91),                     // Calldata.
     ]);
     let entry_point = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(StarkHash::try_from(TEST_LIBRARY_CALL_SELECTOR)?),
+        entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
         calldata,
         ..trivial_external_entrypoint()
     };
     // TODO(AlonH, 21/12/2022): Compare the whole CallInfo.
-    assert_eq!(entry_point.execute(state)?.execution.retdata, vec![shash!(91)]);
-    Ok(())
+    assert_eq!(entry_point.execute(state).unwrap().execution.retdata, vec![shash!(91)]);
 }

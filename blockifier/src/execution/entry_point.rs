@@ -6,7 +6,7 @@ use starknet_api::transaction::CallData;
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
-use crate::execution::execution_utils::execute_call_entry_point;
+use crate::execution::execution_utils::execute_entry_point_call;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -27,9 +27,8 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(&self, state: CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
-        // Returns the output of the entry point execution.
-        execute_call_entry_point(self, state)
+    pub fn execute(self, state: CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
+        execute_entry_point_call(self, state)
     }
 
     pub fn resolve_entry_point_pc(
