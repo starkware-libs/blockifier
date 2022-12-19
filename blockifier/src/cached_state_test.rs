@@ -8,6 +8,7 @@ use starknet_api::{patky, shash};
 
 use super::*;
 use crate::state::errors::StateReaderError;
+use crate::test_utils::{create_test_state, get_test_contract_class, TEST_CLASS_HASH};
 
 #[test]
 fn get_uninitialized_storage_value() {
@@ -91,16 +92,9 @@ fn get_and_increment_nonce() {
 #[test]
 fn get_contract_class() {
     // Positive flow.
-    let existing_class_hash = ClassHash(shash!("0x100"));
-    let contract_class = ContractClass::default();
-    let mut state = CachedState::new(DictStateReader {
-        class_hash_to_class: HashMap::from([(
-            existing_class_hash,
-            Rc::new(contract_class.clone()),
-        )]),
-        ..Default::default()
-    });
-    assert_eq!(*state.get_contract_class(&existing_class_hash).unwrap(), contract_class);
+    let existing_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
+    let mut state = create_test_state();
+    assert_eq!(*state.get_contract_class(&existing_class_hash).unwrap(), get_test_contract_class());
 
     // Negative flow.
     let missing_class_hash = ClassHash(shash!("0x101"));
