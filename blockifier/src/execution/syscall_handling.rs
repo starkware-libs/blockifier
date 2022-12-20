@@ -21,10 +21,6 @@ use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
 
-#[cfg(test)]
-#[path = "syscall_handling_test.rs"]
-mod test;
-
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHandler {
     expected_syscall_ptr: Relocatable,
