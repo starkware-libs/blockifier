@@ -114,13 +114,18 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
 pub fn initialize_syscall_handler(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
-    state: CachedState<DictStateReader>,
+    state: &mut CachedState<DictStateReader>,
     call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, BuiltinHintProcessor) {
     let syscall_segment = vm.add_memory_segment();
     let mut hint_processor = BuiltinHintProcessor::new_empty();
-    let syscall_handler =
-        SyscallHandler::new(syscall_segment.clone(), state, call_entry_point.storage_address);
+    // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
+    // becomes a reference.
+    let syscall_handler = SyscallHandler::new(
+        syscall_segment.clone(),
+        state.clone(),
+        call_entry_point.storage_address,
+    );
     add_syscall_hints(&mut hint_processor);
     cairo_runner
         .exec_scopes

@@ -157,10 +157,7 @@ impl LibraryCallRequest {
             calldata: self.calldata,
             storage_address: syscall_handler.storage_address,
         };
-        // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
-        // becomes a reference. Important note: until then, outer state will not change in
-        // the inner call.
-        let call_info = entry_point.execute(syscall_handler.state.clone())?;
+        let call_info = entry_point.execute(&mut syscall_handler.state)?;
         let retdata = call_info.execution.retdata.clone();
         syscall_handler.inner_calls.push(call_info);
 
