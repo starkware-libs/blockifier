@@ -209,7 +209,7 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "cairo-rs"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#42dadd1631c9196e39d91b77f130a78f73d83f5f"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#b445979bb1aded31a4248604318ad549ced008d3"
 dependencies = [
  "bincode",
  "clap",
@@ -1202,7 +1202,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#42dadd1631c9196e39d91b77f130a78f73d83f5f"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#b445979bb1aded31a4248604318ad549ced008d3"
 dependencies = [
  "nom",
 ]
@@ -1221,9 +1221,9 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "pest"
-version = "2.5.1"
+version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc8bed3549e0f9b0a2a78bf7c0018237a2cdf085eecbbc048e52612438e4e9d0"
+checksum = "0f6e86fb9e7026527a0d46bc308b841d73170ef8f443e1807f6ef88526a816d4"
 dependencies = [
  "thiserror",
  "ucd-trie",
@@ -1805,7 +1805,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api#3b1a7217a28ff0b0219587e472101f3665f6e34f"
+source = "git+https://github.com/starkware-libs/starknet-api#f75c4e2686446102f40d9a435708c8fb1f4ff38f"
 dependencies = [
  "derive_more",
  "hex",
