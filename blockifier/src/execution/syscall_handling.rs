@@ -25,10 +25,6 @@ use crate::execution::execution_utils::{
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
 use crate::state::cached_state::{CachedState, DictStateReader};
 
-#[cfg(test)]
-#[path = "syscall_handling_test.rs"]
-mod test;
-
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHandler {
     expected_syscall_ptr: Relocatable,
