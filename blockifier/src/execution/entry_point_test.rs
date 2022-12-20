@@ -164,7 +164,7 @@ fn test_entry_point_with_library_call() {
 
 #[test]
 fn test_entry_point_with_deploy() {
-    let state = create_test_state();
+    let mut state = create_test_state();
     let calldata = CallData(vec![
         shash!(TEST_CLASS_HASH), // Class hash.
         shash!(1),               // Contract_address_salt.
@@ -177,7 +177,7 @@ fn test_entry_point_with_deploy() {
         ..trivial_external_entrypoint()
     };
     assert_eq!(
-        entry_point.execute(state).unwrap().execution,
+        entry_point.execute(&mut state).unwrap().execution,
         CallExecution { retdata: vec![shash!(0)] }
     );
 }
