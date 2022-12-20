@@ -57,16 +57,20 @@ pub fn execute_tx(
     Ok(execute_call.execute(state)?)
 }
 
-pub fn charge_fee(tx: InvokeTransaction) -> TransactionExecutionResult<(Fee, CallInfo)> {
+pub fn charge_fee(
+    tx: &InvokeTransaction,
+    state: &mut CachedState<DictStateReader>,
+) -> TransactionExecutionResult<(Fee, CallInfo)> {
     let actual_fee = calculate_tx_fee();
-    let fee_transfer_call_info = execute_fee_transfer(actual_fee, tx.max_fee)?;
+    let fee_transfer_call_info =
+        execute_fee_transfer(state, actual_fee, tx.max_fee, tx.sender_address)?;
 
     Ok((actual_fee, fee_transfer_call_info))
 }
 
 impl ExecuteTransaction for InvokeTransaction {
     fn execute(
-        self,
+        &self,
         state: &mut CachedState<DictStateReader>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Adi, 10/12/2022): Consider moving the transaction version verification to the
@@ -76,15 +80,15 @@ impl ExecuteTransaction for InvokeTransaction {
         let class_hash = ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
 
         // Validate transaction.
-        let validate_call_info = validate_tx(&self, state, class_hash)?;
+        let validate_call_info = validate_tx(self, state, class_hash)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(&self, state, class_hash)?;
+        let execute_call_info = execute_tx(self, state, class_hash)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
         let actual_resources = ResourcesMapping::default();
-        let (actual_fee, fee_transfer_call_info) = charge_fee(self)?;
+        let (actual_fee, fee_transfer_call_info) = charge_fee(self, state)?;
 
         Ok(TransactionExecutionInfo {
             validate_call_info,

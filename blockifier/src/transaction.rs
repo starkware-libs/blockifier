@@ -9,7 +9,7 @@ use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecution
 
 pub trait ExecuteTransaction {
     fn execute(
-        self,
+        &self,
         state: &mut CachedState<DictStateReader>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
