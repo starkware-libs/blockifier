@@ -174,45 +174,55 @@
                 }
             ],
             "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "test_storage_var",
+            "outputs": [],
+            "type": "function"
         }
     ],
     "entry_points_by_type": {
         "CONSTRUCTOR": [],
         "EXTERNAL": [
             {
-                "offset": "0x6a",
+                "offset": "0x8b",
                 "selector": "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95"
             },
             {
-                "offset": "0x39",
+                "offset": "0x58",
                 "selector": "0xe7def693d16806ca2a2f398d8de5951344663ba77f340ed7a958da731872fc"
             },
             {
-                "offset": "0x81",
+                "offset": "0xa3",
                 "selector": "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309"
             },
             {
-                "offset": "0xa3",
+                "offset": "0xc6",
                 "selector": "0x1f783137eb5a76ea78d40b2df927e9bbaa115c253d25733c517807674c667c1"
             },
             {
-                "offset": "0x122",
+                "offset": "0x148",
                 "selector": "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"
             },
             {
-                "offset": "0xfd",
+                "offset": "0x122",
                 "selector": "0x301fa9c721a93ca8d34dba228387cbbe889a0676e88c3e74161d8da0041d2ad"
             },
             {
-                "offset": "0xbc",
+                "offset": "0xe0",
                 "selector": "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50"
             },
             {
-                "offset": "0x2a",
+                "offset": "0x170",
+                "selector": "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5"
+            },
+            {
+                "offset": "0x48",
                 "selector": "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f"
             },
             {
-                "offset": "0x53",
+                "offset": "0x73",
                 "selector": "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701"
             }
         ],
@@ -221,6 +231,7 @@
     "program": {
         "attributes": [],
         "builtins": [
+            "pedersen",
             "range_check",
             "bitwise"
         ],
@@ -267,6 +278,36 @@
             "0x482680017ffb8000",
             "0x3",
             "0x208b7fff7fff7ffe",
+            "0x480a7ffc7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x480680017fff8000",
+            "0x248814c67221440671fd7c2de979db4020a9320fb7985ff79ca8e7dced277f8",
+            "0x208b7fff7fff7ffe",
+            "0x480a7ffc7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffa",
+            "0x480a7ffb7fff8000",
+            "0x48127ffe7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe6",
+            "0x48127ffe7fff8000",
+            "0x48127ff57fff8000",
+            "0x48127ff57fff8000",
+            "0x48127ffc7fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x480a7ffb7fff8000",
+            "0x480a7ffc7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffed",
+            "0x480a7ffa7fff8000",
+            "0x48127ffe7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe0",
+            "0x48127ff67fff8000",
+            "0x48127ff67fff8000",
+            "0x208b7fff7fff7ffe",
             "0x208b7fff7fff7ffe",
             "0x402b7ffd7ffc7ffd",
             "0x1104800180018000",
@@ -276,9 +317,10 @@
             "0x480280007ffb8000",
             "0x480280017ffb8000",
             "0x480280027ffb8000",
+            "0x480280037ffb8000",
             "0x480680017fff8000",
             "0x0",
-            "0x48127ffb7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x400780017fff7ffd",
             "0x19",
@@ -294,9 +336,10 @@
             "0x480280007ffb8000",
             "0x480280017ffb8000",
             "0x480280027ffb8000",
+            "0x480280037ffb8000",
             "0x480680017fff8000",
             "0x0",
-            "0x48127ffb7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x480a7ffd7fff8000",
             "0x208b7fff7fff7ffe",
@@ -315,14 +358,15 @@
             "0x480280007ffd8000",
             "0x1104800180018000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff2",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x1104800180018000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff1",
             "0x480280007ffb8000",
-            "0x48127ffc7fff8000",
-            "0x480280027ffb8000",
+            "0x480280017ffb8000",
             "0x48127ffb7fff8000",
-            "0x48127ffb7fff8000",
+            "0x480280037ffb8000",
+            "0x48127ffa7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x400380007ffb7ffc",
             "0x400380017ffb7ffd",
@@ -335,7 +379,7 @@
             "0x482680017ffd8000",
             "0x2",
             "0x402a7ffd7ffc7fff",
-            "0x480280027ffb8000",
+            "0x480280037ffb8000",
             "0x480280007ffd8000",
             "0x480280017ffd8000",
             "0x1104800180018000",
@@ -344,10 +388,11 @@
             "0x1",
             "0x480280007ffb8000",
             "0x480280017ffb8000",
-            "0x48127ffc7fff8000",
+            "0x480280027ffb8000",
+            "0x48127ffb7fff8000",
             "0x480680017fff8000",
             "0x0",
-            "0x48127ffb7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -358,27 +403,28 @@
             "0x482680017ffd8000",
             "0x1",
             "0x402a7ffd7ffc7fff",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x480280007ffd8000",
             "0x1104800180018000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff6",
             "0x40780017fff7fff",
             "0x1",
             "0x480280007ffb8000",
-            "0x48127ffd7fff8000",
-            "0x480280027ffb8000",
+            "0x480280017ffb8000",
+            "0x48127ffc7fff8000",
+            "0x480280037ffb8000",
             "0x480680017fff8000",
             "0x0",
-            "0x48127ffb7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff8e",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff6b",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff83",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff60",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -397,14 +443,15 @@
             "0x480280017ffd8000",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe9",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffef",
             "0x48127ff67fff8000",
-            "0x48127ffc7fff8000",
-            "0x480280027ffb8000",
+            "0x480280017ffb8000",
             "0x48127ffb7fff8000",
-            "0x48127ffb7fff8000",
+            "0x480280037ffb8000",
+            "0x48127ffa7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
@@ -412,9 +459,9 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff55",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff31",
             "0x208b7fff7fff7ffe",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x480280027ffd8000",
             "0x400080007ffe7fff",
             "0x482680017ffd8000",
@@ -430,13 +477,14 @@
             "0x3",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffeb",
-            "0x480280017ffb8000",
-            "0x48127ffc7fff8000",
-            "0x482480017ffe8000",
-            "0x1",
             "0x480280027ffb8000",
-            "0x48127ffa7fff8000",
-            "0x48127ffa7fff8000",
+            "0x48127ffc7fff8000",
+            "0x480280017ffb8000",
+            "0x482480017ffd8000",
+            "0x1",
+            "0x480280037ffb8000",
+            "0x48127ff97fff8000",
+            "0x48127ff97fff8000",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x5",
@@ -450,7 +498,7 @@
             "0x402580017fff8004",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff22",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffefd",
             "0x480a7ff87fff8000",
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
@@ -458,14 +506,14 @@
             "0x5",
             "0x48127ffa7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff27",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff02",
             "0x48127ffd7fff8000",
             "0x480a7ff97fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff20",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffefb",
             "0x48127ffd7fff8000",
             "0x480680017fff8000",
             "0x0",
@@ -479,7 +527,7 @@
             "0x4828800080007ffe",
             "0x480a80007fff8000",
             "0x208b7fff7fff7ffe",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x480280037ffd8000",
             "0x400080007ffe7fff",
             "0x482680017ffd8000",
@@ -496,17 +544,18 @@
             "0x4",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffc9",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x48127ffe7fff8000",
             "0x482480017ffe8000",
             "0x1",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe3",
             "0x48127ff47fff8000",
-            "0x48127ffc7fff8000",
-            "0x480280027ffb8000",
+            "0x480280017ffb8000",
             "0x48127ffb7fff8000",
-            "0x48127ffb7fff8000",
+            "0x480280037ffb8000",
+            "0x48127ffa7fff8000",
+            "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
@@ -514,9 +563,9 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffee3",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffebd",
             "0x208b7fff7fff7ffe",
-            "0x480280017ffb8000",
+            "0x480280027ffb8000",
             "0x480280027ffd8000",
             "0x400080007ffe7fff",
             "0x482680017ffd8000",
@@ -532,12 +581,44 @@
             "0x3",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffeb",
-            "0x480280017ffb8000",
-            "0x48127ffc7fff8000",
-            "0x482480017ffe8000",
-            "0x1",
             "0x480280027ffb8000",
-            "0x48127ffa7fff8000",
+            "0x48127ffc7fff8000",
+            "0x480280017ffb8000",
+            "0x482480017ffd8000",
+            "0x1",
+            "0x480280037ffb8000",
+            "0x48127ff97fff8000",
+            "0x48127ff97fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x480a7ffb7fff8000",
+            "0x480a7ffc7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x480680017fff8000",
+            "0x27",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffed6",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffec7",
+            "0x400680017fff7fff",
+            "0x27",
+            "0x48127ffc7fff8000",
+            "0x48127ffc7fff8000",
+            "0x48127ffc7fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x402b7ffd7ffc7ffd",
+            "0x480280007ffb8000",
+            "0x480280017ffb8000",
+            "0x480280027ffb8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffee",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x48127ffc7fff8000",
+            "0x48127ffc7fff8000",
+            "0x48127ffc7fff8000",
+            "0x480280037ffb8000",
+            "0x480680017fff8000",
+            "0x0",
             "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe"
         ],
@@ -615,7 +696,7 @@
                     }
                 }
             ],
-            "45": [
+            "75": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -626,14 +707,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 6,
+                            "group": 9,
                             "offset": 2
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "63": [
+            "94": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -644,14 +725,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 8,
+                            "group": 11,
                             "offset": 4
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "74": [
+            "106": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -662,14 +743,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 10,
+                            "group": 13,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "114": [
+            "147": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -680,14 +761,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 13,
+                            "group": 16,
                             "offset": 8
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "125": [
+            "159": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -697,7 +778,7 @@
                     "code": "from starkware.python.math_utils import isqrt\nvalue = ids.value % PRIME\nassert value < 2 ** 250, f\"value={value} is outside of the range [0, 2**250).\"\nassert 2 ** 250 < PRIME\nids.root = isqrt(value)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 14,
+                            "group": 17,
                             "offset": 1
                         },
                         "reference_ids": {
@@ -707,7 +788,7 @@
                     }
                 }
             ],
-            "136": [
+            "170": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -718,14 +799,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 15,
+                            "group": 18,
                             "offset": 7
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "154": [
+            "189": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -736,14 +817,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 17,
+                            "group": 20,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "244": [
+            "281": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -754,8 +835,26 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 22,
+                            "group": 25,
                             "offset": 0
+                        },
+                        "reference_ids": {}
+                    }
+                }
+            ],
+            "374": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__wrappers__",
+                        "__wrappers__.test_storage_var"
+                    ],
+                    "code": "memory[ap] = segments.add()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 30,
+                            "offset": 50
                         },
                         "reference_ids": {}
                     }
@@ -767,11 +866,15 @@
                 "destination": "starkware.cairo.common.cairo_builtins.BitwiseBuiltin",
                 "type": "alias"
             },
+            "__main__.HashBuiltin": {
+                "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+                "type": "alias"
+            },
             "__main__.bitwise_and": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 98,
+                "pc": 131,
                 "type": "function"
             },
             "__main__.bitwise_and.Args": {
@@ -820,11 +923,169 @@
                 "destination": "starkware.starknet.common.syscalls.library_call",
                 "type": "alias"
             },
+            "__main__.number": {
+                "type": "namespace"
+            },
+            "__main__.number.Args": {
+                "full_name": "__main__.number.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.number.HashBuiltin": {
+                "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+                "type": "alias"
+            },
+            "__main__.number.ImplicitArgs": {
+                "full_name": "__main__.number.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.number.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.number.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.number.addr": {
+                "decorators": [],
+                "pc": 41,
+                "type": "function"
+            },
+            "__main__.number.addr.Args": {
+                "full_name": "__main__.number.addr.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.number.addr.ImplicitArgs": {
+                "full_name": "__main__.number.addr.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 0
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__main__.number.addr.Return": {
+                "cairo_type": "(res: felt)",
+                "type": "type_definition"
+            },
+            "__main__.number.addr.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.number.hash2": {
+                "destination": "starkware.cairo.common.hash.hash2",
+                "type": "alias"
+            },
+            "__main__.number.normalize_address": {
+                "destination": "starkware.starknet.common.storage.normalize_address",
+                "type": "alias"
+            },
+            "__main__.number.read": {
+                "decorators": [],
+                "pc": 46,
+                "type": "function"
+            },
+            "__main__.number.read.Args": {
+                "full_name": "__main__.number.read.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.number.read.ImplicitArgs": {
+                "full_name": "__main__.number.read.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 1
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 3,
+                "type": "struct"
+            },
+            "__main__.number.read.Return": {
+                "cairo_type": "(value: felt)",
+                "type": "type_definition"
+            },
+            "__main__.number.read.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.number.storage_read": {
+                "destination": "starkware.starknet.common.syscalls.storage_read",
+                "type": "alias"
+            },
+            "__main__.number.storage_write": {
+                "destination": "starkware.starknet.common.syscalls.storage_write",
+                "type": "alias"
+            },
+            "__main__.number.write": {
+                "decorators": [],
+                "pc": 59,
+                "type": "function"
+            },
+            "__main__.number.write.Args": {
+                "full_name": "__main__.number.write.Args",
+                "members": {
+                    "value": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.number.write.ImplicitArgs": {
+                "full_name": "__main__.number.write.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 1
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 3,
+                "type": "struct"
+            },
+            "__main__.number.write.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.number.write.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.return_result": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 72,
+                "pc": 104,
                 "type": "function"
             },
             "__main__.return_result.Args": {
@@ -856,7 +1117,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 123,
+                "pc": 157,
                 "type": "function"
             },
             "__main__.sqrt.Args": {
@@ -895,10 +1156,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 14,
+                            "group": 17,
                             "offset": 1
                         },
-                        "pc": 125,
+                        "pc": 159,
                         "value": "[cast(fp, felt*)]"
                     }
                 ],
@@ -910,10 +1171,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 14,
+                            "group": 17,
                             "offset": 0
                         },
-                        "pc": 123,
+                        "pc": 157,
                         "value": "[cast(fp + (-3), felt*)]"
                     }
                 ],
@@ -932,7 +1193,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 282,
+                "pc": 320,
                 "type": "function"
             },
             "__main__.test_call_contract.Args": {
@@ -982,7 +1243,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 180,
+                "pc": 216,
                 "type": "function"
             },
             "__main__.test_library_call.Args": {
@@ -1031,7 +1292,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 212,
+                "pc": 249,
                 "type": "function"
             },
             "__main__.test_library_call_tree.Args": {
@@ -1080,11 +1341,51 @@
                 "type": "const",
                 "value": 5
             },
+            "__main__.test_storage_var": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 353,
+                "type": "function"
+            },
+            "__main__.test_storage_var.Args": {
+                "full_name": "__main__.test_storage_var.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.test_storage_var.ImplicitArgs": {
+                "full_name": "__main__.test_storage_var.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 1
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 3,
+                "type": "struct"
+            },
+            "__main__.test_storage_var.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.test_storage_var.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.with_arg": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 54,
+                "pc": 85,
                 "type": "function"
             },
             "__main__.with_arg.Args": {
@@ -1116,7 +1417,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 41,
+                "pc": 71,
                 "type": "function"
             },
             "__main__.without_arg.Args": {
@@ -1143,7 +1444,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 145,
+                "pc": 180,
                 "type": "function"
             },
             "__main__.write_and_read_value.Args": {
@@ -1184,7 +1485,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 106,
+                "pc": 139,
                 "type": "function"
             },
             "__wrappers__.bitwise_and.Args": {
@@ -1200,7 +1501,7 @@
                 "type": "struct"
             },
             "__wrappers__.bitwise_and.Return": {
-                "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, bitwise_ptr: starkware.cairo.common.cairo_builtins.BitwiseBuiltin*, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: starkware.cairo.common.cairo_builtins.BitwiseBuiltin*, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.bitwise_and.SIZEOF_LOCALS": {
@@ -1219,7 +1520,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 83,
+                "pc": 115,
                 "type": "function"
             },
             "__wrappers__.return_result.Args": {
@@ -1235,7 +1536,7 @@
                 "type": "struct"
             },
             "__wrappers__.return_result.Return": {
-                "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.return_result.SIZEOF_LOCALS": {
@@ -1248,7 +1549,7 @@
             },
             "__wrappers__.return_result_encode_return": {
                 "decorators": [],
-                "pc": 74,
+                "pc": 106,
                 "type": "function"
             },
             "__wrappers__.return_result_encode_return.Args": {
@@ -1288,7 +1589,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 129,
+                "pc": 163,
                 "type": "function"
             },
             "__wrappers__.sqrt.Args": {
@@ -1304,7 +1605,7 @@
                 "type": "struct"
             },
             "__wrappers__.sqrt.Return": {
-                "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.sqrt.SIZEOF_LOCALS": {
@@ -1324,7 +1625,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 290,
+                "pc": 328,
                 "type": "function"
             },
             "__wrappers__.test_call_contract.Args": {
@@ -1340,7 +1641,7 @@
                 "type": "struct"
             },
             "__wrappers__.test_call_contract.Return": {
-                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.test_call_contract.SIZEOF_LOCALS": {
@@ -1360,7 +1661,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 188,
+                "pc": 224,
                 "type": "function"
             },
             "__wrappers__.test_library_call.Args": {
@@ -1376,7 +1677,7 @@
                 "type": "struct"
             },
             "__wrappers__.test_library_call.Return": {
-                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.test_library_call.SIZEOF_LOCALS": {
@@ -1395,7 +1696,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 253,
+                "pc": 290,
                 "type": "function"
             },
             "__wrappers__.test_library_call_tree.Args": {
@@ -1411,7 +1712,7 @@
                 "type": "struct"
             },
             "__wrappers__.test_library_call_tree.Return": {
-                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.test_library_call_tree.SIZEOF_LOCALS": {
@@ -1424,7 +1725,7 @@
             },
             "__wrappers__.test_library_call_tree_encode_return": {
                 "decorators": [],
-                "pc": 244,
+                "pc": 281,
                 "type": "function"
             },
             "__wrappers__.test_library_call_tree_encode_return.Args": {
@@ -1460,11 +1761,46 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.test_storage_var": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 368,
+                "type": "function"
+            },
+            "__wrappers__.test_storage_var.Args": {
+                "full_name": "__wrappers__.test_storage_var.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_storage_var.ImplicitArgs": {
+                "full_name": "__wrappers__.test_storage_var.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_storage_var.Return": {
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: starkware.cairo.common.cairo_builtins.HashBuiltin*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_storage_var.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_storage_var.__wrapped_func": {
+                "destination": "__main__.test_storage_var",
+                "type": "alias"
+            },
+            "__wrappers__.test_storage_var_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.with_arg": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 57,
+                "pc": 88,
                 "type": "function"
             },
             "__wrappers__.with_arg.Args": {
@@ -1480,7 +1816,7 @@
                 "type": "struct"
             },
             "__wrappers__.with_arg.Return": {
-                "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.with_arg.SIZEOF_LOCALS": {
@@ -1499,7 +1835,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 42,
+                "pc": 72,
                 "type": "function"
             },
             "__wrappers__.without_arg.Args": {
@@ -1515,7 +1851,7 @@
                 "type": "struct"
             },
             "__wrappers__.without_arg.Return": {
-                "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.without_arg.SIZEOF_LOCALS": {
@@ -1534,7 +1870,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 163,
+                "pc": 198,
                 "type": "function"
             },
             "__wrappers__.write_and_read_value.Args": {
@@ -1550,7 +1886,7 @@
                 "type": "struct"
             },
             "__wrappers__.write_and_read_value.Return": {
-                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
                 "type": "type_definition"
             },
             "__wrappers__.write_and_read_value.SIZEOF_LOCALS": {
@@ -1563,7 +1899,7 @@
             },
             "__wrappers__.write_and_read_value_encode_return": {
                 "decorators": [],
-                "pc": 154,
+                "pc": 189,
                 "type": "function"
             },
             "__wrappers__.write_and_read_value_encode_return.Args": {
@@ -2791,18 +3127,18 @@
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 14,
+                        "group": 17,
                         "offset": 0
                     },
-                    "pc": 123,
+                    "pc": 157,
                     "value": "[cast(fp + (-3), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 14,
+                        "group": 17,
                         "offset": 1
                     },
-                    "pc": 125,
+                    "pc": 159,
                     "value": "[cast(fp, felt*)]"
                 }
             ]

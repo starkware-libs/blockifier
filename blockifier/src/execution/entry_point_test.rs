@@ -30,6 +30,8 @@ const TEST_LIBRARY_CALL_TREE_SELECTOR: &str =
     "0x301fa9c721a93ca8d34dba228387cbbe889a0676e88c3e74161d8da0041d2ad";
 const TEST_CALL_CONTRACT_SELECTOR: &str =
     "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c";
+const TEST_STORAGE_VAR_SELECTOR: &str =
+    "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
 const TEST_CLASS_HASH: &str = "0x1";
 const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
@@ -283,4 +285,17 @@ fn test_entry_point_with_call_contract() {
         ..trivial_external_entrypoint()
     };
     assert_eq!(entry_point.execute(&mut state).unwrap().execution.retdata, vec![shash!(48)]);
+}
+
+#[test]
+fn test_storage_var() {
+    let mut state = create_test_state();
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_VAR_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![] }
+    );
 }

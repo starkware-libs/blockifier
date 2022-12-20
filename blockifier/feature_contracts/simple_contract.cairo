@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.starknet.common.syscalls import (
     storage_read,
     storage_write,
@@ -8,6 +8,10 @@ from starkware.starknet.common.syscalls import (
     call_contract,
 )
 from starkware.cairo.common.registers import get_fp_and_pc
+
+@storage_var
+func number() -> (value: felt) {
+}
 
 @external
 func without_arg() {
@@ -112,4 +116,12 @@ func test_call_contract{syscall_ptr: felt*}(
         calldata=calldata,
     );
     return (retdata_size=retdata_size, retdata=retdata);
+}
+
+@external
+func test_storage_var{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    number.write(39);
+    let (val) = number.read();
+    assert val = 39;
+    return ();
 }
