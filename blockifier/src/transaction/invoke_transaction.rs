@@ -58,9 +58,13 @@ pub fn execute_tx<SR: StateReader>(
     Ok(execute_call.execute(state)?)
 }
 
-pub fn charge_fee(tx: InvokeTransaction) -> TransactionExecutionResult<(Fee, CallInfo)> {
+pub fn charge_fee<SR: StateReader>(
+    tx: &InvokeTransaction,
+    state: &mut CachedState<SR>,
+) -> TransactionExecutionResult<(Fee, CallInfo)> {
     let actual_fee = calculate_tx_fee();
-    let fee_transfer_call_info = execute_fee_transfer(actual_fee, tx.max_fee)?;
+    let fee_transfer_call_info =
+        execute_fee_transfer(state, actual_fee, tx.max_fee, tx.sender_address)?;
 
     Ok((actual_fee, fee_transfer_call_info))
 }
@@ -85,7 +89,7 @@ impl<SR: StateReader> ExecuteTransaction<SR> for InvokeTransaction {
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
         let actual_resources = ResourcesMapping::default();
-        let (actual_fee, fee_transfer_call_info) = charge_fee(self)?;
+        let (actual_fee, fee_transfer_call_info) = charge_fee(&self, state)?;
 
         Ok(TransactionExecutionInfo {
             validate_call_info,
