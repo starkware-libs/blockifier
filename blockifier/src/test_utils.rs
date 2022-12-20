@@ -37,6 +37,8 @@ pub const TEST_CALL_CONTRACT_SELECTOR: &str =
     "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c";
 pub const TEST_DEPLOY_SELECTOR: &str =
     "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
+pub const TEST_STORAGE_VAR_SELECTOR: &str =
+    "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
 pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
