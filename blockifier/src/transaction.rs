@@ -10,7 +10,7 @@ use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecution
 
 pub trait ExecuteTransaction<SR: StateReader> {
     fn execute(
-        self,
+        &self,
         state: &mut CachedState<SR>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
