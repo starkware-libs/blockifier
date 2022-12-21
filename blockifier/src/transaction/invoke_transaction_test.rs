@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -11,7 +12,7 @@ use starknet_api::transaction::{
 use starknet_api::{shash, StarknetApiError};
 
 use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, StateRC};
 use crate::test_utils::{
     get_contract_class, ACCOUNT_CONTRACT_PATH, RETURN_RESULT_SELECTOR,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
@@ -32,6 +33,10 @@ fn create_test_state() -> CachedState<DictStateReader> {
         Rc::new(get_contract_class(ACCOUNT_CONTRACT_PATH)),
     )]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+}
+
+fn create_test_state_rc() -> StateRC {
+    Rc::new(RefCell::new(create_test_state()))
 }
 
 fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
@@ -64,10 +69,10 @@ fn get_tested_actual_fee() -> Fee {
 
 #[test]
 fn test_invoke_tx() -> TransactionExecutionResult<()> {
-    let mut state = create_test_state();
+    let state = create_test_state_rc();
     let tx = get_tested_valid_invoke_tx()?;
 
-    let actual_execution_info = tx.execute(&mut state)?;
+    let actual_execution_info = tx.execute(state)?;
 
     // Create expected result object.
     let expected_validate_call_info = CallInfo {
@@ -111,14 +116,14 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
 
 #[test]
 fn test_negative_invoke_tx_flows() -> TransactionExecutionResult<()> {
-    let mut state = create_test_state();
+    let state = create_test_state_rc();
     let valid_tx = get_tested_valid_invoke_tx()?;
 
     // Invalid version.
     // Note: there is no need to test for a negative version, as it cannot be constructed.
     let invalid_tx_version = TransactionVersion(StarkHash::from(0));
     let invalid_tx = InvokeTransaction { version: invalid_tx_version, ..valid_tx.clone() };
-    let execution_error = invalid_tx.execute(&mut state).unwrap_err();
+    let execution_error = invalid_tx.execute(state.clone()).unwrap_err();
 
     // Test error.
     let expected_allowed_versions = vec![TransactionVersion(StarkFelt::from(1))];
@@ -133,7 +138,7 @@ fn test_negative_invoke_tx_flows() -> TransactionExecutionResult<()> {
 
     // Insufficient fee.
     let invalid_tx = InvokeTransaction { max_fee: Fee(0), ..valid_tx };
-    let execution_error = invalid_tx.execute(&mut state).unwrap_err();
+    let execution_error = invalid_tx.execute(state).unwrap_err();
 
     // Test error.
     let expected_actual_fee = get_tested_actual_fee();

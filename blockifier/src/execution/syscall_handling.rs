@@ -15,8 +15,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 use starknet_api::core::ContractAddress;
 
-use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, StateRC};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_structs::{SyscallRequest, SyscallResult};
@@ -28,7 +27,7 @@ mod test;
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHandler {
     expected_syscall_ptr: Relocatable,
-    pub state: CachedState<DictStateReader>,
+    pub state: StateRC,
     pub storage_address: ContractAddress,
     /// Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
@@ -37,7 +36,7 @@ pub struct SyscallHandler {
 impl SyscallHandler {
     pub fn new(
         initial_syscall_ptr: Relocatable,
-        state: CachedState<DictStateReader>,
+        state: StateRC,
         // TODO(AlonH, 21/12/2022): Consider referencing outer_call when lifetimes make it possible
         // (LambdaClass).
         storage_address: ContractAddress,
@@ -118,7 +117,7 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
 pub fn initialize_syscall_handler(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
-    state: &mut CachedState<DictStateReader>,
+    state: StateRC,
     call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, BuiltinHintProcessor) {
     let syscall_segment = vm.add_memory_segment();

@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -8,6 +9,7 @@ use starknet_api::shash;
 
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
+use crate::execution::entry_point::StateRC;
 
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 // TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
@@ -51,4 +53,8 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class =
         HashMap::from([(ClassHash(shash!(TEST_CLASS_HASH)), Rc::new(get_test_contract_class()))]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+}
+
+pub fn create_test_state_rc() -> StateRC {
+    Rc::new(RefCell::new(create_test_state()))
 }

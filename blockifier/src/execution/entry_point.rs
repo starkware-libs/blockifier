@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -13,6 +16,7 @@ use crate::execution::execution_utils::execute_entry_point_call;
 pub mod test;
 
 pub type EntryPointResult<T> = Result<T, EntryPointExecutionError>;
+pub type StateRC = Rc<RefCell<CachedState<DictStateReader>>>;
 
 // TODO(Adi, 15/10/2023): Change calldata field to have a reference to a CallData object and change
 // calldata cloning everywhere. Same for objects containing CallEntryPoint, and for retdata.
@@ -29,7 +33,7 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(self, state: &mut CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
+    pub fn execute(self, state: StateRC) -> EntryPointResult<CallInfo> {
         execute_entry_point_call(self, state)
     }
 
