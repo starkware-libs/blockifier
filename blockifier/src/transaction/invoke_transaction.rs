@@ -4,8 +4,7 @@ use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Fee, InvokeTransaction};
 
-use crate::cached_state::{CachedState, DictStateReader};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, StateRC};
 use crate::test_utils::TEST_ACCOUNT_CONTRACT_CLASS_HASH;
 use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
 use crate::transaction::objects::{
@@ -22,7 +21,7 @@ mod test;
 
 pub fn validate_tx(
     tx: &InvokeTransaction,
-    state: &mut CachedState<DictStateReader>,
+    state: StateRC,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let validate_call = CallEntryPoint {
@@ -41,7 +40,7 @@ pub fn validate_tx(
 
 pub fn execute_tx(
     tx: &InvokeTransaction,
-    state: &mut CachedState<DictStateReader>,
+    state: StateRC,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let execute_call = CallEntryPoint {
@@ -65,10 +64,7 @@ pub fn charge_fee(tx: &InvokeTransaction) -> TransactionExecutionResult<(Fee, Ca
 }
 
 impl ExecuteTransaction for InvokeTransaction {
-    fn execute(
-        &self,
-        state: &mut CachedState<DictStateReader>,
-    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+    fn execute(&self, state: StateRC) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Adi, 10/12/2022): Consider moving the transaction version verification to the
         // TransactionVersion constructor.
         verify_tx_version(self.version)?;
@@ -76,7 +72,7 @@ impl ExecuteTransaction for InvokeTransaction {
         let class_hash = ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
 
         // Validate transaction.
-        let validate_call_info = validate_tx(self, state, class_hash)?;
+        let validate_call_info = validate_tx(self, state.clone(), class_hash)?;
 
         // Execute transaction.
         let execute_call_info = execute_tx(self, state, class_hash)?;

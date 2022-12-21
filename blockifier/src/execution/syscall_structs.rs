@@ -46,9 +46,9 @@ impl StorageReadRequest {
         Ok(SyscallRequest::StorageRead(StorageReadRequest { address }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        let value =
-            syscall_handler.state.get_storage_at(syscall_handler.storage_address, self.address)?;
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let mut binding = syscall_handler.state.borrow_mut();
+        let value = binding.get_storage_at(syscall_handler.storage_address, self.address)?;
         Ok(SyscallResponse::StorageRead(StorageReadResponse { value: *value }))
     }
 }
@@ -83,8 +83,8 @@ impl StorageWriteRequest {
         Ok(SyscallRequest::StorageWrite(StorageWriteRequest { address, value }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        syscall_handler.state.set_storage_at(
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        syscall_handler.state.borrow_mut().set_storage_at(
             syscall_handler.storage_address,
             self.address,
             self.value,
@@ -142,7 +142,7 @@ impl LibraryCallRequest {
             calldata: self.calldata,
             storage_address: syscall_handler.storage_address,
         };
-        let call_info = entry_point.execute(&mut syscall_handler.state)?;
+        let call_info = entry_point.execute(syscall_handler.state.clone())?;
         let retdata = call_info.execution.retdata.clone();
         syscall_handler.inner_calls.push(call_info);
 
@@ -182,7 +182,7 @@ impl DeployRequest {
         }))
     }
 
-    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
         // TODO(Noa, 26/12/2022): Execute deploy.
         Ok(SyscallResponse::Deploy(DeployResponse {
             contract_address: ContractAddress::default(),

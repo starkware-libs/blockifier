@@ -4,12 +4,9 @@ pub mod invoke_transaction;
 pub mod objects;
 pub mod transaction_utils;
 
-use crate::cached_state::{CachedState, DictStateReader};
+use crate::execution::entry_point::StateRC;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 
 pub trait ExecuteTransaction {
-    fn execute(
-        &self,
-        state: &mut CachedState<DictStateReader>,
-    ) -> TransactionExecutionResult<TransactionExecutionInfo>;
+    fn execute(&self, state: StateRC) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }

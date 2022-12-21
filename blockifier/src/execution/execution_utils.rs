@@ -19,7 +19,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
-use crate::cached_state::{CachedState, DictStateReader};
+use super::entry_point::StateRC;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, EntryPointResult};
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -58,10 +58,10 @@ pub struct ExecutionContext {
 
 pub fn initialize_execution_context(
     call_entry_point: &CallEntryPoint,
-    state: &mut CachedState<DictStateReader>,
+    state: StateRC,
 ) -> Result<ExecutionContext, PreExecutionError> {
     // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
-    let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
+    let contract_class = state.borrow_mut().get_contract_class(&call_entry_point.class_hash)?;
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
@@ -117,7 +117,7 @@ pub fn prepare_call_arguments(
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
     call_entry_point: CallEntryPoint,
-    state: &mut CachedState<DictStateReader>,
+    state: StateRC,
 ) -> EntryPointResult<CallInfo> {
     let mut execution_context = initialize_execution_context(&call_entry_point, state)?;
     let args = prepare_call_arguments(
@@ -134,7 +134,7 @@ pub fn execute_entry_point_call(
         &execution_context.hint_processor,
     )?;
 
-    Ok(finalize_execution(execution_context.runner, execution_context.vm, call_entry_point, state)?)
+    Ok(finalize_execution(execution_context.runner, execution_context.vm, call_entry_point)?)
 }
 
 pub fn run_entry_point(
@@ -160,13 +160,9 @@ pub fn finalize_execution(
     mut cairo_runner: CairoRunner,
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
-    state: &mut CachedState<DictStateReader>,
 ) -> Result<CallInfo, PostExecutionError> {
     let syscall_handler =
         cairo_runner.exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
-    // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
-    // becomes a reference.
-    *state = syscall_handler.state.clone();
     let inner_calls = mem::take(&mut syscall_handler.inner_calls);
     Ok(CallInfo {
         call: call_entry_point,
