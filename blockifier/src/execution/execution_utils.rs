@@ -19,6 +19,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
+use super::common_hints::add_common_hints;
 use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, EntryPointResult};
 use crate::execution::errors::{
@@ -69,8 +70,9 @@ pub fn initialize_execution_context(
     let mut vm = VirtualMachine::new(program.prime, false, program.error_message_attributes);
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
-    let (syscall_segment, hint_processor) =
+    let (syscall_segment, mut hint_processor) =
         initialize_syscall_handler(&mut cairo_runner, &mut vm, state, call_entry_point);
+    add_common_hints(&mut hint_processor);
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call_entry_point.resolve_entry_point_pc(&contract_class)?;
