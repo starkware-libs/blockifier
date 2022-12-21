@@ -47,11 +47,8 @@ impl StorageReadRequest {
     }
 
     pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(AlonH, 21/12/2022): Remove unwrap once errors are created for state.
-        let value = syscall_handler
-            .state
-            .get_storage_at(syscall_handler.storage_address, self.address)
-            .unwrap();
+        let value =
+            syscall_handler.state.get_storage_at(syscall_handler.storage_address, self.address)?;
         Ok(SyscallResponse::StorageRead(StorageReadResponse { value: *value }))
     }
 }
