@@ -64,9 +64,13 @@
                 {
                     "name": "address",
                     "type": "felt"
+                },
+                {
+                    "name": "value",
+                    "type": "felt"
                 }
             ],
-            "name": "get_value",
+            "name": "test_storage_read_write",
             "outputs": [
                 {
                     "name": "result",
@@ -114,6 +118,38 @@
                     "type": "felt"
                 },
                 {
+                    "name": "lib_selector",
+                    "type": "felt"
+                },
+                {
+                    "name": "nested_selector",
+                    "type": "felt"
+                },
+                {
+                    "name": "calldata_len",
+                    "type": "felt"
+                },
+                {
+                    "name": "calldata",
+                    "type": "felt*"
+                }
+            ],
+            "name": "test_nested_library_call",
+            "outputs": [
+                {
+                    "name": "result",
+                    "type": "felt"
+                }
+            ],
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "name": "class_hash",
+                    "type": "felt"
+                },
+                {
                     "name": "contract_address_salt",
                     "type": "felt"
                 },
@@ -140,36 +176,40 @@
         "CONSTRUCTOR": [],
         "EXTERNAL": [
             {
-                "offset": "0x69",
+                "offset": "0x6f",
                 "selector": "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95"
             },
             {
-                "offset": "0x38",
+                "offset": "0x3e",
                 "selector": "0xe7def693d16806ca2a2f398d8de5951344663ba77f340ed7a958da731872fc"
             },
             {
-                "offset": "0x80",
+                "offset": "0x86",
                 "selector": "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309"
             },
             {
-                "offset": "0xe6",
+                "offset": "0x138",
                 "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f"
             },
             {
-                "offset": "0xa3",
-                "selector": "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0"
-            },
-            {
-                "offset": "0xbb",
+                "offset": "0xc1",
                 "selector": "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50"
             },
             {
-                "offset": "0x29",
+                "offset": "0x2f",
                 "selector": "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f"
             },
             {
-                "offset": "0x52",
+                "offset": "0x58",
                 "selector": "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701"
+            },
+            {
+                "offset": "0x108",
+                "selector": "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331"
+            },
+            {
+                "offset": "0xa8",
+                "selector": "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97"
             }
         ],
         "L1_HANDLER": []
@@ -182,6 +222,12 @@
         ],
         "compiler_version": "0.10.2",
         "data": [
+            "0x208b7fff7fff7ffe",
+            "0x1104800180018000",
+            "0x800000000000011000000000000000000000000000000000000000000000000",
+            "0x482480017ffe8000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffff",
+            "0x208b7fff7fff7ffe",
             "0x480680017fff8000",
             "0x4c69627261727943616c6c",
             "0x400280007ff97fff",
@@ -326,15 +372,14 @@
             "0x0",
             "0x48127ffb7fff8000",
             "0x208b7fff7fff7ffe",
+            "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
-            "0x480680017fff8000",
-            "0x12",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff8d",
-            "0x480a7ffd7fff8000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff8e",
+            "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff82",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff83",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -346,15 +391,16 @@
             "0x480a80007fff8000",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
-            "0x1",
+            "0x2",
             "0x402a7ffd7ffc7fff",
             "0x480280007ffb8000",
             "0x480280007ffd8000",
+            "0x480280017ffd8000",
             "0x1104800180018000",
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe9",
             "0x480280017ffb8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff0",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffef",
             "0x48127ff67fff8000",
             "0x48127ffc7fff8000",
             "0x480280027ffb8000",
@@ -393,6 +439,82 @@
             "0x48127ffa7fff8000",
             "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x400780017fff7ffc",
+            "0x2",
+            "0x480280007ffd8000",
+            "0x480280017ffd8000",
+            "0x480a7ff97fff8000",
+            "0x480a7ffb7fff8000",
+            "0x480680017fff8000",
+            "0x2",
+            "0x482480017ffb8000",
+            "0x1",
+            "0x482480017ffb8000",
+            "0x1",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff1b",
+            "0x482480017fff8000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffc",
+            "0x40137fff7fff8000",
+            "0x480a7ff87fff8000",
+            "0x480a7ff97fff8000",
+            "0x480a7ffa7fff8000",
+            "0x480680017fff8000",
+            "0x5",
+            "0x480a80007fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff15",
+            "0x48127ffd7fff8000",
+            "0x480a7ff97fff8000",
+            "0x480a7ffb7fff8000",
+            "0x480a7ffc7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff0e",
+            "0x48127ffd7fff8000",
+            "0x480680017fff8000",
+            "0x0",
+            "0x208b7fff7fff7ffe",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x4003800080007ffc",
+            "0x4826800180008000",
+            "0x1",
+            "0x480a7ffd7fff8000",
+            "0x4828800080007ffe",
+            "0x480a80007fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x480280017ffb8000",
+            "0x480280037ffd8000",
+            "0x400080007ffe7fff",
+            "0x482680017ffd8000",
+            "0x4",
+            "0x480280037ffd8000",
+            "0x48307fff7ffe8000",
+            "0x402a7ffd7ffc7fff",
+            "0x480280007ffb8000",
+            "0x480280007ffd8000",
+            "0x480280017ffd8000",
+            "0x480280027ffd8000",
+            "0x480280037ffd8000",
+            "0x482680017ffd8000",
+            "0x4",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffc3",
+            "0x480280017ffb8000",
+            "0x48127ffe7fff8000",
+            "0x482480017ffe8000",
+            "0x1",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe3",
+            "0x48127ff47fff8000",
+            "0x48127ffc7fff8000",
+            "0x480280027ffb8000",
+            "0x48127ffb7fff8000",
+            "0x48127ffb7fff8000",
+            "0x208b7fff7fff7ffe",
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
             "0x480a7ffb7fff8000",
@@ -401,7 +523,7 @@
             "0x480680017fff8000",
             "0x0",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff33",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffee7",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -443,7 +565,7 @@
         ],
         "debug_info": null,
         "hints": {
-            "7": [
+            "13": [
                 {
                     "accessible_scopes": [
                         "starkware.starknet.common.syscalls",
@@ -452,7 +574,7 @@
                     "code": "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 0,
+                            "group": 2,
                             "offset": 1
                         },
                         "reference_ids": {
@@ -461,7 +583,7 @@
                     }
                 }
             ],
-            "20": [
+            "26": [
                 {
                     "accessible_scopes": [
                         "starkware.starknet.common.syscalls",
@@ -470,7 +592,7 @@
                     "code": "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 1,
+                            "group": 3,
                             "offset": 1
                         },
                         "reference_ids": {
@@ -479,7 +601,7 @@
                     }
                 }
             ],
-            "28": [
+            "34": [
                 {
                     "accessible_scopes": [
                         "starkware.starknet.common.syscalls",
@@ -488,7 +610,7 @@
                     "code": "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 2,
+                            "group": 4,
                             "offset": 1
                         },
                         "reference_ids": {
@@ -497,7 +619,7 @@
                     }
                 }
             ],
-            "37": [
+            "43": [
                 {
                     "accessible_scopes": [
                         "starkware.starknet.common.syscalls",
@@ -506,7 +628,7 @@
                     "code": "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 3,
+                            "group": 5,
                             "offset": 1
                         },
                         "reference_ids": {
@@ -515,7 +637,7 @@
                     }
                 }
             ],
-            "44": [
+            "50": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -526,14 +648,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 5,
+                            "group": 7,
                             "offset": 2
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "62": [
+            "68": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -544,14 +666,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 7,
+                            "group": 9,
                             "offset": 4
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "73": [
+            "79": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -562,14 +684,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 9,
+                            "group": 11,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "113": [
+            "119": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -580,14 +702,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 12,
+                            "group": 14,
                             "offset": 8
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "124": [
+            "130": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -597,7 +719,7 @@
                     "code": "from starkware.python.math_utils import isqrt\nvalue = ids.value % PRIME\nassert value < 2 ** 250, f\"value={value} is outside of the range [0, 2**250).\"\nassert 2 ** 250 < PRIME\nids.root = isqrt(value)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 13,
+                            "group": 15,
                             "offset": 1
                         },
                         "reference_ids": {
@@ -607,7 +729,7 @@
                     }
                 }
             ],
-            "135": [
+            "141": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -618,32 +740,50 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 14,
+                            "group": 16,
                             "offset": 7
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "154": [
+            "159": [
                 {
                     "accessible_scopes": [
                         "__main__",
                         "__main__",
                         "__wrappers__",
-                        "__wrappers__.get_value_encode_return"
+                        "__wrappers__.test_storage_read_write_encode_return"
                     ],
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 16,
+                            "group": 18,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "221": [
+            "255": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__wrappers__",
+                        "__wrappers__.test_nested_library_call_encode_return"
+                    ],
+                    "code": "memory[ap] = segments.add()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 23,
+                            "offset": 0
+                        },
+                        "reference_ids": {}
+                    }
+                }
+            ],
+            "303": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -654,7 +794,7 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 21,
+                            "group": 26,
                             "offset": 0
                         },
                         "reference_ids": {}
@@ -675,7 +815,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 97,
+                "pc": 103,
                 "type": "function"
             },
             "__main__.bitwise_and.Args": {
@@ -716,43 +856,6 @@
                 "destination": "starkware.starknet.common.syscalls.deploy",
                 "type": "alias"
             },
-            "__main__.get_value": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 144,
-                "type": "function"
-            },
-            "__main__.get_value.Args": {
-                "full_name": "__main__.get_value.Args",
-                "members": {
-                    "address": {
-                        "cairo_type": "felt",
-                        "offset": 0
-                    }
-                },
-                "size": 1,
-                "type": "struct"
-            },
-            "__main__.get_value.ImplicitArgs": {
-                "full_name": "__main__.get_value.ImplicitArgs",
-                "members": {
-                    "syscall_ptr": {
-                        "cairo_type": "felt*",
-                        "offset": 0
-                    }
-                },
-                "size": 1,
-                "type": "struct"
-            },
-            "__main__.get_value.Return": {
-                "cairo_type": "(result: felt)",
-                "type": "type_definition"
-            },
-            "__main__.get_value.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
             "__main__.library_call": {
                 "destination": "starkware.starknet.common.syscalls.library_call",
                 "type": "alias"
@@ -761,7 +864,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 71,
+                "pc": 77,
                 "type": "function"
             },
             "__main__.return_result.Args": {
@@ -793,7 +896,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 122,
+                "pc": 128,
                 "type": "function"
             },
             "__main__.sqrt.Args": {
@@ -832,10 +935,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 13,
+                            "group": 15,
                             "offset": 1
                         },
-                        "pc": 124,
+                        "pc": 130,
                         "value": "[cast(fp, felt*)]"
                     }
                 ],
@@ -847,10 +950,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 13,
+                            "group": 15,
                             "offset": 0
                         },
-                        "pc": 122,
+                        "pc": 128,
                         "value": "[cast(fp + (-3), felt*)]"
                     }
                 ],
@@ -868,7 +971,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 211,
+                "pc": 293,
                 "type": "function"
             },
             "__main__.test_deploy.Args": {
@@ -918,7 +1021,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 179,
+                "pc": 185,
                 "type": "function"
             },
             "__main__.test_library_call.Args": {
@@ -963,11 +1066,105 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.test_nested_library_call": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 217,
+                "type": "function"
+            },
+            "__main__.test_nested_library_call.Args": {
+                "full_name": "__main__.test_nested_library_call.Args",
+                "members": {
+                    "calldata": {
+                        "cairo_type": "felt*",
+                        "offset": 4
+                    },
+                    "calldata_len": {
+                        "cairo_type": "felt",
+                        "offset": 3
+                    },
+                    "class_hash": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    },
+                    "lib_selector": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "nested_selector": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    }
+                },
+                "size": 5,
+                "type": "struct"
+            },
+            "__main__.test_nested_library_call.ImplicitArgs": {
+                "full_name": "__main__.test_nested_library_call.ImplicitArgs",
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_nested_library_call.Return": {
+                "cairo_type": "(result: felt)",
+                "type": "type_definition"
+            },
+            "__main__.test_nested_library_call.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 1
+            },
+            "__main__.test_storage_read_write": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 150,
+                "type": "function"
+            },
+            "__main__.test_storage_read_write.Args": {
+                "full_name": "__main__.test_storage_read_write.Args",
+                "members": {
+                    "address": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    },
+                    "value": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__main__.test_storage_read_write.ImplicitArgs": {
+                "full_name": "__main__.test_storage_read_write.ImplicitArgs",
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_storage_read_write.Return": {
+                "cairo_type": "(result: felt)",
+                "type": "type_definition"
+            },
+            "__main__.test_storage_read_write.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.with_arg": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 53,
+                "pc": 59,
                 "type": "function"
             },
             "__main__.with_arg.Args": {
@@ -999,7 +1196,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 40,
+                "pc": 46,
                 "type": "function"
             },
             "__main__.without_arg.Args": {
@@ -1026,7 +1223,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 105,
+                "pc": 111,
                 "type": "function"
             },
             "__wrappers__.bitwise_and.Args": {
@@ -1057,80 +1254,11 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
-            "__wrappers__.get_value": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 163,
-                "type": "function"
-            },
-            "__wrappers__.get_value.Args": {
-                "full_name": "__wrappers__.get_value.Args",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.get_value.ImplicitArgs": {
-                "full_name": "__wrappers__.get_value.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.get_value.Return": {
-                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
-                "type": "type_definition"
-            },
-            "__wrappers__.get_value.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
-            "__wrappers__.get_value.__wrapped_func": {
-                "destination": "__main__.get_value",
-                "type": "alias"
-            },
-            "__wrappers__.get_value_encode_return": {
-                "decorators": [],
-                "pc": 154,
-                "type": "function"
-            },
-            "__wrappers__.get_value_encode_return.Args": {
-                "full_name": "__wrappers__.get_value_encode_return.Args",
-                "members": {
-                    "range_check_ptr": {
-                        "cairo_type": "felt",
-                        "offset": 1
-                    },
-                    "ret_value": {
-                        "cairo_type": "(result: felt)",
-                        "offset": 0
-                    }
-                },
-                "size": 2,
-                "type": "struct"
-            },
-            "__wrappers__.get_value_encode_return.ImplicitArgs": {
-                "full_name": "__wrappers__.get_value_encode_return.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.get_value_encode_return.Return": {
-                "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
-                "type": "type_definition"
-            },
-            "__wrappers__.get_value_encode_return.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 1
-            },
-            "__wrappers__.get_value_encode_return.memcpy": {
-                "destination": "starkware.cairo.common.memcpy.memcpy",
-                "type": "alias"
-            },
             "__wrappers__.return_result": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 82,
+                "pc": 88,
                 "type": "function"
             },
             "__wrappers__.return_result.Args": {
@@ -1159,7 +1287,7 @@
             },
             "__wrappers__.return_result_encode_return": {
                 "decorators": [],
-                "pc": 73,
+                "pc": 79,
                 "type": "function"
             },
             "__wrappers__.return_result_encode_return.Args": {
@@ -1199,7 +1327,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 128,
+                "pc": 134,
                 "type": "function"
             },
             "__wrappers__.sqrt.Args": {
@@ -1234,7 +1362,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 230,
+                "pc": 312,
                 "type": "function"
             },
             "__wrappers__.test_deploy.Args": {
@@ -1263,7 +1391,7 @@
             },
             "__wrappers__.test_deploy_encode_return": {
                 "decorators": [],
-                "pc": 221,
+                "pc": 303,
                 "type": "function"
             },
             "__wrappers__.test_deploy_encode_return.Args": {
@@ -1304,7 +1432,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 187,
+                "pc": 193,
                 "type": "function"
             },
             "__wrappers__.test_library_call.Args": {
@@ -1335,11 +1463,149 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.test_nested_library_call": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 264,
+                "type": "function"
+            },
+            "__wrappers__.test_nested_library_call.Args": {
+                "full_name": "__wrappers__.test_nested_library_call.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_nested_library_call.ImplicitArgs": {
+                "full_name": "__wrappers__.test_nested_library_call.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_nested_library_call.Return": {
+                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_nested_library_call.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_nested_library_call.__wrapped_func": {
+                "destination": "__main__.test_nested_library_call",
+                "type": "alias"
+            },
+            "__wrappers__.test_nested_library_call_encode_return": {
+                "decorators": [],
+                "pc": 255,
+                "type": "function"
+            },
+            "__wrappers__.test_nested_library_call_encode_return.Args": {
+                "full_name": "__wrappers__.test_nested_library_call_encode_return.Args",
+                "members": {
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "ret_value": {
+                        "cairo_type": "(result: felt)",
+                        "offset": 0
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__wrappers__.test_nested_library_call_encode_return.ImplicitArgs": {
+                "full_name": "__wrappers__.test_nested_library_call_encode_return.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_nested_library_call_encode_return.Return": {
+                "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_nested_library_call_encode_return.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 1
+            },
+            "__wrappers__.test_nested_library_call_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
+            "__wrappers__.test_storage_read_write": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 168,
+                "type": "function"
+            },
+            "__wrappers__.test_storage_read_write.Args": {
+                "full_name": "__wrappers__.test_storage_read_write.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_storage_read_write.ImplicitArgs": {
+                "full_name": "__wrappers__.test_storage_read_write.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_storage_read_write.Return": {
+                "cairo_type": "(syscall_ptr: felt*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_storage_read_write.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_storage_read_write.__wrapped_func": {
+                "destination": "__main__.test_storage_read_write",
+                "type": "alias"
+            },
+            "__wrappers__.test_storage_read_write_encode_return": {
+                "decorators": [],
+                "pc": 159,
+                "type": "function"
+            },
+            "__wrappers__.test_storage_read_write_encode_return.Args": {
+                "full_name": "__wrappers__.test_storage_read_write_encode_return.Args",
+                "members": {
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "ret_value": {
+                        "cairo_type": "(result: felt)",
+                        "offset": 0
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__wrappers__.test_storage_read_write_encode_return.ImplicitArgs": {
+                "full_name": "__wrappers__.test_storage_read_write_encode_return.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_storage_read_write_encode_return.Return": {
+                "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_storage_read_write_encode_return.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 1
+            },
+            "__wrappers__.test_storage_read_write_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.with_arg": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 56,
+                "pc": 62,
                 "type": "function"
             },
             "__wrappers__.with_arg.Args": {
@@ -1374,7 +1640,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 41,
+                "pc": 47,
                 "type": "function"
             },
             "__wrappers__.without_arg.Args": {
@@ -1604,6 +1870,58 @@
             "starkware.cairo.common.math.TRUE": {
                 "destination": "starkware.cairo.common.bool.TRUE",
                 "type": "alias"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_ap": {
+                "decorators": [
+                    "known_ap_change"
+                ],
+                "pc": 1,
+                "type": "function"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_ap.Args": {
+                "full_name": "starkware.cairo.lang.compiler.lib.registers.get_ap.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_ap.ImplicitArgs": {
+                "full_name": "starkware.cairo.lang.compiler.lib.registers.get_ap.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_ap.Return": {
+                "cairo_type": "(ap_val: felt*)",
+                "type": "type_definition"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_ap.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc": {
+                "decorators": [],
+                "pc": 0,
+                "type": "function"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc.Args": {
+                "full_name": "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc.ImplicitArgs": {
+                "full_name": "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc.Return": {
+                "cairo_type": "(fp_val: felt*, pc_val: felt*)",
+                "type": "type_definition"
+            },
+            "starkware.cairo.lang.compiler.lib.registers.get_fp_and_pc.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
             },
             "starkware.starknet.common.storage.ADDR_BOUND": {
                 "type": "const",
@@ -2267,7 +2585,7 @@
             },
             "starkware.starknet.common.syscalls.deploy": {
                 "decorators": [],
-                "pc": 12,
+                "pc": 18,
                 "type": "function"
             },
             "starkware.starknet.common.syscalls.deploy.Args": {
@@ -2322,18 +2640,18 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 1,
+                            "group": 3,
                             "offset": 0
                         },
-                        "pc": 12,
+                        "pc": 18,
                         "value": "[cast(fp + (-8), felt**)]"
                     },
                     {
                         "ap_tracking_data": {
-                            "group": 1,
+                            "group": 3,
                             "offset": 1
                         },
-                        "pc": 20,
+                        "pc": 26,
                         "value": "cast([fp + (-8)] + 9, felt*)"
                     }
                 ],
@@ -2341,7 +2659,7 @@
             },
             "starkware.starknet.common.syscalls.library_call": {
                 "decorators": [],
-                "pc": 0,
+                "pc": 6,
                 "type": "function"
             },
             "starkware.starknet.common.syscalls.library_call.Args": {
@@ -2392,18 +2710,18 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 0,
+                            "group": 2,
                             "offset": 0
                         },
-                        "pc": 0,
+                        "pc": 6,
                         "value": "[cast(fp + (-7), felt**)]"
                     },
                     {
                         "ap_tracking_data": {
-                            "group": 0,
+                            "group": 2,
                             "offset": 1
                         },
-                        "pc": 7,
+                        "pc": 13,
                         "value": "cast([fp + (-7)] + 7, felt*)"
                     }
                 ],
@@ -2411,7 +2729,7 @@
             },
             "starkware.starknet.common.syscalls.storage_read": {
                 "decorators": [],
-                "pc": 24,
+                "pc": 30,
                 "type": "function"
             },
             "starkware.starknet.common.syscalls.storage_read.Args": {
@@ -2450,18 +2768,18 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 2,
+                            "group": 4,
                             "offset": 0
                         },
-                        "pc": 24,
+                        "pc": 30,
                         "value": "[cast(fp + (-4), felt**)]"
                     },
                     {
                         "ap_tracking_data": {
-                            "group": 2,
+                            "group": 4,
                             "offset": 1
                         },
-                        "pc": 28,
+                        "pc": 34,
                         "value": "cast([fp + (-4)] + 3, felt*)"
                     }
                 ],
@@ -2469,7 +2787,7 @@
             },
             "starkware.starknet.common.syscalls.storage_write": {
                 "decorators": [],
-                "pc": 32,
+                "pc": 38,
                 "type": "function"
             },
             "starkware.starknet.common.syscalls.storage_write.Args": {
@@ -2512,18 +2830,18 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 3,
+                            "group": 5,
                             "offset": 0
                         },
-                        "pc": 32,
+                        "pc": 38,
                         "value": "[cast(fp + (-5), felt**)]"
                     },
                     {
                         "ap_tracking_data": {
-                            "group": 3,
+                            "group": 5,
                             "offset": 1
                         },
-                        "pc": 37,
+                        "pc": 43,
                         "value": "cast([fp + (-5)] + 3, felt*)"
                     }
                 ],
@@ -2536,50 +2854,50 @@
             "references": [
                 {
                     "ap_tracking_data": {
-                        "group": 0,
-                        "offset": 0
-                    },
-                    "pc": 0,
-                    "value": "[cast(fp + (-7), felt**)]"
-                },
-                {
-                    "ap_tracking_data": {
-                        "group": 1,
-                        "offset": 0
-                    },
-                    "pc": 12,
-                    "value": "[cast(fp + (-8), felt**)]"
-                },
-                {
-                    "ap_tracking_data": {
                         "group": 2,
                         "offset": 0
                     },
-                    "pc": 24,
-                    "value": "[cast(fp + (-4), felt**)]"
+                    "pc": 6,
+                    "value": "[cast(fp + (-7), felt**)]"
                 },
                 {
                     "ap_tracking_data": {
                         "group": 3,
                         "offset": 0
                     },
-                    "pc": 32,
+                    "pc": 18,
+                    "value": "[cast(fp + (-8), felt**)]"
+                },
+                {
+                    "ap_tracking_data": {
+                        "group": 4,
+                        "offset": 0
+                    },
+                    "pc": 30,
+                    "value": "[cast(fp + (-4), felt**)]"
+                },
+                {
+                    "ap_tracking_data": {
+                        "group": 5,
+                        "offset": 0
+                    },
+                    "pc": 38,
                     "value": "[cast(fp + (-5), felt**)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 13,
+                        "group": 15,
                         "offset": 0
                     },
-                    "pc": 122,
+                    "pc": 128,
                     "value": "[cast(fp + (-3), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 13,
+                        "group": 15,
                         "offset": 1
                     },
-                    "pc": 124,
+                    "pc": 130,
                     "value": "[cast(fp, felt*)]"
                 }
             ]

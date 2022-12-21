@@ -17,7 +17,7 @@ pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_some_syscalls_compiled.json";
 
-pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/simple_contract_compiled.json";
+pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
 pub const WITHOUT_ARG_SELECTOR: &str =
     "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
 pub const WITH_ARG_SELECTOR: &str =
@@ -27,10 +27,12 @@ pub const BITWISE_AND_SELECTOR: &str =
 pub const SQRT_SELECTOR: &str = "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309";
 pub const RETURN_RESULT_SELECTOR: &str =
     "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701";
-pub const GET_VALUE_SELECTOR: &str =
-    "0x26813d396fdb198e9ead934e4f7a592a8b88a059e45ab0eb6ee53494e8d45b0";
+pub const TEST_STORAGE_READ_WRITE_SELECTOR: &str =
+    "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97";
 pub const TEST_LIBRARY_CALL_SELECTOR: &str =
     "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
+pub const TEST_NESTED_LIBRARY_CALL_SELECTOR: &str =
+    "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331";
 pub const TEST_DEPLOY_SELECTOR: &str =
     "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
 pub const TEST_CLASS_HASH: &str = "0x110";
