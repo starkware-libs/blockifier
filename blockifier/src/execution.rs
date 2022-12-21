@@ -1,3 +1,4 @@
+pub mod common_hints;
 pub mod contract_class;
 pub mod entry_point;
 pub mod errors;
