@@ -230,14 +230,16 @@ fn test_entry_point_with_nested_library_call() {
     assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
 }
 
+// TODO(Noa, 30/12/22): Add a test with no constructor
 #[test]
-fn test_entry_point_with_deploy() {
+fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
     let calldata = CallData(vec![
         shash!(TEST_CLASS_HASH), // Class hash.
         shash!(1),               // Contract_address_salt.
-        shash!(1),               // Calldata length.
-        shash!(91),              // Calldata.
+        shash!(2),               // Calldata length.
+        shash!(1),               // Calldata: address.
+        shash!(1),               // Calldata: value.
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
@@ -246,7 +248,11 @@ fn test_entry_point_with_deploy() {
     };
     assert_eq!(
         entry_point.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(0)] }
+        CallExecution { retdata: vec![shash!(1)] }
+    );
+    assert_eq!(
+        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap(),
+        ClassHash(shash!(TEST_CLASS_HASH))
     );
 }
 

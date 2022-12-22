@@ -14,6 +14,14 @@ from starkware.starknet.common.syscalls import (
 func number() -> (value: felt) {
 }
 
+@constructor
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt, value: felt
+) {
+    storage_write(address=address, value=value);
+    return ();
+}
+
 @external
 func without_arg() {
     return ();
