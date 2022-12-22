@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::hash::StarkHash;
+use starknet_api::state::EntryPointType;
+use starknet_api::transaction::Calldata;
 use starknet_api::{patky, shash};
 
 use crate::execution::contract_class::ContractClass;
@@ -97,5 +99,16 @@ impl CallEntryPoint {
     /// Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         self.execute(state, &AccountTransactionContext::default())
+    }
+}
+
+pub fn trivial_external_entry_point() -> CallEntryPoint {
+    CallEntryPoint {
+        class_hash: None,
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: EntryPointSelector(shash!(0)),
+        calldata: Calldata(vec![].into()),
+        storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+        caller_address: ContractAddress::default(),
     }
 }
