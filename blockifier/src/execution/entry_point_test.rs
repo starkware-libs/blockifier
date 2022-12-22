@@ -2,31 +2,20 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkHash;
 use starknet_api::shash;
-use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
 
 use crate::abi::abi_utils::get_selector_from_name;
+use crate::execution::contract_address::calculate_contract_address;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
 use crate::test_utils::{
-    create_security_test_state, create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR,
-    SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
-    TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR, WITHOUT_ARG_SELECTOR,
-    WITH_ARG_SELECTOR,
+    create_security_test_state, create_test_state, trivial_external_entry_point,
+    BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR,
+    TEST_NESTED_LIBRARY_CALL_SELECTOR, TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR,
+    WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
 };
-
-fn trivial_external_entry_point() -> CallEntryPoint {
-    CallEntryPoint {
-        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(shash!(0)),
-        calldata: Calldata(vec![].into()),
-        storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
-        caller_address: ContractAddress::default(),
-    }
-}
 
 #[test]
 fn test_call_info() {
@@ -249,13 +238,15 @@ fn test_entry_point_with_nested_library_call() {
 #[test]
 fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
+    let salt = shash!(1);
+    let class_hash = shash!(TEST_CLASS_HASH);
     let calldata = Calldata(
         vec![
-            shash!(TEST_CLASS_HASH), // Class hash.
-            shash!(1),               // Contract_address_salt.
-            shash!(2),               // Calldata length.
-            shash!(1),               // Calldata: address.
-            shash!(1),               // Calldata: value.
+            class_hash, // Class hash.
+            salt,       // Contract_address_salt.
+            shash!(2),  // Calldata length.
+            shash!(1),  // Calldata: address.
+            shash!(1),  // Calldata: value.
         ]
         .into(),
     );
@@ -264,13 +255,21 @@ fn test_entry_point_with_deploy_with_constructor() {
         calldata,
         ..trivial_external_entry_point()
     };
+    let contract_address = calculate_contract_address(
+        salt,
+        ClassHash(class_hash),
+        &Calldata(vec![shash!(1), shash!(1)].into()),
+        ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+    )
+    .unwrap();
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: Retdata(vec![shash!(1)].into()) }
+        CallExecution { retdata: Retdata(vec![*contract_address.0.key()].into()) }
     );
-    let contract_address_from_state =
-        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
-    assert_eq!(contract_address_from_state, ClassHash(shash!(TEST_CLASS_HASH)));
+    assert_eq!(
+        *state.get_class_hash_at(contract_address).unwrap(),
+        ClassHash(shash!(TEST_CLASS_HASH))
+    );
 }
 
 #[test]
