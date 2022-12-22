@@ -10,7 +10,8 @@ use crate::test_utils::{
     create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR,
     TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR,
     TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
-    TEST_STORAGE_READ_WRITE_SELECTOR, WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
+    TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR, WITHOUT_ARG_SELECTOR,
+    WITH_ARG_SELECTOR,
 };
 
 fn trivial_external_entrypoint() -> CallEntryPoint {
@@ -267,5 +268,19 @@ fn test_entry_point_with_call_contract() {
     assert_eq!(
         entry_point.execute(&mut state).unwrap().execution,
         CallExecution { retdata: vec![shash!(48)] }
+    );
+}
+
+// TODO(AlonH, 21/12/2022): Use storage_var with arguments after hint is implemented.
+#[test]
+fn test_storage_var() {
+    let mut state = create_test_state();
+    let entry_point = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_VAR_SELECTOR)),
+        ..trivial_external_entrypoint()
+    };
+    assert_eq!(
+        entry_point.execute(&mut state).unwrap().execution,
+        CallExecution { retdata: vec![] }
     );
 }
