@@ -9,6 +9,7 @@ from starkware.starknet.common.syscalls import (
     deploy,
     call_contract,
 )
+from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
 @storage_var
 func number() -> (value: felt) {
@@ -148,4 +149,26 @@ func test_storage_var{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     let (val) = number.read();
     assert val = 39;
     return ();
+}
+
+@external
+func test_get_contract_address{pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    salt: felt,
+    class_hash: felt,
+    constructor_calldata_len: felt,
+    constructor_calldata: felt*,
+    deployer_address: felt,
+) -> (contract_address: felt) {
+    let hash_ptr = pedersen_ptr;
+    with hash_ptr {
+        let (contract_address) = get_contract_address(
+            salt=salt,
+            class_hash=class_hash,
+            constructor_calldata_size=constructor_calldata_len,
+            constructor_calldata=constructor_calldata,
+            deployer_address=deployer_address,
+        );
+    }
+
+    return (contract_address=contract_address);
 }

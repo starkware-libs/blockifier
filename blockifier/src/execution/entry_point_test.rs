@@ -2,36 +2,26 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkHash;
 use starknet_api::shash;
-use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
 
 use crate::abi::abi_utils::get_selector_from_name;
+use crate::execution::contract_address::calculate_contract_address;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
-    create_security_test_state, create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR,
-    SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
-    TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR, WITHOUT_ARG_SELECTOR,
-    WITH_ARG_SELECTOR,
+    create_security_test_state, create_test_state, trivial_external_entry_point_for_test,
+    BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR,
+    TEST_NESTED_LIBRARY_CALL_SELECTOR, TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR,
+    WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
 };
-
-fn trivial_external_entry_point() -> CallEntryPoint {
-    CallEntryPoint {
-        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(shash!(0)),
-        calldata: Calldata(vec![].into()),
-        storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
-    }
-}
 
 #[test]
 fn test_call_info() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     let expected_call_info = CallInfo {
         call: entry_point_call.clone(),
@@ -46,7 +36,7 @@ fn test_entry_point_without_arg() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(WITHOUT_ARG_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -61,7 +51,7 @@ fn test_entry_point_with_arg() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -76,7 +66,7 @@ fn test_entry_point_with_builtin() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -91,7 +81,7 @@ fn test_entry_point_with_hint() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -106,7 +96,7 @@ fn test_entry_point_with_return_value() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -119,7 +109,7 @@ fn test_entry_point_not_found_in_contract() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(2)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         format!("Entry point {:#?} not found in contract.", entry_point_call.entry_point_selector),
@@ -136,7 +126,7 @@ fn test_entry_point_with_syscall() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
@@ -164,7 +154,7 @@ fn test_entry_point_with_library_call() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -192,12 +182,12 @@ fn test_entry_point_with_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_NESTED_LIBRARY_CALL_SELECTOR)),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
         calldata: Calldata(vec![shash!(key + 1), shash!(value + 1)].into()),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     let library_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
@@ -211,7 +201,7 @@ fn test_entry_point_with_nested_library_call() {
             ]
             .into(),
         ),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: Calldata(vec![shash!(key), shash!(value)].into()),
@@ -247,28 +237,38 @@ fn test_entry_point_with_nested_library_call() {
 #[test]
 fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
+    let salt = shash!(1);
+    let class_hash = shash!(TEST_CLASS_HASH);
     let calldata = Calldata(
         vec![
-            shash!(TEST_CLASS_HASH), // Class hash.
-            shash!(1),               // Contract_address_salt.
-            shash!(2),               // Calldata length.
-            shash!(1),               // Calldata: address.
-            shash!(1),               // Calldata: value.
+            class_hash, // Class hash.
+            salt,       // Contract_address_salt.
+            shash!(2),  // Calldata length.
+            shash!(1),  // Calldata: address.
+            shash!(1),  // Calldata: value.
         ]
         .into(),
     );
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
+    let contract_address = calculate_contract_address(
+        salt,
+        ClassHash(class_hash),
+        &Calldata(vec![shash!(1), shash!(1)].into()),
+        ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+    )
+    .unwrap();
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: Retdata(vec![shash!(1)].into()) }
+        CallExecution { retdata: Retdata(vec![*contract_address.0.key()].into()) }
     );
-    let contract_address_from_state =
-        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
-    assert_eq!(contract_address_from_state, ClassHash(shash!(TEST_CLASS_HASH)));
+    assert_eq!(
+        *state.get_class_hash_at(contract_address).unwrap(),
+        ClassHash(shash!(TEST_CLASS_HASH))
+    );
 }
 
 #[test]
@@ -287,7 +287,7 @@ fn test_entry_point_with_call_contract() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_CALL_CONTRACT_SELECTOR)),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -301,7 +301,7 @@ fn test_storage_var() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_VAR_SELECTOR)),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_for_test()
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
@@ -320,8 +320,11 @@ fn test_security_failure() {
         state: &mut CachedState<DictStateReader>,
     ) {
         let entry_point_selector = get_selector_from_name(entry_point_name);
-        let entry_point_call =
-            CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
+        let entry_point_call = CallEntryPoint {
+            entry_point_selector,
+            calldata,
+            ..trivial_external_entry_point_for_test()
+        };
         let error = entry_point_call.execute(state).unwrap_err().to_string();
         assert!(error.contains(expected_error))
     }
