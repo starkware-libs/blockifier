@@ -209,7 +209,7 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "cairo-rs"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#42dadd1631c9196e39d91b77f130a78f73d83f5f"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#9fcd4d3ad3ab31c46214caccc1a4624016c2fcc2"
 dependencies = [
  "bincode",
  "clap",
@@ -1202,7 +1202,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#42dadd1631c9196e39d91b77f130a78f73d83f5f"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#9fcd4d3ad3ab31c46214caccc1a4624016c2fcc2"
 dependencies = [
  "nom",
 ]
