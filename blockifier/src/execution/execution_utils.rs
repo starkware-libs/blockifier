@@ -247,6 +247,7 @@ pub fn convert_program_to_cairo_runner_format(
             .into_iter()
             .filter(|attr| attr.name == "error_message")
             .collect(),
+        instruction_locations: None,
     })
 }
 
