@@ -54,11 +54,11 @@ impl SyscallHandler {
         }
     }
 
-    pub fn verify_syscall_ptr(&self, actual_ptr: &Relocatable) -> SyscallResult<()> {
-        if actual_ptr != &self.expected_syscall_ptr {
+    pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> SyscallResult<()> {
+        if actual_ptr != self.expected_syscall_ptr {
             return Err(SyscallExecutionError::BadSyscallPointer {
-                expected_ptr: self.expected_syscall_ptr.clone(),
-                actual_ptr: actual_ptr.clone(),
+                expected_ptr: self.expected_syscall_ptr,
+                actual_ptr,
             });
         }
         Ok(())
@@ -76,19 +76,19 @@ pub fn execute_syscall(
 ) -> Result<(), VirtualMachineError> {
     let syscall_handler = execution_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
     let mut syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-    syscall_handler.verify_syscall_ptr(&syscall_ptr)?;
+    syscall_handler.verify_syscall_ptr(syscall_ptr)?;
 
     let selector = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
     let selector_size = 1;
-    syscall_ptr = &syscall_ptr + selector_size;
+    syscall_ptr = syscall_ptr + selector_size;
 
     let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
-    syscall_ptr = &syscall_ptr + request.size();
+    syscall_ptr = syscall_ptr + request.size();
 
     let response = request.execute(syscall_handler)?;
     let response_size = response.size();
     response.write(vm, &syscall_ptr)?;
-    syscall_handler.expected_syscall_ptr = &syscall_ptr + response_size;
+    syscall_handler.expected_syscall_ptr = syscall_ptr + response_size;
 
     Ok(())
 }
@@ -135,11 +135,8 @@ pub fn initialize_syscall_handler(
     let mut hint_processor = BuiltinHintProcessor::new_empty();
     // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
     // becomes a reference.
-    let syscall_handler = SyscallHandler::new(
-        syscall_segment.clone(),
-        state.clone(),
-        call_entry_point.storage_address,
-    );
+    let syscall_handler =
+        SyscallHandler::new(syscall_segment, state.clone(), call_entry_point.storage_address);
     add_syscall_hints(&mut hint_processor);
     cairo_runner
         .exec_scopes
@@ -173,7 +170,7 @@ pub fn write_retdata(
 
     // Write response payload to the memory.
     let segment = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), &segment)?;
+    vm.insert_value(&(ptr + 1), segment)?;
     let data: Vec<MaybeRelocatable> =
         retdata.into_iter().map(|x| felt_to_bigint(x).into()).collect();
     vm.load_data(&segment.into(), data)?;

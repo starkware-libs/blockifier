@@ -1,5 +1,5 @@
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
@@ -60,4 +60,25 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+}
+
+impl CallInfo {
+    pub fn create_for_empty_constructor_call(
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+    ) -> CallInfo {
+        CallInfo {
+            call: CallEntryPoint {
+                class_hash,
+                entry_point_type: EntryPointType::Constructor,
+                // TODO(Noa, 30/12/22):Use
+                // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
+                entry_point_selector: EntryPointSelector(StarkHash::default()),
+                calldata: CallData::default(),
+                storage_address,
+            },
+            execution: CallExecution { retdata: vec![] },
+            inner_calls: vec![],
+        }
+    }
 }
