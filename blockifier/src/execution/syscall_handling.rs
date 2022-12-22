@@ -17,13 +17,13 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::CallData;
 
-use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
 };
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
+use crate::state::cached_state::{CachedState, DictStateReader};
 
 #[cfg(test)]
 #[path = "syscall_handling_test.rs"]

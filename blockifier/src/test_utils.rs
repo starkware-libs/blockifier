@@ -6,8 +6,8 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{patky, shash};
 
-use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
+use crate::state::cached_state::{CachedState, DictStateReader};
 
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 // TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.

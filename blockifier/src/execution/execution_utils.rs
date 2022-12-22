@@ -19,12 +19,12 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
-use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, EntryPointResult};
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHandler};
+use crate::state::cached_state::{CachedState, DictStateReader};
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]

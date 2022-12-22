@@ -4,7 +4,7 @@ pub mod invoke_transaction;
 pub mod objects;
 pub mod transaction_utils;
 
-use crate::cached_state::{CachedState, DictStateReader};
+use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 
 pub trait ExecuteTransaction {
