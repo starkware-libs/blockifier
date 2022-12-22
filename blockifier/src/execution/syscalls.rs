@@ -5,7 +5,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::CallData;
 
-use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::contract_address::calculate_contract_address;
+use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::syscall_handling::{
@@ -15,7 +16,7 @@ use crate::execution::syscall_handling::{
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type ReadRequestResult = SyscallResult<SyscallRequest>;
-pub type ExecutionResult = SyscallResult<SyscallResponse>;
+pub type SyscallExecutionResult = SyscallResult<SyscallResponse>;
 pub type WriteResponseResult = SyscallResult<()>;
 
 pub const CALL_CONTRACT_SELECTOR_BYTES: &[u8] = b"CallContract";
@@ -48,7 +49,7 @@ impl StorageReadRequest {
         Ok(SyscallRequest::StorageRead(StorageReadRequest { address }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
         let value =
             syscall_handler.state.get_storage_at(syscall_handler.storage_address, self.address)?;
         Ok(SyscallResponse::StorageRead(StorageReadResponse { value: *value }))
@@ -85,7 +86,7 @@ impl StorageWriteRequest {
         Ok(SyscallRequest::StorageWrite(StorageWriteRequest { address, value }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
         syscall_handler.state.set_storage_at(
             syscall_handler.storage_address,
             self.address,
@@ -121,7 +122,7 @@ impl CallContractRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
         let class_hash = *syscall_handler.state.get_class_hash_at(self.contract_address)?;
         let entry_point = CallEntryPoint {
             class_hash,
@@ -170,7 +171,7 @@ impl LibraryCallRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
         let entry_point = CallEntryPoint {
             class_hash: self.class_hash,
             entry_point_type: EntryPointType::External,
@@ -213,27 +214,46 @@ impl DeployRequest {
         }))
     }
 
-    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(Noa, 26/12/2022): Execute deploy.
-        Ok(SyscallResponse::Deploy(DeployResponse {
-            contract_address: ContractAddress::default(),
-            constructor_retdata: vec![],
-        }))
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
+        let deployer_address = match self.deploy_from_zero {
+            true => ContractAddress::default(),
+            false => syscall_handler.storage_address,
+        };
+        let contract_address = calculate_contract_address(
+            self.contract_address_salt,
+            self.class_hash,
+            &self.constructor_calldata,
+            deployer_address,
+        )?;
+
+        // Address allocation in the state is done before calling the constructor, so that it is
+        // visible from it.
+        syscall_handler.state.set_contract_hash(contract_address, self.class_hash)?;
+        let call_info = execute_constructor_entry_point(
+            &mut syscall_handler.state,
+            self.class_hash,
+            contract_address,
+            &self.constructor_calldata,
+        )?;
+        syscall_handler.inner_calls.push(call_info);
+
+        Ok(SyscallResponse::Deploy(DeployResponse { contract_address }))
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeployResponse {
     pub contract_address: ContractAddress,
-    pub constructor_retdata: Vec<StarkFelt>,
 }
 
+// DeployResponse struct in cairo contains three fields: contract_address, constructor_retdata_size
+// and constructor_retdata. We return empty constructor_retdata.
 pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 
 impl DeployResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, felt_to_bigint(*self.contract_address.0.key()))?;
-        write_retdata(vm, &(ptr + 1), self.constructor_retdata)
+        write_retdata(vm, &(ptr + 1), vec![])
     }
 }
 
@@ -261,7 +281,7 @@ impl SyscallRequest {
         }
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
         match self {
             SyscallRequest::CallContract(request) => request.execute(syscall_handler),
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),
