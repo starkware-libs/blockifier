@@ -153,8 +153,8 @@ fn test_entry_point_with_library_call() {
         shash!(TEST_CLASS_HASH),                  // Class hash.
         shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
         shash!(2),                                // Calldata length.
-        shash!(1234),                             // Calldata.
-        shash!(91),
+        shash!(1234),                             // Calldata: address.
+        shash!(91),                               // Calldata: value.
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
@@ -176,8 +176,8 @@ fn test_entry_point_with_nested_library_call() {
         shash!(TEST_LIBRARY_CALL_SELECTOR),       // Library call function selector.
         shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
         shash!(2),                                // Calldata length.
-        shash!(key),                              // Calldata.
-        shash!(value),
+        shash!(key),                              // Calldata: address.
+        shash!(value),                            // Calldata: value.
     ]);
 
     // Create expected call info tree.
@@ -197,8 +197,8 @@ fn test_entry_point_with_nested_library_call() {
             shash!(TEST_CLASS_HASH),                  // Class hash.
             shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
             shash!(2),                                // Calldata length.
-            shash!(key + 1),                          // Calldata.
-            shash!(value + 1),
+            shash!(key + 1),                          // Calldata: address.
+            shash!(value + 1),                        // Calldata: value.
         ]),
         ..trivial_external_entrypoint()
     };
@@ -230,14 +230,16 @@ fn test_entry_point_with_nested_library_call() {
     assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
 }
 
+// TODO(Noa, 30/12/22): Add a test with no constructor
 #[test]
-fn test_entry_point_with_deploy() {
+fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
     let calldata = CallData(vec![
         shash!(TEST_CLASS_HASH), // Class hash.
         shash!(1),               // Contract_address_salt.
-        shash!(1),               // Calldata length.
-        shash!(91),              // Calldata.
+        shash!(2),               // Calldata length.
+        shash!(1),               // Calldata: address.
+        shash!(1),               // Calldata: value.
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
@@ -246,8 +248,11 @@ fn test_entry_point_with_deploy() {
     };
     assert_eq!(
         entry_point.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(0)] }
+        CallExecution { retdata: vec![shash!(1)] }
     );
+    let contract_address_from_state =
+        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
+    assert_eq!(contract_address_from_state, ClassHash(shash!(TEST_CLASS_HASH)));
 }
 
 #[test]
@@ -257,8 +262,8 @@ fn test_entry_point_with_call_contract() {
         shash!(TEST_CONTRACT_ADDRESS),            // Contract address.
         shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
         shash!(2),                                // Calldata length.
-        shash!(405),                              // Calldata.
-        shash!(48),
+        shash!(405),                              // Calldata: address.
+        shash!(48),                               // Calldata: value.
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_CALL_CONTRACT_SELECTOR)),
