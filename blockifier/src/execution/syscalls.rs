@@ -5,7 +5,10 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::CallData;
 
-use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::contract_address::calculate_contract_address_from_hash;
+use crate::execution::entry_point::{
+    create_empty_constructor_call_entry_point, CallEntryPoint, CallExecution, CallInfo,
+};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::syscall_handling::{
@@ -213,27 +216,83 @@ impl DeployRequest {
         }))
     }
 
-    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
-        // TODO(Noa, 26/12/2022): Execute deploy.
-        Ok(SyscallResponse::Deploy(DeployResponse {
-            contract_address: ContractAddress::default(),
-            constructor_retdata: vec![],
-        }))
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+        let deployer_address = match self.deploy_from_zero {
+            true => ContractAddress::default(),
+            false => syscall_handler.storage_address,
+        };
+        let contract_address = calculate_contract_address_from_hash(
+            self.contract_address_salt,
+            self.class_hash,
+            &self.constructor_calldata,
+            &deployer_address,
+        )?;
+
+        syscall_handler.state.set_contract_hash(contract_address, self.class_hash)?;
+        self.execute_constructor_entry_point(
+            syscall_handler,
+            contract_address,
+            &self.constructor_calldata,
+        )
+    }
+
+    pub fn execute_constructor_entry_point(
+        &self,
+        syscall_handler: &mut SyscallHandler,
+        contract_address: ContractAddress,
+        constructor_calldata: &CallData,
+    ) -> ExecutionResult {
+        let contract_class = syscall_handler.state.get_contract_class(&self.class_hash)?;
+        let constructor_entry_points =
+            &contract_class.entry_points_by_type[&EntryPointType::Constructor];
+
+        let call_info = if constructor_entry_points.is_empty() {
+            // Contract has no constructor.
+            if !constructor_calldata.0.is_empty() {
+                return Err(SyscallExecutionError::InvalidSyscallInput {
+                    input: StarkFelt::from(constructor_calldata.0.len() as u64),
+                    info: String::from("Cannot pass calldata to a contract with no constructor."),
+                });
+            }
+            CallInfo {
+                call: create_empty_constructor_call_entry_point(
+                    self.class_hash,
+                    CallData::default(),
+                    contract_address,
+                ),
+                execution: CallExecution { retdata: vec![] },
+                inner_calls: vec![],
+            }
+        } else {
+            let constructor_entry_point = CallEntryPoint {
+                class_hash: self.class_hash,
+                entry_point_type: EntryPointType::Constructor,
+                entry_point_selector: constructor_entry_points[0].selector,
+                calldata: constructor_calldata.clone(),
+                storage_address: contract_address,
+            };
+            constructor_entry_point.execute(&mut syscall_handler.state)?
+        };
+
+        syscall_handler.inner_calls.push(call_info);
+
+        Ok(SyscallResponse::Deploy(DeployResponse { contract_address }))
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeployResponse {
     pub contract_address: ContractAddress,
-    pub constructor_retdata: Vec<StarkFelt>,
 }
 
+// DeployResponse struct in cairo contains three fields: contract_address, constructor_retdata_size
+// and constructor_retdata. We return empty constructor_retdata.
 pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 
 impl DeployResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, felt_to_bigint(*self.contract_address.0.key()))?;
-        write_retdata(vm, &(ptr + 1), self.constructor_retdata)
+        write_retdata(vm, &(ptr + 1), vec![])
     }
 }
 

@@ -1,5 +1,5 @@
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
@@ -47,6 +47,21 @@ impl CallEntryPoint {
             Some(entry_point) => Ok(entry_point.offset.0),
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
         }
+    }
+}
+
+pub fn create_empty_constructor_call_entry_point(
+    class_hash: ClassHash,
+    calldata: CallData,
+    storage_address: ContractAddress,
+) -> CallEntryPoint {
+    CallEntryPoint {
+        class_hash,
+        entry_point_type: EntryPointType::Constructor,
+        // TODO(Noa, 30/12/22):Use get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
+        entry_point_selector: EntryPointSelector(StarkHash::default()),
+        calldata,
+        storage_address,
     }
 }
 
