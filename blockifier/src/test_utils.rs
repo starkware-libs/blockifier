@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::hash::StarkHash;
+use starknet_api::state::EntryPointType;
+use starknet_api::transaction::Calldata;
 use starknet_api::{patky, shash};
 
 use crate::execution::contract_class::ContractClass;
+use crate::execution::entry_point::CallEntryPoint;
 use crate::state::cached_state::{CachedState, DictStateReader};
 
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
@@ -73,4 +76,15 @@ pub fn create_security_test_state() -> CachedState<DictStateReader> {
         get_contract_class(SECURITY_TEST_CONTRACT_PATH),
     )]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+}
+
+pub fn trivial_external_entry_point() -> CallEntryPoint {
+    CallEntryPoint {
+        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: EntryPointSelector(shash!(0)),
+        calldata: Calldata(vec![].into()),
+        storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+        caller_address: ContractAddress::default(),
+    }
 }
