@@ -3,10 +3,10 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
-use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
+use crate::state::cached_state::{CachedState, DictStateReader};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]

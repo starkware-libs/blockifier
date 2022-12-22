@@ -10,8 +10,8 @@ use starknet_api::transaction::{
 };
 use starknet_api::{shash, StarknetApiError};
 
-use crate::cached_state::{CachedState, DictStateReader};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
+use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
     get_contract_class, ACCOUNT_CONTRACT_PATH, RETURN_RESULT_SELECTOR,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
