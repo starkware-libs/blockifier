@@ -5,6 +5,7 @@ use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
+use crate::execution::contract_address::calculate_contract_address;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
 use crate::test_utils::{
     create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR,
@@ -234,25 +235,35 @@ fn test_entry_point_with_nested_library_call() {
 #[test]
 fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
+    let salt = shash!(1);
+    let class_hash = shash!(TEST_CLASS_HASH);
     let calldata = CallData(vec![
-        shash!(TEST_CLASS_HASH), // Class hash.
-        shash!(1),               // Contract_address_salt.
-        shash!(2),               // Calldata length.
-        shash!(1),               // Calldata: address.
-        shash!(1),               // Calldata: value.
+        class_hash, // Class hash.
+        salt,       // Contract_address_salt.
+        shash!(2),  // Calldata length.
+        shash!(1),  // Calldata: address.
+        shash!(1),  // Calldata: value.
     ]);
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
         calldata,
         ..trivial_external_entrypoint()
     };
+    let contract_address = calculate_contract_address(
+        salt,
+        ClassHash(class_hash),
+        &CallData(vec![shash!(1), shash!(1)]),
+        ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+    )
+    .unwrap();
     assert_eq!(
         entry_point.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(1)] }
+        CallExecution { retdata: vec![*contract_address.0.key()] }
     );
-    let contract_address_from_state =
-        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
-    assert_eq!(contract_address_from_state, ClassHash(shash!(TEST_CLASS_HASH)));
+    assert_eq!(
+        *state.get_class_hash_at(contract_address).unwrap(),
+        ClassHash(shash!(TEST_CLASS_HASH))
+    );
 }
 
 #[test]

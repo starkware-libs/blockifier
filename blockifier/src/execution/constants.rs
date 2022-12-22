@@ -1,0 +1,2 @@
+pub const FIELD_SIZE_BITS: u32 = 251;
+pub const CONTRACT_ADDRESS_BITS: u32 = FIELD_SIZE_BITS;
