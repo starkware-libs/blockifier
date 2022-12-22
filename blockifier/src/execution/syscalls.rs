@@ -1,13 +1,14 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
+};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
     Calldata, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
 };
 
-use crate::execution::contract_address::calculate_contract_address;
 use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{felt_to_bigint, get_felt_from_memory_cell};
