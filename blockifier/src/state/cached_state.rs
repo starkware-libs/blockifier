@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use derive_more::IntoIterator;
+use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -137,7 +139,7 @@ type ContractStorageKey = (ContractAddress, StorageKey);
 /// A simple implementation of `StateReader` using `HashMap`s for storage.
 #[derive(Clone, Debug, Default)]
 pub struct DictStateReader {
-    pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
+    pub storage_view: StorageView,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     pub class_hash_to_class: ContractClassMapping,
@@ -150,7 +152,7 @@ impl StateReader for DictStateReader {
         key: StorageKey,
     ) -> StateReaderResult<StarkFelt> {
         let contract_storage_key = (contract_address, key);
-        let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
+        let value = self.storage_view.0.get(&contract_storage_key).copied().unwrap_or_default();
         Ok(value)
     }
 
@@ -171,6 +173,24 @@ impl StateReader for DictStateReader {
         let class_hash =
             self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
         Ok(class_hash)
+    }
+}
+
+#[derive(IntoIterator, Debug, Clone, Default)]
+pub struct StorageView(HashMap<ContractStorageKey, StarkFelt>);
+
+/// Converts CachedState storage mapping to StateDiff storage mapping.
+impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
+    fn from(storage_view: StorageView) -> Self {
+        let mut storage_updates = Self::new();
+        for ((address, key), value) in storage_view.into_iter() {
+            storage_updates
+                .entry(address)
+                .and_modify(|map| map[&key] = value)
+                .or_insert_with(|| IndexMap::from([(key, value)]));
+        }
+
+        storage_updates
     }
 }
 

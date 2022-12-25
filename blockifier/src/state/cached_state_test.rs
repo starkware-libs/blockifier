@@ -27,12 +27,13 @@ fn get_and_set_storage_value() {
     let key1 = StorageKey(patky!("0x20"));
     let storage_val0: StarkFelt = shash!("0x1");
     let storage_val1: StarkFelt = shash!("0x5");
+    let storage_view = HashMap::from([
+        ((contract_address0, key0), storage_val0),
+        ((contract_address1, key1), storage_val1),
+    ]);
 
     let mut state = CachedState::new(DictStateReader {
-        storage_view: HashMap::from([
-            ((contract_address0, key0), storage_val0),
-            ((contract_address1, key1), storage_val1),
-        ]),
+        storage_view: StorageView(storage_view),
         ..Default::default()
     });
     assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), storage_val0);
