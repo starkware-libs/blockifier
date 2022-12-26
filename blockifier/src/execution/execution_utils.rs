@@ -1,9 +1,7 @@
 use std::any::Any;
 use std::collections::HashMap;
-use std::mem;
 
 use cairo_rs::bigint;
-use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, deserialize_bigint_hex, Attribute, HintParams, Identifier,
     ReferenceManager,
@@ -24,7 +22,7 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHandler};
+use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHintProcessor};
 use crate::general_errors::ConversionError;
 use crate::state::cached_state::{CachedState, DictStateReader};
 
@@ -47,18 +45,18 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt, ConversionError> {
     }
 }
 
-pub struct ExecutionContext {
+pub struct ExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
     pub syscall_segment: Relocatable,
-    pub hint_processor: BuiltinHintProcessor,
+    pub syscall_handler: SyscallHintProcessor<'a>,
     pub entry_point_pc: usize,
 }
 
-pub fn initialize_execution_context(
+pub fn initialize_execution_context<'a>(
     call_entry_point: &CallEntryPoint,
-    state: &mut CachedState<DictStateReader>,
-) -> Result<ExecutionContext, PreExecutionError> {
+    state: &'a mut CachedState<DictStateReader>,
+) -> Result<ExecutionContext<'a>, PreExecutionError> {
     // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
     let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
 
@@ -68,8 +66,8 @@ pub fn initialize_execution_context(
     let mut vm = VirtualMachine::new(program.prime, false, program.error_message_attributes);
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
-    let (syscall_segment, hint_processor) =
-        initialize_syscall_handler(&mut cairo_runner, &mut vm, state, call_entry_point);
+    let (syscall_segment, syscall_handler) =
+        initialize_syscall_handler(&mut vm, state, call_entry_point);
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call_entry_point.resolve_entry_point_pc(&contract_class)?;
@@ -78,7 +76,7 @@ pub fn initialize_execution_context(
         runner: cairo_runner,
         vm,
         syscall_segment,
-        hint_processor,
+        syscall_handler,
         entry_point_pc,
     })
 }
@@ -130,10 +128,14 @@ pub fn execute_entry_point_call(
         &mut execution_context.vm,
         execution_context.entry_point_pc,
         args,
-        &execution_context.hint_processor,
+        &mut execution_context.syscall_handler,
     )?;
 
-    Ok(finalize_execution(execution_context.runner, execution_context.vm, call_entry_point, state)?)
+    Ok(finalize_execution(
+        execution_context.vm,
+        call_entry_point,
+        execution_context.syscall_handler.inner_calls,
+    )?)
 }
 
 pub fn run_entry_point(
@@ -141,7 +143,7 @@ pub fn run_entry_point(
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
     args: Vec<Box<dyn Any>>,
-    hint_processor: &BuiltinHintProcessor,
+    hint_processor: &mut SyscallHintProcessor<'_>,
 ) -> Result<(), VirtualMachineExecutionError> {
     cairo_runner.run_from_entrypoint(
         entry_point_pc,
@@ -156,17 +158,10 @@ pub fn run_entry_point(
 }
 
 pub fn finalize_execution(
-    mut cairo_runner: CairoRunner,
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
-    state: &mut CachedState<DictStateReader>,
+    inner_calls: Vec<CallInfo>,
 ) -> Result<CallInfo, PostExecutionError> {
-    let syscall_handler =
-        cairo_runner.exec_scopes.get_mut_ref::<SyscallHandler>("syscall_handler")?;
-    // TODO(AlonH, 21/12/2022): Remove clone (also Clone attribute and mut. refs.) when `state`
-    // becomes a reference.
-    *state = syscall_handler.state.clone();
-    let inner_calls = mem::take(&mut syscall_handler.inner_calls);
     Ok(CallInfo {
         call: call_entry_point,
         execution: CallExecution { retdata: extract_execution_retdata(vm)? },
