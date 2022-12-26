@@ -17,6 +17,7 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::CallData;
 
+use crate::execution::common_hints::add_common_hints;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
@@ -134,6 +135,7 @@ pub fn initialize_syscall_handler(
     let syscall_handler =
         SyscallHandler::new(syscall_segment, state.clone(), call_entry_point.storage_address);
     add_syscall_hints(&mut hint_processor);
+    add_common_hints(&mut hint_processor);
     cairo_runner
         .exec_scopes
         .assign_or_update_variable("syscall_handler", Box::new(syscall_handler));
