@@ -33,7 +33,7 @@ pub fn validate_tx(
         // Gets the same calldata as the execution itself.
         calldata: tx.calldata.clone(),
         class_hash,
-        storage_address: tx.contract_address,
+        storage_address: tx.sender_address,
     };
 
     Ok(validate_call.execute(state)?)
@@ -51,7 +51,7 @@ pub fn execute_tx(
         )?),
         calldata: tx.calldata.clone(),
         class_hash,
-        storage_address: tx.contract_address,
+        storage_address: tx.sender_address,
     };
 
     Ok(execute_call.execute(state)?)
