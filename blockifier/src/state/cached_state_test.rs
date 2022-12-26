@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use assert_matches::assert_matches;
+use indexmap::indexmap;
 use pretty_assertions::assert_eq;
 use starknet_api::core::PatriciaKey;
 use starknet_api::hash::StarkHash;
@@ -47,6 +48,32 @@ fn get_and_set_storage_value() {
     state.set_storage_at(contract_address1, key1, modified_storage_value1);
     assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
     assert_eq!(*state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
+}
+
+#[test]
+fn cast_between_storage_mapping_types() {
+    let empty_map: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> = IndexMap::default();
+    assert_eq!(empty_map, StorageView::default().into());
+
+    let contract_address0 = ContractAddress(patky!("0x100"));
+    let contract_address1 = ContractAddress(patky!("0x200"));
+    let key0 = StorageKey(patky!("0x10"));
+    let key1 = StorageKey(patky!("0x20"));
+    let storage_val0: StarkFelt = shash!("0x1");
+    let storage_val1: StarkFelt = shash!("0x5");
+    let storage_val2: StarkFelt = shash!("0xa");
+
+    let storage_map = StorageView(HashMap::from([
+        ((contract_address0, key0), storage_val0),
+        ((contract_address0, key1), storage_val1),
+        ((contract_address1, key0), storage_val2),
+    ]));
+
+    let expected_indexed_map = IndexMap::from([
+        (contract_address0, indexmap!(key0 => storage_val0, key1 => storage_val1)),
+        (contract_address1, indexmap!(key0 => storage_val2)),
+    ]);
+    assert_eq!(expected_indexed_map, storage_map.into());
 }
 
 #[test]
