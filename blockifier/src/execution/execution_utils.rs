@@ -2,7 +2,6 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::mem;
 
-use anyhow::{bail, Result};
 use cairo_rs::bigint;
 use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor;
 use cairo_rs::serde::deserialize_program::{
@@ -26,6 +25,7 @@ use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHandler};
+use crate::general_errors::ConversionError;
 use crate::state::cached_state::{CachedState, DictStateReader};
 
 #[cfg(test)]
@@ -36,17 +36,14 @@ pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
     BigInt::from_bytes_be(Sign::Plus, felt.bytes())
 }
 
-pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt> {
+pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt, ConversionError> {
     // TODO(Adi, 29/11/2022): Make sure lambdaclass always maintain that their bigints' are
     // non-negative.
     if bigint.is_negative() {
-        bail!("The given BigInt, {}, is negative.", bigint)
-    }
-
-    let bigint_hex = format!("{bigint:#x}");
-    match StarkFelt::try_from(bigint_hex.as_str()) {
-        Ok(felt) => Ok(felt),
-        Err(e) => bail!(e),
+        Err(ConversionError::NegativeBigIntToFelt(bigint.clone()))
+    } else {
+        let bigint_hex = format!("{bigint:#x}");
+        Ok(StarkFelt::try_from(&bigint_hex[..])?)
     }
 }
 
