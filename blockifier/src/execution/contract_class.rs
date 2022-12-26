@@ -29,3 +29,14 @@ impl ContractClass {
         Ok(raw_contract_class)
     }
 }
+
+impl From<ContractClass> for starknet_api::state::ContractClass {
+    fn from(contract_class: ContractClass) -> Self {
+        Self {
+            program: contract_class.program,
+            entry_points_by_type: contract_class.entry_points_by_type,
+            // ABI is not used for execution.
+            abi: None,
+        }
+    }
+}
