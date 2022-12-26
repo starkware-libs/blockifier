@@ -12,7 +12,7 @@ use crate::state::cached_state::{CachedState, DictStateReader};
 #[path = "entry_point_test.rs"]
 pub mod test;
 
-pub type EntryPointResult<T> = Result<T, EntryPointExecutionError>;
+pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
 // TODO(Adi, 15/10/2023): Change calldata field to have a reference to a CallData object and change
 // calldata cloning everywhere. Same for objects containing CallEntryPoint, and for retdata.
@@ -29,7 +29,10 @@ pub struct CallEntryPoint {
 }
 
 impl CallEntryPoint {
-    pub fn execute(self, state: &mut CachedState<DictStateReader>) -> EntryPointResult<CallInfo> {
+    pub fn execute(
+        self,
+        state: &mut CachedState<DictStateReader>,
+    ) -> EntryPointExecutionResult<CallInfo> {
         execute_entry_point_call(self, state)
     }
 

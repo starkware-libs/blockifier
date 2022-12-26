@@ -19,7 +19,9 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, EntryPointResult};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult,
+};
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
@@ -118,7 +120,7 @@ pub fn prepare_call_arguments(
 pub fn execute_entry_point_call(
     call_entry_point: CallEntryPoint,
     state: &mut CachedState<DictStateReader>,
-) -> EntryPointResult<CallInfo> {
+) -> EntryPointExecutionResult<CallInfo> {
     let mut execution_context = initialize_execution_context(&call_entry_point, state)?;
     let args = prepare_call_arguments(
         &call_entry_point,
