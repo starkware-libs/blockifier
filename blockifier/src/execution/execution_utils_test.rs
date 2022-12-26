@@ -1,9 +1,12 @@
+use assert_matches::assert_matches;
 use num_bigint::{BigInt, Sign};
 use num_traits::{One, Zero};
 use pretty_assertions::assert_eq;
 use starknet_api::hash::StarkFelt;
+use starknet_api::StarknetApiError;
 
 use crate::execution::execution_utils::{bigint_to_felt, felt_to_bigint};
+use crate::general_errors::ConversionError;
 
 fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<BigInt>) {
     // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
@@ -45,12 +48,27 @@ fn test_felt_to_bigint() {
 #[test]
 fn test_bigint_to_felt() {
     let (expected_felts, bigints) = get_tested_felts_and_corresponding_bigints();
-    // TODO(Adi, 10/12/2022): The conversion of the BigInt STARK prime to a StarkFelt should fail
-    // once full-node have a field representation; add this test case.
+    // Positive flow.
     let converted_felts: Vec<StarkFelt> = bigints
         .iter()
         .map(|x| bigint_to_felt(x).expect("BigInt to StarkFelt conversion has failed."))
         .collect();
 
     assert_eq!(converted_felts, expected_felts);
+
+    // Negative flows.
+    // TODO(Adi, 10/12/2022): The conversion of the BigInt STARK prime to a StarkFelt should fail
+    // once full-node have a field representation; add this test case.
+    let bigint_too_big = BigInt::from_bytes_be(Sign::Plus, &[1; 33]);
+    assert_matches!(
+        bigint_to_felt(&bigint_too_big).unwrap_err(),
+        ConversionError::StarknetApiError(StarknetApiError::InnerDeserialization(_))
+    );
+
+    let negative_bigint = BigInt::new(Sign::Minus, vec![1]);
+    assert_matches!(
+        bigint_to_felt(&negative_bigint).unwrap_err(),
+        ConversionError::NegativeBigIntToFelt(bigint)
+        if bigint == negative_bigint
+    );
 }
