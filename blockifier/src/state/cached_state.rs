@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use derive_more::IntoIterator;
+use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -171,6 +173,24 @@ impl StateReader for DictStateReader {
         let class_hash =
             self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
         Ok(class_hash)
+    }
+}
+
+#[derive(IntoIterator, Debug, Clone, Default)]
+pub struct StorageView(HashMap<ContractStorageKey, StarkFelt>);
+
+/// Converts CachedState storage mapping to StateDiff storage mapping.
+impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
+    fn from(storage_view: StorageView) -> Self {
+        let mut storage_updates = Self::new();
+        for ((address, key), value) in storage_view.into_iter() {
+            storage_updates
+                .entry(address)
+                .and_modify(|map| map[&key] = value)
+                .or_insert_with(|| IndexMap::from([(key, value)]));
+        }
+
+        storage_updates
     }
 }
 
