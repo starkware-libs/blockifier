@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.66"
 cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" } # This is how they instructed to use their package.
+derive_more = {version = "0.99.17"}
+indexmap = { version = "1.9.2" }
 num-bigint = "0.4"
 num-traits = "0.2"
 serde = { version = "1.0.130", features = ["derive"] }
