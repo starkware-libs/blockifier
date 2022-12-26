@@ -48,7 +48,7 @@ impl StorageReadRequest {
         Ok(SyscallRequest::StorageRead(StorageReadRequest { address }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler<'_>) -> ExecutionResult {
         let value =
             syscall_handler.state.get_storage_at(syscall_handler.storage_address, self.address)?;
         Ok(SyscallResponse::StorageRead(StorageReadResponse { value: *value }))
@@ -85,7 +85,7 @@ impl StorageWriteRequest {
         Ok(SyscallRequest::StorageWrite(StorageWriteRequest { address, value }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(&self, syscall_handler: &mut SyscallHandler<'_>) -> ExecutionResult {
         syscall_handler.state.set_storage_at(
             syscall_handler.storage_address,
             self.address,
@@ -121,7 +121,7 @@ impl CallContractRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler<'_>) -> ExecutionResult {
         let class_hash = *syscall_handler.state.get_class_hash_at(self.contract_address)?;
         let entry_point = CallEntryPoint {
             class_hash,
@@ -170,7 +170,7 @@ impl LibraryCallRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler<'_>) -> ExecutionResult {
         let entry_point = CallEntryPoint {
             class_hash: self.class_hash,
             entry_point_type: EntryPointType::External,
@@ -213,7 +213,7 @@ impl DeployRequest {
         }))
     }
 
-    pub fn execute(&self, _syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(&self, _syscall_handler: &mut SyscallHandler<'_>) -> ExecutionResult {
         // TODO(Noa, 26/12/2022): Execute deploy.
         Ok(SyscallResponse::Deploy(DeployResponse {
             contract_address: ContractAddress::default(),
@@ -261,7 +261,7 @@ impl SyscallRequest {
         }
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> ExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler<'_>) -> ExecutionResult {
         match self {
             SyscallRequest::CallContract(request) => request.execute(syscall_handler),
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),
