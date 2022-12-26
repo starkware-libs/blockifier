@@ -50,7 +50,7 @@ fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
         nonce: Nonce::default(),
         // TODO(Adi, 25/12/2022): Use an actual contract_address once there is a mapping from a
         // contract address to its class hash.
-        contract_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS)).unwrap(),
+        sender_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS)).unwrap(),
         entry_point_selector: None,
         calldata: execute_calldata,
     };
