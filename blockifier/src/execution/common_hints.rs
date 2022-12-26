@@ -21,6 +21,8 @@ use crate::execution::hint_code::{
     NORMALIZE_ADDRESS_SET_IS_250_HINT, NORMALIZE_ADDRESS_SET_IS_SMALL_HINT,
 };
 
+pub type HintExecutionResult = Result<(), VirtualMachineError>;
+
 /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
 pub fn normalize_address_set_is_small(
     vm: &mut VirtualMachine,
@@ -28,7 +30,7 @@ pub fn normalize_address_set_is_small(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     constants: &HashMap<String, BigInt>,
-) -> Result<(), VirtualMachineError> {
+) -> HintExecutionResult {
     const ADDR_BOUND: &str = "starkware.starknet.common.storage.ADDR_BOUND";
     let addr_bound =
         constants.get(ADDR_BOUND).ok_or(VirtualMachineError::MissingConstant("ADDR_BOUND"))?;
@@ -59,7 +61,7 @@ pub fn normalize_address_set_is_250(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, BigInt>,
-) -> Result<(), VirtualMachineError> {
+) -> HintExecutionResult {
     let addr = get_integer_from_var_name("addr", vm, ids_data, ap_tracking)?;
 
     let is_250 = if *addr < bigint!(1).shl(250) { bigint!(1) } else { bigint!(0) };
