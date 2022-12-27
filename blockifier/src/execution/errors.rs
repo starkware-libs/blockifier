@@ -39,7 +39,7 @@ pub enum SyscallExecutionError {
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
     InnerCallExecutionError(Box<EntryPointExecutionError>),
-    #[error("Invalid syscall input: {input:?}: {info:}")]
+    #[error("Invalid syscall input: {input:?}; {info:}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
@@ -76,10 +76,14 @@ pub enum VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
+    #[error("Invalid input: {input:?}; {info:}")]
+    InvalidExecutationInput { input: StarkFelt, info: String },
     #[error(transparent)]
     PostExecutionError(#[from] PostExecutionError),
     #[error(transparent)]
     PreExecutionError(#[from] PreExecutionError),
+    #[error(transparent)]
+    StateError(#[from] StateError),
     #[error(transparent)]
     SyscallExecutionError(#[from] SyscallExecutionError),
     /// Gathers all errors from running the Cairo VM, excluding hints.

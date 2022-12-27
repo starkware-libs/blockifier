@@ -1,5 +1,5 @@
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
@@ -63,4 +63,59 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+}
+
+pub fn execute_constructor_entry_point(
+    state: &mut CachedState<DictStateReader>,
+    class_hash: ClassHash,
+    storage_address: ContractAddress,
+    calldata: &CallData,
+) -> EntryPointExecutionResult<CallInfo> {
+    let contract_class = state.get_contract_class(&class_hash)?;
+    let constructor_entry_points =
+        &contract_class.entry_points_by_type[&EntryPointType::Constructor];
+
+    if constructor_entry_points.is_empty() {
+        // Contract has no constructor.
+        return handle_empty_constructor(class_hash, storage_address, calldata);
+    }
+
+    let constructor_call = CallEntryPoint {
+        class_hash,
+        entry_point_type: EntryPointType::Constructor,
+        entry_point_selector: constructor_entry_points[0].selector,
+        calldata: calldata.clone(),
+        storage_address,
+    };
+    constructor_call.execute(state)
+}
+
+pub fn handle_empty_constructor(
+    class_hash: ClassHash,
+    storage_address: ContractAddress,
+    calldata: &CallData,
+) -> EntryPointExecutionResult<CallInfo> {
+    // Validate no calldata.
+    if calldata.0.is_empty() {
+        return Err(EntryPointExecutionError::InvalidExecutationInput {
+            input: StarkFelt::from(calldata.0.len() as u64),
+            info: String::from("Cannot pass calldata to a contract with no constructor."),
+        });
+    }
+
+    let empty_constructor_call_info = CallInfo {
+        call: CallEntryPoint {
+            class_hash,
+            entry_point_type: EntryPointType::Constructor,
+            // TODO(Noa, 30/12/22):Use
+            // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
+            entry_point_selector: EntryPointSelector(StarkHash::default()),
+            calldata: CallData::default(),
+            storage_address,
+        },
+        execution: CallExecution { retdata: vec![] },
+        inner_calls: vec![],
+    };
+
+    Ok(empty_constructor_call_info)
 }
