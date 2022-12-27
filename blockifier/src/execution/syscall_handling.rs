@@ -15,7 +15,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::CallData;
+use starknet_api::transaction::{CallData, EventContent};
 
 use crate::execution::common_hints::add_common_hints;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
@@ -26,6 +26,7 @@ use crate::execution::execution_utils::{
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
 use crate::state::cached_state::{CachedState, DictStateReader};
 
+// TODO(Adi, 15/01/2023): Add 'ExecutionResourcesManager' and use it.
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHandler {
     expected_syscall_ptr: Relocatable,
@@ -33,6 +34,9 @@ pub struct SyscallHandler {
     pub storage_address: ContractAddress,
     /// Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
+    // TODO(Adi, 15/01/2023): Replace with ordered events when we implement
+    // `TransactionExecutionContext`.
+    pub events: Vec<EventContent>,
 }
 
 impl SyscallHandler {
@@ -47,6 +51,7 @@ impl SyscallHandler {
             expected_syscall_ptr: initial_syscall_ptr,
             state,
             inner_calls: vec![],
+            events: vec![],
             storage_address,
         }
     }
@@ -118,6 +123,10 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
     );
     hint_processor.add_hint(
         String::from("syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)"),
+        execute_syscall_hint.clone(),
+    );
+    hint_processor.add_hint(
+        String::from("syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)"),
         execute_syscall_hint,
     );
 }
@@ -176,15 +185,17 @@ pub fn write_retdata(
     Ok(())
 }
 
-pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
-    let calldata_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
-    let calldata_ptr = match vm.get_maybe(&(ptr + 1))? {
-        Some(ptr) => ptr,
-        None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
+pub fn read_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Vec<StarkFelt>> {
+    let array_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
+    let Some(array_data) = vm.get_maybe(&(ptr + 1))? else {
+        return Err(VirtualMachineError::NoneInMemoryRange.into())
     };
-    let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
 
-    Ok(calldata)
+    Ok(get_felt_range(vm, &array_data, array_size.try_into()?)?)
+}
+
+pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
+    Ok(CallData(read_array(vm, ptr)?))
 }
 
 pub fn read_call_params(
