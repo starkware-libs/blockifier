@@ -16,7 +16,7 @@ use crate::test_utils::{
 
 fn trivial_external_entrypoint() -> CallEntryPoint {
     CallEntryPoint {
-        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
+        class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(0)),
         calldata: CallData(vec![]),
@@ -159,6 +159,7 @@ fn test_entry_point_with_library_call() {
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
         calldata,
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entrypoint()
     };
     assert_eq!(
@@ -184,11 +185,13 @@ fn test_entry_point_with_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_NESTED_LIBRARY_CALL_SELECTOR)),
         calldata,
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entrypoint()
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
         calldata: CallData(vec![shash!(key + 1), shash!(value + 1)]),
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entrypoint()
     };
     let library_entry_point = CallEntryPoint {
@@ -200,6 +203,7 @@ fn test_entry_point_with_nested_library_call() {
             shash!(key + 1),                          // Calldata.
             shash!(value + 1),
         ]),
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entrypoint()
     };
     let storage_entry_point = CallEntryPoint {
@@ -242,6 +246,7 @@ fn test_entry_point_with_deploy() {
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
         calldata,
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entrypoint()
     };
     assert_eq!(

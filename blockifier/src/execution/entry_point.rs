@@ -21,7 +21,7 @@ pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 pub struct CallEntryPoint {
     // TODO(Noa, 18/12/22): Consider changing class_hash to be optional + add a method to extract
     // it from the storage_address (get_non_optional_class_hash)
-    pub class_hash: ClassHash,
+    pub class_hash: Option<ClassHash>,
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     pub calldata: CallData,
@@ -49,6 +49,23 @@ impl CallEntryPoint {
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
             Some(entry_point) => Ok(entry_point.offset.0),
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
+        }
+    }
+
+    pub fn get_non_optional_class_hash(
+        &self,
+        state: &mut CachedState<DictStateReader>,
+    ) -> Result<ClassHash, PreExecutionError> {
+        match self.class_hash {
+            Some(class_hash) => Ok(class_hash), // Library call + deploy syscall
+            None => {
+                // Call contract + External transactions
+                let class_hash = *state.get_class_hash_at(self.storage_address)?;
+                if class_hash == ClassHash::default() {
+                    return Err(PreExecutionError::UninitializedContract(self.storage_address));
+                }
+                Ok(class_hash)
+            }
         }
     }
 }

@@ -63,7 +63,8 @@ pub fn initialize_execution_context(
     state: &mut CachedState<DictStateReader>,
 ) -> Result<ExecutionContext, PreExecutionError> {
     // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
-    let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
+    let class_hash = call_entry_point.get_non_optional_class_hash(state)?;
+    let contract_class = state.get_contract_class(&class_hash)?;
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
