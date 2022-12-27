@@ -5,11 +5,13 @@ use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
+use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
+use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
-    create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR,
-    TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR,
-    TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
+    create_security_test_state, create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR,
+    SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
     TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR, WITHOUT_ARG_SELECTOR,
     WITH_ARG_SELECTOR,
 };
@@ -283,4 +285,32 @@ fn test_storage_var() {
         entry_point.execute(&mut state).unwrap().execution,
         CallExecution { retdata: vec![] }
     );
+}
+
+#[test]
+fn test_security_failure() {
+    let mut state = create_security_test_state();
+
+    fn run_security_test(
+        expected_error: &str,
+        entry_point_name: &str,
+        calldata: CallData,
+        state: &mut CachedState<DictStateReader>,
+    ) {
+        let entry_point_selector = get_selector_from_name(entry_point_name);
+        let entry_point =
+            CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
+        let error = entry_point.execute(state).unwrap_err().to_string();
+        assert!(error.contains(expected_error))
+    }
+
+    for call_foo in 0..2 {
+        let calldata = CallData(vec![shash!(call_foo)]);
+        run_security_test(
+            "Custom Hint Error: Out of range",
+            "test_read_bad_address",
+            calldata,
+            &mut state,
+        )
+    }
 }

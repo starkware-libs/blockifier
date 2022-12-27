@@ -16,8 +16,9 @@ pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 // implemented.
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_some_syscalls_compiled.json";
-
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
+pub const SECURITY_TEST_CONTRACT_PATH: &str =
+    "./feature_contracts/compiled/security_tests_contract_compiled.json";
 pub const WITHOUT_ARG_SELECTOR: &str =
     "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
 pub const WITH_ARG_SELECTOR: &str =
@@ -65,4 +66,12 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
         address_to_class_hash,
         ..Default::default()
     })
+}
+
+pub fn create_security_test_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = HashMap::from([(
+        ClassHash(shash!(TEST_CLASS_HASH)),
+        Rc::new(get_contract_class(SECURITY_TEST_CONTRACT_PATH)),
+    )]);
+    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
 }
