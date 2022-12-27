@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use assert_matches::assert_matches;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
     CallData, Fee, InvokeTransaction, TransactionHash, TransactionSignature, TransactionVersion,
 };
-use starknet_api::{shash, StarknetApiError};
+use starknet_api::{patky, shash, StarknetApiError};
 
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
 use crate::state::cached_state::{CachedState, DictStateReader};
@@ -31,7 +31,15 @@ fn create_test_state() -> CachedState<DictStateReader> {
         ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
         Rc::new(get_contract_class(ACCOUNT_CONTRACT_PATH)),
     )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+    let address_to_class_hash = HashMap::from([(
+        ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+    )]);
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
 }
 
 fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
@@ -72,7 +80,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
     // Create expected result object.
     let expected_validate_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+            class_hash: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
             calldata: tx.calldata.clone(),
