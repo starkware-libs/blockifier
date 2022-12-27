@@ -43,6 +43,9 @@ fn verify_feature_contracts_compatibility(fix: bool) -> Result<()> {
         if file_name.starts_with("account") {
             command.arg("--account_contract");
         }
+        if file_name.starts_with("security") {
+            command.arg("--disable_hint_validation");
+        }
         let expected_compiled_output = command.output().unwrap().stdout;
 
         if fix {
