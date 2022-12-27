@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
@@ -14,8 +16,6 @@ pub mod test;
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
-// TODO(Adi, 15/10/2023): Change calldata field to have a reference to a CallData object and change
-// calldata cloning everywhere. Same for objects containing CallEntryPoint, and for retdata.
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
@@ -24,7 +24,9 @@ pub struct CallEntryPoint {
     pub class_hash: ClassHash,
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
-    pub calldata: CallData,
+    // Appears in several locations during the execution (e.g. in an `InvokeTransaction` execution
+    // the same calldata appears in the validation and the execution entry point calls).
+    pub calldata: Rc<CallData>,
     pub storage_address: ContractAddress,
 }
 
@@ -69,7 +71,7 @@ pub fn execute_constructor_entry_point(
     state: &mut CachedState<DictStateReader>,
     class_hash: ClassHash,
     storage_address: ContractAddress,
-    calldata: &CallData,
+    calldata: CallData,
 ) -> EntryPointExecutionResult<CallInfo> {
     let contract_class = state.get_contract_class(&class_hash)?;
     let constructor_entry_points =
@@ -84,7 +86,7 @@ pub fn execute_constructor_entry_point(
         class_hash,
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
-        calldata: calldata.clone(),
+        calldata: calldata.into(),
         storage_address,
     };
     constructor_call.execute(state)
@@ -93,7 +95,7 @@ pub fn execute_constructor_entry_point(
 pub fn handle_empty_constructor(
     class_hash: ClassHash,
     storage_address: ContractAddress,
-    calldata: &CallData,
+    calldata: CallData,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
     if calldata.0.is_empty() {
@@ -110,7 +112,7 @@ pub fn handle_empty_constructor(
             // TODO(Noa, 30/12/22):Use
             // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
             entry_point_selector: EntryPointSelector(StarkHash::default()),
-            calldata: CallData::default(),
+            calldata: CallData::default().into(),
             storage_address,
         },
         execution: CallExecution { retdata: vec![] },
