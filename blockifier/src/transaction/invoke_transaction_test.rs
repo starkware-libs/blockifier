@@ -27,15 +27,15 @@ use crate::transaction::ExecuteTransaction;
 // TODO(Adi, 25/12/2022): Use (or create) a `create_test_state` test utils function.
 fn create_test_state() -> CachedState<DictStateReader> {
     let test_contract_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
+    let test_account_contract_class_hash = ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (
-            ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
-            get_contract_class(ACCOUNT_CONTRACT_PATH),
-        ),
+        (test_account_contract_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH)),
         (test_contract_class_hash, get_contract_class(TEST_CONTRACT_PATH)),
     ]);
-    let address_to_class_hash =
-        HashMap::from([(ContractAddress(patky!(TEST_CONTRACT_ADDRESS)), test_contract_class_hash)]);
+    let address_to_class_hash = HashMap::from([
+        (ContractAddress(patky!(TEST_CONTRACT_ADDRESS)), test_contract_class_hash),
+        (ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS)), test_account_contract_class_hash),
+    ]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
@@ -82,7 +82,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
     // Create expected result object.
     let expected_validate_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+            class_hash: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
             calldata: tx.calldata.clone(),
@@ -97,7 +97,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
     let expected_return_result_calldata = Calldata(vec![shash!(2)].into());
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
-        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
+        class_hash: None,
         entry_point_type: EntryPointType::External,
         calldata: expected_return_result_calldata.clone(),
         storage_address: ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
