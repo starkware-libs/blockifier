@@ -14,7 +14,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::CallData;
+use starknet_api::transaction::{CallData, EventContent};
 
 use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
@@ -28,12 +28,18 @@ use crate::state::cached_state::{CachedState, DictStateReader};
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHintProcessor<'a> {
-    expected_syscall_ptr: Relocatable,
+    // Input for execution.
     pub state: &'a mut CachedState<DictStateReader>,
     pub storage_address: ContractAddress,
+    builtin_hint_processor: BuiltinHintProcessor,
+
+    // Execution results.
     /// Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
-    builtin_hint_processor: BuiltinHintProcessor,
+    pub events: Vec<EventContent>,
+
+    // Kept for validations during the run.
+    expected_syscall_ptr: Relocatable,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -51,6 +57,7 @@ impl<'a> SyscallHintProcessor<'a> {
             expected_syscall_ptr: initial_syscall_ptr,
             state,
             inner_calls: vec![],
+            events: vec![],
             storage_address,
             builtin_hint_processor,
         }
@@ -168,15 +175,17 @@ pub fn write_retdata(
     Ok(())
 }
 
-pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
-    let calldata_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
-    let calldata_ptr = match vm.get_maybe(&(ptr + 1))? {
-        Some(ptr) => ptr,
-        None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
+pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Vec<StarkFelt>> {
+    let array_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
+    let Some(array_data_ptr) = vm.get_maybe(&(ptr + 1))? else {
+        return Err(VirtualMachineError::NoneInMemoryRange.into())
     };
-    let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
 
-    Ok(calldata)
+    Ok(get_felt_range(vm, &array_data_ptr, array_size.try_into()?)?)
+}
+
+pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
+    Ok(CallData(read_felt_array(vm, ptr)?))
 }
 
 pub fn read_call_params(

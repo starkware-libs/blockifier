@@ -1,10 +1,11 @@
 // TODO(AlonH, 21/12/2022): Make this a set using once_cell::sync::Lazy.
-pub const SYSCALL_HINTS: [&str; 5] = [
+pub const SYSCALL_HINTS: [&str; 6] = [
     "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)",
+    "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)",
 ];
 
 pub const NORMALIZE_ADDRESS_SET_IS_250_HINT: &str = "ids.is_250 = 1 if ids.addr < 2**250 else 0";
