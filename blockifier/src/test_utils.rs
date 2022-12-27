@@ -72,5 +72,13 @@ pub fn create_security_test_state() -> CachedState<DictStateReader> {
         ClassHash(shash!(TEST_CLASS_HASH)),
         get_contract_class(SECURITY_TEST_CONTRACT_PATH),
     )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+    let address_to_class_hash = HashMap::from([(
+        ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
+        ClassHash(shash!(TEST_CLASS_HASH)),
+    )]);
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
 }

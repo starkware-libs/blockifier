@@ -58,8 +58,8 @@ pub fn initialize_execution_context<'a, SR: StateReader>(
     call_entry_point: &CallEntryPoint,
     state: &'a mut CachedState<SR>,
 ) -> Result<ExecutionContext<'a, SR>, PreExecutionError> {
-    // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
-    let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
+    let class_hash = call_entry_point.validate_contract_deployed_and_get_class_hash(state)?;
+    let contract_class = state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call_entry_point.resolve_entry_point_pc(contract_class)?;

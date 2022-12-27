@@ -147,9 +147,8 @@ impl CallContractRequest {
         self,
         syscall_handler: &mut SyscallHintProcessor<'_, SR>,
     ) -> SyscallExecutionResult {
-        let class_hash = *syscall_handler.state.get_class_hash_at(self.contract_address)?;
         let entry_point = CallEntryPoint {
-            class_hash,
+            class_hash: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
             calldata: self.calldata,
@@ -202,7 +201,7 @@ impl LibraryCallRequest {
         syscall_handler: &mut SyscallHintProcessor<'_, SR>,
     ) -> SyscallExecutionResult {
         let entry_point = CallEntryPoint {
-            class_hash: self.class_hash,
+            class_hash: Some(self.class_hash),
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
             calldata: self.calldata,
