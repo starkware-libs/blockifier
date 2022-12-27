@@ -19,7 +19,7 @@ pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 pub struct CallEntryPoint {
     // TODO(Noa, 18/12/22): Consider changing class_hash to be optional + add a method to extract
     // it from the storage_address (get_non_optional_class_hash)
-    pub class_hash: ClassHash,
+    pub class_hash: Option<ClassHash>,
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     // Appears in several locations during and after execution.
@@ -48,6 +48,21 @@ impl CallEntryPoint {
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
             Some(entry_point) => Ok(entry_point.offset.0),
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
+        }
+    }
+
+    pub fn validate_contract_deployed_and_get_class_hash(
+        &self,
+        state: &mut CachedState<DictStateReader>,
+    ) -> Result<ClassHash, PreExecutionError> {
+        let storage_class_hash = *state.get_class_hash_at(self.storage_address)?;
+        if storage_class_hash == ClassHash::default() {
+            return Err(PreExecutionError::UninitializedContract(self.storage_address));
+        }
+
+        match self.class_hash {
+            Some(class_hash) => Ok(class_hash),
+            None => Ok(storage_class_hash),
         }
     }
 }
@@ -80,7 +95,7 @@ pub fn execute_constructor_entry_point(
     }
 
     let constructor_call = CallEntryPoint {
-        class_hash,
+        class_hash: Some(class_hash),
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,
@@ -104,7 +119,7 @@ pub fn handle_empty_constructor(
 
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash,
+            class_hash: Some(class_hash),
             entry_point_type: EntryPointType::Constructor,
             // TODO(Noa, 30/12/22):Use
             // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
