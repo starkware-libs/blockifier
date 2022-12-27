@@ -1,12 +1,10 @@
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkHash;
-use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Fee, InvokeTransaction};
 
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::cached_state::{CachedState, DictStateReader};
-use crate::test_utils::TEST_ACCOUNT_CONTRACT_CLASS_HASH;
 use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
 use crate::transaction::objects::{
     ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
@@ -23,7 +21,6 @@ mod test;
 pub fn validate_tx(
     tx: &InvokeTransaction,
     state: &mut CachedState<DictStateReader>,
-    class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let validate_call = CallEntryPoint {
         entry_point_type: EntryPointType::External,
@@ -32,7 +29,7 @@ pub fn validate_tx(
         )?),
         // Gets the same calldata as the execution itself.
         calldata: tx.calldata.clone(),
-        class_hash,
+        class_hash: None,
         storage_address: tx.sender_address,
     };
 
@@ -42,7 +39,6 @@ pub fn validate_tx(
 pub fn execute_tx(
     tx: &InvokeTransaction,
     state: &mut CachedState<DictStateReader>,
-    class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let execute_call = CallEntryPoint {
         entry_point_type: EntryPointType::External,
@@ -50,7 +46,7 @@ pub fn execute_tx(
             EXECUTE_ENTRY_POINT_SELECTOR,
         )?),
         calldata: tx.calldata.clone(),
-        class_hash,
+        class_hash: None,
         storage_address: tx.sender_address,
     };
 
@@ -72,14 +68,12 @@ impl ExecuteTransaction for InvokeTransaction {
         // TODO(Adi, 10/12/2022): Consider moving the transaction version verification to the
         // TransactionVersion constructor.
         verify_tx_version(self.version)?;
-        // TODO (Adi, 25/12/2022): Replace with 'get_class_hash_at' once it is implemented.
-        let class_hash = ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
 
         // Validate transaction.
-        let validate_call_info = validate_tx(&self, state, class_hash)?;
+        let validate_call_info = validate_tx(&self, state)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(&self, state, class_hash)?;
+        let execute_call_info = execute_tx(&self, state)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.

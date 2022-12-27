@@ -18,7 +18,7 @@ use crate::test_utils::{
 
 fn trivial_external_entry_point() -> CallEntryPoint {
     CallEntryPoint {
-        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
+        class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(0)),
         calldata: CallData(vec![].into()),
@@ -164,6 +164,7 @@ fn test_entry_point_with_library_call() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
         calldata,
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -192,11 +193,13 @@ fn test_entry_point_with_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_NESTED_LIBRARY_CALL_SELECTOR)),
         calldata,
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
         calldata: CallData(vec![shash!(key + 1), shash!(value + 1)].into()),
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
@@ -211,6 +214,7 @@ fn test_entry_point_with_nested_library_call() {
             ]
             .into(),
         ),
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
@@ -258,6 +262,7 @@ fn test_entry_point_with_deploy_with_constructor() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
         calldata,
+        class_hash: Some(ClassHash(shash!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };
     assert_eq!(
