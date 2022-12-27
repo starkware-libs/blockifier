@@ -4,7 +4,7 @@ use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::StorageKey;
+use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::{StateError, StateReaderError};
@@ -132,7 +132,32 @@ impl<SR: StateReader> CachedState<SR> {
     }
 }
 
-type ContractStorageKey = (ContractAddress, StorageKey);
+// Should only be called during the finalization stage of a batch, and with no
+// live (strong) references to any contract_class.
+impl From<CachedState<DictStateReader>> for StateDiff {
+    fn from(cached_state: CachedState<DictStateReader>) -> Self {
+        let declared_classes = IndexMap::from_iter(cached_state.class_hash_to_class);
+        let state_cache = cached_state.cache;
+
+        let storage_updates =
+            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
+        let nonces =
+            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
+        let deployed_contracts = subtract_mappings(
+            &state_cache.class_hash_writes,
+            &state_cache.class_hash_initial_values,
+        );
+
+        Self {
+            deployed_contracts: IndexMap::from_iter(deployed_contracts),
+            storage_diffs: StorageView(storage_updates).into(),
+            declared_classes,
+            nonces: IndexMap::from_iter(nonces),
+        }
+    }
+}
+
+pub type ContractStorageKey = (ContractAddress, StorageKey);
 
 /// A simple implementation of `StateReader` using `HashMap`s for storage.
 #[derive(Clone, Debug, Default)]
