@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
@@ -16,7 +15,7 @@ use crate::state::state_reader::{StateReader, StateReaderResult};
 mod test;
 
 pub type StateResult<T> = Result<T, StateError>;
-type ContractClassMapping = HashMap<ClassHash, Rc<ContractClass>>;
+type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Caches read and write requests.
 ///
@@ -85,17 +84,16 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(())
     }
 
-    pub fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Rc<ContractClass>> {
+    pub fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass> {
         if !self.class_hash_to_class.contains_key(class_hash) {
             let contract_class = self.state_reader.get_contract_class(class_hash)?;
-            self.class_hash_to_class.insert(*class_hash, Rc::clone(&contract_class));
+            self.class_hash_to_class.insert(*class_hash, contract_class);
         }
 
-        let contract_class = Rc::clone(
-            self.class_hash_to_class
-                .get(class_hash)
-                .expect("The class hash must appear in the cache."),
-        );
+        let contract_class = self
+            .class_hash_to_class
+            .get(class_hash)
+            .expect("The class hash must appear in the cache.");
         Ok(contract_class)
     }
 
@@ -161,10 +159,10 @@ impl StateReader for DictStateReader {
         Ok(nonce)
     }
 
-    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<Rc<ContractClass>> {
-        let contract_class = self.class_hash_to_class.get(class_hash);
+    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<ContractClass> {
+        let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
-            Some(contract_class) => Ok(Rc::clone(contract_class)),
+            Some(contract_class) => Ok(contract_class),
             None => Err(StateReaderError::UndeclaredClassHash(*class_hash)),
         }
     }
