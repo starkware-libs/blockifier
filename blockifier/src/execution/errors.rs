@@ -1,6 +1,6 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::errors as cairo_rs_vm_errors;
-use starknet_api::core::EntryPointSelector;
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -18,6 +18,8 @@ pub enum PreExecutionError {
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
     #[error(transparent)]
     StateError(#[from] StateError),
+    #[error("Requested contract address {0:?} is not deployed.")]
+    UninitializedStorageAddress(ContractAddress),
 }
 
 impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {

@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use assert_matches::assert_matches;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
@@ -10,10 +8,9 @@ use starknet_api::transaction::{
 use starknet_api::{shash, StarknetApiError};
 
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
-use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
-    get_contract_class, ACCOUNT_CONTRACT_PATH, RETURN_RESULT_SELECTOR,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_invoke_tx_test_state, RETURN_RESULT_SELECTOR, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_CONTRACT_ADDRESS,
 };
 use crate::transaction::constants::{
     CALL_CONTRACT_CALLDATA_INDEX, EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR,
@@ -23,15 +20,6 @@ use crate::transaction::objects::{
     ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
 };
 use crate::transaction::ExecuteTransaction;
-
-// TODO(Adi, 25/12/2022): Use (or create) a `create_test_state` test utils function.
-fn create_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = HashMap::from([(
-        ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
-        get_contract_class(ACCOUNT_CONTRACT_PATH),
-    )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
-}
 
 fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
     let execute_calldata = Calldata(
@@ -66,13 +54,13 @@ fn get_tested_actual_fee() -> Fee {
 
 #[test]
 fn test_invoke_tx() -> TransactionExecutionResult<()> {
-    let mut state = create_test_state();
+    let mut state = create_invoke_tx_test_state();
     let tx = get_tested_valid_invoke_tx()?;
 
     // Create expected result object.
     let expected_validate_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+            class_hash: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
             calldata: tx.calldata.clone(),
@@ -114,7 +102,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
 
 #[test]
 fn test_negative_invoke_tx_flows() -> TransactionExecutionResult<()> {
-    let mut state = create_test_state();
+    let mut state = create_invoke_tx_test_state();
     let valid_tx = get_tested_valid_invoke_tx()?;
 
     // Invalid version.

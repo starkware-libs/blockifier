@@ -53,13 +53,13 @@ pub fn get_test_contract_class() -> ContractClass {
     get_contract_class(TEST_CONTRACT_PATH)
 }
 
-pub fn create_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class =
-        HashMap::from([(ClassHash(shash!(TEST_CLASS_HASH)), get_test_contract_class())]);
-    let address_to_class_hash = HashMap::from([(
-        ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
-        ClassHash(shash!(TEST_CLASS_HASH)),
-    )]);
+pub fn create_test_state_util(
+    class_hash: ClassHash,
+    contract_class: ContractClass,
+    contract_address: ContractAddress,
+) -> CachedState<DictStateReader> {
+    let class_hash_to_class = HashMap::from([(class_hash, contract_class)]);
+    let address_to_class_hash = HashMap::from([(contract_address, class_hash)]);
     CachedState::new(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
@@ -67,10 +67,26 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
+pub fn create_test_state() -> CachedState<DictStateReader> {
+    create_test_state_util(
+        ClassHash(shash!(TEST_CLASS_HASH)),
+        get_test_contract_class(),
+        ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
+    )
+}
+
 pub fn create_security_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = HashMap::from([(
+    create_test_state_util(
         ClassHash(shash!(TEST_CLASS_HASH)),
         get_contract_class(SECURITY_TEST_CONTRACT_PATH),
-    )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+        ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
+    )
+}
+
+pub fn create_invoke_tx_test_state() -> CachedState<DictStateReader> {
+    create_test_state_util(
+        ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+        get_contract_class(ACCOUNT_CONTRACT_PATH),
+        ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+    )
 }

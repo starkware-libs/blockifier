@@ -20,9 +20,8 @@ pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
-    // TODO(Noa, 18/12/22): Consider changing class_hash to be optional + add a method to extract
-    // it from the storage_address (get_non_optional_class_hash)
-    pub class_hash: ClassHash,
+    // The class hash is not given if it can be deduced from the storage address.
+    pub class_hash: Option<ClassHash>,
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     // Appears in several locations during and after execution.
@@ -54,6 +53,21 @@ impl CallEntryPoint {
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
         }
     }
+
+    pub fn validate_contract_deployed_and_get_class_hash<SR: StateReader>(
+        &self,
+        state: &mut CachedState<SR>,
+    ) -> Result<ClassHash, PreExecutionError> {
+        let storage_class_hash = *state.get_class_hash_at(self.storage_address)?;
+        if storage_class_hash == ClassHash::default() {
+            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address));
+        }
+
+        match self.class_hash {
+            Some(class_hash) => Ok(class_hash),
+            None => Ok(storage_class_hash),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -80,17 +94,18 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
     caller_address: ContractAddress,
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
+    // Ensure the class is declared (by reading it).
     let contract_class = state.get_contract_class(&class_hash)?;
     let constructor_entry_points =
         &contract_class.entry_points_by_type[&EntryPointType::Constructor];
 
     if constructor_entry_points.is_empty() {
         // Contract has no constructor.
-        return handle_empty_constructor(class_hash, storage_address, caller_address, calldata);
+        return handle_empty_constructor(storage_address, caller_address, calldata);
     }
 
     let constructor_call = CallEntryPoint {
-        class_hash,
+        class_hash: None,
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,
@@ -101,7 +116,6 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
 }
 
 pub fn handle_empty_constructor(
-    class_hash: ClassHash,
     storage_address: ContractAddress,
     caller_address: ContractAddress,
     calldata: Calldata,
@@ -116,7 +130,7 @@ pub fn handle_empty_constructor(
 
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash,
+            class_hash: None,
             entry_point_type: EntryPointType::Constructor,
             // TODO(Noa, 30/12/22):Use
             // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
