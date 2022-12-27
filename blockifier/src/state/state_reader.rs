@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -30,5 +28,5 @@ pub trait StateReader {
     -> StateReaderResult<ClassHash>;
 
     /// Returns the contract class of the given class hash.
-    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<Rc<ContractClass>>;
+    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<ContractClass>;
 }
