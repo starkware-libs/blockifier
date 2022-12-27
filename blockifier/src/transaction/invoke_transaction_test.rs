@@ -66,8 +66,7 @@ fn get_tested_actual_fee() -> Fee {
 fn test_invoke_tx() -> TransactionExecutionResult<()> {
     let mut state = create_test_state();
     let tx = get_tested_valid_invoke_tx()?;
-
-    let actual_execution_info = tx.execute(&mut state)?;
+    let calldata = Rc::new(tx.calldata.clone());
 
     // Create expected result object.
     let expected_validate_call_info = CallInfo {
@@ -75,7 +74,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
             class_hash: ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
             entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
-            calldata: tx.calldata.clone(),
+            calldata: calldata.clone(),
             storage_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS))?,
         },
         // 'account_without_some_syscalls' has a trivial `validate` function.
@@ -88,11 +87,10 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
         ..expected_validate_call_info.call.clone()
     };
 
-    let tx_calldata = tx.calldata.0;
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
         // The called EP simply returns the calldata it was given.
-        execution: CallExecution { retdata: tx_calldata[CALL_CONTRACT_CALLDATA_INDEX..].to_vec() },
+        execution: CallExecution { retdata: calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec() },
         inner_calls: vec![],
     };
 
@@ -104,6 +102,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
         actual_resources: ResourcesMapping::default(),
     };
 
+    let actual_execution_info = tx.execute(&mut state)?;
     assert_eq!(actual_execution_info, expected_execution_info);
 
     Ok(())
@@ -132,7 +131,8 @@ fn test_negative_invoke_tx_flows() -> TransactionExecutionResult<()> {
     );
 
     // Insufficient fee.
-    let invalid_tx = InvokeTransaction { max_fee: Fee(0), ..valid_tx };
+    let tx_max_fee = Fee(0);
+    let invalid_tx = InvokeTransaction { max_fee: tx_max_fee, ..valid_tx };
     let execution_error = invalid_tx.execute(&mut state).unwrap_err();
 
     // Test error.
@@ -143,7 +143,7 @@ fn test_negative_invoke_tx_flows() -> TransactionExecutionResult<()> {
             max_fee,
             actual_fee,
         })
-        if (max_fee, actual_fee) == (invalid_tx.max_fee, expected_actual_fee)
+        if (max_fee, actual_fee) == (tx_max_fee, expected_actual_fee)
     );
 
     Ok(())

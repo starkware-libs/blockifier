@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkHash;
@@ -19,7 +21,7 @@ fn trivial_external_entry_point() -> CallEntryPoint {
         class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(0)),
-        calldata: CallData(vec![]),
+        calldata: Rc::new(CallData(vec![])),
         storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
     }
 }
@@ -55,7 +57,7 @@ fn test_entry_point_without_arg() {
 #[test]
 fn test_entry_point_with_arg() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(25)]);
+    let calldata = Rc::new(CallData(vec![shash!(25)]));
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
@@ -70,7 +72,7 @@ fn test_entry_point_with_arg() {
 #[test]
 fn test_entry_point_with_builtin() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(47), shash!(31)]);
+    let calldata = Rc::new(CallData(vec![shash!(47), shash!(31)]));
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
@@ -85,7 +87,7 @@ fn test_entry_point_with_builtin() {
 #[test]
 fn test_entry_point_with_hint() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(81)]);
+    let calldata = Rc::new(CallData(vec![shash!(81)]));
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
@@ -100,7 +102,7 @@ fn test_entry_point_with_hint() {
 #[test]
 fn test_entry_point_with_return_value() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(23)]);
+    let calldata = Rc::new(CallData(vec![shash!(23)]));
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
@@ -130,7 +132,7 @@ fn test_entry_point_with_syscall() {
     let mut state = create_test_state();
     let key = shash!(1234);
     let value = shash!(18);
-    let calldata = CallData(vec![key, value]);
+    let calldata = Rc::new(CallData(vec![key, value]));
     let entry_point = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
@@ -149,13 +151,13 @@ fn test_entry_point_with_syscall() {
 #[test]
 fn test_entry_point_with_library_call() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![
+    let calldata = Rc::new(CallData(vec![
         shash!(TEST_CLASS_HASH),                  // Class hash.
         shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
         shash!(2),                                // Calldata length.
         shash!(1234),                             // Calldata: address.
         shash!(91),                               // Calldata: value.
-    ]);
+    ]));
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
         calldata,
@@ -171,14 +173,14 @@ fn test_entry_point_with_library_call() {
 fn test_entry_point_with_nested_library_call() {
     let mut state = create_test_state();
     let (key, value) = (255, 44);
-    let calldata = CallData(vec![
+    let calldata = Rc::new(CallData(vec![
         shash!(TEST_CLASS_HASH),                  // Class hash.
         shash!(TEST_LIBRARY_CALL_SELECTOR),       // Library call function selector.
         shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
         shash!(2),                                // Calldata length.
         shash!(key),                              // Calldata: address.
         shash!(value),                            // Calldata: value.
-    ]);
+    ]));
 
     // Create expected call info tree.
     let main_entry_point = CallEntryPoint {
@@ -188,22 +190,22 @@ fn test_entry_point_with_nested_library_call() {
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
-        calldata: CallData(vec![shash!(key + 1), shash!(value + 1)]),
+        calldata: Rc::new(CallData(vec![shash!(key + 1), shash!(value + 1)])),
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
-        calldata: CallData(vec![
+        calldata: Rc::new(CallData(vec![
             shash!(TEST_CLASS_HASH),                  // Class hash.
             shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
             shash!(2),                                // Calldata length.
             shash!(key + 1),                          // Calldata: address.
             shash!(value + 1),                        // Calldata: value.
-        ]),
+        ])),
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
-        calldata: CallData(vec![shash!(key), shash!(value)]),
+        calldata: Rc::new(CallData(vec![shash!(key), shash!(value)])),
         ..nested_storage_entry_point.clone()
     };
     let nested_storage_call_info = CallInfo {
@@ -234,13 +236,13 @@ fn test_entry_point_with_nested_library_call() {
 #[test]
 fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![
+    let calldata = Rc::new(CallData(vec![
         shash!(TEST_CLASS_HASH), // Class hash.
         shash!(1),               // Contract_address_salt.
         shash!(2),               // Calldata length.
         shash!(1),               // Calldata: address.
         shash!(1),               // Calldata: value.
-    ]);
+    ]));
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
         calldata,
@@ -258,13 +260,13 @@ fn test_entry_point_with_deploy_with_constructor() {
 #[test]
 fn test_entry_point_with_call_contract() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![
+    let calldata = Rc::new(CallData(vec![
         shash!(TEST_CONTRACT_ADDRESS),            // Contract address.
         shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
         shash!(2),                                // Calldata length.
         shash!(405),                              // Calldata: address.
         shash!(48),                               // Calldata: value.
-    ]);
+    ]));
     let entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_CALL_CONTRACT_SELECTOR)),
         calldata,

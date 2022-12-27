@@ -1,8 +1,10 @@
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use std::rc::Rc;
+
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkHash;
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::{Fee, InvokeTransaction};
+use starknet_api::transaction::{CallData, Fee, InvokeTransaction};
 
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::cached_state::{CachedState, DictStateReader};
@@ -21,7 +23,8 @@ use crate::transaction::ExecuteTransaction;
 mod test;
 
 pub fn validate_tx(
-    tx: &InvokeTransaction,
+    storage_address: ContractAddress,
+    calldata: Rc<CallData>,
     state: &mut CachedState<DictStateReader>,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
@@ -31,16 +34,17 @@ pub fn validate_tx(
             VALIDATE_ENTRY_POINT_SELECTOR,
         )?),
         // Gets the same calldata as the execution itself.
-        calldata: tx.calldata.clone(),
+        calldata,
         class_hash,
-        storage_address: tx.sender_address,
+        storage_address,
     };
 
     Ok(validate_call.execute(state)?)
 }
 
 pub fn execute_tx(
-    tx: &InvokeTransaction,
+    storage_address: ContractAddress,
+    calldata: Rc<CallData>,
     state: &mut CachedState<DictStateReader>,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
@@ -49,24 +53,24 @@ pub fn execute_tx(
         entry_point_selector: EntryPointSelector(StarkHash::try_from(
             EXECUTE_ENTRY_POINT_SELECTOR,
         )?),
-        calldata: tx.calldata.clone(),
+        calldata,
         class_hash,
-        storage_address: tx.sender_address,
+        storage_address,
     };
 
     Ok(execute_call.execute(state)?)
 }
 
-pub fn charge_fee(tx: &InvokeTransaction) -> TransactionExecutionResult<(Fee, CallInfo)> {
+pub fn charge_fee(max_fee: Fee) -> TransactionExecutionResult<(Fee, CallInfo)> {
     let actual_fee = calculate_tx_fee();
-    let fee_transfer_call_info = execute_fee_transfer(actual_fee, tx.max_fee)?;
+    let fee_transfer_call_info = execute_fee_transfer(actual_fee, max_fee)?;
 
     Ok((actual_fee, fee_transfer_call_info))
 }
 
 impl ExecuteTransaction for InvokeTransaction {
     fn execute(
-        &self,
+        self,
         state: &mut CachedState<DictStateReader>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Adi, 10/12/2022): Consider moving the transaction version verification to the
@@ -74,17 +78,19 @@ impl ExecuteTransaction for InvokeTransaction {
         verify_tx_version(self.version)?;
         // TODO (Adi, 25/12/2022): Replace with 'get_class_hash_at' once it is implemented.
         let class_hash = ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+        let calldata = Rc::new(self.calldata);
 
         // Validate transaction.
-        let validate_call_info = validate_tx(self, state, class_hash)?;
+        let validate_call_info =
+            validate_tx(self.sender_address, calldata.clone(), state, class_hash)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(self, state, class_hash)?;
+        let execute_call_info = execute_tx(self.sender_address, calldata, state, class_hash)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
         let actual_resources = ResourcesMapping::default();
-        let (actual_fee, fee_transfer_call_info) = charge_fee(self)?;
+        let (actual_fee, fee_transfer_call_info) = charge_fee(self.max_fee)?;
 
         Ok(TransactionExecutionInfo {
             validate_call_info,

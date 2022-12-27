@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
@@ -128,7 +130,7 @@ impl CallContractRequest {
             class_hash,
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
-            calldata: self.calldata,
+            calldata: Rc::new(self.calldata),
             storage_address: self.contract_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
@@ -176,7 +178,7 @@ impl LibraryCallRequest {
             class_hash: self.class_hash,
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
-            calldata: self.calldata,
+            calldata: Rc::new(self.calldata),
             storage_address: syscall_handler.storage_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
@@ -214,7 +216,7 @@ impl DeployRequest {
         }))
     }
 
-    pub fn execute(&self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
+    pub fn execute(self, syscall_handler: &mut SyscallHandler) -> SyscallExecutionResult {
         let deployer_address = match self.deploy_from_zero {
             true => ContractAddress::default(),
             false => syscall_handler.storage_address,
@@ -233,7 +235,7 @@ impl DeployRequest {
             &mut syscall_handler.state,
             self.class_hash,
             contract_address,
-            &self.constructor_calldata,
+            self.constructor_calldata,
         )?;
         syscall_handler.inner_calls.push(call_info);
 
