@@ -62,6 +62,9 @@ pub fn initialize_execution_context(
     // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
     let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
 
+    // Resolve initial PC from EP indicator.
+    let entry_point_pc = call_entry_point.resolve_entry_point_pc(contract_class)?;
+
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
     let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
@@ -70,9 +73,6 @@ pub fn initialize_execution_context(
     cairo_runner.initialize_segments(&mut vm, None);
     let (syscall_segment, hint_processor) =
         initialize_syscall_handler(&mut cairo_runner, &mut vm, state, call_entry_point);
-
-    // Resolve initial PC from EP indicator.
-    let entry_point_pc = call_entry_point.resolve_entry_point_pc(&contract_class)?;
 
     Ok(ExecutionContext {
         runner: cairo_runner,
