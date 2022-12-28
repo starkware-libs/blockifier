@@ -4,11 +4,12 @@ use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::StorageKey;
+use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::{StateError, StateReaderError};
 use crate::state::state_reader::{StateReader, StateReaderResult};
+use crate::utils::subtract_mappings;
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -129,6 +130,35 @@ impl<SR: StateReader> CachedState<SR> {
 
         self.cache.set_class_hash_write(contract_address, class_hash);
         Ok(())
+    }
+}
+
+impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
+    fn from(cached_state: CachedState<SR>) -> Self {
+        let state_cache = cached_state.cache;
+
+        let deployed_contracts = subtract_mappings(
+            &state_cache.class_hash_writes,
+            &state_cache.class_hash_initial_values,
+        );
+
+        let storage_diffs =
+            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
+
+        let mut declared_classes = IndexMap::new();
+        for (class_hash, contract_class) in cached_state.class_hash_to_class {
+            declared_classes.insert(class_hash, contract_class.into());
+        }
+
+        let nonces =
+            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
+
+        Self {
+            deployed_contracts: IndexMap::from_iter(deployed_contracts),
+            storage_diffs: StorageView(storage_diffs).into(),
+            declared_classes,
+            nonces: IndexMap::from_iter(nonces),
+        }
     }
 }
 
