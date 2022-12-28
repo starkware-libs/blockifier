@@ -131,6 +131,24 @@ impl<SR: StateReader> CachedState<SR> {
         self.cache.set_class_hash_write(contract_address, class_hash);
         Ok(())
     }
+
+    // TODO(Gilad): Consider making a MockedState that includes this and the create_test_state
+    // functions once we add a State trait (that CachedState and MockedState will implement).
+    #[cfg(test)]
+    fn set_initial_values(
+        &mut self,
+        class_hash_to_class: ContractClassMapping,
+        nonce_initial_values: HashMap<ContractAddress, Nonce>,
+        class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
+        storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    ) {
+        assert!(self.cache == StateCache::default(), "Cache already initialized.");
+
+        self.class_hash_to_class = class_hash_to_class;
+        self.cache.class_hash_initial_values.extend(class_hash_initial_values);
+        self.cache.nonce_initial_values.extend(nonce_initial_values);
+        self.cache.storage_initial_values.extend(storage_initial_values);
+    }
 }
 
 impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
@@ -229,7 +247,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 
 /// Caches read and write requests.
 // Invariant: cannot delete keys from fields.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
