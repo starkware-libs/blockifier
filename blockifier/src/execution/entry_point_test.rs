@@ -36,7 +36,7 @@ fn test_call_info() {
     let expected_call_info = CallInfo {
         call: entry_point_call.clone(),
         execution: CallExecution { retdata: vec![] },
-        ..CallInfo::default()
+        ..Default::default()
     };
     assert_eq!(entry_point_call.execute(&mut state).unwrap(), expected_call_info);
 }
@@ -220,24 +220,24 @@ fn test_entry_point_with_nested_library_call() {
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution { retdata: vec![shash!(value + 1)] },
-        ..CallInfo::default()
+        ..Default::default()
     };
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution { retdata: vec![shash!(value + 1)] },
         inner_calls: vec![nested_storage_call_info],
-        ..CallInfo::default()
+        ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
         execution: CallExecution { retdata: vec![shash!(value)] },
-        ..CallInfo::default()
+        ..Default::default()
     };
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution { retdata: vec![shash!(0)] },
         inner_calls: vec![library_call_info, storage_call_info],
-        ..CallInfo::default()
+        ..Default::default()
     };
 
     assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
