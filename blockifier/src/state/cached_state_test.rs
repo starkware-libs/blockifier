@@ -178,3 +178,126 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
         StateError::OutOfRangeContractAddress
     );
 }
+
+#[test]
+fn cached_state_state_diff_conversion_no_writes_at_all() {
+    // Setup
+    let mut state = create_test_state();
+    let class_hash_to_class =
+        HashMap::from([(ClassHash(shash!(TEST_CLASS_HASH)), get_test_contract_class())]);
+    let class_hash_initial_values = state.state_reader.address_to_class_hash.clone();
+    let storage_initial_values = HashMap::from([
+        ((ContractAddress(patky!("0x100")), StorageKey(patky!("0x10"))), shash!("0x1")),
+        ((ContractAddress(patky!("0x200")), StorageKey(patky!("0x20"))), shash!("0x5")),
+    ]);
+    let nonce_initial_values = HashMap::from([
+        (ContractAddress(patky!("0x300")), Nonce(shash!("0x1"))),
+        (ContractAddress(patky!("0x400")), Nonce(shash!("0x1"))),
+    ]);
+    state.set_initial_values(
+        class_hash_to_class,
+        nonce_initial_values,
+        class_hash_initial_values,
+        storage_initial_values,
+    );
+
+    // Only class_cache passes through to state_diff.
+    let test_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
+    let expected_state_diff = StateDiff {
+        declared_classes: IndexMap::from_iter([(
+            test_class_hash,
+            get_test_contract_class().into(),
+        )]),
+        ..StateDiff::default()
+    };
+
+    assert_eq!(expected_state_diff, StateDiff::from(state));
+}
+
+#[test]
+fn cached_state_state_diff_conversion_writes_same_as_initial_values() {
+    // Setup
+    let mut state = create_test_state();
+    let contract_address = ContractAddress(patky!("0x200"));
+    let key = StorageKey(patky!("0x20"));
+    let storage_val: StarkFelt = shash!("0x5");
+    let class_hash_to_class =
+        HashMap::from([(ClassHash(shash!(TEST_CLASS_HASH)), get_test_contract_class())]);
+    let class_hash_initial_values = state.state_reader.address_to_class_hash.clone();
+    let storage_initial_values = HashMap::from([
+        ((contract_address, key), storage_val),
+        ((ContractAddress(patky!("0x200")), StorageKey(patky!("0x20"))), shash!("0x5")),
+    ]);
+    let nonce_initial_values = HashMap::from([
+        (ContractAddress(patky!("0x300")), Nonce(shash!("0x1"))),
+        (ContractAddress(patky!("0x400")), Nonce(shash!("0x1"))),
+    ]);
+    state.set_initial_values(
+        class_hash_to_class,
+        nonce_initial_values,
+        class_hash_initial_values,
+        storage_initial_values,
+    );
+
+    state.set_storage_at(contract_address, key, shash!("0x12345678"));
+    state.set_storage_at(contract_address, key, storage_val);
+
+    // Only class_cache passes through to state_diff.
+    let test_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
+    let expected_state_diff = StateDiff {
+        declared_classes: IndexMap::from_iter([(
+            test_class_hash,
+            get_test_contract_class().into(),
+        )]),
+        ..StateDiff::default()
+    };
+
+    assert_eq!(expected_state_diff, StateDiff::from(state));
+}
+
+#[test]
+fn cached_state_state_diff_conversion_some_writes_not_as_initial() {
+    // Setup
+    let mut state = create_test_state();
+    let contract_address0 = ContractAddress(patky!("0x100"));
+    let contract_address1 = ContractAddress(patky!("0x200"));
+    let key0 = StorageKey(patky!("0x10"));
+    let key1 = StorageKey(patky!("0x20"));
+    let storage_val0: StarkFelt = shash!("0x1");
+    let storage_val1: StarkFelt = shash!("0x5");
+    let class_hash_to_class =
+        HashMap::from([(ClassHash(shash!(TEST_CLASS_HASH)), get_test_contract_class())]);
+    let class_hash_initial_values = state.state_reader.address_to_class_hash.clone();
+    let storage_initial_values = HashMap::from([
+        ((contract_address0, key0), storage_val0),
+        ((contract_address1, key1), storage_val1),
+    ]);
+    let nonce_initial_values = HashMap::from([
+        (ContractAddress(patky!("0x300")), Nonce(shash!("0x1"))),
+        (ContractAddress(patky!("0x400")), Nonce(shash!("0x1"))),
+    ]);
+    state.set_initial_values(
+        class_hash_to_class,
+        nonce_initial_values,
+        class_hash_initial_values,
+        storage_initial_values,
+    );
+
+    // Write to storage, one value is the same, one is different.
+    state.set_storage_at(contract_address0, key0, storage_val0);
+    let new_value = shash!("0x12345678");
+    state.set_storage_at(contract_address1, key1, new_value);
+
+    // Only class_cache passes through to state_diff.
+    let test_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
+    let expected_state_diff = StateDiff {
+        declared_classes: IndexMap::from_iter([(
+            test_class_hash,
+            get_test_contract_class().into(),
+        )]),
+        storage_diffs: IndexMap::from_iter([(contract_address1, indexmap! {key1 => new_value})]),
+        ..StateDiff::default()
+    };
+
+    assert_eq!(expected_state_diff, StateDiff::from(state));
+}
