@@ -3,7 +3,9 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
-use starknet_api::transaction::{CallData, EventContent, EventData, EventKey};
+use starknet_api::transaction::{
+    CallData, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
+};
 
 use super::syscall_handling::read_felt_array;
 use crate::execution::contract_address::calculate_contract_address;
@@ -24,6 +26,7 @@ pub const CALL_CONTRACT_SELECTOR_BYTES: &[u8] = b"CallContract";
 pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
 pub const EMIT_EVENT_SELECTOR_BYTES: &[u8] = b"EmitEvent";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
+pub const SEND_MESSAGE_TO_L1_SELECTOR_BYTES: &[u8] = b"SendMessageToL1";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
 pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 
@@ -39,13 +42,17 @@ impl EmptyResponse {
     }
 }
 
-// TODO(AlonH, 21/12/2022): Couple all size constants with Cairo structs from the code.
-pub const STORAGE_READ_REQUEST_SIZE: usize = 1;
+pub const EMPTY_RESPONSE_SIZE: usize = 0;
+
+/// StorageRead syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {
     pub address: StorageKey,
 }
+
+// TODO(AlonH, 21/12/2022): Couple all size constants with Cairo structs from the code.
+pub const STORAGE_READ_REQUEST_SIZE: usize = 1;
 
 impl StorageReadRequest {
     pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
@@ -61,12 +68,12 @@ impl StorageReadRequest {
     }
 }
 
-pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadResponse {
     pub value: StarkFelt,
 }
+
+pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
 
 impl StorageReadResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
@@ -74,6 +81,8 @@ impl StorageReadResponse {
         Ok(())
     }
 }
+
+/// StorageWrite syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
@@ -101,9 +110,9 @@ impl StorageWriteRequest {
     }
 }
 
-pub const STORAGE_WRITE_RESPONSE_SIZE: usize = 0;
+pub const STORAGE_WRITE_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
 
-pub type StorageWriteResponse = EmptyResponse;
+/// CallContract syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct CallContractRequest {
@@ -155,6 +164,8 @@ impl CallContractResponse {
     }
 }
 
+/// LibraryCall syscall.
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct LibraryCallRequest {
     pub class_hash: ClassHash,
@@ -193,6 +204,8 @@ impl LibraryCallRequest {
 pub type LibraryCallResponse = CallContractResponse;
 
 pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
+
+/// Deploy syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeployRequest {
@@ -252,8 +265,8 @@ pub struct DeployResponse {
     pub contract_address: ContractAddress,
 }
 
-// The Cairo struct contains three fields: `contract_address`,·
-// `constructor_retdata_size`, `constructor_retdata`.
+// The Cairo struct contains three fields: `contract_address`, `constructor_retdata_size`,
+// `constructor_retdata`.
 // Nonempty c-tor retdata is currently not supported.
 pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 
@@ -263,6 +276,8 @@ impl DeployResponse {
         write_retdata(vm, &(ptr + 1), vec![])
     }
 }
+
+/// EmitEvent syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmitEventRequest {
@@ -288,7 +303,34 @@ impl EmitEventRequest {
     }
 }
 
-pub const EMIT_EVENT_RESPONSE_SIZE: usize = 0;
+pub const EMIT_EVENT_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
+
+/// SendMessageToL1 syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SendMessageToL1Request {
+    pub message: MessageToL1,
+}
+
+// The Cairo struct contains three fields: `to_address`, `payload_size`, `payload_ptr`.
+pub const SEND_MESSAGE_TO_L1_REQUEST_SIZE: usize = 3;
+
+impl SendMessageToL1Request {
+    pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
+        let to_address = EthAddress::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let payload = L2ToL1Payload(read_felt_array(vm, &(ptr + 1))?);
+        let message = MessageToL1 { to_address, payload };
+
+        Ok(SyscallRequest::SendMessageToL1(SendMessageToL1Request { message }))
+    }
+
+    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+        syscall_handler.l2_to_l1_messages.push(self.message);
+        Ok(SyscallResponse::SendMessageToL1(EmptyResponse))
+    }
+}
+
+pub const SEND_MESSAGE_TO_L1_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum SyscallRequest {
@@ -296,6 +338,7 @@ pub enum SyscallRequest {
     Deploy(DeployRequest),
     EmitEvent(EmitEventRequest),
     LibraryCall(LibraryCallRequest),
+    SendMessageToL1(SendMessageToL1Request),
     StorageRead(StorageReadRequest),
     StorageWrite(StorageWriteRequest),
 }
@@ -310,6 +353,7 @@ impl SyscallRequest {
             DEPLOY_SELECTOR_BYTES => DeployRequest::read(vm, ptr),
             EMIT_EVENT_SELECTOR_BYTES => EmitEventRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
+            SEND_MESSAGE_TO_L1_SELECTOR_BYTES => SendMessageToL1Request::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
             _ => Err(SyscallExecutionError::InvalidSyscallSelector(selector)),
@@ -322,6 +366,7 @@ impl SyscallRequest {
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),
             SyscallRequest::EmitEvent(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
+            SyscallRequest::SendMessageToL1(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
             SyscallRequest::StorageWrite(request) => request.execute(syscall_handler),
         }
@@ -333,6 +378,7 @@ impl SyscallRequest {
             SyscallRequest::Deploy(_) => DEPLOY_REQUEST_SIZE,
             SyscallRequest::EmitEvent(_) => EMIT_EVENT_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
+            SyscallRequest::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
             SyscallRequest::StorageWrite(_) => STORAGE_WRITE_REQUEST_SIZE,
         }
@@ -345,6 +391,7 @@ pub enum SyscallResponse {
     Deploy(DeployResponse),
     EmitEvent(EmptyResponse),
     LibraryCall(LibraryCallResponse),
+    SendMessageToL1(EmptyResponse),
     StorageRead(StorageReadResponse),
     StorageWrite(EmptyResponse),
 }
@@ -356,6 +403,7 @@ impl SyscallResponse {
             SyscallResponse::Deploy(response) => response.write(vm, ptr),
             SyscallResponse::EmitEvent(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
+            SyscallResponse::SendMessageToL1(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
             SyscallResponse::StorageWrite(response) => response.write(vm, ptr),
         }
@@ -367,6 +415,7 @@ impl SyscallResponse {
             SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
             SyscallResponse::EmitEvent(_) => EMIT_EVENT_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
+            SyscallResponse::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
             SyscallResponse::StorageWrite(_) => STORAGE_WRITE_RESPONSE_SIZE,
         }
