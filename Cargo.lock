@@ -213,7 +213,7 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "cairo-rs"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#54c154b08fac09fd8e3665cb1a9d84c3c85f2101"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#12fe3a522f435e7b1c931c2a06993281c74041f4"
 dependencies = [
  "bincode",
  "clap",
@@ -1206,7 +1206,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#54c154b08fac09fd8e3665cb1a9d84c3c85f2101"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#12fe3a522f435e7b1c931c2a06993281c74041f4"
 dependencies = [
  "nom",
 ]
@@ -1809,7 +1809,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api#f75c4e2686446102f40d9a435708c8fb1f4ff38f"
+source = "git+https://github.com/starkware-libs/starknet-api#b9127a772a8bced1c91c507e66347ca154ff67ae"
 dependencies = [
  "derive_more",
  "hex",

@@ -174,7 +174,7 @@ pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Ca
         Some(ptr) => ptr,
         None => return Err(VirtualMachineError::NoneInMemoryRange.into()),
     };
-    let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?);
+    let calldata = CallData(get_felt_range(vm, &calldata_ptr, calldata_size.try_into()?)?.into());
 
     Ok(calldata)
 }

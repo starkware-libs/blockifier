@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
@@ -25,7 +23,7 @@ pub struct CallEntryPoint {
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     // Appears in several locations during and after execution.
-    pub calldata: Rc<CallData>,
+    pub calldata: CallData,
     pub storage_address: ContractAddress,
 }
 
@@ -85,7 +83,7 @@ pub fn execute_constructor_entry_point(
         class_hash,
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
-        calldata: calldata.into(),
+        calldata,
         storage_address,
     };
     constructor_call.execute(state)
@@ -111,7 +109,7 @@ pub fn handle_empty_constructor(
             // TODO(Noa, 30/12/22):Use
             // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
             entry_point_selector: EntryPointSelector(StarkHash::default()),
-            calldata: CallData::default().into(),
+            calldata: CallData::default(),
             storage_address,
         },
         execution: CallExecution { retdata: vec![] },
