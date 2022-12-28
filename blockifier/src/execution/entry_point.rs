@@ -1,7 +1,7 @@
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::{CallData, EventContent};
+use starknet_api::transaction::{CallData, EventContent, MessageToL1};
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -63,6 +63,7 @@ pub struct CallInfo {
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
     pub events: Vec<EventContent>,
+    pub l2_to_l1_messages: Vec<MessageToL1>,
 }
 
 pub fn execute_constructor_entry_point(
@@ -113,9 +114,7 @@ pub fn handle_empty_constructor(
             calldata: CallData::default(),
             storage_address,
         },
-        execution: CallExecution { retdata: vec![] },
-        inner_calls: vec![],
-        events: vec![],
+        ..Default::default()
     };
 
     Ok(empty_constructor_call_info)
