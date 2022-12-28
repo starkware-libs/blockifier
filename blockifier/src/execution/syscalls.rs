@@ -128,7 +128,7 @@ impl CallContractRequest {
             class_hash,
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
-            calldata: self.calldata.into(),
+            calldata: self.calldata,
             storage_address: self.contract_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
@@ -176,7 +176,7 @@ impl LibraryCallRequest {
             class_hash: self.class_hash,
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
-            calldata: self.calldata.into(),
+            calldata: self.calldata,
             storage_address: syscall_handler.storage_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
