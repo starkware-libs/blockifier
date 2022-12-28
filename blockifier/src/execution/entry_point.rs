@@ -3,7 +3,7 @@ use std::rc::Rc;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::CallData;
+use starknet_api::transaction::{CallData, EventContent};
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -64,6 +64,7 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+    pub events: Vec<EventContent>,
 }
 
 pub fn execute_constructor_entry_point(
@@ -116,6 +117,7 @@ pub fn handle_empty_constructor(
         },
         execution: CallExecution { retdata: vec![] },
         inner_calls: vec![],
+        events: vec![],
     };
 
     Ok(empty_constructor_call_info)

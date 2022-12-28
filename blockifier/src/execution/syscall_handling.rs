@@ -14,7 +14,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::CallData;
+use starknet_api::transaction::{CallData, EventContent};
 
 use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
@@ -33,6 +33,7 @@ pub struct SyscallHintProcessor<'a> {
     pub storage_address: ContractAddress,
     /// Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
+    pub events: Vec<EventContent>,
     builtin_hint_processor: BuiltinHintProcessor,
 }
 
@@ -51,6 +52,7 @@ impl<'a> SyscallHintProcessor<'a> {
             expected_syscall_ptr: initial_syscall_ptr,
             state,
             inner_calls: vec![],
+            events: vec![],
             storage_address,
             builtin_hint_processor,
         }
