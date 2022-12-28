@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use assert_matches::assert_matches;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
@@ -35,12 +34,15 @@ fn create_test_state() -> CachedState<DictStateReader> {
 }
 
 fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
-    let execute_calldata = CallData(vec![
-        StarkFelt::try_from(TEST_CONTRACT_ADDRESS)?, // Contract address.
-        StarkFelt::try_from(RETURN_RESULT_SELECTOR)?, // EP selector.
-        StarkFelt::from(1),                          // Calldata length.
-        StarkFelt::from(0),                          // Calldata.
-    ]);
+    let execute_calldata = CallData(
+        vec![
+            StarkFelt::try_from(TEST_CONTRACT_ADDRESS)?, // Contract address.
+            StarkFelt::try_from(RETURN_RESULT_SELECTOR)?, // EP selector.
+            StarkFelt::from(1),                          // Calldata length.
+            StarkFelt::from(0),                          // Calldata.
+        ]
+        .into(),
+    );
 
     let invoke_tx = InvokeTransaction {
         transaction_hash: TransactionHash(StarkHash::default()),
@@ -66,7 +68,6 @@ fn get_tested_actual_fee() -> Fee {
 fn test_invoke_tx() -> TransactionExecutionResult<()> {
     let mut state = create_test_state();
     let tx = get_tested_valid_invoke_tx()?;
-    let calldata: Rc<CallData> = tx.calldata.clone().into();
 
     // Create expected result object.
     let expected_validate_call_info = CallInfo {
@@ -74,7 +75,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
             class_hash: ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
             entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
-            calldata: calldata.clone(),
+            calldata: tx.calldata.clone(),
             storage_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS))?,
         },
         // 'account_without_some_syscalls' has a trivial `validate` function.
@@ -90,7 +91,9 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
         // The called EP simply returns the calldata it was given.
-        execution: CallExecution { retdata: calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec() },
+        execution: CallExecution {
+            retdata: tx.calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec(),
+        },
         inner_calls: vec![],
     };
 
