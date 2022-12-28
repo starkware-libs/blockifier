@@ -29,7 +29,7 @@ use crate::transaction::ExecuteTransaction;
 fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([(
         ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
-        Rc::new(get_contract_class(ACCOUNT_CONTRACT_PATH)),
+        get_contract_class(ACCOUNT_CONTRACT_PATH),
     )]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
 }
