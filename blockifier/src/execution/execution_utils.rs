@@ -166,6 +166,7 @@ pub fn finalize_execution(
         call: call_entry_point,
         execution: CallExecution { retdata: extract_execution_retdata(vm)? },
         inner_calls: syscall_handler.inner_calls,
+        events: syscall_handler.events,
     })
 }
 

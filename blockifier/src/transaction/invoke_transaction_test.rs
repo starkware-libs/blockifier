@@ -80,7 +80,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
         },
         // 'account_without_some_syscalls' has a trivial `validate` function.
         execution: CallExecution { retdata: vec![] },
-        inner_calls: vec![],
+        ..CallInfo::default()
     };
 
     let expected_execute_call = CallEntryPoint {
@@ -94,7 +94,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
         execution: CallExecution {
             retdata: tx.calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec(),
         },
-        inner_calls: vec![],
+        ..CallInfo::default()
     };
 
     let expected_execution_info = TransactionExecutionInfo {
