@@ -3,8 +3,9 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
-use starknet_api::transaction::CallData;
+use starknet_api::transaction::{CallData, EventContent, EventData, EventKey};
 
+use super::syscall_handling::read_felt_array;
 use crate::execution::contract_address::calculate_contract_address;
 use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint};
 use crate::execution::errors::SyscallExecutionError;
@@ -21,12 +22,16 @@ pub type WriteResponseResult = SyscallResult<()>;
 
 pub const CALL_CONTRACT_SELECTOR_BYTES: &[u8] = b"CallContract";
 pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
+pub const EMIT_EVENT_SELECTOR_BYTES: &[u8] = b"EmitEvent";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
 pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 
+// The array metadata contains its size and its starting pointer.
+const ARRAY_METADATA_SIZE: i32 = 2;
+
 #[derive(Debug, Eq, PartialEq)]
-pub struct EmptyResponse {}
+pub struct EmptyResponse;
 
 impl EmptyResponse {
     pub fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
@@ -92,7 +97,7 @@ impl StorageWriteRequest {
             self.address,
             self.value,
         );
-        Ok(SyscallResponse::StorageWrite(EmptyResponse {}))
+        Ok(SyscallResponse::StorageWrite(EmptyResponse))
     }
 }
 
@@ -204,7 +209,8 @@ impl DeployRequest {
         let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
         let contract_address_salt = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
         let constructor_calldata = read_calldata(vm, &(ptr + 2))?;
-        let deploy_from_zero = felt_to_bool(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 4))?)?)?;
+        let next_ptr = ptr + 2 + ARRAY_METADATA_SIZE;
+        let deploy_from_zero = felt_to_bool(get_felt_from_memory_cell(vm.get_maybe(&next_ptr)?)?)?;
 
         Ok(SyscallRequest::Deploy(DeployRequest {
             class_hash,
@@ -259,9 +265,36 @@ impl DeployResponse {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct EmitEventRequest {
+    pub content: EventContent,
+}
+
+// The Cairo struct contains four fields (other than `selector`): `keys_len`, `keys`, `data_len`,
+// `data`·
+pub const EMIT_EVENT_REQUEST_SIZE: usize = 4;
+
+impl EmitEventRequest {
+    pub fn read(vm: &VirtualMachine, ptr: &Relocatable) -> ReadRequestResult {
+        let keys = read_felt_array(vm, ptr)?.into_iter().map(EventKey).collect();
+        let data = EventData(read_felt_array(vm, &(ptr + ARRAY_METADATA_SIZE))?);
+        let content = EventContent { keys, data };
+
+        Ok(SyscallRequest::EmitEvent(EmitEventRequest { content }))
+    }
+
+    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+        syscall_handler.events.push(self.content);
+        Ok(SyscallResponse::EmitEvent(EmptyResponse))
+    }
+}
+
+pub const EMIT_EVENT_RESPONSE_SIZE: usize = 0;
+
+#[derive(Debug, Eq, PartialEq)]
 pub enum SyscallRequest {
     CallContract(CallContractRequest),
     Deploy(DeployRequest),
+    EmitEvent(EmitEventRequest),
     LibraryCall(LibraryCallRequest),
     StorageRead(StorageReadRequest),
     StorageWrite(StorageWriteRequest),
@@ -275,6 +308,7 @@ impl SyscallRequest {
         match &selector_bytes[first_non_zero..32] {
             CALL_CONTRACT_SELECTOR_BYTES => CallContractRequest::read(vm, ptr),
             DEPLOY_SELECTOR_BYTES => DeployRequest::read(vm, ptr),
+            EMIT_EVENT_SELECTOR_BYTES => EmitEventRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
             STORAGE_WRITE_SELECTOR_BYTES => StorageWriteRequest::read(vm, ptr),
@@ -286,6 +320,7 @@ impl SyscallRequest {
         match self {
             SyscallRequest::CallContract(request) => request.execute(syscall_handler),
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),
+            SyscallRequest::EmitEvent(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
             SyscallRequest::StorageWrite(request) => request.execute(syscall_handler),
@@ -296,6 +331,7 @@ impl SyscallRequest {
         match self {
             SyscallRequest::CallContract(_) => CALL_CONTRACT_REQUEST_SIZE,
             SyscallRequest::Deploy(_) => DEPLOY_REQUEST_SIZE,
+            SyscallRequest::EmitEvent(_) => EMIT_EVENT_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
             SyscallRequest::StorageWrite(_) => STORAGE_WRITE_REQUEST_SIZE,
@@ -307,6 +343,7 @@ impl SyscallRequest {
 pub enum SyscallResponse {
     CallContract(CallContractResponse),
     Deploy(DeployResponse),
+    EmitEvent(EmptyResponse),
     LibraryCall(LibraryCallResponse),
     StorageRead(StorageReadResponse),
     StorageWrite(EmptyResponse),
@@ -317,6 +354,7 @@ impl SyscallResponse {
         match self {
             SyscallResponse::CallContract(response) => response.write(vm, ptr),
             SyscallResponse::Deploy(response) => response.write(vm, ptr),
+            SyscallResponse::EmitEvent(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
             SyscallResponse::StorageWrite(response) => response.write(vm, ptr),
@@ -327,6 +365,7 @@ impl SyscallResponse {
         match self {
             SyscallResponse::CallContract(_) => CALL_CONTRACT_RESPONSE_SIZE,
             SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
+            SyscallResponse::EmitEvent(_) => EMIT_EVENT_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
             SyscallResponse::StorageWrite(_) => STORAGE_WRITE_RESPONSE_SIZE,
