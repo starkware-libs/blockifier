@@ -125,7 +125,7 @@ pub fn add_syscall_hints(hint_processor: &mut BuiltinHintProcessor) {
 pub fn initialize_syscall_handler(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
-    state: &mut CachedState<DictStateReader>,
+    state: &CachedState<DictStateReader>,
     call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, BuiltinHintProcessor) {
     let syscall_segment = vm.add_memory_segment();
