@@ -98,7 +98,7 @@ pub fn handle_empty_constructor(
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
     if calldata.0.is_empty() {
-        return Err(EntryPointExecutionError::InvalidExecutationInput {
+        return Err(EntryPointExecutionError::InvalidExecutionInput {
             input: StarkFelt::from(calldata.0.len() as u64),
             info: String::from("Cannot pass calldata to a contract with no constructor."),
         });
