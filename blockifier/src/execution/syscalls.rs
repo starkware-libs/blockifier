@@ -4,7 +4,7 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
-    CallData, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
+    Calldata, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
 };
 
 use crate::execution::contract_address::calculate_contract_address;
@@ -125,7 +125,7 @@ pub const STORAGE_WRITE_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
 pub struct CallContractRequest {
     pub contract_address: ContractAddress,
     pub function_selector: EntryPointSelector,
-    pub calldata: CallData,
+    pub calldata: Calldata,
 }
 
 pub const CALL_CONTRACT_REQUEST_SIZE: usize = 4;
@@ -180,7 +180,7 @@ impl CallContractResponse {
 pub struct LibraryCallRequest {
     pub class_hash: ClassHash,
     pub function_selector: EntryPointSelector,
-    pub calldata: CallData,
+    pub calldata: Calldata,
 }
 
 pub const LIBRARY_CALL_REQUEST_SIZE: usize = 4;
@@ -224,7 +224,7 @@ pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
 pub struct DeployRequest {
     pub class_hash: ClassHash,
     pub contract_address_salt: StarkFelt,
-    pub constructor_calldata: CallData,
+    pub constructor_calldata: Calldata,
     pub deploy_from_zero: bool,
 }
 

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::{CallData, EventContent, MessageToL1};
+use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -26,7 +26,7 @@ pub struct CallEntryPoint {
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     // Appears in several locations during and after execution.
-    pub calldata: CallData,
+    pub calldata: Calldata,
     pub storage_address: ContractAddress,
 }
 
@@ -76,7 +76,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
     state: &mut CachedState<SR>,
     class_hash: ClassHash,
     storage_address: ContractAddress,
-    calldata: CallData,
+    calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     let contract_class = state.get_contract_class(&class_hash)?;
     let constructor_entry_points =
@@ -100,7 +100,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
 pub fn handle_empty_constructor(
     class_hash: ClassHash,
     storage_address: ContractAddress,
-    calldata: CallData,
+    calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
     if calldata.0.is_empty() {
@@ -117,7 +117,7 @@ pub fn handle_empty_constructor(
             // TODO(Noa, 30/12/22):Use
             // get_selector_from_name(func_name=CONSTRUCTOR_ENTRY_POINT_NAME).
             entry_point_selector: EntryPointSelector(StarkHash::default()),
-            calldata: CallData::default(),
+            calldata: Calldata::default(),
             storage_address,
         },
         ..Default::default()
