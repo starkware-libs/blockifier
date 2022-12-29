@@ -77,6 +77,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
             calldata: tx.calldata.clone(),
             storage_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS))?,
+            caller_address: ContractAddress::default(),
         },
         // 'account_without_some_syscalls' has a trivial `validate` function.
         execution: CallExecution { retdata: vec![] },

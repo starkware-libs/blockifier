@@ -32,6 +32,7 @@ pub struct SyscallHintProcessor<'a, SR: StateReader> {
     // Input for execution.
     pub state: &'a mut CachedState<SR>,
     pub storage_address: ContractAddress,
+    pub caller_address: ContractAddress,
     builtin_hint_processor: BuiltinHintProcessor,
 
     // Execution results.
@@ -49,6 +50,7 @@ impl<'a, SR: StateReader> SyscallHintProcessor<'a, SR> {
         initial_syscall_ptr: Relocatable,
         state: &'a mut CachedState<SR>,
         storage_address: ContractAddress,
+        caller_address: ContractAddress,
     ) -> Self {
         let mut builtin_hint_processor = BuiltinHintProcessor::new_empty();
         add_common_hints(&mut builtin_hint_processor);
@@ -56,6 +58,7 @@ impl<'a, SR: StateReader> SyscallHintProcessor<'a, SR> {
         SyscallHintProcessor {
             state,
             storage_address,
+            caller_address,
             builtin_hint_processor,
             inner_calls: vec![],
             events: vec![],
@@ -136,8 +139,12 @@ pub fn initialize_syscall_handler<'a, SR: StateReader>(
     call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, SyscallHintProcessor<'a, SR>) {
     let syscall_segment = vm.add_memory_segment();
-    let syscall_handler =
-        SyscallHintProcessor::new(syscall_segment, state, call_entry_point.storage_address);
+    let syscall_handler = SyscallHintProcessor::new(
+        syscall_segment,
+        state,
+        call_entry_point.storage_address,
+        call_entry_point.caller_address,
+    );
 
     (syscall_segment, syscall_handler)
 }

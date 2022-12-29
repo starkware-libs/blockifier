@@ -147,7 +147,7 @@ fn set_and_get_contract_hash() {
     let mut state = CachedState::new(DictStateReader::default());
     let class_hash = ClassHash(shash!("0x10"));
 
-    assert!(state.set_contract_hash(contract_address, class_hash).is_ok());
+    assert!(state.set_class_hash_at(contract_address, class_hash).is_ok());
     assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
 
@@ -162,7 +162,7 @@ fn cannot_set_class_hash_to_deployed_address() {
 
     let new_class_hash = ClassHash(shash!("0x100"));
     assert_matches!(
-        state.set_contract_hash(contract_address, new_class_hash).unwrap_err(),
+        state.set_class_hash_at(contract_address, new_class_hash).unwrap_err(),
         StateError::UnavailableContractAddress(..)
     );
 }
@@ -174,7 +174,7 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
     let uninitialized_contract_address = ContractAddress::default();
     let class_hash = ClassHash(shash!("0x100"));
     assert_matches!(
-        state.set_contract_hash(uninitialized_contract_address, class_hash).unwrap_err(),
+        state.set_class_hash_at(uninitialized_contract_address, class_hash).unwrap_err(),
         StateError::OutOfRangeContractAddress
     );
 }
