@@ -34,6 +34,8 @@ pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 // The array metadata contains its size and its starting pointer.
 const ARRAY_METADATA_SIZE: i32 = 2;
 
+/// Common structs.
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmptyResponse;
 
@@ -154,6 +156,7 @@ impl CallContractRequest {
             entry_point_selector: self.function_selector,
             calldata: self.calldata,
             storage_address: self.contract_address,
+            caller_address: syscall_handler.storage_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
@@ -206,7 +209,9 @@ impl LibraryCallRequest {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
             calldata: self.calldata,
+            // The call context remains the same in a library call.
             storage_address: syscall_handler.storage_address,
+            caller_address: syscall_handler.caller_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
@@ -250,29 +255,31 @@ impl DeployRequest {
         self,
         syscall_handler: &mut SyscallHintProcessor<'_, SR>,
     ) -> SyscallExecutionResult {
-        let deployer_address = match self.deploy_from_zero {
+        let deployer_address = syscall_handler.storage_address;
+        let deployer_address_for_calculation = match self.deploy_from_zero {
             true => ContractAddress::default(),
-            false => syscall_handler.storage_address,
+            false => deployer_address,
         };
-        let contract_address = calculate_contract_address(
+        let deployed_contract_address = calculate_contract_address(
             self.contract_address_salt,
             self.class_hash,
             &self.constructor_calldata,
-            deployer_address,
+            deployer_address_for_calculation,
         )?;
 
         // Address allocation in the state is done before calling the constructor, so that it is
         // visible from it.
-        syscall_handler.state.set_contract_hash(contract_address, self.class_hash)?;
+        syscall_handler.state.set_class_hash_at(deployed_contract_address, self.class_hash)?;
         let call_info = execute_constructor_entry_point(
             syscall_handler.state,
             self.class_hash,
-            contract_address,
+            deployed_contract_address,
+            deployer_address,
             self.constructor_calldata,
         )?;
         syscall_handler.inner_calls.push(call_info);
 
-        Ok(SyscallResponse::Deploy(DeployResponse { contract_address }))
+        Ok(SyscallResponse::Deploy(DeployResponse { contract_address: deployed_contract_address }))
     }
 }
 
@@ -368,10 +375,10 @@ impl GetCallerAddressRequest {
 
     pub fn execute<SR: StateReader>(
         self,
-        _syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
     ) -> SyscallExecutionResult {
         Ok(SyscallResponse::GetCallerAddress(GetCallerAddressResponse {
-            caller_address: ContractAddress::default(),
+            caller_address: syscall_handler.caller_address,
         }))
     }
 }

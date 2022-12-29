@@ -28,6 +28,7 @@ pub struct CallEntryPoint {
     // Appears in several locations during and after execution.
     pub calldata: Calldata,
     pub storage_address: ContractAddress,
+    pub caller_address: ContractAddress,
 }
 
 impl CallEntryPoint {
@@ -76,6 +77,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
     state: &mut CachedState<SR>,
     class_hash: ClassHash,
     storage_address: ContractAddress,
+    caller_address: ContractAddress,
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     let contract_class = state.get_contract_class(&class_hash)?;
@@ -84,7 +86,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
 
     if constructor_entry_points.is_empty() {
         // Contract has no constructor.
-        return handle_empty_constructor(class_hash, storage_address, calldata);
+        return handle_empty_constructor(class_hash, storage_address, caller_address, calldata);
     }
 
     let constructor_call = CallEntryPoint {
@@ -93,6 +95,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,
         storage_address,
+        caller_address,
     };
     constructor_call.execute(state)
 }
@@ -100,6 +103,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
 pub fn handle_empty_constructor(
     class_hash: ClassHash,
     storage_address: ContractAddress,
+    caller_address: ContractAddress,
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
@@ -119,6 +123,7 @@ pub fn handle_empty_constructor(
             entry_point_selector: EntryPointSelector(StarkHash::default()),
             calldata: Calldata::default(),
             storage_address,
+            caller_address,
         },
         ..Default::default()
     };
