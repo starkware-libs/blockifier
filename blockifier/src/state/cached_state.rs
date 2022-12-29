@@ -8,7 +8,7 @@ use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::{StateError, StateReaderError};
-use crate::state::state_reader::{StateReader, StateReaderResult};
+use crate::state::state_api::{StateReader, StateReaderResult};
 use crate::utils::subtract_mappings;
 
 #[cfg(test)]

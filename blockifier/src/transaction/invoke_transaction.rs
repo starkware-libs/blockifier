@@ -6,7 +6,7 @@ use starknet_api::transaction::{Fee, InvokeTransaction};
 
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::cached_state::CachedState;
-use crate::state::state_reader::StateReader;
+use crate::state::state_api::StateReader;
 use crate::test_utils::TEST_ACCOUNT_CONTRACT_CLASS_HASH;
 use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
 use crate::transaction::objects::{
