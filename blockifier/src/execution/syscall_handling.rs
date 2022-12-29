@@ -48,8 +48,6 @@ impl<'a, SR: StateReader> SyscallHintProcessor<'a, SR> {
     pub fn new(
         initial_syscall_ptr: Relocatable,
         state: &'a mut CachedState<SR>,
-        // TODO(AlonH, 21/12/2022): Consider referencing outer_call when lifetimes make it possible
-        // (LambdaClass).
         storage_address: ContractAddress,
     ) -> Self {
         let mut builtin_hint_processor = BuiltinHintProcessor::new_empty();
