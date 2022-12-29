@@ -15,7 +15,7 @@ use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array,
     write_retdata, SyscallHintProcessor,
 };
-use crate::state::state_reader::StateReader;
+use crate::state::state_api::StateReader;
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type ReadRequestResult = SyscallResult<SyscallRequest>;

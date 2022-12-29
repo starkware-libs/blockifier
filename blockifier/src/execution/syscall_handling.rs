@@ -25,7 +25,7 @@ use crate::execution::execution_utils::{
 use crate::execution::hint_code;
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
 use crate::state::cached_state::CachedState;
-use crate::state::state_reader::StateReader;
+use crate::state::state_api::StateReader;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHintProcessor<'a, SR: StateReader> {
