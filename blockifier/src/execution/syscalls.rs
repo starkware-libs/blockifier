@@ -343,7 +343,7 @@ impl SendMessageToL1Request {
         Ok(SyscallRequest::SendMessageToL1(SendMessageToL1Request { message }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(self, syscall_handler: &mut SyscallHintProcessor<'_, SR>) -> SyscallExecutionResult {
         syscall_handler.l2_to_l1_messages.push(self.message);
         Ok(SyscallResponse::SendMessageToL1(EmptyResponse))
     }
