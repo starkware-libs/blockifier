@@ -15,6 +15,7 @@ use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array,
     write_retdata, SyscallHintProcessor,
 };
+use crate::retdata;
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type ReadRequestResult = SyscallResult<SyscallRequest>;
@@ -281,7 +282,7 @@ pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 impl DeployResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, felt_to_bigint(*self.contract_address.0.key()))?;
-        write_retdata(vm, &(ptr + 1), Retdata(vec![].into()))
+        write_retdata(vm, &(ptr + 1), retdata![])
     }
 }
 

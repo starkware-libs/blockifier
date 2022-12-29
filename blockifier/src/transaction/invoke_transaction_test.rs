@@ -13,6 +13,7 @@ use starknet_api::{patky, shash};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
 use crate::test_utils::{
@@ -113,7 +114,7 @@ fn test_invoke_tx() {
             caller_address: ContractAddress::default(),
         },
         // The account contract we use for testing has a trivial `validate` function.
-        execution: CallExecution { retdata: Retdata(vec![].into()) },
+        execution: CallExecution { retdata: retdata![] },
         ..Default::default()
     };
 
@@ -172,7 +173,7 @@ fn test_invoke_tx() {
     };
     let expected_fee_transfer_call_info = CallInfo {
         call: expected_fee_transfer_call,
-        execution: CallExecution { retdata: Retdata(vec![shash!(true as u64)].into()) },
+        execution: CallExecution { retdata: retdata![shash!(true as u64)] },
         events: vec![fee_transfer_event],
         ..Default::default()
     };
