@@ -8,6 +8,7 @@ use starknet_api::transaction::Calldata;
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
+use crate::state::state_api::State;
 use crate::test_utils::{
     create_security_test_state, create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR,
     SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,

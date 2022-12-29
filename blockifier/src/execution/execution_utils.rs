@@ -25,7 +25,7 @@ use crate::execution::errors::{
 use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHintProcessor};
 use crate::general_errors::ConversionError;
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{State, StateReader};
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
