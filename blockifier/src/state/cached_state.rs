@@ -8,14 +8,13 @@ use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::{StateError, StateReaderError};
-use crate::state::state_api::{StateReader, StateReaderResult};
+use crate::state::state_api::{State, StateReader, StateReaderResult, StateResult};
 use crate::utils::subtract_mappings;
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
 
-pub type StateResult<T> = Result<T, StateError>;
 type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Caches read and write requests.
@@ -27,6 +26,7 @@ pub struct CachedState<SR: StateReader> {
     pub state_reader: SR,
     // Invariant: following attributes should remain private.
     cache: StateCache,
+    // Invariant: Read-only mapping
     class_hash_to_class: ContractClassMapping,
 }
 
@@ -34,8 +34,13 @@ impl<SR: StateReader> CachedState<SR> {
     pub fn new(state_reader: SR) -> Self {
         Self { state_reader, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
+}
 
-    pub fn get_storage_at(
+/// Refer to StateReader for documentation on the getter functions.
+impl<SR: StateReader> State for CachedState<SR> {
+    type Reader = SR;
+
+    fn get_storage_at(
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
@@ -51,16 +56,7 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(value)
     }
 
-    pub fn set_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-        value: StarkFelt,
-    ) {
-        self.cache.set_storage_value(contract_address, key, value);
-    }
-
-    pub fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<&Nonce> {
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<&Nonce> {
         if self.cache.get_nonce_at(contract_address).is_none() {
             let nonce = self.state_reader.get_nonce_at(contract_address)?;
             self.cache.set_nonce_initial_value(contract_address, nonce);
@@ -73,19 +69,7 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(nonce)
     }
 
-    // TODO(Gilad, 1/12/22) consider moving some this logic into starknet-api; Nonce should
-    // be able to increment itself.
-    pub fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
-        let current_nonce = *self.get_nonce_at(contract_address)?;
-        let current_nonce_as_u64 = usize::try_from(current_nonce.0)? as u64;
-        let next_nonce_val = 1_u64 + current_nonce_as_u64;
-        let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
-        self.cache.set_nonce_value(contract_address, next_nonce);
-
-        Ok(())
-    }
-
-    pub fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass> {
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass> {
         if !self.class_hash_to_class.contains_key(class_hash) {
             let contract_class = self.state_reader.get_contract_class(class_hash)?;
             self.class_hash_to_class.insert(*class_hash, contract_class);
@@ -98,10 +82,7 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(contract_class)
     }
 
-    pub fn get_class_hash_at(
-        &mut self,
-        contract_address: ContractAddress,
-    ) -> StateResult<&ClassHash> {
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<&ClassHash> {
         if self.cache.get_class_hash_at(contract_address).is_none() {
             let class_hash = self.state_reader.get_class_hash_at(contract_address)?;
             self.cache.set_class_hash_initial_value(contract_address, class_hash);
@@ -114,7 +95,28 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(class_hash)
     }
 
-    pub fn set_class_hash_at(
+    fn set_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+        value: StarkFelt,
+    ) {
+        self.cache.set_storage_value(contract_address, key, value);
+    }
+
+    // TODO(Gilad, 1/12/22) consider moving some this logic into starknet-api; Nonce should
+    // be able to increment itself.
+    fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
+        let current_nonce = *self.get_nonce_at(contract_address)?;
+        let current_nonce_as_u64 = usize::try_from(current_nonce.0)? as u64;
+        let next_nonce_val = 1_u64 + current_nonce_as_u64;
+        let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
+        self.cache.set_nonce_value(contract_address, next_nonce);
+
+        Ok(())
+    }
+
+    fn set_class_hash_at(
         &mut self,
         contract_address: ContractAddress,
         class_hash: ClassHash,
