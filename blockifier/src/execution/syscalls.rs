@@ -7,14 +7,13 @@ use starknet_api::transaction::{
     CallData, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
 };
 
-use super::syscall_handling::read_felt_array;
 use crate::execution::contract_address::calculate_contract_address;
-use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint};
+use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, RetData};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{felt_to_bigint, get_felt_from_memory_cell};
 use crate::execution::syscall_handling::{
-    execute_inner_call, felt_to_bool, read_call_params, read_calldata, write_retdata,
-    SyscallHintProcessor,
+    execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array,
+    write_retdata, SyscallHintProcessor,
 };
 use crate::state::state_reader::StateReader;
 
@@ -163,7 +162,7 @@ impl CallContractRequest {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct CallContractResponse {
-    pub retdata: Vec<StarkFelt>,
+    pub retdata: RetData,
 }
 
 pub const CALL_CONTRACT_RESPONSE_SIZE: usize = 2;
@@ -289,7 +288,7 @@ pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 impl DeployResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, felt_to_bigint(*self.contract_address.0.key()))?;
-        write_retdata(vm, &(ptr + 1), vec![])
+        write_retdata(vm, &(ptr + 1), RetData(vec![].into()))
     }
 }
 

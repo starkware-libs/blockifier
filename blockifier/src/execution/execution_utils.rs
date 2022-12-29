@@ -17,7 +17,7 @@ use num_traits::Signed;
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult,
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, RetData,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -172,7 +172,7 @@ pub fn finalize_execution<SR: StateReader>(
     })
 }
 
-fn extract_execution_retdata(vm: VirtualMachine) -> Result<Vec<StarkFelt>, PostExecutionError> {
+fn extract_execution_retdata(vm: VirtualMachine) -> Result<RetData, PostExecutionError> {
     let [return_data_size, return_data_ptr]: [MaybeRelocatable; 2] = vm
         .get_return_values(2)?
         .try_into()
@@ -185,7 +185,7 @@ fn extract_execution_retdata(vm: VirtualMachine) -> Result<Vec<StarkFelt>, PostE
     };
 
     // TODO(AlonH, 21/12/2022): Handle @raw_output decorator.
-    Ok(get_felt_range(&vm, &return_data_ptr, return_data_size)?)
+    Ok(RetData(get_felt_range(&vm, &return_data_ptr, return_data_size)?.into()))
 }
 
 pub fn get_felt_range(

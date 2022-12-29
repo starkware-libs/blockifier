@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
@@ -53,9 +55,12 @@ impl CallEntryPoint {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct RetData(pub Rc<Vec<StarkFelt>>);
+
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallExecution {
-    pub retdata: Vec<StarkFelt>,
+    pub retdata: RetData,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
