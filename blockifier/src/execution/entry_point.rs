@@ -26,6 +26,7 @@ pub struct CallEntryPoint {
     // Appears in several locations during and after execution.
     pub calldata: CallData,
     pub storage_address: ContractAddress,
+    pub caller_address: ContractAddress,
 }
 
 impl CallEntryPoint {
@@ -88,6 +89,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,
         storage_address,
+        caller_address: storage_address,
     };
     constructor_call.execute(state)
 }
@@ -114,6 +116,7 @@ pub fn handle_empty_constructor(
             entry_point_selector: EntryPointSelector(StarkHash::default()),
             calldata: CallData::default(),
             storage_address,
+            caller_address: storage_address,
         },
         ..Default::default()
     };

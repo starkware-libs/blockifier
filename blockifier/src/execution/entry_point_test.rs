@@ -23,6 +23,7 @@ fn trivial_external_entry_point() -> CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(0)),
         calldata: CallData(vec![].into()),
         storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+        caller_address: ContractAddress::default(),
     }
 }
 

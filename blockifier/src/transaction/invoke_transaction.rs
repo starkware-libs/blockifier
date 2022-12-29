@@ -1,4 +1,4 @@
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkHash;
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
@@ -35,6 +35,7 @@ pub fn validate_tx<SR: StateReader>(
         calldata: tx.calldata.clone(),
         class_hash,
         storage_address: tx.sender_address,
+        caller_address: ContractAddress::default(),
     };
 
     Ok(validate_call.execute(state)?)
@@ -53,6 +54,7 @@ pub fn execute_tx<SR: StateReader>(
         calldata: tx.calldata.clone(),
         class_hash,
         storage_address: tx.sender_address,
+        caller_address: ContractAddress::default(),
     };
 
     Ok(execute_call.execute(state)?)

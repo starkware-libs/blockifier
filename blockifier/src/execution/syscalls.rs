@@ -35,6 +35,8 @@ pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 // The array metadata contains its size and its starting pointer.
 const ARRAY_METADATA_SIZE: i32 = 2;
 
+/// Common structs.
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmptyResponse;
 
@@ -155,6 +157,7 @@ impl CallContractRequest {
             entry_point_selector: self.function_selector,
             calldata: self.calldata,
             storage_address: self.contract_address,
+            caller_address: syscall_handler.storage_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
@@ -207,7 +210,9 @@ impl LibraryCallRequest {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.function_selector,
             calldata: self.calldata,
+            // The call context remains the same in a library call.
             storage_address: syscall_handler.storage_address,
+            caller_address: syscall_handler.caller_address,
         };
         let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
@@ -369,10 +374,10 @@ impl GetCallerAddressRequest {
 
     pub fn execute<SR: StateReader>(
         self,
-        _syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
     ) -> SyscallExecutionResult {
         Ok(SyscallResponse::GetCallerAddress(GetCallerAddressResponse {
-            caller_address: ContractAddress::default(),
+            caller_address: syscall_handler.caller_address,
         }))
     }
 }
