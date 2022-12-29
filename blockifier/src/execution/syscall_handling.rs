@@ -17,7 +17,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{CallData, EventContent, MessageToL1};
 
 use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
@@ -161,16 +161,15 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
 pub fn write_retdata(
     vm: &mut VirtualMachine,
     ptr: &Relocatable,
-    retdata: Vec<StarkFelt>,
+    retdata: Retdata,
 ) -> SyscallResult<()> {
-    let retdata_size = felt_to_bigint(StarkFelt::from(retdata.len() as u64));
+    let retdata_size = felt_to_bigint(StarkFelt::from(retdata.0.len() as u64));
     vm.insert_value(ptr, retdata_size)?;
 
     // Write response payload to the memory.
     let segment = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment)?;
-    let data: Vec<MaybeRelocatable> =
-        retdata.into_iter().map(|x| felt_to_bigint(x).into()).collect();
+    let data: Vec<MaybeRelocatable> = retdata.0.iter().map(|x| felt_to_bigint(*x).into()).collect();
     vm.load_data(&segment.into(), data)?;
 
     Ok(())
@@ -202,7 +201,7 @@ pub fn read_call_params(
 pub fn execute_inner_call<SR: StateReader>(
     call_entry_point: CallEntryPoint,
     syscall_handler: &mut SyscallHintProcessor<'_, SR>,
-) -> SyscallResult<Vec<StarkFelt>> {
+) -> SyscallResult<Retdata> {
     let call_info = call_entry_point.execute(syscall_handler.state)?;
     let retdata = call_info.execution.retdata.clone();
     syscall_handler.inner_calls.push(call_info);

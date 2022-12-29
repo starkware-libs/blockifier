@@ -9,7 +9,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{shash, StarknetApiError};
 
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
     get_contract_class, ACCOUNT_CONTRACT_PATH, RETURN_RESULT_SELECTOR,
@@ -79,7 +79,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
             storage_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS))?,
         },
         // 'account_without_some_syscalls' has a trivial `validate` function.
-        execution: CallExecution { retdata: vec![] },
+        execution: CallExecution { retdata: Retdata(vec![].into()) },
         ..Default::default()
     };
 
@@ -92,7 +92,7 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
         call: expected_execute_call,
         // The called EP simply returns the calldata it was given.
         execution: CallExecution {
-            retdata: tx.calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec(),
+            retdata: Retdata(tx.calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec().into()),
         },
         ..Default::default()
     };

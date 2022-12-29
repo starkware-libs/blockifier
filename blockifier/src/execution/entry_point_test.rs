@@ -6,7 +6,7 @@ use starknet_api::state::EntryPointType;
 use starknet_api::transaction::CallData;
 
 use crate::abi::abi_utils::get_selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
     create_security_test_state, create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR,
@@ -35,7 +35,7 @@ fn test_call_info() {
     };
     let expected_call_info = CallInfo {
         call: entry_point_call.clone(),
-        execution: CallExecution { retdata: vec![] },
+        execution: CallExecution { retdata: Retdata(vec![].into()) },
         ..Default::default()
     };
     assert_eq!(entry_point_call.execute(&mut state).unwrap(), expected_call_info);
@@ -50,7 +50,7 @@ fn test_entry_point_without_arg() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![] }
+        CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
 
@@ -65,7 +65,7 @@ fn test_entry_point_with_arg() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![] }
+        CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
 
@@ -80,7 +80,7 @@ fn test_entry_point_with_builtin() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![] }
+        CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
 
@@ -95,7 +95,7 @@ fn test_entry_point_with_hint() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![] }
+        CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
 
@@ -110,7 +110,7 @@ fn test_entry_point_with_return_value() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(23)] }
+        CallExecution { retdata: Retdata(vec![shash!(23)].into()) }
     );
 }
 
@@ -141,7 +141,7 @@ fn test_entry_point_with_syscall() {
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![value] }
+        CallExecution { retdata: Retdata(vec![value].into()) }
     );
     // Verify that the state has changed.
     let value_from_state = *state.get_storage_at(storage_address, key.try_into().unwrap()).unwrap();
@@ -168,7 +168,7 @@ fn test_entry_point_with_library_call() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(91)] }
+        CallExecution { retdata: Retdata(vec![shash!(91)].into()) }
     );
 }
 
@@ -219,23 +219,23 @@ fn test_entry_point_with_nested_library_call() {
     };
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
-        execution: CallExecution { retdata: vec![shash!(value + 1)] },
+        execution: CallExecution { retdata: Retdata(vec![shash!(value + 1)].into()) },
         ..Default::default()
     };
     let library_call_info = CallInfo {
         call: library_entry_point,
-        execution: CallExecution { retdata: vec![shash!(value + 1)] },
+        execution: CallExecution { retdata: Retdata(vec![shash!(value + 1)].into()) },
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
-        execution: CallExecution { retdata: vec![shash!(value)] },
+        execution: CallExecution { retdata: Retdata(vec![shash!(value)].into()) },
         ..Default::default()
     };
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
-        execution: CallExecution { retdata: vec![shash!(0)] },
+        execution: CallExecution { retdata: Retdata(vec![shash!(0)].into()) },
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };
@@ -264,7 +264,7 @@ fn test_entry_point_with_deploy_with_constructor() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(1)] }
+        CallExecution { retdata: Retdata(vec![shash!(1)].into()) }
     );
     let contract_address_from_state =
         *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
@@ -291,7 +291,7 @@ fn test_entry_point_with_call_contract() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![shash!(48)] }
+        CallExecution { retdata: Retdata(vec![shash!(48)].into()) }
     );
 }
 
@@ -305,7 +305,7 @@ fn test_storage_var() {
     };
     assert_eq!(
         entry_point_call.execute(&mut state).unwrap().execution,
-        CallExecution { retdata: vec![] }
+        CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
 
