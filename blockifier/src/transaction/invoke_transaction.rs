@@ -5,8 +5,7 @@ use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Fee, InvokeTransaction};
 
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
-use crate::state::cached_state::CachedState;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::State;
 use crate::test_utils::TEST_ACCOUNT_CONTRACT_CLASS_HASH;
 use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
 use crate::transaction::objects::{
@@ -21,9 +20,9 @@ use crate::transaction::ExecuteTransaction;
 #[path = "invoke_transaction_test.rs"]
 mod test;
 
-pub fn validate_tx<SR: StateReader>(
+pub fn validate_tx(
     tx: &InvokeTransaction,
-    state: &mut CachedState<SR>,
+    state: &mut impl State,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let validate_call = CallEntryPoint {
@@ -41,9 +40,9 @@ pub fn validate_tx<SR: StateReader>(
     Ok(validate_call.execute(state)?)
 }
 
-pub fn execute_tx<SR: StateReader>(
+pub fn execute_tx(
     tx: &InvokeTransaction,
-    state: &mut CachedState<SR>,
+    state: &mut impl State,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let execute_call = CallEntryPoint {
@@ -67,10 +66,10 @@ pub fn charge_fee(tx: InvokeTransaction) -> TransactionExecutionResult<(Fee, Cal
     Ok((actual_fee, fee_transfer_call_info))
 }
 
-impl<SR: StateReader> ExecuteTransaction<SR> for InvokeTransaction {
+impl ExecuteTransaction for InvokeTransaction {
     fn execute(
         self,
-        state: &mut CachedState<SR>,
+        state: &mut impl State,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Adi, 10/12/2022): Consider moving the transaction version verification to the
         // TransactionVersion constructor.
