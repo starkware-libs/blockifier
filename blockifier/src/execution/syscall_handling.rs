@@ -24,12 +24,13 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
-use crate::state::cached_state::{CachedState, DictStateReader};
+use crate::state::cached_state::CachedState;
+use crate::state::state_reader::StateReader;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
-pub struct SyscallHintProcessor<'a> {
+pub struct SyscallHintProcessor<'a, SR: StateReader> {
     // Input for execution.
-    pub state: &'a mut CachedState<DictStateReader>,
+    pub state: &'a mut CachedState<SR>,
     pub storage_address: ContractAddress,
     builtin_hint_processor: BuiltinHintProcessor,
 
@@ -43,10 +44,10 @@ pub struct SyscallHintProcessor<'a> {
     expected_syscall_ptr: Relocatable,
 }
 
-impl<'a> SyscallHintProcessor<'a> {
+impl<'a, SR: StateReader> SyscallHintProcessor<'a, SR> {
     pub fn new(
         initial_syscall_ptr: Relocatable,
-        state: &'a mut CachedState<DictStateReader>,
+        state: &'a mut CachedState<SR>,
         // TODO(AlonH, 21/12/2022): Consider referencing outer_call when lifetimes make it possible
         // (LambdaClass).
         storage_address: ContractAddress,
@@ -102,7 +103,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 }
 
-impl HintProcessor for SyscallHintProcessor<'_> {
+impl<SR: StateReader> HintProcessor for SyscallHintProcessor<'_, SR> {
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
@@ -131,11 +132,11 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     }
 }
 
-pub fn initialize_syscall_handler<'a>(
+pub fn initialize_syscall_handler<'a, SR: StateReader>(
     vm: &mut VirtualMachine,
-    state: &'a mut CachedState<DictStateReader>,
+    state: &'a mut CachedState<SR>,
     call_entry_point: &CallEntryPoint,
-) -> (Relocatable, SyscallHintProcessor<'a>) {
+) -> (Relocatable, SyscallHintProcessor<'a, SR>) {
     let syscall_segment = vm.add_memory_segment();
     let syscall_handler =
         SyscallHintProcessor::new(syscall_segment, state, call_entry_point.storage_address);
@@ -200,9 +201,9 @@ pub fn read_call_params(
     Ok((function_selector, calldata))
 }
 
-pub fn execute_inner_call(
+pub fn execute_inner_call<SR: StateReader>(
     call_entry_point: CallEntryPoint,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, SR>,
 ) -> SyscallResult<Vec<StarkFelt>> {
     let call_info = call_entry_point.execute(syscall_handler.state)?;
     let retdata = call_info.execution.retdata.clone();

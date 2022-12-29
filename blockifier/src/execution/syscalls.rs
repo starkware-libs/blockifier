@@ -16,6 +16,7 @@ use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, write_retdata,
     SyscallHintProcessor,
 };
+use crate::state::state_reader::StateReader;
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type ReadRequestResult = SyscallResult<SyscallRequest>;
@@ -61,7 +62,10 @@ impl StorageReadRequest {
         Ok(SyscallRequest::StorageRead(StorageReadRequest { address }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         let value =
             syscall_handler.state.get_storage_at(syscall_handler.storage_address, self.address)?;
         Ok(SyscallResponse::StorageRead(StorageReadResponse { value: *value }))
@@ -100,7 +104,10 @@ impl StorageWriteRequest {
         Ok(SyscallRequest::StorageWrite(StorageWriteRequest { address, value }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         syscall_handler.state.set_storage_at(
             syscall_handler.storage_address,
             self.address,
@@ -136,7 +143,10 @@ impl CallContractRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         let class_hash = *syscall_handler.state.get_class_hash_at(self.contract_address)?;
         let entry_point = CallEntryPoint {
             class_hash,
@@ -187,7 +197,10 @@ impl LibraryCallRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         let entry_point = CallEntryPoint {
             class_hash: self.class_hash,
             entry_point_type: EntryPointType::External,
@@ -233,7 +246,10 @@ impl DeployRequest {
         }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         let deployer_address = match self.deploy_from_zero {
             true => ContractAddress::default(),
             false => syscall_handler.storage_address,
@@ -297,7 +313,10 @@ impl EmitEventRequest {
         Ok(SyscallRequest::EmitEvent(EmitEventRequest { content }))
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         syscall_handler.events.push(self.content);
         Ok(SyscallResponse::EmitEvent(EmptyResponse))
     }
@@ -360,7 +379,10 @@ impl SyscallRequest {
         }
     }
 
-    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
         match self {
             SyscallRequest::CallContract(request) => request.execute(syscall_handler),
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),

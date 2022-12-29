@@ -24,7 +24,8 @@ use crate::execution::errors::{
 };
 use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHintProcessor};
 use crate::general_errors::ConversionError;
-use crate::state::cached_state::{CachedState, DictStateReader};
+use crate::state::cached_state::CachedState;
+use crate::state::state_reader::StateReader;
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
@@ -45,18 +46,18 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt, ConversionError> {
     }
 }
 
-pub struct ExecutionContext<'a> {
+pub struct ExecutionContext<'a, SR: StateReader> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
     pub syscall_segment: Relocatable,
-    pub syscall_handler: SyscallHintProcessor<'a>,
+    pub syscall_handler: SyscallHintProcessor<'a, SR>,
     pub entry_point_pc: usize,
 }
 
-pub fn initialize_execution_context<'a>(
+pub fn initialize_execution_context<'a, SR: StateReader>(
     call_entry_point: &CallEntryPoint,
-    state: &'a mut CachedState<DictStateReader>,
-) -> Result<ExecutionContext<'a>, PreExecutionError> {
+    state: &'a mut CachedState<SR>,
+) -> Result<ExecutionContext<'a, SR>, PreExecutionError> {
     // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
     let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
 
@@ -112,9 +113,9 @@ pub fn prepare_call_arguments(
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
-pub fn execute_entry_point_call(
+pub fn execute_entry_point_call<SR: StateReader>(
     call_entry_point: CallEntryPoint,
-    state: &mut CachedState<DictStateReader>,
+    state: &mut CachedState<SR>,
 ) -> EntryPointExecutionResult<CallInfo> {
     let mut execution_context = initialize_execution_context(&call_entry_point, state)?;
     let args = prepare_call_arguments(
@@ -138,12 +139,12 @@ pub fn execute_entry_point_call(
     )?)
 }
 
-pub fn run_entry_point(
+pub fn run_entry_point<SR: StateReader>(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
     args: Vec<Box<dyn Any>>,
-    hint_processor: &mut SyscallHintProcessor<'_>,
+    hint_processor: &mut SyscallHintProcessor<'_, SR>,
 ) -> Result<(), VirtualMachineExecutionError> {
     cairo_runner.run_from_entrypoint(
         entry_point_pc,
@@ -157,10 +158,10 @@ pub fn run_entry_point(
     Ok(())
 }
 
-pub fn finalize_execution(
+pub fn finalize_execution<SR: StateReader>(
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
-    syscall_handler: SyscallHintProcessor<'_>,
+    syscall_handler: SyscallHintProcessor<'_, SR>,
 ) -> Result<CallInfo, PostExecutionError> {
     Ok(CallInfo {
         call: call_entry_point,
