@@ -3,7 +3,7 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkHash;
 use starknet_api::shash;
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::CallData;
+use starknet_api::transaction::Calldata;
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -21,7 +21,7 @@ fn trivial_external_entry_point() -> CallEntryPoint {
         class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(0)),
-        calldata: CallData(vec![].into()),
+        calldata: Calldata(vec![].into()),
         storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
     }
 }
@@ -57,7 +57,7 @@ fn test_entry_point_without_arg() {
 #[test]
 fn test_entry_point_with_arg() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(25)].into());
+    let calldata = Calldata(vec![shash!(25)].into());
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(WITH_ARG_SELECTOR)),
@@ -72,7 +72,7 @@ fn test_entry_point_with_arg() {
 #[test]
 fn test_entry_point_with_builtin() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(47), shash!(31)].into());
+    let calldata = Calldata(vec![shash!(47), shash!(31)].into());
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(BITWISE_AND_SELECTOR)),
@@ -87,7 +87,7 @@ fn test_entry_point_with_builtin() {
 #[test]
 fn test_entry_point_with_hint() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(81)].into());
+    let calldata = Calldata(vec![shash!(81)].into());
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(SQRT_SELECTOR)),
@@ -102,7 +102,7 @@ fn test_entry_point_with_hint() {
 #[test]
 fn test_entry_point_with_return_value() {
     let mut state = create_test_state();
-    let calldata = CallData(vec![shash!(23)].into());
+    let calldata = Calldata(vec![shash!(23)].into());
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
@@ -132,7 +132,7 @@ fn test_entry_point_with_syscall() {
     let mut state = create_test_state();
     let key = shash!(1234);
     let value = shash!(18);
-    let calldata = CallData(vec![key, value].into());
+    let calldata = Calldata(vec![key, value].into());
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
@@ -151,7 +151,7 @@ fn test_entry_point_with_syscall() {
 #[test]
 fn test_entry_point_with_library_call() {
     let mut state = create_test_state();
-    let calldata = CallData(
+    let calldata = Calldata(
         vec![
             shash!(TEST_CLASS_HASH),                  // Class hash.
             shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
@@ -176,7 +176,7 @@ fn test_entry_point_with_library_call() {
 fn test_entry_point_with_nested_library_call() {
     let mut state = create_test_state();
     let (key, value) = (255, 44);
-    let calldata = CallData(
+    let calldata = Calldata(
         vec![
             shash!(TEST_CLASS_HASH),                  // Class hash.
             shash!(TEST_LIBRARY_CALL_SELECTOR),       // Library call function selector.
@@ -196,12 +196,12 @@ fn test_entry_point_with_nested_library_call() {
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_STORAGE_READ_WRITE_SELECTOR)),
-        calldata: CallData(vec![shash!(key + 1), shash!(value + 1)].into()),
+        calldata: Calldata(vec![shash!(key + 1), shash!(value + 1)].into()),
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(TEST_LIBRARY_CALL_SELECTOR)),
-        calldata: CallData(
+        calldata: Calldata(
             vec![
                 shash!(TEST_CLASS_HASH),                  // Class hash.
                 shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
@@ -214,7 +214,7 @@ fn test_entry_point_with_nested_library_call() {
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
-        calldata: CallData(vec![shash!(key), shash!(value)].into()),
+        calldata: Calldata(vec![shash!(key), shash!(value)].into()),
         ..nested_storage_entry_point.clone()
     };
     let nested_storage_call_info = CallInfo {
@@ -247,7 +247,7 @@ fn test_entry_point_with_nested_library_call() {
 #[test]
 fn test_entry_point_with_deploy_with_constructor() {
     let mut state = create_test_state();
-    let calldata = CallData(
+    let calldata = Calldata(
         vec![
             shash!(TEST_CLASS_HASH), // Class hash.
             shash!(1),               // Contract_address_salt.
@@ -274,7 +274,7 @@ fn test_entry_point_with_deploy_with_constructor() {
 #[test]
 fn test_entry_point_with_call_contract() {
     let mut state = create_test_state();
-    let calldata = CallData(
+    let calldata = Calldata(
         vec![
             shash!(TEST_CONTRACT_ADDRESS),            // Contract address.
             shash!(TEST_STORAGE_READ_WRITE_SELECTOR), // Function selector.
@@ -316,7 +316,7 @@ fn test_security_failure() {
     fn run_security_test(
         expected_error: &str,
         entry_point_name: &str,
-        calldata: CallData,
+        calldata: Calldata,
         state: &mut CachedState<DictStateReader>,
     ) {
         let entry_point_selector = get_selector_from_name(entry_point_name);
@@ -327,7 +327,7 @@ fn test_security_failure() {
     }
 
     for perform_inner_call_to_foo in 0..2 {
-        let calldata = CallData(vec![shash!(perform_inner_call_to_foo)].into());
+        let calldata = Calldata(vec![shash!(perform_inner_call_to_foo)].into());
         run_security_test(
             "Custom Hint Error: Out of range",
             "test_read_bad_address",

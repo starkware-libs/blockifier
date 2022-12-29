@@ -5,7 +5,7 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
-    CallData, Fee, InvokeTransaction, TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, Fee, InvokeTransaction, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{shash, StarknetApiError};
 
@@ -34,7 +34,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
 }
 
 fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
-    let execute_calldata = CallData(
+    let execute_calldata = Calldata(
         vec![
             StarkFelt::try_from(TEST_CONTRACT_ADDRESS)?, // Contract address.
             StarkFelt::try_from(RETURN_RESULT_SELECTOR)?, // EP selector.

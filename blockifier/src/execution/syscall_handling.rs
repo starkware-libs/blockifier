@@ -14,7 +14,7 @@ use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{CallData, EventContent, MessageToL1};
+use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
@@ -184,14 +184,14 @@ pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<
     Ok(get_felt_range(vm, &array_data_ptr, array_size.try_into()?)?)
 }
 
-pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallData> {
-    Ok(CallData(read_felt_array(vm, ptr)?.into()))
+pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Calldata> {
+    Ok(Calldata(read_felt_array(vm, ptr)?.into()))
 }
 
 pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: &Relocatable,
-) -> SyscallResult<(EntryPointSelector, CallData)> {
+) -> SyscallResult<(EntryPointSelector, Calldata)> {
     let function_selector = EntryPointSelector(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
     let calldata = read_calldata(vm, &(ptr + 1))?;
 
