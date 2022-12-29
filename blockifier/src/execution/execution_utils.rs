@@ -99,7 +99,6 @@ pub fn prepare_call_arguments(
             .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack()),
     );
     args.push(Box::new(implicit_args));
-    // TODO(AlonH, 21/12/2022): Consider using StarkFelt.
     // TODO(Adi, 29/11/2022): Remove the '.0' access, once derive-more is used in starknet_api.
     let calldata = &call_entry_point.calldata.0;
     args.push(Box::new(MaybeRelocatable::Int(bigint!(calldata.len()))));
@@ -173,19 +172,18 @@ pub fn finalize_execution<SR: StateReader>(
 }
 
 fn extract_execution_retdata(vm: VirtualMachine) -> Result<Vec<StarkFelt>, PostExecutionError> {
-    let [return_data_size, return_data_ptr]: [MaybeRelocatable; 2] = vm
+    let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] = vm
         .get_return_values(2)?
         .try_into()
         .unwrap_or_else(|_| panic!("Return values should be of size 2."));
 
-    let return_data_size = match return_data_size {
+    let retdata_size = match retdata_size {
         // TODO(AlonH, 21/12/2022): Handle case where res_data_size is larger than usize.
-        MaybeRelocatable::Int(return_data_size) => return_data_size.bits() as usize,
+        MaybeRelocatable::Int(retdata_size) => retdata_size.bits() as usize,
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    // TODO(AlonH, 21/12/2022): Handle @raw_output decorator.
-    Ok(get_felt_range(&vm, &return_data_ptr, return_data_size)?)
+    Ok(get_felt_range(&vm, &retdata_ptr, retdata_size)?)
 }
 
 pub fn get_felt_range(
