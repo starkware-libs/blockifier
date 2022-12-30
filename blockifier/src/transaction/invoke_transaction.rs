@@ -9,7 +9,8 @@ use crate::state::state_api::State;
 use crate::test_utils::TEST_ACCOUNT_CONTRACT_CLASS_HASH;
 use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
 use crate::transaction::objects::{
-    ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
+    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
+    TransactionExecutionResult,
 };
 use crate::transaction::transaction_utils::{
     calculate_tx_fee, execute_fee_transfer, verify_tx_version,
@@ -23,6 +24,7 @@ mod test;
 pub fn validate_tx(
     tx: &InvokeTransaction,
     state: &mut dyn State,
+    account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let validate_call = CallEntryPoint {
@@ -37,12 +39,13 @@ pub fn validate_tx(
         caller_address: ContractAddress::default(),
     };
 
-    Ok(validate_call.execute(state)?)
+    Ok(validate_call.execute(state, account_tx_context)?)
 }
 
 pub fn execute_tx(
     tx: &InvokeTransaction,
     state: &mut dyn State,
+    account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
 ) -> TransactionExecutionResult<CallInfo> {
     let execute_call = CallEntryPoint {
@@ -56,7 +59,7 @@ pub fn execute_tx(
         caller_address: ContractAddress::default(),
     };
 
-    Ok(execute_call.execute(state)?)
+    Ok(execute_call.execute(state, account_tx_context)?)
 }
 
 pub fn charge_fee(tx: InvokeTransaction) -> TransactionExecutionResult<(Fee, CallInfo)> {
@@ -77,11 +80,20 @@ impl ExecuteTransaction for InvokeTransaction {
         // TODO (Adi, 25/12/2022): Replace with 'get_class_hash_at' once it is implemented.
         let class_hash = ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
 
+        let account_tx_context = AccountTransactionContext {
+            transaction_hash: self.transaction_hash,
+            max_fee: self.max_fee,
+            version: self.version,
+            signature: self.signature.clone(),
+            nonce: self.nonce,
+            sender_address: self.sender_address,
+        };
+
         // Validate transaction.
-        let validate_call_info = validate_tx(&self, state, class_hash)?;
+        let validate_call_info = validate_tx(&self, state, &account_tx_context, class_hash)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(&self, state, class_hash)?;
+        let execute_call_info = execute_tx(&self, state, &account_tx_context, class_hash)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
