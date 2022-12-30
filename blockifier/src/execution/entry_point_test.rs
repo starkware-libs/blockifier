@@ -39,7 +39,7 @@ fn test_call_info() {
         execution: CallExecution { retdata: Retdata(vec![].into()) },
         ..Default::default()
     };
-    assert_eq!(entry_point_call.execute(&mut state).unwrap(), expected_call_info);
+    assert_eq!(entry_point_call.execute_directly(&mut state).unwrap(), expected_call_info);
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn test_entry_point_without_arg() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
@@ -65,7 +65,7 @@ fn test_entry_point_with_arg() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
@@ -80,7 +80,7 @@ fn test_entry_point_with_builtin() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
@@ -95,7 +95,7 @@ fn test_entry_point_with_hint() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
@@ -110,7 +110,7 @@ fn test_entry_point_with_return_value() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![shash!(23)].into()) }
     );
 }
@@ -124,7 +124,7 @@ fn test_entry_point_not_found_in_contract() {
     };
     assert_eq!(
         format!("Entry point {:#?} not found in contract.", entry_point_call.entry_point_selector),
-        format!("{}", entry_point_call.execute(&mut state).unwrap_err())
+        format!("{}", entry_point_call.execute_directly(&mut state).unwrap_err())
     );
 }
 
@@ -141,7 +141,7 @@ fn test_entry_point_with_syscall() {
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![value].into()) }
     );
     // Verify that the state has changed.
@@ -168,7 +168,7 @@ fn test_entry_point_with_library_call() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![shash!(91)].into()) }
     );
 }
@@ -241,7 +241,7 @@ fn test_entry_point_with_nested_library_call() {
         ..Default::default()
     };
 
-    assert_eq!(main_entry_point.execute(&mut state).unwrap(), expected_call_info);
+    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
 }
 
 // TODO(Noa, 30/12/22): Add a test with no constructor
@@ -264,7 +264,7 @@ fn test_entry_point_with_deploy_with_constructor() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![shash!(1)].into()) }
     );
     let contract_address_from_state =
@@ -291,7 +291,7 @@ fn test_entry_point_with_call_contract() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![shash!(48)].into()) }
     );
 }
@@ -305,7 +305,7 @@ fn test_storage_var() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: Retdata(vec![].into()) }
     );
 }
@@ -323,7 +323,7 @@ fn test_security_failure() {
         let entry_point_selector = get_selector_from_name(entry_point_name);
         let entry_point_call =
             CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
-        let error = entry_point_call.execute(state).unwrap_err().to_string();
+        let error = entry_point_call.execute_directly(state).unwrap_err().to_string();
         assert!(error.contains(expected_error))
     }
 
