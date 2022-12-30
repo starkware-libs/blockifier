@@ -6,7 +6,10 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{patky, shash};
 
 use crate::execution::contract_class::ContractClass;
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
 use crate::state::cached_state::{CachedState, DictStateReader};
+use crate::state::state_api::State;
+use crate::transaction::objects::AccountTransactionContext;
 
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 // TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
@@ -73,4 +76,11 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 
 pub fn create_security_test_state() -> CachedState<DictStateReader> {
     create_test_state_util(TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_PATH, TEST_CONTRACT_ADDRESS)
+}
+
+impl CallEntryPoint {
+    /// Executes the call directly, without account context.
+    pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
+        self.execute(state, &AccountTransactionContext::default())
+    }
 }
