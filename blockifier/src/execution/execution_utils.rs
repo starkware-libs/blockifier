@@ -26,6 +26,7 @@ use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHint
 use crate::general_errors::ConversionError;
 use crate::state::cached_state::CachedState;
 use crate::state::state_reader::StateReader;
+use crate::transaction::objects::AccountTransactionContext;
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
@@ -57,8 +58,8 @@ pub struct ExecutionContext<'a, SR: StateReader> {
 pub fn initialize_execution_context<'a, SR: StateReader>(
     call_entry_point: &CallEntryPoint,
     state: &'a mut CachedState<SR>,
+    account_tx_context: &'a AccountTransactionContext,
 ) -> Result<ExecutionContext<'a, SR>, PreExecutionError> {
-    // TODO(Noa, 18/12/22): Remove. Change state to be mutable.
     let contract_class = state.get_contract_class(&call_entry_point.class_hash)?;
 
     // Resolve initial PC from EP indicator.
@@ -71,7 +72,7 @@ pub fn initialize_execution_context<'a, SR: StateReader>(
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
     let (syscall_segment, syscall_handler) =
-        initialize_syscall_handler(&mut vm, state, call_entry_point);
+        initialize_syscall_handler(&mut vm, state, account_tx_context, call_entry_point);
 
     Ok(ExecutionContext {
         runner: cairo_runner,
@@ -115,8 +116,10 @@ pub fn prepare_call_arguments(
 pub fn execute_entry_point_call<SR: StateReader>(
     call_entry_point: CallEntryPoint,
     state: &mut CachedState<SR>,
+    account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let mut execution_context = initialize_execution_context(&call_entry_point, state)?;
+    let mut execution_context =
+        initialize_execution_context(&call_entry_point, state, account_tx_context)?;
     let args = prepare_call_arguments(
         &call_entry_point,
         &execution_context.vm,

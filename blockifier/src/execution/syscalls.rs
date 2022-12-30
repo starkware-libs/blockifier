@@ -266,6 +266,7 @@ impl DeployRequest {
         syscall_handler.state.set_contract_hash(contract_address, self.class_hash)?;
         let call_info = execute_constructor_entry_point(
             syscall_handler.state,
+            syscall_handler.account_tx_context,
             self.class_hash,
             contract_address,
             self.constructor_calldata,

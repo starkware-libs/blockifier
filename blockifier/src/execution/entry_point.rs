@@ -10,6 +10,7 @@ use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::cached_state::CachedState;
 use crate::state::state_reader::StateReader;
+use crate::transaction::objects::AccountTransactionContext;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -34,8 +35,17 @@ impl CallEntryPoint {
     pub fn execute<SR: StateReader>(
         self,
         state: &mut CachedState<SR>,
+        account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
-        execute_entry_point_call(self, state)
+        execute_entry_point_call(self, state, account_tx_context)
+    }
+
+    /// Executes the call directly, without account context.
+    pub fn execute_directly<SR: StateReader>(
+        self,
+        state: &mut CachedState<SR>,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        self.execute(state, &AccountTransactionContext::default())
     }
 
     pub fn resolve_entry_point_pc(
@@ -74,6 +84,7 @@ pub struct CallInfo {
 
 pub fn execute_constructor_entry_point<SR: StateReader>(
     state: &mut CachedState<SR>,
+    account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
     storage_address: ContractAddress,
     calldata: Calldata,
@@ -94,7 +105,7 @@ pub fn execute_constructor_entry_point<SR: StateReader>(
         calldata,
         storage_address,
     };
-    constructor_call.execute(state)
+    constructor_call.execute(state, account_tx_context)
 }
 
 pub fn handle_empty_constructor(

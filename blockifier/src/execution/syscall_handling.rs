@@ -26,11 +26,13 @@ use crate::execution::hint_code;
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
 use crate::state::cached_state::CachedState;
 use crate::state::state_reader::StateReader;
+use crate::transaction::objects::AccountTransactionContext;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHintProcessor<'a, SR: StateReader> {
     // Input for execution.
     pub state: &'a mut CachedState<SR>,
+    pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
     builtin_hint_processor: BuiltinHintProcessor,
 
@@ -48,6 +50,7 @@ impl<'a, SR: StateReader> SyscallHintProcessor<'a, SR> {
     pub fn new(
         initial_syscall_ptr: Relocatable,
         state: &'a mut CachedState<SR>,
+        account_tx_context: &'a AccountTransactionContext,
         storage_address: ContractAddress,
     ) -> Self {
         let mut builtin_hint_processor = BuiltinHintProcessor::new_empty();
@@ -55,6 +58,7 @@ impl<'a, SR: StateReader> SyscallHintProcessor<'a, SR> {
 
         SyscallHintProcessor {
             state,
+            account_tx_context,
             storage_address,
             builtin_hint_processor,
             inner_calls: vec![],
@@ -133,11 +137,16 @@ impl<SR: StateReader> HintProcessor for SyscallHintProcessor<'_, SR> {
 pub fn initialize_syscall_handler<'a, SR: StateReader>(
     vm: &mut VirtualMachine,
     state: &'a mut CachedState<SR>,
+    account_tx_context: &'a AccountTransactionContext,
     call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, SyscallHintProcessor<'a, SR>) {
     let syscall_segment = vm.add_memory_segment();
-    let syscall_handler =
-        SyscallHintProcessor::new(syscall_segment, state, call_entry_point.storage_address);
+    let syscall_handler = SyscallHintProcessor::new(
+        syscall_segment,
+        state,
+        account_tx_context,
+        call_entry_point.storage_address,
+    );
 
     (syscall_segment, syscall_handler)
 }
@@ -202,7 +211,8 @@ pub fn execute_inner_call<SR: StateReader>(
     call_entry_point: CallEntryPoint,
     syscall_handler: &mut SyscallHintProcessor<'_, SR>,
 ) -> SyscallResult<Retdata> {
-    let call_info = call_entry_point.execute(syscall_handler.state)?;
+    let call_info =
+        call_entry_point.execute(syscall_handler.state, syscall_handler.account_tx_context)?;
     let retdata = call_info.execution.retdata.clone();
     syscall_handler.inner_calls.push(call_info);
 
