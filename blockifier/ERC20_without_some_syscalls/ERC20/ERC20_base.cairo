@@ -154,7 +154,6 @@ func ERC20_transfer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     // Overflow is not possible because sum is guaranteed by mint to be less than total supply.
     let (new_recipient_balance, _: Uint256) = uint256_add(recipient_balance, amount);
     ERC20_balances.write(recipient, new_recipient_balance);
-    Transfer.emit(sender, recipient, amount);
     return ();
 }
 
