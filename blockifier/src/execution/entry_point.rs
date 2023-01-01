@@ -36,7 +36,17 @@ impl CallEntryPoint {
         state: &mut dyn State,
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
-        execute_entry_point_call(self, state, account_tx_context)
+        // Validate contract is deployed.
+        let storage_class_hash = *state.get_class_hash_at(self.storage_address)?;
+        if storage_class_hash == ClassHash::default() {
+            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
+        }
+
+        let class_hash = match self.class_hash {
+            Some(class_hash) => class_hash,
+            None => storage_class_hash,
+        };
+        execute_entry_point_call(self, class_hash, state, account_tx_context)
     }
 
     pub fn resolve_entry_point_pc(
@@ -52,21 +62,6 @@ impl CallEntryPoint {
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
             Some(entry_point) => Ok(entry_point.offset.0),
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
-        }
-    }
-
-    pub fn validate_contract_deployed_and_get_class_hash(
-        &self,
-        state: &mut dyn State,
-    ) -> Result<ClassHash, PreExecutionError> {
-        let storage_class_hash = *state.get_class_hash_at(self.storage_address)?;
-        if storage_class_hash == ClassHash::default() {
-            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address));
-        }
-
-        match self.class_hash {
-            Some(class_hash) => Ok(class_hash),
-            None => Ok(storage_class_hash),
         }
     }
 }
