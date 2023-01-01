@@ -76,8 +76,9 @@ func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 
 @external
 func transfer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    recipient: felt, sender: felt, amount: Uint256
+    recipient: felt, amount: Uint256
 ) -> (success: felt) {
+    let (sender) = get_caller_address();
     ERC20_transfer(sender, recipient, amount);
 
     return (TRUE,);

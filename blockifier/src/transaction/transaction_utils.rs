@@ -24,7 +24,6 @@ pub fn execute_fee_transfer(
         return Err(FeeTransferError::MaxFeeExceeded { max_fee, actual_fee })?;
     }
 
-    // TODO(Adi, 15/01/2023): Add some function converting `ContractAddress` to felt to SN API.
     let fee_transfer_call = CallEntryPoint {
         // TODO(Adi, 15/01/2023): Replace with a computed ERC20 class hash.
         class_hash: None,
@@ -34,10 +33,7 @@ pub fn execute_fee_transfer(
         )?),
         calldata: Calldata(
             vec![
-                // TODO(Adi, 15/01/2023): The sender argument should be removed once
-                // `get_caller_address` is implemented.
                 StarkFelt::try_from(TEST_SEQUENCER_ADDRESS)?, // Recipient.
-                *account_tx_context.sender_address.0.key(),   // Sender.
                 StarkFelt::from(actual_fee.0 as u64),         // Amount (lower 128-bit).
                 StarkFelt::from(0),                           // Amount (upper 128-bit).
             ]
