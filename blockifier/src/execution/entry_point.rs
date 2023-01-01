@@ -9,7 +9,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::cached_state::CachedState;
-use crate::state::state_reader::StateReader;
+use crate::state::state_api::StateReader;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]

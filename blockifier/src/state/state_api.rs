@@ -24,8 +24,7 @@ pub trait StateReader {
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&self, _contract_address: ContractAddress)
-    -> StateReaderResult<ClassHash>;
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateReaderResult<ClassHash>;
 
     /// Returns the contract class of the given class hash.
     fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<ContractClass>;

@@ -5,7 +5,7 @@ pub mod objects;
 pub mod transaction_utils;
 
 use crate::state::cached_state::CachedState;
-use crate::state::state_reader::StateReader;
+use crate::state::state_api::StateReader;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 
 pub trait ExecuteTransaction<SR: StateReader> {
