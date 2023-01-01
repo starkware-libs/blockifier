@@ -176,18 +176,18 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
     }
 }
 
-pub fn write_retdata(
+pub fn write_felt_array(
     vm: &mut VirtualMachine,
     ptr: &Relocatable,
-    retdata: Retdata,
+    data: Vec<StarkFelt>,
 ) -> SyscallResult<()> {
-    let retdata_size = felt_to_bigint(StarkFelt::from(retdata.0.len() as u64));
+    let retdata_size = felt_to_bigint(StarkFelt::from(data.len() as u64));
     vm.insert_value(ptr, retdata_size)?;
 
     // Write response payload to the memory.
     let segment = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment)?;
-    let data: Vec<MaybeRelocatable> = retdata.0.iter().map(|x| felt_to_bigint(*x).into()).collect();
+    let data: Vec<MaybeRelocatable> = data.iter().map(|x| felt_to_bigint(*x).into()).collect();
     vm.load_data(&segment.into(), data)?;
 
     Ok(())
