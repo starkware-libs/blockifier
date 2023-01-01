@@ -11,10 +11,8 @@ use crate::state::cached_state::{CachedState, DictStateReader};
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 // TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
-// TODO(Adi, 10/02/2022): Replace with 'account_contract_without_validations' once the syscalls are
-// implemented.
 pub const ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_without_some_syscalls_compiled.json";
+    "./feature_contracts/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
