@@ -6,10 +6,12 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, 
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransaction, TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, EventContent, EventData, EventKey, Fee, InvokeTransaction, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{patky, shash};
 
+use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
@@ -21,7 +23,8 @@ use crate::test_utils::{
     TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::{
-    EXECUTE_ENTRY_POINT_SELECTOR, TRANSFER_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR,
+    EXECUTE_ENTRY_POINT_SELECTOR, TRANSFER_ENTRY_POINT_SELECTOR, TRANSFER_EVENT_NAME,
+    VALIDATE_ENTRY_POINT_SELECTOR,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
@@ -141,27 +144,36 @@ fn test_invoke_tx() {
     };
 
     let expected_actual_fee = get_tested_actual_fee();
+    // The lower 128 bits of the expected actual fee.
+    let expected_lower_actual_fee = shash!(expected_actual_fee.0 as u64);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(TRANSFER_ENTRY_POINT_SELECTOR)),
         calldata: Calldata(
             vec![
-                // TODO(Adi, 15/01/2023): The sender argument should be removed once
-                // `get_caller_address` is implemented.
-                shash!(TEST_SEQUENCER_ADDRESS),        // Recipient.
-                shash!(TEST_ACCOUNT_CONTRACT_ADDRESS), // Sender.
-                shash!(expected_actual_fee.0 as u64),  // Amount (lower 128-bit).
-                shash!(0),                             // Amount (upper 128-bit).
+                shash!(TEST_SEQUENCER_ADDRESS), // Recipient.
+                expected_lower_actual_fee,      // Amount (lower 128-bit).
+                shash!(0),                      // Amount (upper 128-bit).
             ]
             .into(),
         ),
         storage_address: ContractAddress::try_from(shash!(TEST_ERC20_CONTRACT_ADDRESS)).unwrap(),
         caller_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS)).unwrap(),
     };
+    let fee_transfer_event = EventContent {
+        keys: vec![EventKey(get_selector_from_name(TRANSFER_EVENT_NAME).0)],
+        data: EventData(vec![
+            shash!(TEST_ACCOUNT_CONTRACT_ADDRESS), // Sender.
+            shash!(TEST_SEQUENCER_ADDRESS),        // Recipient.
+            expected_lower_actual_fee,             // Amount (lower 128-bit).
+            shash!(0),                             // Amount (upper 128-bit).
+        ]),
+    };
     let expected_fee_transfer_call_info = CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution { retdata: Retdata(vec![shash!(true as u64)].into()) },
+        events: vec![fee_transfer_event],
         ..Default::default()
     };
 
@@ -178,7 +190,7 @@ fn test_invoke_tx() {
 
     // Test final balances.
     let expected_account_balance = shash!(0);
-    let expected_sequencer_balance = shash!(expected_actual_fee.0 as u64);
+    let expected_sequencer_balance = expected_lower_actual_fee;
     assert_eq!(
         state
             .get_storage_at(

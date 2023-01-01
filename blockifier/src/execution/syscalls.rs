@@ -393,6 +393,7 @@ impl GetContractAddressRequest {
 }
 
 pub type GetContractAddressResponse = GetCallerAddressResponse;
+pub const GET_CONTRACT_ADDRESS_RESPONSE_SIZE: usize = GET_CALLER_ADDRESS_RESPONSE_SIZE;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum SyscallRequest {
@@ -488,8 +489,8 @@ impl SyscallResponse {
             SyscallResponse::CallContract(_) => CALL_CONTRACT_RESPONSE_SIZE,
             SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
             SyscallResponse::EmitEvent(_) => EMIT_EVENT_RESPONSE_SIZE,
-            SyscallResponse::GetCallerAddress(_) => LIBRARY_CALL_RESPONSE_SIZE,
-            SyscallResponse::GetContractAddress(_) => LIBRARY_CALL_RESPONSE_SIZE,
+            SyscallResponse::GetCallerAddress(_) => GET_CALLER_ADDRESS_RESPONSE_SIZE,
+            SyscallResponse::GetContractAddress(_) => GET_CONTRACT_ADDRESS_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,

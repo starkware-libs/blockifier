@@ -8,3 +8,5 @@ pub const TRANSFER_ENTRY_POINT_SELECTOR: &str =
 // The entrypoint selector corresponding to the '__validate__' entrypoint.
 pub const VALIDATE_ENTRY_POINT_SELECTOR: &str =
     "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775";
+
+pub const TRANSFER_EVENT_NAME: &str = "Transfer";
