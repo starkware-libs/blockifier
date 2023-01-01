@@ -4,8 +4,10 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import EcOpBuiltin, HashBuiltin, SignatureBuiltin
 from starkware.cairo.common.dict_access import DictAccess
 from starkware.cairo.common.ec_point import EcPoint
+from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.signature import verify_ecdsa_signature
 from starkware.starknet.common.syscalls import (
+    CALL_CONTRACT_SELECTOR,
     DEPLOY_SELECTOR,
     Deploy,
     DeployRequest,
@@ -61,13 +63,13 @@ func test_bad_syscall_stop_ptr{syscall_ptr}() {
 }
 
 @external
-func test_bad_syscall_stop_ptr2{syscall_ptr}() {
+func test_nonrelocatable_syscall_ptr{syscall_ptr}() {
     let syscall_ptr = 0;
     return ();
 }
 
 @external
-func test_relocateable_storage_address{syscall_ptr: felt*, range_check_ptr}(call_foo: felt) {
+func test_relocatable_storage_address{syscall_ptr: felt*, range_check_ptr}(call_foo: felt) {
     storage_read(address=cast(syscall_ptr, felt));
 
     maybe_call_foo(call_foo=call_foo);
@@ -95,7 +97,7 @@ func test_access_after_syscall_stop_ptr{syscall_ptr: felt*}() {
 }
 
 @external
-func test_substraction_between_relocatables{syscall_ptr: felt*, range_check_ptr}() {
+func test_subtraction_between_relocatables{syscall_ptr: felt*, range_check_ptr}() {
     tempvar a = syscall_ptr - range_check_ptr;
     return ();
 }
@@ -154,31 +156,20 @@ func test_signature_hint_on_wrong_segment{syscall_ptr: felt*, ecdsa_ptr: Signatu
 @external
 func test_write_to_program_segment() {
     // Tests a write to the end of the program segment.
-    %{
-        from starkware.cairo.lang.vm.relocatable import RelocatableValue
-
-        # Find the end of the program segment.
-        program_segment_ptr = RelocatableValue(segment_index=0, offset=0)
-        while program_segment_ptr in memory:
-            program_segment_ptr = program_segment_ptr + 1
-
-        # Write past the end of the program segment.
-        memory[program_segment_ptr] = 0x17
-    %}
+    let (_, __pc__) = get_fp_and_pc();
+    assert [__pc__ + 1000] = 37;
     return ();
 }
 
 @external
 func test_exit_main_scope() {
-    %{
-        vm_exit_scope()
-        vm_enter_scope()
-    %}
+    %{ vm_exit_scope() %}
+    %{ vm_enter_scope() %}
     return ();
 }
 
 @external
-func test_unbalanced_enter_scope() {
+func test_missing_exit_scope() {
     %{ vm_enter_scope() %}
     return ();
 }
@@ -330,5 +321,20 @@ func test_ec_op_invalid_input{
     );
     assert ec_op_ptr[0].m = 8;
     let ec_op_ptr = &ec_op_ptr[1];
+    return ();
+}
+
+@external
+func test_bad_syscall_request_arg_type{syscall_ptr: felt*}() {
+    assert syscall_ptr[0] = CALL_CONTRACT_SELECTOR;
+    // Contract address.
+    assert syscall_ptr[1] = 0;
+    // Function selector.
+    assert syscall_ptr[2] = 0;
+    // Calldata size.
+    assert syscall_ptr[3] = 1;
+    // Calldata - should be a pointer, but we are passing a felt.
+    assert syscall_ptr[4] = 0;
+    %{ syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr) %}
     return ();
 }
