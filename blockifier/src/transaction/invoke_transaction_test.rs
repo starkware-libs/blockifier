@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 
 use assert_matches::assert_matches;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use pretty_assertions::assert_eq;
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
     Calldata, Fee, InvokeTransaction, TransactionHash, TransactionSignature, TransactionVersion,
 };
-use starknet_api::{shash, StarknetApiError};
+use starknet_api::{patky, shash, StarknetApiError};
 
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
     get_contract_class, ACCOUNT_CONTRACT_PATH, RETURN_RESULT_SELECTOR,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
 };
-use crate::transaction::constants::{
-    CALL_CONTRACT_CALLDATA_INDEX, EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR,
-};
+use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{
     ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
@@ -26,20 +26,30 @@ use crate::transaction::ExecuteTransaction;
 
 // TODO(Adi, 25/12/2022): Use (or create) a `create_test_state` test utils function.
 fn create_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = HashMap::from([(
-        ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
-        get_contract_class(ACCOUNT_CONTRACT_PATH),
-    )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+    let test_contract_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
+    let class_hash_to_class = HashMap::from([
+        (
+            ClassHash(shash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+            get_contract_class(ACCOUNT_CONTRACT_PATH),
+        ),
+        (test_contract_class_hash, get_contract_class(TEST_CONTRACT_PATH)),
+    ]);
+    let address_to_class_hash =
+        HashMap::from([(ContractAddress(patky!(TEST_CONTRACT_ADDRESS)), test_contract_class_hash)]);
+    CachedState::new(DictStateReader {
+        address_to_class_hash,
+        class_hash_to_class,
+        ..Default::default()
+    })
 }
 
 fn get_tested_valid_invoke_tx() -> Result<InvokeTransaction, StarknetApiError> {
     let execute_calldata = Calldata(
         vec![
-            StarkFelt::try_from(TEST_CONTRACT_ADDRESS)?, // Contract address.
-            StarkFelt::try_from(RETURN_RESULT_SELECTOR)?, // EP selector.
-            StarkFelt::from(1),                          // Calldata length.
-            StarkFelt::from(0),                          // Calldata.
+            shash!(TEST_CONTRACT_ADDRESS),  // Contract address.
+            shash!(RETURN_RESULT_SELECTOR), // EP selector.
+            shash!(1),                      // Calldata length.
+            shash!(2),                      // Calldata: num.
         ]
         .into(),
     );
@@ -79,22 +89,34 @@ fn test_invoke_tx() -> TransactionExecutionResult<()> {
             storage_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS))?,
             caller_address: ContractAddress::default(),
         },
-        // 'account_without_some_syscalls' has a trivial `validate` function.
+        // The account contract we use for testing has a trivial `validate` function.
         execution: CallExecution { retdata: Retdata(vec![].into()) },
         ..Default::default()
     };
 
+    let expected_return_result_calldata = Calldata(vec![shash!(2)].into());
+    let expected_return_result_call = CallEntryPoint {
+        entry_point_selector: EntryPointSelector(shash!(RETURN_RESULT_SELECTOR)),
+        class_hash: ClassHash(shash!(TEST_CLASS_HASH)),
+        entry_point_type: EntryPointType::External,
+        calldata: expected_return_result_calldata.clone(),
+        storage_address: ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
+        caller_address: ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+    };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(EXECUTE_ENTRY_POINT_SELECTOR)),
         ..expected_validate_call_info.call.clone()
     };
 
+    let expected_return_result_retdata = Retdata(expected_return_result_calldata.0);
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
-        // The called EP simply returns the calldata it was given.
-        execution: CallExecution {
-            retdata: Retdata(tx.calldata.0[CALL_CONTRACT_CALLDATA_INDEX..].to_vec().into()),
-        },
+        execution: CallExecution { retdata: expected_return_result_retdata.clone() },
+        inner_calls: vec![CallInfo {
+            call: expected_return_result_call,
+            execution: CallExecution { retdata: expected_return_result_retdata },
+            ..Default::default()
+        }],
         ..Default::default()
     };
 
