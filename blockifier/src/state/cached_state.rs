@@ -114,7 +114,7 @@ impl<SR: StateReader> CachedState<SR> {
         Ok(class_hash)
     }
 
-    pub fn set_contract_hash(
+    pub fn set_class_hash_at(
         &mut self,
         contract_address: ContractAddress,
         class_hash: ClassHash,
