@@ -7,9 +7,11 @@ use thiserror::Error;
 
 use crate::state::errors::StateError;
 
+// TODO(AlonH, 21/12/2022): Implement Display for all types that appear in errors.
+
 #[derive(Debug, Error)]
 pub enum PreExecutionError {
-    #[error("Entry point {0:#?} not found in contract.")]
+    #[error("Entry point {0:?} not found in contract.")]
     EntryPointNotFound(EntryPointSelector),
     #[error(transparent)]
     MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
@@ -33,7 +35,7 @@ impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError 
 pub enum PostExecutionError {
     #[error(transparent)]
     MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
-    #[error("{0} validation failed.")]
+    #[error("Validation failed: {0}.")]
     SecurityValidationError(String),
     #[error(transparent)]
     VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),

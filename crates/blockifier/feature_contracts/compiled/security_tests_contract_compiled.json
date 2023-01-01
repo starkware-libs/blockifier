@@ -32,7 +32,7 @@
         },
         {
             "inputs": [],
-            "name": "test_bad_syscall_stop_ptr2",
+            "name": "test_nonrelocatable_syscall_ptr",
             "outputs": [],
             "type": "function"
         },
@@ -43,7 +43,7 @@
                     "type": "felt"
                 }
             ],
-            "name": "test_relocateable_storage_address",
+            "name": "test_relocatable_storage_address",
             "outputs": [],
             "type": "function"
         },
@@ -227,15 +227,17 @@
             "name": "test_ec_op_invalid_input",
             "outputs": [],
             "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "test_bad_syscall_request_arg_type",
+            "outputs": [],
+            "type": "function"
         }
     ],
     "entry_points_by_type": {
         "CONSTRUCTOR": [],
         "EXTERNAL": [
-            {
-                "offset": "0xa9",
-                "selector": "0x22537afc294628cdcf2cac92fb75b2e84db38e5582c30cb9955366e921d481"
-            },
             {
                 "offset": "0x262",
                 "selector": "0x2c939a085348fb33b913740b92ae57519219ae53bbdf099e5d9c2209b9e2f9"
@@ -269,6 +271,10 @@
                 "selector": "0x1005a085f60a3bac0f5d3c7f8124102745652b024de9d88065eb92e3a7ca1cc"
             },
             {
+                "offset": "0xa9",
+                "selector": "0x1010f70db80f29ae92e2aab934fd2d6fecd6370f8a154d8b77bc6f461f7aaf8"
+            },
+            {
                 "offset": "0x1e4",
                 "selector": "0x12d4c96be72cb0d0df47d86ecc9917d83c40da4d751f94fc924d3d2ef9ac637"
             },
@@ -283,6 +289,10 @@
             {
                 "offset": "0x3d",
                 "selector": "0x1b1a0649752af1b28b3dc29a1556eee781e4a4c3a1f7f53f90fa834de098c4d"
+            },
+            {
+                "offset": "0x388",
+                "selector": "0x1b1b4a59759549875346d58a47e3e908c63e1c29ed81c6476d0c60943fe1e6d"
             },
             {
                 "offset": "0x221",
@@ -321,10 +331,6 @@
                 "selector": "0x2f103562452e1da93fcace89b4c4698998159867de0e25a22c2a8d5fc9b4a9b"
             },
             {
-                "offset": "0xc2",
-                "selector": "0x2f4beab2ad69d559378ab7919371e9d3d642ae60dc943ee90cd7c5f0bbf1a21"
-            },
-            {
                 "offset": "0x1a5",
                 "selector": "0x2f756126efb0458186498475f334f2e8387d0db2506170bd4f382ad26560c2c"
             },
@@ -347,6 +353,10 @@
             {
                 "offset": "0x365",
                 "selector": "0x38638833835f4be021f47f2e6c91fdc2f523056b65f5e2789cb997968f9cac2"
+            },
+            {
+                "offset": "0xc2",
+                "selector": "0x38fbf65cd09ca4936b46daec3c450e2dfa9cea1ddbe0ee4b84a6f910991cadb"
             },
             {
                 "offset": "0xe0",
@@ -1288,6 +1298,38 @@
             "0x480680017fff8000",
             "0x0",
             "0x48127ff97fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x480680017fff8000",
+            "0x43616c6c436f6e7472616374",
+            "0x400280007ffd7fff",
+            "0x480680017fff8000",
+            "0x0",
+            "0x400280017ffd7fff",
+            "0x480680017fff8000",
+            "0x0",
+            "0x400280027ffd7fff",
+            "0x480680017fff8000",
+            "0x1",
+            "0x400280037ffd7fff",
+            "0x480680017fff8000",
+            "0x0",
+            "0x400280047ffd7fff",
+            "0x480a7ffd7fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x402b7ffd7ffc7ffd",
+            "0x480280007ffb8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffee",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x48127ffe7fff8000",
+            "0x480280017ffb8000",
+            "0x480280027ffb8000",
+            "0x480280037ffb8000",
+            "0x480280047ffb8000",
+            "0x480680017fff8000",
+            "0x0",
+            "0x48127ff97fff8000",
             "0x208b7fff7fff7ffe"
         ],
         "debug_info": null,
@@ -1514,7 +1556,7 @@
                         "__main__",
                         "__main__",
                         "__wrappers__",
-                        "__wrappers__.test_bad_syscall_stop_ptr2"
+                        "__wrappers__.test_nonrelocatable_syscall_ptr"
                     ],
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
@@ -1532,7 +1574,7 @@
                         "__main__",
                         "__main__",
                         "__wrappers__",
-                        "__wrappers__.test_relocateable_storage_address"
+                        "__wrappers__.test_relocatable_storage_address"
                     ],
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
@@ -1784,7 +1826,22 @@
                         "__main__",
                         "__main__.test_exit_main_scope"
                     ],
-                    "code": "vm_exit_scope()\nvm_enter_scope()",
+                    "code": "vm_exit_scope()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 52,
+                            "offset": 0
+                        },
+                        "reference_ids": {}
+                    }
+                },
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__main__.test_exit_main_scope"
+                    ],
+                    "code": "vm_enter_scope()",
                     "flow_tracking_data": {
                         "ap_tracking": {
                             "group": 52,
@@ -2099,9 +2156,50 @@
                         "reference_ids": {}
                     }
                 }
+            ],
+            "902": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__main__.test_bad_syscall_request_arg_type"
+                    ],
+                    "code": "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 83,
+                            "offset": 5
+                        },
+                        "reference_ids": {
+                            "__main__.test_bad_syscall_request_arg_type.syscall_ptr": 10
+                        }
+                    }
+                }
+            ],
+            "908": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__wrappers__",
+                        "__wrappers__.test_bad_syscall_request_arg_type"
+                    ],
+                    "code": "memory[ap] = segments.add()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 84,
+                            "offset": 9
+                        },
+                        "reference_ids": {}
+                    }
+                }
             ]
         },
         "identifiers": {
+            "__main__.CALL_CONTRACT_SELECTOR": {
+                "destination": "starkware.starknet.common.syscalls.CALL_CONTRACT_SELECTOR",
+                "type": "alias"
+            },
             "__main__.DEPLOY_SELECTOR": {
                 "destination": "starkware.starknet.common.syscalls.DEPLOY_SELECTOR",
                 "type": "alias"
@@ -2632,6 +2730,53 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.test_bad_syscall_request_arg_type": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 887,
+                "type": "function"
+            },
+            "__main__.test_bad_syscall_request_arg_type.Args": {
+                "full_name": "__main__.test_bad_syscall_request_arg_type.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.test_bad_syscall_request_arg_type.ImplicitArgs": {
+                "full_name": "__main__.test_bad_syscall_request_arg_type.ImplicitArgs",
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_bad_syscall_request_arg_type.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.test_bad_syscall_request_arg_type.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.test_bad_syscall_request_arg_type.syscall_ptr": {
+                "cairo_type": "felt*",
+                "full_name": "__main__.test_bad_syscall_request_arg_type.syscall_ptr",
+                "references": [
+                    {
+                        "ap_tracking_data": {
+                            "group": 83,
+                            "offset": 0
+                        },
+                        "pc": 887,
+                        "value": "[cast(fp + (-3), felt**)]"
+                    }
+                ],
+                "type": "reference"
+            },
             "__main__.test_bad_syscall_stop_ptr": {
                 "decorators": [
                     "external"
@@ -2661,38 +2806,6 @@
                 "type": "type_definition"
             },
             "__main__.test_bad_syscall_stop_ptr.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
-            "__main__.test_bad_syscall_stop_ptr2": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 166,
-                "type": "function"
-            },
-            "__main__.test_bad_syscall_stop_ptr2.Args": {
-                "full_name": "__main__.test_bad_syscall_stop_ptr2.Args",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__main__.test_bad_syscall_stop_ptr2.ImplicitArgs": {
-                "full_name": "__main__.test_bad_syscall_stop_ptr2.ImplicitArgs",
-                "members": {
-                    "syscall_ptr": {
-                        "cairo_type": "felt",
-                        "offset": 0
-                    }
-                },
-                "size": 1,
-                "type": "struct"
-            },
-            "__main__.test_bad_syscall_stop_ptr2.Return": {
-                "cairo_type": "()",
-                "type": "type_definition"
-            },
-            "__main__.test_bad_syscall_stop_ptr2.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
@@ -2942,6 +3055,38 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.test_nonrelocatable_syscall_ptr": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 166,
+                "type": "function"
+            },
+            "__main__.test_nonrelocatable_syscall_ptr.Args": {
+                "full_name": "__main__.test_nonrelocatable_syscall_ptr.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.test_nonrelocatable_syscall_ptr.ImplicitArgs": {
+                "full_name": "__main__.test_nonrelocatable_syscall_ptr.ImplicitArgs",
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_nonrelocatable_syscall_ptr.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.test_nonrelocatable_syscall_ptr.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.test_op0_unknown_double_dereference": {
                 "decorators": [
                     "external"
@@ -3147,6 +3292,47 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.test_relocatable_storage_address": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 184,
+                "type": "function"
+            },
+            "__main__.test_relocatable_storage_address.Args": {
+                "full_name": "__main__.test_relocatable_storage_address.Args",
+                "members": {
+                    "call_foo": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_relocatable_storage_address.ImplicitArgs": {
+                "full_name": "__main__.test_relocatable_storage_address.ImplicitArgs",
+                "members": {
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__main__.test_relocatable_storage_address.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.test_relocatable_storage_address.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.test_relocatables_addition_failure": {
                 "decorators": [
                     "external"
@@ -3176,47 +3362,6 @@
                 "type": "type_definition"
             },
             "__main__.test_relocatables_addition_failure.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
-            "__main__.test_relocateable_storage_address": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 184,
-                "type": "function"
-            },
-            "__main__.test_relocateable_storage_address.Args": {
-                "full_name": "__main__.test_relocateable_storage_address.Args",
-                "members": {
-                    "call_foo": {
-                        "cairo_type": "felt",
-                        "offset": 0
-                    }
-                },
-                "size": 1,
-                "type": "struct"
-            },
-            "__main__.test_relocateable_storage_address.ImplicitArgs": {
-                "full_name": "__main__.test_relocateable_storage_address.ImplicitArgs",
-                "members": {
-                    "range_check_ptr": {
-                        "cairo_type": "felt",
-                        "offset": 1
-                    },
-                    "syscall_ptr": {
-                        "cairo_type": "felt*",
-                        "offset": 0
-                    }
-                },
-                "size": 2,
-                "type": "struct"
-            },
-            "__main__.test_relocateable_storage_address.Return": {
-                "cairo_type": "()",
-                "type": "type_definition"
-            },
-            "__main__.test_relocateable_storage_address.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
@@ -3799,6 +3944,41 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.test_bad_syscall_request_arg_type": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 904,
+                "type": "function"
+            },
+            "__wrappers__.test_bad_syscall_request_arg_type.Args": {
+                "full_name": "__wrappers__.test_bad_syscall_request_arg_type.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_bad_syscall_request_arg_type.ImplicitArgs": {
+                "full_name": "__wrappers__.test_bad_syscall_request_arg_type.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_bad_syscall_request_arg_type.Return": {
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, ecdsa_ptr: felt, ec_op_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_bad_syscall_request_arg_type.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_bad_syscall_request_arg_type.__wrapped_func": {
+                "destination": "__main__.test_bad_syscall_request_arg_type",
+                "type": "alias"
+            },
+            "__wrappers__.test_bad_syscall_request_arg_type_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.test_bad_syscall_stop_ptr": {
                 "decorators": [
                     "external"
@@ -3828,41 +4008,6 @@
             },
             "__wrappers__.test_bad_syscall_stop_ptr.__wrapped_func": {
                 "destination": "__main__.test_bad_syscall_stop_ptr",
-                "type": "alias"
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 169,
-                "type": "function"
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2.Args": {
-                "full_name": "__wrappers__.test_bad_syscall_stop_ptr2.Args",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2.ImplicitArgs": {
-                "full_name": "__wrappers__.test_bad_syscall_stop_ptr2.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2.Return": {
-                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, ecdsa_ptr: felt, ec_op_ptr: felt, size: felt, retdata: felt*)",
-                "type": "type_definition"
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2.__wrapped_func": {
-                "destination": "__main__.test_bad_syscall_stop_ptr2",
-                "type": "alias"
-            },
-            "__wrappers__.test_bad_syscall_stop_ptr2_encode_return.memcpy": {
-                "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
             "__wrappers__.test_bad_syscall_stop_ptr_encode_return.memcpy": {
@@ -4114,6 +4259,41 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.test_nonrelocatable_syscall_ptr": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 169,
+                "type": "function"
+            },
+            "__wrappers__.test_nonrelocatable_syscall_ptr.Args": {
+                "full_name": "__wrappers__.test_nonrelocatable_syscall_ptr.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_nonrelocatable_syscall_ptr.ImplicitArgs": {
+                "full_name": "__wrappers__.test_nonrelocatable_syscall_ptr.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_nonrelocatable_syscall_ptr.Return": {
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, ecdsa_ptr: felt, ec_op_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_nonrelocatable_syscall_ptr.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_nonrelocatable_syscall_ptr.__wrapped_func": {
+                "destination": "__main__.test_nonrelocatable_syscall_ptr",
+                "type": "alias"
+            },
+            "__wrappers__.test_nonrelocatable_syscall_ptr_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.test_op0_unknown_double_dereference": {
                 "decorators": [
                     "external"
@@ -4324,6 +4504,41 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.test_relocatable_storage_address": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 194,
+                "type": "function"
+            },
+            "__wrappers__.test_relocatable_storage_address.Args": {
+                "full_name": "__wrappers__.test_relocatable_storage_address.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_relocatable_storage_address.ImplicitArgs": {
+                "full_name": "__wrappers__.test_relocatable_storage_address.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_relocatable_storage_address.Return": {
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, ecdsa_ptr: felt, ec_op_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_relocatable_storage_address.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_relocatable_storage_address.__wrapped_func": {
+                "destination": "__main__.test_relocatable_storage_address",
+                "type": "alias"
+            },
+            "__wrappers__.test_relocatable_storage_address_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.test_relocatables_addition_failure": {
                 "decorators": [
                     "external"
@@ -4356,41 +4571,6 @@
                 "type": "alias"
             },
             "__wrappers__.test_relocatables_addition_failure_encode_return.memcpy": {
-                "destination": "starkware.cairo.common.memcpy.memcpy",
-                "type": "alias"
-            },
-            "__wrappers__.test_relocateable_storage_address": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 194,
-                "type": "function"
-            },
-            "__wrappers__.test_relocateable_storage_address.Args": {
-                "full_name": "__wrappers__.test_relocateable_storage_address.Args",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.test_relocateable_storage_address.ImplicitArgs": {
-                "full_name": "__wrappers__.test_relocateable_storage_address.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.test_relocateable_storage_address.Return": {
-                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, ecdsa_ptr: felt, ec_op_ptr: felt, size: felt, retdata: felt*)",
-                "type": "type_definition"
-            },
-            "__wrappers__.test_relocateable_storage_address.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
-            "__wrappers__.test_relocateable_storage_address.__wrapped_func": {
-                "destination": "__main__.test_relocateable_storage_address",
-                "type": "alias"
-            },
-            "__wrappers__.test_relocateable_storage_address_encode_return.memcpy": {
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
@@ -6110,6 +6290,14 @@
                         "offset": 0
                     },
                     "pc": 776,
+                    "value": "[cast(fp + (-3), felt**)]"
+                },
+                {
+                    "ap_tracking_data": {
+                        "group": 83,
+                        "offset": 0
+                    },
+                    "pc": 887,
                     "value": "[cast(fp + (-3), felt**)]"
                 }
             ]
