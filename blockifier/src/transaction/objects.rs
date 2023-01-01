@@ -1,11 +1,24 @@
 use std::collections::HashMap;
 
-use starknet_api::transaction::Fee;
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::entry_point::CallInfo;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
+
+// TODO(Elin,01/02/2023): delete once account_data is added to SN API's paid transactions.
+/// Contains the account information of the transaction (outermost call).
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct AccountTransactionContext {
+    pub transaction_hash: TransactionHash,
+    pub max_fee: Fee,
+    pub version: TransactionVersion,
+    pub signature: TransactionSignature,
+    pub nonce: Nonce,
+    pub sender_address: ContractAddress,
+}
 
 // TODO(Adi, 10/12/2022): Add a 'transaction_type' field.
 /// Contains the information gathered by the execution of a transaction.
