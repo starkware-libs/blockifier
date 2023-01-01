@@ -26,6 +26,7 @@ pub const CALL_CONTRACT_SELECTOR_BYTES: &[u8] = b"CallContract";
 pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
 pub const EMIT_EVENT_SELECTOR_BYTES: &[u8] = b"EmitEvent";
 pub const GET_CALLER_ADDRESS_SELECTOR_BYTES: &[u8] = b"GetCallerAddress";
+pub const GET_CONTRACT_ADDRESS_SELECTOR_BYTES: &[u8] = b"GetContractAddress";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
 pub const SEND_MESSAGE_TO_L1_SELECTOR_BYTES: &[u8] = b"SendMessageToL1";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
@@ -378,24 +379,48 @@ impl GetCallerAddressRequest {
         syscall_handler: &mut SyscallHintProcessor<'_, SR>,
     ) -> SyscallExecutionResult {
         Ok(SyscallResponse::GetCallerAddress(GetCallerAddressResponse {
-            caller_address: syscall_handler.caller_address,
+            address: syscall_handler.caller_address,
         }))
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetCallerAddressResponse {
-    pub caller_address: ContractAddress,
+    pub address: ContractAddress,
 }
 
 pub const GET_CALLER_ADDRESS_RESPONSE_SIZE: usize = 1;
 
 impl GetCallerAddressResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, felt_to_bigint(*self.caller_address.0.key()))?;
+        vm.insert_value(ptr, felt_to_bigint(*self.address.0.key()))?;
         Ok(())
     }
 }
+
+/// GetContractAddress syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetContractAddressRequest;
+
+pub const GET_CONTRACT_ADDRESS_REQUEST_SIZE: usize = 0;
+
+impl GetContractAddressRequest {
+    pub fn read(_vm: &VirtualMachine, _ptr: &Relocatable) -> ReadRequestResult {
+        Ok(SyscallRequest::GetContractAddress(GetContractAddressRequest))
+    }
+
+    pub fn execute<SR: StateReader>(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_, SR>,
+    ) -> SyscallExecutionResult {
+        Ok(SyscallResponse::GetContractAddress(GetContractAddressResponse {
+            address: syscall_handler.storage_address,
+        }))
+    }
+}
+
+pub type GetContractAddressResponse = GetCallerAddressResponse;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum SyscallRequest {
@@ -403,6 +428,7 @@ pub enum SyscallRequest {
     Deploy(DeployRequest),
     EmitEvent(EmitEventRequest),
     GetCallerAddress(GetCallerAddressRequest),
+    GetContractAddress(GetContractAddressRequest),
     LibraryCall(LibraryCallRequest),
     SendMessageToL1(SendMessageToL1Request),
     StorageRead(StorageReadRequest),
@@ -419,6 +445,7 @@ impl SyscallRequest {
             DEPLOY_SELECTOR_BYTES => DeployRequest::read(vm, ptr),
             EMIT_EVENT_SELECTOR_BYTES => EmitEventRequest::read(vm, ptr),
             GET_CALLER_ADDRESS_SELECTOR_BYTES => GetCallerAddressRequest::read(vm, ptr),
+            GET_CONTRACT_ADDRESS_SELECTOR_BYTES => GetContractAddressRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             SEND_MESSAGE_TO_L1_SELECTOR_BYTES => SendMessageToL1Request::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
@@ -436,6 +463,7 @@ impl SyscallRequest {
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),
             SyscallRequest::EmitEvent(request) => request.execute(syscall_handler),
             SyscallRequest::GetCallerAddress(request) => request.execute(syscall_handler),
+            SyscallRequest::GetContractAddress(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::SendMessageToL1(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
@@ -449,6 +477,7 @@ impl SyscallRequest {
             SyscallRequest::Deploy(_) => DEPLOY_REQUEST_SIZE,
             SyscallRequest::EmitEvent(_) => EMIT_EVENT_REQUEST_SIZE,
             SyscallRequest::GetCallerAddress(_) => GET_CALLER_ADDRESS_REQUEST_SIZE,
+            SyscallRequest::GetContractAddress(_) => GET_CONTRACT_ADDRESS_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
             SyscallRequest::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
@@ -463,6 +492,7 @@ pub enum SyscallResponse {
     Deploy(DeployResponse),
     EmitEvent(EmptyResponse),
     GetCallerAddress(GetCallerAddressResponse),
+    GetContractAddress(GetContractAddressResponse),
     LibraryCall(LibraryCallResponse),
     SendMessageToL1(EmptyResponse),
     StorageRead(StorageReadResponse),
@@ -476,6 +506,7 @@ impl SyscallResponse {
             SyscallResponse::Deploy(response) => response.write(vm, ptr),
             SyscallResponse::EmitEvent(response) => response.write(vm, ptr),
             SyscallResponse::GetCallerAddress(response) => response.write(vm, ptr),
+            SyscallResponse::GetContractAddress(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::SendMessageToL1(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
@@ -489,6 +520,7 @@ impl SyscallResponse {
             SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
             SyscallResponse::EmitEvent(_) => EMIT_EVENT_RESPONSE_SIZE,
             SyscallResponse::GetCallerAddress(_) => LIBRARY_CALL_RESPONSE_SIZE,
+            SyscallResponse::GetContractAddress(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
