@@ -14,6 +14,7 @@ use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::{BigInt, Sign};
 use num_traits::Signed;
+use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::entry_point::{
@@ -56,10 +57,10 @@ pub struct ExecutionContext<'a> {
 
 pub fn initialize_execution_context<'a>(
     call_entry_point: &CallEntryPoint,
+    class_hash: ClassHash,
     state: &'a mut dyn State,
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<ExecutionContext<'a>, PreExecutionError> {
-    let class_hash = call_entry_point.validate_contract_deployed_and_get_class_hash(state)?;
     let contract_class = state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
@@ -115,11 +116,12 @@ pub fn prepare_call_arguments(
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
     call_entry_point: CallEntryPoint,
+    class_hash: ClassHash,
     state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let mut execution_context =
-        initialize_execution_context(&call_entry_point, state, account_tx_context)?;
+        initialize_execution_context(&call_entry_point, class_hash, state, account_tx_context)?;
     let args = prepare_call_arguments(
         &call_entry_point,
         &execution_context.vm,
