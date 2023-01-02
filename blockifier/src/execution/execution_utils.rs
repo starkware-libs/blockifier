@@ -17,6 +17,7 @@ use num_traits::Signed;
 use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkFelt;
 
+use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, Retdata,
 };
@@ -59,6 +60,7 @@ pub fn initialize_execution_context<'a>(
     call_entry_point: &CallEntryPoint,
     class_hash: ClassHash,
     state: &'a mut dyn State,
+    block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<ExecutionContext<'a>, PreExecutionError> {
     let contract_class = state.get_contract_class(&class_hash)?;
@@ -72,8 +74,13 @@ pub fn initialize_execution_context<'a>(
     let mut vm = VirtualMachine::new(program.prime, false, program.error_message_attributes);
     cairo_runner.initialize_builtins(&mut vm)?;
     cairo_runner.initialize_segments(&mut vm, None);
-    let (syscall_segment, syscall_handler) =
-        initialize_syscall_handler(&mut vm, state, account_tx_context, call_entry_point);
+    let (syscall_segment, syscall_handler) = initialize_syscall_handler(
+        &mut vm,
+        state,
+        block_context,
+        account_tx_context,
+        call_entry_point,
+    );
 
     Ok(ExecutionContext {
         runner: cairo_runner,
@@ -118,10 +125,16 @@ pub fn execute_entry_point_call(
     call_entry_point: CallEntryPoint,
     class_hash: ClassHash,
     state: &mut dyn State,
+    block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let mut execution_context =
-        initialize_execution_context(&call_entry_point, class_hash, state, account_tx_context)?;
+    let mut execution_context = initialize_execution_context(
+        &call_entry_point,
+        class_hash,
+        state,
+        block_context,
+        account_tx_context,
+    )?;
     let args = prepare_call_arguments(
         &call_entry_point,
         &execution_context.vm,

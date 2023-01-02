@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::{patricia_key, stark_felt};
 
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
 use crate::state::cached_state::{CachedState, DictStateReader};
@@ -98,6 +100,25 @@ pub fn create_security_test_state() -> CachedState<DictStateReader> {
 impl CallEntryPoint {
     /// Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-        self.execute(state, &AccountTransactionContext::default())
+        self.execute(
+            state,
+            &BlockContext::get_test_block_context(),
+            &AccountTransactionContext::default(),
+        )
+    }
+}
+
+impl BlockContext {
+    pub fn get_test_block_context() -> BlockContext {
+        BlockContext {
+            chain_id: ChainId("SN_GOERLI".to_string()),
+            block_number: BlockNumber::default(),
+            block_timestamp: BlockTimestamp::default(),
+            sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
+            fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
+            cairo_resource_fee_weights: HashMap::default(),
+            invoke_tx_max_n_steps: 1_000_000,
+            validate_max_n_steps: 1_000_000,
+        }
     }
 }
