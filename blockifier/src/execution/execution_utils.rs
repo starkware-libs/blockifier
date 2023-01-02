@@ -162,11 +162,22 @@ pub fn run_entry_point(
     Ok(())
 }
 
+pub fn validate_run(vm: &VirtualMachine) -> Result<(), PostExecutionError> {
+    // The returned values are: `implicit_args`, `retdata_size`, `retdata_ptr`.
+    let mut stack_pointer = vm.get_ap() + (-2);
+    for (_name, builtin_runner) in vm.get_builtin_runners().iter().rev() {
+        (stack_pointer, _) = builtin_runner.final_stack(vm, stack_pointer)?;
+    }
+    Ok(())
+}
+
 pub fn finalize_execution(
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
 ) -> Result<CallInfo, PostExecutionError> {
+    validate_run(&vm)?;
+
     Ok(CallInfo {
         call: call_entry_point,
         execution: CallExecution { retdata: extract_execution_retdata(vm)? },

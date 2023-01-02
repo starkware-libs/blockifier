@@ -35,6 +35,8 @@ pub enum PostExecutionError {
     #[error(transparent)]
     MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
     #[error(transparent)]
+    RunnerError(#[from] cairo_rs_vm_errors::runner_errors::RunnerError),
+    #[error(transparent)]
     VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
 }
 
