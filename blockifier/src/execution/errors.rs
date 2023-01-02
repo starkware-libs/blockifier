@@ -34,10 +34,16 @@ pub enum PostExecutionError {
     ConversionError(#[from] ConversionError),
     #[error(transparent)]
     MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
-    #[error(transparent)]
-    RunnerError(#[from] cairo_rs_vm_errors::runner_errors::RunnerError),
+    #[error("{0} validation failed.")]
+    SecurityValidationError(String),
     #[error(transparent)]
     VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
+}
+
+impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PostExecutionError {
+    fn from(error: cairo_rs_vm_errors::runner_errors::RunnerError) -> Self {
+        Self::SecurityValidationError(error.to_string())
+    }
 }
 
 #[derive(Debug, Error)]

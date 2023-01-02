@@ -88,7 +88,7 @@ pub fn prepare_call_arguments(
     call_entry_point: &CallEntryPoint,
     vm: &VirtualMachine,
     syscall_segment: Relocatable,
-) -> Vec<Box<dyn Any>> {
+) -> (Vec<MaybeRelocatable>, Vec<Box<dyn Any>>) {
     let mut args: Vec<Box<dyn Any>> = Vec::new();
     let entry_point_selector =
         MaybeRelocatable::Int(felt_to_bigint(call_entry_point.entry_point_selector.0));
@@ -100,7 +100,7 @@ pub fn prepare_call_arguments(
             .iter()
             .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack()),
     );
-    args.push(Box::new(implicit_args));
+    args.push(Box::new(implicit_args.clone()));
     // TODO(Adi, 29/11/2022): Remove the '.0' access, once derive-more is used in starknet_api.
     let calldata = &call_entry_point.calldata.0;
     args.push(Box::new(MaybeRelocatable::Int(bigint!(calldata.len()))));
@@ -110,7 +110,7 @@ pub fn prepare_call_arguments(
             .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
             .collect::<Vec<MaybeRelocatable>>(),
     ));
-    args
+    (implicit_args, args)
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -122,7 +122,7 @@ pub fn execute_entry_point_call(
 ) -> EntryPointExecutionResult<CallInfo> {
     let mut execution_context =
         initialize_execution_context(&call_entry_point, class_hash, state, account_tx_context)?;
-    let args = prepare_call_arguments(
+    let (implicit_args, args) = prepare_call_arguments(
         &call_entry_point,
         &execution_context.vm,
         execution_context.syscall_segment,
@@ -140,6 +140,7 @@ pub fn execute_entry_point_call(
         execution_context.vm,
         call_entry_point,
         execution_context.syscall_handler,
+        implicit_args,
     )?)
 }
 
@@ -162,21 +163,13 @@ pub fn run_entry_point(
     Ok(())
 }
 
-pub fn validate_run(vm: &VirtualMachine) -> Result<(), PostExecutionError> {
-    // The returned values are: `implicit_args`, `retdata_size`, `retdata_ptr`.
-    let mut stack_pointer = vm.get_ap() + (-2);
-    for (_name, builtin_runner) in vm.get_builtin_runners().iter().rev() {
-        (stack_pointer, _) = builtin_runner.final_stack(vm, stack_pointer)?;
-    }
-    Ok(())
-}
-
 pub fn finalize_execution(
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
+    implicit_args: Vec<MaybeRelocatable>,
 ) -> Result<CallInfo, PostExecutionError> {
-    validate_run(&vm)?;
+    validate_run(&vm, implicit_args)?;
 
     Ok(CallInfo {
         call: call_entry_point,
@@ -185,6 +178,27 @@ pub fn finalize_execution(
         events: syscall_handler.events,
         l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
     })
+}
+
+pub fn validate_run(
+    vm: &VirtualMachine,
+    implicit_args: Vec<MaybeRelocatable>,
+) -> Result<(), PostExecutionError> {
+    // The returned values are: `implicit_args`, `retdata_size`, `retdata_ptr`.
+    let implicit_args_end = vm.get_ap() + (-2);
+    let mut stack_ptr = implicit_args_end;
+    for (_name, builtin_runner) in vm.get_builtin_runners().iter().rev() {
+        (stack_ptr, _) = builtin_runner.final_stack(vm, stack_ptr)?;
+    }
+
+    // Subtract one to get to the first segment (the syscall pointer).
+    let implicit_args_start = stack_ptr + (-1);
+    if implicit_args_start + implicit_args.len() != implicit_args_end {
+        return Err(PostExecutionError::SecurityValidationError(
+            "Implicit arguments' segments".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn extract_execution_retdata(vm: VirtualMachine) -> Result<Retdata, PostExecutionError> {
