@@ -16,6 +16,7 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
+use crate::block_context::BlockContext;
 use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
@@ -31,6 +32,7 @@ use crate::transaction::objects::AccountTransactionContext;
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
+    pub block_context: &'a BlockContext,
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
@@ -50,6 +52,7 @@ impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         initial_syscall_ptr: Relocatable,
         state: &'a mut dyn State,
+        block_context: &'a BlockContext,
         account_tx_context: &'a AccountTransactionContext,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
@@ -59,6 +62,7 @@ impl<'a> SyscallHintProcessor<'a> {
 
         SyscallHintProcessor {
             state,
+            block_context,
             account_tx_context,
             storage_address,
             caller_address,
@@ -139,6 +143,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
 pub fn initialize_syscall_handler<'a>(
     vm: &mut VirtualMachine,
     state: &'a mut dyn State,
+    block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
     call_entry_point: &CallEntryPoint,
 ) -> (Relocatable, SyscallHintProcessor<'a>) {
@@ -146,6 +151,7 @@ pub fn initialize_syscall_handler<'a>(
     let syscall_handler = SyscallHintProcessor::new(
         syscall_segment,
         state,
+        block_context,
         account_tx_context,
         call_entry_point.storage_address,
         call_entry_point.caller_address,
@@ -214,8 +220,11 @@ pub fn execute_inner_call(
     call_entry_point: CallEntryPoint,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<Retdata> {
-    let call_info =
-        call_entry_point.execute(syscall_handler.state, syscall_handler.account_tx_context)?;
+    let call_info = call_entry_point.execute(
+        syscall_handler.state,
+        syscall_handler.block_context,
+        syscall_handler.account_tx_context,
+    )?;
     let retdata = call_info.execution.retdata.clone();
     syscall_handler.inner_calls.push(call_info);
 
