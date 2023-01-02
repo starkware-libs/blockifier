@@ -9,6 +9,7 @@ use cairo_rs::serde::deserialize_program::{
 use cairo_rs::types::errors::program_errors::ProgramError;
 use cairo_rs::types::program::Program;
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_rs::vm::errors::memory_errors::MemoryError;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
@@ -89,13 +90,13 @@ pub fn prepare_call_arguments(
     vm: &VirtualMachine,
     syscall_segment: Relocatable,
 ) -> (Vec<MaybeRelocatable>, Vec<Box<dyn Any>>) {
-    let mut args: Vec<Box<dyn Any>> = Vec::new();
+    let mut args: Vec<Box<dyn Any>> = vec![];
     let entry_point_selector =
         MaybeRelocatable::Int(felt_to_bigint(call_entry_point.entry_point_selector.0));
     args.push(Box::new(entry_point_selector));
 
     // Prepare implicit arguments.
-    let mut implicit_args = Vec::<MaybeRelocatable>::new();
+    let mut implicit_args = vec![];
     implicit_args.push(syscall_segment.into());
     implicit_args.extend(
         vm.get_builtin_runners()
@@ -174,7 +175,9 @@ pub fn finalize_execution(
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
 ) -> Result<CallInfo, PostExecutionError> {
-    validate_run(&vm, implicit_args)?;
+    let implicit_args: Result<Vec<Relocatable>, MemoryError> =
+        implicit_args.into_iter().map(|arg| arg.try_into()).collect();
+    validate_run(&vm, implicit_args?)?;
 
     Ok(CallInfo {
         call: call_entry_point,
@@ -187,7 +190,7 @@ pub fn finalize_execution(
 
 pub fn validate_run(
     vm: &VirtualMachine,
-    implicit_args: Vec<MaybeRelocatable>,
+    implicit_args: Vec<Relocatable>,
 ) -> Result<(), PostExecutionError> {
     // Skip over the explicit retdata.
     let implicit_args_end = vm.get_ap().sub(2)?;
@@ -204,6 +207,17 @@ pub fn validate_run(
             "Implicit arguments' segments".to_string(),
         ));
     }
+
+    let syscall_base_ptr =
+        implicit_args.first().unwrap_or_else(|| panic!("Implicit args should not be empty."));
+    let syscall_stop_ptr = vm.get_relocatable(&implicit_args_start)?;
+    let syscall_used_size = vm
+        .get_segment_used_size(syscall_base_ptr.segment_index as usize)
+        .unwrap_or_else(|| panic!("Segments should contain syscall segment."));
+    if syscall_base_ptr + syscall_used_size != syscall_stop_ptr {
+        return Err(PostExecutionError::SecurityValidationError("Syscall segment".to_string()));
+    }
+
     Ok(())
 }
 
