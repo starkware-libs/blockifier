@@ -1,9 +1,9 @@
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::hash::StarkHash;
-use starknet_api::shash;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
+use starknet_api::{patky, shash};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -24,7 +24,7 @@ fn trivial_external_entry_point() -> CallEntryPoint {
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(0)),
         calldata: Calldata(vec![].into()),
-        storage_address: ContractAddress::try_from(shash!(TEST_CONTRACT_ADDRESS)).unwrap(),
+        storage_address: ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
         caller_address: ContractAddress::default(),
     }
 }
@@ -273,8 +273,7 @@ fn test_entry_point_with_deploy_with_constructor() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: retdata![shash!(1)] }
     );
-    let contract_address_from_state =
-        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
+    let contract_address_from_state = *state.get_class_hash_at(ContractAddress(patky!(1))).unwrap();
     assert_eq!(contract_address_from_state, ClassHash(shash!(TEST_CLASS_HASH)));
 }
 

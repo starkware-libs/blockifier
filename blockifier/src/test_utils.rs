@@ -43,7 +43,7 @@ pub const TEST_STORAGE_VAR_SELECTOR: &str =
 pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
-pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
+pub const TEST_SEQUENCER_CONTRACT_ADDRESS: &str = "0x1000";
 
 // TODO(Adi, 15/01/2023): Remove and use the ERC20 contract in starkgate once we use the real
 // ERC20 contract.
