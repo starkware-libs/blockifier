@@ -21,12 +21,15 @@ pub fn execute_fee_transfer(
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<CallInfo> {
-    if actual_fee > account_tx_context.max_fee {
-        return Err(FeeTransferError::MaxFeeExceeded {
-            max_fee: account_tx_context.max_fee,
-            actual_fee,
-        })?;
+    let max_fee = account_tx_context.max_fee;
+    if actual_fee > max_fee {
+        return Err(FeeTransferError::MaxFeeExceeded { max_fee, actual_fee })?;
     }
+
+    // The least significant 128 bits of the amount transferred.
+    let lsb_amount = StarkFelt::from(actual_fee.0 as u64);
+    // The most significant 128 bits of the amount transferred.
+    let msb_amount = StarkFelt::from(0);
 
     let fee_transfer_call = CallEntryPoint {
         // TODO(Adi, 15/01/2023): Replace with a computed ERC20 class hash.
@@ -35,8 +38,8 @@ pub fn execute_fee_transfer(
         entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
             *block_context.sequencer_address.0.key(), // Recipient.
-            StarkFelt::from(actual_fee.0 as u64),     // Amount (lower 128-bit).
-            StarkFelt::from(0)                        // Amount (upper 128-bit).
+            lsb_amount,
+            msb_amount
         ],
         storage_address: block_context.fee_token_address,
         caller_address: account_tx_context.sender_address,
