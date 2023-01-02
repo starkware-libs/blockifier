@@ -3,6 +3,7 @@ use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Fee, InvokeTransaction};
 
 use crate::abi::abi_utils::get_selector_from_name;
+use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::transaction::constants::{EXECUTE_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME};
@@ -22,6 +23,7 @@ mod test;
 pub fn validate_tx(
     tx: &InvokeTransaction,
     state: &mut dyn State,
+    block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<CallInfo> {
     let validate_call = CallEntryPoint {
@@ -34,12 +36,13 @@ pub fn validate_tx(
         caller_address: ContractAddress::default(),
     };
 
-    Ok(validate_call.execute(state, account_tx_context)?)
+    Ok(validate_call.execute(state, block_context, account_tx_context)?)
 }
 
 pub fn execute_tx(
     tx: &InvokeTransaction,
     state: &mut dyn State,
+    block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<CallInfo> {
     let execute_call = CallEntryPoint {
@@ -51,17 +54,17 @@ pub fn execute_tx(
         caller_address: ContractAddress::default(),
     };
 
-    Ok(execute_call.execute(state, account_tx_context)?)
+    Ok(execute_call.execute(state, block_context, account_tx_context)?)
 }
 
 pub fn charge_fee(
-    tx: InvokeTransaction,
     state: &mut dyn State,
+    block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<(Fee, CallInfo)> {
-    let actual_fee = calculate_tx_fee();
+    let actual_fee = calculate_tx_fee(block_context);
     let fee_transfer_call_info =
-        execute_fee_transfer(state, actual_fee, tx.max_fee, account_tx_context)?;
+        execute_fee_transfer(state, actual_fee, block_context, account_tx_context)?;
 
     Ok((actual_fee, fee_transfer_call_info))
 }
@@ -70,6 +73,7 @@ impl ExecuteTransaction for InvokeTransaction {
     fn execute(
         self,
         state: &mut dyn State,
+        block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Adi, 10/12/2022): Consider moving the transaction version verification to the
         // TransactionVersion constructor.
@@ -85,15 +89,16 @@ impl ExecuteTransaction for InvokeTransaction {
         };
 
         // Validate transaction.
-        let validate_call_info = validate_tx(&self, state, &account_tx_context)?;
+        let validate_call_info = validate_tx(&self, state, block_context, &account_tx_context)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(&self, state, &account_tx_context)?;
+        let execute_call_info = execute_tx(&self, state, block_context, &account_tx_context)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
         let actual_resources = ResourcesMapping::default();
-        let (actual_fee, fee_transfer_call_info) = charge_fee(self, state, &account_tx_context)?;
+        let (actual_fee, fee_transfer_call_info) =
+            charge_fee(state, block_context, &account_tx_context)?;
 
         Ok(TransactionExecutionInfo {
             validate_call_info,

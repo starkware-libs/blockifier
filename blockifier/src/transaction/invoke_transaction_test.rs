@@ -12,6 +12,7 @@ use starknet_api::transaction::{
 use starknet_api::{patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_selector_from_name;
+use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
@@ -20,8 +21,7 @@ use crate::test_utils::{
     get_contract_class, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH, RETURN_RESULT_SELECTOR,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
-    TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
-    TEST_SEQUENCER_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
 use crate::transaction::constants::{
     EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, TRANSFER_EVENT_NAME,
@@ -32,6 +32,8 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::ExecuteTransaction;
 
 fn create_test_state() -> CachedState<DictStateReader> {
+    let block_context = BlockContext::get_test_block_context();
+
     let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let test_account_contract_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
@@ -43,7 +45,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let test_account_contract_address =
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-    let test_erc20_contract_address = ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS));
+    let test_erc20_contract_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_contract_address, test_account_contract_class_hash),
@@ -99,10 +101,11 @@ fn get_tested_actual_fee() -> Fee {
 #[test]
 fn test_invoke_tx() {
     let mut state = create_test_state();
+    let block_context = BlockContext::get_test_block_context();
     let tx = get_tested_valid_invoke_tx();
     let calldata = tx.calldata.clone();
 
-    let actual_execution_info = tx.execute(&mut state).unwrap();
+    let actual_execution_info = tx.execute(&mut state, &block_context).unwrap();
 
     // Create expected execution info object.
     let expected_validate_call_info = CallInfo {
@@ -145,6 +148,7 @@ fn test_invoke_tx() {
         ..Default::default()
     };
 
+    let expected_sequencer_address = *block_context.sequencer_address.0.key();
     let expected_actual_fee = get_tested_actual_fee();
     // The lower 128 bits of the expected actual fee.
     let expected_lower_actual_fee = stark_felt!(expected_actual_fee.0 as u64);
@@ -154,20 +158,20 @@ fn test_invoke_tx() {
         entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
         calldata: Calldata(
             vec![
-                stark_felt!(TEST_SEQUENCER_ADDRESS), // Recipient.
-                expected_lower_actual_fee,           // Amount (lower 128-bit).
-                stark_felt!(0),                      // Amount (upper 128-bit).
+                expected_sequencer_address, // Recipient.
+                expected_lower_actual_fee,  // Amount (lower 128-bit).
+                stark_felt!(0),             // Amount (upper 128-bit).
             ]
             .into(),
         ),
-        storage_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
+        storage_address: block_context.fee_token_address,
         caller_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
     };
     let fee_transfer_event = EventContent {
         keys: vec![EventKey(get_selector_from_name(TRANSFER_EVENT_NAME).0)],
         data: EventData(vec![
             stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS), // Sender.
-            stark_felt!(TEST_SEQUENCER_ADDRESS),        // Recipient.
+            expected_sequencer_address,                 // Recipient.
             expected_lower_actual_fee,                  // Amount (lower 128-bit).
             stark_felt!(0),                             // Amount (upper 128-bit).
         ]),
@@ -196,7 +200,7 @@ fn test_invoke_tx() {
     assert_eq!(
         state
             .get_storage_at(
-                ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
+                block_context.fee_token_address,
                 StorageKey(patricia_key!(TEST_ERC20_ACCOUNT_BALANCE_KEY))
             )
             .unwrap(),
@@ -205,7 +209,7 @@ fn test_invoke_tx() {
     assert_eq!(
         state
             .get_storage_at(
-                ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
+                block_context.fee_token_address,
                 StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY))
             )
             .unwrap(),
@@ -216,13 +220,14 @@ fn test_invoke_tx() {
 #[test]
 fn test_negative_invoke_tx_flows() {
     let mut state = create_test_state();
+    let block_context = BlockContext::get_test_block_context();
     let valid_tx = get_tested_valid_invoke_tx();
 
     // Invalid version.
     // Note: there is no need to test for a negative version, as it cannot be constructed.
     let invalid_tx_version = TransactionVersion(stark_felt!(0));
     let invalid_tx = InvokeTransaction { version: invalid_tx_version, ..valid_tx.clone() };
-    let execution_error = invalid_tx.execute(&mut state).unwrap_err();
+    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
     let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
@@ -238,7 +243,7 @@ fn test_negative_invoke_tx_flows() {
     // Insufficient fee.
     let tx_max_fee = Fee(0);
     let invalid_tx = InvokeTransaction { max_fee: tx_max_fee, ..valid_tx };
-    let execution_error = invalid_tx.execute(&mut state).unwrap_err();
+    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
     let expected_actual_fee = get_tested_actual_fee();

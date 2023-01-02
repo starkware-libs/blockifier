@@ -5,6 +5,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -34,6 +35,7 @@ impl CallEntryPoint {
     pub fn execute(
         self,
         state: &mut dyn State,
+        block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
@@ -46,7 +48,7 @@ impl CallEntryPoint {
             Some(class_hash) => class_hash,
             None => storage_class_hash,
         };
-        execute_entry_point_call(self, class_hash, state, account_tx_context)
+        execute_entry_point_call(self, class_hash, state, block_context, account_tx_context)
     }
 
     pub fn resolve_entry_point_pc(
@@ -92,6 +94,7 @@ pub struct CallInfo {
 
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
+    block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
     storage_address: ContractAddress,
@@ -116,7 +119,7 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
     };
-    constructor_call.execute(state, account_tx_context)
+    constructor_call.execute(state, block_context, account_tx_context)
 }
 
 pub fn handle_empty_constructor(
