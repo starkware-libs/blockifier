@@ -38,7 +38,7 @@ pub fn validate_tx(
 }
 
 pub fn execute_tx(
-    tx: &InvokeTransaction,
+    tx: InvokeTransaction,
     state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<CallInfo> {
@@ -55,13 +55,11 @@ pub fn execute_tx(
 }
 
 pub fn charge_fee(
-    tx: InvokeTransaction,
     state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<(Fee, CallInfo)> {
     let actual_fee = calculate_tx_fee();
-    let fee_transfer_call_info =
-        execute_fee_transfer(state, actual_fee, tx.max_fee, account_tx_context)?;
+    let fee_transfer_call_info = execute_fee_transfer(state, actual_fee, account_tx_context)?;
 
     Ok((actual_fee, fee_transfer_call_info))
 }
@@ -88,12 +86,12 @@ impl ExecuteTransaction for InvokeTransaction {
         let validate_call_info = validate_tx(&self, state, &account_tx_context)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(&self, state, &account_tx_context)?;
+        let execute_call_info = execute_tx(self, state, &account_tx_context)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
         let actual_resources = ResourcesMapping::default();
-        let (actual_fee, fee_transfer_call_info) = charge_fee(self, state, &account_tx_context)?;
+        let (actual_fee, fee_transfer_call_info) = charge_fee(state, &account_tx_context)?;
 
         Ok(TransactionExecutionInfo {
             validate_call_info,
