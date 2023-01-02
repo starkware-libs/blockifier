@@ -6,7 +6,7 @@ use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use super::constants::TRANSFER_ENTRY_POINT_SELECTOR;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
-use crate::test_utils::{TEST_ERC20_CONTRACT_ADDRESS, TEST_SEQUENCER_ADDRESS};
+use crate::test_utils::{TEST_ERC20_CONTRACT_ADDRESS, TEST_SEQUENCER_CONTRACT_ADDRESS};
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
@@ -17,12 +17,18 @@ pub fn calculate_tx_fee() -> Fee {
 pub fn execute_fee_transfer(
     state: &mut dyn State,
     actual_fee: Fee,
-    max_fee: Fee,
     account_tx_context: &AccountTransactionContext,
 ) -> TransactionExecutionResult<CallInfo> {
+    let max_fee = account_tx_context.max_fee;
     if actual_fee > max_fee {
         return Err(FeeTransferError::MaxFeeExceeded { max_fee, actual_fee })?;
     }
+
+    let fee_recipient_address = StarkFelt::try_from(TEST_SEQUENCER_CONTRACT_ADDRESS)?;
+    // The least significant 128 bits of the amount transferred.
+    let lsb_amount = StarkFelt::from(actual_fee.0 as u64);
+    // The most significant 128 bits of the amount transferred.
+    let msb_amount = StarkFelt::from(0);
 
     let fee_transfer_call = CallEntryPoint {
         // TODO(Adi, 15/01/2023): Replace with a computed ERC20 class hash.
@@ -31,14 +37,7 @@ pub fn execute_fee_transfer(
         entry_point_selector: EntryPointSelector(StarkFelt::try_from(
             TRANSFER_ENTRY_POINT_SELECTOR,
         )?),
-        calldata: Calldata(
-            vec![
-                StarkFelt::try_from(TEST_SEQUENCER_ADDRESS)?, // Recipient.
-                StarkFelt::from(actual_fee.0 as u64),         // Amount (lower 128-bit).
-                StarkFelt::from(0),                           // Amount (upper 128-bit).
-            ]
-            .into(),
-        ),
+        calldata: Calldata(vec![fee_recipient_address, lsb_amount, msb_amount].into()),
         // TODO(Adi, 15/02/2023): Get fee-token address from general config (once).
         storage_address: ContractAddress::try_from(StarkFelt::try_from(
             TEST_ERC20_CONTRACT_ADDRESS,

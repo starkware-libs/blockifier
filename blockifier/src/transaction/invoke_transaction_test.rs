@@ -21,7 +21,7 @@ use crate::test_utils::{
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
     TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
-    TEST_SEQUENCER_ADDRESS,
+    TEST_SEQUENCER_CONTRACT_ADDRESS,
 };
 use crate::transaction::constants::{
     EXECUTE_ENTRY_POINT_SELECTOR, TRANSFER_ENTRY_POINT_SELECTOR, TRANSFER_EVENT_NAME,
@@ -84,7 +84,7 @@ fn get_tested_valid_invoke_tx() -> InvokeTransaction {
         nonce: Nonce::default(),
         // TODO(Adi, 25/12/2022): Use an actual contract_address once there is a mapping from a
         // contract address to its class hash.
-        sender_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS)).unwrap(),
+        sender_address: ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         entry_point_selector: None,
         calldata: execute_calldata,
     }
@@ -103,14 +103,14 @@ fn test_invoke_tx() {
     let actual_execution_info = tx.execute(&mut state).unwrap();
 
     // Create expected execution info object.
+    let account_contract_address = ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let expected_validate_call_info = CallInfo {
         call: CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
             calldata,
-            storage_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS))
-                .unwrap(),
+            storage_address: account_contract_address,
             caller_address: ContractAddress::default(),
         },
         // The account contract we use for testing has a trivial `validate` function.
@@ -125,7 +125,7 @@ fn test_invoke_tx() {
         entry_point_type: EntryPointType::External,
         calldata: expected_return_result_calldata.clone(),
         storage_address: ContractAddress(patky!(TEST_CONTRACT_ADDRESS)),
-        caller_address: ContractAddress(patky!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        caller_address: account_contract_address,
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(shash!(EXECUTE_ENTRY_POINT_SELECTOR)),
@@ -144,31 +144,31 @@ fn test_invoke_tx() {
         ..Default::default()
     };
 
+    let erc20_contract_address = ContractAddress(patky!(TEST_ERC20_CONTRACT_ADDRESS));
+    let fee_recipient_address = shash!(TEST_SEQUENCER_CONTRACT_ADDRESS);
+    let fee_sender_address = *account_contract_address.0.key();
     let expected_actual_fee = get_tested_actual_fee();
-    // The lower 128 bits of the expected actual fee.
-    let expected_lower_actual_fee = shash!(expected_actual_fee.0 as u64);
+    // The least significant 128 bits of the expected amount transferred.
+    let lsb_expected_amount = shash!(expected_actual_fee.0 as u64);
+    // The most significant 128 bits of the expected amount transferred.
+    let msb_expected_amount = shash!(0);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(shash!(TRANSFER_ENTRY_POINT_SELECTOR)),
         calldata: Calldata(
-            vec![
-                shash!(TEST_SEQUENCER_ADDRESS), // Recipient.
-                expected_lower_actual_fee,      // Amount (lower 128-bit).
-                shash!(0),                      // Amount (upper 128-bit).
-            ]
-            .into(),
+            vec![fee_recipient_address, lsb_expected_amount, msb_expected_amount].into(),
         ),
-        storage_address: ContractAddress::try_from(shash!(TEST_ERC20_CONTRACT_ADDRESS)).unwrap(),
-        caller_address: ContractAddress::try_from(shash!(TEST_ACCOUNT_CONTRACT_ADDRESS)).unwrap(),
+        storage_address: erc20_contract_address,
+        caller_address: account_contract_address,
     };
     let fee_transfer_event = EventContent {
         keys: vec![EventKey(get_selector_from_name(TRANSFER_EVENT_NAME).0)],
         data: EventData(vec![
-            shash!(TEST_ACCOUNT_CONTRACT_ADDRESS), // Sender.
-            shash!(TEST_SEQUENCER_ADDRESS),        // Recipient.
-            expected_lower_actual_fee,             // Amount (lower 128-bit).
-            shash!(0),                             // Amount (upper 128-bit).
+            fee_sender_address,
+            fee_recipient_address,
+            lsb_expected_amount,
+            msb_expected_amount,
         ]),
     };
     let expected_fee_transfer_call_info = CallInfo {
@@ -191,11 +191,11 @@ fn test_invoke_tx() {
 
     // Test final balances.
     let expected_account_balance = shash!(0);
-    let expected_sequencer_balance = expected_lower_actual_fee;
+    let expected_sequencer_balance = lsb_expected_amount;
     assert_eq!(
         state
             .get_storage_at(
-                ContractAddress(patky!(TEST_ERC20_CONTRACT_ADDRESS)),
+                erc20_contract_address,
                 StorageKey(patky!(TEST_ERC20_ACCOUNT_BALANCE_KEY))
             )
             .unwrap(),
@@ -204,7 +204,7 @@ fn test_invoke_tx() {
     assert_eq!(
         state
             .get_storage_at(
-                ContractAddress(patky!(TEST_ERC20_CONTRACT_ADDRESS)),
+                erc20_contract_address,
                 StorageKey(patky!(TEST_ERC20_SEQUENCER_BALANCE_KEY))
             )
             .unwrap(),
