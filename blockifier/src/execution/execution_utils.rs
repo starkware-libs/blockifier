@@ -193,7 +193,7 @@ pub fn finalize_execution(
         .try_into()
         .unwrap_or_else(|_| panic!("Return values must be of size 2."));
     let implicit_args_end_ptr = vm.get_ap().sub(2)?;
-    validate_run(&vm, implicit_args, implicit_args_end_ptr)?;
+    validate_run(&vm, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
 
     Ok(CallInfo {
         call: call_entry_point,
@@ -210,6 +210,7 @@ pub fn validate_run(
     vm: &VirtualMachine,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
+    syscall_handler: &SyscallHintProcessor<'_>,
 ) -> Result<(), PostExecutionError> {
     // Validate builtins' final stack.
     let mut current_builtin_ptr = implicit_args_end;
@@ -233,7 +234,7 @@ pub fn validate_run(
         .map(|arg| arg.try_into())
         .collect::<Result<Vec<Relocatable>, MemoryError>>()?;
 
-    // Validate syscall segment.
+    // Validate syscall segment start.
     let syscall_start_ptr =
         implicit_args.first().unwrap_or_else(|| panic!("Implicit args must not be empty."));
     if syscall_start_ptr.offset != 0 {
@@ -241,6 +242,8 @@ pub fn validate_run(
             "Syscall segment start".to_string(),
         ));
     }
+
+    // Validate syscall segment size.
     let syscall_end_ptr = vm.get_relocatable(&implicit_args_start)?;
     let syscall_used_size = vm
         .get_segment_used_size(syscall_start_ptr.segment_index as usize)
@@ -251,7 +254,10 @@ pub fn validate_run(
         ));
     }
 
-    Ok(())
+    // Validate syscall segment end.
+    syscall_handler
+        .verify_syscall_ptr(syscall_end_ptr)
+        .map_err(|_| PostExecutionError::SecurityValidationError("Syscall segment end".to_string()))
 }
 
 fn read_execution_retdata(
