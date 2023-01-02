@@ -177,7 +177,7 @@ pub fn finalize_execution(
 ) -> Result<CallInfo, PostExecutionError> {
     let implicit_args: Result<Vec<Relocatable>, MemoryError> =
         implicit_args.into_iter().map(|arg| arg.try_into()).collect();
-    validate_run(&vm, implicit_args?)?;
+    validate_run(&vm, implicit_args?, &syscall_handler)?;
 
     Ok(CallInfo {
         call: call_entry_point,
@@ -191,6 +191,7 @@ pub fn finalize_execution(
 pub fn validate_run(
     vm: &VirtualMachine,
     implicit_args: Vec<Relocatable>,
+    syscall_handler: &SyscallHintProcessor<'_>,
 ) -> Result<(), PostExecutionError> {
     // Skip over the explicit retdata.
     let implicit_args_end = vm.get_ap().sub(2)?;
@@ -217,8 +218,9 @@ pub fn validate_run(
     if syscall_base_ptr + syscall_used_size != syscall_stop_ptr {
         return Err(PostExecutionError::SecurityValidationError("Syscall segment".to_string()));
     }
-
-    Ok(())
+    syscall_handler
+        .verify_syscall_ptr(syscall_stop_ptr)
+        .map_err(|_| PostExecutionError::SecurityValidationError("syscall_stop_ptr".to_string()))
 }
 
 fn extract_execution_retdata(vm: VirtualMachine) -> Result<Retdata, PostExecutionError> {
