@@ -69,6 +69,13 @@ impl CallEntryPoint {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Retdata(pub Rc<Vec<StarkFelt>>);
 
+#[macro_export]
+macro_rules! retdata {
+    ( $( $x:expr ),* ) => {
+        Retdata(vec![$($x),*].into())
+    };
+}
+
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallExecution {
     pub retdata: Retdata,
