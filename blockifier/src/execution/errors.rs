@@ -13,6 +13,8 @@ pub enum PreExecutionError {
     #[error("Entry point {0:#?} not found in contract.")]
     EntryPointNotFound(EntryPointSelector),
     #[error(transparent)]
+    MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
+    #[error(transparent)]
     ProgramError(#[from] cairo_rs::types::errors::program_errors::ProgramError),
     #[error(transparent)]
     RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
