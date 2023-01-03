@@ -1,11 +1,11 @@
-use starknet_api::core::{ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkHash;
+use starknet_api::core::ContractAddress;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Fee, InvokeTransaction};
 
+use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
-use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
+use crate::transaction::constants::{EXECUTE_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME};
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
@@ -26,9 +26,7 @@ pub fn validate_tx(
 ) -> TransactionExecutionResult<CallInfo> {
     let validate_call = CallEntryPoint {
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(StarkHash::try_from(
-            VALIDATE_ENTRY_POINT_SELECTOR,
-        )?),
+        entry_point_selector: get_selector_from_name(VALIDATE_ENTRY_POINT_NAME),
         // Gets the same calldata as the execution itself.
         calldata: tx.calldata.clone(),
         class_hash: None,
@@ -46,9 +44,7 @@ pub fn execute_tx(
 ) -> TransactionExecutionResult<CallInfo> {
     let execute_call = CallEntryPoint {
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(StarkHash::try_from(
-            EXECUTE_ENTRY_POINT_SELECTOR,
-        )?),
+        entry_point_selector: get_selector_from_name(EXECUTE_ENTRY_POINT_NAME),
         calldata: tx.calldata.clone(),
         class_hash: None,
         storage_address: tx.sender_address,
