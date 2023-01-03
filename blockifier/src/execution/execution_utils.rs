@@ -29,6 +29,8 @@ use crate::general_errors::ConversionError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
+pub type Args = Vec<Box<dyn Any>>;
+
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
 pub mod test;
@@ -52,6 +54,7 @@ pub struct ExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
     pub syscall_segment: Relocatable,
+    pub read_only_segments: ReadOnlySegments,
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub entry_point_pc: usize,
 }
@@ -80,6 +83,7 @@ pub fn initialize_execution_context<'a>(
         runner: cairo_runner,
         vm,
         syscall_segment,
+        read_only_segments: ReadOnlySegments::new(),
         syscall_handler,
         entry_point_pc,
     })
@@ -87,10 +91,11 @@ pub fn initialize_execution_context<'a>(
 
 pub fn prepare_call_arguments(
     call_entry_point: &CallEntryPoint,
-    vm: &VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_segment: Relocatable,
-) -> (Vec<MaybeRelocatable>, Vec<Box<dyn Any>>) {
-    let mut args: Vec<Box<dyn Any>> = vec![];
+    read_only_segments: &mut ReadOnlySegments,
+) -> Result<(Vec<MaybeRelocatable>, Args), PreExecutionError> {
+    let mut args: Args = vec![];
     let entry_point_selector =
         MaybeRelocatable::Int(felt_to_bigint(call_entry_point.entry_point_selector.0));
     args.push(Box::new(entry_point_selector));
@@ -107,16 +112,17 @@ pub fn prepare_call_arguments(
 
     // Prepare calldata arguments.
     // TODO(Adi, 29/11/2022): Remove the '.0' access, once derive-more is used in starknet_api.
-    let calldata = &call_entry_point.calldata.0;
-    args.push(Box::new(MaybeRelocatable::Int(bigint!(calldata.len()))));
-    args.push(Box::new(
-        calldata
-            .iter()
-            .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
-            .collect::<Vec<MaybeRelocatable>>(),
-    ));
+    let raw_calldata = &call_entry_point.calldata.0;
+    let data = raw_calldata
+        .iter()
+        .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
+        .collect::<Vec<MaybeRelocatable>>();
+    args.push(Box::new(MaybeRelocatable::Int(bigint!(data.len()))));
+    args.push(Box::new(MaybeRelocatable::RelocatableValue(
+        read_only_segments.add_segment(vm, data)?,
+    )));
 
-    (implicit_args, args)
+    Ok((implicit_args, args))
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -130,9 +136,10 @@ pub fn execute_entry_point_call(
         initialize_execution_context(&call_entry_point, class_hash, state, account_tx_context)?;
     let (implicit_args, args) = prepare_call_arguments(
         &call_entry_point,
-        &execution_context.vm,
+        &mut execution_context.vm,
         execution_context.syscall_segment,
-    );
+        &mut execution_context.read_only_segments,
+    )?;
 
     run_entry_point(
         &mut execution_context.runner,
@@ -143,10 +150,12 @@ pub fn execute_entry_point_call(
     )?;
 
     Ok(finalize_execution(
+        execution_context.runner,
         execution_context.vm,
         call_entry_point,
         execution_context.syscall_handler,
         implicit_args,
+        execution_context.read_only_segments,
     )?)
 }
 
@@ -154,7 +163,7 @@ pub fn run_entry_point(
     cairo_runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
-    args: Vec<Box<dyn Any>>,
+    args: Args,
     hint_processor: &mut SyscallHintProcessor<'_>,
 ) -> Result<(), VirtualMachineExecutionError> {
     cairo_runner.run_from_entrypoint(
@@ -170,14 +179,16 @@ pub fn run_entry_point(
 }
 
 pub fn finalize_execution(
+    cairo_runner: CairoRunner,
     vm: VirtualMachine,
     call_entry_point: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
+    read_only_segments: ReadOnlySegments,
 ) -> Result<CallInfo, PostExecutionError> {
     let implicit_args: Result<Vec<Relocatable>, MemoryError> =
         implicit_args.into_iter().map(|arg| arg.try_into()).collect();
-    validate_run(&vm, implicit_args?, &syscall_handler)?;
+    validate_run(cairo_runner, &vm, implicit_args?, &syscall_handler, read_only_segments)?;
 
     Ok(CallInfo {
         call: call_entry_point,
@@ -189,9 +200,11 @@ pub fn finalize_execution(
 }
 
 pub fn validate_run(
+    cairo_runner: CairoRunner,
     vm: &VirtualMachine,
     implicit_args: Vec<Relocatable>,
     syscall_handler: &SyscallHintProcessor<'_>,
+    read_only_segments: ReadOnlySegments,
 ) -> Result<(), PostExecutionError> {
     // Skip over the explicit retdata.
     let implicit_args_end = vm.get_ap().sub(2)?;
@@ -220,7 +233,9 @@ pub fn validate_run(
     }
     syscall_handler
         .verify_syscall_ptr(syscall_stop_ptr)
-        .map_err(|_| PostExecutionError::SecurityValidationError("syscall_stop_ptr".to_string()))
+        .map_err(|_| PostExecutionError::SecurityValidationError("syscall_stop_ptr".to_string()))?;
+
+    read_only_segments.validate_segments(vm, cairo_runner)
 }
 
 fn extract_execution_retdata(vm: VirtualMachine) -> Result<Retdata, PostExecutionError> {
@@ -308,5 +323,44 @@ pub fn get_felt_from_memory_cell(
         }
         Some(relocatable) => Err(VirtualMachineError::ExpectedInteger(relocatable)),
         None => Err(VirtualMachineError::NoneInMemoryRange),
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ReadOnlySegments(Vec<(Relocatable, usize)>);
+
+impl ReadOnlySegments {
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    pub fn add_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+        data: Vec<MaybeRelocatable>,
+    ) -> Result<Relocatable, MemoryError> {
+        let segment = vm.add_memory_segment();
+        self.0.push((segment, data.len()));
+        vm.load_data(&segment.into(), data)?;
+        Ok(segment)
+    }
+
+    pub fn validate_segments(
+        self,
+        vm: &VirtualMachine,
+        mut cairo_runner: CairoRunner,
+    ) -> Result<(), PostExecutionError> {
+        for (segment_ptr, segment_size) in self.0 {
+            let used_size = vm.get_segment_used_size(segment_ptr.segment_index as usize).unwrap();
+            if segment_size != used_size {
+                return Err(PostExecutionError::SecurityValidationError(
+                    "Read-only segments".to_string(),
+                ));
+            }
+
+            cairo_runner.mark_as_accessed(segment_ptr, segment_size)?;
+        }
+
+        Ok(())
     }
 }
