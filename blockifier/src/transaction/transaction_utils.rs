@@ -1,14 +1,14 @@
 use starknet_api::calldata;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
+use starknet_api::transaction::{Calldata, Fee};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
-use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
+use crate::transaction::errors::FeeTransferError;
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
 pub fn calculate_tx_fee(_block_context: &BlockContext) -> Fee {
@@ -32,7 +32,6 @@ pub fn execute_fee_transfer(
     let msb_amount = StarkFelt::from(0);
 
     let fee_transfer_call = CallEntryPoint {
-        // TODO(Adi, 15/01/2023): Replace with a computed ERC20 class hash.
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
@@ -46,31 +45,4 @@ pub fn execute_fee_transfer(
     };
 
     Ok(fee_transfer_call.execute(state, block_context, account_tx_context)?)
-}
-
-pub fn verify_tx_version(version: TransactionVersion) -> TransactionExecutionResult<()> {
-    // TODO(Adi, 10/12/2022): Consider using the lazy_static crate or some other solution, so the
-    // allowed_versions variable will only be constructed once.
-    let allowed_versions = vec![TransactionVersion(StarkFelt::from(1))];
-    if allowed_versions.contains(&version) {
-        Ok(())
-    } else {
-        Err(TransactionExecutionError::InvalidVersion { version, allowed_versions })
-    }
-}
-
-pub fn handle_nonce(
-    account_tx_context: &AccountTransactionContext,
-    state: &mut dyn State,
-) -> TransactionExecutionResult<()> {
-    let current_nonce = *state.get_nonce_at(account_tx_context.sender_address)?;
-    if current_nonce != account_tx_context.nonce {
-        return Err(TransactionExecutionError::InvalidNonce {
-            expected_nonce: current_nonce,
-            actual_nonce: account_tx_context.nonce,
-        });
-    }
-
-    // Increment nonce.
-    Ok(state.increment_nonce(account_tx_context.sender_address)?)
 }
