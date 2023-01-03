@@ -23,13 +23,13 @@ use crate::test_utils::{
     TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
     TEST_SEQUENCER_CONTRACT_ADDRESS,
 };
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, TRANSFER_EVENT_NAME,
     VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
-use crate::transaction::ExecuteTransaction;
 
 fn create_test_state() -> CachedState<DictStateReader> {
     let test_contract_class_hash = ClassHash(shash!(TEST_CLASS_HASH));
