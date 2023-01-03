@@ -23,13 +23,13 @@ use crate::test_utils::{
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, TRANSFER_EVENT_NAME,
     VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
-use crate::transaction::ExecuteTransaction;
 
 fn create_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::get_test_block_context();
@@ -68,7 +68,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
-fn get_tested_valid_invoke_tx() -> InvokeTransaction {
+fn get_tested_valid_invoke_tx() -> AccountTransaction {
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS),  // Contract address.
         stark_felt!(RETURN_RESULT_SELECTOR), // EP selector.
@@ -76,7 +76,7 @@ fn get_tested_valid_invoke_tx() -> InvokeTransaction {
         stark_felt!(2)                       // Calldata: num.
     ];
 
-    InvokeTransaction {
+    AccountTransaction::Invoke(InvokeTransaction {
         transaction_hash: TransactionHash(StarkHash::default()),
         max_fee: Fee(1),
         version: TransactionVersion(stark_felt!(1)),
@@ -87,7 +87,7 @@ fn get_tested_valid_invoke_tx() -> InvokeTransaction {
         sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         entry_point_selector: None,
         calldata: execute_calldata,
-    }
+    })
 }
 
 fn get_tested_actual_fee() -> Fee {
@@ -98,10 +98,11 @@ fn get_tested_actual_fee() -> Fee {
 fn test_invoke_tx() {
     let mut state = create_test_state();
     let block_context = BlockContext::get_test_block_context();
-    let tx = get_tested_valid_invoke_tx();
-    let calldata = tx.calldata.clone();
+    let account_tx = get_tested_valid_invoke_tx();
+    let AccountTransaction::Invoke(inner_invoke_tx) = &account_tx;
+    let calldata = inner_invoke_tx.calldata.clone();
 
-    let actual_execution_info = tx.execute(&mut state, &block_context).unwrap();
+    let actual_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
@@ -219,12 +220,15 @@ fn test_invoke_tx() {
 fn test_negative_invoke_tx_flows() {
     let mut state = create_test_state();
     let block_context = BlockContext::get_test_block_context();
-    let valid_tx = get_tested_valid_invoke_tx();
+    let AccountTransaction::Invoke(valid_inner_invoke_tx) = get_tested_valid_invoke_tx();
 
     // Invalid version.
     // Note: there is no need to test for a negative version, as it cannot be constructed.
     let invalid_tx_version = TransactionVersion(stark_felt!(0));
-    let invalid_tx = InvokeTransaction { version: invalid_tx_version, ..valid_tx.clone() };
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+        version: invalid_tx_version,
+        ..valid_inner_invoke_tx.clone()
+    });
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
@@ -240,7 +244,10 @@ fn test_negative_invoke_tx_flows() {
 
     // Insufficient fee.
     let tx_max_fee = Fee(0);
-    let invalid_tx = InvokeTransaction { max_fee: tx_max_fee, ..valid_tx };
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+        max_fee: tx_max_fee,
+        ..valid_inner_invoke_tx
+    });
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
