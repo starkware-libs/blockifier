@@ -1,11 +1,11 @@
-use starknet_api::core::{ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkHash;
+use starknet_api::core::ContractAddress;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Fee, InvokeTransaction};
 
+use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
-use crate::transaction::constants::{EXECUTE_ENTRY_POINT_SELECTOR, VALIDATE_ENTRY_POINT_SELECTOR};
+use crate::transaction::constants::{EXECUTE_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME};
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,

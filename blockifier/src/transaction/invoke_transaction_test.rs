@@ -24,8 +24,8 @@ use crate::test_utils::{
     TEST_SEQUENCER_CONTRACT_ADDRESS,
 };
 use crate::transaction::constants::{
-    EXECUTE_ENTRY_POINT_SELECTOR, TRANSFER_ENTRY_POINT_SELECTOR, TRANSFER_EVENT_NAME,
-    VALIDATE_ENTRY_POINT_SELECTOR,
+    EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, TRANSFER_EVENT_NAME,
+    VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
@@ -108,7 +108,7 @@ fn test_invoke_tx() {
         call: CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::External,
-            entry_point_selector: EntryPointSelector(shash!(VALIDATE_ENTRY_POINT_SELECTOR)),
+            entry_point_selector: get_selector_from_name(VALIDATE_ENTRY_POINT_NAME),
             calldata,
             storage_address: account_contract_address,
             caller_address: ContractAddress::default(),
@@ -128,7 +128,7 @@ fn test_invoke_tx() {
         caller_address: account_contract_address,
     };
     let expected_execute_call = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(shash!(EXECUTE_ENTRY_POINT_SELECTOR)),
+        entry_point_selector: get_selector_from_name(EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.call.clone()
     };
 
@@ -155,7 +155,7 @@ fn test_invoke_tx() {
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: None,
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(shash!(TRANSFER_ENTRY_POINT_SELECTOR)),
+        entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
         calldata: Calldata(
             vec![fee_recipient_address, lsb_expected_amount, msb_expected_amount].into(),
         ),
