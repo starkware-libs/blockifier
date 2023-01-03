@@ -1,6 +1,6 @@
 use starknet_api::core::EntryPointSelector;
-use starknet_api::hash::StarkHash;
-use starknet_api::shash;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::abi::constants::{
@@ -20,18 +20,21 @@ const EXECUTE_ENTRY_POINT_SELECTOR: &str =
 fn test_get_selector_from_name() {
     assert_eq!(
         get_selector_from_name(DEFAULT_ENTRY_POINT_NAME),
-        EntryPointSelector(shash!(DEFAULT_ENTRY_POINT_SELECTOR))
+        EntryPointSelector(stark_felt!(DEFAULT_ENTRY_POINT_SELECTOR))
     );
 
     assert_eq!(
         get_selector_from_name(DEFAULT_L1_ENTRY_POINT_NAME),
-        EntryPointSelector(shash!(DEFAULT_ENTRY_POINT_SELECTOR))
+        EntryPointSelector(stark_felt!(DEFAULT_ENTRY_POINT_SELECTOR))
     );
 
     assert_eq!(
         get_selector_from_name(EXECUTE_ENTRY_POINT_NAME),
-        EntryPointSelector(shash!(EXECUTE_ENTRY_POINT_SELECTOR))
+        EntryPointSelector(stark_felt!(EXECUTE_ENTRY_POINT_SELECTOR))
     );
 
-    assert_eq!(get_selector_from_name(""), EntryPointSelector(shash!(EMPTY_ENTRY_POINT_SELECTOR)));
+    assert_eq!(
+        get_selector_from_name(""),
+        EntryPointSelector(stark_felt!(EMPTY_ENTRY_POINT_SELECTOR))
+    );
 }

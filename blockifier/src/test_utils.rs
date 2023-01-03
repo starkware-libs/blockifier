@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{patky, shash};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::{patricia_key, stark_felt};
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
@@ -75,9 +75,11 @@ pub fn create_test_state_util(
     contract_address: &str,
 ) -> CachedState<DictStateReader> {
     let class_hash_to_class =
-        HashMap::from([(ClassHash(shash!(class_hash)), get_contract_class(contract_path))]);
-    let address_to_class_hash =
-        HashMap::from([(ContractAddress(patky!(contract_address)), ClassHash(shash!(class_hash)))]);
+        HashMap::from([(ClassHash(stark_felt!(class_hash)), get_contract_class(contract_path))]);
+    let address_to_class_hash = HashMap::from([(
+        ContractAddress(patricia_key!(contract_address)),
+        ClassHash(stark_felt!(class_hash)),
+    )]);
     CachedState::new(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
