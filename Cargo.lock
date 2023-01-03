@@ -213,7 +213,7 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "cairo-rs"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#34e2a4a4ae15c6f1bdca82ca6f099963f30be2e3"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#8e3541768cf8a01b4b8e50e427cef19cae56c9e2"
 dependencies = [
  "bincode",
  "clap",
@@ -1033,9 +1033,9 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "7.1.1"
+version = "7.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8903e5a29a317527874d0402f867152a3d21c908bb0b933e416c65e301d4c36"
+checksum = "e5507769c4919c998e69e49c839d9dc6e693ede4cc4290d6ad8b41d4f09c548c"
 dependencies = [
  "memchr",
  "minimal-lexical",
@@ -1084,9 +1084,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.16.0"
+version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
+checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 
 [[package]]
 name = "opaque-debug"
@@ -1206,7 +1206,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#34e2a4a4ae15c6f1bdca82ca6f099963f30be2e3"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#8e3541768cf8a01b4b8e50e427cef19cae56c9e2"
 dependencies = [
  "nom",
 ]
@@ -1809,7 +1809,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api#2d7afdbfb7bf772e15c9ef147b1270c04ad6bff9"
+source = "git+https://github.com/starkware-libs/starknet-api#8817425295e5d597e799223c28dc223f17710e00"
 dependencies = [
  "derive_more",
  "hex",
