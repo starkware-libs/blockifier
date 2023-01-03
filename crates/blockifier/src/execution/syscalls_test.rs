@@ -1,9 +1,10 @@
 use pretty_assertions::assert_eq;
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
+use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -11,7 +12,8 @@ use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
 use crate::test_utils::{
-    create_test_state, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
@@ -152,35 +154,120 @@ fn test_call_contract() {
     );
 }
 
-#[test]
-fn test_deploy_with_constructor() {
-    let mut state = create_test_state();
-    let salt = ContractAddressSalt::default();
-    let class_hash = stark_felt!(TEST_CLASS_HASH);
-    let calldata = calldata![
-        class_hash,     // Class hash.
-        salt.0,         // Contract_address_salt.
+#[test_case(
+    ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+    calldata![
+    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+    ContractAddressSalt::default().0, // Contract_address_salt.
+    stark_felt!(0), // Calldata length.
+    stark_felt!(0) // deploy_from_zero.
+    ],
+    calldata![],
+    None ;
+    "No constructor: Positive flow")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2), // Calldata length.
+        stark_felt!(2), // Calldata: address.
+        stark_felt!(1), // Calldata: value.
+        stark_felt!(0) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(2), // Calldata: address.
+        stark_felt!(1) // Calldata: value.
+    ],
+    Some(&format!(
+        "Invalid input: calldata length: {:?}; Cannot pass calldata to a contract with no constructor.",
+        StarkFelt::from(2)
+    ));
+    "No constructor: Negative flow: nonempty calldata")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2), // Calldata length.
         stark_felt!(1), // Calldata: address.
-        stark_felt!(1)  // Calldata: value.
-    ];
+        stark_felt!(1), // Calldata: value.
+        stark_felt!(0) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(1), // Calldata: address.
+        stark_felt!(1) // Calldata: value.
+    ],
+    None;
+    "With constructor: Positive flow")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2), // Calldata length.
+        stark_felt!(3), // Calldata: address.
+        stark_felt!(3), // Calldata: value.
+        stark_felt!(0) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(3), // Calldata: address.
+        stark_felt!(3) // Calldata: value.
+    ],
+    Some("is unavailable for deployment.");
+    "With constructor: Negative flow: deploy to the same address")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2), // Calldata length.
+        stark_felt!(1), // Calldata: address.
+        stark_felt!(1), // Calldata: value.
+        stark_felt!(2) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(1), // Calldata: address.
+        stark_felt!(1) // Calldata: value.
+    ],
+    Some(&format!(
+        "Invalid syscall input: {:?}; {:}",
+        stark_felt!(2),
+        "The deploy_from_zero field in the deploy system call must be 0 or 1.",
+    ));
+    "With constructor: Negative flow: illegal value for deploy_from_zero")]
+fn test_deploy(
+    class_hash: ClassHash,
+    calldata: Calldata,
+    constructor_calldata: Calldata,
+    expected_error: Option<&str>,
+) {
+    let mut state = create_deploy_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
         ..trivial_external_entry_point()
     };
+
+    if let Some(expected_error) = expected_error {
+        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        assert!(error.contains(expected_error));
+        return;
+    }
+
+    // No errors.
     let contract_address = calculate_contract_address(
-        salt,
-        ClassHash(class_hash),
-        &Calldata(vec![stark_felt!(1), stark_felt!(1)].into()),
-        ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap(),
+        ContractAddressSalt::default(),
+        class_hash,
+        &constructor_calldata,
+        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
     )
     .unwrap();
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { retdata: retdata![*contract_address.0.key()] }
     );
-    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), ClassHash(class_hash));
+    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
 
 #[test]

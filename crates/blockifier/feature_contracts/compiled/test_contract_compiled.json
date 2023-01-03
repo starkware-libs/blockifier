@@ -207,6 +207,10 @@
                 {
                     "name": "constructor_calldata",
                     "type": "felt*"
+                },
+                {
+                    "name": "deploy_from_zero",
+                    "type": "felt"
                 }
             ],
             "name": "test_deploy",
@@ -278,7 +282,7 @@
                 "selector": "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309"
             },
             {
-                "offset": "0x267",
+                "offset": "0x266",
                 "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f"
             },
             {
@@ -290,11 +294,11 @@
                 "selector": "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50"
             },
             {
-                "offset": "0x297",
+                "offset": "0x299",
                 "selector": "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5"
             },
             {
-                "offset": "0x2ba",
+                "offset": "0x2bc",
                 "selector": "0x38215592552d97419658d30db8f189b242ec2056641de3dff8a7217745ec205"
             },
             {
@@ -921,15 +925,14 @@
             "0x48127ff97fff8000",
             "0x48127ff97fff8000",
             "0x208b7fff7fff7ffe",
+            "0x480a7ff87fff8000",
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
-            "0x480680017fff8000",
-            "0x0",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdff",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe00",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -947,6 +950,8 @@
             "0x3",
             "0x480280027ffd8000",
             "0x48307fff7ffe8000",
+            "0x482480017fff8000",
+            "0x1",
             "0x402a7ffd7ffc7fff",
             "0x480280007ffb8000",
             "0x480280007ffd8000",
@@ -954,14 +959,15 @@
             "0x480280027ffd8000",
             "0x482680017ffd8000",
             "0x3",
+            "0x480080007ff98000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe0",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffde",
             "0x480280027ffb8000",
             "0x48127ffe7fff8000",
             "0x482480017ffe8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe4",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe1",
             "0x48127ff47fff8000",
             "0x480280017ffb8000",
             "0x48127ffb7fff8000",
@@ -977,11 +983,11 @@
             "0x480680017fff8000",
             "0x27",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe85",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe83",
             "0x480680017fff8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe73",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe71",
             "0x400680017fff7fff",
             "0x27",
             "0x48127ffc7fff8000",
@@ -1012,7 +1018,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe27",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe25",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -1370,7 +1376,7 @@
                     }
                 }
             ],
-            "606": [
+            "605": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1388,7 +1394,7 @@
                     }
                 }
             ],
-            "669": [
+            "671": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1406,7 +1412,7 @@
                     }
                 }
             ],
-            "689": [
+            "691": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1869,7 +1875,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 679,
+                "pc": 681,
                 "type": "function"
             },
             "__main__.test_contract_address.Args": {
@@ -1947,9 +1953,13 @@
                     "contract_address_salt": {
                         "cairo_type": "felt",
                         "offset": 1
+                    },
+                    "deploy_from_zero": {
+                        "cairo_type": "felt",
+                        "offset": 4
                     }
                 },
-                "size": 4,
+                "size": 5,
                 "type": "struct"
             },
             "__main__.test_deploy.ImplicitArgs": {
@@ -2119,7 +2129,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 644,
+                "pc": 646,
                 "type": "function"
             },
             "__main__.test_storage_var.Args": {
@@ -2428,7 +2438,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 698,
+                "pc": 700,
                 "type": "function"
             },
             "__wrappers__.test_contract_address.Args": {
@@ -2457,7 +2467,7 @@
             },
             "__wrappers__.test_contract_address_encode_return": {
                 "decorators": [],
-                "pc": 689,
+                "pc": 691,
                 "type": "function"
             },
             "__wrappers__.test_contract_address_encode_return.Args": {
@@ -2497,7 +2507,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 615,
+                "pc": 614,
                 "type": "function"
             },
             "__wrappers__.test_deploy.Args": {
@@ -2526,7 +2536,7 @@
             },
             "__wrappers__.test_deploy_encode_return": {
                 "decorators": [],
-                "pc": 606,
+                "pc": 605,
                 "type": "function"
             },
             "__wrappers__.test_deploy_encode_return.Args": {
@@ -2740,7 +2750,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 663,
+                "pc": 665,
                 "type": "function"
             },
             "__wrappers__.test_storage_var.Args": {

@@ -81,8 +81,8 @@ pub enum VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
-    #[error("Invalid input: {input:?}; {info:}")]
-    InvalidExecutionInput { input: StarkFelt, info: String },
+    #[error("Invalid input: {input_description: }: {input:?}; {info:}")]
+    InvalidExecutionInput { input_description: String, input: StarkFelt, info: String },
     #[error(transparent)]
     PostExecutionError(#[from] PostExecutionError),
     #[error(transparent)]

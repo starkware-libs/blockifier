@@ -26,3 +26,4 @@ thiserror = { version = "1.0.37" }
 [dev-dependencies]
 assert_matches = { version = "1.5.0" }
 pretty_assertions = { version = "1.2.1" }
+test-case = { version = "2.2.2" }
