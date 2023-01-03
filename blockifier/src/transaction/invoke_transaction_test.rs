@@ -23,13 +23,13 @@ use crate::test_utils::{
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, TRANSFER_EVENT_NAME,
     VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
-use crate::transaction::ExecuteTransaction;
 
 fn create_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::get_test_block_context();
@@ -82,8 +82,6 @@ fn get_tested_valid_invoke_tx() -> InvokeTransaction {
         version: TransactionVersion(stark_felt!(1)),
         signature: TransactionSignature(vec![StarkHash::default()]),
         nonce: Nonce::default(),
-        // TODO(Adi, 25/12/2022): Use an actual contract_address once there is a mapping from a
-        // contract address to its class hash.
         sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         entry_point_selector: None,
         calldata: execute_calldata,
@@ -98,10 +96,15 @@ fn get_tested_actual_fee() -> Fee {
 fn test_invoke_tx() {
     let mut state = create_test_state();
     let block_context = BlockContext::get_test_block_context();
-    let tx = get_tested_valid_invoke_tx();
-    let calldata = tx.calldata.clone();
 
-    let actual_execution_info = tx.execute(&mut state, &block_context).unwrap();
+    // Extract invoke transaction fields for testing, as the transaction execution consumes
+    // the transaction.
+    let invoke_tx = get_tested_valid_invoke_tx();
+    let calldata = invoke_tx.calldata.clone();
+    let sender_address = invoke_tx.sender_address;
+
+    let account_tx = AccountTransaction::Invoke(invoke_tx);
+    let actual_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
@@ -192,6 +195,9 @@ fn test_invoke_tx() {
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
 
+    // Test nonce update.
+    assert_eq!(*state.get_nonce_at(sender_address).unwrap(), Nonce(stark_felt!(1)));
+
     // Test final balances.
     let expected_account_balance = stark_felt!(0);
     let expected_sequencer_balance = lsb_expected_amount;
@@ -219,12 +225,15 @@ fn test_invoke_tx() {
 fn test_negative_invoke_tx_flows() {
     let mut state = create_test_state();
     let block_context = BlockContext::get_test_block_context();
-    let valid_tx = get_tested_valid_invoke_tx();
+    let valid_invoke_tx = get_tested_valid_invoke_tx();
 
     // Invalid version.
     // Note: there is no need to test for a negative version, as it cannot be constructed.
     let invalid_tx_version = TransactionVersion(stark_felt!(0));
-    let invalid_tx = InvokeTransaction { version: invalid_tx_version, ..valid_tx.clone() };
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+        version: invalid_tx_version,
+        ..valid_invoke_tx.clone()
+    });
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
@@ -237,7 +246,10 @@ fn test_negative_invoke_tx_flows() {
 
     // Insufficient fee.
     let tx_max_fee = Fee(0);
-    let invalid_tx = InvokeTransaction { max_fee: tx_max_fee, ..valid_tx.clone() };
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+        max_fee: tx_max_fee,
+        ..valid_invoke_tx.clone()
+    });
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
@@ -252,16 +264,15 @@ fn test_negative_invoke_tx_flows() {
     );
 
     // Invalid nonce.
-    // The transaction nonce is increased even when the fee charge step fails.
-    let current_nonce = Nonce(stark_felt!(1));
-    let tx_nonce = Nonce(stark_felt!(2));
-    let invalid_tx = InvokeTransaction { nonce: tx_nonce, ..valid_tx };
-    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
+    // Use a fresh state to facilitate testing.
+    let nonce = Nonce(stark_felt!(1));
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction { nonce, ..valid_invoke_tx });
+    let execution_error = invalid_tx.execute(&mut create_test_state(), &block_context).unwrap_err();
 
     // Test error.
     assert_matches!(
         execution_error,
         TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
-        if (expected_nonce, actual_nonce) == (current_nonce, tx_nonce)
+        if (expected_nonce, actual_nonce) == (Nonce::default(), nonce)
     );
 }
