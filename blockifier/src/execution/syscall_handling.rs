@@ -179,6 +179,7 @@ pub fn write_retdata(
     vm.insert_value(ptr, retdata_size)?;
 
     // Write response payload to the memory.
+    // TODO(AlonH, 21/12/2022): Use read only segments.
     let segment = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment)?;
     let data: Vec<MaybeRelocatable> = retdata.0.iter().map(|x| felt_to_bigint(*x).into()).collect();
