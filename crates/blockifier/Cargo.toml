@@ -29,3 +29,4 @@ papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", features 
     "testing",
 ] }
 pretty_assertions = { version = "1.2.1" }
+test-case = { version = "2.2.2" }
