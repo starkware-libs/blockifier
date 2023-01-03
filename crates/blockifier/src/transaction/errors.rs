@@ -24,7 +24,7 @@ pub enum TransactionExecutionError {
         "Transaction version {version:?} is not supported. Supported versions: \
          {allowed_versions:?}."
     )]
-    InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
+    InvalidVersion { version: TransactionVersion, allowed_versions: &'static [TransactionVersion] },
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
