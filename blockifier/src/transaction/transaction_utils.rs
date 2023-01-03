@@ -1,12 +1,13 @@
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
-use super::constants::TRANSFER_ENTRY_POINT_SELECTOR;
+use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::test_utils::{TEST_ERC20_CONTRACT_ADDRESS, TEST_SEQUENCER_ADDRESS};
+use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
@@ -28,9 +29,7 @@ pub fn execute_fee_transfer(
         // TODO(Adi, 15/01/2023): Replace with a computed ERC20 class hash.
         class_hash: None,
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(StarkFelt::try_from(
-            TRANSFER_ENTRY_POINT_SELECTOR,
-        )?),
+        entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
         calldata: Calldata(
             vec![
                 StarkFelt::try_from(TEST_SEQUENCER_ADDRESS)?, // Recipient.
