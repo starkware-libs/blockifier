@@ -2,10 +2,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector,
+    PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::block_context::BlockContext;
@@ -15,14 +18,35 @@ use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
+// Addresses.
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
+pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
+pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
+pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
+
+// Class hashes.
 // TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
+pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
+pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
+// TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
+// starkgate once we use the real ERC20 contract.
+pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
+
+// Paths.
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
+pub const TEST_EMPTY_CONTRACT_PATH: &str =
+    "./feature_contracts/compiled/empty_contract_compiled.json";
+// TODO(Adi, 15/01/2023): Remove and use the ERC20 contract in starkgate once we use the real
+// ERC20 contract.
+pub const ERC20_CONTRACT_PATH: &str =
+    "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+
+// Selectors.
 pub const WITHOUT_ARG_SELECTOR: &str =
     "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
 pub const WITH_ARG_SELECTOR: &str =
@@ -44,19 +68,8 @@ pub const TEST_DEPLOY_SELECTOR: &str =
     "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
 pub const TEST_STORAGE_VAR_SELECTOR: &str =
     "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
-pub const TEST_CLASS_HASH: &str = "0x110";
-pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 
-pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
-
-// TODO(Adi, 15/01/2023): Remove and use the ERC20 contract in starkgate once we use the real
-// ERC20 contract.
-pub const ERC20_CONTRACT_PATH: &str =
-    "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
-// TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
-// starkgate once we use the real ERC20 contract.
-pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
-pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
+// Storage keys.
 pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
     "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812";
 pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
@@ -84,6 +97,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
     }
 }
 
+// TODO(Noa, 01/02/2023): Change test util to receive mapping.
 pub fn create_test_state_util(
     class_hash: &str,
     contract_path: &str,
@@ -108,6 +122,33 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 
 pub fn create_security_test_state() -> CachedState<DictStateReader> {
     create_test_state_util(TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_PATH, TEST_CONTRACT_ADDRESS)
+}
+
+pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+    let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let empty_contract_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let another_contract_address = calculate_contract_address(
+        ContractAddressSalt::default().0,
+        class_hash,
+        &calldata![
+            stark_felt!(3), // Calldata: address.
+            stark_felt!(3)  // Calldata: value.
+        ],
+        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+    )
+    .unwrap();
+    let class_hash_to_class = HashMap::from([
+        (class_hash, get_contract_class(TEST_CONTRACT_PATH)),
+        (empty_contract_class_hash, get_contract_class(TEST_EMPTY_CONTRACT_PATH)),
+    ]);
+    let address_to_class_hash =
+        HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
 }
 
 impl CallEntryPoint {
