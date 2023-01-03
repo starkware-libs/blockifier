@@ -51,7 +51,7 @@ pub enum SyscallExecutionError {
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
     InnerCallExecutionError(#[from] EntryPointExecutionError),
-    #[error("Invalid syscall input: {input:?}; {info:}")]
+    #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
@@ -81,8 +81,8 @@ pub enum VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
-    #[error("Invalid input: {input:?}; {info:}")]
-    InvalidExecutionInput { input: StarkFelt, info: String },
+    #[error("Invalid input: {input_descriptor}; {info}")]
+    InvalidExecutionInput { input_descriptor: String, info: String },
     #[error(transparent)]
     PostExecutionError(#[from] PostExecutionError),
     #[error(transparent)]
