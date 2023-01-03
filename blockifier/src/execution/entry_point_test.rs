@@ -1,9 +1,9 @@
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkHash;
-use starknet_api::shash;
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
+use starknet_api::{patky, shash};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -11,9 +11,10 @@ use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
 use crate::test_utils::{
-    create_security_test_state, create_test_state, BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR,
-    SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_DEPLOY_SELECTOR, TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
+    create_deploy_test_state, create_security_test_state, create_test_state, BITWISE_AND_SELECTOR,
+    RETURN_RESULT_SELECTOR, SQRT_SELECTOR, TEST_CALL_CONTRACT_SELECTOR, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_DEPLOY_SELECTOR, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_LIBRARY_CALL_SELECTOR, TEST_NESTED_LIBRARY_CALL_SELECTOR,
     TEST_STORAGE_READ_WRITE_SELECTOR, TEST_STORAGE_VAR_SELECTOR, WITHOUT_ARG_SELECTOR,
     WITH_ARG_SELECTOR,
 };
@@ -250,32 +251,123 @@ fn test_entry_point_with_nested_library_call() {
     assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
 }
 
-// TODO(Noa, 30/12/22): Add a test with no constructor
 #[test]
-fn test_entry_point_with_deploy_with_constructor() {
-    let mut state = create_test_state();
-    let calldata = Calldata(
+fn test_entry_point_with_deploy() {
+    fn run_deploy_test(
+        state: &mut CachedState<DictStateReader>,
+        class_hash: StarkHash,
+        calldata: Calldata,
+        expected_error: &str,
+    ) {
+        let entry_point_call = CallEntryPoint {
+            entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
+            calldata,
+            ..trivial_external_entry_point()
+        };
+        if !expected_error.is_empty() {
+            let error = entry_point_call.execute_directly(state).unwrap_err().to_string();
+            assert!(error.contains(expected_error));
+            return;
+        }
+        assert_eq!(
+            entry_point_call.execute_directly(state).unwrap().execution,
+            CallExecution { retdata: retdata![shash!(1)] }
+        );
+        let contract_address_from_state = *state
+            .get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap())
+            .unwrap();
+        assert_eq!(contract_address_from_state, ClassHash(shash!(class_hash)));
+    }
+
+    let class_hash = shash!(TEST_CLASS_HASH);
+    let empty_contract_class_hash = shash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let salt = shash!(1);
+
+    // No constructor.
+    // Positive flow
+    // TODO(Noa, 10/01/23): Remove the creation of a new state for each case once
+    // calculate_contract_address is implemented.
+    let mut state = create_deploy_test_state();
+    let mut calldata = Calldata(
         vec![
-            shash!(TEST_CLASS_HASH), // Class hash.
-            shash!(1),               // Contract_address_salt.
-            shash!(2),               // Calldata length.
-            shash!(1),               // Calldata: address.
-            shash!(1),               // Calldata: value.
+            empty_contract_class_hash, // Class hash.
+            salt,                      // Contract_address_salt.
+            shash!(0),                 // Calldata length.
+            shash!(1),                 // deploy_from_zero.
         ]
         .into(),
     );
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(shash!(TEST_DEPLOY_SELECTOR)),
-        calldata,
-        ..trivial_external_entry_point()
-    };
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![shash!(1)] }
+    run_deploy_test(&mut state, empty_contract_class_hash, calldata, "");
+
+    state = create_deploy_test_state();
+    // Negative flow: nonempty calldata
+    calldata = Calldata(
+        vec![
+            empty_contract_class_hash, // Class hash.
+            salt,                      // Contract_address_salt.
+            shash!(2),                 // Calldata length.
+            shash!(2),                 // Calldata: address.
+            shash!(1),                 // Calldata: value.
+            shash!(0),                 // deploy_from_zero.
+        ]
+        .into(),
     );
-    let contract_address_from_state =
-        *state.get_class_hash_at(ContractAddress::try_from(StarkHash::from(1)).unwrap()).unwrap();
-    assert_eq!(contract_address_from_state, ClassHash(shash!(TEST_CLASS_HASH)));
+    run_deploy_test(
+        &mut state,
+        empty_contract_class_hash,
+        calldata,
+        &format!(
+            "Invalid input: {}; Cannot pass calldata to a contract with no constructor.",
+            StarkFelt::from(2)
+        ),
+    );
+
+    // With constructor
+    // Positive flow
+    state = create_deploy_test_state();
+    calldata = Calldata(
+        vec![
+            class_hash, // Class hash.
+            salt,       // Contract_address_salt.
+            shash!(2),  // Calldata length.
+            shash!(1),  // Calldata: address.
+            shash!(1),  // Calldata: value.
+            shash!(0),  // deploy_from_zero.
+        ]
+        .into(),
+    );
+    run_deploy_test(&mut state, class_hash, calldata.clone(), "");
+
+    // Negative flow: deploy to the same address.
+    run_deploy_test(
+        &mut state,
+        class_hash,
+        calldata,
+        &format!("Requested {0:?} is unavailable for deployment.", ContractAddress(patky!(1))),
+    );
+
+    // Negative flow: illegal value for deploy_from_zero.
+    calldata = Calldata(
+        vec![
+            class_hash, // Class hash.
+            salt,       // Contract_address_salt.
+            shash!(2),  // Calldata length.
+            shash!(1),  // Calldata: address.
+            shash!(1),  // Calldata: value.
+            shash!(2),  // deploy_from_zero.
+        ]
+        .into(),
+    );
+    run_deploy_test(
+        &mut state,
+        class_hash,
+        calldata,
+        &format!(
+            "Invalid syscall input: {:?}; {:}",
+            shash!(2),
+            "The deploy_from_zero field in the deploy system call must be 0 or 1.",
+        ),
+    );
 }
 
 #[test]

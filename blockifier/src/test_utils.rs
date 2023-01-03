@@ -11,14 +11,27 @@ use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
+// Address:
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
+pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
+pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
+
+// Class hash:
 // TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
+pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
+pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
+
+// Path:
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
+pub const TEST_EMPTY_CONTRACT_PATH: &str =
+    "./feature_contracts/compiled/empty_contract_compiled.json";
+
+// Selector:
 pub const WITHOUT_ARG_SELECTOR: &str =
     "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
 pub const WITH_ARG_SELECTOR: &str =
@@ -40,10 +53,6 @@ pub const TEST_DEPLOY_SELECTOR: &str =
     "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
 pub const TEST_STORAGE_VAR_SELECTOR: &str =
     "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
-pub const TEST_CLASS_HASH: &str = "0x110";
-pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
-
-pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 
 // TODO(Adi, 15/01/2023): Remove and use the ERC20 contract in starkgate once we use the real
 // ERC20 contract.
@@ -69,6 +78,7 @@ pub fn get_test_contract_class() -> ContractClass {
     get_contract_class(TEST_CONTRACT_PATH)
 }
 
+// TODO: Change test util to receive mapping
 pub fn create_test_state_util(
     class_hash: &str,
     contract_path: &str,
@@ -91,6 +101,26 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 
 pub fn create_security_test_state() -> CachedState<DictStateReader> {
     create_test_state_util(TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_PATH, TEST_CONTRACT_ADDRESS)
+}
+
+pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+    let class_hash = TEST_CLASS_HASH;
+    let contract_path = TEST_CONTRACT_PATH;
+    let contract_address = TEST_CONTRACT_ADDRESS;
+    let class_hash_to_class = HashMap::from([
+        (ClassHash(shash!(class_hash)), get_contract_class(contract_path)),
+        (
+            ClassHash(shash!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+            get_contract_class(TEST_EMPTY_CONTRACT_PATH),
+        ),
+    ]);
+    let address_to_class_hash =
+        HashMap::from([(ContractAddress(patky!(contract_address)), ClassHash(shash!(class_hash)))]);
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
 }
 
 impl CallEntryPoint {
