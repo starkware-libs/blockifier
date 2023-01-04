@@ -6,7 +6,7 @@ use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
-use starknet_api::{patricia_key, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
@@ -78,7 +78,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(stark_felt!(0)),
-        calldata: Calldata(vec![].into()),
+        calldata: calldata![],
         storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
         caller_address: ContractAddress::default(),
     }
