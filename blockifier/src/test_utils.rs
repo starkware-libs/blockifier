@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::EntryPointType;
+use starknet_api::transaction::Calldata;
 use starknet_api::{patricia_key, stark_felt};
 
 use crate::execution::contract_class::ContractClass;
@@ -67,6 +69,17 @@ pub fn get_contract_class(contract_path: &str) -> ContractClass {
 
 pub fn get_test_contract_class() -> ContractClass {
     get_contract_class(TEST_CONTRACT_PATH)
+}
+
+pub fn trivial_external_entry_point() -> CallEntryPoint {
+    CallEntryPoint {
+        class_hash: None,
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: EntryPointSelector(stark_felt!(0)),
+        calldata: Calldata(vec![].into()),
+        storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+        caller_address: ContractAddress::default(),
+    }
 }
 
 pub fn create_test_state_util(

@@ -17,6 +17,10 @@ use crate::execution::syscall_handling::{
 };
 use crate::retdata;
 
+#[cfg(test)]
+#[path = "syscalls_test.rs"]
+pub mod test;
+
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type ReadRequestResult = SyscallResult<SyscallRequest>;
 pub type SyscallExecutionResult = SyscallResult<SyscallResponse>;
