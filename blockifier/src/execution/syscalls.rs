@@ -1,6 +1,6 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
@@ -17,6 +17,7 @@ use crate::execution::syscall_handling::{
     write_felt_array, SyscallHintProcessor,
 };
 use crate::retdata;
+use crate::transaction::objects::AccountTransactionContext;
 
 #[cfg(test)]
 #[path = "syscalls_test.rs"]
@@ -32,7 +33,7 @@ pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
 pub const EMIT_EVENT_SELECTOR_BYTES: &[u8] = b"EmitEvent";
 pub const GET_CALLER_ADDRESS_SELECTOR_BYTES: &[u8] = b"GetCallerAddress";
 pub const GET_CONTRACT_ADDRESS_SELECTOR_BYTES: &[u8] = b"GetContractAddress";
-pub const GET_TX_SIGNATURE_SELECTOR_BYTES: &[u8] = b"GetTxSignature";
+pub const GET_TX_INFO_SELECTOR_BYTES: &[u8] = b"GetTxInfo";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
 pub const SEND_MESSAGE_TO_L1_SELECTOR_BYTES: &[u8] = b"SendMessageToL1";
 pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
@@ -403,35 +404,36 @@ impl GetContractAddressRequest {
 pub type GetContractAddressResponse = GetCallerAddressResponse;
 pub const GET_CONTRACT_ADDRESS_RESPONSE_SIZE: usize = GET_CALLER_ADDRESS_RESPONSE_SIZE;
 
-/// GetTxSignature syscall.
+/// GetTxInfo syscall.
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GetTxSignatureRequest;
+pub struct GetTxInfoRequest;
 
-pub const GET_TX_SIGNATURE_REQUEST_SIZE: usize = 0;
+pub const GET_TX_INFO_REQUEST_SIZE: usize = 0;
 
-impl GetTxSignatureRequest {
+impl GetTxInfoRequest {
     pub fn read(_vm: &VirtualMachine, _ptr: &Relocatable) -> ReadRequestResult {
-        Ok(SyscallRequest::GetTxSignature(GetTxSignatureRequest))
+        Ok(SyscallRequest::GetTxInfo(GetTxInfoRequest))
     }
 
     pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
-        Ok(SyscallResponse::GetTxSignature(GetTxSignatureResponse {
+        // Allocate tx_info_ptr.
+        Ok(SyscallResponse::GetTxInfo(GetTxInfoResponse {
             signature: syscall_handler.account_tx_context.signature,
         }))
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GetTxSignatureResponse {
-    pub signature: TransactionSignature,
+pub struct GetTxInfoResponse {
+    pub tx_info_start_ptr: StarkFelt,
 }
 
-pub const GET_TX_SIGNATURE_RESPONSE_SIZE: usize = ARRAY_METADATA_SIZE;
+pub const GET_TX_INFO_RESPONSE_SIZE: usize = 1;
 
-impl GetTxSignatureResponse {
+impl GetTxInfoResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt_array(vm, ptr, self.signature.0);
+        vm.insert_value(ptr, felt_to_bigint(self.tx_info_start_ptr))?;
         Ok(())
     }
 }
@@ -443,7 +445,7 @@ pub enum SyscallRequest {
     EmitEvent(EmitEventRequest),
     GetCallerAddress(GetCallerAddressRequest),
     GetContractAddress(GetContractAddressRequest),
-    GetTxSignature(GetTxSignatureRequest),
+    GetTxInfo(GetTxInfoRequest),
     LibraryCall(LibraryCallRequest),
     SendMessageToL1(SendMessageToL1Request),
     StorageRead(StorageReadRequest),
@@ -461,7 +463,7 @@ impl SyscallRequest {
             EMIT_EVENT_SELECTOR_BYTES => EmitEventRequest::read(vm, ptr),
             GET_CALLER_ADDRESS_SELECTOR_BYTES => GetCallerAddressRequest::read(vm, ptr),
             GET_CONTRACT_ADDRESS_SELECTOR_BYTES => GetContractAddressRequest::read(vm, ptr),
-            GET_TX_SIGNATURE_SELECTOR_BYTES => GetTxSignatureRequest::read(vm, ptr),
+            GET_TX_INFO_SELECTOR_BYTES => GetTxInfoRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
             SEND_MESSAGE_TO_L1_SELECTOR_BYTES => SendMessageToL1Request::read(vm, ptr),
             STORAGE_READ_SELECTOR_BYTES => StorageReadRequest::read(vm, ptr),
@@ -477,7 +479,7 @@ impl SyscallRequest {
             SyscallRequest::EmitEvent(request) => request.execute(syscall_handler),
             SyscallRequest::GetCallerAddress(request) => request.execute(syscall_handler),
             SyscallRequest::GetContractAddress(request) => request.execute(syscall_handler),
-            SyscallRequest::GetTxSignature(request) => request.execute(syscall_handler),
+            SyscallRequest::GetTxInfo(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
             SyscallRequest::SendMessageToL1(request) => request.execute(syscall_handler),
             SyscallRequest::StorageRead(request) => request.execute(syscall_handler),
@@ -492,7 +494,7 @@ impl SyscallRequest {
             SyscallRequest::EmitEvent(_) => EMIT_EVENT_REQUEST_SIZE,
             SyscallRequest::GetCallerAddress(_) => GET_CALLER_ADDRESS_REQUEST_SIZE,
             SyscallRequest::GetContractAddress(_) => GET_CONTRACT_ADDRESS_REQUEST_SIZE,
-            SyscallRequest::GetTxSignature(_) => GET_TX_SIGNATURE_REQUEST_SIZE,
+            SyscallRequest::GetTxInfo(_) => GET_TX_INFO_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
             SyscallRequest::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_REQUEST_SIZE,
             SyscallRequest::StorageRead(_) => STORAGE_READ_REQUEST_SIZE,
@@ -508,7 +510,7 @@ pub enum SyscallResponse {
     EmitEvent(EmptyResponse),
     GetCallerAddress(GetCallerAddressResponse),
     GetContractAddress(GetContractAddressResponse),
-    GetTxSignature(GetTxSignatureResponse),
+    GetTxInfo(GetTxInfoResponse),
     LibraryCall(LibraryCallResponse),
     SendMessageToL1(EmptyResponse),
     StorageRead(StorageReadResponse),
@@ -523,7 +525,7 @@ impl SyscallResponse {
             SyscallResponse::EmitEvent(response) => response.write(vm, ptr),
             SyscallResponse::GetCallerAddress(response) => response.write(vm, ptr),
             SyscallResponse::GetContractAddress(response) => response.write(vm, ptr),
-            SyscallResponse::GetTxSignature(response) => response.write(vm, ptr),
+            SyscallResponse::GetTxInfo(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
             SyscallResponse::SendMessageToL1(response) => response.write(vm, ptr),
             SyscallResponse::StorageRead(response) => response.write(vm, ptr),
@@ -538,7 +540,7 @@ impl SyscallResponse {
             SyscallResponse::EmitEvent(_) => EMIT_EVENT_RESPONSE_SIZE,
             SyscallResponse::GetCallerAddress(_) => GET_CALLER_ADDRESS_RESPONSE_SIZE,
             SyscallResponse::GetContractAddress(_) => GET_CONTRACT_ADDRESS_RESPONSE_SIZE,
-            SyscallResponse::GetTxSignature(_) => GET_TX_SIGNATURE_RESPONSE_SIZE,
+            SyscallResponse::GetTxInfo(_) => GET_TX_INFO_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,
             SyscallResponse::SendMessageToL1(_) => SEND_MESSAGE_TO_L1_RESPONSE_SIZE,
             SyscallResponse::StorageRead(_) => STORAGE_READ_RESPONSE_SIZE,
