@@ -1,3 +1,4 @@
+use starknet_api::calldata;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
@@ -32,14 +33,11 @@ pub fn execute_fee_transfer(
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
-        calldata: Calldata(
-            vec![
-                *block_context.sequencer_address.0.key(), // Recipient.
-                StarkFelt::from(actual_fee.0 as u64),     // Amount (lower 128-bit).
-                StarkFelt::from(0),                       // Amount (upper 128-bit).
-            ]
-            .into(),
-        ),
+        calldata: calldata![
+            *block_context.sequencer_address.0.key(), // Recipient.
+            StarkFelt::from(actual_fee.0 as u64),     // Amount (lower 128-bit).
+            StarkFelt::from(0)                        // Amount (upper 128-bit).
+        ],
         storage_address: block_context.fee_token_address,
         caller_address: account_tx_context.sender_address,
     };

@@ -9,7 +9,7 @@ use starknet_api::transaction::{
     Calldata, EventContent, EventData, EventKey, Fee, InvokeTransaction, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
-use starknet_api::{patricia_key, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::block_context::BlockContext;
@@ -70,15 +70,12 @@ fn create_test_state() -> CachedState<DictStateReader> {
 }
 
 fn get_tested_valid_invoke_tx() -> InvokeTransaction {
-    let execute_calldata = Calldata(
-        vec![
-            stark_felt!(TEST_CONTRACT_ADDRESS),  // Contract address.
-            stark_felt!(RETURN_RESULT_SELECTOR), // EP selector.
-            stark_felt!(1),                      // Calldata length.
-            stark_felt!(2),                      // Calldata: num.
-        ]
-        .into(),
-    );
+    let execute_calldata = calldata![
+        stark_felt!(TEST_CONTRACT_ADDRESS),  // Contract address.
+        stark_felt!(RETURN_RESULT_SELECTOR), // EP selector.
+        stark_felt!(1),                      // Calldata length.
+        stark_felt!(2)                       // Calldata: num.
+    ];
 
     InvokeTransaction {
         transaction_hash: TransactionHash(StarkHash::default()),
@@ -122,7 +119,7 @@ fn test_invoke_tx() {
         ..Default::default()
     };
 
-    let expected_return_result_calldata = Calldata(vec![stark_felt!(2)].into());
+    let expected_return_result_calldata = calldata![stark_felt!(2)];
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(stark_felt!(RETURN_RESULT_SELECTOR)),
         class_hash: None,
@@ -156,14 +153,11 @@ fn test_invoke_tx() {
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
-        calldata: Calldata(
-            vec![
-                expected_sequencer_address, // Recipient.
-                expected_lower_actual_fee,  // Amount (lower 128-bit).
-                stark_felt!(0),             // Amount (upper 128-bit).
-            ]
-            .into(),
-        ),
+        calldata: calldata![
+            expected_sequencer_address, // Recipient.
+            expected_lower_actual_fee,  // Amount (lower 128-bit).
+            stark_felt!(0)              // Amount (upper 128-bit).
+        ],
         storage_address: block_context.fee_token_address,
         caller_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
     };

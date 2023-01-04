@@ -1,8 +1,8 @@
 use pretty_assertions::assert_eq;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::Calldata;
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -45,7 +45,7 @@ fn test_entry_point_without_arg() {
 #[test]
 fn test_entry_point_with_arg() {
     let mut state = create_test_state();
-    let calldata = Calldata(vec![stark_felt!(25)].into());
+    let calldata = calldata![stark_felt!(25)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(stark_felt!(WITH_ARG_SELECTOR)),
@@ -60,7 +60,7 @@ fn test_entry_point_with_arg() {
 #[test]
 fn test_entry_point_with_builtin() {
     let mut state = create_test_state();
-    let calldata = Calldata(vec![stark_felt!(47), stark_felt!(31)].into());
+    let calldata = calldata![stark_felt!(47), stark_felt!(31)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(stark_felt!(BITWISE_AND_SELECTOR)),
@@ -75,7 +75,7 @@ fn test_entry_point_with_builtin() {
 #[test]
 fn test_entry_point_with_hint() {
     let mut state = create_test_state();
-    let calldata = Calldata(vec![stark_felt!(81)].into());
+    let calldata = calldata![stark_felt!(81)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(stark_felt!(SQRT_SELECTOR)),
@@ -90,7 +90,7 @@ fn test_entry_point_with_hint() {
 #[test]
 fn test_entry_point_with_return_value() {
     let mut state = create_test_state();
-    let calldata = Calldata(vec![stark_felt!(23)].into());
+    let calldata = calldata![stark_felt!(23)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: EntryPointSelector(stark_felt!(RETURN_RESULT_SELECTOR)),
@@ -147,7 +147,7 @@ fn test_security_failure() {
     }
 
     for perform_inner_call_to_foo in 0..2 {
-        let calldata = Calldata(vec![stark_felt!(perform_inner_call_to_foo)].into());
+        let calldata = calldata![stark_felt!(perform_inner_call_to_foo)];
         run_security_test(
             "Custom Hint Error: Out of range",
             "test_read_bad_address",
