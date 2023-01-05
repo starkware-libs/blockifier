@@ -35,29 +35,28 @@ fn create_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::get_test_block_context();
 
     let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let test_account_contract_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_contract_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH)),
         (test_contract_class_hash, get_contract_class(TEST_CONTRACT_PATH)),
         (test_erc20_class_hash, get_contract_class(ERC20_CONTRACT_PATH)),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let test_account_contract_address =
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-    let test_erc20_contract_address = block_context.fee_token_address;
+    let test_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
-        (test_account_contract_address, test_account_contract_class_hash),
-        (test_erc20_contract_address, test_erc20_class_hash),
+        (test_account_address, test_account_class_hash),
+        (test_erc20_address, test_erc20_class_hash),
     ]);
     let test_erc20_account_balance_key = StorageKey(patricia_key!(TEST_ERC20_ACCOUNT_BALANCE_KEY));
     let test_erc20_sequencer_balance_key =
         StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY));
     let storage_view = HashMap::from([
-        ((test_erc20_contract_address, test_erc20_sequencer_balance_key), stark_felt!(0)),
+        ((test_erc20_address, test_erc20_sequencer_balance_key), stark_felt!(0)),
         (
-            (test_erc20_contract_address, test_erc20_account_balance_key),
+            (test_erc20_address, test_erc20_account_balance_key),
             stark_felt!(get_tested_actual_fee().0 as u64),
         ),
     ]);
@@ -104,14 +103,15 @@ fn test_invoke_tx() {
 
     let actual_execution_info = tx.execute(&mut state, &block_context).unwrap();
 
-    // Create expected execution info object.
+    // Build expected validate call info.
+    let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let expected_validate_call_info = CallInfo {
         call: CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: get_selector_from_name(VALIDATE_ENTRY_POINT_NAME),
             calldata,
-            storage_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+            storage_address: expected_account_address,
             caller_address: ContractAddress::default(),
         },
         // The account contract we use for testing has a trivial `validate` function.
@@ -119,21 +119,21 @@ fn test_invoke_tx() {
         ..Default::default()
     };
 
-    let expected_return_result_calldata = calldata![stark_felt!(2)];
+    // Build expected execute call info.
+    let expected_return_result_calldata = vec![stark_felt!(2)];
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(stark_felt!(RETURN_RESULT_SELECTOR)),
         class_hash: None,
         entry_point_type: EntryPointType::External,
-        calldata: expected_return_result_calldata,
+        calldata: Calldata(expected_return_result_calldata.clone().into()),
         storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-        caller_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        caller_address: expected_account_address,
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: get_selector_from_name(EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.call.clone()
     };
-
-    let expected_return_result_retdata = retdata![stark_felt!(2)];
+    let expected_return_result_retdata = Retdata(expected_return_result_calldata.into());
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
         execution: CallExecution { retdata: expected_return_result_retdata.clone() },
@@ -145,35 +145,39 @@ fn test_invoke_tx() {
         ..Default::default()
     };
 
+    // Build expected fee transfer call info.
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     let expected_actual_fee = get_tested_actual_fee();
-    // The lower 128 bits of the expected actual fee.
-    let expected_lower_actual_fee = stark_felt!(expected_actual_fee.0 as u64);
+    // The least significant 128 bits of the expected amount transferred.
+    let lsb_expected_amount = stark_felt!(expected_actual_fee.0 as u64);
+    // The most significant 128 bits of the expected amount transferred.
+    let msb_expected_amount = stark_felt!(0);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: get_selector_from_name(TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
             expected_sequencer_address, // Recipient.
-            expected_lower_actual_fee,  // Amount (lower 128-bit).
-            stark_felt!(0)              // Amount (upper 128-bit).
+            lsb_expected_amount,
+            msb_expected_amount
         ],
         storage_address: block_context.fee_token_address,
-        caller_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        caller_address: expected_account_address,
     };
-    let fee_transfer_event = EventContent {
+    let expected_fee_sender_address = *expected_account_address.0.key();
+    let expected_fee_transfer_event = EventContent {
         keys: vec![EventKey(get_selector_from_name(TRANSFER_EVENT_NAME).0)],
         data: EventData(vec![
-            stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS), // Sender.
-            expected_sequencer_address,                 // Recipient.
-            expected_lower_actual_fee,                  // Amount (lower 128-bit).
-            stark_felt!(0),                             // Amount (upper 128-bit).
+            expected_fee_sender_address,
+            expected_sequencer_address, // Recipient.
+            lsb_expected_amount,
+            msb_expected_amount,
         ]),
     };
     let expected_fee_transfer_call_info = CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution { retdata: retdata![stark_felt!(true as u64)] },
-        events: vec![fee_transfer_event],
+        events: vec![expected_fee_transfer_event],
         ..Default::default()
     };
 
@@ -190,7 +194,7 @@ fn test_invoke_tx() {
 
     // Test final balances.
     let expected_account_balance = stark_felt!(0);
-    let expected_sequencer_balance = expected_lower_actual_fee;
+    let expected_sequencer_balance = lsb_expected_amount;
     assert_eq!(
         state
             .get_storage_at(

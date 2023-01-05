@@ -84,16 +84,13 @@ fn test_nested_library_call() {
     };
     let library_entry_point = CallEntryPoint {
         entry_point_selector: EntryPointSelector(stark_felt!(TEST_LIBRARY_CALL_SELECTOR)),
-        calldata: Calldata(
-            vec![
-                stark_felt!(TEST_CLASS_HASH),                  // Class hash.
-                stark_felt!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
-                stark_felt!(2),                                // Calldata length.
-                stark_felt!(key + 1),                          // Calldata: address.
-                stark_felt!(value + 1),                        // Calldata: value.
-            ]
-            .into(),
-        ),
+        calldata: calldata![
+            stark_felt!(TEST_CLASS_HASH),                  // Class hash.
+            stark_felt!(TEST_STORAGE_READ_WRITE_SELECTOR), // Storage function selector.
+            stark_felt!(2),                                // Calldata length.
+            stark_felt!(key + 1),                          // Calldata: address.
+            stark_felt!(value + 1)                         // Calldata: value.
+        ],
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };

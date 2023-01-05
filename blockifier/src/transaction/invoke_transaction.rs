@@ -40,7 +40,7 @@ pub fn validate_tx(
 }
 
 pub fn execute_tx(
-    tx: &InvokeTransaction,
+    tx: InvokeTransaction,
     state: &mut dyn State,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
@@ -92,7 +92,7 @@ impl ExecuteTransaction for InvokeTransaction {
         let validate_call_info = validate_tx(&self, state, block_context, &account_tx_context)?;
 
         // Execute transaction.
-        let execute_call_info = execute_tx(&self, state, block_context, &account_tx_context)?;
+        let execute_call_info = execute_tx(self, state, block_context, &account_tx_context)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
