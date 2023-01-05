@@ -51,7 +51,7 @@ pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
-    InnerCallExecutionError(Box<EntryPointExecutionError>),
+    InnerCallExecutionError(#[from] EntryPointExecutionError),
     #[error("Invalid syscall input: {input:?}; {info:}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
@@ -64,12 +64,6 @@ pub enum SyscallExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
-}
-
-impl From<EntryPointExecutionError> for SyscallExecutionError {
-    fn from(error: EntryPointExecutionError) -> Self {
-        Self::InnerCallExecutionError(Box::new(error))
-    }
 }
 
 // TODO(AlonH, 21/12/2022): Reconsider error returned by custom hints with LambdaClass.
@@ -97,8 +91,6 @@ pub enum EntryPointExecutionError {
     PreExecutionError(#[from] PreExecutionError),
     #[error(transparent)]
     StateError(#[from] StateError),
-    #[error(transparent)]
-    SyscallExecutionError(#[from] SyscallExecutionError),
     /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
