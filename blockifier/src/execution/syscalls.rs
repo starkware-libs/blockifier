@@ -1,5 +1,8 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
+use num_bigint::BigInt;
+use num_traits::FromPrimitive;
+use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
@@ -29,6 +32,7 @@ pub type WriteResponseResult = SyscallResult<()>;
 pub const CALL_CONTRACT_SELECTOR_BYTES: &[u8] = b"CallContract";
 pub const DEPLOY_SELECTOR_BYTES: &[u8] = b"Deploy";
 pub const EMIT_EVENT_SELECTOR_BYTES: &[u8] = b"EmitEvent";
+pub const GET_BLOCK_NUMBER_SELECTOR_BYTES: &[u8] = b"GetBlockNumber";
 pub const GET_CALLER_ADDRESS_SELECTOR_BYTES: &[u8] = b"GetCallerAddress";
 pub const GET_CONTRACT_ADDRESS_SELECTOR_BYTES: &[u8] = b"GetContractAddress";
 pub const LIBRARY_CALL_SELECTOR_BYTES: &[u8] = b"LibraryCall";
@@ -346,6 +350,39 @@ impl SendMessageToL1Request {
 
 pub const SEND_MESSAGE_TO_L1_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
 
+/// GetBlockNumber syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockNumberRequest;
+
+pub const GET_BLOCK_NUMBER_REQUEST_SIZE: usize = 0;
+
+impl GetBlockNumberRequest {
+    pub fn read(_vm: &VirtualMachine, _ptr: &Relocatable) -> ReadRequestResult {
+        Ok(SyscallRequest::GetBlockNumber(GetBlockNumberRequest))
+    }
+
+    pub fn execute(self, syscall_handler: &mut SyscallHintProcessor<'_>) -> SyscallExecutionResult {
+        Ok(SyscallResponse::GetBlockNumber(GetBlockNumberResponse {
+            block_number: syscall_handler.block_context.block_number,
+        }))
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockNumberResponse {
+    pub block_number: BlockNumber,
+}
+
+pub const GET_BLOCK_NUMBER_RESPONSE_SIZE: usize = 1;
+
+impl GetBlockNumberResponse {
+    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        vm.insert_value(ptr, BigInt::from_u64(self.block_number.0));
+        Ok(())
+    }
+}
+
 /// GetCallerAddress syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -406,6 +443,7 @@ pub enum SyscallRequest {
     CallContract(CallContractRequest),
     Deploy(DeployRequest),
     EmitEvent(EmitEventRequest),
+    GetBlockNumber(GetBlockNumberRequest),
     GetCallerAddress(GetCallerAddressRequest),
     GetContractAddress(GetContractAddressRequest),
     LibraryCall(LibraryCallRequest),
@@ -423,6 +461,7 @@ impl SyscallRequest {
             CALL_CONTRACT_SELECTOR_BYTES => CallContractRequest::read(vm, ptr),
             DEPLOY_SELECTOR_BYTES => DeployRequest::read(vm, ptr),
             EMIT_EVENT_SELECTOR_BYTES => EmitEventRequest::read(vm, ptr),
+            GET_BLOCK_NUMBER_SELECTOR_BYTES => GetBlockNumberRequest::read(vm, ptr),
             GET_CALLER_ADDRESS_SELECTOR_BYTES => GetCallerAddressRequest::read(vm, ptr),
             GET_CONTRACT_ADDRESS_SELECTOR_BYTES => GetContractAddressRequest::read(vm, ptr),
             LIBRARY_CALL_SELECTOR_BYTES => LibraryCallRequest::read(vm, ptr),
@@ -438,6 +477,7 @@ impl SyscallRequest {
             SyscallRequest::CallContract(request) => request.execute(syscall_handler),
             SyscallRequest::Deploy(request) => request.execute(syscall_handler),
             SyscallRequest::EmitEvent(request) => request.execute(syscall_handler),
+            SyscallRequest::GetBlockNumber(request) => request.execute(syscall_handler),
             SyscallRequest::GetCallerAddress(request) => request.execute(syscall_handler),
             SyscallRequest::GetContractAddress(request) => request.execute(syscall_handler),
             SyscallRequest::LibraryCall(request) => request.execute(syscall_handler),
@@ -452,6 +492,7 @@ impl SyscallRequest {
             SyscallRequest::CallContract(_) => CALL_CONTRACT_REQUEST_SIZE,
             SyscallRequest::Deploy(_) => DEPLOY_REQUEST_SIZE,
             SyscallRequest::EmitEvent(_) => EMIT_EVENT_REQUEST_SIZE,
+            SyscallRequest::GetBlockNumber(_) => GET_BLOCK_NUMBER_REQUEST_SIZE,
             SyscallRequest::GetCallerAddress(_) => GET_CALLER_ADDRESS_REQUEST_SIZE,
             SyscallRequest::GetContractAddress(_) => GET_CONTRACT_ADDRESS_REQUEST_SIZE,
             SyscallRequest::LibraryCall(_) => LIBRARY_CALL_REQUEST_SIZE,
@@ -467,6 +508,7 @@ pub enum SyscallResponse {
     CallContract(CallContractResponse),
     Deploy(DeployResponse),
     EmitEvent(EmptyResponse),
+    GetBlockNumber(GetBlockNumberResponse),
     GetCallerAddress(GetCallerAddressResponse),
     GetContractAddress(GetContractAddressResponse),
     LibraryCall(LibraryCallResponse),
@@ -481,6 +523,7 @@ impl SyscallResponse {
             SyscallResponse::CallContract(response) => response.write(vm, ptr),
             SyscallResponse::Deploy(response) => response.write(vm, ptr),
             SyscallResponse::EmitEvent(response) => response.write(vm, ptr),
+            SyscallResponse::GetBlockNumber(response) => response.write(vm, ptr),
             SyscallResponse::GetCallerAddress(response) => response.write(vm, ptr),
             SyscallResponse::GetContractAddress(response) => response.write(vm, ptr),
             SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
@@ -495,6 +538,7 @@ impl SyscallResponse {
             SyscallResponse::CallContract(_) => CALL_CONTRACT_RESPONSE_SIZE,
             SyscallResponse::Deploy(_) => DEPLOY_RESPONSE_SIZE,
             SyscallResponse::EmitEvent(_) => EMIT_EVENT_RESPONSE_SIZE,
+            SyscallResponse::GetBlockNumber(_) => GET_BLOCK_NUMBER_RESPONSE_SIZE,
             SyscallResponse::GetCallerAddress(_) => GET_CALLER_ADDRESS_RESPONSE_SIZE,
             SyscallResponse::GetContractAddress(_) => GET_CONTRACT_ADDRESS_RESPONSE_SIZE,
             SyscallResponse::LibraryCall(_) => LIBRARY_CALL_RESPONSE_SIZE,

@@ -1,8 +1,9 @@
 // TODO(AlonH, 21/12/2022): Make this a set using once_cell::sync::Lazy.
-pub const SYSCALL_HINTS: [&str; 8] = [
+pub const SYSCALL_HINTS: [&str; 9] = [
     "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)",
+    "syscall_handler.get_block_number(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.get_caller_address(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.get_contract_address(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
