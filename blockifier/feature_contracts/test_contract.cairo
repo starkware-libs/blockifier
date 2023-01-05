@@ -11,7 +11,7 @@ from starkware.starknet.common.syscalls import (
 )
 
 @storage_var
-func number() -> (value: felt) {
+func number_map(key: felt) -> (value: felt) {
 }
 
 @constructor
@@ -144,8 +144,8 @@ func test_deploy{syscall_ptr: felt*}(
 
 @external
 func test_storage_var{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    number.write(39);
-    let (val) = number.read();
+    number_map.write(key=1, value=39);
+    let (val) = number_map.read(key=1);
     assert val = 39;
     return ();
 }
