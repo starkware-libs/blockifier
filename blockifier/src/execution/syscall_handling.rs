@@ -9,6 +9,7 @@ use cairo_rs::hint_processor::hint_processor_definition::{HintProcessor, HintRef
 use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::types::exec_scope::ExecutionScopes;
 use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_rs::vm::errors::hint_errors::HintError;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
@@ -95,7 +96,9 @@ impl<'a> SyscallHintProcessor<'a> {
         let mut syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
         self.verify_syscall_ptr(syscall_ptr)?;
 
-        let selector = get_felt_from_memory_cell(vm.get_maybe(&syscall_ptr)?)?;
+        let selector = get_felt_from_memory_cell(
+            vm.get_maybe(&syscall_ptr).map_err(VirtualMachineError::from)?,
+        )?;
         let selector_size = 1;
         syscall_ptr = syscall_ptr + selector_size;
 
@@ -119,9 +122,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
         hint_data: &Box<dyn Any>,
         constants: &HashMap<String, BigInt>,
     ) -> HintExecutionResult {
-        let hint = hint_data
-            .downcast_ref::<HintProcessorData>()
-            .ok_or(VirtualMachineError::WrongHintData)?;
+        let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(&&*hint.code) {
             return self.execute_syscall(vm, &hint.ids_data, &hint.ap_tracking);
         }

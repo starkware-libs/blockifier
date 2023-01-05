@@ -75,9 +75,9 @@ impl From<EntryPointExecutionError> for SyscallExecutionError {
 // TODO(AlonH, 21/12/2022): Reconsider error returned by custom hints with LambdaClass.
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
 // cairo-rs API.
-impl From<SyscallExecutionError> for cairo_rs_vm_errors::vm_errors::VirtualMachineError {
+impl From<SyscallExecutionError> for cairo_rs::vm::errors::hint_errors::HintError {
     fn from(error: SyscallExecutionError) -> Self {
-        cairo_rs_vm_errors::vm_errors::VirtualMachineError::CustomHint(error.to_string())
+        cairo_rs::vm::errors::hint_errors::HintError::CustomHint(error.to_string())
     }
 }
 

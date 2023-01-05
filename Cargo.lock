@@ -213,7 +213,7 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "cairo-rs"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#e3fc0aeb7a03f11a42d0f990ca0523f3988c02f4"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#e29e000471316ca6ea55134702f581951f69baeb"
 dependencies = [
  "bincode",
  "clap",
@@ -1206,7 +1206,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#e3fc0aeb7a03f11a42d0f990ca0523f3988c02f4"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#e29e000471316ca6ea55134702f581951f69baeb"
 dependencies = [
  "nom",
 ]
@@ -1809,7 +1809,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api#0155f21a0bb2ad8d0daf3706553f5af2cc3e2f1e"
+source = "git+https://github.com/starkware-libs/starknet-api#5357e608b501989fc4a65f54580c4b9cc633045c"
 dependencies = [
  "derive_more",
  "hex",
@@ -1943,9 +1943,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.23.0"
+version = "1.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab6d665857cc6ca78d6e80303a02cea7a7851e85dfbd77cbdc09bd129f1ef46"
+checksum = "38a54aca0c15d014013256222ba0ebed095673f89345dd79119d912eb561b7a8"
 dependencies = [
  "autocfg",
  "bytes",
