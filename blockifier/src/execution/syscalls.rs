@@ -39,10 +39,41 @@ pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 // The array metadata contains its size and its starting pointer.
 const ARRAY_METADATA_SIZE: i32 = 2;
 
+pub trait _SyscallRequest: Sized {
+    const SIZE: usize;
+
+    fn read(_vm: &VirtualMachine, _ptr: &Relocatable) -> SyscallResult<Self>;
+}
+
+pub trait _SyscallResponse {
+    const SIZE: usize;
+
+    fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult;
+}
+
 /// Common structs.
 
 #[derive(Debug, Eq, PartialEq)]
+pub struct EmptyRequest;
+
+impl _SyscallRequest for EmptyRequest {
+    const SIZE: usize = 0;
+
+    fn read(_vm: &VirtualMachine, _ptr: &Relocatable) -> SyscallResult<EmptyRequest> {
+        Ok(EmptyRequest)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct EmptyResponse;
+
+impl _SyscallResponse for EmptyResponse {
+    const SIZE: usize = 0;
+
+    fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
+        Ok(())
+    }
+}
 
 impl EmptyResponse {
     pub fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
