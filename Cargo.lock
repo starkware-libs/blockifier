@@ -178,6 +178,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "once_cell",
  "pretty_assertions",
  "serde",
  "serde_json",
