@@ -25,7 +25,9 @@ use crate::execution::execution_utils::{
     felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
 };
 use crate::execution::hint_code;
-use crate::execution::syscalls::{SyscallRequest, SyscallResult};
+use crate::execution::syscalls::{
+    SyscallRequest, SyscallResult, _SyscallRequest, _SyscallResponse,
+};
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -87,25 +89,60 @@ impl<'a> SyscallHintProcessor<'a> {
 
     /// Infers and executes the next syscall.
     /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
-    pub fn execute_syscall(
+    pub fn deprecated_execute_syscall(
         &mut self,
         vm: &mut VirtualMachine,
         ids_data: &HashMap<String, HintReference>,
         ap_tracking: &ApTracking,
     ) -> HintExecutionResult {
-        let mut syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-        self.verify_syscall_ptr(syscall_ptr)?;
+        let initial_syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
+        self.verify_syscall_ptr(initial_syscall_ptr)?;
 
-        let selector = read_next_syscall_selector(&mut syscall_ptr, vm)?;
+        let selector = self.read_next_syscall_selector(vm)?;
+
+        let mut syscall_ptr = self.expected_syscall_ptr;
         let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
         syscall_ptr = syscall_ptr + request.size();
 
         let response = request.execute(self)?;
         let response_size = response.size();
         response.write(vm, &syscall_ptr)?;
-        self.expected_syscall_ptr = syscall_ptr + response_size;
+        syscall_ptr = syscall_ptr + response_size;
 
+        self.expected_syscall_ptr = syscall_ptr;
         Ok(())
+    }
+
+    pub fn execute_syscall<Request, Response, ExecuteCallback>(
+        &mut self,
+        vm: &mut VirtualMachine,
+        execute_callback: ExecuteCallback,
+    ) -> HintExecutionResult
+    where
+        Request: _SyscallRequest,
+        Response: _SyscallResponse,
+        ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'_>) -> SyscallResult<Response>,
+    {
+        let mut syscall_ptr = self.expected_syscall_ptr;
+
+        let request = Request::read(vm, &syscall_ptr)?;
+        syscall_ptr = syscall_ptr + Request::SIZE;
+
+        let response = execute_callback(request, self)?;
+        response.write(vm, &syscall_ptr)?;
+        syscall_ptr = syscall_ptr + Response::SIZE;
+
+        self.expected_syscall_ptr = syscall_ptr;
+        Ok(())
+    }
+
+    fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
+        let selector = get_felt_from_memory_cell(
+            vm.get_maybe(&self.expected_syscall_ptr).map_err(VirtualMachineError::from)?,
+        )?;
+        self.expected_syscall_ptr = self.expected_syscall_ptr + 1;
+
+        Ok(selector)
     }
 }
 
@@ -119,25 +156,11 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(&&*hint.code) {
-            return self.execute_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            return self.deprecated_execute_syscall(vm, &hint.ids_data, &hint.ap_tracking);
         }
 
         self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)
     }
-}
-
-fn read_next_syscall_selector(
-    syscall_ptr: &mut Relocatable,
-    vm: &mut VirtualMachine,
-) -> SyscallResult<StarkFelt> {
-    let selector =
-        get_felt_from_memory_cell(vm.get_maybe(syscall_ptr).map_err(VirtualMachineError::from)?)?;
-
-    // Advance syscall ptr.
-    let selector_size = 1;
-    *syscall_ptr = *syscall_ptr + selector_size;
-
-    Ok(selector)
 }
 
 // TODO(Noa, 26/12/2022): Consider implementing it as a From trait.
