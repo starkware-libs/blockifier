@@ -46,7 +46,12 @@ fn verify_feature_contracts_compatibility(fix: bool) -> Result<()> {
         if file_name.starts_with("security") {
             command.arg("--disable_hint_validation");
         }
-        let expected_compiled_output = command.output().unwrap().stdout;
+        let compile_output = command.output().unwrap();
+        ensure!(
+            compile_output.stderr.is_empty(),
+            String::from_utf8(compile_output.stderr).unwrap()
+        );
+        let expected_compiled_output = compile_output.stdout;
 
         if fix {
             fs::write(&existing_compiled_path, &expected_compiled_output)?;
