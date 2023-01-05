@@ -115,7 +115,6 @@ fn test_entry_point_not_found_in_contract() {
     );
 }
 
-// TODO(AlonH, 21/12/2022): Use storage_var with arguments after hint is implemented.
 #[test]
 fn test_storage_var() {
     let mut state = create_test_state();
