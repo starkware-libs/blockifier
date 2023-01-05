@@ -135,7 +135,6 @@ impl<SR: StateReader> State for CachedState<SR> {
 
 impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
     fn from(cached_state: CachedState<SR>) -> Self {
-        type ContractClassApi = starknet_api::state::ContractClass;
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
         let state_cache = cached_state.cache;
@@ -150,11 +149,9 @@ impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
-        // Contract class attributes.
-        let mut declared_classes: IndexMap<ClassHash, ContractClassApi> = IndexMap::new();
-        for (class_hash, contract_class) in cached_state.class_hash_to_class {
-            declared_classes.insert(class_hash, ContractClassApi::from(contract_class));
-        }
+        // TODO(Gilad, 10/1/23): Currently this map is immutable, change this when we align to
+        // 0.11.0.
+        let declared_classes = IndexMap::new();
 
         Self {
             deployed_contracts: IndexMap::from_iter(deployed_contracts),
@@ -229,7 +226,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 
 /// Caches read and write requests.
 // Invariant: cannot delete keys from fields.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,

@@ -11,6 +11,23 @@ use super::*;
 use crate::state::errors::StateReaderError;
 use crate::test_utils::{create_test_state, get_test_contract_class, TEST_CLASS_HASH};
 
+// TODO(Gilad): Consider making a MockedState that includes this and the create_test_state
+// functions once we add a State trait (that CachedState and MockedState will implement).
+fn set_initial_state_values(
+    state: &mut CachedState<DictStateReader>,
+    class_hash_to_class: ContractClassMapping,
+    nonce_initial_values: HashMap<ContractAddress, Nonce>,
+    class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
+    storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+) {
+    assert!(state.cache == StateCache::default(), "Cache already initialized.");
+
+    state.class_hash_to_class = class_hash_to_class;
+    state.cache.class_hash_initial_values.extend(class_hash_initial_values);
+    state.cache.nonce_initial_values.extend(nonce_initial_values);
+    state.cache.storage_initial_values.extend(storage_initial_values);
+}
+
 #[test]
 fn get_uninitialized_storage_value() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
@@ -177,4 +194,73 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
         state.set_class_hash_at(uninitialized_contract_address, class_hash).unwrap_err(),
         StateError::OutOfRangeContractAddress
     );
+}
+
+#[test]
+fn cached_state_state_diff_conversion() {
+    // This will not appear in the diff, since this mapping is immutable for the current version we
+    // are aligned with.
+    let test_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class())]);
+
+    let nonce_initial_values = HashMap::new();
+
+    // contract_address0 will correspond to keys that are not touched in the test.
+    // contract_address1 to keys whose value is overwritten with the same value it previously had
+    // (so should not appear in the diff).
+    // contract_address2 to keys whose value changes to a different value (so should appear in the
+    // diff).
+    let contract_address0 = ContractAddress(patricia_key!("0x100"));
+    let contract_address1 = ContractAddress(patricia_key!("0x200"));
+    let contract_address2 = ContractAddress(patricia_key!("0x300"));
+
+    // key_x will not be changed.
+    // key_y will be changed, but only with contract_address2 the value ends up being different, so
+    // should only appear with contract_address2.
+    let key_x = StorageKey(patricia_key!("0x10"));
+    let key_y = StorageKey(patricia_key!("0x20"));
+    let storage_val0: StarkFelt = stark_felt!("0x1");
+    let storage_val1: StarkFelt = stark_felt!("0x5");
+    let storage_val2: StarkFelt = stark_felt!("0x6");
+    let storage_initial_values = HashMap::from([
+        ((contract_address0, key_x), storage_val0),
+        ((contract_address1, key_y), storage_val1),
+        ((contract_address2, key_x), storage_val2),
+        ((contract_address2, key_y), storage_val2),
+    ]);
+
+    let address_to_class_hash_initial_values =
+        HashMap::from([(contract_address0, test_class_hash)]);
+
+    let mut state = CachedState::default();
+
+    // Populate the initial value in the state cache (the init above is only for the StateReader).
+    set_initial_state_values(
+        &mut state,
+        class_hash_to_class,
+        nonce_initial_values,
+        address_to_class_hash_initial_values,
+        storage_initial_values,
+    );
+
+    // Write the initial value using key contract_address1.
+    state.set_storage_at(contract_address1, key_y, storage_val1);
+
+    // Write new values using key contract_address2.
+    let new_value = stark_felt!("0x12345678");
+    state.set_storage_at(contract_address2, key_y, new_value);
+    assert!(state.increment_nonce(contract_address2).is_ok());
+    let new_class_hash = ClassHash(stark_felt!("0x11111111"));
+    assert!(state.set_class_hash_at(contract_address2, new_class_hash).is_ok());
+
+    // Only changes to contract_address2 should be shown, since contract_address_0 wasn't changed
+    // and contract_address_1 was changed but ended up with the original values.
+    let expected_state_diff = StateDiff {
+        declared_classes: IndexMap::new(),
+        storage_diffs: IndexMap::from_iter([(contract_address2, indexmap! {key_y => new_value})]),
+        nonces: IndexMap::from_iter([(contract_address2, Nonce(StarkFelt::from(1_u64)))]),
+        deployed_contracts: IndexMap::from_iter([(contract_address2, new_class_hash)]),
+    };
+
+    assert_eq!(expected_state_diff, StateDiff::from(state));
 }
