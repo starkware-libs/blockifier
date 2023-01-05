@@ -25,7 +25,9 @@ use crate::execution::execution_utils::{
     felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
 };
 use crate::execution::hint_code;
-use crate::execution::syscalls::{SyscallRequest, SyscallResult};
+use crate::execution::syscalls::{
+    SyscallRequest, SyscallResult, _SyscallRequest, _SyscallResponse,
+};
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -87,7 +89,7 @@ impl<'a> SyscallHintProcessor<'a> {
 
     /// Infers and executes the next syscall.
     /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
-    pub fn execute_syscall(
+    pub fn deprecated_execute_syscall(
         &mut self,
         vm: &mut VirtualMachine,
         ids_data: &HashMap<String, HintReference>,
@@ -107,6 +109,27 @@ impl<'a> SyscallHintProcessor<'a> {
 
         Ok(())
     }
+
+    pub fn execute_syscall<Request, Response, ExecuteCallback>(
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+        syscall_ptr: &mut Relocatable,
+        vm: &mut VirtualMachine,
+        execute_callback: ExecuteCallback,
+    ) -> HintExecutionResult
+    where
+        Request: _SyscallRequest,
+        Response: _SyscallResponse,
+        ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'_>) -> SyscallResult<Response>,
+    {
+        let request = Request::read(vm, syscall_ptr)?;
+        *syscall_ptr = *syscall_ptr + Request::SIZE;
+
+        let response = execute_callback(request, syscall_handler)?;
+        response.write(vm, syscall_ptr)?;
+        *syscall_ptr = *syscall_ptr + Response::SIZE;
+
+        Ok(())
+    }
 }
 
 impl HintProcessor for SyscallHintProcessor<'_> {
@@ -119,7 +142,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(&&*hint.code) {
-            return self.execute_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            return self.deprecated_execute_syscall(vm, &hint.ids_data, &hint.ap_tracking);
         }
 
         self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)
