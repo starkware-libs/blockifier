@@ -12,7 +12,7 @@ use cairo_rs::hint_processor::builtin_hint_processor::hint_utils::{
 use cairo_rs::hint_processor::hint_processor_definition::HintReference;
 use cairo_rs::serde::deserialize_program::ApTracking;
 use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
+use cairo_rs::vm::errors::hint_errors::HintError;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use num_bigint::BigInt;
 use num_integer::Integer;
@@ -21,7 +21,7 @@ use crate::execution::hint_code::{
     NORMALIZE_ADDRESS_SET_IS_250_HINT, NORMALIZE_ADDRESS_SET_IS_SMALL_HINT,
 };
 
-pub type HintExecutionResult = Result<(), VirtualMachineError>;
+pub type HintExecutionResult = Result<(), HintError>;
 
 /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
 pub fn normalize_address_set_is_small(
@@ -32,8 +32,7 @@ pub fn normalize_address_set_is_small(
     constants: &HashMap<String, BigInt>,
 ) -> HintExecutionResult {
     const ADDR_BOUND: &str = "starkware.starknet.common.storage.ADDR_BOUND";
-    let addr_bound =
-        constants.get(ADDR_BOUND).ok_or(VirtualMachineError::MissingConstant("ADDR_BOUND"))?;
+    let addr_bound = constants.get(ADDR_BOUND).ok_or(HintError::MissingConstant("ADDR_BOUND"))?;
     let addr = get_integer_from_var_name("addr", vm, ids_data, ap_tracking)?;
 
     let prime = vm.get_prime();
@@ -43,7 +42,7 @@ pub fn normalize_address_set_is_small(
         || prime <= &(bigint!(2) * bigint!(1).shl(250))
         || &(2 * addr_bound) <= prime
     {
-        return Err(VirtualMachineError::AssertionFailed(format!(
+        return Err(HintError::AssertionFailed(format!(
             "assert (2**250 < {} <= 2**251) and (2 * 2**250 < PRIME) and (
             {} * 2 > PRIME); normalize_address() cannot be used with the current constants.",
             addr_bound, addr_bound
