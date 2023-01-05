@@ -23,7 +23,7 @@ type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 /// initialization.
 #[derive(Debug, Default)]
 pub struct CachedState<SR: StateReader> {
-    pub state_reader: SR,
+    pub reader: SR,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
     // Invariant: read-only mapping.
@@ -32,7 +32,11 @@ pub struct CachedState<SR: StateReader> {
 
 impl<SR: StateReader> CachedState<SR> {
     pub fn new(state_reader: SR) -> Self {
-        Self { state_reader, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+        Self {
+            reader: state_reader,
+            cache: StateCache::default(),
+            class_hash_to_class: HashMap::default(),
+        }
     }
 }
 
@@ -44,7 +48,7 @@ impl<SR: StateReader> State for CachedState<SR> {
         key: StorageKey,
     ) -> StateResult<&StarkFelt> {
         if self.cache.get_storage_at(contract_address, key).is_none() {
-            let storage_value = self.state_reader.get_storage_at(contract_address, key)?;
+            let storage_value = self.reader.get_storage_at(contract_address, key)?;
             self.cache.set_storage_initial_value(contract_address, key, storage_value);
         }
 
@@ -56,7 +60,7 @@ impl<SR: StateReader> State for CachedState<SR> {
 
     fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<&Nonce> {
         if self.cache.get_nonce_at(contract_address).is_none() {
-            let nonce = self.state_reader.get_nonce_at(contract_address)?;
+            let nonce = self.reader.get_nonce_at(contract_address)?;
             self.cache.set_nonce_initial_value(contract_address, nonce);
         }
 
@@ -69,7 +73,7 @@ impl<SR: StateReader> State for CachedState<SR> {
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass> {
         if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.state_reader.get_contract_class(class_hash)?;
+            let contract_class = self.reader.get_contract_class(class_hash)?;
             self.class_hash_to_class.insert(*class_hash, contract_class);
         }
 
@@ -82,7 +86,7 @@ impl<SR: StateReader> State for CachedState<SR> {
 
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<&ClassHash> {
         if self.cache.get_class_hash_at(contract_address).is_none() {
-            let class_hash = self.state_reader.get_class_hash_at(contract_address)?;
+            let class_hash = self.reader.get_class_hash_at(contract_address)?;
             self.cache.set_class_hash_initial_value(contract_address, class_hash);
         }
 
