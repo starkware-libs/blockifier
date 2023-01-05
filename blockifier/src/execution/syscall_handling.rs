@@ -129,16 +129,6 @@ impl HintProcessor for SyscallHintProcessor<'_> {
 
         self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)
     }
-
-    fn compile_hint(
-        &self,
-        code: &str,
-        ap_tracking: &ApTracking,
-        reference_ids: &HashMap<String, usize>,
-        references: &HashMap<usize, HintReference>,
-    ) -> Result<Box<dyn Any>, VirtualMachineError> {
-        self.builtin_hint_processor.compile_hint(code, ap_tracking, reference_ids, references)
-    }
 }
 
 pub fn initialize_syscall_handler<'a>(
