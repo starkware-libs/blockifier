@@ -51,10 +51,10 @@ pub struct SyscallHintProcessor<'a> {
 
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
-        initial_syscall_ptr: Relocatable,
         state: &'a mut dyn State,
         block_context: &'a BlockContext,
         account_tx_context: &'a AccountTransactionContext,
+        initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
     ) -> Self {
@@ -96,12 +96,7 @@ impl<'a> SyscallHintProcessor<'a> {
         let mut syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
         self.verify_syscall_ptr(syscall_ptr)?;
 
-        let selector = get_felt_from_memory_cell(
-            vm.get_maybe(&syscall_ptr).map_err(VirtualMachineError::from)?,
-        )?;
-        let selector_size = 1;
-        syscall_ptr = syscall_ptr + selector_size;
-
+        let selector = read_next_syscall_selector(&mut syscall_ptr, vm)?;
         let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
         syscall_ptr = syscall_ptr + request.size();
 
@@ -131,24 +126,18 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     }
 }
 
-pub fn initialize_syscall_handler<'a>(
+fn read_next_syscall_selector(
+    syscall_ptr: &mut Relocatable,
     vm: &mut VirtualMachine,
-    state: &'a mut dyn State,
-    block_context: &'a BlockContext,
-    account_tx_context: &'a AccountTransactionContext,
-    call_entry_point: &CallEntryPoint,
-) -> (Relocatable, SyscallHintProcessor<'a>) {
-    let syscall_segment = vm.add_memory_segment();
-    let syscall_handler = SyscallHintProcessor::new(
-        syscall_segment,
-        state,
-        block_context,
-        account_tx_context,
-        call_entry_point.storage_address,
-        call_entry_point.caller_address,
-    );
+) -> SyscallResult<StarkFelt> {
+    let selector =
+        get_felt_from_memory_cell(vm.get_maybe(syscall_ptr).map_err(VirtualMachineError::from)?)?;
 
-    (syscall_segment, syscall_handler)
+    // Advance syscall ptr.
+    let selector_size = 1;
+    *syscall_ptr = *syscall_ptr + selector_size;
+
+    Ok(selector)
 }
 
 // TODO(Noa, 26/12/2022): Consider implementing it as a From trait.

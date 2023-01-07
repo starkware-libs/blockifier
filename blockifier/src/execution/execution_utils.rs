@@ -24,7 +24,7 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::execution::syscall_handling::{initialize_syscall_handler, SyscallHintProcessor};
+use crate::execution::syscall_handling::SyscallHintProcessor;
 use crate::general_errors::ConversionError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -51,8 +51,8 @@ pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt, ConversionError> {
 pub struct ExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
-    pub syscall_segment: Relocatable,
     pub syscall_handler: SyscallHintProcessor<'a>,
+    pub initial_syscall_ptr: Relocatable,
     pub entry_point_pc: usize,
 }
 
@@ -70,31 +70,29 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
-    let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
+    let mut runner = CairoRunner::new(&program, "all", false)?;
     let mut vm = VirtualMachine::new(program.prime, false, program.error_message_attributes);
-    cairo_runner.initialize_builtins(&mut vm)?;
-    cairo_runner.initialize_segments(&mut vm, None);
-    let (syscall_segment, syscall_handler) = initialize_syscall_handler(
-        &mut vm,
+    runner.initialize_builtins(&mut vm)?;
+    runner.initialize_segments(&mut vm, None);
+
+    // Instantiate syscall handler.
+    let initial_syscall_ptr = vm.add_memory_segment();
+    let syscall_handler = SyscallHintProcessor::new(
         state,
         block_context,
         account_tx_context,
-        call_entry_point,
+        initial_syscall_ptr,
+        call_entry_point.storage_address,
+        call_entry_point.caller_address,
     );
 
-    Ok(ExecutionContext {
-        runner: cairo_runner,
-        vm,
-        syscall_segment,
-        syscall_handler,
-        entry_point_pc,
-    })
+    Ok(ExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
 }
 
 pub fn prepare_call_arguments(
     call_entry_point: &CallEntryPoint,
     vm: &VirtualMachine,
-    syscall_segment: Relocatable,
+    initial_syscall_ptr: Relocatable,
 ) -> (Vec<MaybeRelocatable>, Vec<Box<dyn Any>>) {
     let mut args: Vec<Box<dyn Any>> = vec![];
     let entry_point_selector =
@@ -103,7 +101,7 @@ pub fn prepare_call_arguments(
 
     // Prepare implicit arguments.
     let mut implicit_args = vec![];
-    implicit_args.push(syscall_segment.into());
+    implicit_args.push(initial_syscall_ptr.into());
     implicit_args.extend(
         vm.get_builtin_runners()
             .iter()
@@ -143,7 +141,7 @@ pub fn execute_entry_point_call(
     let (implicit_args, args) = prepare_call_arguments(
         &call_entry_point,
         &execution_context.vm,
-        execution_context.syscall_segment,
+        execution_context.initial_syscall_ptr,
     );
 
     run_entry_point(
