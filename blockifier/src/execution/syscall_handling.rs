@@ -46,15 +46,15 @@ pub struct SyscallHintProcessor<'a> {
     pub l2_to_l1_messages: Vec<MessageToL1>,
 
     // Kept for validations during the run.
-    expected_syscall_ptr: Relocatable,
+    syscall_ptr: Relocatable,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
-        initial_syscall_ptr: Relocatable,
         state: &'a mut dyn State,
         block_context: &'a BlockContext,
         account_tx_context: &'a AccountTransactionContext,
+        initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
     ) -> Self {
@@ -71,14 +71,14 @@ impl<'a> SyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
-            expected_syscall_ptr: initial_syscall_ptr,
+            syscall_ptr: initial_syscall_ptr,
         }
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> SyscallResult<()> {
-        if actual_ptr != self.expected_syscall_ptr {
+        if actual_ptr != self.syscall_ptr {
             return Err(SyscallExecutionError::BadSyscallPointer {
-                expected_ptr: self.expected_syscall_ptr,
+                expected_ptr: self.syscall_ptr,
                 actual_ptr,
             });
         }
@@ -96,21 +96,28 @@ impl<'a> SyscallHintProcessor<'a> {
         let mut syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
         self.verify_syscall_ptr(syscall_ptr)?;
 
-        let selector = get_felt_from_memory_cell(
-            vm.get_maybe(&syscall_ptr).map_err(VirtualMachineError::from)?,
-        )?;
-        let selector_size = 1;
-        syscall_ptr = syscall_ptr + selector_size;
-
+        let selector = self.read_next_selector(vm)?;
         let request = SyscallRequest::read(selector, vm, &syscall_ptr)?;
         syscall_ptr = syscall_ptr + request.size();
 
         let response = request.execute(self)?;
         let response_size = response.size();
         response.write(vm, &syscall_ptr)?;
-        self.expected_syscall_ptr = syscall_ptr + response_size;
+        self.syscall_ptr = syscall_ptr + response_size;
 
         Ok(())
+    }
+
+    fn read_next_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
+        let selector = get_felt_from_memory_cell(
+            vm.get_maybe(&self.syscall_ptr).map_err(VirtualMachineError::from)?,
+        )?;
+
+        // Advance syscall ptr.
+        let selector_size = 1;
+        self.syscall_ptr = self.syscall_ptr + selector_size;
+
+        Ok(selector)
     }
 }
 
@@ -129,26 +136,6 @@ impl HintProcessor for SyscallHintProcessor<'_> {
 
         self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)
     }
-}
-
-pub fn initialize_syscall_handler<'a>(
-    vm: &mut VirtualMachine,
-    state: &'a mut dyn State,
-    block_context: &'a BlockContext,
-    account_tx_context: &'a AccountTransactionContext,
-    call_entry_point: &CallEntryPoint,
-) -> (Relocatable, SyscallHintProcessor<'a>) {
-    let syscall_segment = vm.add_memory_segment();
-    let syscall_handler = SyscallHintProcessor::new(
-        syscall_segment,
-        state,
-        block_context,
-        account_tx_context,
-        call_entry_point.storage_address,
-        call_entry_point.caller_address,
-    );
-
-    (syscall_segment, syscall_handler)
 }
 
 // TODO(Noa, 26/12/2022): Consider implementing it as a From trait.
