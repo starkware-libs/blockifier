@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0.66" }
-cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git" } # This is how they instructed to use their package.
-derive_more = {version = "0.99.17" }
+cairo-rs =  { git = "https://github.com/lambdaclass/cairo-rs.git#91f8dce8ff1203d2928f53df7318ea90279b4d49" } # This is how they instructed to use their package.
+derive_more = { version = "0.99.17" }
 indexmap = { version = "1.9.2" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1.45" }
