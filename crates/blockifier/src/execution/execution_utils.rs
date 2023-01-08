@@ -45,7 +45,6 @@ pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
 pub struct ExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
-    pub read_only_segments: ReadOnlySegments,
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point_pc: usize,
@@ -81,14 +80,7 @@ pub fn initialize_execution_context<'a>(
         call_entry_point.caller_address,
     );
 
-    Ok(ExecutionContext {
-        runner,
-        vm,
-        read_only_segments: ReadOnlySegments::default(),
-        syscall_handler,
-        initial_syscall_ptr,
-        entry_point_pc,
-    })
+    Ok(ExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
 }
 
 pub fn prepare_call_arguments(
@@ -145,7 +137,7 @@ pub fn execute_entry_point_call(
         &call_entry_point,
         &mut execution_context.vm,
         execution_context.initial_syscall_ptr,
-        &mut execution_context.read_only_segments,
+        &mut execution_context.syscall_handler.read_only_segments,
     )?;
 
     run_entry_point(
@@ -161,7 +153,6 @@ pub fn execute_entry_point_call(
         call_entry_point,
         execution_context.syscall_handler,
         implicit_args,
-        execution_context.read_only_segments,
     )?)
 }
 
@@ -189,19 +180,12 @@ pub fn finalize_execution(
     call_entry_point: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
-    read_only_segments: ReadOnlySegments,
 ) -> Result<CallInfo, PostExecutionError> {
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
     let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
-    validate_run(
-        &mut vm,
-        implicit_args,
-        implicit_args_end_ptr,
-        &syscall_handler,
-        &read_only_segments,
-    )?;
-    read_only_segments.mark_as_accessed(&mut vm)?;
+    validate_run(&mut vm, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
+    syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     Ok(CallInfo {
         call: call_entry_point,
@@ -219,7 +203,6 @@ pub fn validate_run(
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
     syscall_handler: &SyscallHintProcessor<'_>,
-    read_only_segments: &ReadOnlySegments,
 ) -> Result<(), PostExecutionError> {
     // Validate builtins' final stack.
     let mut current_builtin_ptr = implicit_args_end;
@@ -262,7 +245,7 @@ pub fn validate_run(
         PostExecutionError::SecurityValidationError("Syscall segment end".to_string())
     })?;
 
-    read_only_segments.validate(vm)
+    syscall_handler.read_only_segments.validate(vm)
 }
 
 fn read_execution_retdata(
