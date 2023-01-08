@@ -174,6 +174,7 @@ dependencies = [
  "assert_matches",
  "cairo-rs",
  "derive_more",
+ "felt",
  "indexmap",
  "num-bigint",
  "num-integer",
@@ -214,10 +215,11 @@ checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
 [[package]]
 name = "cairo-rs"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=91f8dce8ff1203d2928f53df7318ea90279b4d49#91f8dce8ff1203d2928f53df7318ea90279b4d49"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#cdc9c04bb779a0ad485ec0fcd2bc4f3602925d12"
 dependencies = [
  "bincode",
  "clap",
+ "felt",
  "generic-array",
  "hex",
  "keccak",
@@ -475,6 +477,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7a407cfaa3385c4ae6b23e84623d48c2798d06e3e6a1878f7f59f17b3f86499"
 dependencies = [
  "instant",
+]
+
+[[package]]
+name = "felt"
+version = "0.1.0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#cdc9c04bb779a0ad485ec0fcd2bc4f3602925d12"
+dependencies = [
+ "lazy_static",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -1207,7 +1221,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=91f8dce8ff1203d2928f53df7318ea90279b4d49#91f8dce8ff1203d2928f53df7318ea90279b4d49"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#cdc9c04bb779a0ad485ec0fcd2bc4f3602925d12"
 dependencies = [
  "nom",
 ]

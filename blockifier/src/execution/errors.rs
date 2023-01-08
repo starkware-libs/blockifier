@@ -5,7 +5,6 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::general_errors::ConversionError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -30,8 +29,6 @@ impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError 
 
 #[derive(Debug, Error)]
 pub enum PostExecutionError {
-    #[error(transparent)]
-    ConversionError(#[from] ConversionError),
     #[error(transparent)]
     MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
     #[error("{0} validation failed.")]

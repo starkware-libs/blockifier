@@ -1,9 +1,8 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use cairo_rs::bigint;
 use cairo_rs::serde::deserialize_program::{
-    deserialize_array_of_bigint_hex, deserialize_bigint_hex, Attribute, HintParams, Identifier,
+    deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, HintParams, Identifier,
     ReferenceManager,
 };
 use cairo_rs::types::errors::program_errors::ProgramError;
@@ -12,8 +11,7 @@ use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use num_bigint::{BigInt, Sign};
-use num_traits::Signed;
+use felt::{Felt, FeltOps};
 use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkFelt;
 
@@ -25,7 +23,6 @@ use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::syscall_handling::SyscallHintProcessor;
-use crate::general_errors::ConversionError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -33,19 +30,14 @@ use crate::transaction::objects::AccountTransactionContext;
 #[path = "execution_utils_test.rs"]
 pub mod test;
 
-pub fn felt_to_bigint(felt: StarkFelt) -> BigInt {
-    BigInt::from_bytes_be(Sign::Plus, felt.bytes())
+pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt {
+    Felt::from_bytes_be(stark_felt.bytes())
 }
 
-pub fn bigint_to_felt(bigint: &BigInt) -> Result<StarkFelt, ConversionError> {
-    // TODO(Adi, 29/11/2022): Make sure lambdaclass always maintain that their bigints' are
-    // non-negative.
-    if bigint.is_negative() {
-        Err(ConversionError::NegativeBigIntToFelt(bigint.clone()))
-    } else {
-        let bigint_hex = format!("{bigint:#x}");
-        Ok(StarkFelt::try_from(bigint_hex.as_str())?)
-    }
+pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
+    let biguint = felt.to_biguint();
+    let biguint_hex = format!("{biguint:#x}");
+    StarkFelt::try_from(biguint_hex.as_str()).expect("Felt must be in StarkFelt's range.")
 }
 
 pub struct ExecutionContext<'a> {
@@ -71,7 +63,7 @@ pub fn initialize_execution_context<'a>(
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
     let mut runner = CairoRunner::new(&program, "all", false)?;
-    let mut vm = VirtualMachine::new(program.prime, false, program.error_message_attributes);
+    let mut vm = VirtualMachine::new(false, program.error_message_attributes);
     runner.initialize_builtins(&mut vm)?;
     runner.initialize_segments(&mut vm, None);
 
@@ -96,7 +88,7 @@ pub fn prepare_call_arguments(
 ) -> (Vec<MaybeRelocatable>, Vec<Box<dyn Any>>) {
     let mut args: Vec<Box<dyn Any>> = vec![];
     let entry_point_selector =
-        MaybeRelocatable::Int(felt_to_bigint(call_entry_point.entry_point_selector.0));
+        MaybeRelocatable::Int(stark_felt_to_felt(call_entry_point.entry_point_selector.0));
     args.push(Box::new(entry_point_selector));
 
     // Prepare implicit arguments.
@@ -112,11 +104,11 @@ pub fn prepare_call_arguments(
     // Prepare calldata arguments.
     // TODO(Adi, 29/11/2022): Remove the '.0' access, once derive-more is used in starknet_api.
     let calldata = &call_entry_point.calldata.0;
-    args.push(Box::new(MaybeRelocatable::Int(bigint!(calldata.len()))));
+    args.push(Box::new(MaybeRelocatable::Int(Felt::from(calldata.len()))));
     args.push(Box::new(
         calldata
             .iter()
-            .map(|arg| MaybeRelocatable::Int(felt_to_bigint(*arg)))
+            .map(|arg| MaybeRelocatable::Int(stark_felt_to_felt(*arg)))
             .collect::<Vec<MaybeRelocatable>>(),
     ));
 
@@ -189,7 +181,7 @@ pub fn finalize_execution(
         .get_return_values(2)?
         .try_into()
         .unwrap_or_else(|_| panic!("Return values must be of size 2."));
-    let implicit_args_end_ptr = vm.get_ap().sub(2)?;
+    let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
     validate_run(&vm, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
 
     Ok(CallInfo {
@@ -218,7 +210,7 @@ pub fn validate_run(
 
     // Validate implicit arguments segment length is unchanged.
     // Subtract one to get to the first implicit arg segment (the syscall pointer).
-    let implicit_args_start = current_builtin_ptr.sub(1)?;
+    let implicit_args_start = current_builtin_ptr.sub_usize(1)?;
     if implicit_args_start + implicit_args.len() != implicit_args_end {
         return Err(PostExecutionError::SecurityValidationError(
             "Implicit arguments' segments".to_string(),
@@ -296,7 +288,7 @@ pub fn convert_program_to_cairo_runner_format(
 
     Ok(Program {
         builtins: serde_json::from_value::<Vec<String>>(program.builtins)?,
-        prime: deserialize_bigint_hex(program.prime)?,
+        prime: deserialize_felt_hex(program.prime)?.to_string(),
         data: deserialize_array_of_bigint_hex(program.data)?,
         constants: {
             let mut constants = HashMap::new();
@@ -330,10 +322,7 @@ pub fn get_felt_from_memory_cell(
     memory_cell: Option<MaybeRelocatable>,
 ) -> Result<StarkFelt, VirtualMachineError> {
     match memory_cell {
-        Some(MaybeRelocatable::Int(value)) => {
-            // TODO(AlonH, 21/12/2022): Return appropriate error.
-            bigint_to_felt(&value).map_err(|_| VirtualMachineError::BigintToUsizeFail)
-        }
+        Some(MaybeRelocatable::Int(value)) => Ok(felt_to_stark_felt(&value)),
         Some(relocatable) => Err(VirtualMachineError::ExpectedInteger(relocatable)),
         None => Err(VirtualMachineError::NoneInMemoryRange),
     }
