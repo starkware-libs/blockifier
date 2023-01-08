@@ -235,18 +235,18 @@ fn test_negative_invoke_tx_flows() {
     let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
     assert_matches!(
         execution_error,
-        TransactionExecutionError::InvalidTransactionVersion {
-            tx_version,
+        TransactionExecutionError::InvalidVersion {
+            version,
             allowed_versions,
         }
-        if (tx_version, &allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
+        if (version, &allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
     );
 
     // Insufficient fee.
     let tx_max_fee = Fee(0);
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
         max_fee: tx_max_fee,
-        ..valid_inner_invoke_tx
+        ..valid_inner_invoke_tx.clone()
     });
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
@@ -259,5 +259,18 @@ fn test_negative_invoke_tx_flows() {
             actual_fee,
         })
         if (max_fee, actual_fee) == (tx_max_fee, expected_actual_fee)
+    );
+
+    // Invalid nonce.
+    let nonce = Nonce(stark_felt!(1));
+    let invalid_tx =
+        AccountTransaction::Invoke(InvokeTransaction { nonce, ..valid_inner_invoke_tx });
+    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
+        if (expected_nonce, actual_nonce) == (Nonce::default(), nonce)
     );
 }

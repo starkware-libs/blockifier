@@ -22,23 +22,31 @@ pub enum AccountTransaction {
 
 impl AccountTransaction {
     fn handle_nonce(
-        _account_tx_context: &AccountTransactionContext,
-        _state: &mut dyn State,
+        account_tx_context: &AccountTransactionContext,
+        state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
-        Ok(())
+        let current_nonce = *state.get_nonce_at(account_tx_context.sender_address)?;
+        if current_nonce != account_tx_context.nonce {
+            return Err(TransactionExecutionError::InvalidNonce {
+                expected_nonce: current_nonce,
+                actual_nonce: account_tx_context.nonce,
+            });
+        }
+
+        // Increment nonce.
+        // Note that changing the contract nonce directly will bypass the proxy used to revert
+        // transactions.
+        Ok(state.increment_nonce(account_tx_context.sender_address)?)
     }
 
-    fn verify_tx_version(tx_version: TransactionVersion) -> TransactionExecutionResult<()> {
+    fn verify_tx_version(version: TransactionVersion) -> TransactionExecutionResult<()> {
         // TODO(Adi, 10/12/2022): Consider using the lazy_static crate or some other solution, so
         // the allowed_versions variable will only be constructed once.
         let allowed_versions = vec![TransactionVersion(StarkFelt::from(1))];
-        if allowed_versions.contains(&tx_version) {
+        if allowed_versions.contains(&version) {
             Ok(())
         } else {
-            Err(TransactionExecutionError::InvalidTransactionVersion {
-                tx_version,
-                allowed_versions,
-            })
+            Err(TransactionExecutionError::InvalidVersion { version, allowed_versions })
         }
     }
 
@@ -101,7 +109,6 @@ impl AccountTransaction {
         };
 
         Self::verify_tx_version(account_tx_context.version)?;
-        Self::handle_nonce(&account_tx_context, state)?;
 
         // Validate transaction.
         let validate_call_info = Self::validate_tx(
@@ -123,6 +130,7 @@ impl AccountTransaction {
         let (actual_fee, fee_transfer_call_info) =
             Self::charge_fee(state, block_context, &account_tx_context)?;
 
+        Self::handle_nonce(&account_tx_context, state)?;
         Ok(TransactionExecutionInfo {
             validate_call_info,
             execute_call_info: Some(execute_call_info),

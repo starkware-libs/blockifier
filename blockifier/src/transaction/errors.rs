@@ -1,8 +1,10 @@
+use starknet_api::core::Nonce;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::execution::errors::EntryPointExecutionError;
+use crate::state::errors::StateError;
 
 #[derive(Error, Debug)]
 pub enum FeeTransferError {
@@ -16,14 +18,15 @@ pub enum TransactionExecutionError {
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error(transparent)]
     FeeTransferError(#[from] FeeTransferError),
+    #[error("Invalid transaction nonce. Expected: {expected_nonce:?}, got: {actual_nonce:?}.")]
+    InvalidNonce { expected_nonce: Nonce, actual_nonce: Nonce },
     #[error(
-        "Transaction version {tx_version:?} is not supported. Supported versions: \
+        "Transaction version {version:?} is not supported. Supported versions: \
          {allowed_versions:?}."
     )]
-    InvalidTransactionVersion {
-        tx_version: TransactionVersion,
-        allowed_versions: Vec<TransactionVersion>,
-    },
+    InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error(transparent)]
+    StateError(#[from] StateError),
 }
