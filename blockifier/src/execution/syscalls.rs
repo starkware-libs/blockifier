@@ -37,7 +37,7 @@ pub const STORAGE_READ_SELECTOR_BYTES: &[u8] = b"StorageRead";
 pub const STORAGE_WRITE_SELECTOR_BYTES: &[u8] = b"StorageWrite";
 
 // The array metadata contains its size and its starting pointer.
-const ARRAY_METADATA_SIZE: i32 = 2;
+const ARRAY_METADATA_SIZE: usize = 2;
 
 pub trait _SyscallRequest: Sized {
     const SIZE: usize;
@@ -90,6 +90,15 @@ pub struct StorageReadRequest {
     pub address: StorageKey,
 }
 
+impl _SyscallRequest for StorageReadRequest {
+    const SIZE: usize = 1;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<StorageReadRequest> {
+        let address = StorageKey::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        Ok(StorageReadRequest { address })
+    }
+}
+
 // TODO(AlonH, 21/12/2022): Couple all size constants with Cairo structs from the code.
 pub const STORAGE_READ_REQUEST_SIZE: usize = 1;
 
@@ -112,6 +121,14 @@ pub struct StorageReadResponse {
     pub value: StarkFelt,
 }
 
+impl _SyscallResponse for StorageReadResponse {
+    const SIZE: usize = 1;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        Ok(vm.insert_value(ptr, stark_felt_to_felt(self.value))?)
+    }
+}
+
 pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
 
 impl StorageReadResponse {
@@ -127,6 +144,16 @@ impl StorageReadResponse {
 pub struct StorageWriteRequest {
     pub address: StorageKey,
     pub value: StarkFelt,
+}
+
+impl _SyscallRequest for StorageWriteRequest {
+    const SIZE: usize = 2;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<StorageWriteRequest> {
+        let address = StorageKey::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let value = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        Ok(StorageWriteRequest { address, value })
+    }
 }
 
 pub const STORAGE_WRITE_REQUEST_SIZE: usize = 2;
@@ -158,6 +185,18 @@ pub struct CallContractRequest {
     pub contract_address: ContractAddress,
     pub function_selector: EntryPointSelector,
     pub calldata: Calldata,
+}
+
+impl _SyscallRequest for CallContractRequest {
+    const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallContractRequest> {
+        let contract_address =
+            ContractAddress::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let (function_selector, calldata) = read_call_params(vm, &(ptr + 1))?;
+
+        Ok(CallContractRequest { contract_address, function_selector, calldata })
+    }
 }
 
 pub const CALL_CONTRACT_REQUEST_SIZE: usize = 4;
@@ -195,6 +234,14 @@ pub struct CallContractResponse {
     pub retdata: Retdata,
 }
 
+impl _SyscallResponse for CallContractResponse {
+    const SIZE: usize = ARRAY_METADATA_SIZE;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        write_retdata(vm, ptr, self.retdata)
+    }
+}
+
 pub const CALL_CONTRACT_RESPONSE_SIZE: usize = 2;
 
 impl CallContractResponse {
@@ -210,6 +257,17 @@ pub struct LibraryCallRequest {
     pub class_hash: ClassHash,
     pub function_selector: EntryPointSelector,
     pub calldata: Calldata,
+}
+
+impl _SyscallRequest for LibraryCallRequest {
+    const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<LibraryCallRequest> {
+        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+        let (function_selector, calldata) = read_call_params(vm, &(ptr + 1))?;
+
+        Ok(LibraryCallRequest { class_hash, function_selector, calldata })
+    }
 }
 
 pub const LIBRARY_CALL_REQUEST_SIZE: usize = 4;
@@ -254,6 +312,25 @@ pub struct DeployRequest {
     pub contract_address_salt: StarkFelt,
     pub constructor_calldata: Calldata,
     pub deploy_from_zero: bool,
+}
+
+impl _SyscallRequest for DeployRequest {
+    const SIZE: usize = 3 + ARRAY_METADATA_SIZE;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<DeployRequest> {
+        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+        let contract_address_salt = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        let constructor_calldata = read_calldata(vm, &(ptr + 2))?;
+        let deploy_from_zero =
+            get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2 + ARRAY_METADATA_SIZE))?)?;
+
+        Ok(DeployRequest {
+            class_hash,
+            contract_address_salt,
+            constructor_calldata,
+            deploy_from_zero: felt_to_bool(deploy_from_zero)?,
+        })
+    }
 }
 
 pub const DEPLOY_REQUEST_SIZE: usize = 5;
@@ -310,9 +387,18 @@ pub struct DeployResponse {
     pub contract_address: ContractAddress,
 }
 
-// The Cairo struct contains three fields: `contract_address`, `constructor_retdata_size`,
-// `constructor_retdata`.
-// Nonempty c-tor retdata is currently not supported.
+impl _SyscallResponse for DeployResponse {
+    // The Cairo struct contains: `contract_address`, `constructor_retdata_size`,
+    // `constructor_retdata_start_ptr`.
+    // Nonempty c-tor retdata is currently not supported.
+    const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        vm.insert_value(ptr, stark_felt_to_felt(*self.contract_address.0.key()))?;
+        write_retdata(vm, ptr, retdata![])
+    }
+}
+
 pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 
 impl DeployResponse {
@@ -329,8 +415,18 @@ pub struct EmitEventRequest {
     pub content: EventContent,
 }
 
-// The Cairo struct contains four fields (other than `selector`): `keys_len`, `keys`, `data_len`,
-// `data`·
+impl _SyscallRequest for EmitEventRequest {
+    // The Cairo struct contains: `keys_len`, `keys_start_ptr`, `data_len`, `data_start_ptr`·
+    const SIZE: usize = 2 * ARRAY_METADATA_SIZE;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<EmitEventRequest> {
+        let keys = read_felt_array(vm, ptr)?.into_iter().map(EventKey).collect();
+        let data = EventData(read_felt_array(vm, &(ptr + ARRAY_METADATA_SIZE))?);
+
+        Ok(EmitEventRequest { content: EventContent { keys, data } })
+    }
+}
+
 pub const EMIT_EVENT_REQUEST_SIZE: usize = 4;
 
 impl EmitEventRequest {
@@ -357,7 +453,18 @@ pub struct SendMessageToL1Request {
     pub message: MessageToL1,
 }
 
-// The Cairo struct contains three fields: `to_address`, `payload_size`, `payload_ptr`.
+impl _SyscallRequest for SendMessageToL1Request {
+    // The Cairo struct contains: `to_address`, `payload_size`, `payload_start_ptr`.
+    const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
+
+    fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<SendMessageToL1Request> {
+        let to_address = EthAddress::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let payload = L2ToL1Payload(read_felt_array(vm, &(ptr + 1))?);
+
+        Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
+    }
+}
+
 pub const SEND_MESSAGE_TO_L1_REQUEST_SIZE: usize = 3;
 
 impl SendMessageToL1Request {
@@ -399,6 +506,14 @@ impl GetCallerAddressRequest {
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetCallerAddressResponse {
     pub address: ContractAddress,
+}
+
+impl _SyscallResponse for GetCallerAddressResponse {
+    const SIZE: usize = 1;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        Ok(vm.insert_value(ptr, stark_felt_to_felt(*self.address.0.key()))?)
+    }
 }
 
 pub const GET_CALLER_ADDRESS_RESPONSE_SIZE: usize = 1;
