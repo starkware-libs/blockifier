@@ -139,7 +139,7 @@ impl<'a> SyscallHintProcessor<'a> {
         self.syscall_ptr = self.syscall_ptr + Request::SIZE;
 
         let response = execute_callback(request, self)?;
-        response.write(vm, &self.syscall_ptr)?;
+        response.write(vm, self.syscall_ptr, self)?;
         self.syscall_ptr = self.syscall_ptr + Response::SIZE;
 
         Ok(())
@@ -198,18 +198,18 @@ pub fn write_felt(
 
 pub fn write_felt_array(
     vm: &mut VirtualMachine,
-    ptr: &Relocatable,
+    ptr: Relocatable,
     data: &[StarkFelt],
+    syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<()> {
     let data_size = StarkFelt::from(data.len() as u64);
-    write_felt(vm, ptr, data_size)?;
+    write_felt(vm, &ptr, data_size)?;
 
     // Write response payload to the memory.
-    let segment_start_ptr = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), segment_start_ptr)?;
     let data: Vec<MaybeRelocatable> =
         data.iter().map(|x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-    vm.load_data(&segment_start_ptr.into(), &data)?;
+    let data_start_pointer = syscall_handler.read_only_segments.allocate(vm, data)?;
+    vm.insert_value(&(ptr + 1), data_start_pointer)?;
 
     Ok(())
 }

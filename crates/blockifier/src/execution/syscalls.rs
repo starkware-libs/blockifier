@@ -42,7 +42,12 @@ pub trait SyscallRequest: Sized {
 pub trait SyscallResponse {
     const SIZE: usize;
 
-    fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult;
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult;
 }
 
 // Common structs.
@@ -64,7 +69,12 @@ pub struct EmptyResponse;
 impl SyscallResponse for EmptyResponse {
     const SIZE: usize = 0;
 
-    fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
+    fn write(
+        self,
+        _vm: &mut VirtualMachine,
+        _ptr: Relocatable,
+        _syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -93,8 +103,13 @@ pub struct StorageReadResponse {
 impl SyscallResponse for StorageReadResponse {
     const SIZE: usize = 1;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, self.value)
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        _syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        write_felt(vm, &ptr, self.value)
     }
 }
 
@@ -165,8 +180,13 @@ pub struct CallContractResponse {
 impl SyscallResponse for CallContractResponse {
     const SIZE: usize = ARRAY_METADATA_SIZE;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt_array(vm, ptr, &self.retdata.0)
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        write_felt_array(vm, ptr, &self.retdata.0, syscall_handler)
     }
 }
 
@@ -268,9 +288,14 @@ impl SyscallResponse for DeployResponse {
     // Nonempty constructor retdata is currently not supported.
     const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.contract_address.0.key())?;
-        write_felt_array(vm, &(ptr + 1), &retdata![].0)
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        write_felt(vm, &ptr, *self.contract_address.0.key())?;
+        write_felt_array(vm, ptr + 1, &retdata![].0, syscall_handler)
     }
 }
 
@@ -368,8 +393,13 @@ pub struct GetContractAddressResponse {
 impl SyscallResponse for GetContractAddressResponse {
     const SIZE: usize = 1;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.address.0.key())
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        _syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        write_felt(vm, &ptr, *self.address.0.key())
     }
 }
 
@@ -412,8 +442,13 @@ pub struct GetBlockNumberResponse {
 impl SyscallResponse for GetBlockNumberResponse {
     const SIZE: usize = 1;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, Felt::from(self.block_number.0))?)
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        _syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        Ok(vm.insert_value(&ptr, Felt::from(self.block_number.0))?)
     }
 }
 
@@ -434,8 +469,13 @@ pub struct GetBlockTimestampResponse {
 impl SyscallResponse for GetBlockTimestampResponse {
     const SIZE: usize = 1;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, Felt::from(self.block_timestamp.0))?)
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        _syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        Ok(vm.insert_value(&ptr, Felt::from(self.block_timestamp.0))?)
     }
 }
 
@@ -456,8 +496,13 @@ pub struct GetTxSignatureResponse<'a> {
 impl<'a> SyscallResponse for GetTxSignatureResponse<'a> {
     const SIZE: usize = ARRAY_METADATA_SIZE;
 
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt_array(vm, ptr, &self.signature.0)
+    fn write(
+        self,
+        vm: &mut VirtualMachine,
+        ptr: Relocatable,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> WriteResponseResult {
+        write_felt_array(vm, ptr, &self.signature.0, syscall_handler)
     }
 }
 
