@@ -76,7 +76,11 @@ impl _SyscallResponse for EmptyResponse {
 }
 
 impl EmptyResponse {
-    pub fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult {
+    pub fn write(
+        self,
+        _syscall_handler: &mut SyscallHintProcessor<'_>,
+        _vm: &mut VirtualMachine,
+    ) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -115,8 +119,12 @@ pub struct StorageReadResponse {
 pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
 
 impl StorageReadResponse {
-    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, stark_felt_to_felt(self.value))?;
+    pub fn write(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+        vm: &mut VirtualMachine,
+    ) -> WriteResponseResult {
+        vm.insert_value(&syscall_handler.syscall_ptr, stark_felt_to_felt(self.value))?;
         Ok(())
     }
 }
@@ -198,8 +206,12 @@ pub struct CallContractResponse {
 pub const CALL_CONTRACT_RESPONSE_SIZE: usize = 2;
 
 impl CallContractResponse {
-    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_retdata(vm, ptr, self.retdata)
+    pub fn write(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+        vm: &mut VirtualMachine,
+    ) -> WriteResponseResult {
+        write_retdata(syscall_handler, vm, syscall_handler.syscall_ptr, self.retdata)
     }
 }
 
@@ -316,9 +328,16 @@ pub struct DeployResponse {
 pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 
 impl DeployResponse {
-    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, stark_felt_to_felt(*self.contract_address.0.key()))?;
-        write_retdata(vm, &(ptr + 1), retdata![])
+    pub fn write(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+        vm: &mut VirtualMachine,
+    ) -> WriteResponseResult {
+        vm.insert_value(
+            &syscall_handler.syscall_ptr,
+            stark_felt_to_felt(*self.contract_address.0.key()),
+        )?;
+        write_retdata(syscall_handler, vm, syscall_handler.syscall_ptr + 1, retdata![])
     }
 }
 
@@ -404,8 +423,12 @@ pub struct GetCallerAddressResponse {
 pub const GET_CALLER_ADDRESS_RESPONSE_SIZE: usize = 1;
 
 impl GetCallerAddressResponse {
-    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, stark_felt_to_felt(*self.address.0.key()))?;
+    pub fn write(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+        vm: &mut VirtualMachine,
+    ) -> WriteResponseResult {
+        vm.insert_value(&syscall_handler.syscall_ptr, stark_felt_to_felt(*self.address.0.key()))?;
         Ok(())
     }
 }
@@ -507,17 +530,21 @@ pub enum SyscallResponse {
 }
 
 impl SyscallResponse {
-    pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+    pub fn write(
+        self,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+        vm: &mut VirtualMachine,
+    ) -> WriteResponseResult {
         match self {
-            SyscallResponse::CallContract(response) => response.write(vm, ptr),
-            SyscallResponse::Deploy(response) => response.write(vm, ptr),
-            SyscallResponse::EmitEvent(response) => response.write(vm, ptr),
-            SyscallResponse::GetCallerAddress(response) => response.write(vm, ptr),
-            SyscallResponse::GetContractAddress(response) => response.write(vm, ptr),
-            SyscallResponse::LibraryCall(response) => response.write(vm, ptr),
-            SyscallResponse::SendMessageToL1(response) => response.write(vm, ptr),
-            SyscallResponse::StorageRead(response) => response.write(vm, ptr),
-            SyscallResponse::StorageWrite(response) => response.write(vm, ptr),
+            SyscallResponse::CallContract(response) => response.write(syscall_handler, vm),
+            SyscallResponse::Deploy(response) => response.write(syscall_handler, vm),
+            SyscallResponse::EmitEvent(response) => response.write(syscall_handler, vm),
+            SyscallResponse::GetCallerAddress(response) => response.write(syscall_handler, vm),
+            SyscallResponse::GetContractAddress(response) => response.write(syscall_handler, vm),
+            SyscallResponse::LibraryCall(response) => response.write(syscall_handler, vm),
+            SyscallResponse::SendMessageToL1(response) => response.write(syscall_handler, vm),
+            SyscallResponse::StorageRead(response) => response.write(syscall_handler, vm),
+            SyscallResponse::StorageWrite(response) => response.write(syscall_handler, vm),
         }
     }
 

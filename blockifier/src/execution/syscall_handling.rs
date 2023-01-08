@@ -22,7 +22,7 @@ use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    get_felt_from_memory_cell, get_felt_range, stark_felt_to_felt,
+    get_felt_from_memory_cell, get_felt_range, stark_felt_to_felt, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -47,8 +47,9 @@ pub struct SyscallHintProcessor<'a> {
     pub events: Vec<EventContent>,
     pub l2_to_l1_messages: Vec<MessageToL1>,
 
-    // Kept for validations during the run.
-    syscall_ptr: Relocatable,
+    // Fields needed for execution and validation.
+    pub read_only_segments: ReadOnlySegments,
+    pub syscall_ptr: Relocatable,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -73,6 +74,7 @@ impl<'a> SyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
+            read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
         }
     }
@@ -106,7 +108,7 @@ impl<'a> SyscallHintProcessor<'a> {
 
         let response = request.execute(self)?;
         let response_size = response.size();
-        response.write(vm, &self.syscall_ptr)?;
+        response.write(self, vm)?;
         self.syscall_ptr = self.syscall_ptr + response_size;
 
         Ok(())
@@ -176,20 +178,19 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
 }
 
 pub fn write_retdata(
+    syscall_handler: &mut SyscallHintProcessor<'_>,
     vm: &mut VirtualMachine,
-    ptr: &Relocatable,
+    ptr: Relocatable,
     retdata: Retdata,
 ) -> SyscallResult<()> {
     let retdata_size = stark_felt_to_felt(StarkFelt::from(retdata.0.len() as u64));
-    vm.insert_value(ptr, retdata_size)?;
+    vm.insert_value(&ptr, retdata_size)?;
 
     // Write response payload to the memory.
-    // TODO(AlonH, 21/12/2022): Use read only segments.
-    let segment = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), segment)?;
-    let data: Vec<MaybeRelocatable> =
+    let retdata: Vec<MaybeRelocatable> =
         retdata.0.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
-    vm.load_data(&segment.into(), &data)?;
+    let retdata_start_pointer = syscall_handler.read_only_segments.allocate(vm, retdata)?;
+    vm.insert_value(&(ptr + 1), retdata_start_pointer)?;
 
     Ok(())
 }
