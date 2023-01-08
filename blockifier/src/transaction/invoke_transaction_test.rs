@@ -231,16 +231,13 @@ fn test_negative_invoke_tx_flows() {
     let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
     assert_matches!(
         execution_error,
-        TransactionExecutionError::InvalidTransactionVersion {
-            tx_version,
-            allowed_versions,
-        }
-        if (tx_version, &allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
+        TransactionExecutionError::InvalidVersion { version, allowed_versions }
+        if (version, &allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
     );
 
     // Insufficient fee.
     let tx_max_fee = Fee(0);
-    let invalid_tx = InvokeTransaction { max_fee: tx_max_fee, ..valid_tx };
+    let invalid_tx = InvokeTransaction { max_fee: tx_max_fee, ..valid_tx.clone() };
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
@@ -252,5 +249,19 @@ fn test_negative_invoke_tx_flows() {
             actual_fee,
         })
         if (max_fee, actual_fee) == (tx_max_fee, expected_actual_fee)
+    );
+
+    // Invalid nonce.
+    // The transaction nonce is increased even when the fee charge step fails.
+    let current_nonce = Nonce(stark_felt!(1));
+    let tx_nonce = Nonce(stark_felt!(2));
+    let invalid_tx = InvokeTransaction { nonce: tx_nonce, ..valid_tx };
+    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
+        if (expected_nonce, actual_nonce) == (current_nonce, tx_nonce)
     );
 }

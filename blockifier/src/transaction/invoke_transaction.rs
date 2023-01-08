@@ -12,7 +12,7 @@ use crate::transaction::objects::{
     TransactionExecutionResult,
 };
 use crate::transaction::transaction_utils::{
-    calculate_tx_fee, execute_fee_transfer, verify_tx_version,
+    calculate_tx_fee, execute_fee_transfer, handle_nonce, verify_tx_version,
 };
 use crate::transaction::ExecuteTransaction;
 
@@ -93,6 +93,9 @@ impl ExecuteTransaction for InvokeTransaction {
 
         // Execute transaction.
         let execute_call_info = execute_tx(self, state, block_context, &account_tx_context)?;
+
+        // Handle nonce.
+        handle_nonce(&account_tx_context, state)?;
 
         // Charge fee.
         // TODO(Adi, 25/12/2022): Get actual resources.
