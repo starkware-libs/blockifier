@@ -138,7 +138,7 @@ impl<'a> SyscallHintProcessor<'a> {
         self.syscall_ptr = self.syscall_ptr + Request::SIZE;
 
         let response = execute_callback(request, self)?;
-        response.write(vm, &self.syscall_ptr)?;
+        response.write(vm, self.syscall_ptr, self)?;
         self.syscall_ptr = self.syscall_ptr + Response::SIZE;
 
         Ok(())
@@ -197,19 +197,18 @@ pub fn write_felt(
 
 pub fn write_retdata(
     vm: &mut VirtualMachine,
-    ptr: &Relocatable,
+    ptr: Relocatable,
     retdata: Retdata,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<()> {
     let retdata_size = StarkFelt::from(retdata.0.len() as u64);
-    write_felt(vm, ptr, retdata_size)?;
+    write_felt(vm, &ptr, retdata_size)?;
 
     // Write response payload to the memory.
-    // TODO(AlonH, 21/12/2022): Use read only segments.
-    let segment = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), segment)?;
-    let data: Vec<MaybeRelocatable> =
+    let retdata: Vec<MaybeRelocatable> =
         retdata.0.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
-    vm.load_data(&segment.into(), &data)?;
+    let retdata_start_pointer = syscall_handler.read_only_segments.allocate(vm, retdata)?;
+    vm.insert_value(&(ptr + 1), retdata_start_pointer)?;
 
     Ok(())
 }
