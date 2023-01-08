@@ -31,6 +31,11 @@ use crate::execution::syscalls::{
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
+use super::syscalls::{
+    call_contract, deploy, emit_event, get_caller_address, get_contract_address, library_call,
+    send_message_to_l1, storage_read, storage_write,
+};
+
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
@@ -112,6 +117,35 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(())
     }
 
+    /// Infers and executes the next syscall.
+    /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
+    pub fn execute_next_syscall(
+        &mut self,
+        vm: &mut VirtualMachine,
+        ids_data: &HashMap<String, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> HintExecutionResult {
+        let initial_syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
+        self.verify_syscall_ptr(initial_syscall_ptr)?;
+
+        let selector = self.read_next_syscall_selector(vm)?;
+        let selector_bytes = selector.bytes();
+        // Remove leading zero bytes from selector.
+        let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
+        match &selector_bytes[first_non_zero..32] {
+            b"CallContract" => self.execute_syscall(vm, call_contract),
+            b"Deploy" => self.execute_syscall(vm, deploy),
+            b"EmitEvent" => self.execute_syscall(vm, emit_event),
+            b"GetCallerAddress" => self.execute_syscall(vm, get_caller_address),
+            b"GetContractAddress" => self.execute_syscall(vm, get_contract_address),
+            b"LibraryCall" => self.execute_syscall(vm, library_call),
+            b"SendMessageToL1" => self.execute_syscall(vm, send_message_to_l1),
+            b"StorageRead" => self.execute_syscall(vm, storage_read),
+            b"StorageWrite" => self.execute_syscall(vm, storage_write),
+            _ => Err(HintError::from(SyscallExecutionError::InvalidSyscallSelector(selector))),
+        }
+    }
+
     pub fn execute_syscall<Request, Response, ExecuteCallback>(
         &mut self,
         vm: &mut VirtualMachine,
@@ -152,7 +186,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(&&*hint.code) {
-            return self.deprecated_execute_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            return self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
         }
 
         self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)

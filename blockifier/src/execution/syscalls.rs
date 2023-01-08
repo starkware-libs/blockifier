@@ -138,6 +138,15 @@ impl StorageReadResponse {
     }
 }
 
+pub fn storage_read(
+    request: StorageReadRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<StorageReadResponse> {
+    let value =
+        syscall_handler.state.get_storage_at(syscall_handler.storage_address, request.address)?;
+    Ok(StorageReadResponse { value: *value })
+}
+
 /// StorageWrite syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -177,6 +186,18 @@ impl StorageWriteRequest {
 }
 
 pub const STORAGE_WRITE_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
+
+pub fn storage_write(
+    request: StorageWriteRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<EmptyResponse> {
+    syscall_handler.state.set_storage_at(
+        syscall_handler.storage_address,
+        request.address,
+        request.value,
+    );
+    Ok(EmptyResponse)
+}
 
 /// CallContract syscall.
 
@@ -250,6 +271,23 @@ impl CallContractResponse {
     }
 }
 
+pub fn call_contract(
+    request: CallContractRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<CallContractResponse> {
+    let entry_point = CallEntryPoint {
+        class_hash: None,
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: request.function_selector,
+        calldata: request.calldata,
+        storage_address: request.contract_address,
+        caller_address: syscall_handler.storage_address,
+    };
+    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+
+    Ok(CallContractResponse { retdata })
+}
+
 /// LibraryCall syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -303,6 +341,24 @@ impl LibraryCallRequest {
 pub type LibraryCallResponse = CallContractResponse;
 
 pub const LIBRARY_CALL_RESPONSE_SIZE: usize = CALL_CONTRACT_RESPONSE_SIZE;
+
+pub fn library_call(
+    request: LibraryCallRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<CallContractResponse> {
+    let entry_point = CallEntryPoint {
+        class_hash: Some(request.class_hash),
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: request.function_selector,
+        calldata: request.calldata,
+        // The call context remains the same in a library call.
+        storage_address: syscall_handler.storage_address,
+        caller_address: syscall_handler.caller_address,
+    };
+    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+
+    Ok(CallContractResponse { retdata })
+}
 
 /// Deploy syscall.
 
@@ -408,6 +464,39 @@ impl DeployResponse {
     }
 }
 
+pub fn deploy(
+    request: DeployRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<DeployResponse> {
+    let deployer_address = syscall_handler.storage_address;
+    let deployer_address_for_calculation = match request.deploy_from_zero {
+        true => ContractAddress::default(),
+        false => deployer_address,
+    };
+    let deployed_contract_address = calculate_contract_address(
+        request.contract_address_salt,
+        request.class_hash,
+        &request.constructor_calldata,
+        deployer_address_for_calculation,
+    )?;
+
+    // Address allocation in the state is done before calling the constructor, so that it is
+    // visible from it.
+    syscall_handler.state.set_class_hash_at(deployed_contract_address, request.class_hash)?;
+    let call_info = execute_constructor_entry_point(
+        syscall_handler.state,
+        syscall_handler.block_context,
+        syscall_handler.account_tx_context,
+        request.class_hash,
+        deployed_contract_address,
+        deployer_address,
+        request.constructor_calldata,
+    )?;
+    syscall_handler.inner_calls.push(call_info);
+
+    Ok(DeployResponse { contract_address: deployed_contract_address })
+}
+
 /// EmitEvent syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -446,6 +535,14 @@ impl EmitEventRequest {
 
 pub const EMIT_EVENT_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
 
+pub fn emit_event(
+    request: EmitEventRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<EmptyResponse> {
+    syscall_handler.events.push(request.content);
+    Ok(EmptyResponse)
+}
+
 /// SendMessageToL1 syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -483,6 +580,14 @@ impl SendMessageToL1Request {
 }
 
 pub const SEND_MESSAGE_TO_L1_RESPONSE_SIZE: usize = EMPTY_RESPONSE_SIZE;
+
+pub fn send_message_to_l1(
+    request: SendMessageToL1Request,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<EmptyResponse> {
+    syscall_handler.l2_to_l1_messages.push(request.message);
+    Ok(EmptyResponse)
+}
 
 /// GetCallerAddress syscall.
 
@@ -525,6 +630,13 @@ impl GetCallerAddressResponse {
     }
 }
 
+pub fn get_caller_address(
+    _request: EmptyRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetCallerAddressResponse> {
+    Ok(GetCallerAddressResponse { address: syscall_handler.caller_address })
+}
+
 /// GetContractAddress syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -546,6 +658,13 @@ impl GetContractAddressRequest {
 
 pub type GetContractAddressResponse = GetCallerAddressResponse;
 pub const GET_CONTRACT_ADDRESS_RESPONSE_SIZE: usize = GET_CALLER_ADDRESS_RESPONSE_SIZE;
+
+pub fn get_contract_address(
+    _request: EmptyRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetCallerAddressResponse> {
+    Ok(GetCallerAddressResponse { address: syscall_handler.storage_address })
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum SyscallRequest {
