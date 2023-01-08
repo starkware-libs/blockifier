@@ -12,7 +12,7 @@ use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_rs::vm::errors::hint_errors::HintError;
 use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::vm_core::VirtualMachine;
-use num_bigint::BigInt;
+use felt::Felt;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
@@ -22,7 +22,7 @@ use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    felt_to_bigint, get_felt_from_memory_cell, get_felt_range,
+    get_felt_from_memory_cell, get_felt_range, stark_felt_to_felt,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{SyscallRequest, SyscallResult};
@@ -115,7 +115,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
         vm: &mut VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        constants: &HashMap<String, BigInt>,
+        constants: &HashMap<String, Felt>,
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(&&*hint.code) {
@@ -161,15 +161,16 @@ pub fn write_retdata(
     ptr: &Relocatable,
     retdata: Retdata,
 ) -> SyscallResult<()> {
-    let retdata_size = felt_to_bigint(StarkFelt::from(retdata.0.len() as u64));
+    let retdata_size = stark_felt_to_felt(StarkFelt::from(retdata.0.len() as u64));
     vm.insert_value(ptr, retdata_size)?;
 
     // Write response payload to the memory.
     // TODO(AlonH, 21/12/2022): Use read only segments.
     let segment = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment)?;
-    let data: Vec<MaybeRelocatable> = retdata.0.iter().map(|x| felt_to_bigint(*x).into()).collect();
-    vm.load_data(&segment.into(), data)?;
+    let data: Vec<MaybeRelocatable> =
+        retdata.0.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
+    vm.load_data(&segment.into(), &data)?;
 
     Ok(())
 }

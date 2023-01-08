@@ -10,7 +10,7 @@ use starknet_api::transaction::{
 use crate::execution::contract_address::calculate_contract_address;
 use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, Retdata};
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::execution_utils::{felt_to_bigint, get_felt_from_memory_cell};
+use crate::execution::execution_utils::{get_felt_from_memory_cell, stark_felt_to_felt};
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array,
     write_retdata, SyscallHintProcessor,
@@ -85,7 +85,7 @@ pub const STORAGE_READ_RESPONSE_SIZE: usize = 1;
 
 impl StorageReadResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, felt_to_bigint(self.value))?;
+        vm.insert_value(ptr, stark_felt_to_felt(self.value))?;
         Ok(())
     }
 }
@@ -286,7 +286,7 @@ pub const DEPLOY_RESPONSE_SIZE: usize = 3;
 
 impl DeployResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, felt_to_bigint(*self.contract_address.0.key()))?;
+        vm.insert_value(ptr, stark_felt_to_felt(*self.contract_address.0.key()))?;
         write_retdata(vm, &(ptr + 1), retdata![])
     }
 }
@@ -374,7 +374,7 @@ pub const GET_CALLER_ADDRESS_RESPONSE_SIZE: usize = 1;
 
 impl GetCallerAddressResponse {
     pub fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, felt_to_bigint(*self.address.0.key()))?;
+        vm.insert_value(ptr, stark_felt_to_felt(*self.address.0.key()))?;
         Ok(())
     }
 }
