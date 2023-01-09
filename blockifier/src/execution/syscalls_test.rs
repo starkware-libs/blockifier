@@ -1,8 +1,10 @@
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
+};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
@@ -149,23 +151,30 @@ fn test_call_contract() {
 #[test]
 fn test_deploy_with_constructor() {
     let mut state = create_test_state();
+    let salt = stark_felt!(1);
+    let class_hash = stark_felt!(TEST_CLASS_HASH);
     let calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
-        stark_felt!(1),               // Contract_address_salt.
-        stark_felt!(2),               // Calldata length.
-        stark_felt!(1),               // Calldata: address.
-        stark_felt!(1)                // Calldata: value.
+        class_hash,     // Class hash.
+        salt,           // Contract_address_salt.
+        stark_felt!(2), // Calldata length.
+        stark_felt!(1), // Calldata: address.
+        stark_felt!(1)  // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: EntryPointSelector(stark_felt!(TEST_DEPLOY_SELECTOR)),
         calldata,
         ..trivial_external_entry_point()
     };
+    let contract_address = calculate_contract_address(
+        salt,
+        ClassHash(class_hash),
+        &Calldata(vec![stark_felt!(1), stark_felt!(1)].into()),
+        ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap(),
+    )
+    .unwrap();
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![stark_felt!(1)] }
+        CallExecution { retdata: retdata![*contract_address.0.key()] }
     );
-    let contract_address_from_state =
-        *state.get_class_hash_at(ContractAddress(patricia_key!(1))).unwrap();
-    assert_eq!(contract_address_from_state, ClassHash(stark_felt!(TEST_CLASS_HASH)));
+    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), ClassHash(class_hash));
 }

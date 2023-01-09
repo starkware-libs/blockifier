@@ -1824,11 +1824,12 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api#5357e608b501989fc4a65f54580c4b9cc633045c"
+source = "git+https://github.com/starkware-libs/starknet-api#41a3ca1ce1eb1824106e7de1031fc995150c41be"
 dependencies = [
  "derive_more",
  "hex",
  "indexmap",
+ "once_cell",
  "serde",
  "serde_json",
  "starknet-crypto",
