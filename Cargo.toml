@@ -4,5 +4,6 @@
 resolver = "2"
 
 members = [
-  "blockifier"
+  "blockifier",
+  "python_rust_bridge"
 ]
