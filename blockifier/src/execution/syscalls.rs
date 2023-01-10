@@ -379,9 +379,11 @@ pub fn get_caller_address(
 
 /// GetContractAddress syscall.
 
+type GetContractAddressResponse = GetCallerAddressResponse;
+
 pub fn get_contract_address(
     _request: EmptyRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetCallerAddressResponse> {
-    Ok(GetCallerAddressResponse { address: syscall_handler.storage_address })
+) -> SyscallResult<GetContractAddressResponse> {
+    Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
 }
