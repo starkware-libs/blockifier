@@ -13,12 +13,14 @@ use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
 use cairo_rs::vm::runners::cairo_runner::CairoRunner;
 use cairo_rs::vm::vm_core::VirtualMachine;
 use felt::{Felt, FeltOps};
-use starknet_api::core::ClassHash;
+use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, Retdata,
+    execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
+    EntryPointExecutionResult, Retdata,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -389,4 +391,27 @@ impl ReadOnlySegments {
 
         Ok(())
     }
+}
+
+pub fn execute_deploy(
+    state: &mut dyn State,
+    block_context: &BlockContext,
+    account_tx_context: &AccountTransactionContext,
+    class_hash: ClassHash,
+    deployed_contract_address: ContractAddress,
+    deployer_address: ContractAddress,
+    constructor_calldata: Calldata,
+) -> EntryPointExecutionResult<CallInfo> {
+    // Address allocation in the state is done before calling the constructor, so that it is
+    // visible from it.
+    state.set_class_hash_at(deployed_contract_address, class_hash)?;
+    execute_constructor_entry_point(
+        state,
+        block_context,
+        account_tx_context,
+        class_hash,
+        deployed_contract_address,
+        deployer_address,
+        constructor_calldata,
+    )
 }
