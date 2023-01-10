@@ -5,4 +5,5 @@ resolver = "2"
 
 members = [
   "crates/blockifier"
+  "crates/python_rust_bridge"
 ]
