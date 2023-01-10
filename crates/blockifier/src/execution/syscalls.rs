@@ -12,9 +12,9 @@ use starknet_api::transaction::{
     TransactionSignature,
 };
 
-use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, Retdata};
+use crate::execution::entry_point::{CallEntryPoint, Retdata};
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::execution_utils::get_felt_from_memory_cell;
+use crate::execution::execution_utils::{execute_deployment, get_felt_from_memory_cell};
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
     write_felt_array, SyscallHintProcessor,
@@ -289,10 +289,7 @@ pub fn deploy(
         deployer_address_for_calculation,
     )?;
 
-    // Address allocation in the state is done before calling the constructor, so that it is
-    // visible from it.
-    syscall_handler.state.set_class_hash_at(deployed_contract_address, request.class_hash)?;
-    let call_info = execute_constructor_entry_point(
+    let call_info = execute_deployment(
         syscall_handler.state,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
