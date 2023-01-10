@@ -26,9 +26,9 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
-    call_contract, deploy, emit_event, get_caller_address, get_contract_address, library_call,
-    send_message_to_l1, storage_read, storage_write, SyscallRequest, SyscallResponse,
-    SyscallResult,
+    call_contract, deploy, emit_event, get_block_number, get_block_timestamp, get_caller_address,
+    get_contract_address, get_sequencer_address, library_call, send_message_to_l1, storage_read,
+    storage_write, SyscallRequest, SyscallResponse, SyscallResult,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -109,8 +109,11 @@ impl<'a> SyscallHintProcessor<'a> {
             b"CallContract" => self.execute_syscall(vm, call_contract),
             b"Deploy" => self.execute_syscall(vm, deploy),
             b"EmitEvent" => self.execute_syscall(vm, emit_event),
+            b"GetBlockNumber" => self.execute_syscall(vm, get_block_number),
+            b"GetBlockTimestamp" => self.execute_syscall(vm, get_block_timestamp),
             b"GetCallerAddress" => self.execute_syscall(vm, get_caller_address),
             b"GetContractAddress" => self.execute_syscall(vm, get_contract_address),
+            b"GetSequencerAddress" => self.execute_syscall(vm, get_sequencer_address),
             b"LibraryCall" => self.execute_syscall(vm, library_call),
             b"SendMessageToL1" => self.execute_syscall(vm, send_message_to_l1),
             b"StorageRead" => self.execute_syscall(vm, storage_read),
@@ -182,13 +185,21 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
     }
 }
 
+pub fn write_felt(
+    vm: &mut VirtualMachine,
+    ptr: &Relocatable,
+    felt: StarkFelt,
+) -> SyscallResult<()> {
+    Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
+}
+
 pub fn write_retdata(
     vm: &mut VirtualMachine,
     ptr: &Relocatable,
     retdata: Retdata,
 ) -> SyscallResult<()> {
-    let retdata_size = stark_felt_to_felt(StarkFelt::from(retdata.0.len() as u64));
-    vm.insert_value(ptr, retdata_size)?;
+    let retdata_size = StarkFelt::from(retdata.0.len() as u64);
+    write_felt(vm, ptr, retdata_size)?;
 
     // Write response payload to the memory.
     // TODO(AlonH, 21/12/2022): Use read only segments.

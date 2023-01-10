@@ -1,5 +1,7 @@
 use cairo_rs::types::relocatable::Relocatable;
 use cairo_rs::vm::vm_core::VirtualMachine;
+use felt::Felt;
+use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -11,9 +13,9 @@ use starknet_api::transaction::{
 
 use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, Retdata};
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::execution_utils::{get_felt_from_memory_cell, stark_felt_to_felt};
+use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_handling::{
-    execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array,
+    execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
     write_retdata, SyscallHintProcessor,
 };
 use crate::retdata;
@@ -91,7 +93,7 @@ impl SyscallResponse for StorageReadResponse {
     const SIZE: usize = 1;
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, stark_felt_to_felt(self.value))?)
+        write_felt(vm, ptr, self.value)
     }
 }
 
@@ -204,10 +206,12 @@ impl SyscallRequest for LibraryCallRequest {
     }
 }
 
+type LibraryCallResponse = CallContractResponse;
+
 pub fn library_call(
     request: LibraryCallRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<CallContractResponse> {
+) -> SyscallResult<LibraryCallResponse> {
     let entry_point = CallEntryPoint {
         class_hash: Some(request.class_hash),
         entry_point_type: EntryPointType::External,
@@ -263,7 +267,7 @@ impl SyscallResponse for DeployResponse {
     const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, stark_felt_to_felt(*self.contract_address.0.key()))?;
+        write_felt(vm, ptr, *self.contract_address.0.key())?;
         write_retdata(vm, &(ptr + 1), retdata![])
     }
 }
@@ -355,20 +359,31 @@ pub fn send_message_to_l1(
     Ok(EmptyResponse)
 }
 
-/// GetCallerAddress syscall.
+/// GetContractAddress syscall.
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GetCallerAddressResponse {
+pub struct GetContractAddressResponse {
     pub address: ContractAddress,
 }
 
-impl SyscallResponse for GetCallerAddressResponse {
+impl SyscallResponse for GetContractAddressResponse {
     const SIZE: usize = 1;
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, stark_felt_to_felt(*self.address.0.key()))?)
+        write_felt(vm, ptr, *self.address.0.key())
     }
 }
+
+pub fn get_contract_address(
+    _request: EmptyRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetContractAddressResponse> {
+    Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
+}
+
+/// GetCallerAddress syscall.
+
+type GetCallerAddressResponse = GetContractAddressResponse;
 
 pub fn get_caller_address(
     _request: EmptyRequest,
@@ -377,13 +392,57 @@ pub fn get_caller_address(
     Ok(GetCallerAddressResponse { address: syscall_handler.caller_address })
 }
 
-/// GetContractAddress syscall.
+/// GetSequencerAddress syscall.
 
-type GetContractAddressResponse = GetCallerAddressResponse;
+type GetSequencerAddressResponse = GetContractAddressResponse;
 
-pub fn get_contract_address(
+pub fn get_sequencer_address(
     _request: EmptyRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetContractAddressResponse> {
-    Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
+) -> SyscallResult<GetSequencerAddressResponse> {
+    Ok(GetSequencerAddressResponse { address: syscall_handler.block_context.sequencer_address })
+}
+
+// GetBlockNumber syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockNumberResponse {
+    pub block_number: BlockNumber,
+}
+
+impl SyscallResponse for GetBlockNumberResponse {
+    const SIZE: usize = 1;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        Ok(vm.insert_value(ptr, Felt::from(self.block_number.0))?)
+    }
+}
+
+pub fn get_block_number(
+    _request: EmptyRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetBlockNumberResponse> {
+    Ok(GetBlockNumberResponse { block_number: syscall_handler.block_context.block_number })
+}
+
+// GetBlockTimestamp syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockTimestampResponse {
+    pub block_timestamp: BlockTimestamp,
+}
+
+impl SyscallResponse for GetBlockTimestampResponse {
+    const SIZE: usize = 1;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        Ok(vm.insert_value(ptr, Felt::from(self.block_timestamp.0))?)
+    }
+}
+
+pub fn get_block_timestamp(
+    _request: EmptyRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetBlockTimestampResponse> {
+    Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
 }
