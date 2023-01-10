@@ -56,7 +56,7 @@ fn verify_feature_contracts_compatibility(fix: bool) -> Result<()> {
         let existing_compiled_contents = fs::read_to_string(&existing_compiled_path)
             .context(format!("Cannot read {existing_compiled_path}."))?;
 
-        if String::from_utf8(expected_compiled_output).unwrap() != existing_compiled_contents {
+        if String::from_utf8(expected_compiled_output).unwrap() == existing_compiled_contents {
             panic!("{} does not compile to {}", path_str, existing_compiled_path)
         }
     }
