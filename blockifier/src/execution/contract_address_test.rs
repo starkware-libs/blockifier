@@ -1,7 +1,7 @@
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::Calldata;
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
@@ -43,36 +43,23 @@ fn test_contract_address() {
     let deployer_address = ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap();
 
     // Without constructor.
-    let calldata_no_constructor = Calldata(
-        vec![
-            salt,                      // Contract_address_salt.
-            class_hash.0,              // Class hash.
-            stark_felt!(0),            // Calldata length.
-            *deployer_address.0.key(), // deployer_address.
-        ]
-        .into(),
-    );
-    run_test(
-        salt,
-        class_hash,
-        &Calldata(vec![].into()),
-        calldata_no_constructor,
-        deployer_address,
-        &mut state,
-    );
+    let calldata_no_constructor = calldata![
+        salt,                      // Contract_address_salt.
+        class_hash.0,              // Class hash.
+        stark_felt!(0),            // Calldata length.
+        *deployer_address.0.key()  // deployer_address.
+    ];
+    run_test(salt, class_hash, &calldata![], calldata_no_constructor, deployer_address, &mut state);
 
     // With constructor.
-    let constructor_calldata = Calldata(vec![stark_felt!(1), stark_felt!(1)].into());
-    let calldata = Calldata(
-        vec![
-            salt,                      // Contract_address_salt.
-            class_hash.0,              // Class hash.
-            stark_felt!(2),            // Calldata length.
-            stark_felt!(1),            // Calldata: address.
-            stark_felt!(1),            // Calldata: value.
-            *deployer_address.0.key(), // deployer_address.
-        ]
-        .into(),
-    );
+    let constructor_calldata = calldata![stark_felt!(1), stark_felt!(1)];
+    let calldata = calldata![
+        salt,                      // Contract_address_salt.
+        class_hash.0,              // Class hash.
+        stark_felt!(2),            // Calldata length.
+        stark_felt!(1),            // Calldata: address.
+        stark_felt!(1),            // Calldata: value.
+        *deployer_address.0.key()  // deployer_address.
+    ];
     run_test(salt, class_hash, &constructor_calldata, calldata, deployer_address, &mut state);
 }
