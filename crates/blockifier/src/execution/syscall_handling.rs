@@ -27,8 +27,9 @@ use crate::execution::execution_utils::{
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_number, get_block_timestamp, get_caller_address,
-    get_contract_address, get_sequencer_address, library_call, send_message_to_l1, storage_read,
-    storage_write, SyscallRequest, SyscallResponse, SyscallResult,
+    get_contract_address, get_sequencer_address, get_tx_signature, library_call,
+    send_message_to_l1, storage_read, storage_write, SyscallRequest, SyscallResponse,
+    SyscallResult,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -114,6 +115,7 @@ impl<'a> SyscallHintProcessor<'a> {
             b"GetCallerAddress" => self.execute_syscall(vm, get_caller_address),
             b"GetContractAddress" => self.execute_syscall(vm, get_contract_address),
             b"GetSequencerAddress" => self.execute_syscall(vm, get_sequencer_address),
+            b"GetTxSignature" => self.execute_syscall(vm, get_tx_signature),
             b"LibraryCall" => self.execute_syscall(vm, library_call),
             b"SendMessageToL1" => self.execute_syscall(vm, send_message_to_l1),
             b"StorageRead" => self.execute_syscall(vm, storage_read),
@@ -130,7 +132,7 @@ impl<'a> SyscallHintProcessor<'a> {
     where
         Request: SyscallRequest,
         Response: SyscallResponse,
-        ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'_>) -> SyscallResult<Response>,
+        ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'a>) -> SyscallResult<Response>,
     {
         let request = Request::read(vm, &self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + Request::SIZE;
@@ -193,21 +195,19 @@ pub fn write_felt(
     Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
 }
 
-pub fn write_retdata(
+pub fn write_felt_array(
     vm: &mut VirtualMachine,
     ptr: &Relocatable,
-    retdata: Retdata,
+    data: &Vec<StarkFelt>,
 ) -> SyscallResult<()> {
-    let retdata_size = StarkFelt::from(retdata.0.len() as u64);
-    write_felt(vm, ptr, retdata_size)?;
+    let data_size = StarkFelt::from(data.len() as u64);
+    write_felt(vm, ptr, data_size)?;
 
     // Write response payload to the memory.
-    // TODO(AlonH, 21/12/2022): Use read only segments.
-    let segment = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), segment)?;
-    let data: Vec<MaybeRelocatable> =
-        retdata.0.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
-    vm.load_data(&segment.into(), &data)?;
+    let segment_start_ptr = vm.add_memory_segment();
+    vm.insert_value(&(ptr + 1), segment_start_ptr)?;
+    let data: Vec<MaybeRelocatable> = data.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
+    vm.load_data(&segment_start_ptr.into(), &data)?;
 
     Ok(())
 }
