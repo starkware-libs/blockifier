@@ -1,4 +1,5 @@
 pub mod constants;
+pub mod depoloy_account_transaction;
 pub mod errors;
 pub mod invoke_transaction;
 pub mod objects;
