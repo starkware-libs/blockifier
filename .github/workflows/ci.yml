@@ -36,7 +36,7 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
       - run:
-          pip install -r blockifier/tests/requirements.txt;
+          pip install -r crates/blockifier/tests/requirements.txt;
           cargo test -- --include-ignored
 
   udeps:
