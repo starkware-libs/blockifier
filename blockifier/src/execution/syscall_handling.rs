@@ -27,8 +27,8 @@ use crate::execution::execution_utils::{
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_caller_address, get_contract_address, library_call,
-    send_message_to_l1, storage_read, storage_write, SyscallRequest, SyscallResult,
-    _SyscallRequest, _SyscallResponse,
+    send_message_to_l1, storage_read, storage_write, SyscallRequest, SyscallResponse,
+    SyscallResult,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -92,30 +92,6 @@ impl<'a> SyscallHintProcessor<'a> {
 
     /// Infers and executes the next syscall.
     /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
-    pub fn deprecated_execute_syscall(
-        &mut self,
-        vm: &mut VirtualMachine,
-        ids_data: &HashMap<String, HintReference>,
-        ap_tracking: &ApTracking,
-    ) -> HintExecutionResult {
-        let initial_syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
-        self.verify_syscall_ptr(initial_syscall_ptr)?;
-
-        let selector = self.read_next_syscall_selector(vm)?;
-
-        let request = SyscallRequest::read(selector, vm, &self.syscall_ptr)?;
-        self.syscall_ptr = self.syscall_ptr + request.size();
-
-        let response = request.execute(self)?;
-        let response_size = response.size();
-        response.write(vm, &self.syscall_ptr)?;
-        self.syscall_ptr = self.syscall_ptr + response_size;
-
-        Ok(())
-    }
-
-    /// Infers and executes the next syscall.
-    /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
     pub fn execute_next_syscall(
         &mut self,
         vm: &mut VirtualMachine,
@@ -149,8 +125,8 @@ impl<'a> SyscallHintProcessor<'a> {
         execute_callback: ExecuteCallback,
     ) -> HintExecutionResult
     where
-        Request: _SyscallRequest,
-        Response: _SyscallResponse,
+        Request: SyscallRequest,
+        Response: SyscallResponse,
         ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'_>) -> SyscallResult<Response>,
     {
         let request = Request::read(vm, &self.syscall_ptr)?;
