@@ -206,7 +206,7 @@ impl SyscallRequest for LibraryCallRequest {
     }
 }
 
-type LibraryCallResponse = CallContractResponse;
+pub type LibraryCallResponse = CallContractResponse;
 
 pub fn library_call(
     request: LibraryCallRequest,
@@ -223,7 +223,7 @@ pub fn library_call(
     };
     let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
-    Ok(CallContractResponse { retdata })
+    Ok(LibraryCallResponse { retdata })
 }
 
 /// Deploy syscall.
