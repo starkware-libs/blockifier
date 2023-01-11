@@ -18,5 +18,5 @@ done
 
 # Install packages and test
 for PYBIN in /opt/python/cp{37,38,39,310}*/bin; do
-    "${PYBIN}/pip" install html-py-ever -f /io/dist/
+    "${PYBIN}/pip" install python-rust-bridge -f /io/dist/
 done
