@@ -31,13 +31,8 @@ jobs:
           components: rustfmt
           toolchain: nightly-2022-11-03
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-          cache: 'pip'
       - run:
-          pip install -r crates/blockifier/tests/requirements.txt;
-          cargo test -- --include-ignored
+          cargo test
 
   udeps:
     runs-on: ubuntu-latest
