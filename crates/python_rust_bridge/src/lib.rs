@@ -6,7 +6,7 @@ fn hello_world() {
 }
 
 #[pymodule]
-fn rust_extension_poc(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn python_rust_bridge(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(hello_world, m)?)?;
 
     Ok(())
