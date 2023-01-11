@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - v[0-9].**
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - auto_merge_enabled
 
 jobs:
   build_python_wheels:
