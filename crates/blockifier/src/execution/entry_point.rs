@@ -94,6 +94,34 @@ pub struct CallInfo {
     pub l2_to_l1_messages: Vec<MessageToL1>,
 }
 
+pub struct CallInfoIter<'a> {
+    call_infos: Vec<&'a CallInfo>,
+}
+
+impl<'a> Iterator for CallInfoIter<'a> {
+    type Item = &'a CallInfo;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(call_info) = self.call_infos.pop() else {
+            return None;
+        };
+
+        // Push order is right to left.
+        self.call_infos.extend(call_info.inner_calls.iter().rev());
+        Some(call_info)
+    }
+}
+
+impl<'a> IntoIterator for &'a CallInfo {
+    type Item = &'a CallInfo;
+
+    type IntoIter = CallInfoIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CallInfoIter { call_infos: vec![self] }
+    }
+}
+
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
     block_context: &BlockContext,
