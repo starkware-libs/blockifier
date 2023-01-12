@@ -22,7 +22,7 @@ use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    get_felt_from_memory_cell, get_felt_range, stark_felt_to_felt,
+    get_felt_from_memory_cell, get_felt_range, stark_felt_to_felt, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -49,8 +49,9 @@ pub struct SyscallHintProcessor<'a> {
     pub events: Vec<EventContent>,
     pub l2_to_l1_messages: Vec<MessageToL1>,
 
-    // Kept for validations during the run.
-    syscall_ptr: Relocatable,
+    // Fields needed for execution and validation.
+    pub read_only_segments: ReadOnlySegments,
+    pub syscall_ptr: Relocatable,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -75,6 +76,7 @@ impl<'a> SyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
+            read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
         }
     }
