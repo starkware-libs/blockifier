@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
@@ -92,6 +93,33 @@ pub struct CallInfo {
     pub inner_calls: Vec<CallInfo>,
     pub events: Vec<EventContent>,
     pub l2_to_l1_messages: Vec<MessageToL1>,
+}
+
+pub struct CallInfoIter<'a> {
+    call_infos: VecDeque<&'a CallInfo>,
+}
+
+impl<'a> Iterator for CallInfoIter<'a> {
+    type Item = &'a CallInfo;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(call_info) = self.call_infos.pop_front() else {
+            return None;
+        };
+
+        self.call_infos.extend(call_info.inner_calls.iter());
+        Some(call_info)
+    }
+}
+
+impl<'a> IntoIterator for &'a CallInfo {
+    type Item = &'a CallInfo;
+
+    type IntoIter = CallInfoIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CallInfoIter { call_infos: VecDeque::from([self]) }
+    }
 }
 
 pub fn execute_constructor_entry_point(

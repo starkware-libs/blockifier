@@ -30,6 +30,39 @@ fn test_call_info() {
 }
 
 #[test]
+fn test_call_info_iteration() {
+    // Create nested call infos according to their expected traversal order (pre-order).
+    // The tree is constructed as follows:
+    //                  root (0)
+    //              /             \
+    //      left_node (1)      inner_node (2)
+    //                              |
+    //                         right_leaf (3)
+    let leaf_left = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(1)], ..Default::default() },
+        ..Default::default()
+    };
+    let leaf_right = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(3)], ..Default::default() },
+        ..Default::default()
+    };
+    let inner_node = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(2)], ..Default::default() },
+        inner_calls: vec![leaf_right],
+        ..Default::default()
+    };
+    let root = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(0)], ..Default::default() },
+        inner_calls: vec![leaf_left, inner_node],
+        ..Default::default()
+    };
+
+    for (i, call_info) in root.into_iter().enumerate() {
+        assert_eq!(call_info.call.calldata, calldata![stark_felt!(i as u64)]);
+    }
+}
+
+#[test]
 fn test_entry_point_without_arg() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
