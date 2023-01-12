@@ -1,6 +1,6 @@
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::get_selector_from_name;
@@ -16,7 +16,7 @@ fn test_contract_address() {
     let mut state = create_test_state();
 
     fn run_test(
-        salt: StarkFelt,
+        salt: ContractAddressSalt,
         class_hash: ClassHash,
         constructor_calldata: &Calldata,
         calldata: Calldata,
@@ -38,13 +38,13 @@ fn test_contract_address() {
         );
     }
 
-    let salt = stark_felt!(1);
+    let salt = ContractAddressSalt::default();
     let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let deployer_address = ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap();
 
     // Without constructor.
     let calldata_no_constructor = calldata![
-        salt,                      // Contract_address_salt.
+        salt.0,                    // Contract_address_salt.
         class_hash.0,              // Class hash.
         stark_felt!(0),            // Calldata length.
         *deployer_address.0.key()  // deployer_address.
@@ -54,7 +54,7 @@ fn test_contract_address() {
     // With constructor.
     let constructor_calldata = calldata![stark_felt!(1), stark_felt!(1)];
     let calldata = calldata![
-        salt,                      // Contract_address_salt.
+        salt.0,                    // Contract_address_salt.
         class_hash.0,              // Class hash.
         stark_felt!(2),            // Calldata length.
         stark_felt!(1),            // Calldata: address.

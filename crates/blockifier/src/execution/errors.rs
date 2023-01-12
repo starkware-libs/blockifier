@@ -1,5 +1,5 @@
-use cairo_rs::types::relocatable::Relocatable;
-use cairo_rs::vm::errors as cairo_rs_vm_errors;
+use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::vm::errors as cairo_vm_vm_errors;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
@@ -12,19 +12,19 @@ pub enum PreExecutionError {
     #[error("Entry point {0:#?} not found in contract.")]
     EntryPointNotFound(EntryPointSelector),
     #[error(transparent)]
-    MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
+    MemoryError(#[from] cairo_vm_vm_errors::memory_errors::MemoryError),
     #[error(transparent)]
-    ProgramError(#[from] cairo_rs::types::errors::program_errors::ProgramError),
+    ProgramError(#[from] cairo_vm::types::errors::program_errors::ProgramError),
     #[error(transparent)]
-    RunnerError(Box<cairo_rs_vm_errors::runner_errors::RunnerError>),
+    RunnerError(Box<cairo_vm_vm_errors::runner_errors::RunnerError>),
     #[error(transparent)]
     StateError(#[from] StateError),
     #[error("Requested contract address {0:?} is not deployed.")]
     UninitializedStorageAddress(ContractAddress),
 }
 
-impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError {
-    fn from(error: cairo_rs_vm_errors::runner_errors::RunnerError) -> Self {
+impl From<cairo_vm_vm_errors::runner_errors::RunnerError> for PreExecutionError {
+    fn from(error: cairo_vm_vm_errors::runner_errors::RunnerError) -> Self {
         Self::RunnerError(Box::new(error))
     }
 }
@@ -32,15 +32,15 @@ impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PreExecutionError 
 #[derive(Debug, Error)]
 pub enum PostExecutionError {
     #[error(transparent)]
-    MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
+    MemoryError(#[from] cairo_vm_vm_errors::memory_errors::MemoryError),
     #[error("{0} validation failed.")]
     SecurityValidationError(String),
     #[error(transparent)]
-    VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
+    VirtualMachineError(#[from] cairo_vm_vm_errors::vm_errors::VirtualMachineError),
 }
 
-impl From<cairo_rs_vm_errors::runner_errors::RunnerError> for PostExecutionError {
-    fn from(error: cairo_rs_vm_errors::runner_errors::RunnerError) -> Self {
+impl From<cairo_vm_vm_errors::runner_errors::RunnerError> for PostExecutionError {
+    fn from(error: cairo_vm_vm_errors::runner_errors::RunnerError) -> Self {
         Self::SecurityValidationError(error.to_string())
     }
 }
@@ -56,28 +56,28 @@ pub enum SyscallExecutionError {
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
     #[error(transparent)]
-    MemoryError(#[from] cairo_rs_vm_errors::memory_errors::MemoryError),
+    MemoryError(#[from] cairo_vm_vm_errors::memory_errors::MemoryError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     StateError(#[from] StateError),
     #[error(transparent)]
-    VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
+    VirtualMachineError(#[from] cairo_vm_vm_errors::vm_errors::VirtualMachineError),
 }
 
 // TODO(AlonH, 21/12/2022): Reconsider error returned by custom hints with LambdaClass.
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
 // cairo-rs API.
-impl From<SyscallExecutionError> for cairo_rs_vm_errors::hint_errors::HintError {
+impl From<SyscallExecutionError> for cairo_vm_vm_errors::hint_errors::HintError {
     fn from(error: SyscallExecutionError) -> Self {
-        cairo_rs_vm_errors::hint_errors::HintError::CustomHint(error.to_string())
+        cairo_vm_vm_errors::hint_errors::HintError::CustomHint(error.to_string())
     }
 }
 
 #[derive(Debug, Error)]
 pub enum VirtualMachineExecutionError {
     #[error(transparent)]
-    VirtualMachineError(#[from] cairo_rs_vm_errors::vm_errors::VirtualMachineError),
+    VirtualMachineError(#[from] cairo_vm_vm_errors::vm_errors::VirtualMachineError),
 }
 
 #[derive(Debug, Error)]
