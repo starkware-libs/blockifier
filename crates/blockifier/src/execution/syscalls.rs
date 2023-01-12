@@ -9,6 +9,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
     Calldata, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
+    TransactionSignature,
 };
 
 use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, Retdata};
@@ -16,7 +17,7 @@ use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::get_felt_from_memory_cell;
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
-    write_retdata, SyscallHintProcessor,
+    write_felt_array, SyscallHintProcessor,
 };
 use crate::retdata;
 
@@ -165,7 +166,7 @@ impl SyscallResponse for CallContractResponse {
     const SIZE: usize = ARRAY_METADATA_SIZE;
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_retdata(vm, ptr, self.retdata)
+        write_felt_array(vm, ptr, &self.retdata.0)
     }
 }
 
@@ -268,7 +269,7 @@ impl SyscallResponse for DeployResponse {
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         write_felt(vm, ptr, *self.contract_address.0.key())?;
-        write_retdata(vm, &(ptr + 1), retdata![])
+        write_felt_array(vm, &(ptr + 1), &retdata![].0)
     }
 }
 
@@ -445,4 +446,26 @@ pub fn get_block_timestamp(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetBlockTimestampResponse> {
     Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
+}
+
+// GetTxSignature syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetTxSignatureResponse<'a> {
+    pub signature: &'a TransactionSignature,
+}
+
+impl<'a> SyscallResponse for GetTxSignatureResponse<'a> {
+    const SIZE: usize = ARRAY_METADATA_SIZE;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        write_felt_array(vm, ptr, &self.signature.0)
+    }
+}
+
+pub fn get_tx_signature<'a>(
+    _request: EmptyRequest,
+    syscall_handler: &mut SyscallHintProcessor<'a>,
+) -> SyscallResult<GetTxSignatureResponse<'a>> {
+    Ok(GetTxSignatureResponse { signature: &syscall_handler.account_tx_context.signature })
 }
