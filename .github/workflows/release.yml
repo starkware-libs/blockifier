@@ -3,13 +3,7 @@ name: Build Release
 on:
   push:
     tags:
-      - v[0-9].**
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - auto_merge_enabled
+      - BLOCKIFIER-v[0-9].**
 
 jobs:
   build_python_wheels:
