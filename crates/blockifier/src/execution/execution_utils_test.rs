@@ -1,4 +1,4 @@
-use felt::Felt;
+use cairo_felt::Felt;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use pretty_assertions::assert_eq;

@@ -3,7 +3,7 @@ use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};
 
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -151,11 +151,11 @@ fn test_call_contract() {
 #[test]
 fn test_deploy_with_constructor() {
     let mut state = create_test_state();
-    let salt = stark_felt!(1);
+    let salt = ContractAddressSalt::default();
     let class_hash = stark_felt!(TEST_CLASS_HASH);
     let calldata = calldata![
         class_hash,     // Class hash.
-        salt,           // Contract_address_salt.
+        salt.0,         // Contract_address_salt.
         stark_felt!(2), // Calldata length.
         stark_felt!(1), // Calldata: address.
         stark_felt!(1)  // Calldata: value.

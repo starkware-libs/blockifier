@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
+use cairo_felt::Felt;
+use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };
-use cairo_rs::hint_processor::builtin_hint_processor::hint_utils::{
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
     get_integer_from_var_name, insert_value_from_var_name,
 };
-use cairo_rs::hint_processor::hint_processor_definition::HintReference;
-use cairo_rs::serde::deserialize_program::ApTracking;
-use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::vm::errors::hint_errors::HintError;
-use cairo_rs::vm::vm_core::VirtualMachine;
-use felt::Felt;
+use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::{One, Zero};
 
 use crate::execution::hint_code::{

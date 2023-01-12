@@ -1,6 +1,6 @@
-use cairo_rs::types::relocatable::Relocatable;
-use cairo_rs::vm::vm_core::VirtualMachine;
-use felt::Felt;
+use cairo_felt::Felt;
+use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
@@ -8,8 +8,8 @@ use starknet_api::core::{
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
-    Calldata, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload, MessageToL1,
-    TransactionSignature,
+    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
+    MessageToL1, TransactionSignature,
 };
 
 use crate::execution::entry_point::{execute_constructor_entry_point, CallEntryPoint, Retdata};
@@ -232,7 +232,7 @@ pub fn library_call(
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeployRequest {
     pub class_hash: ClassHash,
-    pub contract_address_salt: StarkFelt,
+    pub contract_address_salt: ContractAddressSalt,
     pub constructor_calldata: Calldata,
     pub deploy_from_zero: bool,
 }
@@ -242,7 +242,8 @@ impl SyscallRequest for DeployRequest {
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<DeployRequest> {
         let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
-        let contract_address_salt = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        let contract_address_salt =
+            ContractAddressSalt(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?);
         let constructor_calldata = read_calldata(vm, &(ptr + 2))?;
         let deploy_from_zero =
             get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2 + ARRAY_METADATA_SIZE))?)?;
