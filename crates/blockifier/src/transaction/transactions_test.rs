@@ -6,8 +6,8 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, 
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, InvokeTransaction, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, DeclareTransaction, EventContent, EventData, EventKey, Fee, InvokeTransaction,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -29,8 +29,12 @@ use crate::transaction::constants::{
     VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::execute_transaction::ExecuteTransaction;
+use crate::transaction::objects::{
+    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
+};
 
+// InvokeFunction:
 fn create_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::get_test_block_context();
 
@@ -275,4 +279,33 @@ fn test_negative_invoke_tx_flows() {
         TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
         if (expected_nonce, actual_nonce) == (Nonce::default(), nonce)
     );
+}
+
+// Declare:
+fn get_tested_valid_declare_tx() -> DeclareTransaction {
+    DeclareTransaction {
+        transaction_hash: TransactionHash(StarkHash::default()),
+        max_fee: Fee(1),
+        version: TransactionVersion(StarkFelt::from(1)),
+        signature: TransactionSignature(vec![StarkHash::default()]),
+        nonce: Nonce::default(),
+        class_hash: ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+        sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+    }
+}
+
+#[test]
+fn test_declare_tx() {
+    let mut state = create_test_state();
+    let block_context = BlockContext::get_test_block_context();
+
+    let declare_tx = get_tested_valid_declare_tx();
+
+    let account_tx_context = AccountTransactionContext::default();
+
+    let actual_execution_info =
+        declare_tx.execute_tx(&mut state, &block_context, &account_tx_context).unwrap();
+
+    // Test execution info result.
+    assert_eq!(actual_execution_info, CallInfo::default());
 }

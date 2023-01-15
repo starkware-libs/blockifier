@@ -1,6 +1,6 @@
 use starknet_api::core::ContractAddress;
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::InvokeTransaction;
+use starknet_api::transaction::{DeclareTransaction, InvokeTransaction};
 
 use crate::abi::abi_utils::get_selector_from_name;
 use crate::block_context::BlockContext;
@@ -11,7 +11,7 @@ use crate::transaction::execute_transaction::ExecuteTransaction;
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
 #[cfg(test)]
-#[path = "invoke_transaction_test.rs"]
+#[path = "transactions_test.rs"]
 mod test;
 
 impl ExecuteTransaction for InvokeTransaction {
@@ -31,5 +31,16 @@ impl ExecuteTransaction for InvokeTransaction {
         };
 
         Ok(execute_call.execute(state, block_context, account_tx_context)?)
+    }
+}
+
+impl ExecuteTransaction for DeclareTransaction {
+    fn execute_tx(
+        self,
+        _state: &mut dyn State,
+        _block_context: &BlockContext,
+        _account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<CallInfo> {
+        Ok(CallInfo::default())
     }
 }
