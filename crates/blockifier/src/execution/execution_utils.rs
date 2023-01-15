@@ -1,18 +1,18 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use cairo_rs::serde::deserialize_program::{
+use cairo_felt::{Felt, FeltOps};
+use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, HintParams, Identifier,
     ReferenceManager,
 };
-use cairo_rs::types::errors::program_errors::ProgramError;
-use cairo_rs::types::program::Program;
-use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
-use cairo_rs::vm::errors::memory_errors::MemoryError;
-use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
-use cairo_rs::vm::runners::cairo_runner::CairoRunner;
-use cairo_rs::vm::vm_core::VirtualMachine;
-use felt::{Felt, FeltOps};
+use cairo_vm::types::errors::program_errors::ProgramError;
+use cairo_vm::types::program::Program;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::memory_errors::MemoryError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::cairo_runner::CairoRunner;
+use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkFelt;
 
@@ -65,7 +65,7 @@ pub fn initialize_execution_context<'a>(
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
     let mut runner = CairoRunner::new(&program, "all", false)?;
-    let mut vm = VirtualMachine::new(false, program.error_message_attributes);
+    let mut vm = VirtualMachine::new(false);
     runner.initialize_builtins(&mut vm)?;
     runner.initialize_segments(&mut vm, None);
 

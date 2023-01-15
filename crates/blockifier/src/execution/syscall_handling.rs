@@ -1,18 +1,18 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use cairo_rs::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
+use cairo_felt::Felt;
+use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
-use cairo_rs::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
-use cairo_rs::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
-use cairo_rs::serde::deserialize_program::ApTracking;
-use cairo_rs::types::exec_scope::ExecutionScopes;
-use cairo_rs::types::relocatable::{MaybeRelocatable, Relocatable};
-use cairo_rs::vm::errors::hint_errors::HintError;
-use cairo_rs::vm::errors::vm_errors::VirtualMachineError;
-use cairo_rs::vm::vm_core::VirtualMachine;
-use felt::Felt;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
+use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
+use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};

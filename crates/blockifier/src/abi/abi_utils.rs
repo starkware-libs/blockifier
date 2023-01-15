@@ -1,4 +1,4 @@
-use felt::{Felt, FeltOps};
+use cairo_felt::{Felt, FeltOps};
 use sha3::{Digest, Keccak256};
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkHash;
