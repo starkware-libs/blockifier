@@ -26,7 +26,7 @@ pub struct CachedState<SR: StateReader> {
     pub state_reader: SR,
     // Invariant: following attributes should remain private.
     cache: StateCache,
-    // Invariant: Read-only mapping
+    // Invariant: read-only mapping.
     class_hash_to_class: ContractClassMapping,
 }
 
@@ -205,7 +205,7 @@ impl StateReader for DictStateReader {
 }
 
 #[derive(IntoIterator, Debug, Default)]
-pub struct StorageView(HashMap<ContractStorageKey, StarkFelt>);
+pub struct StorageView(pub HashMap<ContractStorageKey, StarkFelt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
 impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
@@ -225,7 +225,8 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 }
 
 /// Caches read and write requests.
-// Invariant: cannot delete keys from fields.
+
+// Invariant: keys cannot be deleted from fields (only used internally by the cached state).
 #[derive(Debug, Default, PartialEq)]
 struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
