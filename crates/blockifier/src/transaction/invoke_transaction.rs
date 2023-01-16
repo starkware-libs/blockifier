@@ -2,7 +2,7 @@ use starknet_api::core::ContractAddress;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::InvokeTransaction;
 
-use crate::abi::abi_utils::get_selector_from_name;
+use crate::abi::abi_utils::get_selector;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
@@ -23,7 +23,7 @@ impl ExecuteTransaction for InvokeTransaction {
     ) -> TransactionExecutionResult<CallInfo> {
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
-            entry_point_selector: get_selector_from_name(EXECUTE_ENTRY_POINT_NAME),
+            entry_point_selector: get_selector(EXECUTE_ENTRY_POINT_NAME),
             calldata: self.calldata.clone(),
             class_hash: None,
             storage_address: self.sender_address,
