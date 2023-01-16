@@ -1,3 +1,5 @@
+use std::iter::zip;
+
 use cairo_felt::Felt;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
@@ -6,7 +8,7 @@ use starknet_api::hash::StarkFelt;
 
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 
-fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<Felt>) {
+fn felt_to_bigint_pairs() -> Vec<(StarkFelt, Felt)> {
     // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
     const STARK_PRIME: &str = "0x800000000000011000000000000000000000000000000000000000000000001";
     const STARK_PRIME_MINUS_ONE: &str =
@@ -32,22 +34,19 @@ fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<Felt>) {
         Felt::from(BigUint::new(vec![0, 0, 0, 0, 0, 0, 17, 134217728])),
     ];
 
-    (felts, bigints)
+    zip(felts.into_iter(), bigints.into_iter()).collect()
 }
 
 #[test]
 fn test_stark_felt_to_felt() {
-    let (felts, expected_bigints) = get_tested_felts_and_corresponding_bigints();
-    let converted_bigints: Vec<Felt> = felts.iter().map(|x| stark_felt_to_felt(*x)).collect();
-
-    assert_eq!(converted_bigints, expected_bigints);
+    for (stark_felt, equivalent_felt) in felt_to_bigint_pairs() {
+        assert_eq!(stark_felt_to_felt(stark_felt), equivalent_felt);
+    }
 }
 
 #[test]
 fn test_felt_to_stark_felt() {
-    let (expected_felts, bigints) = get_tested_felts_and_corresponding_bigints();
-    // Positive flow.
-    let converted_felts: Vec<StarkFelt> = bigints.iter().map(felt_to_stark_felt).collect();
-
-    assert_eq!(converted_felts, expected_felts);
+    for (equivalent_stark_felt, felt) in felt_to_bigint_pairs() {
+        assert_eq!(felt_to_stark_felt(&felt), equivalent_stark_felt);
+    }
 }
