@@ -259,10 +259,10 @@ fn read_execution_retdata(
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    Ok(Retdata(get_felt_range(&vm, &retdata_ptr, retdata_size)?.into()))
+    Ok(Retdata(felt_range(&vm, &retdata_ptr, retdata_size)?.into()))
 }
 
-pub fn get_felt_range(
+pub fn felt_range(
     vm: &VirtualMachine,
     ptr: &MaybeRelocatable,
     size: usize,

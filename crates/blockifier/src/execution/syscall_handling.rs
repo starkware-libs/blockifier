@@ -22,7 +22,7 @@ use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    get_felt_from_memory_cell, get_felt_range, stark_felt_to_felt, ReadOnlySegments,
+    felt_range, get_felt_from_memory_cell, stark_felt_to_felt, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -220,7 +220,7 @@ pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<
         return Err(VirtualMachineError::NoneInMemoryRange.into())
     };
 
-    Ok(get_felt_range(vm, &array_data_ptr, array_size.try_into()?)?)
+    Ok(felt_range(vm, &array_data_ptr, array_size.try_into()?)?)
 }
 
 pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Calldata> {
