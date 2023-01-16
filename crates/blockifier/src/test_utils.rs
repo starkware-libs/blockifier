@@ -115,14 +115,14 @@ impl CallEntryPoint {
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         self.execute(
             state,
-            &BlockContext::get_test_block_context(),
+            &BlockContext::create_for_testing(),
             &AccountTransactionContext::default(),
         )
     }
 }
 
 impl BlockContext {
-    pub fn get_test_block_context() -> BlockContext {
+    pub fn create_for_testing() -> BlockContext {
         BlockContext {
             chain_id: ChainId("SN_GOERLI".to_string()),
             block_number: BlockNumber::default(),
