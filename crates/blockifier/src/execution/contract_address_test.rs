@@ -3,7 +3,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};
 
-use crate::abi::abi_utils::get_selector_from_name;
+use crate::abi::abi_utils::get_selector;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
@@ -25,7 +25,7 @@ fn test_contract_address() {
     ) {
         let entry_point_call = CallEntryPoint {
             calldata,
-            entry_point_selector: get_selector_from_name("test_contract_address"),
+            entry_point_selector: get_selector("test_contract_address"),
             ..trivial_external_entry_point()
         };
         let contract_address =
