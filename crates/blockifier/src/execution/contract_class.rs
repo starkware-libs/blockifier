@@ -15,7 +15,7 @@ pub struct ContractClass {
     pub program: Program,
     /// The selector of each entry point is a unique identifier in the program.
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
-    /// Not required for execution, thus can be omitted from the raw contract file.
+    // Not required for execution, thus can be omitted from the raw contract file.
     pub abi: Option<serde_json::Value>,
 }
 

@@ -30,7 +30,7 @@ pub type WriteResponseResult = SyscallResult<()>;
 
 // TODO(AlonH, 21/12/2022): Couple all size constants with Cairo structs from the code.
 
-// The array metadata contains its size and its starting pointer.
+/// The array metadata contains its size and its starting pointer.
 const ARRAY_METADATA_SIZE: usize = 2;
 
 pub trait SyscallRequest: Sized {
@@ -402,7 +402,7 @@ pub fn get_sequencer_address(
     Ok(GetSequencerAddressResponse { address: syscall_handler.block_context.sequencer_address })
 }
 
-// GetBlockNumber syscall.
+/// GetBlockNumber syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockNumberResponse {
@@ -424,7 +424,7 @@ pub fn get_block_number(
     Ok(GetBlockNumberResponse { block_number: syscall_handler.block_context.block_number })
 }
 
-// GetBlockTimestamp syscall.
+/// GetBlockTimestamp syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockTimestampResponse {
@@ -446,7 +446,7 @@ pub fn get_block_timestamp(
     Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
 }
 
-// GetTxSignature syscall.
+/// GetTxSignature syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetTxSignatureResponse<'a> {
