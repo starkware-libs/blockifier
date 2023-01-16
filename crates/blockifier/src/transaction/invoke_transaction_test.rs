@@ -32,7 +32,7 @@ use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 
 fn create_test_state() -> CachedState<DictStateReader> {
-    let block_context = BlockContext::get_test_block_context();
+    let block_context = BlockContext::create_for_testing();
 
     let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
@@ -95,7 +95,7 @@ fn get_tested_actual_fee() -> Fee {
 #[test]
 fn test_invoke_tx() {
     let mut state = create_test_state();
-    let block_context = BlockContext::get_test_block_context();
+    let block_context = BlockContext::create_for_testing();
 
     // Extract invoke transaction fields for testing, as the transaction execution consumes
     // the transaction.
@@ -224,7 +224,7 @@ fn test_invoke_tx() {
 #[test]
 fn test_negative_invoke_tx_flows() {
     let mut state = create_test_state();
-    let block_context = BlockContext::get_test_block_context();
+    let block_context = BlockContext::create_for_testing();
     let valid_invoke_tx = get_tested_valid_invoke_tx();
 
     // Invalid version.
