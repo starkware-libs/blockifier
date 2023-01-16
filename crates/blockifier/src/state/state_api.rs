@@ -59,9 +59,9 @@ pub trait State {
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass>;
 
-    // Allocates the given address to the given class hash.
-    // Raises an exception if the address is already assigned;
-    // meaning: this is a write once action.
+    /// Allocates the given address to the given class hash.
+    /// Raises an exception if the address is already assigned;
+    /// meaning: this is a write once action.
     fn set_class_hash_at(
         &mut self,
         contract_address: ContractAddress,

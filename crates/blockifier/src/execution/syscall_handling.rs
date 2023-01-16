@@ -94,7 +94,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     /// Infers and executes the next syscall.
-    /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
+    // Must comply with the API of a hint function, as defined by the `HintProcessor`.
     pub fn execute_next_syscall(
         &mut self,
         vm: &mut VirtualMachine,

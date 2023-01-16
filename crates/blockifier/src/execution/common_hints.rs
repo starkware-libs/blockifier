@@ -21,7 +21,7 @@ use crate::execution::hint_code::{
 
 pub type HintExecutionResult = Result<(), HintError>;
 
-/// Must comply with the API of a hint function, as defined by the `HintProcessor`.
+// Must comply with the API of a hint function, as defined by the `HintProcessor`.
 pub fn normalize_address_set_is_small(
     vm: &mut VirtualMachine,
     _execution_scopes: &mut ExecutionScopes,
@@ -51,7 +51,7 @@ pub fn normalize_address_set_is_small(
     insert_value_from_var_name("is_small", is_small, vm, ids_data, ap_tracking)
 }
 
-/// Must comply with the API of a hint function, as defined by the `HintProcessor`.
+// Must comply with the API of a hint function, as defined by the `HintProcessor`.
 pub fn normalize_address_set_is_250(
     vm: &mut VirtualMachine,
     _execution_scopes: &mut ExecutionScopes,
