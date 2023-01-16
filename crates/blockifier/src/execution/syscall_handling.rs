@@ -42,6 +42,7 @@ pub struct SyscallHintProcessor<'a> {
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
+    // Invariant: must contain common hints.
     builtin_hint_processor: BuiltinHintProcessor,
 
     // Execution results.
