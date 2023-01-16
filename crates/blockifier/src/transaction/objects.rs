@@ -22,7 +22,6 @@ pub struct AccountTransactionContext {
     pub sender_address: ContractAddress,
 }
 
-// TODO(Adi, 10/12/2022): Add a 'transaction_type' field.
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionExecutionInfo {

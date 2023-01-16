@@ -23,30 +23,8 @@ pub const ACCOUNT_CONTRACT_PATH: &str =
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
-pub const WITHOUT_ARG_SELECTOR: &str =
-    "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f";
-pub const WITH_ARG_SELECTOR: &str =
-    "0xe7def693d16806ca2a2f398d8de5951344663ba77f340ed7a958da731872fc";
-pub const BITWISE_AND_SELECTOR: &str =
-    "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95";
-pub const SQRT_SELECTOR: &str = "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309";
-pub const RETURN_RESULT_SELECTOR: &str =
-    "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701";
-pub const TEST_STORAGE_READ_WRITE_SELECTOR: &str =
-    "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97";
-pub const TEST_LIBRARY_CALL_SELECTOR: &str =
-    "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50";
-pub const TEST_NESTED_LIBRARY_CALL_SELECTOR: &str =
-    "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331";
-pub const TEST_CALL_CONTRACT_SELECTOR: &str =
-    "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c";
-pub const TEST_DEPLOY_SELECTOR: &str =
-    "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f";
-pub const TEST_STORAGE_VAR_SELECTOR: &str =
-    "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
 pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
-
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 
 // TODO(Adi, 15/01/2023): Remove and use the ERC20 contract in starkgate once we use the real

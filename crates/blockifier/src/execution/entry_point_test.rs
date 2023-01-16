@@ -4,36 +4,19 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, stark_felt};
 
-use crate::abi::abi_utils::get_selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::abi::abi_utils::get_selector;
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
     create_security_test_state, create_test_state, trivial_external_entry_point,
-    BITWISE_AND_SELECTOR, RETURN_RESULT_SELECTOR, SQRT_SELECTOR, TEST_STORAGE_VAR_SELECTOR,
-    WITHOUT_ARG_SELECTOR, WITH_ARG_SELECTOR,
 };
-
-#[test]
-fn test_call_info() {
-    let mut state = create_test_state();
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(stark_felt!(WITHOUT_ARG_SELECTOR)),
-        ..trivial_external_entry_point()
-    };
-    let expected_call_info = CallInfo {
-        call: entry_point_call.clone(),
-        execution: CallExecution { retdata: retdata![] },
-        ..Default::default()
-    };
-    assert_eq!(entry_point_call.execute_directly(&mut state).unwrap(), expected_call_info);
-}
 
 #[test]
 fn test_entry_point_without_arg() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(stark_felt!(WITHOUT_ARG_SELECTOR)),
+        entry_point_selector: get_selector("without_arg"),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -48,7 +31,7 @@ fn test_entry_point_with_arg() {
     let calldata = calldata![stark_felt!(25)];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(stark_felt!(WITH_ARG_SELECTOR)),
+        entry_point_selector: get_selector("with_arg"),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -63,7 +46,7 @@ fn test_entry_point_with_builtin() {
     let calldata = calldata![stark_felt!(47), stark_felt!(31)];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(stark_felt!(BITWISE_AND_SELECTOR)),
+        entry_point_selector: get_selector("bitwise_and"),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -78,7 +61,7 @@ fn test_entry_point_with_hint() {
     let calldata = calldata![stark_felt!(81)];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(stark_felt!(SQRT_SELECTOR)),
+        entry_point_selector: get_selector("sqrt"),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -93,7 +76,7 @@ fn test_entry_point_with_return_value() {
     let calldata = calldata![stark_felt!(23)];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(stark_felt!(RETURN_RESULT_SELECTOR)),
+        entry_point_selector: get_selector("return_result"),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -119,7 +102,7 @@ fn test_entry_point_not_found_in_contract() {
 fn test_storage_var() {
     let mut state = create_test_state();
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(stark_felt!(TEST_STORAGE_VAR_SELECTOR)),
+        entry_point_selector: get_selector("test_storage_var"),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -138,7 +121,7 @@ fn test_security_failure() {
         calldata: Calldata,
         state: &mut CachedState<DictStateReader>,
     ) {
-        let entry_point_selector = get_selector_from_name(entry_point_name);
+        let entry_point_selector = get_selector(entry_point_name);
         let entry_point_call =
             CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
         let error = entry_point_call.execute_directly(state).unwrap_err().to_string();
