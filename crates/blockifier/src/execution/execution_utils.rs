@@ -336,6 +336,7 @@ pub fn get_felt_from_memory_cell(
 
 /// Represents read-only segments dynamically allocated during execution.
 #[derive(Debug, Default)]
+// Invariant: read-only.
 pub struct ReadOnlySegments(Vec<(Relocatable, usize)>);
 
 impl ReadOnlySegments {
