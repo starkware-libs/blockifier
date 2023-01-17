@@ -16,7 +16,6 @@ use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
-// TODO(Adi, 25/12/2022): Remove once a class hash can be computed given a class.
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_validations_compiled.json";
@@ -27,12 +26,8 @@ pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 
-// TODO(Adi, 15/01/2023): Remove and use the ERC20 contract in starkgate once we use the real
-// ERC20 contract.
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
-// TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
-// starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
@@ -40,8 +35,6 @@ pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
 pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
     "0x2a2c49c4dba0d91b34f2ade85d41d09561f9a77884c15ba2ab0f2241b080deb";
 
-// TODO(Adi, 25/12/2022): Consider removing this function once we use the starknet_api transaction
-// struct instead of our own, which contains a `contract_path` instead of a `contract_address`.
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
     let path = PathBuf::from(contract_path);
     ContractClass::from_file(&path).expect("File must contain the content of a compiled contract.")
