@@ -65,13 +65,17 @@ pub fn normalize_address_set_is_250(
     insert_value_from_var_name("is_250", is_250, vm, ids_data, ap_tracking)
 }
 
-pub fn add_common_hints(hint_processor: &mut BuiltinHintProcessor) {
-    hint_processor.add_hint(
-        String::from(NORMALIZE_ADDRESS_SET_IS_SMALL_HINT),
-        Rc::new(HintFunc(Box::new(normalize_address_set_is_small))),
-    );
-    hint_processor.add_hint(
-        String::from(NORMALIZE_ADDRESS_SET_IS_250_HINT),
-        Rc::new(HintFunc(Box::new(normalize_address_set_is_250))),
-    );
+pub fn extended_builtin_hint_processor() -> BuiltinHintProcessor {
+    // Extend `BuiltinHintProcessor` with common hints.
+    let extra_hints = HashMap::from([
+        (
+            String::from(NORMALIZE_ADDRESS_SET_IS_SMALL_HINT),
+            Rc::new(HintFunc(Box::new(normalize_address_set_is_small))),
+        ),
+        (
+            String::from(NORMALIZE_ADDRESS_SET_IS_250_HINT),
+            Rc::new(HintFunc(Box::new(normalize_address_set_is_250))),
+        ),
+    ]);
+    BuiltinHintProcessor::new(extra_hints)
 }
