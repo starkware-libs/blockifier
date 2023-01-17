@@ -18,7 +18,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::block_context::BlockContext;
-use crate::execution::common_hints::{add_common_hints, HintExecutionResult};
+use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
@@ -65,16 +65,13 @@ impl<'a> SyscallHintProcessor<'a> {
         storage_address: ContractAddress,
         caller_address: ContractAddress,
     ) -> Self {
-        let mut builtin_hint_processor = BuiltinHintProcessor::new_empty();
-        add_common_hints(&mut builtin_hint_processor);
-
         SyscallHintProcessor {
             state,
             block_context,
             account_tx_context,
             storage_address,
             caller_address,
-            builtin_hint_processor,
+            builtin_hint_processor: extended_builtin_hint_processor(),
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
