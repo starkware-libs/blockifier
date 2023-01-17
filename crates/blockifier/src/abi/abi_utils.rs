@@ -12,8 +12,6 @@ use crate::execution::execution_utils::felt_to_stark_felt;
 #[path = "abi_utils_test.rs"]
 mod test;
 
-// TODO(Adi, 10/12/2022): Move this implementation to the starknet_api repository and use it in the
-// Cairo compiler repository as well.
 /// A variant of eth-keccak that computes a value that fits in a StarkNet field element.
 pub fn starknet_keccak(data: &[u8]) -> Felt {
     let mut hasher = Keccak256::new();
@@ -35,7 +33,6 @@ pub fn get_selector(entry_point_name: &str) -> EntryPointSelector {
     if DEFAULT_ENTRY_POINTS.contains(&entry_point_name) {
         EntryPointSelector(StarkHash::from(DEFAULT_ENTRY_POINT_SELECTOR))
     } else {
-        // TODO(Adi, 01/01/2023): Remove unwrap and forward an ABI error.
         EntryPointSelector(felt_to_stark_felt(&starknet_keccak(entry_point_name.as_bytes())))
     }
 }
