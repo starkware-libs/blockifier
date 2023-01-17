@@ -272,7 +272,7 @@ pub fn felt_range(
     let values = vm.get_continuous_range(ptr, size)?;
     // Extract values as `StarkFelt`.
     let values: Result<Vec<StarkFelt>, VirtualMachineError> =
-        values.into_iter().map(|x| get_felt_from_memory_cell(Some(x))).collect();
+        values.into_iter().map(felt_from_memory_cell).collect();
     values
 }
 
@@ -324,13 +324,20 @@ pub fn convert_program_to_cairo_runner_format(
     })
 }
 
-pub fn get_felt_from_memory_cell(
-    memory_cell: Option<MaybeRelocatable>,
+pub fn felt_from_memory_pointer(
+    vm: &VirtualMachine,
+    memory_ptr: &Relocatable,
+) -> Result<StarkFelt, VirtualMachineError> {
+    let maybe_relocatable = vm.get_maybe(memory_ptr)?;
+    felt_from_memory_cell(maybe_relocatable.ok_or(VirtualMachineError::NoneInMemoryRange)?)
+}
+
+pub fn felt_from_memory_cell(
+    memory_cell: MaybeRelocatable,
 ) -> Result<StarkFelt, VirtualMachineError> {
     match memory_cell {
-        Some(MaybeRelocatable::Int(value)) => Ok(felt_to_stark_felt(&value)),
-        Some(relocatable) => Err(VirtualMachineError::ExpectedInteger(relocatable)),
-        None => Err(VirtualMachineError::NoneInMemoryRange),
+        MaybeRelocatable::Int(value) => Ok(felt_to_stark_felt(&value)),
+        _ => return Err(VirtualMachineError::ExpectedInteger(memory_cell)),
     }
 }
 
