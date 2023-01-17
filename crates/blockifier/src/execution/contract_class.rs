@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ pub struct ContractClass {
 
 impl ContractClass {
     /// Instantiates a contract class object given a compiled contract file path.
-    pub fn from_file(path: &Path) -> Result<ContractClass> {
+    pub fn from_file(path: &PathBuf) -> Result<ContractClass> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
