@@ -22,7 +22,7 @@ use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecut
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    felt_range_from_ptr, get_felt_from_memory_cell, stark_felt_to_felt, ReadOnlySegments,
+    felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -146,9 +146,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
-        let selector = get_felt_from_memory_cell(
-            vm.get_maybe(&self.syscall_ptr).map_err(VirtualMachineError::from)?,
-        )?;
+        let selector = felt_from_memory_ptr(vm, &self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + 1;
 
         Ok(selector)
@@ -215,7 +213,7 @@ pub fn write_felt_array(
 }
 
 pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Vec<StarkFelt>> {
-    let array_size = get_felt_from_memory_cell(vm.get_maybe(ptr)?)?;
+    let array_size = felt_from_memory_ptr(vm, ptr)?;
     let Some(array_data_ptr) = vm.get_maybe(&(ptr + 1))? else {
         return Err(VirtualMachineError::NoneInMemoryRange.into())
     };
@@ -231,7 +229,7 @@ pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: &Relocatable,
 ) -> SyscallResult<(EntryPointSelector, Calldata)> {
-    let function_selector = EntryPointSelector(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+    let function_selector = EntryPointSelector(felt_from_memory_ptr(vm, ptr)?);
     let calldata = read_calldata(vm, &(ptr + 1))?;
 
     Ok((function_selector, calldata))
