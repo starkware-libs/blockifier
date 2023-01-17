@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
@@ -134,7 +136,7 @@ fn test_invoke_tx() {
         entry_point_selector: get_selector("return_result"),
         class_hash: None,
         entry_point_type: EntryPointType::External,
-        calldata: Calldata(expected_return_result_calldata.clone().into()),
+        calldata: Calldata(Arc::new(expected_return_result_calldata.clone())),
         storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
         caller_address: expected_account_address,
     };
@@ -142,7 +144,7 @@ fn test_invoke_tx() {
         entry_point_selector: get_selector(EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.call.clone()
     };
-    let expected_return_result_retdata = Retdata(expected_return_result_calldata.into());
+    let expected_return_result_retdata = Retdata(Rc::new(expected_return_result_calldata));
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
         execution: CallExecution { retdata: expected_return_result_retdata.clone() },

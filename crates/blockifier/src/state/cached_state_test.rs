@@ -70,7 +70,7 @@ fn get_and_set_storage_value() {
 #[test]
 fn cast_between_storage_mapping_types() {
     let empty_map: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> = IndexMap::default();
-    assert_eq!(empty_map, StorageView::default().into());
+    assert_eq!(empty_map, IndexMap::from(StorageView::default()));
 
     let contract_address0 = ContractAddress(patricia_key!("0x100"));
     let contract_address1 = ContractAddress(patricia_key!("0x200"));
@@ -90,7 +90,7 @@ fn cast_between_storage_mapping_types() {
         (contract_address0, indexmap!(key0 => storage_val0, key1 => storage_val1)),
         (contract_address1, indexmap!(key0 => storage_val2)),
     ]);
-    assert_eq!(expected_indexed_map, storage_map.into());
+    assert_eq!(expected_indexed_map, IndexMap::from(storage_map));
 }
 
 #[test]

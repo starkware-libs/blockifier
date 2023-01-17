@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use cairo_felt::{Felt, FeltOps};
 use cairo_vm::serde::deserialize_program::{
@@ -100,7 +101,7 @@ pub fn prepare_call_arguments(
 
     // Prepare implicit arguments.
     let mut implicit_args = vec![];
-    implicit_args.push(initial_syscall_ptr.into());
+    implicit_args.push(MaybeRelocatable::from(initial_syscall_ptr));
     implicit_args.extend(
         vm.get_builtin_runners()
             .iter()
@@ -261,7 +262,7 @@ fn read_execution_retdata(
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    Ok(Retdata(felt_range(&vm, &retdata_ptr, retdata_size)?.into()))
+    Ok(Retdata(Rc::new(felt_range(&vm, &retdata_ptr, retdata_size)?)))
 }
 
 pub fn felt_range(
@@ -347,7 +348,7 @@ impl ReadOnlySegments {
     ) -> Result<Relocatable, MemoryError> {
         let segment_start_ptr = vm.add_memory_segment();
         self.0.push((segment_start_ptr, data.len()));
-        vm.load_data(&segment_start_ptr.into(), &data)?;
+        vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
         Ok(segment_start_ptr)
     }
 

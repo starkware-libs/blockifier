@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use pretty_assertions::assert_eq;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
@@ -170,7 +172,7 @@ fn test_deploy_with_constructor() {
     let contract_address = calculate_contract_address(
         salt,
         ClassHash(class_hash),
-        &Calldata(vec![stark_felt!(1), stark_felt!(1)].into()),
+        &Calldata(Arc::new(vec![stark_felt!(1), stark_felt!(1)])),
         ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap(),
     )
     .unwrap();

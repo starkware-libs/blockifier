@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use cairo_felt::Felt;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -210,7 +211,7 @@ pub fn write_felt_array(
     let segment_start_ptr = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment_start_ptr)?;
     let data: Vec<MaybeRelocatable> = data.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
-    vm.load_data(&segment_start_ptr.into(), &data)?;
+    vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
 
     Ok(())
 }
@@ -225,7 +226,7 @@ pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<
 }
 
 pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Calldata> {
-    Ok(Calldata(read_felt_array(vm, ptr)?.into()))
+    Ok(Calldata(Arc::new(read_felt_array(vm, ptr)?)))
 }
 
 pub fn read_call_params(
