@@ -200,7 +200,7 @@ pub fn write_felt(
 pub fn write_felt_array(
     vm: &mut VirtualMachine,
     ptr: &Relocatable,
-    data: &Vec<StarkFelt>,
+    data: &[StarkFelt],
 ) -> SyscallResult<()> {
     let data_size = StarkFelt::from(data.len() as u64);
     write_felt(vm, ptr, data_size)?;
