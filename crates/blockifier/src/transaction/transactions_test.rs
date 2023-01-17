@@ -2,16 +2,19 @@ use std::collections::HashMap;
 
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, InvokeTransaction, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, EventContent,
+    EventData, EventKey, Fee, InvokeTransaction, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_selector;
+use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
@@ -29,8 +32,12 @@ use crate::transaction::constants::{
     VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::execute_transaction::ExecuteTransaction;
+use crate::transaction::objects::{
+    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
+};
 
+// InvokeFunction.
 fn create_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
@@ -43,6 +50,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
         (test_erc20_class_hash, get_contract_class(ERC20_CONTRACT_PATH)),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    // A random address that is unlikely to be equal to the result of calculate_contract_address().
     let test_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([
@@ -78,14 +86,11 @@ fn get_tested_valid_invoke_tx() -> InvokeTransaction {
     ];
 
     InvokeTransaction {
-        transaction_hash: TransactionHash(StarkHash::default()),
         max_fee: Fee(1),
         version: TransactionVersion(stark_felt!(1)),
-        signature: TransactionSignature(vec![StarkHash::default()]),
-        nonce: Nonce::default(),
         sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        entry_point_selector: None,
         calldata: execute_calldata,
+        ..Default::default()
     }
 }
 
@@ -276,4 +281,91 @@ fn test_negative_invoke_tx_flows() {
         TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
         if (expected_nonce, actual_nonce) == (Nonce::default(), nonce)
     );
+}
+
+// Declare.
+fn get_tested_valid_declare_tx() -> DeclareTransaction {
+    DeclareTransaction {
+        max_fee: Fee(1),
+        version: TransactionVersion(StarkFelt::from(1)),
+        class_hash: ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+        sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn test_declare_tx() {
+    let mut state = create_test_state();
+    let block_context = BlockContext::create_for_testing();
+
+    let declare_tx = get_tested_valid_declare_tx();
+    let account_tx_context = AccountTransactionContext::default();
+    let actual_execution_info =
+        declare_tx.execute_tx(&mut state, &block_context, &account_tx_context).unwrap();
+
+    // Test execution info result.
+    assert_eq!(actual_execution_info, CallInfo::default());
+}
+
+// DeployAccount.
+fn get_tested_valid_deploy_account_tx() -> DeployAccountTransaction {
+    let class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let deployer_address = ContractAddress::default();
+    let contract_address_salt = ContractAddressSalt::default();
+    let contract_address = calculate_contract_address(
+        contract_address_salt,
+        class_hash,
+        &calldata![],
+        deployer_address,
+    )
+    .unwrap();
+
+    DeployAccountTransaction {
+        max_fee: Fee(1),
+        version: TransactionVersion(stark_felt!(1)),
+        class_hash,
+        contract_address,
+        contract_address_salt,
+        ..Default::default()
+    }
+}
+
+// TODO(Noa, 25/01/23): Test DeployAccount with constructor + add negative tests.
+#[test]
+fn test_deploy_account_tx() {
+    let mut state = create_test_state();
+    let block_context = BlockContext::create_for_testing();
+    // Extract deploy account transaction fields for testing, as the transaction execution consumes
+    // the transaction.
+    let deploy_account_tx = get_tested_valid_deploy_account_tx();
+    let class_hash = deploy_account_tx.class_hash;
+    let deployed_account_address = deploy_account_tx.contract_address;
+
+    let account_tx_context = AccountTransactionContext {
+        transaction_hash: deploy_account_tx.transaction_hash,
+        max_fee: deploy_account_tx.max_fee,
+        version: deploy_account_tx.version,
+        signature: deploy_account_tx.signature.clone(),
+        nonce: deploy_account_tx.nonce,
+        sender_address: deployed_account_address,
+    };
+
+    let actual_execution_info =
+        deploy_account_tx.execute_tx(&mut state, &block_context, &account_tx_context).unwrap();
+
+    let expected_execute_call_info = CallInfo {
+        call: CallEntryPoint {
+            entry_point_type: EntryPointType::Constructor,
+            entry_point_selector: get_selector(CONSTRUCTOR_ENTRY_POINT_NAME),
+            storage_address: deployed_account_address,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Verify deployment.
+    assert_eq!(actual_execution_info, expected_execute_call_info);
+    let class_hash_from_state = *state.get_class_hash_at(deployed_account_address).unwrap();
+    assert_eq!(class_hash_from_state, class_hash);
 }
