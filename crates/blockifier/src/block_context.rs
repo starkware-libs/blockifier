@@ -9,12 +9,12 @@ pub struct BlockContext {
     pub block_number: BlockNumber,
     pub block_timestamp: BlockTimestamp,
 
-    /// Fee-related.
+    // Fee-related.
     pub sequencer_address: ContractAddress,
     pub fee_token_address: ContractAddress,
     pub cairo_resource_fee_weights: HashMap<String, u32>,
 
-    /// Limits.
+    // Limits.
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
 }

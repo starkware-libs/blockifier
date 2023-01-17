@@ -34,7 +34,8 @@ use crate::execution::syscalls::{
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
-/// Executes StarkNet syscalls (stateful protocol hints) during the execution of an EP call.
+/// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
+/// call.
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,

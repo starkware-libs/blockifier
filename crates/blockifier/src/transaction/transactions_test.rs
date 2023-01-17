@@ -50,7 +50,8 @@ fn create_test_state() -> CachedState<DictStateReader> {
         (test_erc20_class_hash, get_contract_class(ERC20_CONTRACT_PATH)),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    // A random address that is unlikely to be equal to the result of calculate_contract_address().
+    // A random address that is unlikely to be equal to the result of
+    // `calculate_contract_address()`.
     let test_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([
