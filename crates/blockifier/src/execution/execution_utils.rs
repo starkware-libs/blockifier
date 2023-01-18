@@ -110,11 +110,11 @@ pub fn prepare_call_arguments(
 
     // Prepare calldata arguments.
     let calldata = &call_entry_point.calldata.0;
+    args.push(Box::new(MaybeRelocatable::from(calldata.len())));
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
-    args.push(Box::new(MaybeRelocatable::from(calldata.len())));
-    let calldata_start_ptr = MaybeRelocatable::from(read_only_segments.allocate(vm, calldata)?);
-    args.push(Box::new(calldata_start_ptr));
+    let calldata_segment = read_only_segments.allocate(vm, calldata)?;
+    args.push(Box::new(MaybeRelocatable::from(calldata_segment.start_ptr)));
 
     Ok((implicit_args, args))
 }
@@ -333,31 +333,52 @@ pub fn get_felt_from_memory_cell(
     }
 }
 
-/// Represents read-only segments dynamically allocated during execution.
+/// Represents a memory segment that is dynamically allocated during execution.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Segment {
+    pub start_ptr: Relocatable,
+    pub size: usize,
+}
+
+impl Segment {
+    pub fn write(
+        &self,
+        vm: &mut VirtualMachine,
+        ptr: &Relocatable,
+    ) -> Result<(), VirtualMachineError> {
+        vm.insert_value(ptr, self.start_ptr)?;
+        vm.insert_value(&(ptr + 1), self.size)
+    }
+}
+
+/// Represents read-only (fixed-length) segments.
 #[derive(Debug, Default)]
 // Invariant: read-only.
-pub struct ReadOnlySegments(Vec<(Relocatable, usize)>);
+pub struct ReadOnlySegments(Vec<Segment>);
 
 impl ReadOnlySegments {
     pub fn allocate(
         &mut self,
         vm: &mut VirtualMachine,
         data: Vec<MaybeRelocatable>,
-    ) -> Result<Relocatable, MemoryError> {
-        let segment_start_ptr = vm.add_memory_segment();
-        self.0.push((segment_start_ptr, data.len()));
-        vm.load_data(&segment_start_ptr.into(), &data)?;
-        Ok(segment_start_ptr)
+    ) -> Result<Segment, MemoryError> {
+        let segment = Segment { start_ptr: vm.add_memory_segment(), size: data.len() };
+        let start_ptr = MaybeRelocatable::from(&segment.start_ptr);
+
+        vm.load_data(&start_ptr, &data)?;
+        self.0.push(segment);
+
+        Ok(segment)
     }
 
     pub fn validate(&self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
         // TODO(AlonH, 21/12/2022): Validate segments consistency ("assert self.segments is
         // runner.segments" in python).
-        for (segment_start_ptr, segment_size) in &self.0 {
+        for segment in &self.0 {
             let used_size = vm
-                .get_segment_used_size(segment_start_ptr.segment_index as usize)
+                .get_segment_used_size(segment.start_ptr.segment_index as usize)
                 .expect("Segments must contain the allocated read-only segment.");
-            if *segment_size != used_size {
+            if segment.size != used_size {
                 return Err(PostExecutionError::SecurityValidationError(
                     "Read-only segments".to_string(),
                 ));
@@ -368,8 +389,8 @@ impl ReadOnlySegments {
     }
 
     pub fn mark_as_accessed(self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
-        for (segment_start_ptr, segment_size) in self.0 {
-            vm.mark_address_range_as_accessed(segment_start_ptr, segment_size)?;
+        for segment in self.0 {
+            vm.mark_address_range_as_accessed(segment.start_ptr, segment.size)?;
         }
 
         Ok(())

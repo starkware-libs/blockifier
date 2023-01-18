@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use cairo_felt::Felt;
+use cairo_felt::{Felt, FeltOps};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -34,6 +34,8 @@ use crate::execution::syscalls::{
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
+use super::execution_utils::Segment;
+
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
@@ -43,11 +45,9 @@ pub struct SyscallHintProcessor<'a> {
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
-    // Invariant: must only contain allowed hints.
-    builtin_hint_processor: BuiltinHintProcessor,
 
     // Execution results.
-    /// Inner calls invoked by the current execution.
+    // Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
     pub events: Vec<EventContent>,
     pub l2_to_l1_messages: Vec<MessageToL1>,
@@ -55,6 +55,13 @@ pub struct SyscallHintProcessor<'a> {
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
     pub syscall_ptr: Relocatable,
+
+    // Additional fields.
+    // Invariant: must only contain allowed hints.
+    builtin_hint_processor: BuiltinHintProcessor,
+    // The transaction info. and signature segments; allocated on-demand.
+    tx_signature_segment: Option<Segment>,
+    tx_info_segment: Option<Segment>,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -72,12 +79,14 @@ impl<'a> SyscallHintProcessor<'a> {
             account_tx_context,
             storage_address,
             caller_address,
-            builtin_hint_processor: extended_builtin_hint_processor(),
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
             read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
+            builtin_hint_processor: extended_builtin_hint_processor(),
+            tx_signature_segment: None,
+            tx_info_segment: None,
         }
     }
 
@@ -133,16 +142,48 @@ impl<'a> SyscallHintProcessor<'a> {
     where
         Request: SyscallRequest,
         Response: SyscallResponse,
-        ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'a>) -> SyscallResult<Response>,
+        ExecuteCallback: FnOnce(
+            Request,
+            &mut VirtualMachine,
+            &mut SyscallHintProcessor<'_>,
+        ) -> SyscallResult<Response>,
     {
         let request = Request::read(vm, &self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + Request::SIZE;
 
-        let response = execute_callback(request, self)?;
+        let response = execute_callback(request, vm, self)?;
         response.write(vm, &self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + Response::SIZE;
 
         Ok(())
+    }
+
+    pub fn get_or_allocate_tx_signature_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Segment> {
+        match self.tx_signature_segment {
+            Some(tx_signature_segment) => Ok(tx_signature_segment),
+            None => {
+                let tx_signature_segment = self.allocate_tx_signature_segment(vm)?;
+                self.tx_signature_segment = Some(tx_signature_segment);
+                Ok(tx_signature_segment)
+            }
+        }
+    }
+
+    pub fn get_or_allocate_tx_info_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Segment> {
+        match self.tx_info_segment {
+            Some(tx_info_segment) => Ok(tx_info_segment),
+            None => {
+                let tx_info_segment = self.allocate_tx_info_segment(vm)?;
+                self.tx_info_segment = Some(tx_info_segment);
+                Ok(tx_info_segment)
+            }
+        }
     }
 
     fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
@@ -152,6 +193,33 @@ impl<'a> SyscallHintProcessor<'a> {
         self.syscall_ptr = self.syscall_ptr + 1;
 
         Ok(selector)
+    }
+
+    fn allocate_tx_signature_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Segment> {
+        let signature = &self.account_tx_context.signature.0;
+        let signature: Vec<MaybeRelocatable> =
+            signature.iter().map(|x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let signature_segment = self.read_only_segments.allocate(vm, signature)?;
+
+        self.tx_signature_segment = Some(signature_segment);
+        Ok(signature_segment)
+    }
+
+    fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Segment> {
+        let signature_segment = self.get_or_allocate_tx_signature_segment(vm)?;
+        let tx_info: Vec<MaybeRelocatable> = vec![
+            stark_felt_to_felt(&self.account_tx_context.version.0).into(),
+            stark_felt_to_felt(self.account_tx_context.sender_address.0.key()).into(),
+            Felt::from(self.account_tx_context.max_fee.0).into(),
+            signature_segment.size.into(),
+            signature_segment.start_ptr.into(),
+            Felt::from_bytes_be(self.block_context.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(&self.account_tx_context.nonce.0).into(),
+        ];
+
+        let tx_info_segment = self.read_only_segments.allocate(vm, tx_info)?;
+        self.tx_info_segment = Some(tx_info_segment);
+        Ok(tx_info_segment)
     }
 }
 
