@@ -149,7 +149,6 @@ fn test_call_contract() {
     );
 }
 
-// TODO(Noa, 30/12/22): Add a test with no constructor
 #[test]
 fn test_deploy_with_constructor() {
     let mut state = create_test_state();

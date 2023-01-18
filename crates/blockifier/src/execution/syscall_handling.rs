@@ -172,7 +172,6 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     }
 }
 
-// TODO(Noa, 26/12/2022): Consider implementing it as a From trait.
 pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
     if felt == StarkFelt::from(0) {
         Ok(false)

@@ -59,10 +59,6 @@ impl CallEntryPoint {
     ) -> Result<usize, PreExecutionError> {
         let entry_points_of_same_type =
             &contract_class.entry_points_by_type[&self.entry_point_type];
-
-        // TODO(Noa, 30/12/22): Handle the case where filtered_entry_points.len() == 0 and
-        // entry_points.len() > 0
-
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
             Some(entry_point) => Ok(entry_point.offset.0),
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),

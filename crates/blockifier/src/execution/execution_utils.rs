@@ -276,7 +276,6 @@ pub fn felt_range(
     values
 }
 
-// TODO(Noa, 01/12/2022): Change this temporary solution.
 pub fn convert_program_to_cairo_runner_format(
     program: &starknet_api::state::Program,
 ) -> Result<Program, ProgramError> {
