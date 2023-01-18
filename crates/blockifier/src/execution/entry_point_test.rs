@@ -5,12 +5,45 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::get_selector;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, DictStateReader};
 use crate::test_utils::{
     create_security_test_state, create_test_state, trivial_external_entry_point,
 };
+
+#[test]
+fn test_call_info_iteration() {
+    // Create nested call infos according to their expected traversal order (pre-order).
+    // The tree is constructed as follows:
+    //                  root (0)
+    //              /             \
+    //      inner_node (1)      right_leaf (3)
+    //           |
+    //       left_leaf (2)
+    let left_leaf = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(2)], ..Default::default() },
+        ..Default::default()
+    };
+    let right_leaf = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(3)], ..Default::default() },
+        ..Default::default()
+    };
+    let inner_node = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(1)], ..Default::default() },
+        inner_calls: vec![left_leaf],
+        ..Default::default()
+    };
+    let root = CallInfo {
+        call: CallEntryPoint { calldata: calldata![stark_felt!(0)], ..Default::default() },
+        inner_calls: vec![inner_node, right_leaf],
+        ..Default::default()
+    };
+
+    for (i, call_info) in root.into_iter().enumerate() {
+        assert_eq!(call_info.call.calldata, calldata![stark_felt!(i as u64)]);
+    }
+}
 
 #[test]
 fn test_entry_point_without_arg() {
