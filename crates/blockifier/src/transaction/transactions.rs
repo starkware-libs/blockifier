@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use starknet_api::core::ContractAddress;
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::{DeclareTransaction, DeployAccountTransaction, InvokeTransaction};
+use starknet_api::transaction::{
+    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
+};
 
 use crate::abi::abi_utils::get_selector;
 use crate::block_context::BlockContext;
@@ -25,7 +29,7 @@ impl ExecuteTransaction for InvokeTransaction {
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: get_selector(EXECUTE_ENTRY_POINT_NAME),
-            calldata: self.calldata.clone(),
+            calldata: Calldata(Arc::clone(&self.calldata.0)),
             class_hash: None,
             storage_address: self.sender_address,
             caller_address: ContractAddress::default(),

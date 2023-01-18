@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -151,7 +153,7 @@ impl AccountTransaction {
                     get_selector(VALIDATE_ENTRY_POINT_NAME),
                     // The validation calldata for invoke transaction is the same calldata as for
                     // the execution itself.
-                    tx.calldata.clone(),
+                    Calldata(Arc::clone(&tx.calldata.0)),
                 )?;
 
                 // Execute invoke transaction.
