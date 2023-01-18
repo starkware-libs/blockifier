@@ -27,7 +27,6 @@ pub struct CallEntryPoint {
     pub class_hash: Option<ClassHash>,
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
-    // Appears in several locations during and after execution.
     pub calldata: Calldata,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,

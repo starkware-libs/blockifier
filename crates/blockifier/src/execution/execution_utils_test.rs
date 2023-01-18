@@ -38,7 +38,7 @@ fn get_tested_felts_and_corresponding_bigints() -> (Vec<StarkFelt>, Vec<Felt>) {
 #[test]
 fn test_stark_felt_to_felt() {
     let (felts, expected_bigints) = get_tested_felts_and_corresponding_bigints();
-    let converted_bigints: Vec<Felt> = felts.iter().map(|x| stark_felt_to_felt(*x)).collect();
+    let converted_bigints: Vec<Felt> = felts.iter().map(stark_felt_to_felt).collect();
 
     assert_eq!(converted_bigints, expected_bigints);
 }
@@ -46,7 +46,6 @@ fn test_stark_felt_to_felt() {
 #[test]
 fn test_felt_to_stark_felt() {
     let (expected_felts, bigints) = get_tested_felts_and_corresponding_bigints();
-    // Positive flow.
     let converted_felts: Vec<StarkFelt> = bigints.iter().map(felt_to_stark_felt).collect();
 
     assert_eq!(converted_felts, expected_felts);
