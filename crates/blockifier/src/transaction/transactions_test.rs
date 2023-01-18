@@ -64,10 +64,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
         StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY));
     let storage_view = HashMap::from([
         ((test_erc20_address, test_erc20_sequencer_balance_key), stark_felt!(0)),
-        (
-            (test_erc20_address, test_erc20_account_balance_key),
-            stark_felt!(get_tested_actual_fee().0 as u64),
-        ),
+        ((test_erc20_address, test_erc20_account_balance_key), stark_felt!(actual_fee().0 as u64)),
     ]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
@@ -77,7 +74,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
-fn get_tested_valid_invoke_tx() -> InvokeTransaction {
+fn invoke_tx() -> InvokeTransaction {
     let entry_point_selector = get_selector("return_result");
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
@@ -95,7 +92,7 @@ fn get_tested_valid_invoke_tx() -> InvokeTransaction {
     }
 }
 
-fn get_tested_actual_fee() -> Fee {
+fn actual_fee() -> Fee {
     Fee(1)
 }
 
@@ -106,7 +103,7 @@ fn test_invoke_tx() {
 
     // Extract invoke transaction fields for testing, as the transaction execution consumes
     // the transaction.
-    let invoke_tx = get_tested_valid_invoke_tx();
+    let invoke_tx = invoke_tx();
     let calldata = invoke_tx.calldata.clone();
     let sender_address = invoke_tx.sender_address;
 
@@ -157,7 +154,7 @@ fn test_invoke_tx() {
 
     // Build expected fee transfer call info.
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
-    let expected_actual_fee = get_tested_actual_fee();
+    let expected_actual_fee = actual_fee();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(expected_actual_fee.0 as u64);
     // The most significant 128 bits of the expected amount transferred.
@@ -232,7 +229,7 @@ fn test_invoke_tx() {
 fn test_negative_invoke_tx_flows() {
     let mut state = create_test_state();
     let block_context = BlockContext::create_for_testing();
-    let valid_invoke_tx = get_tested_valid_invoke_tx();
+    let valid_invoke_tx = invoke_tx();
 
     // Invalid version.
     // Note: there is no need to test for a negative version, as it cannot be constructed.
@@ -260,7 +257,7 @@ fn test_negative_invoke_tx_flows() {
     let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Test error.
-    let expected_actual_fee = get_tested_actual_fee();
+    let expected_actual_fee = actual_fee();
     assert_matches!(
         execution_error,
         TransactionExecutionError::FeeTransferError(FeeTransferError::MaxFeeExceeded {
@@ -285,7 +282,7 @@ fn test_negative_invoke_tx_flows() {
 }
 
 // Declare.
-fn get_tested_valid_declare_tx() -> DeclareTransaction {
+fn declare_tx() -> DeclareTransaction {
     DeclareTransaction {
         max_fee: Fee(1),
         version: TransactionVersion(StarkFelt::from(1)),
@@ -300,7 +297,7 @@ fn test_declare_tx() {
     let mut state = create_test_state();
     let block_context = BlockContext::create_for_testing();
 
-    let declare_tx = get_tested_valid_declare_tx();
+    let declare_tx = declare_tx();
     let account_tx_context = AccountTransactionContext::default();
     let actual_execution_info =
         declare_tx.execute_tx(&mut state, &block_context, &account_tx_context).unwrap();
@@ -310,7 +307,7 @@ fn test_declare_tx() {
 }
 
 // DeployAccount.
-fn get_tested_valid_deploy_account_tx() -> DeployAccountTransaction {
+fn deploy_account_tx() -> DeployAccountTransaction {
     let class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let deployer_address = ContractAddress::default();
     let contract_address_salt = ContractAddressSalt::default();
@@ -339,7 +336,7 @@ fn test_deploy_account_tx() {
     let block_context = BlockContext::create_for_testing();
     // Extract deploy account transaction fields for testing, as the transaction execution consumes
     // the transaction.
-    let deploy_account_tx = get_tested_valid_deploy_account_tx();
+    let deploy_account_tx = deploy_account_tx();
     let class_hash = deploy_account_tx.class_hash;
     let deployed_account_address = deploy_account_tx.contract_address;
 
