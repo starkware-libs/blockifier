@@ -22,7 +22,7 @@ use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecut
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    felt_range, get_felt_from_memory_cell, stark_felt_to_felt, ReadOnlySegments,
+    felt_range_from_ptr, get_felt_from_memory_cell, stark_felt_to_felt, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -124,7 +124,7 @@ impl<'a> SyscallHintProcessor<'a> {
         }
     }
 
-    pub fn execute_syscall<Request, Response, ExecuteCallback>(
+    fn execute_syscall<Request, Response, ExecuteCallback>(
         &mut self,
         vm: &mut VirtualMachine,
         execute_callback: ExecuteCallback,
@@ -192,7 +192,7 @@ pub fn write_felt(
     ptr: &Relocatable,
     felt: StarkFelt,
 ) -> SyscallResult<()> {
-    Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
+    Ok(vm.insert_value(ptr, stark_felt_to_felt(&felt))?)
 }
 
 pub fn write_felt_array(
@@ -206,7 +206,8 @@ pub fn write_felt_array(
     // Write response payload to the memory.
     let segment_start_ptr = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment_start_ptr)?;
-    let data: Vec<MaybeRelocatable> = data.iter().map(|x| stark_felt_to_felt(*x).into()).collect();
+    let data: Vec<MaybeRelocatable> =
+        data.iter().map(|x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
     vm.load_data(&segment_start_ptr.into(), &data)?;
 
     Ok(())
@@ -218,7 +219,7 @@ pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<
         return Err(VirtualMachineError::NoneInMemoryRange.into())
     };
 
-    Ok(felt_range(vm, &array_data_ptr, array_size.try_into()?)?)
+    Ok(felt_range_from_ptr(vm, &array_data_ptr, array_size.try_into()?)?)
 }
 
 pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Calldata> {

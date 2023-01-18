@@ -8,9 +8,6 @@ use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
-// TODO(Elin,01/02/2023): delete once account_data is added to SN API's paid transactions.
-// Also delete cloning of those fields throughout the code.
-
 /// Contains the account information of the transaction (outermost call).
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct AccountTransactionContext {

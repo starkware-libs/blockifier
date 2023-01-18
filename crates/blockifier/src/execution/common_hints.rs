@@ -65,7 +65,7 @@ pub fn normalize_address_set_is_250(
     insert_value_from_var_name("is_250", is_250, vm, ids_data, ap_tracking)
 }
 
-/// Extend `BuiltinHintProcessor` with common hints.
+/// Extend the builtin hint processor with common hints.
 pub fn extended_builtin_hint_processor() -> BuiltinHintProcessor {
     let extra_hints: HashMap<String, Rc<HintFunc>> = HashMap::from([
         (

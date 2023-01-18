@@ -19,7 +19,7 @@ type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Caches read and write requests.
 ///
-/// Writer functionality is built-in, whereas Reader functionality is injected through
+/// Writer functionality is builtin, whereas Reader functionality is injected through
 /// initialization.
 #[derive(Debug, Default)]
 pub struct CachedState<SR: StateReader> {
@@ -33,6 +33,35 @@ pub struct CachedState<SR: StateReader> {
 impl<SR: StateReader> CachedState<SR> {
     pub fn new(state_reader: SR) -> Self {
         Self { state_reader, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+    }
+}
+
+impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
+    fn from(cached_state: CachedState<SR>) -> Self {
+        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
+
+        let state_cache = cached_state.cache;
+
+        // Contract instance attributes.
+        let deployed_contracts = subtract_mappings(
+            &state_cache.class_hash_writes,
+            &state_cache.class_hash_initial_values,
+        );
+        let storage_diffs =
+            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
+        let nonces =
+            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
+
+        // TODO(Gilad, 10/1/23): Currently this map is immutable, change this when we align to
+        // 0.11.0.
+        let declared_classes = IndexMap::new();
+
+        Self {
+            deployed_contracts: IndexMap::from_iter(deployed_contracts),
+            storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
+            declared_classes,
+            nonces: IndexMap::from_iter(nonces),
+        }
     }
 }
 
@@ -130,35 +159,6 @@ impl<SR: StateReader> State for CachedState<SR> {
 
         self.cache.set_class_hash_write(contract_address, class_hash);
         Ok(())
-    }
-}
-
-impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
-    fn from(cached_state: CachedState<SR>) -> Self {
-        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
-
-        let state_cache = cached_state.cache;
-
-        // Contract instance attributes.
-        let deployed_contracts = subtract_mappings(
-            &state_cache.class_hash_writes,
-            &state_cache.class_hash_initial_values,
-        );
-        let storage_diffs =
-            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
-        let nonces =
-            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
-
-        // TODO(Gilad, 10/1/23): Currently this map is immutable, change this when we align to
-        // 0.11.0.
-        let declared_classes = IndexMap::new();
-
-        Self {
-            deployed_contracts: IndexMap::from_iter(deployed_contracts),
-            storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
-            declared_classes,
-            nonces: IndexMap::from_iter(nonces),
-        }
     }
 }
 
