@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::collections::HashMap;
 
 use cairo_felt::{Felt, FeltOps};
@@ -11,7 +10,7 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::CairoRunner;
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
@@ -29,7 +28,7 @@ use crate::execution::syscall_handling::SyscallHintProcessor;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
-pub type Args = Vec<Box<dyn Any>>;
+pub type Args = Vec<CairoArg>;
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
@@ -96,7 +95,7 @@ pub fn prepare_call_arguments(
     // Prepare called EP details.
     let entry_point_selector =
         MaybeRelocatable::from(stark_felt_to_felt(&call_entry_point.entry_point_selector.0));
-    args.push(Box::new(entry_point_selector));
+    args.push(CairoArg::from(entry_point_selector));
 
     // Prepare implicit arguments.
     let mut implicit_args = vec![];
@@ -106,15 +105,17 @@ pub fn prepare_call_arguments(
             .iter()
             .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack()),
     );
-    args.push(Box::new(implicit_args.clone()));
+    args.push(CairoArg::from(implicit_args.clone()));
 
     // Prepare calldata arguments.
     let calldata = &call_entry_point.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
-    args.push(Box::new(MaybeRelocatable::from(calldata.len())));
+    let calldata_length = MaybeRelocatable::from(calldata.len());
+    args.push(CairoArg::from(calldata_length));
+
     let calldata_start_ptr = MaybeRelocatable::from(read_only_segments.allocate(vm, calldata)?);
-    args.push(Box::new(calldata_start_ptr));
+    args.push(CairoArg::from(calldata_start_ptr));
 
     Ok((implicit_args, args))
 }
@@ -164,15 +165,10 @@ pub fn run_entry_point(
     args: Args,
     hint_processor: &mut SyscallHintProcessor<'_>,
 ) -> Result<(), VirtualMachineExecutionError> {
-    cairo_runner.run_from_entrypoint(
-        entry_point_pc,
-        args.iter().map(|x| x.as_ref()).collect(),
-        false,
-        true,
-        true,
-        vm,
-        hint_processor,
-    )?;
+    let verify_secure = true;
+    let args: Vec<&CairoArg> = args.iter().collect();
+
+    cairo_runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
     Ok(())
 }
 
