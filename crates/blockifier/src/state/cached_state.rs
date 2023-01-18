@@ -19,7 +19,7 @@ type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Caches read and write requests.
 ///
-/// Writer functionality is built-in, whereas Reader functionality is injected through
+/// Writer functionality is builtin, whereas Reader functionality is injected through
 /// initialization.
 #[derive(Debug, Default)]
 pub struct CachedState<SR: StateReader> {

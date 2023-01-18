@@ -35,21 +35,21 @@ pub type Args = Vec<Box<dyn Any>>;
 #[path = "execution_utils_test.rs"]
 pub mod test;
 
-pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt {
-    Felt::from_bytes_be(stark_felt.bytes())
-}
-
-pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
-    let biguint = format!("{:#x}", felt.to_biguint());
-    StarkFelt::try_from(biguint.as_str()).expect("Felt must be in StarkFelt's range.")
-}
-
 pub struct ExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point_pc: usize,
+}
+
+pub fn stark_felt_to_felt(stark_felt: &StarkFelt) -> Felt {
+    Felt::from_bytes_be(stark_felt.bytes())
+}
+
+pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
+    let biguint = format!("{:#x}", felt.to_biguint());
+    StarkFelt::try_from(biguint.as_str()).expect("Felt must be in StarkFelt's range.")
 }
 
 pub fn initialize_execution_context<'a>(
@@ -95,7 +95,7 @@ pub fn prepare_call_arguments(
 
     // Prepare called EP details.
     let entry_point_selector =
-        MaybeRelocatable::Int(stark_felt_to_felt(call_entry_point.entry_point_selector.0));
+        MaybeRelocatable::from(stark_felt_to_felt(&call_entry_point.entry_point_selector.0));
     args.push(Box::new(entry_point_selector));
 
     // Prepare implicit arguments.
@@ -111,10 +111,9 @@ pub fn prepare_call_arguments(
     // Prepare calldata arguments.
     let calldata = &call_entry_point.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
-        calldata.iter().map(|arg| MaybeRelocatable::Int(stark_felt_to_felt(*arg))).collect();
-    args.push(Box::new(MaybeRelocatable::Int(Felt::from(calldata.len()))));
-    let calldata_start_ptr =
-        MaybeRelocatable::RelocatableValue(read_only_segments.allocate(vm, calldata)?);
+        calldata.iter().map(|arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
+    args.push(Box::new(MaybeRelocatable::from(calldata.len())));
+    let calldata_start_ptr = MaybeRelocatable::from(read_only_segments.allocate(vm, calldata)?);
     args.push(Box::new(calldata_start_ptr));
 
     Ok((implicit_args, args))
@@ -261,10 +260,10 @@ fn read_execution_retdata(
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    Ok(Retdata(felt_range(&vm, &retdata_ptr, retdata_size)?.into()))
+    Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?.into()))
 }
 
-pub fn felt_range(
+pub fn felt_range_from_ptr(
     vm: &VirtualMachine,
     ptr: &MaybeRelocatable,
     size: usize,
