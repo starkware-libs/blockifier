@@ -45,7 +45,7 @@ pub trait SyscallResponse {
     fn write(self, _vm: &mut VirtualMachine, _ptr: &Relocatable) -> WriteResponseResult;
 }
 
-/// Common structs.
+// Common structs.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmptyRequest;
