@@ -6,9 +6,10 @@ use starknet_api::{calldata, stark_felt};
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
 use crate::retdata;
-use crate::state::cached_state::{CachedState, DictStateReader};
+use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_test_state, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_test_state, trivial_external_entry_point, DictStateReader, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS,
 };
 
 #[test]
