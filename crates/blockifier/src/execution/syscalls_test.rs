@@ -1,6 +1,7 @@
 use pretty_assertions::assert_eq;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};
 
@@ -29,7 +30,8 @@ fn test_storage_read_write() {
         CallExecution { retdata: retdata![stark_felt!(value)] }
     );
     // Verify that the state has changed.
-    let value_from_state = *state.get_storage_at(storage_address, key.try_into().unwrap()).unwrap();
+    let value_from_state =
+        *state.get_storage_at(storage_address, StorageKey::try_from(key).unwrap()).unwrap();
     assert_eq!(value_from_state, value);
 }
 
