@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
@@ -16,7 +17,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
@@ -29,18 +30,14 @@ use crate::test_utils::{
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::constants::{
-    EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, TRANSFER_EVENT_NAME,
-    VALIDATE_ENTRY_POINT_NAME,
-};
+use crate::transaction::constants;
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
-use crate::transaction::execute_transaction::ExecuteTransaction;
-use crate::transaction::objects::{
-    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
-};
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 
-// InvokeFunction.
-fn create_test_state() -> CachedState<DictStateReader> {
+pub const TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY: &str =
+    "0x59edd60f3f5ec74e9044489e795cf85179665185dd4317e31668390760f3011";
+
+fn create_account_tx_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
     let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
@@ -76,6 +73,99 @@ fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
+fn actual_fee() -> Fee {
+    Fee(1)
+}
+
+fn expected_validate_call_info(
+    entry_point_selector_name: &str,
+    calldata: Calldata,
+    storage_address: ContractAddress,
+) -> CallInfo {
+    CallInfo {
+        call: CallEntryPoint {
+            class_hash: None,
+            entry_point_type: EntryPointType::External,
+            entry_point_selector: selector_from_name(entry_point_selector_name),
+            calldata,
+            storage_address,
+            caller_address: ContractAddress::default(),
+        },
+        // The account contract we use for testing has trivial `validate` functions.
+        execution: CallExecution { retdata: retdata![] },
+        ..Default::default()
+    }
+}
+
+fn expected_fee_transfer_call_info(
+    block_context: &BlockContext,
+    account_address: ContractAddress,
+    actual_fee: Fee,
+) -> CallInfo {
+    let expected_sequencer_address = *block_context.sequencer_address.0.key();
+    // The least significant 128 bits of the expected amount transferred.
+    let lsb_expected_amount = stark_felt!(actual_fee.0 as u64);
+    // The most significant 128 bits of the expected amount transferred.
+    let msb_expected_amount = stark_felt!(0);
+    let expected_fee_transfer_call = CallEntryPoint {
+        class_hash: None,
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
+        calldata: calldata![
+            expected_sequencer_address, // Recipient.
+            lsb_expected_amount,
+            msb_expected_amount
+        ],
+        storage_address: block_context.fee_token_address,
+        caller_address: account_address,
+    };
+    let expected_fee_sender_address = *account_address.0.key();
+    let expected_fee_transfer_event = EventContent {
+        keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
+        data: EventData(vec![
+            expected_fee_sender_address,
+            expected_sequencer_address, // Recipient.
+            lsb_expected_amount,
+            msb_expected_amount,
+        ]),
+    };
+    CallInfo {
+        call: expected_fee_transfer_call,
+        execution: CallExecution { retdata: retdata![stark_felt!(true as u64)] },
+        events: vec![expected_fee_transfer_event],
+        ..Default::default()
+    }
+}
+
+fn validate_final_balances(
+    state: &mut CachedState<DictStateReader>,
+    block_context: &BlockContext,
+    expected_sequencer_balance: StarkFelt,
+    erc20_account_balance_key: &str,
+) {
+    // We currently assume the total fee charged for the transaction is equal to the initial balance
+    // of the account.
+    let expected_account_balance = stark_felt!(0);
+    assert_eq!(
+        state
+            .get_storage_at(
+                block_context.fee_token_address,
+                StorageKey(patricia_key!(erc20_account_balance_key))
+            )
+            .unwrap(),
+        &stark_felt!(expected_account_balance)
+    );
+    assert_eq!(
+        state
+            .get_storage_at(
+                block_context.fee_token_address,
+                StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY))
+            )
+            .unwrap(),
+        &stark_felt!(expected_sequencer_balance)
+    );
+}
+
 fn invoke_tx() -> InvokeTransaction {
     let entry_point_selector = selector_from_name("return_result");
     let execute_calldata = calldata![
@@ -94,39 +184,27 @@ fn invoke_tx() -> InvokeTransaction {
     }
 }
 
-fn actual_fee() -> Fee {
-    Fee(1)
-}
-
 #[test]
 fn test_invoke_tx() {
-    let mut state = create_test_state();
-    let block_context = BlockContext::create_for_testing();
-
-    // Extract invoke transaction fields for testing, as the transaction execution consumes
-    // the transaction.
+    let state = &mut create_account_tx_test_state();
+    let block_context = &BlockContext::create_for_testing();
     let invoke_tx = invoke_tx();
+
+    // Extract invoke transaction fields for testing, as it is consumed when creating an account
+    // transaction.
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata.0));
     let sender_address = invoke_tx.sender_address;
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
-    let actual_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-    let expected_validate_call_info = CallInfo {
-        call: CallEntryPoint {
-            class_hash: None,
-            entry_point_type: EntryPointType::External,
-            entry_point_selector: selector_from_name(VALIDATE_ENTRY_POINT_NAME),
-            calldata,
-            storage_address: expected_account_address,
-            caller_address: ContractAddress::default(),
-        },
-        // The account contract we use for testing has a trivial `validate` function.
-        execution: CallExecution { retdata: retdata![] },
-        ..Default::default()
-    };
+    let expected_validate_call_info = expected_validate_call_info(
+        constants::VALIDATE_ENTRY_POINT_NAME,
+        calldata,
+        expected_account_address,
+    );
 
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2)];
@@ -139,11 +217,11 @@ fn test_invoke_tx() {
         caller_address: expected_account_address,
     };
     let expected_execute_call = CallEntryPoint {
-        entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
+        entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata.into());
-    let expected_execute_call_info = CallInfo {
+    let expected_execute_call_info = Some(CallInfo {
         call: expected_execute_call,
         execution: CallExecution { retdata: Retdata(Rc::clone(&expected_return_result_retdata.0)) },
         inner_calls: vec![CallInfo {
@@ -152,47 +230,19 @@ fn test_invoke_tx() {
             ..Default::default()
         }],
         ..Default::default()
-    };
+    });
 
     // Build expected fee transfer call info.
-    let expected_sequencer_address = *block_context.sequencer_address.0.key();
     let expected_actual_fee = actual_fee();
-    // The least significant 128 bits of the expected amount transferred.
-    let lsb_expected_amount = stark_felt!(expected_actual_fee.0 as u64);
-    // The most significant 128 bits of the expected amount transferred.
-    let msb_expected_amount = stark_felt!(0);
-    let expected_fee_transfer_call = CallEntryPoint {
-        class_hash: None,
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: selector_from_name(TRANSFER_ENTRY_POINT_NAME),
-        calldata: calldata![
-            expected_sequencer_address, // Recipient.
-            lsb_expected_amount,
-            msb_expected_amount
-        ],
-        storage_address: block_context.fee_token_address,
-        caller_address: expected_account_address,
-    };
-    let expected_fee_sender_address = *expected_account_address.0.key();
-    let expected_fee_transfer_event = EventContent {
-        keys: vec![EventKey(selector_from_name(TRANSFER_EVENT_NAME).0)],
-        data: EventData(vec![
-            expected_fee_sender_address,
-            expected_sequencer_address, // Recipient.
-            lsb_expected_amount,
-            msb_expected_amount,
-        ]),
-    };
-    let expected_fee_transfer_call_info = CallInfo {
-        call: expected_fee_transfer_call,
-        execution: CallExecution { retdata: retdata![stark_felt!(true as u64)] },
-        events: vec![expected_fee_transfer_event],
-        ..Default::default()
-    };
+    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+        block_context,
+        expected_account_address,
+        expected_actual_fee,
+    );
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
-        execute_call_info: Some(expected_execute_call_info),
+        execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping::default(),
@@ -202,35 +252,23 @@ fn test_invoke_tx() {
     assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
-    assert_eq!(*state.get_nonce_at(sender_address).unwrap(), Nonce(stark_felt!(1)));
+    let nonce_from_state = *state.get_nonce_at(sender_address).unwrap();
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
 
     // Test final balances.
-    let expected_account_balance = stark_felt!(0);
-    let expected_sequencer_balance = lsb_expected_amount;
-    assert_eq!(
-        state
-            .get_storage_at(
-                block_context.fee_token_address,
-                StorageKey(patricia_key!(TEST_ERC20_ACCOUNT_BALANCE_KEY))
-            )
-            .unwrap(),
-        &stark_felt!(expected_account_balance)
-    );
-    assert_eq!(
-        state
-            .get_storage_at(
-                block_context.fee_token_address,
-                StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY))
-            )
-            .unwrap(),
-        &stark_felt!(expected_sequencer_balance)
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
+    validate_final_balances(
+        state,
+        block_context,
+        expected_sequencer_balance,
+        TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 }
 
 #[test]
 fn test_negative_invoke_tx_flows() {
-    let mut state = create_test_state();
-    let block_context = BlockContext::create_for_testing();
+    let state = &mut create_account_tx_test_state();
+    let block_context = &BlockContext::create_for_testing();
     let valid_invoke_tx = invoke_tx();
 
     // Invalid version.
@@ -240,7 +278,7 @@ fn test_negative_invoke_tx_flows() {
         version: invalid_tx_version,
         ..valid_invoke_tx.clone()
     });
-    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
+    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
 
     // Test error.
     let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
@@ -256,7 +294,7 @@ fn test_negative_invoke_tx_flows() {
         max_fee: tx_max_fee,
         ..valid_invoke_tx.clone()
     });
-    let execution_error = invalid_tx.execute(&mut state, &block_context).unwrap_err();
+    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
 
     // Test error.
     let expected_actual_fee = actual_fee();
@@ -273,7 +311,8 @@ fn test_negative_invoke_tx_flows() {
     // Use a fresh state to facilitate testing.
     let nonce = Nonce(stark_felt!(1));
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction { nonce, ..valid_invoke_tx });
-    let execution_error = invalid_tx.execute(&mut create_test_state(), &block_context).unwrap_err();
+    let execution_error =
+        invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
 
     // Test error.
     assert_matches!(
@@ -283,7 +322,6 @@ fn test_negative_invoke_tx_flows() {
     );
 }
 
-// Declare.
 fn declare_tx() -> DeclareTransaction {
     DeclareTransaction {
         max_fee: Fee(1),
@@ -296,19 +334,59 @@ fn declare_tx() -> DeclareTransaction {
 
 #[test]
 fn test_declare_tx() {
-    let mut state = create_test_state();
-    let block_context = BlockContext::create_for_testing();
-
+    let state = &mut create_account_tx_test_state();
+    let block_context = &BlockContext::create_for_testing();
     let declare_tx = declare_tx();
-    let account_tx_context = AccountTransactionContext::default();
-    let actual_execution_info =
-        declare_tx.execute_tx(&mut state, &block_context, &account_tx_context).unwrap();
+
+    // Extract declare transaction fields for testing, as it is consumed when creating an account
+    // transaction.
+    let sender_address = declare_tx.sender_address;
+    let class_hash = declare_tx.class_hash.0;
+
+    let account_tx = AccountTransaction::Declare(declare_tx);
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+
+    // Build expected validate call info.
+    let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let expected_validate_call_info = expected_validate_call_info(
+        constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
+        calldata![class_hash],
+        expected_account_address,
+    );
+
+    // Build expected fee transfer call info.
+    let expected_actual_fee = actual_fee();
+    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+        block_context,
+        expected_account_address,
+        expected_actual_fee,
+    );
+
+    let expected_execution_info = TransactionExecutionInfo {
+        validate_call_info: expected_validate_call_info,
+        execute_call_info: None,
+        fee_transfer_call_info: expected_fee_transfer_call_info,
+        actual_fee: expected_actual_fee,
+        actual_resources: ResourcesMapping::default(),
+    };
 
     // Test execution info result.
-    assert_eq!(actual_execution_info, CallInfo::default());
+    assert_eq!(actual_execution_info, expected_execution_info);
+
+    // Test nonce update.
+    let nonce_from_state = *state.get_nonce_at(sender_address).unwrap();
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
+
+    // Test final balances.
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
+    validate_final_balances(
+        state,
+        block_context,
+        expected_sequencer_balance,
+        TEST_ERC20_ACCOUNT_BALANCE_KEY,
+    );
 }
 
-// DeployAccount.
 fn deploy_account_tx() -> DeployAccountTransaction {
     let class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let deployer_address = ContractAddress::default();
@@ -333,38 +411,82 @@ fn deploy_account_tx() -> DeployAccountTransaction {
 
 #[test]
 fn test_deploy_account_tx() {
-    let mut state = create_test_state();
-    let block_context = BlockContext::create_for_testing();
-    // Extract deploy account transaction fields for testing, as the transaction execution consumes
-    // the transaction.
+    let state = &mut create_account_tx_test_state();
+    let block_context = &BlockContext::create_for_testing();
     let deploy_account_tx = deploy_account_tx();
+
+    // Extract deploy account transaction fields for testing, as it is consumed when creating an
+    // account transaction.
     let class_hash = deploy_account_tx.class_hash;
     let deployed_account_address = deploy_account_tx.contract_address;
+    let constructor_calldata = deploy_account_tx.constructor_calldata.clone();
+    let salt = deploy_account_tx.contract_address_salt;
 
-    let account_tx_context = AccountTransactionContext {
-        transaction_hash: deploy_account_tx.transaction_hash,
-        max_fee: deploy_account_tx.max_fee,
-        version: deploy_account_tx.version,
-        signature: deploy_account_tx.signature.clone(),
-        nonce: deploy_account_tx.nonce,
-        sender_address: deployed_account_address,
-    };
+    // Update the balance of the about to be deployed account contract in the erc20 contract, so it
+    // can pay for the transaction execution.
+    let expected_actual_fee = actual_fee();
+    state.set_storage_at(
+        block_context.fee_token_address,
+        StorageKey(patricia_key!(TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY)),
+        stark_felt!(expected_actual_fee.0 as u64),
+    );
 
-    let actual_execution_info =
-        deploy_account_tx.execute_tx(&mut state, &block_context, &account_tx_context).unwrap();
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
-    let expected_execute_call_info = CallInfo {
+    // Build expected validate call info.
+    let validate_calldata =
+        concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
+
+    let expected_validate_call_info = expected_validate_call_info(
+        constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+        Calldata(validate_calldata.into()),
+        deployed_account_address,
+    );
+
+    // Build expected execute call info.
+    let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
             entry_point_type: EntryPointType::Constructor,
-            entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,
             ..Default::default()
         },
         ..Default::default()
+    });
+
+    // Build expected fee transfer call info.
+    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+        block_context,
+        deployed_account_address,
+        expected_actual_fee,
+    );
+
+    let expected_execution_info = TransactionExecutionInfo {
+        validate_call_info: expected_validate_call_info,
+        execute_call_info: expected_execute_call_info,
+        fee_transfer_call_info: expected_fee_transfer_call_info,
+        actual_fee: expected_actual_fee,
+        actual_resources: ResourcesMapping::default(),
     };
 
+    // Test execution info result.
+    assert_eq!(actual_execution_info, expected_execution_info);
+
+    // Test nonce update.
+    let nonce_from_state = *state.get_nonce_at(deployed_account_address).unwrap();
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
+
+    // Test final balances.
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
+    validate_final_balances(
+        state,
+        block_context,
+        expected_sequencer_balance,
+        TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY,
+    );
+
     // Verify deployment.
-    assert_eq!(actual_execution_info, expected_execute_call_info);
     let class_hash_from_state = *state.get_class_hash_at(deployed_account_address).unwrap();
     assert_eq!(class_hash_from_state, class_hash);
 }
