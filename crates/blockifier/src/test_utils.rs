@@ -44,7 +44,7 @@ pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
 // struct instead of our own, which contains a `contract_path` instead of a `contract_address`.
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
     let path = PathBuf::from(contract_path);
-    ContractClass::from_file(&path).expect("File must contain the content of a compiled contract.")
+    ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
 }
 
 pub fn get_test_contract_class() -> ContractClass {
