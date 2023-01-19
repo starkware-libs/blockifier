@@ -5,7 +5,7 @@ use crate::transaction::objects::{AccountTransactionContext, TransactionExecutio
 
 pub trait ExecuteTransaction {
     fn execute_tx(
-        self,
+        &self,
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,

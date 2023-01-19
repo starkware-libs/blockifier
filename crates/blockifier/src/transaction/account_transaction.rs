@@ -1,15 +1,23 @@
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
-use starknet_api::transaction::{Calldata, Fee, InvokeTransaction, TransactionVersion};
+use starknet_api::transaction::{
+    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransaction,
+    TransactionVersion,
+};
 
 use crate::abi::abi_utils::get_selector;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
-use crate::transaction::constants::{TRANSFER_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME};
+use crate::transaction::constants::{
+    TRANSFER_ENTRY_POINT_NAME, VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+    VALIDATE_ENTRY_POINT_NAME,
+};
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::execute_transaction::ExecuteTransaction;
 use crate::transaction::objects::{
@@ -20,12 +28,30 @@ use crate::transaction::transaction_utils::calculate_tx_fee;
 
 /// Represents a paid StarkNet transaction.
 pub enum AccountTransaction {
+    Declare(DeclareTransaction),
+    DeployAccount(DeployAccountTransaction),
     Invoke(InvokeTransaction),
 }
 
 impl AccountTransaction {
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
+            Self::Declare(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash,
+                max_fee: tx.max_fee,
+                version: tx.version,
+                signature: tx.signature.clone(),
+                nonce: tx.nonce,
+                sender_address: tx.sender_address,
+            },
+            Self::DeployAccount(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash,
+                max_fee: tx.max_fee,
+                version: tx.version,
+                signature: tx.signature.clone(),
+                nonce: tx.nonce,
+                sender_address: tx.contract_address,
+            },
             Self::Invoke(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash,
                 max_fee: tx.max_fee,
@@ -142,6 +168,39 @@ impl AccountTransaction {
         let validate_call_info;
         let execute_call_info;
         match self {
+            Self::Declare(tx) => {
+                // Validate declare transaction.
+                validate_call_info = Self::validate_tx(
+                    state,
+                    block_context,
+                    &account_tx_context,
+                    get_selector(VALIDATE_DECLARE_ENTRY_POINT_NAME),
+                    // `__validate_declare__` is expected to get one parameter: 'class_hash'.
+                    calldata![tx.class_hash.0],
+                )?;
+
+                // Execute declare transaction.
+                tx.execute_tx(state, block_context, &account_tx_context)?;
+                execute_call_info = None;
+            }
+            Self::DeployAccount(tx) => {
+                // Execute deploy account transaction.
+                execute_call_info =
+                    Some(tx.execute_tx(state, block_context, &account_tx_context)?);
+
+                // Validate deploy account transaction.
+                // `__validate_deploy__` is expected to get the arguments: class_hash, salt,
+                // constructor_calldata.
+                let mut validate_calldata_vec = vec![tx.class_hash.0, tx.contract_address_salt.0];
+                validate_calldata_vec.extend(&(*tx.constructor_calldata.0));
+                validate_call_info = Self::validate_tx(
+                    state,
+                    block_context,
+                    &account_tx_context,
+                    get_selector(VALIDATE_DEPLOY_ENTRY_POINT_NAME),
+                    Calldata(Arc::new(validate_calldata_vec)),
+                )?;
+            }
             Self::Invoke(tx) => {
                 // Validate invoke transaction.
                 validate_call_info = Self::validate_tx(
@@ -155,7 +214,8 @@ impl AccountTransaction {
                 )?;
 
                 // Execute invoke transaction.
-                execute_call_info = tx.execute_tx(state, block_context, &account_tx_context)?;
+                execute_call_info =
+                    Some(tx.execute_tx(state, block_context, &account_tx_context)?);
             }
         };
 
@@ -166,7 +226,7 @@ impl AccountTransaction {
 
         Ok(TransactionExecutionInfo {
             validate_call_info,
-            execute_call_info: Some(execute_call_info),
+            execute_call_info,
             fee_transfer_call_info,
             actual_fee,
             actual_resources,

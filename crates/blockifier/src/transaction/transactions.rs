@@ -15,9 +15,40 @@ use crate::transaction::objects::{AccountTransactionContext, TransactionExecutio
 #[path = "transactions_test.rs"]
 mod test;
 
+impl ExecuteTransaction for DeclareTransaction {
+    fn execute_tx(
+        &self,
+        _state: &mut dyn State,
+        _block_context: &BlockContext,
+        _account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<CallInfo> {
+        Ok(CallInfo::default())
+    }
+}
+
+impl ExecuteTransaction for DeployAccountTransaction {
+    fn execute_tx(
+        &self,
+        state: &mut dyn State,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<CallInfo> {
+        let call_info = execute_deployment(
+            state,
+            block_context,
+            account_tx_context,
+            self.class_hash,
+            self.contract_address,
+            ContractAddress::default(),
+            self.constructor_calldata.clone(),
+        )?;
+        Ok(call_info)
+    }
+}
+
 impl ExecuteTransaction for InvokeTransaction {
     fn execute_tx(
-        self,
+        &self,
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
@@ -32,36 +63,5 @@ impl ExecuteTransaction for InvokeTransaction {
         };
 
         Ok(execute_call.execute(state, block_context, account_tx_context)?)
-    }
-}
-
-impl ExecuteTransaction for DeclareTransaction {
-    fn execute_tx(
-        self,
-        _state: &mut dyn State,
-        _block_context: &BlockContext,
-        _account_tx_context: &AccountTransactionContext,
-    ) -> TransactionExecutionResult<CallInfo> {
-        Ok(CallInfo::default())
-    }
-}
-
-impl ExecuteTransaction for DeployAccountTransaction {
-    fn execute_tx(
-        self,
-        state: &mut dyn State,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
-    ) -> TransactionExecutionResult<CallInfo> {
-        let call_info = execute_deployment(
-            state,
-            block_context,
-            account_tx_context,
-            self.class_hash,
-            self.contract_address,
-            ContractAddress::default(),
-            self.constructor_calldata,
-        )?;
-        Ok(call_info)
     }
 }
