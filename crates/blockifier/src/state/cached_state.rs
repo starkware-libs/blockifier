@@ -102,8 +102,6 @@ impl<SR: StateReader> State for CachedState<SR> {
         self.cache.set_storage_value(contract_address, key, value);
     }
 
-    // TODO(Gilad, 1/12/22) consider moving some this logic into starknet-api; Nonce should
-    // be able to increment itself.
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
         let current_nonce = *self.get_nonce_at(contract_address)?;
         let current_nonce_as_u64 = usize::try_from(current_nonce.0)? as u64;
@@ -149,8 +147,6 @@ impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
-        // TODO(Gilad, 10/1/23): Currently this map is immutable, change this when we align to
-        // 0.11.0.
         let declared_classes = IndexMap::new();
 
         Self {

@@ -12,8 +12,6 @@ pub enum StateReaderError {
     ReadError(String),
 }
 
-// TODO(Gilad, 1/12/2022): Derive partialeq/eq in StarknetApiError (or document why that shouldn't
-// be done), then derive them here as well.
 #[derive(Error, Debug)]
 pub enum StateError {
     #[error("Cannot deploy contract at address 0.")]

@@ -11,8 +11,6 @@ use super::*;
 use crate::state::errors::StateReaderError;
 use crate::test_utils::{create_test_state, get_test_contract_class, TEST_CLASS_HASH};
 
-// TODO(Gilad): Consider making a MockedState that includes this and the create_test_state
-// functions once we add a State trait (that CachedState and MockedState will implement).
 fn set_initial_state_values(
     state: &mut CachedState<DictStateReader>,
     class_hash_to_class: ContractClassMapping,
