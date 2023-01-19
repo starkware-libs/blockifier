@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use cairo_felt::Felt;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -246,7 +247,7 @@ pub fn execute_inner_call(
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
     )?;
-    let retdata = call_info.execution.retdata.clone();
+    let retdata = Retdata(Rc::clone(&call_info.execution.retdata.0));
     syscall_handler.inner_calls.push(call_info);
 
     Ok(retdata)

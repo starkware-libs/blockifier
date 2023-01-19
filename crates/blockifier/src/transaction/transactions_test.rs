@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
@@ -104,7 +106,7 @@ fn test_invoke_tx() {
     // Extract invoke transaction fields for testing, as the transaction execution consumes
     // the transaction.
     let invoke_tx = invoke_tx();
-    let calldata = invoke_tx.calldata.clone();
+    let calldata = Calldata(Arc::clone(&invoke_tx.calldata.0));
     let sender_address = invoke_tx.sender_address;
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -143,7 +145,7 @@ fn test_invoke_tx() {
     let expected_return_result_retdata = Retdata(expected_return_result_calldata.into());
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
-        execution: CallExecution { retdata: expected_return_result_retdata.clone() },
+        execution: CallExecution { retdata: Retdata(Rc::clone(&expected_return_result_retdata.0)) },
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution { retdata: expected_return_result_retdata },
