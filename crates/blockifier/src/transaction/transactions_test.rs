@@ -13,7 +13,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::get_selector;
+use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
@@ -75,7 +75,7 @@ fn create_test_state() -> CachedState<DictStateReader> {
 }
 
 fn invoke_tx() -> InvokeTransaction {
-    let entry_point_selector = get_selector("return_result");
+    let entry_point_selector = selector_from_name("return_result");
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
         entry_point_selector.0,             // EP selector.
@@ -116,7 +116,7 @@ fn test_invoke_tx() {
         call: CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::External,
-            entry_point_selector: get_selector(VALIDATE_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(VALIDATE_ENTRY_POINT_NAME),
             calldata,
             storage_address: expected_account_address,
             caller_address: ContractAddress::default(),
@@ -129,7 +129,7 @@ fn test_invoke_tx() {
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2)];
     let expected_return_result_call = CallEntryPoint {
-        entry_point_selector: get_selector("return_result"),
+        entry_point_selector: selector_from_name("return_result"),
         class_hash: None,
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
@@ -137,7 +137,7 @@ fn test_invoke_tx() {
         caller_address: expected_account_address,
     };
     let expected_execute_call = CallEntryPoint {
-        entry_point_selector: get_selector(EXECUTE_ENTRY_POINT_NAME),
+        entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata.into());
@@ -162,7 +162,7 @@ fn test_invoke_tx() {
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: None,
         entry_point_type: EntryPointType::External,
-        entry_point_selector: get_selector(TRANSFER_ENTRY_POINT_NAME),
+        entry_point_selector: selector_from_name(TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
             expected_sequencer_address, // Recipient.
             lsb_expected_amount,
@@ -173,7 +173,7 @@ fn test_invoke_tx() {
     };
     let expected_fee_sender_address = *expected_account_address.0.key();
     let expected_fee_transfer_event = EventContent {
-        keys: vec![EventKey(get_selector(TRANSFER_EVENT_NAME).0)],
+        keys: vec![EventKey(selector_from_name(TRANSFER_EVENT_NAME).0)],
         data: EventData(vec![
             expected_fee_sender_address,
             expected_sequencer_address, // Recipient.
@@ -355,7 +355,7 @@ fn test_deploy_account_tx() {
     let expected_execute_call_info = CallInfo {
         call: CallEntryPoint {
             entry_point_type: EntryPointType::Constructor,
-            entry_point_selector: get_selector(CONSTRUCTOR_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,
             ..Default::default()
         },

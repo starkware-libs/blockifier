@@ -26,7 +26,7 @@ pub fn starknet_keccak(data: &[u8]) -> Felt {
 }
 
 /// Returns an entry point selector, given its name.
-pub fn get_selector(entry_point_name: &str) -> EntryPointSelector {
+pub fn selector_from_name(entry_point_name: &str) -> EntryPointSelector {
     static DEFAULT_ENTRY_POINTS: [&str; 2] =
         [DEFAULT_ENTRY_POINT_NAME, DEFAULT_L1_ENTRY_POINT_NAME];
 
