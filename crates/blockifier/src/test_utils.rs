@@ -2,17 +2,20 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{
+    ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::EntryPointType;
+use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
-use crate::state::cached_state::{CachedState, DictStateReader};
-use crate::state::state_api::State;
+use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
+use crate::state::errors::StateReaderError;
+use crate::state::state_api::{State, StateReader, StateReaderResult};
 use crate::transaction::objects::AccountTransactionContext;
 
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
@@ -39,6 +42,46 @@ pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
     "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812";
 pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
     "0x2a2c49c4dba0d91b34f2ade85d41d09561f9a77884c15ba2ab0f2241b080deb";
+
+/// A simple implementation of `StateReader` using `HashMap`s as storage.
+#[derive(Debug, Default)]
+pub struct DictStateReader {
+    pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
+    pub address_to_nonce: HashMap<ContractAddress, Nonce>,
+    pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
+    pub class_hash_to_class: ContractClassMapping,
+}
+
+impl StateReader for DictStateReader {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateReaderResult<StarkFelt> {
+        let contract_storage_key = (contract_address, key);
+        let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
+        Ok(value)
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateReaderResult<Nonce> {
+        let nonce = self.address_to_nonce.get(&contract_address).copied().unwrap_or_default();
+        Ok(nonce)
+    }
+
+    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<ContractClass> {
+        let contract_class = self.class_hash_to_class.get(class_hash).cloned();
+        match contract_class {
+            Some(contract_class) => Ok(contract_class),
+            None => Err(StateReaderError::UndeclaredClassHash(*class_hash)),
+        }
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateReaderResult<ClassHash> {
+        let class_hash =
+            self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
+        Ok(class_hash)
+    }
+}
 
 // TODO(Adi, 25/12/2022): Consider removing this function once we use the starknet_api transaction
 // struct instead of our own, which contains a `contract_path` instead of a `contract_address`.
