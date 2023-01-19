@@ -40,7 +40,7 @@ fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
 #[test]
 fn test_stark_felt_to_felt() {
     for (stark_felt, equivalent_felt) in starkfelt_to_felt_pairs() {
-        assert_eq!(stark_felt_to_felt(&stark_felt), equivalent_felt);
+        assert_eq!(stark_felt_to_felt(stark_felt), equivalent_felt);
     }
 }
 
