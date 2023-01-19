@@ -251,7 +251,6 @@ fn read_execution_retdata(
     retdata_ptr: MaybeRelocatable,
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
-        // TODO(AlonH, 21/12/2022): Handle case where res_data_size is larger than usize.
         MaybeRelocatable::Int(retdata_size) => retdata_size.bits() as usize,
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
@@ -347,8 +346,6 @@ impl ReadOnlySegments {
     }
 
     pub fn validate(&self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
-        // TODO(AlonH, 21/12/2022): Validate segments consistency ("assert self.segments is
-        // runner.segments" in python).
         for (segment_start_ptr, segment_size) in &self.0 {
             let used_size = vm
                 .get_segment_used_size(segment_start_ptr.segment_index as usize)

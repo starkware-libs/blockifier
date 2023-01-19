@@ -28,8 +28,6 @@ pub mod test;
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
-// TODO(AlonH, 21/12/2022): Couple all size constants with Cairo structs from the code.
-
 /// The array metadata contains its size and its starting pointer.
 const ARRAY_METADATA_SIZE: usize = 2;
 
