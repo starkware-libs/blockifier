@@ -113,7 +113,6 @@ impl<'a> Iterator for CallInfoIter<'a> {
 
 impl<'a> IntoIterator for &'a CallInfo {
     type Item = &'a CallInfo;
-
     type IntoIter = CallInfoIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
