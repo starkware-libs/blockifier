@@ -209,7 +209,7 @@ pub fn write_felt_array(
     vm.insert_value(&(ptr + 1), segment_start_ptr)?;
     let data: Vec<MaybeRelocatable> =
         data.iter().map(|x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-    vm.load_data(&segment_start_ptr.into(), &data)?;
+    vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
 
     Ok(())
 }
@@ -220,7 +220,7 @@ pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<
         return Err(VirtualMachineError::NoneInMemoryRange.into())
     };
 
-    Ok(felt_range_from_ptr(vm, &array_data_ptr, array_size.try_into()?)?)
+    Ok(felt_range_from_ptr(vm, &array_data_ptr, usize::try_from(array_size)?)?)
 }
 
 pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Calldata> {
