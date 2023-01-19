@@ -11,6 +11,7 @@ cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git" }
 derive_more = { version = "0.99.17" }
 indexmap = { version = "1.9.2" }
+itertools = { version = "0.10.3" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1.45" }
 num-traits = { version = "0.2" }
