@@ -65,7 +65,6 @@ pub enum SyscallExecutionError {
     VirtualMachineError(#[from] cairo_vm_errors::vm_errors::VirtualMachineError),
 }
 
-// TODO(AlonH, 21/12/2022): Reconsider error returned by custom hints with LambdaClass.
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
 // cairo-rs API.
 impl From<SyscallExecutionError> for cairo_vm_errors::hint_errors::HintError {
