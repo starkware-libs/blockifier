@@ -4,7 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};
 
-use crate::abi::abi_utils::get_selector;
+use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::state_api::State;
@@ -20,7 +20,7 @@ fn test_storage_read_write() {
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: get_selector("test_storage_read_write"),
+        entry_point_selector: selector_from_name("test_storage_read_write"),
         ..trivial_external_entry_point()
     };
     let storage_address = entry_point_call.storage_address;
@@ -36,7 +36,7 @@ fn test_storage_read_write() {
 #[test]
 fn test_library_call() {
     let mut state = create_test_state();
-    let inner_entry_point_selector = get_selector("test_storage_read_write");
+    let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         inner_entry_point_selector.0, // Function selector.
@@ -45,7 +45,7 @@ fn test_library_call() {
         stark_felt!(91)               // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: get_selector("test_library_call"),
+        entry_point_selector: selector_from_name("test_library_call"),
         calldata,
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
@@ -60,8 +60,8 @@ fn test_library_call() {
 fn test_nested_library_call() {
     let mut state = create_test_state();
     let (key, value) = (255, 44);
-    let outer_entry_point_selector = get_selector("test_library_call");
-    let inner_entry_point_selector = get_selector("test_storage_read_write");
+    let outer_entry_point_selector = selector_from_name("test_library_call");
+    let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         outer_entry_point_selector.0, // Library call function selector.
@@ -73,7 +73,7 @@ fn test_nested_library_call() {
 
     // Create expected call info tree.
     let main_entry_point = CallEntryPoint {
-        entry_point_selector: get_selector("test_nested_library_call"),
+        entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata,
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
@@ -129,8 +129,8 @@ fn test_nested_library_call() {
 #[test]
 fn test_call_contract() {
     let mut state = create_test_state();
-    let outer_entry_point_selector = get_selector("test_call_contract");
-    let inner_entry_point_selector = get_selector("test_storage_read_write");
+    let outer_entry_point_selector = selector_from_name("test_call_contract");
+    let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
         inner_entry_point_selector.0,       // Function selector.
@@ -163,7 +163,7 @@ fn test_deploy_with_constructor() {
         stark_felt!(1)  // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: get_selector("test_deploy"),
+        entry_point_selector: selector_from_name("test_deploy"),
         calldata,
         ..trivial_external_entry_point()
     };

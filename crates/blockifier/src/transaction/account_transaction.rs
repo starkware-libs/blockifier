@@ -7,7 +7,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{Calldata, Fee, InvokeTransaction, TransactionVersion};
 
-use crate::abi::abi_utils::get_selector;
+use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
@@ -106,7 +106,7 @@ impl AccountTransaction {
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::External,
-            entry_point_selector: get_selector(TRANSFER_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
                 *block_context.sequencer_address.0.key(), // Recipient.
                 lsb_amount,
@@ -150,7 +150,7 @@ impl AccountTransaction {
                     state,
                     block_context,
                     &account_tx_context,
-                    get_selector(VALIDATE_ENTRY_POINT_NAME),
+                    selector_from_name(VALIDATE_ENTRY_POINT_NAME),
                     // The validation calldata for invoke transaction is the same calldata as for
                     // the execution itself.
                     Calldata(Arc::clone(&tx.calldata.0)),
