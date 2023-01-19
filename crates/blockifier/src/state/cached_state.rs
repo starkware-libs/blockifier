@@ -7,15 +7,15 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
-use crate::state::errors::{StateError, StateReaderError};
-use crate::state::state_api::{State, StateReader, StateReaderResult, StateResult};
+use crate::state::errors::StateError;
+use crate::state::state_api::{State, StateReader, StateResult};
 use crate::utils::subtract_mappings;
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
 
-type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Caches read and write requests.
 ///
@@ -162,47 +162,7 @@ impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
     }
 }
 
-type ContractStorageKey = (ContractAddress, StorageKey);
-
-/// A simple implementation of `StateReader` using `HashMap`s for storage.
-#[derive(Debug, Default)]
-pub struct DictStateReader {
-    pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
-    pub address_to_nonce: HashMap<ContractAddress, Nonce>,
-    pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
-    pub class_hash_to_class: ContractClassMapping,
-}
-
-impl StateReader for DictStateReader {
-    fn get_storage_at(
-        &self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateReaderResult<StarkFelt> {
-        let contract_storage_key = (contract_address, key);
-        let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
-        Ok(value)
-    }
-
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateReaderResult<Nonce> {
-        let nonce = self.address_to_nonce.get(&contract_address).copied().unwrap_or_default();
-        Ok(nonce)
-    }
-
-    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<ContractClass> {
-        let contract_class = self.class_hash_to_class.get(class_hash).cloned();
-        match contract_class {
-            Some(contract_class) => Ok(contract_class),
-            None => Err(StateReaderError::UndeclaredClassHash(*class_hash)),
-        }
-    }
-
-    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateReaderResult<ClassHash> {
-        let class_hash =
-            self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
-        Ok(class_hash)
-    }
-}
+pub type ContractStorageKey = (ContractAddress, StorageKey);
 
 #[derive(IntoIterator, Debug, Default)]
 pub struct StorageView(pub HashMap<ContractStorageKey, StarkFelt>);

@@ -9,7 +9,9 @@ use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
 use crate::state::errors::StateReaderError;
-use crate::test_utils::{create_test_state, get_test_contract_class, TEST_CLASS_HASH};
+use crate::test_utils::{
+    create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
+};
 
 // TODO(Gilad): Consider making a MockedState that includes this and the create_test_state
 // functions once we add a State trait (that CachedState and MockedState will implement).
