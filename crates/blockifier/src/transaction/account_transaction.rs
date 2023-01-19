@@ -39,6 +39,19 @@ impl AccountTransaction {
         }
     }
 
+    fn verify_tx_version(version: TransactionVersion) -> TransactionExecutionResult<()> {
+        static ALLOWED_VERSIONS: Lazy<Vec<TransactionVersion>> =
+            Lazy::new(|| vec![TransactionVersion(StarkFelt::from(1))]);
+        if ALLOWED_VERSIONS.contains(&version) {
+            Ok(())
+        } else {
+            Err(TransactionExecutionError::InvalidVersion {
+                version,
+                allowed_versions: &ALLOWED_VERSIONS,
+            })
+        }
+    }
+
     fn handle_nonce(
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
@@ -53,19 +66,6 @@ impl AccountTransaction {
 
         // Increment nonce.
         Ok(state.increment_nonce(account_tx_context.sender_address)?)
-    }
-
-    fn verify_tx_version(version: TransactionVersion) -> TransactionExecutionResult<()> {
-        static ALLOWED_VERSIONS: Lazy<Vec<TransactionVersion>> =
-            Lazy::new(|| vec![TransactionVersion(StarkFelt::from(1))]);
-        if ALLOWED_VERSIONS.contains(&version) {
-            Ok(())
-        } else {
-            Err(TransactionExecutionError::InvalidVersion {
-                version,
-                allowed_versions: &ALLOWED_VERSIONS,
-            })
-        }
     }
 
     fn validate_tx(
@@ -85,6 +85,18 @@ impl AccountTransaction {
         };
 
         Ok(validate_call.execute(state, block_context, account_tx_context)?)
+    }
+
+    fn charge_fee(
+        state: &mut dyn State,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<(Fee, CallInfo)> {
+        let actual_fee = calculate_tx_fee(block_context);
+        let fee_transfer_call_info =
+            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
+
+        Ok((actual_fee, fee_transfer_call_info))
     }
 
     fn execute_fee_transfer(
@@ -117,18 +129,6 @@ impl AccountTransaction {
         };
 
         Ok(fee_transfer_call.execute(state, block_context, account_tx_context)?)
-    }
-
-    fn charge_fee(
-        state: &mut dyn State,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
-    ) -> TransactionExecutionResult<(Fee, CallInfo)> {
-        let actual_fee = calculate_tx_fee(block_context);
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
-
-        Ok((actual_fee, fee_transfer_call_info))
     }
 
     pub fn execute(
