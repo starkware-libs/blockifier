@@ -9,7 +9,9 @@ use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
 use crate::state::errors::StateReaderError;
-use crate::test_utils::{create_test_state, get_test_contract_class, TEST_CLASS_HASH};
+use crate::test_utils::{
+    create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
+};
 
 fn set_initial_state_values(
     state: &mut CachedState<DictStateReader>,
