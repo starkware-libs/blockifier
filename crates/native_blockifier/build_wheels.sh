@@ -22,7 +22,7 @@ done
 
 # Install packages and test
 for py_bin in ${cpython_bins} ${pypy_bins}; do
-    "${py_bin}/pip" install python-rust-bridge -f /io/dist/
+    "${py_bin}/pip" install native-blockifier -f /io/dist/
     echo "Testing with $("${py_bin}/python" --version) ..."
-    "${py_bin}/python" -c "import python_rust_bridge; python_rust_bridge.hello_world()"
+    "${py_bin}/python" -c "import native_blockifier; native_blockifier.hello_world()"
 done

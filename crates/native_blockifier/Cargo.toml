@@ -1,10 +1,10 @@
 [package]
-name = "python_rust_bridge"
+name = "native_blockifier"
 version = "0.1.0"
 edition = "2018"
 
 [lib]
-name = "rust_extension_poc"
+name = "native_blockifier"
 # "cdylib" is necessary to produce a shared library for Python to import from.
 #
 # Downstream Rust code (including code in `bin/`, `examples/`, and `tests/`) will not be able
