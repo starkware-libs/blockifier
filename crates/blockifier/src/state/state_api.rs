@@ -32,7 +32,7 @@ pub trait StateReader {
 }
 
 /// A class defining the API for writing to StarkNet global state.
-
+///
 /// Reader functionality should be delegated to the associated type; which is passed in by
 /// dependency-injection.
 pub trait State {
@@ -57,8 +57,6 @@ pub trait State {
 
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<&ClassHash>;
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass>;
-
     /// Allocates the given address to the given class hash.
     /// Raises an exception if the address is already assigned;
     /// meaning: this is a write once action.
@@ -67,4 +65,6 @@ pub trait State {
         contract_address: ContractAddress,
         class_hash: ClassHash,
     ) -> StateResult<()>;
+
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass>;
 }
