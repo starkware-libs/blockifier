@@ -14,7 +14,7 @@ use starknet_api::transaction::{
 
 use crate::execution::entry_point::{CallEntryPoint, Retdata};
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::execution_utils::{execute_deployment, get_felt_from_memory_cell};
+use crate::execution::execution_utils::{execute_deployment, felt_from_memory_ptr};
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
     write_felt_array, SyscallHintProcessor,
@@ -78,7 +78,7 @@ impl SyscallRequest for StorageReadRequest {
     const SIZE: usize = 1;
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address = StorageKey::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let address = StorageKey::try_from(felt_from_memory_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address })
     }
 }
@@ -117,8 +117,8 @@ impl SyscallRequest for StorageWriteRequest {
     const SIZE: usize = 2;
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address = StorageKey::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
-        let value = get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?;
+        let address = StorageKey::try_from(felt_from_memory_ptr(vm, ptr)?)?;
+        let value = felt_from_memory_ptr(vm, &(ptr + 1))?;
         Ok(StorageWriteRequest { address, value })
     }
 }
@@ -148,8 +148,7 @@ impl SyscallRequest for CallContractRequest {
     const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address =
-            ContractAddress::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let contract_address = ContractAddress::try_from(felt_from_memory_ptr(vm, ptr)?)?;
         let (function_selector, calldata) = read_call_params(vm, &(ptr + 1))?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
@@ -198,7 +197,7 @@ impl SyscallRequest for LibraryCallRequest {
     const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
+        let class_hash = ClassHash(felt_from_memory_ptr(vm, ptr)?);
         let (function_selector, calldata) = read_call_params(vm, &(ptr + 1))?;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
@@ -239,12 +238,10 @@ impl SyscallRequest for DeployRequest {
     const SIZE: usize = 3 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<DeployRequest> {
-        let class_hash = ClassHash(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?);
-        let contract_address_salt =
-            ContractAddressSalt(get_felt_from_memory_cell(vm.get_maybe(&(ptr + 1))?)?);
+        let class_hash = ClassHash(felt_from_memory_ptr(vm, ptr)?);
+        let contract_address_salt = ContractAddressSalt(felt_from_memory_ptr(vm, &(ptr + 1))?);
         let constructor_calldata = read_calldata(vm, &(ptr + 2))?;
-        let deploy_from_zero =
-            get_felt_from_memory_cell(vm.get_maybe(&(ptr + 2 + ARRAY_METADATA_SIZE))?)?;
+        let deploy_from_zero = felt_from_memory_ptr(vm, &(ptr + 2 + ARRAY_METADATA_SIZE))?;
 
         Ok(DeployRequest {
             class_hash,
@@ -341,7 +338,7 @@ impl SyscallRequest for SendMessageToL1Request {
     const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(get_felt_from_memory_cell(vm.get_maybe(ptr)?)?)?;
+        let to_address = EthAddress::try_from(felt_from_memory_ptr(vm, ptr)?)?;
         let payload = L2ToL1Payload(read_felt_array(vm, &(ptr + 1))?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
