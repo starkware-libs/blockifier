@@ -1,0 +1,15 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - BLOCKIFIER-v[0-9].**
+
+jobs:
+  build_python_wheels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          cd crates/native_blockifier/
+          ./build.sh
