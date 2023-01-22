@@ -11,8 +11,8 @@
 <div align="center">
 <br />
 
-[![GitHub Workflow Status](https://github.com/starkware-libs/blockifier-old/actions/workflows/post-merge.yml/badge.svg)](https://github.com/starkware-libs/blockifier-old/actions/workflows/post-merge.yml)
-[![License](https://img.shields.io/github/license/starkware-libs/blockifier-old.svg?style=flat-square)](LICENSE)
+![GitHub Workflow Status](https://github.com/starkware-libs/blockifier-old/actions/workflows/post-merge.yml/badge.svg)(https://github.com/starkware-libs/blockifier-old/actions/workflows/post-merge.yml)
+![License](https://img.shields.io/github/license/starkware-libs/blockifier-old.svg?style=flat-square)(LICENSE)
 
 </div>
 
