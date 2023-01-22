@@ -44,8 +44,6 @@ pub struct SyscallHintProcessor<'a> {
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
-    // Invariant: must only contain allowed hints.
-    builtin_hint_processor: BuiltinHintProcessor,
 
     // Execution results.
     /// Inner calls invoked by the current execution.
@@ -56,6 +54,12 @@ pub struct SyscallHintProcessor<'a> {
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
     pub syscall_ptr: Relocatable,
+
+    // Additional fields.
+    // Invariant: must only contain allowed hints.
+    builtin_hint_processor: BuiltinHintProcessor,
+    // Transaction and signature segment; allocated on-demand.
+    tx_signature_start_ptr: Option<Relocatable>,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -73,12 +77,13 @@ impl<'a> SyscallHintProcessor<'a> {
             account_tx_context,
             storage_address,
             caller_address,
-            builtin_hint_processor: extended_builtin_hint_processor(),
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
             read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
+            builtin_hint_processor: extended_builtin_hint_processor(),
+            tx_signature_start_ptr: None,
         }
     }
 
@@ -126,6 +131,20 @@ impl<'a> SyscallHintProcessor<'a> {
         }
     }
 
+    pub fn get_or_allocate_tx_signature_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        match self.tx_signature_start_ptr {
+            Some(tx_signature_start_ptr) => Ok(tx_signature_start_ptr),
+            None => {
+                let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
+                self.tx_signature_start_ptr = Some(tx_signature_start_ptr);
+                Ok(tx_signature_start_ptr)
+            }
+        }
+    }
+
     fn execute_syscall<Request, Response, ExecuteCallback>(
         &mut self,
         vm: &mut VirtualMachine,
@@ -134,12 +153,16 @@ impl<'a> SyscallHintProcessor<'a> {
     where
         Request: SyscallRequest,
         Response: SyscallResponse,
-        ExecuteCallback: FnOnce(Request, &mut SyscallHintProcessor<'a>) -> SyscallResult<Response>,
+        ExecuteCallback: FnOnce(
+            Request,
+            &mut VirtualMachine,
+            &mut SyscallHintProcessor<'_>,
+        ) -> SyscallResult<Response>,
     {
         let request = Request::read(vm, &self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + Request::SIZE;
 
-        let response = execute_callback(request, self)?;
+        let response = execute_callback(request, vm, self)?;
         response.write(vm, &self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + Response::SIZE;
 
@@ -151,6 +174,19 @@ impl<'a> SyscallHintProcessor<'a> {
         self.syscall_ptr = self.syscall_ptr + 1;
 
         Ok(selector)
+    }
+
+    fn allocate_tx_signature_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        let signature = &self.account_tx_context.signature.0;
+        let signature: Vec<MaybeRelocatable> =
+            signature.iter().map(|x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let signature_segment_start_ptr = self.read_only_segments.allocate(vm, signature)?;
+
+        self.tx_signature_start_ptr = Some(signature_segment_start_ptr);
+        Ok(signature_segment_start_ptr)
     }
 }
 
