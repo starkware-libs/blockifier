@@ -7,9 +7,9 @@ use starknet_api::{calldata, stark_felt};
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
-use crate::state::cached_state::{CachedState, DictStateReader};
+use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_security_test_state, create_test_state, trivial_external_entry_point,
+    create_security_test_state, create_test_state, trivial_external_entry_point, DictStateReader,
 };
 
 #[test]
