@@ -28,6 +28,17 @@ impl From<ContractClass> for starknet_api::state::ContractClass {
     }
 }
 
+impl From<starknet_api::state::ContractClass> for ContractClass {
+    fn from(contract_class: starknet_api::state::ContractClass) -> Self {
+        Self {
+            program: contract_class.program,
+            entry_points_by_type: contract_class.entry_points_by_type,
+            // ABI is not used for execution.
+            abi: None,
+        }
+    }
+}
+
 /// Instantiates a contract class object given a compiled contract file path.
 impl TryFrom<PathBuf> for ContractClass {
     type Error = io::Error;
