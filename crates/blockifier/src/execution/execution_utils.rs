@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cairo_felt::{Felt, FeltOps};
+use cairo_felt::Felt;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, HintParams, Identifier,
     ReferenceManager,
