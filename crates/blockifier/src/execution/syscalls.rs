@@ -67,7 +67,7 @@ impl SyscallResponse for EmptyResponse {
     }
 }
 
-/// StorageRead syscall.
+// StorageRead syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {
@@ -105,7 +105,7 @@ pub fn storage_read(
     Ok(StorageReadResponse { value: *value })
 }
 
-/// StorageWrite syscall.
+// StorageWrite syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
@@ -135,7 +135,7 @@ pub fn storage_write(
     Ok(EmptyResponse)
 }
 
-/// CallContract syscall.
+// CallContract syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct CallContractRequest {
@@ -184,7 +184,7 @@ pub fn call_contract(
     Ok(CallContractResponse { retdata })
 }
 
-/// LibraryCall syscall.
+// LibraryCall syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct LibraryCallRequest {
@@ -224,7 +224,7 @@ pub fn library_call(
     Ok(CallContractResponse { retdata })
 }
 
-/// Deploy syscall.
+// Deploy syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeployRequest {
@@ -299,7 +299,7 @@ pub fn deploy(
     Ok(DeployResponse { contract_address: deployed_contract_address })
 }
 
-/// EmitEvent syscall.
+// EmitEvent syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct EmitEventRequest {
@@ -326,7 +326,7 @@ pub fn emit_event(
     Ok(EmptyResponse)
 }
 
-/// SendMessageToL1 syscall.
+// SendMessageToL1 syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct SendMessageToL1Request {
@@ -353,7 +353,7 @@ pub fn send_message_to_l1(
     Ok(EmptyResponse)
 }
 
-/// GetContractAddress syscall.
+// GetContractAddress syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetContractAddressResponse {
@@ -375,7 +375,7 @@ pub fn get_contract_address(
     Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
 }
 
-/// GetCallerAddress syscall.
+// GetCallerAddress syscall.
 
 type GetCallerAddressResponse = GetContractAddressResponse;
 
@@ -386,7 +386,7 @@ pub fn get_caller_address(
     Ok(GetCallerAddressResponse { address: syscall_handler.caller_address })
 }
 
-/// GetSequencerAddress syscall.
+// GetSequencerAddress syscall.
 
 type GetSequencerAddressResponse = GetContractAddressResponse;
 
@@ -397,7 +397,7 @@ pub fn get_sequencer_address(
     Ok(GetSequencerAddressResponse { address: syscall_handler.block_context.sequencer_address })
 }
 
-/// GetBlockNumber syscall.
+// GetBlockNumber syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockNumberResponse {
@@ -419,7 +419,7 @@ pub fn get_block_number(
     Ok(GetBlockNumberResponse { block_number: syscall_handler.block_context.block_number })
 }
 
-/// GetBlockTimestamp syscall.
+// GetBlockTimestamp syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockTimestampResponse {
@@ -441,7 +441,7 @@ pub fn get_block_timestamp(
     Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
 }
 
-/// GetTxSignature syscall.
+// GetTxSignature syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetTxSignatureResponse<'a> {

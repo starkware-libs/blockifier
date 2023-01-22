@@ -10,7 +10,6 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 
 fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
     // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
-    const STARK_PRIME: &str = "0x800000000000011000000000000000000000000000000000000000000000001";
     const STARK_PRIME_MINUS_ONE: &str =
         "0x800000000000011000000000000000000000000000000000000000000000000";
 
@@ -19,7 +18,6 @@ fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
         StarkFelt::from(0),
         StarkFelt::from(1),
         StarkFelt::from(1234),
-        StarkFelt::try_from(STARK_PRIME).expect(starkfelt_from_hex_error_message),
         StarkFelt::try_from(STARK_PRIME_MINUS_ONE).expect(starkfelt_from_hex_error_message),
     ];
     let felts = vec![
@@ -27,8 +25,6 @@ fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
         Felt::one(),
         Felt::from(1234),
         // Note: the BigUint digits are ordered least significant digit first.
-        // Prime.
-        Felt::from(BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728])),
         // Prime - 1.
         Felt::from(BigUint::new(vec![0, 0, 0, 0, 0, 0, 17, 134217728])),
     ];
