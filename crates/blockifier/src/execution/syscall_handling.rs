@@ -191,7 +191,7 @@ pub fn write_felt(
     ptr: &Relocatable,
     felt: StarkFelt,
 ) -> SyscallResult<()> {
-    Ok(vm.insert_value(ptr, stark_felt_to_felt(&felt))?)
+    Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
 }
 
 pub fn write_felt_array(
@@ -206,7 +206,7 @@ pub fn write_felt_array(
     let segment_start_ptr = vm.add_memory_segment();
     vm.insert_value(&(ptr + 1), segment_start_ptr)?;
     let data: Vec<MaybeRelocatable> =
-        data.iter().map(|x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
     vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
 
     Ok(())

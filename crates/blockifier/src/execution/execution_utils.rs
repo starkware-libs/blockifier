@@ -42,7 +42,7 @@ pub struct ExecutionContext<'a> {
     pub entry_point_pc: usize,
 }
 
-pub fn stark_felt_to_felt(stark_felt: &StarkFelt) -> Felt {
+pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt {
     Felt::from_bytes_be(stark_felt.bytes())
 }
 
@@ -94,7 +94,7 @@ pub fn prepare_call_arguments(
 
     // Prepare called EP details.
     let entry_point_selector =
-        MaybeRelocatable::from(stark_felt_to_felt(&call_entry_point.entry_point_selector.0));
+        MaybeRelocatable::from(stark_felt_to_felt(call_entry_point.entry_point_selector.0));
     args.push(CairoArg::from(entry_point_selector));
 
     // Prepare implicit arguments.
@@ -110,7 +110,7 @@ pub fn prepare_call_arguments(
     // Prepare calldata arguments.
     let calldata = &call_entry_point.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
-        calldata.iter().map(|arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
+        calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
     let calldata_length = MaybeRelocatable::from(calldata.len());
     args.push(CairoArg::from(calldata_length));
 
