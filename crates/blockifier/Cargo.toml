@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = { version = "1.0.66" }
 cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git" }
 derive_more = { version = "0.99.17" }
