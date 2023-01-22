@@ -102,6 +102,7 @@ pub fn storage_read(
 ) -> SyscallResult<StorageReadResponse> {
     let value =
         syscall_handler.state.get_storage_at(syscall_handler.storage_address, request.address)?;
+
     Ok(StorageReadResponse { value: *value })
 }
 
@@ -123,16 +124,19 @@ impl SyscallRequest for StorageWriteRequest {
     }
 }
 
+type StorageWriteResponse = EmptyResponse;
+
 pub fn storage_write(
     request: StorageWriteRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<EmptyResponse> {
+) -> SyscallResult<StorageWriteResponse> {
     syscall_handler.state.set_storage_at(
         syscall_handler.storage_address,
         request.address,
         request.value,
     );
-    Ok(EmptyResponse)
+
+    Ok(StorageWriteResponse {})
 }
 
 // CallContract syscall.
@@ -210,18 +214,40 @@ pub fn library_call(
     request: LibraryCallRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
-    let entry_point = CallEntryPoint {
-        class_hash: Some(request.class_hash),
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: request.function_selector,
-        calldata: request.calldata,
-        // The call context remains the same in a library call.
-        storage_address: syscall_handler.storage_address,
-        caller_address: syscall_handler.caller_address,
-    };
+    let call_to_external = true;
+    let entry_point = CallEntryPoint::create_for_library_call(
+        request.class_hash,
+        call_to_external,
+        request.function_selector,
+        request.calldata,
+        syscall_handler,
+    );
     let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
-    Ok(CallContractResponse { retdata })
+    Ok(LibraryCallResponse { retdata })
+}
+
+// DelegateCall syscall.
+
+type DelegateCallRequest = CallContractRequest;
+type DelegateCallResponse = CallContractResponse;
+
+pub fn delegate_call(
+    request: DelegateCallRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<DelegateCallResponse> {
+    let call_to_external = true;
+    let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let entry_point = CallEntryPoint::create_for_library_call(
+        class_hash,
+        call_to_external,
+        request.function_selector,
+        request.calldata,
+        syscall_handler,
+    );
+    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+
+    Ok(DelegateCallResponse { retdata })
 }
 
 // Deploy syscall.
@@ -318,12 +344,15 @@ impl SyscallRequest for EmitEventRequest {
     }
 }
 
+type EmitEventResponse = EmptyResponse;
+
 pub fn emit_event(
     request: EmitEventRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
     syscall_handler.events.push(request.content);
-    Ok(EmptyResponse)
+
+    Ok(EmitEventResponse {})
 }
 
 // SendMessageToL1 syscall.
@@ -345,15 +374,20 @@ impl SyscallRequest for SendMessageToL1Request {
     }
 }
 
+type SendMessageToL1Response = EmptyResponse;
+
 pub fn send_message_to_l1(
     request: SendMessageToL1Request,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
     syscall_handler.l2_to_l1_messages.push(request.message);
-    Ok(EmptyResponse)
+
+    Ok(SendMessageToL1Response {})
 }
 
 // GetContractAddress syscall.
+
+type GetContractAddressRequest = EmptyRequest;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetContractAddressResponse {
@@ -369,7 +403,7 @@ impl SyscallResponse for GetContractAddressResponse {
 }
 
 pub fn get_contract_address(
-    _request: EmptyRequest,
+    _request: GetContractAddressRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetContractAddressResponse> {
     Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
@@ -377,10 +411,11 @@ pub fn get_contract_address(
 
 // GetCallerAddress syscall.
 
+type GetCallerAddressRequest = EmptyRequest;
 type GetCallerAddressResponse = GetContractAddressResponse;
 
 pub fn get_caller_address(
-    _request: EmptyRequest,
+    _request: GetCallerAddressRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetCallerAddressResponse> {
     Ok(GetCallerAddressResponse { address: syscall_handler.caller_address })
@@ -388,16 +423,19 @@ pub fn get_caller_address(
 
 // GetSequencerAddress syscall.
 
+type GetSequencerAddressRequest = EmptyRequest;
 type GetSequencerAddressResponse = GetContractAddressResponse;
 
 pub fn get_sequencer_address(
-    _request: EmptyRequest,
+    _request: GetSequencerAddressRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetSequencerAddressResponse> {
     Ok(GetSequencerAddressResponse { address: syscall_handler.block_context.sequencer_address })
 }
 
 // GetBlockNumber syscall.
+
+type GetBlockNumberRequest = EmptyRequest;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockNumberResponse {
@@ -413,13 +451,15 @@ impl SyscallResponse for GetBlockNumberResponse {
 }
 
 pub fn get_block_number(
-    _request: EmptyRequest,
+    _request: GetBlockNumberRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetBlockNumberResponse> {
     Ok(GetBlockNumberResponse { block_number: syscall_handler.block_context.block_number })
 }
 
 // GetBlockTimestamp syscall.
+
+type GetBlockTimestampRequest = EmptyRequest;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetBlockTimestampResponse {
@@ -435,13 +475,15 @@ impl SyscallResponse for GetBlockTimestampResponse {
 }
 
 pub fn get_block_timestamp(
-    _request: EmptyRequest,
+    _request: GetBlockTimestampRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetBlockTimestampResponse> {
     Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
 }
 
 // GetTxSignature syscall.
+
+type GetTxSignatureRequest = EmptyRequest;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct GetTxSignatureResponse<'a> {
@@ -457,7 +499,7 @@ impl<'a> SyscallResponse for GetTxSignatureResponse<'a> {
 }
 
 pub fn get_tx_signature<'a>(
-    _request: EmptyRequest,
+    _request: GetTxSignatureRequest,
     syscall_handler: &mut SyscallHintProcessor<'a>,
 ) -> SyscallResult<GetTxSignatureResponse<'a>> {
     Ok(GetTxSignatureResponse { signature: &syscall_handler.account_tx_context.signature })
