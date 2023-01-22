@@ -1,8 +1,6 @@
 use std::fs;
 use std::process::Command;
 
-use anyhow::{ensure, Context, Result};
-
 const FEATURE_CONTRACTS_DIR: &str = "feature_contracts";
 const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
 
@@ -11,15 +9,16 @@ const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
 // `COMPILED_CONTRACTS_SUBDIR`.
 // 2. for each `X.cairo` file in `TEST_CONTRACTS` there exists an `X_compiled.json` file in
 // `COMPILED_CONTRACTS_SUBDIR` which equals `starknet-compile X.cairo -- -no_debug_info`.
-fn verify_feature_contracts_compatibility(fix: bool) -> Result<()> {
+fn verify_feature_contracts_compatibility(fix: bool) {
     for file in fs::read_dir(FEATURE_CONTRACTS_DIR).unwrap() {
         let path = file.unwrap().path();
 
         // Test `TEST_CONTRACTS` file and directory structure.
         if !path.is_file() {
             if let Some(dir_name) = path.file_name() {
-                ensure!(
-                    dir_name == COMPILED_CONTRACTS_SUBDIR,
+                assert_eq!(
+                    dir_name,
+                    COMPILED_CONTRACTS_SUBDIR,
                     "Found directory '{}' in `{FEATURE_CONTRACTS_DIR}`, which should contain only \
                      the `{COMPILED_CONTRACTS_SUBDIR}` directory.",
                     dir_name.to_string_lossy()
@@ -28,8 +27,9 @@ fn verify_feature_contracts_compatibility(fix: bool) -> Result<()> {
             }
         }
         let path_str = path.to_string_lossy();
-        ensure!(
-            path.extension().unwrap() == "cairo",
+        assert_eq!(
+            path.extension().unwrap(),
+            "cairo",
             "Found a non-Cairo file '{path_str}' in `{FEATURE_CONTRACTS_DIR}`"
         );
 
@@ -47,24 +47,27 @@ fn verify_feature_contracts_compatibility(fix: bool) -> Result<()> {
             command.arg("--disable_hint_validation");
         }
         let compile_output = command.output().unwrap();
-        ensure!(compile_output.status.success(), String::from_utf8(compile_output.stderr).unwrap());
+        assert!(
+            compile_output.status.success(),
+            "{}",
+            String::from_utf8(compile_output.stderr).unwrap()
+        );
         let expected_compiled_output = compile_output.stdout;
 
         if fix {
-            fs::write(&existing_compiled_path, &expected_compiled_output)?;
+            fs::write(&existing_compiled_path, &expected_compiled_output).unwrap();
         }
         let existing_compiled_contents = fs::read_to_string(&existing_compiled_path)
-            .context(format!("Cannot read {existing_compiled_path}."))?;
+            .unwrap_or_else(|_| panic!("Cannot read {existing_compiled_path}."));
 
         if String::from_utf8(expected_compiled_output).unwrap() != existing_compiled_contents {
             panic!("{} does not compile to {}", path_str, existing_compiled_path)
         }
     }
-    Ok(())
 }
 
 #[test]
 #[ignore]
-fn verify_feature_contracts() -> Result<()> {
+fn verify_feature_contracts() {
     verify_feature_contracts_compatibility(false)
 }
