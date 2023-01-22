@@ -210,15 +210,37 @@ pub fn library_call(
     request: LibraryCallRequest,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
-    let entry_point = CallEntryPoint {
-        class_hash: Some(request.class_hash),
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: request.function_selector,
-        calldata: request.calldata,
-        // The call context remains the same in a library call.
-        storage_address: syscall_handler.storage_address,
-        caller_address: syscall_handler.caller_address,
-    };
+    let call_to_external = true;
+    let entry_point = CallEntryPoint::create_for_library_call(
+        request.class_hash,
+        call_to_external,
+        request.function_selector,
+        request.calldata,
+        syscall_handler,
+    );
+    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+
+    Ok(CallContractResponse { retdata })
+}
+
+// DelegateCall syscall.
+
+type DelegateCallRequest = CallContractRequest;
+type DelegateCallResponse = CallContractResponse;
+
+pub fn delegate_call(
+    request: DelegateCallRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<DelegateCallResponse> {
+    let call_to_external = true;
+    let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let entry_point = CallEntryPoint::create_for_library_call(
+        class_hash,
+        call_to_external,
+        request.function_selector,
+        request.calldata,
+        syscall_handler,
+    );
     let retdata = execute_inner_call(entry_point, syscall_handler)?;
 
     Ok(CallContractResponse { retdata })
