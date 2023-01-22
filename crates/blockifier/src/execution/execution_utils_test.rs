@@ -10,7 +10,6 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 
 fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
     // The STARK prime is 2 ^ 251 + 17 * 2 ^ 192 + 1.
-    const STARK_PRIME: &str = "0x800000000000011000000000000000000000000000000000000000000000001";
     const STARK_PRIME_MINUS_ONE: &str =
         "0x800000000000011000000000000000000000000000000000000000000000000";
 
@@ -19,9 +18,6 @@ fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
         StarkFelt::from(0),
         StarkFelt::from(1),
         StarkFelt::from(1234),
-        // TODO(Adi, 10/12/2022): The construction of a StarkFelt holding the STARK prime should
-        // fail once full-node have a field representation; remove this test case.
-        StarkFelt::try_from(STARK_PRIME).expect(starkfelt_from_hex_error_message),
         StarkFelt::try_from(STARK_PRIME_MINUS_ONE).expect(starkfelt_from_hex_error_message),
     ];
     let felts = vec![
@@ -30,7 +26,6 @@ fn starkfelt_to_felt_pairs() -> Vec<(StarkFelt, Felt)> {
         Felt::from(1234),
         // This prime constant is taken from examples in the cairo-rs crate.
         // Note: the BigInt digits are ordered least significant digit first.
-        Felt::from(BigUint::new(vec![1, 0, 0, 0, 0, 0, 17, 134217728])),
         Felt::from(BigUint::new(vec![0, 0, 0, 0, 0, 0, 17, 134217728])),
     ];
 
