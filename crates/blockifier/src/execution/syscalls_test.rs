@@ -184,7 +184,7 @@ fn test_deploy_with_constructor() {
 }
 
 #[test]
-fn test_contract_address() {
+fn test_calculate_contract_address() {
     let mut state = create_test_state();
 
     fn run_test(
