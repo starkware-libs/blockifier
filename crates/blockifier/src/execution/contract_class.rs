@@ -10,8 +10,6 @@ use starknet_api::state::{EntryPoint, EntryPointType, Program};
 /// Represents a StarkNet contract class.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize, Serialize)]
 pub struct ContractClass {
-    // TODO(Noa, 30/12/22): Consider using a more specific field type or add a layer to
-    // appropriately deserialize it.
     pub program: Program,
     /// The selector of each entry point is a unique identifier in the program.
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,

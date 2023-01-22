@@ -331,7 +331,6 @@ fn deploy_account_tx() -> DeployAccountTransaction {
     }
 }
 
-// TODO(Noa, 25/01/23): Test DeployAccount with constructor + add negative tests.
 #[test]
 fn test_deploy_account_tx() {
     let mut state = create_test_state();
