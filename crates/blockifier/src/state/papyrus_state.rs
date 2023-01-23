@@ -8,6 +8,10 @@ use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateReaderError;
 use crate::state::state_api::{StateReader, StateReaderResult};
 
+#[cfg(test)]
+#[path = "papyrus_state_test.rs"]
+mod test;
+
 type RawPapyrusStateReader<'env, Mode> = papyrus_storage::state::StateReader<'env, Mode>;
 
 pub struct PapyrusStateReader<'env, Mode: TransactionKind> {
