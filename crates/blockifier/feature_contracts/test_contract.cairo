@@ -1,5 +1,4 @@
 %lang starknet
-
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.starknet.common.syscalls import (
