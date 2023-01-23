@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
@@ -142,10 +141,10 @@ fn test_invoke_tx() {
         entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.call.clone()
     };
-    let expected_return_result_retdata = Retdata(expected_return_result_calldata.into());
+    let expected_return_result_retdata = Retdata(expected_return_result_calldata);
     let expected_execute_call_info = CallInfo {
         call: expected_execute_call,
-        execution: CallExecution { retdata: Retdata(Rc::clone(&expected_return_result_retdata.0)) },
+        execution: CallExecution { retdata: Retdata(expected_return_result_retdata.0.clone()) },
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution { retdata: expected_return_result_retdata },
