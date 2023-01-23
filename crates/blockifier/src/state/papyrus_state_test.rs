@@ -1,20 +1,21 @@
-use blockifier::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
-use blockifier::retdata;
-use blockifier::state::cached_state::CachedState;
-use blockifier::state::papyrus_state::PapyrusStateReader;
-use blockifier::state::state_api::State;
-use blockifier::test_utils::{
-    get_test_contract_class, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_STORAGE_READ_WRITE_SELECTOR,
-};
 use indexmap::IndexMap;
-use papyrus_storage::{self, StateStorageReader, StateStorageWriter};
+use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use starknet_api::block::BlockNumber;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
+
+use crate::abi::abi_utils::selector_from_name;
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use crate::retdata;
+use crate::state::cached_state::CachedState;
+use crate::state::papyrus_state::PapyrusStateReader;
+use crate::state::state_api::State;
+use crate::test_utils::{
+    get_test_contract_class, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+};
 
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
@@ -47,7 +48,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: EntryPointSelector(stark_felt!(TEST_STORAGE_READ_WRITE_SELECTOR)),
+        entry_point_selector: selector_from_name("test_storage_read_write"),
         ..trivial_external_entry_point()
     };
     let storage_address = entry_point_call.storage_address;

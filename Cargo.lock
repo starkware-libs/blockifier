@@ -1341,10 +1341,14 @@ dependencies = [
  "integer-encoding",
  "libmdbx",
  "log",
+ "rand",
+ "rand_chacha",
  "reqwest",
  "serde",
  "serde_json",
  "starknet_api",
+ "tempfile",
+ "test_utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -2185,6 +2189,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "test_utils"
+version = "0.1.0"
+source = "git+https://github.com/starkware-libs/papyrus#5a3f52a0954fe8b9e5d2348ffdf243392ec89ad3"
+dependencies = [
+ "indexmap",
+ "log",
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+ "starknet_api",
 ]
 
 [[package]]
