@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - v[0-9].**
+
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    paths:
+     - '**.cairo'
+     - 'crates/blockifier/feature_contracts/**'
+
+jobs:
+  verify_cairo_file_dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt
+          toolchain: nightly-2022-11-03
+      - uses: Swatinem/rust-cache@v2
+      - run:
+          cargo test verify_feature_contracts -- --include-ignored
+
