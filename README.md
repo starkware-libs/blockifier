@@ -1,18 +1,18 @@
 <div align="center">
   <h1>Blockifier</h1>
   <br />
-  <a href="https://github.com/starkware-libs/blockifier-old/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
+  <a href="https://github.com/starkware-libs/blockfier/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
   ·
-  <a href="https://github.com/starkware-libs/blockifier-old/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
+  <a href="https://github.com/starkware-libs/blockfier/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
   ·
-  <a href="https://github.com/starkware-libs/blockifier-old/discussions/new?category=q-a">Ask a Question</a>
+  <a href="https://github.com/starkware-libs/blockfier/discussions/new?category=q-a">Ask a Question</a>
 </div>
 
 <div align="center">
 <br />
 
-[![GitHub Workflow Status](https://github.com/starkware-libs/blockifier-old/actions/workflows/post-merge.yml/badge.svg)](https://github.com/starkware-libs/blockifier-old/actions/workflows/post-merge.yml)
-[![License](https://img.shields.io/github/license/starkware-libs/blockifier-old.svg?style=flat-square)](LICENSE)
+[![GitHub Workflow Status](https://github.com/starkware-libs/blockfier/actions/workflows/post-merge.yml/badge.svg)](https://github.com/starkware-libs/blockfier/actions/workflows/post-merge.yml)
+[![License](https://img.shields.io/github/license/starkware-libs/blockfier.svg?style=flat-square)](LICENSE)
 
 </div>
 
@@ -48,7 +48,7 @@ We'll add more milestones to this table once we finish the first one, where we b
 
 Reach out to the maintainer at one of the following places:
 
-- [GitHub Discussions](https://github.com/starkware-libs/blockifier-old/discussions)
+- [GitHub Discussions](https://github.com/starkware-libs/blockfier/discussions)
 - Contact options listed on [this GitHub profile](https://github.com/starkware-libs)
 
 ## Security
