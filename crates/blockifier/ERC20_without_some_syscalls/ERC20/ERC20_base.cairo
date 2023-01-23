@@ -10,7 +10,7 @@ from starkware.cairo.common.uint256 import (
     uint256_sub,
 )
 
-// In Solidity ERC20 decimals is a uint8.
+// In Solidity ERC20 decimals is a uint8. test
 const MAX_DECIMALS = 255;
 
 // Events.

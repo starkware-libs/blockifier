@@ -2,7 +2,7 @@
     "abi": [
         {
             "inputs": [],
-            "name": "assert_only_self",
+            "name": "asrt_only_self",
             "outputs": [],
             "stateMutability": "view",
             "type": "function"
