@@ -16,7 +16,6 @@ type RawPapyrusStateReader<'env, Mode> = papyrus_storage::state::StateReader<'en
 
 pub struct PapyrusStateReader<'env, Mode: TransactionKind> {
     pub reader: RawPapyrusStateReader<'env, Mode>,
-    // TODO(Gilad): replace with BlockContext.
     // Invariant: Read-Only.
     latest_block: BlockNumber,
 }
