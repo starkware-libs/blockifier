@@ -11,7 +11,6 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
-use crate::execution::syscall_handling::SyscallHintProcessor;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -62,27 +61,6 @@ impl CallEntryPoint {
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
             Some(entry_point) => Ok(entry_point.offset.0),
             None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
-        }
-    }
-
-    pub fn create_for_library_call(
-        class_hash: ClassHash,
-        call_to_external: bool,
-        entry_point_selector: EntryPointSelector,
-        calldata: Calldata,
-        syscall_handler: &SyscallHintProcessor<'_>,
-    ) -> Self {
-        let entry_point_type =
-            if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
-
-        CallEntryPoint {
-            class_hash: Some(class_hash),
-            entry_point_type,
-            entry_point_selector,
-            calldata,
-            // The call context remains the same in a library call.
-            storage_address: syscall_handler.storage_address,
-            caller_address: syscall_handler.caller_address,
         }
     }
 }

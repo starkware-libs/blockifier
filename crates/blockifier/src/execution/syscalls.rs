@@ -14,7 +14,9 @@ use starknet_api::transaction::{
 
 use crate::execution::entry_point::{CallEntryPoint, Retdata};
 use crate::execution::errors::SyscallExecutionError;
-use crate::execution::execution_utils::{execute_deployment, felt_from_memory_ptr};
+use crate::execution::execution_utils::{
+    execute_deployment, execute_library_call, felt_from_memory_ptr,
+};
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
     write_felt_array, SyscallHintProcessor,
@@ -215,14 +217,31 @@ pub fn library_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = true;
-    let entry_point = CallEntryPoint::create_for_library_call(
+    let retdata = execute_library_call(
         request.class_hash,
         call_to_external,
         request.function_selector,
         request.calldata,
         syscall_handler,
-    );
-    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+    )?;
+
+    Ok(LibraryCallResponse { retdata })
+}
+
+// LibraryCallL1Handler syscall.
+
+pub fn library_call_l1_handler(
+    request: LibraryCallRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<LibraryCallResponse> {
+    let call_to_external = false;
+    let retdata = execute_library_call(
+        request.class_hash,
+        call_to_external,
+        request.function_selector,
+        request.calldata,
+        syscall_handler,
+    )?;
 
     Ok(LibraryCallResponse { retdata })
 }
@@ -238,14 +257,32 @@ pub fn delegate_call(
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
     let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
-    let entry_point = CallEntryPoint::create_for_library_call(
+    let retdata = execute_library_call(
         class_hash,
         call_to_external,
         request.function_selector,
         request.calldata,
         syscall_handler,
-    );
-    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+    )?;
+
+    Ok(DelegateCallResponse { retdata })
+}
+
+// DelegateCallL1Handler syscall.
+
+pub fn delegate_call_l1_handler(
+    request: DelegateCallRequest,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<DelegateCallResponse> {
+    let call_to_external = false;
+    let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let retdata = execute_library_call(
+        class_hash,
+        call_to_external,
+        request.function_selector,
+        request.calldata,
+        syscall_handler,
+    )?;
 
     Ok(DelegateCallResponse { retdata })
 }
