@@ -54,7 +54,7 @@ pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
 }
 
 pub fn initialize_execution_context<'a>(
-    call_entry_point: &CallEntryPoint,
+    call: &CallEntryPoint,
     class_hash: ClassHash,
     state: &'a mut dyn State,
     block_context: &'a BlockContext,
@@ -63,7 +63,7 @@ pub fn initialize_execution_context<'a>(
     let contract_class = state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
-    let entry_point_pc = call_entry_point.resolve_entry_point_pc(contract_class)?;
+    let entry_point_pc = call.resolve_entry_point_pc(contract_class)?;
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
@@ -79,15 +79,15 @@ pub fn initialize_execution_context<'a>(
         block_context,
         account_tx_context,
         initial_syscall_ptr,
-        call_entry_point.storage_address,
-        call_entry_point.caller_address,
+        call.storage_address,
+        call.caller_address,
     );
 
     Ok(ExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
 }
 
 pub fn prepare_call_arguments(
-    call_entry_point: &CallEntryPoint,
+    call: &CallEntryPoint,
     vm: &mut VirtualMachine,
     initial_syscall_ptr: Relocatable,
     read_only_segments: &mut ReadOnlySegments,
@@ -96,7 +96,7 @@ pub fn prepare_call_arguments(
 
     // Prepare called EP details.
     let entry_point_selector =
-        MaybeRelocatable::from(stark_felt_to_felt(call_entry_point.entry_point_selector.0));
+        MaybeRelocatable::from(stark_felt_to_felt(call.entry_point_selector.0));
     args.push(CairoArg::from(entry_point_selector));
 
     // Prepare implicit arguments.
@@ -110,13 +110,13 @@ pub fn prepare_call_arguments(
     args.push(CairoArg::from(implicit_args.clone()));
 
     // Prepare calldata arguments.
-    let calldata = &call_entry_point.calldata.0;
+    let calldata = &call.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
     let calldata_length = MaybeRelocatable::from(calldata.len());
     args.push(CairoArg::from(calldata_length));
 
-    let calldata_start_ptr = MaybeRelocatable::from(read_only_segments.allocate(vm, calldata)?);
+    let calldata_start_ptr = MaybeRelocatable::from(read_only_segments.allocate(vm, &calldata)?);
     args.push(CairoArg::from(calldata_start_ptr));
 
     Ok((implicit_args, args))
@@ -124,21 +124,16 @@ pub fn prepare_call_arguments(
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
-    call_entry_point: CallEntryPoint,
+    call: CallEntryPoint,
     class_hash: ClassHash,
     state: &mut dyn State,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let mut execution_context = initialize_execution_context(
-        &call_entry_point,
-        class_hash,
-        state,
-        block_context,
-        account_tx_context,
-    )?;
+    let mut execution_context =
+        initialize_execution_context(&call, class_hash, state, block_context, account_tx_context)?;
     let (implicit_args, args) = prepare_call_arguments(
-        &call_entry_point,
+        &call,
         &mut execution_context.vm,
         execution_context.initial_syscall_ptr,
         &mut execution_context.syscall_handler.read_only_segments,
@@ -154,7 +149,7 @@ pub fn execute_entry_point_call(
 
     Ok(finalize_execution(
         execution_context.vm,
-        call_entry_point,
+        call,
         execution_context.syscall_handler,
         implicit_args,
     )?)
@@ -176,7 +171,7 @@ pub fn run_entry_point(
 
 pub fn finalize_execution(
     mut vm: VirtualMachine,
-    call_entry_point: CallEntryPoint,
+    call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -187,7 +182,7 @@ pub fn finalize_execution(
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     Ok(CallInfo {
-        call: call_entry_point,
+        call,
         execution: CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
         },
@@ -257,7 +252,7 @@ fn read_execution_retdata(
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?.into()))
+    Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?))
 }
 
 pub fn felt_range_from_ptr(
@@ -336,29 +331,36 @@ pub fn felt_from_memory_cell(
     }
 }
 
+#[derive(Debug)]
+// Invariant: read-only.
+pub struct ReadOnlySegment {
+    pub start_ptr: Relocatable,
+    pub length: usize,
+}
+
 /// Represents read-only segments dynamically allocated during execution.
 #[derive(Debug, Default)]
 // Invariant: read-only.
-pub struct ReadOnlySegments(Vec<(Relocatable, usize)>);
+pub struct ReadOnlySegments(Vec<ReadOnlySegment>);
 
 impl ReadOnlySegments {
     pub fn allocate(
         &mut self,
         vm: &mut VirtualMachine,
-        data: Vec<MaybeRelocatable>,
+        data: &Vec<MaybeRelocatable>,
     ) -> Result<Relocatable, MemoryError> {
-        let segment_start_ptr = vm.add_memory_segment();
-        self.0.push((segment_start_ptr, data.len()));
-        vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
-        Ok(segment_start_ptr)
+        let start_ptr = vm.add_memory_segment();
+        self.0.push(ReadOnlySegment { start_ptr, length: data.len() });
+        vm.load_data(&MaybeRelocatable::from(start_ptr), data)?;
+        Ok(start_ptr)
     }
 
     pub fn validate(&self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
-        for (segment_start_ptr, segment_size) in &self.0 {
+        for segment in &self.0 {
             let used_size = vm
-                .get_segment_used_size(segment_start_ptr.segment_index as usize)
+                .get_segment_used_size(segment.start_ptr.segment_index as usize)
                 .expect("Segments must contain the allocated read-only segment.");
-            if *segment_size != used_size {
+            if segment.length != used_size {
                 return Err(PostExecutionError::SecurityValidationError(
                     "Read-only segments".to_string(),
                 ));
@@ -369,8 +371,8 @@ impl ReadOnlySegments {
     }
 
     pub fn mark_as_accessed(self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
-        for (segment_start_ptr, segment_size) in self.0 {
-            vm.mark_address_range_as_accessed(segment_start_ptr, segment_size)?;
+        for segment in self.0 {
+            vm.mark_address_range_as_accessed(segment.start_ptr, segment.length)?;
         }
 
         Ok(())
@@ -403,12 +405,13 @@ pub fn execute_deployment(
 }
 
 pub fn execute_library_call(
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    vm: &mut VirtualMachine,
     class_hash: ClassHash,
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<Retdata> {
+) -> SyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
     let entry_point = CallEntryPoint {
@@ -421,5 +424,5 @@ pub fn execute_library_call(
         caller_address: syscall_handler.caller_address,
     };
 
-    execute_inner_call(entry_point, syscall_handler)
+    execute_inner_call(entry_point, vm, syscall_handler)
 }

@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use cairo_felt::Felt;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -20,10 +19,11 @@ use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegments,
+    felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment,
+    ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -186,7 +186,7 @@ impl<'a> SyscallHintProcessor<'a> {
         let signature = &self.account_tx_context.signature.0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-        let signature_segment_start_ptr = self.read_only_segments.allocate(vm, signature)?;
+        let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
 
         Ok(signature_segment_start_ptr)
     }
@@ -232,23 +232,6 @@ pub fn write_felt(
     Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
 }
 
-pub fn write_felt_array(
-    vm: &mut VirtualMachine,
-    ptr: &Relocatable,
-    data: &[StarkFelt],
-) -> SyscallResult<()> {
-    let data_size = StarkFelt::from(data.len() as u64);
-    write_felt(vm, ptr, data_size)?;
-
-    // Write response payload to the memory.
-    let segment_start_ptr = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), segment_start_ptr)?;
-    let data = data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-    vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
-
-    Ok(())
-}
-
 pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Vec<StarkFelt>> {
     let array_size = felt_from_memory_ptr(vm, ptr)?;
     let Some(array_data_ptr) = vm.get_maybe(&(ptr + 1))? else {
@@ -273,16 +256,20 @@ pub fn read_call_params(
 }
 
 pub fn execute_inner_call(
-    call_entry_point: CallEntryPoint,
+    call: CallEntryPoint,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<Retdata> {
-    let call_info = call_entry_point.execute(
+) -> SyscallResult<ReadOnlySegment> {
+    let call_info = call.execute(
         syscall_handler.state,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
     )?;
-    let retdata = Retdata(Rc::clone(&call_info.execution.retdata.0));
-    syscall_handler.inner_calls.push(call_info);
+    let retdata = &call_info.execution.retdata.0;
+    let retdata: Vec<MaybeRelocatable> =
+        retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+    let retdata_segment_start_ptr = syscall_handler.read_only_segments.allocate(vm, &retdata)?;
 
-    Ok(retdata)
+    syscall_handler.inner_calls.push(call_info);
+    Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: retdata.len() })
 }
