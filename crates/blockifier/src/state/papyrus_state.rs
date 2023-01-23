@@ -1,4 +1,4 @@
-use papyrus_storage::TransactionKind;
+use papyrus_storage::db::TransactionKind;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;

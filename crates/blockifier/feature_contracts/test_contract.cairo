@@ -132,13 +132,14 @@ func test_deploy{syscall_ptr: felt*}(
     contract_address_salt: felt,
     constructor_calldata_len: felt,
     constructor_calldata: felt*,
+    deploy_from_zero: felt,
 ) -> (contract_address: felt) {
     let (contract_address) = deploy(
         class_hash=class_hash,
         contract_address_salt=contract_address_salt,
         constructor_calldata_size=constructor_calldata_len,
         constructor_calldata=constructor_calldata,
-        deploy_from_zero=FALSE,
+        deploy_from_zero=deploy_from_zero,
     );
     return (contract_address=contract_address);
 }
