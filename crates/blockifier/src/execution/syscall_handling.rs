@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use cairo_felt::Felt;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -20,7 +19,7 @@ use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, Retdata};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegments,
@@ -232,23 +231,6 @@ pub fn write_felt(
     Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
 }
 
-pub fn write_felt_array(
-    vm: &mut VirtualMachine,
-    ptr: &Relocatable,
-    data: &[StarkFelt],
-) -> SyscallResult<()> {
-    let data_size = StarkFelt::from(data.len() as u64);
-    write_felt(vm, ptr, data_size)?;
-
-    // Write response payload to the memory.
-    let segment_start_ptr = vm.add_memory_segment();
-    vm.insert_value(&(ptr + 1), segment_start_ptr)?;
-    let data = data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-    vm.load_data(&MaybeRelocatable::from(segment_start_ptr), &data)?;
-
-    Ok(())
-}
-
 pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Vec<StarkFelt>> {
     let array_size = felt_from_memory_ptr(vm, ptr)?;
     let Some(array_data_ptr) = vm.get_maybe(&(ptr + 1))? else {
@@ -273,16 +255,21 @@ pub fn read_call_params(
 }
 
 pub fn execute_inner_call(
+    vm: &mut VirtualMachine,
     call_entry_point: CallEntryPoint,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<Retdata> {
+) -> SyscallResult<(Relocatable, usize)> {
     let call_info = call_entry_point.execute(
         syscall_handler.state,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
     )?;
-    let retdata = Retdata(Rc::clone(&call_info.execution.retdata.0));
+    let retdata = &call_info.execution.retdata.0;
+    let retdata_length = retdata.len();
+    let retdata: Vec<MaybeRelocatable> =
+        retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+    let retdata_segment_start_ptr = syscall_handler.read_only_segments.allocate(vm, retdata)?;
     syscall_handler.inner_calls.push(call_info);
 
-    Ok(retdata)
+    Ok((retdata_segment_start_ptr, retdata_length))
 }

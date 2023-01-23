@@ -12,16 +12,15 @@ use starknet_api::transaction::{
     MessageToL1,
 };
 
-use crate::execution::entry_point::{CallEntryPoint, Retdata};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     execute_deployment, execute_library_call, felt_from_memory_ptr,
 };
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
-    write_felt_array, SyscallHintProcessor,
+    SyscallHintProcessor,
 };
-use crate::retdata;
 
 #[cfg(test)]
 #[path = "syscalls_test.rs"]
@@ -177,22 +176,12 @@ impl SyscallRequest for CallContractRequest {
         Ok(CallContractRequest { contract_address, function_selector, calldata })
     }
 }
-#[derive(Debug, Eq, PartialEq)]
-pub struct CallContractResponse {
-    pub retdata: Retdata,
-}
 
-impl SyscallResponse for CallContractResponse {
-    const SIZE: usize = ARRAY_METADATA_SIZE;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt_array(vm, ptr, &self.retdata.0)
-    }
-}
+pub type CallContractResponse = SingleSegmentResponse;
 
 pub fn call_contract(
     request: CallContractRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<CallContractResponse> {
     let entry_point = CallEntryPoint {
@@ -203,9 +192,10 @@ pub fn call_contract(
         storage_address: request.contract_address,
         caller_address: syscall_handler.storage_address,
     };
-    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+    let (retdata_segment_start_ptr, retdata_length) =
+        execute_inner_call(vm, entry_point, syscall_handler)?;
 
-    Ok(CallContractResponse { retdata })
+    Ok(CallContractResponse { start_ptr: retdata_segment_start_ptr, length: retdata_length })
 }
 
 // LibraryCall syscall.
@@ -232,11 +222,12 @@ type LibraryCallResponse = CallContractResponse;
 
 pub fn library_call(
     request: LibraryCallRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = true;
-    let retdata = execute_library_call(
+    let (retdata_segment_start_ptr, retdata_length) = execute_library_call(
+        vm,
         request.class_hash,
         call_to_external,
         request.function_selector,
@@ -244,17 +235,19 @@ pub fn library_call(
         syscall_handler,
     )?;
 
-    Ok(LibraryCallResponse { retdata })
+    Ok(LibraryCallResponse { start_ptr: retdata_segment_start_ptr, length: retdata_length })
 }
 
 // LibraryCallL1Handler syscall.
 
 pub fn library_call_l1_handler(
     request: LibraryCallRequest,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
-    let retdata = execute_library_call(
+    let (retdata_segment_start_ptr, retdata_length) = execute_library_call(
+        vm,
         request.class_hash,
         call_to_external,
         request.function_selector,
@@ -262,7 +255,7 @@ pub fn library_call_l1_handler(
         syscall_handler,
     )?;
 
-    Ok(LibraryCallResponse { retdata })
+    Ok(LibraryCallResponse { start_ptr: retdata_segment_start_ptr, length: retdata_length })
 }
 
 // DelegateCall syscall.
@@ -272,11 +265,13 @@ type DelegateCallResponse = CallContractResponse;
 
 pub fn delegate_call(
     request: DelegateCallRequest,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
     let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
-    let retdata = execute_library_call(
+    let (retdata_segment_start_ptr, retdata_length) = execute_library_call(
+        vm,
         class_hash,
         call_to_external,
         request.function_selector,
@@ -284,18 +279,20 @@ pub fn delegate_call(
         syscall_handler,
     )?;
 
-    Ok(DelegateCallResponse { retdata })
+    Ok(DelegateCallResponse { start_ptr: retdata_segment_start_ptr, length: retdata_length })
 }
 
 // DelegateCallL1Handler syscall.
 
 pub fn delegate_l1_handler(
     request: DelegateCallRequest,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = false;
     let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
-    let retdata = execute_library_call(
+    let (retdata_segment_start_ptr, retdata_length) = execute_library_call(
+        vm,
         class_hash,
         call_to_external,
         request.function_selector,
@@ -303,7 +300,7 @@ pub fn delegate_l1_handler(
         syscall_handler,
     )?;
 
-    Ok(DelegateCallResponse { retdata })
+    Ok(DelegateCallResponse { start_ptr: retdata_segment_start_ptr, length: retdata_length })
 }
 
 // Deploy syscall.
@@ -337,6 +334,8 @@ impl SyscallRequest for DeployRequest {
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeployResponse {
     pub contract_address: ContractAddress,
+    pub constructor_retdata_start_ptr: Relocatable,
+    pub constructor_retdata_length: usize,
 }
 
 impl SyscallResponse for DeployResponse {
@@ -347,13 +346,14 @@ impl SyscallResponse for DeployResponse {
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         write_felt(vm, ptr, *self.contract_address.0.key())?;
-        write_felt_array(vm, &(ptr + 1), &retdata![].0)
+        vm.insert_value(&(ptr + 1), self.constructor_retdata_length)?;
+        Ok(vm.insert_value(&(ptr + 2), self.constructor_retdata_start_ptr)?)
     }
 }
 
 pub fn deploy(
     request: DeployRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DeployResponse> {
     let deployer_address = syscall_handler.storage_address;
@@ -379,7 +379,12 @@ pub fn deploy(
     )?;
     syscall_handler.inner_calls.push(call_info);
 
-    Ok(DeployResponse { contract_address: deployed_contract_address })
+    let constructor_retdata_start_ptr = syscall_handler.read_only_segments.allocate(vm, vec![])?;
+    Ok(DeployResponse {
+        contract_address: deployed_contract_address,
+        constructor_retdata_start_ptr,
+        constructor_retdata_length: 0,
+    })
 }
 
 // EmitEvent syscall.

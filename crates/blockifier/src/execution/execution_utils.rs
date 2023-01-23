@@ -257,7 +257,7 @@ fn read_execution_retdata(
         relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
     };
 
-    Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?.into()))
+    Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?))
 }
 
 pub fn felt_range_from_ptr(
@@ -403,12 +403,13 @@ pub fn execute_deployment(
 }
 
 pub fn execute_library_call(
+    vm: &mut VirtualMachine,
     class_hash: ClassHash,
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<Retdata> {
+) -> SyscallResult<(Relocatable, usize)> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
     let entry_point = CallEntryPoint {
@@ -421,5 +422,5 @@ pub fn execute_library_call(
         caller_address: syscall_handler.caller_address,
     };
 
-    execute_inner_call(entry_point, syscall_handler)
+    execute_inner_call(vm, entry_point, syscall_handler)
 }
