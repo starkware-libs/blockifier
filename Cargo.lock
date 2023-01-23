@@ -1332,7 +1332,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#5a3f52a0954fe8b9e5d2348ffdf243392ec89ad3"
+source = "git+https://github.com/starkware-libs/papyrus#7acff15d996ec639e9db45a097f180ef99ca14aa"
 dependencies = [
  "bincode",
  "flate2",
@@ -1340,7 +1340,6 @@ dependencies = [
  "indexmap",
  "integer-encoding",
  "libmdbx",
- "log",
  "rand",
  "rand_chacha",
  "reqwest",
@@ -1352,6 +1351,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tracing",
  "url",
 ]
 
@@ -2194,15 +2194,15 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#5a3f52a0954fe8b9e5d2348ffdf243392ec89ad3"
+source = "git+https://github.com/starkware-libs/papyrus#7acff15d996ec639e9db45a097f180ef99ca14aa"
 dependencies = [
  "indexmap",
- "log",
  "rand",
  "rand_chacha",
  "serde",
  "serde_json",
  "starknet_api",
+ "tracing",
 ]
 
 [[package]]
@@ -2358,8 +2358,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
  "cfg-if",
+ "log",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4017f8f45139870ca7e672686113917c71c7a6e02d4924eda67186083c03081a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
