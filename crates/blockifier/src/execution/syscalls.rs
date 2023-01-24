@@ -12,16 +12,15 @@ use starknet_api::transaction::{
     MessageToL1,
 };
 
-use crate::execution::entry_point::{CallEntryPoint, Retdata};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    execute_deployment, execute_library_call, felt_from_memory_ptr,
+    execute_deployment, execute_library_call, felt_from_memory_ptr, ReadOnlySegment,
 };
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
-    write_felt_array, SyscallHintProcessor,
+    SyscallHintProcessor,
 };
-use crate::retdata;
 
 #[cfg(test)]
 #[path = "syscalls_test.rs"]
@@ -69,18 +68,17 @@ impl SyscallResponse for EmptyResponse {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct SingleSegmentResponse {
-    pub start_ptr: Relocatable,
-    pub length: usize,
+    segment: ReadOnlySegment,
 }
 
 impl SyscallResponse for SingleSegmentResponse {
     const SIZE: usize = ARRAY_METADATA_SIZE;
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, self.length)?;
-        Ok(vm.insert_value(&(ptr + 1), self.start_ptr)?)
+        vm.insert_value(ptr, self.segment.length)?;
+        Ok(vm.insert_value(&(ptr + 1), self.segment.start_ptr)?)
     }
 }
 
@@ -177,22 +175,12 @@ impl SyscallRequest for CallContractRequest {
         Ok(CallContractRequest { contract_address, function_selector, calldata })
     }
 }
-#[derive(Debug, Eq, PartialEq)]
-pub struct CallContractResponse {
-    pub retdata: Retdata,
-}
 
-impl SyscallResponse for CallContractResponse {
-    const SIZE: usize = ARRAY_METADATA_SIZE;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
-        write_felt_array(vm, ptr, &self.retdata.0)
-    }
-}
+pub type CallContractResponse = SingleSegmentResponse;
 
 pub fn call_contract(
     request: CallContractRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<CallContractResponse> {
     let entry_point = CallEntryPoint {
@@ -203,9 +191,9 @@ pub fn call_contract(
         storage_address: request.contract_address,
         caller_address: syscall_handler.storage_address,
     };
-    let retdata = execute_inner_call(entry_point, syscall_handler)?;
+    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 
-    Ok(CallContractResponse { retdata })
+    Ok(CallContractResponse { segment: retdata_segment })
 }
 
 // LibraryCall syscall.
@@ -232,38 +220,40 @@ type LibraryCallResponse = CallContractResponse;
 
 pub fn library_call(
     request: LibraryCallRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = true;
-    let retdata = execute_library_call(
+    let retdata_segment = execute_library_call(
+        syscall_handler,
+        vm,
         request.class_hash,
         call_to_external,
         request.function_selector,
         request.calldata,
-        syscall_handler,
     )?;
 
-    Ok(LibraryCallResponse { retdata })
+    Ok(LibraryCallResponse { segment: retdata_segment })
 }
 
 // LibraryCallL1Handler syscall.
 
 pub fn library_call_l1_handler(
     request: LibraryCallRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
-    let retdata = execute_library_call(
+    let retdata_segment = execute_library_call(
+        syscall_handler,
+        vm,
         request.class_hash,
         call_to_external,
         request.function_selector,
         request.calldata,
-        syscall_handler,
     )?;
 
-    Ok(LibraryCallResponse { retdata })
+    Ok(LibraryCallResponse { segment: retdata_segment })
 }
 
 // DelegateCall syscall.
@@ -273,40 +263,42 @@ type DelegateCallResponse = CallContractResponse;
 
 pub fn delegate_call(
     request: DelegateCallRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
     let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
-    let retdata = execute_library_call(
+    let retdata_segment = execute_library_call(
+        syscall_handler,
+        vm,
         class_hash,
         call_to_external,
         request.function_selector,
         request.calldata,
-        syscall_handler,
     )?;
 
-    Ok(DelegateCallResponse { retdata })
+    Ok(DelegateCallResponse { segment: retdata_segment })
 }
 
 // DelegateCallL1Handler syscall.
 
 pub fn delegate_l1_handler(
     request: DelegateCallRequest,
-    _vm: &mut VirtualMachine,
+    vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = false;
     let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
-    let retdata = execute_library_call(
+    let retdata_segment = execute_library_call(
+        syscall_handler,
+        vm,
         class_hash,
         call_to_external,
         request.function_selector,
         request.calldata,
-        syscall_handler,
     )?;
 
-    Ok(DelegateCallResponse { retdata })
+    Ok(DelegateCallResponse { segment: retdata_segment })
 }
 
 // Deploy syscall.
@@ -350,7 +342,8 @@ impl SyscallResponse for DeployResponse {
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         write_felt(vm, ptr, *self.contract_address.0.key())?;
-        write_felt_array(vm, &(ptr + 1), &retdata![].0)
+        vm.insert_value(&(ptr + 1), 0)?;
+        Ok(vm.insert_value(&(ptr + 2), 0)?)
     }
 }
 
@@ -561,5 +554,5 @@ pub fn get_tx_signature(
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
     let length = syscall_handler.account_tx_context.signature.0.len();
 
-    Ok(GetTxSignatureResponse { start_ptr, length })
+    Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }
