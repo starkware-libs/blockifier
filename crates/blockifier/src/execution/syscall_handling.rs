@@ -29,8 +29,8 @@ use crate::execution::hint_code;
 use crate::execution::syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
-    get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1, storage_read,
-    storage_write, SyscallRequest, SyscallResponse, SyscallResult,
+    get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
+    storage_read, storage_write, SyscallRequest, SyscallResponse, SyscallResult,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -58,8 +58,9 @@ pub struct SyscallHintProcessor<'a> {
     // Additional fields.
     // Invariant: must only contain allowed hints.
     builtin_hint_processor: BuiltinHintProcessor,
-    // Transaction and signature segment; allocated on-demand.
+    // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
+    tx_info_start_ptr: Option<Relocatable>,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -84,6 +85,7 @@ impl<'a> SyscallHintProcessor<'a> {
             syscall_ptr: initial_syscall_ptr,
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
+            tx_info_start_ptr: None,
         }
     }
 
@@ -124,6 +126,7 @@ impl<'a> SyscallHintProcessor<'a> {
             b"GetCallerAddress" => self.execute_syscall(vm, get_caller_address),
             b"GetContractAddress" => self.execute_syscall(vm, get_contract_address),
             b"GetSequencerAddress" => self.execute_syscall(vm, get_sequencer_address),
+            b"GetTxInfo" => self.execute_syscall(vm, get_tx_info),
             b"GetTxSignature" => self.execute_syscall(vm, get_tx_signature),
             b"LibraryCall" => self.execute_syscall(vm, library_call),
             b"LibraryCallL1Handler" => self.execute_syscall(vm, library_call_l1_handler),
@@ -144,6 +147,20 @@ impl<'a> SyscallHintProcessor<'a> {
                 let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
                 self.tx_signature_start_ptr = Some(tx_signature_start_ptr);
                 Ok(tx_signature_start_ptr)
+            }
+        }
+    }
+
+    pub fn get_or_allocate_tx_info_start_ptr(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        match self.tx_info_start_ptr {
+            Some(tx_info_start_ptr) => Ok(tx_info_start_ptr),
+            None => {
+                let tx_info_start_ptr = self.allocate_tx_info_segment(vm)?;
+                self.tx_info_start_ptr = Some(tx_info_start_ptr);
+                Ok(tx_info_start_ptr)
             }
         }
     }
@@ -189,6 +206,24 @@ impl<'a> SyscallHintProcessor<'a> {
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, signature)?;
 
         Ok(signature_segment_start_ptr)
+    }
+
+    fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
+        let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
+        let tx_signature_length = self.account_tx_context.signature.0.len();
+        let tx_info: Vec<MaybeRelocatable> = vec![
+            stark_felt_to_felt(self.account_tx_context.version.0).into(),
+            stark_felt_to_felt(*self.account_tx_context.sender_address.0.key()).into(),
+            Felt::from(self.account_tx_context.max_fee.0).into(),
+            tx_signature_length.into(),
+            tx_signature_start_ptr.into(),
+            stark_felt_to_felt(self.account_tx_context.transaction_hash.0).into(),
+            Felt::from_bytes_be(self.block_context.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(self.account_tx_context.nonce.0).into(),
+        ];
+
+        let tx_info_start_ptr = self.read_only_segments.allocate(vm, tx_info)?;
+        Ok(tx_info_start_ptr)
     }
 }
 

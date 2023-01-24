@@ -251,6 +251,7 @@ pub fn library_call(
 
 pub fn library_call_l1_handler(
     request: LibraryCallRequest,
+    _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
@@ -272,6 +273,7 @@ type DelegateCallResponse = CallContractResponse;
 
 pub fn delegate_call(
     request: DelegateCallRequest,
+    _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
@@ -291,6 +293,7 @@ pub fn delegate_call(
 
 pub fn delegate_l1_handler(
     request: DelegateCallRequest,
+    _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = false;
@@ -559,4 +562,30 @@ pub fn get_tx_signature(
     let length = syscall_handler.account_tx_context.signature.0.len();
 
     Ok(GetTxSignatureResponse { start_ptr, length })
+}
+
+// GetTxInfo syscall.
+
+type GetTxInfoRequest = EmptyRequest;
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetTxInfoResponse {
+    pub tx_info_start_ptr: Relocatable,
+}
+
+impl SyscallResponse for GetTxInfoResponse {
+    const SIZE: usize = ARRAY_METADATA_SIZE;
+
+    fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
+        Ok(vm.insert_value(ptr, self.tx_info_start_ptr)?)
+    }
+}
+pub fn get_tx_info(
+    _request: GetTxInfoRequest,
+    vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetTxInfoResponse> {
+    let tx_info_start_ptr = syscall_handler.get_or_allocate_tx_info_start_ptr(vm)?;
+
+    Ok(GetTxInfoResponse { tx_info_start_ptr })
 }
