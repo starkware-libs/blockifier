@@ -12,8 +12,9 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner};
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
@@ -24,7 +25,8 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::execution::syscall_handling::SyscallHintProcessor;
+use crate::execution::syscall_handling::{execute_inner_call, SyscallHintProcessor};
+use crate::execution::syscalls::SyscallResult;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -398,4 +400,26 @@ pub fn execute_deployment(
         deployer_address,
         constructor_calldata,
     )
+}
+
+pub fn execute_library_call(
+    class_hash: ClassHash,
+    call_to_external: bool,
+    entry_point_selector: EntryPointSelector,
+    calldata: Calldata,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<Retdata> {
+    let entry_point_type =
+        if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
+    let entry_point = CallEntryPoint {
+        class_hash: Some(class_hash),
+        entry_point_type,
+        entry_point_selector,
+        calldata,
+        // The call context remains the same in a library call.
+        storage_address: syscall_handler.storage_address,
+        caller_address: syscall_handler.caller_address,
+    };
+
+    execute_inner_call(entry_point, syscall_handler)
 }

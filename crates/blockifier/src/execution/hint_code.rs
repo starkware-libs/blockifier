@@ -5,6 +5,8 @@ use once_cell::sync::Lazy;
 pub static SYSCALL_HINTS: Lazy<HashSet<&str>> = Lazy::new(|| {
     HashSet::from([
         "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        "syscall_handler.delegate_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        "syscall_handler.delegate_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.get_block_number(segments=segments, syscall_ptr=ids.syscall_ptr)",
@@ -14,6 +16,8 @@ pub static SYSCALL_HINTS: Lazy<HashSet<&str>> = Lazy::new(|| {
         "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        "syscall_handler.library_call_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        "syscall_handler.send_message_to_l1(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)",
     ])

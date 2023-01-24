@@ -27,10 +27,10 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
-    call_contract, deploy, emit_event, get_block_number, get_block_timestamp, get_caller_address,
-    get_contract_address, get_sequencer_address, get_tx_signature, library_call,
-    send_message_to_l1, storage_read, storage_write, SyscallRequest, SyscallResponse,
-    SyscallResult,
+    call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
+    get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
+    get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1, storage_read,
+    storage_write, SyscallRequest, SyscallResponse, SyscallResult,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -110,6 +110,8 @@ impl<'a> SyscallHintProcessor<'a> {
         let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
         match &selector_bytes[first_non_zero..32] {
             b"CallContract" => self.execute_syscall(vm, call_contract),
+            b"DelegateCall" => self.execute_syscall(vm, delegate_call),
+            b"DelegateL1Handler" => self.execute_syscall(vm, delegate_l1_handler),
             b"Deploy" => self.execute_syscall(vm, deploy),
             b"EmitEvent" => self.execute_syscall(vm, emit_event),
             b"GetBlockNumber" => self.execute_syscall(vm, get_block_number),
@@ -119,6 +121,7 @@ impl<'a> SyscallHintProcessor<'a> {
             b"GetSequencerAddress" => self.execute_syscall(vm, get_sequencer_address),
             b"GetTxSignature" => self.execute_syscall(vm, get_tx_signature),
             b"LibraryCall" => self.execute_syscall(vm, library_call),
+            b"LibraryCallL1Handler" => self.execute_syscall(vm, library_call_l1_handler),
             b"SendMessageToL1" => self.execute_syscall(vm, send_message_to_l1),
             b"StorageRead" => self.execute_syscall(vm, storage_read),
             b"StorageWrite" => self.execute_syscall(vm, storage_write),
