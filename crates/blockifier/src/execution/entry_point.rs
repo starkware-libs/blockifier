@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -17,6 +20,15 @@ use crate::transaction::objects::AccountTransactionContext;
 pub mod test;
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
+
+/// Represents the resources used during execution.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct ExecutionResources {
+    /// Accumulated Cairo VM resources.
+    pub vm_resources: VmExecutionResources,
+    /// A mapping of syscall to the cumulative number of its invocations.
+    pub syscall_counter: HashMap<String, usize>,
+}
 
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]

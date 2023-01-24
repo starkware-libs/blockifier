@@ -35,11 +35,14 @@ use crate::execution::syscalls::{
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
+use super::entry_point::ExecutionResources;
+
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
+    pub resources: &'a mut ExecutionResources,
     pub block_context: &'a BlockContext,
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
@@ -65,6 +68,7 @@ pub struct SyscallHintProcessor<'a> {
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
+        resources: &'a mut ExecutionResources,
         block_context: &'a BlockContext,
         account_tx_context: &'a AccountTransactionContext,
         initial_syscall_ptr: Relocatable,
@@ -73,6 +77,7 @@ impl<'a> SyscallHintProcessor<'a> {
     ) -> Self {
         SyscallHintProcessor {
             state,
+            resources,
             block_context,
             account_tx_context,
             storage_address,
