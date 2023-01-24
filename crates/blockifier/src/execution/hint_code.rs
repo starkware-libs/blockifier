@@ -14,6 +14,7 @@ pub static SYSCALL_HINTS: Lazy<HashSet<&str>> = Lazy::new(|| {
         "syscall_handler.get_caller_address(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.get_contract_address(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.get_sequencer_address(segments=segments, syscall_ptr=ids.syscall_ptr)",
+        "syscall_handler.get_tx_info(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
         "syscall_handler.library_call_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)",
