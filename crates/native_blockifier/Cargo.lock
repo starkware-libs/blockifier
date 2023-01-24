@@ -52,6 +52,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "native_blockifier"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -147,13 +154,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "python_rust_bridge"
-version = "0.1.0"
-dependencies = [
- "pyo3",
 ]
 
 [[package]]

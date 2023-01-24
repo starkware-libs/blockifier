@@ -1,1 +1,1 @@
-from .python_rust_bridge import *
+from .native_blockifier import *
