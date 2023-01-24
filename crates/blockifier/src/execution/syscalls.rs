@@ -251,6 +251,7 @@ pub fn library_call(
 
 pub fn library_call_l1_handler(
     request: LibraryCallRequest,
+    _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
@@ -272,6 +273,7 @@ type DelegateCallResponse = CallContractResponse;
 
 pub fn delegate_call(
     request: DelegateCallRequest,
+    _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
@@ -291,6 +293,7 @@ pub fn delegate_call(
 
 pub fn delegate_l1_handler(
     request: DelegateCallRequest,
+    _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = false;
