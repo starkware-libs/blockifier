@@ -567,7 +567,7 @@ pub struct GetTxInfoResponse {
 }
 
 impl SyscallResponse for GetTxInfoResponse {
-    const SIZE: usize = ARRAY_METADATA_SIZE;
+    const SIZE: usize = 1;
 
     fn write(self, vm: &mut VirtualMachine, ptr: &Relocatable) -> WriteResponseResult {
         Ok(vm.insert_value(ptr, self.tx_info_start_ptr)?)
