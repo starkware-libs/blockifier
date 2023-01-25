@@ -8,6 +8,7 @@ use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
 };
 
+use super::transaction_utils::verify_no_calls_to_other_contracts;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
@@ -56,6 +57,8 @@ impl ExecuteTransaction for DeployAccountTransaction {
             ContractAddress::default(),
             self.constructor_calldata.clone(),
         )?;
+        verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
+
         Ok(Some(call_info))
     }
 
