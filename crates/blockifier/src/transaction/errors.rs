@@ -6,13 +6,19 @@ use thiserror::Error;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::state::errors::StateError;
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum FeeTransferError {
     #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
     MaxFeeExceeded { max_fee: Fee, actual_fee: Fee },
 }
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
+pub enum InvokeTransactionError {
+    #[error("Entry point selector must not be specified for an invoke transaction.")]
+    SpecifiedEntryPoint,
+}
+
+#[derive(Debug, Error)]
 pub enum TransactionExecutionError {
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
@@ -25,6 +31,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: &'static [TransactionVersion] },
+    #[error(transparent)]
+    InvokeTransactionError(#[from] InvokeTransactionError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
