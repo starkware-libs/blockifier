@@ -41,6 +41,8 @@ namespace SecurityTestContract {
     }
 }
 
+// VM execution failures.
+
 @external
 func test_nonrelocatable_syscall_ptr{syscall_ptr}() {
     let syscall_ptr = 0;
@@ -114,6 +116,8 @@ func test_bad_expr_eval() {
     }
     return ();
 }
+
+// Builtin execution failures.
 
 @external
 func test_bad_pedersen_values{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*}() {
@@ -194,6 +198,8 @@ func maybe_call_foo{syscall_ptr: felt*, range_check_ptr}(call_foo: felt) {
     return ();
 }
 
+// Syscall execution failures.
+
 @external
 func test_read_bad_address{syscall_ptr: felt*, range_check_ptr}(call_foo: felt) {
     storage_read(address=2 ** 251);
@@ -264,6 +270,8 @@ func test_bad_deploy_from_zero_field{syscall_ptr: felt*}() {
     %{ syscall_handler.deploy(segments=segments, syscall_ptr=ids.syscall_ptr) %}
     return ();
 }
+
+// Post-run validation failures.
 
 // Create a hole in the range check segment. Calling this function will fail.
 @external
