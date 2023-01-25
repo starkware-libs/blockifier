@@ -392,13 +392,12 @@ fn test_post_run_validation_security_failure() {
         &mut state,
     );
 
-    // TODO(Elin, 21/12/2022): Uncomment after get_tx_info syscall is implemented.
-    // run_security_test(
-    //     "Validation failed: Read-only segments",
-    //     "test_out_of_bounds_write_to_tx_info_segment",
-    //     calldata![],
-    //     &mut state,
-    // );
+    run_security_test(
+        "Validation failed: Read-only segments",
+        "test_out_of_bounds_write_to_tx_info_segment",
+        calldata![],
+        &mut state,
+    );
 
     run_security_test(
         "Validation failed: Read-only segments",
