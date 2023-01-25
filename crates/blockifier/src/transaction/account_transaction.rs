@@ -13,7 +13,9 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::transaction::constants;
-use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
+use crate::transaction::errors::{
+    FeeTransferError, InvokeTransactionError, TransactionExecutionError,
+};
 use crate::transaction::execute_transaction::ExecuteTransaction;
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
@@ -69,6 +71,11 @@ impl AccountTransaction {
                 )?;
             }
             Self::Invoke(tx) => {
+                // Specifying an entry point selector is not allowed for invoke transactions.
+                if tx.entry_point_selector.is_some() {
+                    return Err(InvokeTransactionError::UnauthorizedEntryPoint)?;
+                }
+
                 // Validate.
                 validate_call_info = Self::validate_tx(
                     state,

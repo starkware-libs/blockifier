@@ -13,6 +13,12 @@ pub enum FeeTransferError {
 }
 
 #[derive(Error, Debug)]
+pub enum InvokeTransactionError {
+    #[error("Entry point selector must not be specified for an invoke transaction.")]
+    UnauthorizedEntryPoint,
+}
+
+#[derive(Error, Debug)]
 pub enum TransactionExecutionError {
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
@@ -29,4 +35,6 @@ pub enum TransactionExecutionError {
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     StateError(#[from] StateError),
+    #[error(transparent)]
+    InvokeTransactionError(#[from] InvokeTransactionError),
 }
