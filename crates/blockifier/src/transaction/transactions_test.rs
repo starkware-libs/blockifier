@@ -5,7 +5,7 @@ use assert_matches::assert_matches;
 use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
+    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{EntryPointType, StorageKey};
@@ -30,7 +30,9 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
+use crate::transaction::errors::{
+    FeeTransferError, InvokeTransactionError, TransactionExecutionError,
+};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 
 pub const TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY: &str =
@@ -288,9 +290,9 @@ fn test_negative_invoke_tx_flows() {
     );
 
     // Insufficient fee.
-    let tx_max_fee = Fee(0);
+    let invalid_max_fee = Fee(0);
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
-        max_fee: tx_max_fee,
+        max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
     });
     let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
@@ -303,13 +305,31 @@ fn test_negative_invoke_tx_flows() {
             max_fee,
             actual_fee,
         })
-        if (max_fee, actual_fee) == (tx_max_fee, expected_actual_fee)
+        if (max_fee, actual_fee) == (invalid_max_fee, expected_actual_fee)
+    );
+
+    // Invalid selector.
+    let invalid_selector = Some(EntryPointSelector::default());
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+        entry_point_selector: invalid_selector,
+        ..valid_invoke_tx.clone()
+    });
+    let execution_error =
+        invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::InvokeTransactionError(
+            InvokeTransactionError::SpecifiedEntryPoint
+        )
     );
 
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
-    let nonce = Nonce(stark_felt!(1));
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction { nonce, ..valid_invoke_tx });
+    let invalid_nonce = Nonce(stark_felt!(1));
+    let invalid_tx =
+        AccountTransaction::Invoke(InvokeTransaction { nonce: invalid_nonce, ..valid_invoke_tx });
     let execution_error =
         invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
 
@@ -317,7 +337,7 @@ fn test_negative_invoke_tx_flows() {
     assert_matches!(
         execution_error,
         TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
-        if (expected_nonce, actual_nonce) == (Nonce::default(), nonce)
+        if (expected_nonce, actual_nonce) == (Nonce::default(), invalid_nonce)
     );
 }
 

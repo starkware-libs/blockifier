@@ -13,6 +13,12 @@ pub enum FeeTransferError {
 }
 
 #[derive(Error, Debug)]
+pub enum InvokeTransactionError {
+    #[error("Entry point selector must not be specified for an invoke transaction.")]
+    SpecifiedEntryPoint,
+}
+
+#[derive(Error, Debug)]
 pub enum TransactionExecutionError {
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
@@ -25,6 +31,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: &'static [TransactionVersion] },
+    #[error(transparent)]
+    InvokeTransactionError(#[from] InvokeTransactionError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
