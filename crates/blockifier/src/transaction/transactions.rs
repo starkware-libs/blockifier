@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use itertools::concat;
-use starknet_api::calldata;
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::ContractAddress;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
+    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
 };
 
 use super::transaction_utils::verify_no_calls_to_other_contracts;
@@ -15,15 +13,23 @@ use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::state_api::State;
 use crate::transaction::constants;
-use crate::transaction::execute_transaction::ExecuteTransaction;
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "transactions_test.rs"]
 mod test;
 
-impl ExecuteTransaction for DeclareTransaction {
-    fn execute_tx(
+pub trait Executable {
+    fn execute(
+        &self,
+        state: &mut dyn State,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>>;
+}
+
+impl Executable for DeclareTransaction {
+    fn execute(
         &self,
         _state: &mut dyn State,
         _block_context: &BlockContext,
@@ -31,18 +37,10 @@ impl ExecuteTransaction for DeclareTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         Ok(None)
     }
-
-    fn validate_entrypoint_calldata(&self) -> Calldata {
-        calldata![self.class_hash.0]
-    }
-
-    fn validate_entry_point_selector() -> EntryPointSelector {
-        selector_from_name(constants::VALIDATE_DECLARE_ENTRY_POINT_NAME)
-    }
 }
 
-impl ExecuteTransaction for DeployAccountTransaction {
-    fn execute_tx(
+impl Executable for DeployAccountTransaction {
+    fn execute(
         &self,
         state: &mut dyn State,
         block_context: &BlockContext,
@@ -61,22 +59,10 @@ impl ExecuteTransaction for DeployAccountTransaction {
 
         Ok(Some(call_info))
     }
-
-    fn validate_entrypoint_calldata(&self) -> Calldata {
-        let validate_calldata = concat(vec![
-            vec![self.class_hash.0, self.contract_address_salt.0],
-            (*self.constructor_calldata.0).clone(),
-        ]);
-        Calldata(Arc::new(validate_calldata))
-    }
-
-    fn validate_entry_point_selector() -> EntryPointSelector {
-        selector_from_name(constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME)
-    }
 }
 
-impl ExecuteTransaction for InvokeTransaction {
-    fn execute_tx(
+impl Executable for InvokeTransaction {
+    fn execute(
         &self,
         state: &mut dyn State,
         block_context: &BlockContext,
@@ -93,13 +79,24 @@ impl ExecuteTransaction for InvokeTransaction {
 
         Ok(Some(execute_call.execute(state, block_context, account_tx_context)?))
     }
+}
 
-    // Calldata for validation is the same calldata as for the execution itself.
-    fn validate_entrypoint_calldata(&self) -> Calldata {
-        Calldata(Arc::clone(&self.calldata.0))
-    }
+impl Executable for L1HandlerTransaction {
+    fn execute(
+        &self,
+        state: &mut dyn State,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let execute_call = CallEntryPoint {
+            entry_point_type: EntryPointType::L1Handler,
+            entry_point_selector: self.entry_point_selector,
+            calldata: Calldata(Arc::clone(&self.calldata.0)),
+            class_hash: None,
+            storage_address: self.contract_address,
+            caller_address: ContractAddress::default(),
+        };
 
-    fn validate_entry_point_selector() -> EntryPointSelector {
-        selector_from_name(constants::VALIDATE_ENTRY_POINT_NAME)
+        Ok(Some(execute_call.execute(state, block_context, account_tx_context)?))
     }
 }
