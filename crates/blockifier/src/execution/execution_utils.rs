@@ -148,6 +148,7 @@ pub fn execute_entry_point_call(
     )?;
 
     Ok(finalize_execution(
+        execution_context.runner,
         execution_context.vm,
         call,
         execution_context.syscall_handler,
@@ -156,7 +157,7 @@ pub fn execute_entry_point_call(
 }
 
 pub fn run_entry_point(
-    cairo_runner: &mut CairoRunner,
+    runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
     args: Args,
@@ -165,11 +166,12 @@ pub fn run_entry_point(
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
 
-    cairo_runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+    runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
     Ok(())
 }
 
 pub fn finalize_execution(
+    runner: CairoRunner,
     mut vm: VirtualMachine,
     call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
@@ -181,12 +183,15 @@ pub fn finalize_execution(
     validate_run(&mut vm, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
+    let vm_resources =
+        runner.get_execution_resources(&vm).map_err(VirtualMachineError::TracerError)?;
     Ok(CallInfo {
         call,
         execution: CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
+            vm_resources,
         },
         inner_calls: syscall_handler.inner_calls,
     })
