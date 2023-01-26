@@ -16,7 +16,7 @@ for py_bin in ${cpython_bins} ${pypy_bins}; do
 done
 
 # Bundle external shared libraries into the wheels
-for whl in /io/dist/*{cp37,cp38,cp39,cp310}*.whl; do
+for whl in /io/dist/*{cp37,cp38,cp39,cp310,pp37,pp38,pp39}*.whl; do
     auditwheel repair "$whl" -w /io/dist/
 done
 
