@@ -19,7 +19,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
 };
-use crate::transaction::transaction_utils::calculate_tx_fee;
+use crate::transaction::transaction_utils::{calculate_tx_fee, verify_no_calls_to_other_contracts};
 
 /// Represents a paid StarkNet transaction.
 pub enum AccountTransaction {
@@ -170,8 +170,10 @@ impl AccountTransaction {
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
+        let validate_call_info = validate_call.execute(state, block_context, account_tx_context)?;
+        verify_no_calls_to_other_contracts(&validate_call_info, String::from("'validate'"))?;
 
-        Ok(validate_call.execute(state, block_context, account_tx_context)?)
+        Ok(validate_call_info)
     }
 
     fn charge_fee(
