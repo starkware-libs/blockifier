@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use itertools::concat;
 use once_cell::sync::Lazy;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -14,7 +17,7 @@ use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::transaction::constants;
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
-use crate::transaction::execute_transaction::ExecuteTransaction;
+use crate::transaction::execute_transaction::Transaction;
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
@@ -41,6 +44,8 @@ impl AccountTransaction {
         // Handle transaction-type specific execution.
         let validate_call_info: CallInfo;
         let execute_call_info: Option<CallInfo>;
+        let validate_entry_point_selector = self.validate_entry_point_selector();
+        let validate_entrypoint_calldata = self.validate_entrypoint_calldata();
         match self {
             Self::Declare(tx) => {
                 // Validate.
@@ -48,8 +53,8 @@ impl AccountTransaction {
                     state,
                     block_context,
                     &account_tx_context,
-                    DeclareTransaction::validate_entry_point_selector(),
-                    tx.validate_entrypoint_calldata(),
+                    validate_entry_point_selector,
+                    validate_entrypoint_calldata,
                 )?;
 
                 // Execute.
@@ -64,8 +69,8 @@ impl AccountTransaction {
                     state,
                     block_context,
                     &account_tx_context,
-                    DeployAccountTransaction::validate_entry_point_selector(),
-                    tx.validate_entrypoint_calldata(),
+                    validate_entry_point_selector,
+                    validate_entrypoint_calldata,
                 )?;
             }
             Self::Invoke(tx) => {
@@ -74,8 +79,8 @@ impl AccountTransaction {
                     state,
                     block_context,
                     &account_tx_context,
-                    InvokeTransaction::validate_entry_point_selector(),
-                    tx.validate_entrypoint_calldata(),
+                    validate_entry_point_selector,
+                    validate_entrypoint_calldata,
                 )?;
 
                 // Execute.
@@ -95,6 +100,30 @@ impl AccountTransaction {
             actual_fee,
             actual_resources,
         })
+    }
+
+    fn validate_entry_point_selector(&self) -> EntryPointSelector {
+        match self {
+            Self::Declare(_) => selector_from_name(constants::VALIDATE_DECLARE_ENTRY_POINT_NAME),
+            Self::DeployAccount(_) => {
+                selector_from_name(constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME)
+            }
+            Self::Invoke(_) => selector_from_name(constants::VALIDATE_ENTRY_POINT_NAME),
+        }
+    }
+
+    fn validate_entrypoint_calldata(&self) -> Calldata {
+        match self {
+            Self::Declare(tx) => calldata![tx.class_hash.0],
+            Self::DeployAccount(tx) => {
+                let validate_calldata = concat(vec![
+                    vec![tx.class_hash.0, tx.contract_address_salt.0],
+                    (*tx.constructor_calldata.0).clone(),
+                ]);
+                Calldata(Arc::new(validate_calldata))
+            }
+            Self::Invoke(tx) => Calldata(Arc::clone(&tx.calldata.0)),
+        }
     }
 
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
