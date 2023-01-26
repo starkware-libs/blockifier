@@ -54,7 +54,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![value] }
+        CallExecution::from_retdata(retdata![value])
     );
 
     // Verify that the state has changed.

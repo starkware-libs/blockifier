@@ -76,6 +76,8 @@ macro_rules! retdata {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallExecution {
     pub retdata: Retdata,
+    pub events: Vec<EventContent>,
+    pub l2_to_l1_messages: Vec<MessageToL1>,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -83,8 +85,6 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
-    pub events: Vec<EventContent>,
-    pub l2_to_l1_messages: Vec<MessageToL1>,
 }
 
 pub struct CallInfoIter<'a> {

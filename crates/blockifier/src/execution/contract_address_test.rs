@@ -35,7 +35,7 @@ fn test_contract_address() {
 
         assert_eq!(
             entry_point_call.execute_directly(state).unwrap().execution,
-            CallExecution { retdata: retdata![*contract_address.0.key()] }
+            CallExecution::from_retdata(retdata![*contract_address.0.key()])
         );
     }
 

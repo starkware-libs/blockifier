@@ -54,7 +54,7 @@ fn test_entry_point_without_arg() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![] }
+        CallExecution::default()
     );
 }
 
@@ -69,7 +69,7 @@ fn test_entry_point_with_arg() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![] }
+        CallExecution::default()
     );
 }
 
@@ -84,7 +84,7 @@ fn test_entry_point_with_builtin() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![] }
+        CallExecution::default()
     );
 }
 
@@ -99,7 +99,7 @@ fn test_entry_point_with_hint() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![] }
+        CallExecution::default()
     );
 }
 
@@ -114,7 +114,7 @@ fn test_entry_point_with_return_value() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![stark_felt!(23)] }
+        CallExecution::from_retdata(retdata![stark_felt!(23)])
     );
 }
 
@@ -140,7 +140,7 @@ fn test_storage_var() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![] }
+        CallExecution::default()
     );
 }
 

@@ -93,7 +93,7 @@ fn expected_validate_call_info(
             caller_address: ContractAddress::default(),
         },
         // The account contract we use for testing has trivial `validate` functions.
-        execution: CallExecution { retdata: retdata![] },
+        execution: CallExecution::default(),
         ..Default::default()
     }
 }
@@ -132,8 +132,11 @@ fn expected_fee_transfer_call_info(
     };
     CallInfo {
         call: expected_fee_transfer_call,
-        execution: CallExecution { retdata: retdata![stark_felt!(true as u64)] },
-        events: vec![expected_fee_transfer_event],
+        execution: CallExecution {
+            retdata: retdata![stark_felt!(true as u64)],
+            events: vec![expected_fee_transfer_event],
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -224,13 +227,12 @@ fn test_invoke_tx() {
     let expected_return_result_retdata = Retdata(expected_return_result_calldata);
     let expected_execute_call_info = Some(CallInfo {
         call: expected_execute_call,
-        execution: CallExecution { retdata: Retdata(expected_return_result_retdata.0.clone()) },
+        execution: CallExecution::from_retdata(Retdata(expected_return_result_retdata.0.clone())),
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
-            execution: CallExecution { retdata: expected_return_result_retdata },
+            execution: CallExecution::from_retdata(expected_return_result_retdata),
             ..Default::default()
         }],
-        ..Default::default()
     });
 
     // Build expected fee transfer call info.
