@@ -14,7 +14,7 @@ use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::transaction::constants;
 use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
-use crate::transaction::execute_transaction::ExecuteTransaction;
+use crate::transaction::execute_transaction::{ExecutableTransaction, ValidatableTransaction};
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
