@@ -61,6 +61,7 @@ pub struct SyscallHintProcessor<'a> {
     // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
+    syscall_counter: HashMap<SyscallSelector, usize>,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -86,6 +87,7 @@ impl<'a> SyscallHintProcessor<'a> {
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
+            syscall_counter: HashMap::default(),
         }
     }
 
@@ -112,6 +114,8 @@ impl<'a> SyscallHintProcessor<'a> {
         self.verify_syscall_ptr(initial_syscall_ptr)?;
 
         let selector = SyscallSelector::try_from(self.read_next_syscall_selector(vm)?)?;
+        self.increment_syscall_count(&selector);
+
         match selector {
             SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
             SyscallSelector::DelegateCall => self.execute_syscall(vm, delegate_call),
@@ -194,6 +198,11 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(selector)
     }
 
+    fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
+        let syscall_count = self.syscall_counter.entry(*selector).or_default();
+        *syscall_count += 1;
+    }
+
     fn allocate_tx_signature_segment(
         &mut self,
         vm: &mut VirtualMachine,
@@ -234,7 +243,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
         constants: &HashMap<String, Felt>,
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-        if hint_code::SYSCALL_HINTS.contains(&&*hint.code) {
+        if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {
             return self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
         }
 
