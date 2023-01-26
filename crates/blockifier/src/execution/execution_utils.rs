@@ -67,8 +67,12 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
-    let mut runner = CairoRunner::new(&program, "all", false)?;
-    let mut vm = VirtualMachine::new(false);
+    let proof_mode = false;
+    let mut runner = CairoRunner::new(&program, "all", proof_mode)?;
+
+    let trace_enabled = true;
+    let mut vm = VirtualMachine::new(trace_enabled);
+
     runner.initialize_builtins(&mut vm)?;
     runner.initialize_segments(&mut vm, None);
 
@@ -148,8 +152,8 @@ pub fn execute_entry_point_call(
     )?;
 
     Ok(finalize_execution(
-        execution_context.vm,
         execution_context.runner,
+        execution_context.vm,
         call,
         execution_context.syscall_handler,
         implicit_args,
@@ -157,7 +161,7 @@ pub fn execute_entry_point_call(
 }
 
 pub fn run_entry_point(
-    cairo_runner: &mut CairoRunner,
+    runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
     args: Args,
@@ -166,13 +170,13 @@ pub fn run_entry_point(
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
 
-    cairo_runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+    runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
     Ok(())
 }
 
 pub fn finalize_execution(
+    runner: CairoRunner,
     mut vm: VirtualMachine,
-    cairo_runner: CairoRunner,
     call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
@@ -180,8 +184,12 @@ pub fn finalize_execution(
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
     let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
-    validate_run(&mut vm, cairo_runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
+    validate_run(&mut vm, &runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
+
+    let vm_resources =
+        runner.get_execution_resources(&vm).map_err(VirtualMachineError::TracerError)?;
+    let vm_resources = vm_resources.filter_unused_builtins();
 
     Ok(CallInfo {
         call,
@@ -190,13 +198,14 @@ pub fn finalize_execution(
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
         },
+        vm_resources,
         inner_calls: syscall_handler.inner_calls,
     })
 }
 
 pub fn validate_run(
     vm: &mut VirtualMachine,
-    cairo_runner: CairoRunner,
+    cairo_runner: &CairoRunner,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
     syscall_handler: &SyscallHintProcessor<'_>,
