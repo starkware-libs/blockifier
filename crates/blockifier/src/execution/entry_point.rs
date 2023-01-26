@@ -1,3 +1,4 @@
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -78,6 +79,7 @@ pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<EventContent>,
     pub l2_to_l1_messages: Vec<MessageToL1>,
+    pub vm_resources: ExecutionResources,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
