@@ -1,3 +1,4 @@
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -96,6 +97,7 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+    pub vm_resources: ExecutionResources,
 }
 
 pub struct CallInfoIter<'a> {

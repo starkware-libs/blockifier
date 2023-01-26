@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use cairo_vm::vm::runners::builtin_runner as cairo_vm_builtin_runner;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -108,21 +112,57 @@ fn test_nested_library_call() {
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 0),
+                (cairo_vm_builtin_runner::BITWISE_BUILTIN_NAME.to_string(), 0),
+                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 0),
+            ]),
+        },
         ..Default::default()
     };
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (cairo_vm_builtin_runner::BITWISE_BUILTIN_NAME.to_string(), 0),
+                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 1),
+                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 0),
+            ]),
+        },
         inner_calls: vec![nested_storage_call_info],
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (cairo_vm_builtin_runner::BITWISE_BUILTIN_NAME.to_string(), 0),
+                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 0),
+                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 0),
+            ]),
+        },
         ..Default::default()
     };
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution::from_retdata(retdata![stark_felt!(0)]),
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (cairo_vm_builtin_runner::BITWISE_BUILTIN_NAME.to_string(), 0),
+                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 1),
+                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 0),
+            ]),
+        },
         inner_calls: vec![library_call_info, storage_call_info],
     };
 
