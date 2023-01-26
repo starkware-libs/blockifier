@@ -12,7 +12,7 @@ pub enum StateReaderError {
     ReadError(String),
 }
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum StateError {
     #[error("Cannot deploy contract at address 0.")]
     OutOfRangeContractAddress,
