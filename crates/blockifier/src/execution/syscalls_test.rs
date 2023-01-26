@@ -30,7 +30,7 @@ fn test_storage_read_write() {
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![stark_felt!(value)] }
+        CallExecution::from_retdata(retdata![stark_felt!(value)])
     );
     // Verify that the state has changed.
     let value_from_state =
@@ -57,7 +57,7 @@ fn test_library_call() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![stark_felt!(91)] }
+        CallExecution::from_retdata(retdata![stark_felt!(91)])
     );
 }
 
@@ -107,25 +107,23 @@ fn test_nested_library_call() {
     };
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
-        execution: CallExecution { retdata: retdata![stark_felt!(value + 1)] },
+        execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         ..Default::default()
     };
     let library_call_info = CallInfo {
         call: library_entry_point,
-        execution: CallExecution { retdata: retdata![stark_felt!(value + 1)] },
+        execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         inner_calls: vec![nested_storage_call_info],
-        ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
-        execution: CallExecution { retdata: retdata![stark_felt!(value)] },
+        execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
         ..Default::default()
     };
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
-        execution: CallExecution { retdata: retdata![stark_felt!(0)] },
+        execution: CallExecution::from_retdata(retdata![stark_felt!(0)]),
         inner_calls: vec![library_call_info, storage_call_info],
-        ..Default::default()
     };
 
     assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
@@ -150,7 +148,7 @@ fn test_call_contract() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![stark_felt!(48)] }
+        CallExecution::from_retdata(retdata![stark_felt!(48)])
     );
 }
 
@@ -263,7 +261,7 @@ fn test_deploy(
     .unwrap();
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { retdata: retdata![*contract_address.0.key()] }
+        CallExecution::from_retdata(retdata![*contract_address.0.key()])
     );
     assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
@@ -291,7 +289,7 @@ fn test_calculate_contract_address() {
 
         assert_eq!(
             entry_point_call.execute_directly(state).unwrap().execution,
-            CallExecution { retdata: retdata![*contract_address.0.key()] }
+            CallExecution::from_retdata(retdata![*contract_address.0.key()])
         );
     }
 

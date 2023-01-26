@@ -13,7 +13,9 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, Retdata,
+};
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateReaderError;
 use crate::state::state_api::{State, StateReader, StateReaderResult};
@@ -209,5 +211,11 @@ impl BlockContext {
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
         }
+    }
+}
+
+impl CallExecution {
+    pub fn from_retdata(retdata: Retdata) -> Self {
+        Self { retdata, ..Default::default() }
     }
 }
