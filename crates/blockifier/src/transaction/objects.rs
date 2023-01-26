@@ -38,3 +38,10 @@ pub struct TransactionExecutionInfo {
 /// A mapping from a transaction execution resource to its actual usage.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
+
+/// Contains the failure reason (error code and error message) of an invalid transaction.
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct TransactionFailureReason {
+    pub code: String,
+    pub message: String,
+}
