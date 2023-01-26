@@ -30,7 +30,7 @@ use crate::execution::syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
     get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
-    storage_read, storage_write, SyscallRequest, SyscallResponse, SyscallResult,
+    storage_read, storage_write, SyscallRequest, SyscallResponse, SyscallResult, SyscallSelector,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -111,29 +111,27 @@ impl<'a> SyscallHintProcessor<'a> {
         let initial_syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
         self.verify_syscall_ptr(initial_syscall_ptr)?;
 
-        let selector = self.read_next_syscall_selector(vm)?;
-        let selector_bytes = selector.bytes();
-        // Remove leading zero bytes from selector.
-        let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
-        match &selector_bytes[first_non_zero..32] {
-            b"CallContract" => self.execute_syscall(vm, call_contract),
-            b"DelegateCall" => self.execute_syscall(vm, delegate_call),
-            b"DelegateL1Handler" => self.execute_syscall(vm, delegate_l1_handler),
-            b"Deploy" => self.execute_syscall(vm, deploy),
-            b"EmitEvent" => self.execute_syscall(vm, emit_event),
-            b"GetBlockNumber" => self.execute_syscall(vm, get_block_number),
-            b"GetBlockTimestamp" => self.execute_syscall(vm, get_block_timestamp),
-            b"GetCallerAddress" => self.execute_syscall(vm, get_caller_address),
-            b"GetContractAddress" => self.execute_syscall(vm, get_contract_address),
-            b"GetSequencerAddress" => self.execute_syscall(vm, get_sequencer_address),
-            b"GetTxInfo" => self.execute_syscall(vm, get_tx_info),
-            b"GetTxSignature" => self.execute_syscall(vm, get_tx_signature),
-            b"LibraryCall" => self.execute_syscall(vm, library_call),
-            b"LibraryCallL1Handler" => self.execute_syscall(vm, library_call_l1_handler),
-            b"SendMessageToL1" => self.execute_syscall(vm, send_message_to_l1),
-            b"StorageRead" => self.execute_syscall(vm, storage_read),
-            b"StorageWrite" => self.execute_syscall(vm, storage_write),
-            _ => Err(HintError::from(SyscallExecutionError::InvalidSyscallSelector(selector))),
+        let selector = SyscallSelector::try_from(self.read_next_syscall_selector(vm)?)?;
+        match selector {
+            SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
+            SyscallSelector::DelegateCall => self.execute_syscall(vm, delegate_call),
+            SyscallSelector::DelegateL1Handler => self.execute_syscall(vm, delegate_l1_handler),
+            SyscallSelector::Deploy => self.execute_syscall(vm, deploy),
+            SyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
+            SyscallSelector::GetBlockNumber => self.execute_syscall(vm, get_block_number),
+            SyscallSelector::GetBlockTimestamp => self.execute_syscall(vm, get_block_timestamp),
+            SyscallSelector::GetCallerAddress => self.execute_syscall(vm, get_caller_address),
+            SyscallSelector::GetContractAddress => self.execute_syscall(vm, get_contract_address),
+            SyscallSelector::GetSequencerAddress => self.execute_syscall(vm, get_sequencer_address),
+            SyscallSelector::GetTxInfo => self.execute_syscall(vm, get_tx_info),
+            SyscallSelector::GetTxSignature => self.execute_syscall(vm, get_tx_signature),
+            SyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
+            SyscallSelector::LibraryCallL1Handler => {
+                self.execute_syscall(vm, library_call_l1_handler)
+            }
+            SyscallSelector::SendMessageToL1 => self.execute_syscall(vm, send_message_to_l1),
+            SyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
+            SyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
         }
     }
 
