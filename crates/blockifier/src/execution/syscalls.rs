@@ -29,6 +29,56 @@ pub mod test;
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
+pub enum SyscallSelector {
+    CallContract,
+    DelegateCall,
+    DelegateL1Handler,
+    Deploy,
+    EmitEvent,
+    GetBlockNumber,
+    GetBlockTimestamp,
+    GetCallerAddress,
+    GetContractAddress,
+    GetSequencerAddress,
+    GetTxInfo,
+    GetTxSignature,
+    LibraryCall,
+    LibraryCallL1Handler,
+    SendMessageToL1,
+    StorageRead,
+    StorageWrite,
+}
+
+impl TryFrom<StarkFelt> for SyscallSelector {
+    type Error = SyscallExecutionError;
+    fn try_from(raw_selector: StarkFelt) -> Result<Self, Self::Error> {
+        // Remove leading zero bytes from selector.
+        let selector_bytes = raw_selector.bytes();
+        let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
+
+        match &selector_bytes[first_non_zero..] {
+            b"CallContract" => Ok(Self::CallContract),
+            b"DelegateCall" => Ok(Self::DelegateCall),
+            b"DelegateL1Handler" => Ok(Self::DelegateL1Handler),
+            b"Deploy" => Ok(Self::Deploy),
+            b"EmitEvent" => Ok(Self::EmitEvent),
+            b"GetBlockNumber" => Ok(Self::GetBlockNumber),
+            b"GetBlockTimestamp" => Ok(Self::GetBlockTimestamp),
+            b"GetCallerAddress" => Ok(Self::GetCallerAddress),
+            b"GetContractAddress" => Ok(Self::GetContractAddress),
+            b"GetSequencerAddress" => Ok(Self::GetSequencerAddress),
+            b"GetTxInfo" => Ok(Self::GetTxInfo),
+            b"GetTxSignature" => Ok(Self::GetTxSignature),
+            b"LibraryCall" => Ok(Self::LibraryCall),
+            b"LibraryCallL1Handler" => Ok(Self::LibraryCallL1Handler),
+            b"SendMessageToL1" => Ok(Self::SendMessageToL1),
+            b"StorageRead" => Ok(Self::StorageRead),
+            b"StorageWrite" => Ok(Self::StorageWrite),
+            _ => Err(SyscallExecutionError::InvalidSyscallSelector(raw_selector)),
+        }
+    }
+}
+
 /// The array metadata contains its size and its starting pointer.
 const ARRAY_METADATA_SIZE: usize = 2;
 
