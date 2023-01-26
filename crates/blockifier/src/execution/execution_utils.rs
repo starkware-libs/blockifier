@@ -177,7 +177,6 @@ pub fn run_entry_point(
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
-
     runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
 
     Ok(())
@@ -191,6 +190,10 @@ pub fn finalize_execution(
     implicit_args: Vec<MaybeRelocatable>,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
+    let vm_resources =
+        runner.get_execution_resources(&vm).map_err(VirtualMachineError::TracerError)?;
+    let vm_resources = vm_resources.filter_unused_builtins();
+
     // The arguments and RO segments are touched by the OS and should not be counted as
     // holes, mark them as accessed.
     let initial_fp = runner
@@ -213,6 +216,7 @@ pub fn finalize_execution(
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
         },
+        vm_resources,
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
