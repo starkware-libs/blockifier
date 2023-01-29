@@ -126,7 +126,7 @@ fn test_entry_point_not_found_in_contract() {
         CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_eq!(
-        format!("Entry point {:?} not found in contract.", entry_point_selector),
+        format!("Entry point {entry_point_selector:?} not found in contract."),
         format!("{error}")
     );
 }
