@@ -121,13 +121,13 @@ fn test_entry_point_with_return_value() {
 #[test]
 fn test_entry_point_not_found_in_contract() {
     let mut state = create_test_state();
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: EntryPointSelector(stark_felt!(2)),
-        ..trivial_external_entry_point()
-    };
+    let entry_point_selector = EntryPointSelector(stark_felt!(2));
+    let entry_point_call =
+        CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_eq!(
-        format!("Entry point {:?} not found in contract.", entry_point_call.entry_point_selector),
-        format!("{}", entry_point_call.execute_directly(&mut state).unwrap_err())
+        format!("Entry point {:?} not found in contract.", entry_point_selector),
+        format!("{error}")
     );
 }
 

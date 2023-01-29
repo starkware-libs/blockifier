@@ -28,7 +28,7 @@ pub enum TransactionExecutionError {
     InvalidNonce { expected_nonce: Nonce, actual_nonce: Nonce },
     #[error(
         "Transaction version {version:?} is not supported. Supported versions: \
-         {allowed_versions:?}."
+        {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: &'static [TransactionVersion] },
     #[error(transparent)]
