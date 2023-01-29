@@ -45,8 +45,8 @@ pub fn normalize_address_set_is_small(
         && prime < (2u8 * addr_bound))
     {
         return Err(HintError::AssertionFailed(format!(
-            "assert (2**250 < {addr_bound} <= 2**251) and (2 * 2**250 < PRIME) \
-            and ({addr_bound} * 2 > PRIME); \
+            "assert (2**250 < {addr_bound} <= 2**251) and (2 * 2**250 < PRIME) and ({addr_bound} \
+            * 2 > PRIME); \
             normalize_address() cannot be used with the current constants.",
         )));
     }

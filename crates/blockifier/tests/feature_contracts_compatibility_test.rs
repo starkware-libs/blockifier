@@ -20,7 +20,7 @@ fn verify_feature_contracts_compatibility(fix: bool) {
                     dir_name,
                     COMPILED_CONTRACTS_SUBDIR,
                     "Found directory '{}' in `{FEATURE_CONTRACTS_DIR}`, which should contain only \
-                    the `{COMPILED_CONTRACTS_SUBDIR}` directory.",
+                     the `{COMPILED_CONTRACTS_SUBDIR}` directory.",
                     dir_name.to_string_lossy()
                 );
                 continue;
