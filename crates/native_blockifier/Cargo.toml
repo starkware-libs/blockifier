@@ -13,4 +13,8 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
+blockifier = { path = "../blockifier" }
 pyo3 = { version = "0.17.3", features = ["extension-module"] }
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "0a11ad3", features = [
+    "testing",
+] }

@@ -1220,7 +1220,9 @@ dependencies = [
 name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
+ "blockifier",
  "pyo3",
+ "starknet_api",
 ]
 
 [[package]]
