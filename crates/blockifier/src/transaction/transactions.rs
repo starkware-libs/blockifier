@@ -6,7 +6,6 @@ use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
 };
 
-use super::transaction_utils::verify_no_calls_to_other_contracts;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
@@ -14,6 +13,7 @@ use crate::execution::execution_utils::execute_deployment;
 use crate::state::state_api::State;
 use crate::transaction::constants;
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
+use crate::transaction::transaction_utils::verify_no_calls_to_other_contracts;
 
 #[cfg(test)]
 #[path = "transactions_test.rs"]

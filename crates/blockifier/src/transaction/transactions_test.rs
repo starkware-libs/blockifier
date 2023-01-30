@@ -82,8 +82,8 @@ fn expected_validate_call_info(
     entry_point_selector_name: &str,
     calldata: Calldata,
     storage_address: ContractAddress,
-) -> CallInfo {
-    CallInfo {
+) -> Option<CallInfo> {
+    Some(CallInfo {
         call: CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::External,
@@ -95,14 +95,14 @@ fn expected_validate_call_info(
         // The account contract we use for testing has trivial `validate` functions.
         execution: CallExecution::default(),
         ..Default::default()
-    }
+    })
 }
 
 fn expected_fee_transfer_call_info(
     block_context: &BlockContext,
     account_address: ContractAddress,
     actual_fee: Fee,
-) -> CallInfo {
+) -> Option<CallInfo> {
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0 as u64);
@@ -130,7 +130,7 @@ fn expected_fee_transfer_call_info(
             msb_expected_amount,
         ]),
     };
-    CallInfo {
+    Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
             retdata: retdata![stark_felt!(true as u64)],
@@ -138,7 +138,7 @@ fn expected_fee_transfer_call_info(
             ..Default::default()
         },
         ..Default::default()
-    }
+    })
 }
 
 fn validate_final_balances(
@@ -222,7 +222,7 @@ fn test_invoke_tx() {
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
-        ..expected_validate_call_info.call.clone()
+        ..expected_validate_call_info.as_ref().unwrap().call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata);
     let expected_execute_call_info = Some(CallInfo {
