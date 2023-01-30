@@ -237,14 +237,14 @@ fn test_invoke_tx() {
 
     // Build expected fee transfer call info.
     let expected_actual_fee = actual_fee();
-    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+    let expected_fee_transfer_call_info = Some(expected_fee_transfer_call_info(
         block_context,
         expected_account_address,
         expected_actual_fee,
-    );
+    ));
 
     let expected_execution_info = TransactionExecutionInfo {
-        validate_call_info: expected_validate_call_info,
+        validate_call_info: Some(expected_validate_call_info),
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
@@ -369,19 +369,19 @@ fn test_declare_tx() {
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-    let expected_validate_call_info = expected_validate_call_info(
+    let expected_validate_call_info = Some(expected_validate_call_info(
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
         calldata![class_hash],
         expected_account_address,
-    );
+    ));
 
     // Build expected fee transfer call info.
     let expected_actual_fee = actual_fee();
-    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+    let expected_fee_transfer_call_info = Some(expected_fee_transfer_call_info(
         block_context,
         expected_account_address,
         expected_actual_fee,
-    );
+    ));
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -459,11 +459,11 @@ fn test_deploy_account_tx() {
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
 
-    let expected_validate_call_info = expected_validate_call_info(
+    let expected_validate_call_info = Some(expected_validate_call_info(
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
         Calldata(validate_calldata.into()),
         deployed_account_address,
-    );
+    ));
 
     // Build expected execute call info.
     let expected_execute_call_info = Some(CallInfo {
@@ -477,11 +477,11 @@ fn test_deploy_account_tx() {
     });
 
     // Build expected fee transfer call info.
-    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+    let expected_fee_transfer_call_info = Some(expected_fee_transfer_call_info(
         block_context,
         deployed_account_address,
         expected_actual_fee,
-    );
+    ));
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,

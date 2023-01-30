@@ -23,11 +23,11 @@ pub struct AccountTransactionContext {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionExecutionInfo {
     /// Transaction validation call info.
-    pub validate_call_info: CallInfo,
-    /// Transaction execution call info; trivial for `Declare`.
+    pub validate_call_info: Option<CallInfo>,
+    /// Transaction execution call info.
     pub execute_call_info: Option<CallInfo>,
     /// Fee transfer call info.
-    pub fee_transfer_call_info: CallInfo,
+    pub fee_transfer_call_info: Option<CallInfo>,
     /// The actual fee that was charged (in Wei).
     pub actual_fee: Fee,
     /// Actual execution resources the transaction is charged for,
