@@ -216,6 +216,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "blockifier"
+version = "0.1.0"
+source = "git+https://github.com/starkware-libs/blockifier#a2399a1bcf35e06aff85eee37b9cbd7c138ca942"
+dependencies = [
+ "cairo-felt",
+ "cairo-vm",
+ "derive_more",
+ "indexmap",
+ "itertools",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "once_cell",
+ "papyrus_storage",
+ "serde",
+ "serde_json",
+ "sha3 0.10.6",
+ "starknet_api",
+ "thiserror",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1220,7 +1242,10 @@ dependencies = [
 name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
+ "blockifier 0.1.0 (git+https://github.com/starkware-libs/blockifier)",
+ "num-bigint",
  "pyo3",
+ "starknet_api",
 ]
 
 [[package]]
@@ -1588,6 +1613,7 @@ dependencies = [
  "indoc",
  "libc",
  "memoffset",
+ "num-bigint",
  "parking_lot",
  "pyo3-build-config",
  "pyo3-ffi",
