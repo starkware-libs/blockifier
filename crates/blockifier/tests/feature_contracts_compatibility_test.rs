@@ -47,11 +47,8 @@ fn verify_feature_contracts_compatibility(fix: bool) {
             command.arg("--disable_hint_validation");
         }
         let compile_output = command.output().unwrap();
-        assert!(
-            compile_output.status.success(),
-            "{}",
-            String::from_utf8(compile_output.stderr).unwrap()
-        );
+        let stderr_output = String::from_utf8(compile_output.stderr).unwrap();
+        assert!(compile_output.status.success(), "{stderr_output}");
         let expected_compiled_output = compile_output.stdout;
 
         if fix {
@@ -61,7 +58,7 @@ fn verify_feature_contracts_compatibility(fix: bool) {
             .unwrap_or_else(|_| panic!("Cannot read {existing_compiled_path}."));
 
         if String::from_utf8(expected_compiled_output).unwrap() != existing_compiled_contents {
-            panic!("{} does not compile to {}", path_str, existing_compiled_path)
+            panic!("{path_str} does not compile to {existing_compiled_path}")
         }
     }
 }
