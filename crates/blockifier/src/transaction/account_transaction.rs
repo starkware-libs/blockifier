@@ -100,9 +100,9 @@ impl AccountTransaction {
             Self::charge_fee(state, block_context, &account_tx_context)?;
 
         Ok(TransactionExecutionInfo {
-            validate_call_info,
+            validate_call_info: Some(validate_call_info),
             execute_call_info,
-            fee_transfer_call_info,
+            fee_transfer_call_info: Some(fee_transfer_call_info),
             actual_fee,
             actual_resources,
         })
