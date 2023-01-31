@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# The starknet-api dependency requires the dependency `rust-openssl`, which needs openssl-devel
+# to be installed locally.
+yum -y install openssl-devel
+
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 export PATH="$HOME/.cargo/bin:$PATH"
 
