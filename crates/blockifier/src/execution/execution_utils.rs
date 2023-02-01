@@ -148,6 +148,7 @@ pub fn execute_entry_point_call(
     )?;
 
     Ok(finalize_execution(
+        execution_context.runner,
         execution_context.vm,
         call,
         execution_context.syscall_handler,
@@ -170,6 +171,7 @@ pub fn run_entry_point(
 }
 
 pub fn finalize_execution(
+    cairo_runner: CairoRunner,
     mut vm: VirtualMachine,
     call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
@@ -178,7 +180,7 @@ pub fn finalize_execution(
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
     let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
-    validate_run(&mut vm, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
+    validate_run(cairo_runner, &mut vm, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     Ok(CallInfo {
@@ -193,6 +195,7 @@ pub fn finalize_execution(
 }
 
 pub fn validate_run(
+    cairo_runner: CairoRunner,
     vm: &mut VirtualMachine,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
@@ -200,10 +203,7 @@ pub fn validate_run(
 ) -> Result<(), PostExecutionError> {
     // Validate builtins' final stack.
     let mut current_builtin_ptr = implicit_args_end;
-    for (_name, builtin_runner) in vm.get_builtin_runners().iter().rev() {
-        // Validates builtin segment and returns a pointer to the previous segment.
-        (current_builtin_ptr, _) = builtin_runner.final_stack(vm, current_builtin_ptr)?;
-    }
+    current_builtin_ptr = cairo_runner.get_builtins_final_stack(vm, current_builtin_ptr)?;
 
     // Validate implicit arguments segment length is unchanged.
     // Subtract one to get to the first implicit arg segment (the syscall pointer).

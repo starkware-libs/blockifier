@@ -202,7 +202,7 @@ fn test_vm_execution_security_failures() {
     );
 
     run_security_test(
-        "Range-check validation failed, number is out of valid range",
+        "Out of bounds access to program segment",
         "test_write_to_program_segment",
         calldata![],
         &mut state,
