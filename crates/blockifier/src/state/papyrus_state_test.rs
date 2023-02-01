@@ -27,8 +27,10 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
         ClassHash(stark_felt!(TEST_CLASS_HASH)),
     )]);
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
-    let declared_classes =
-        vec![(ClassHash(stark_felt!(TEST_CLASS_HASH)), get_test_contract_class().into())];
+    let declared_classes = IndexMap::from([(
+        ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        get_test_contract_class().into(),
+    )]);
     storage_writer
         .begin_rw_txn()?
         .append_state_diff(BlockNumber::default(), state_diff, declared_classes)?
