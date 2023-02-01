@@ -13,4 +13,5 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
+blockifier = { git = "https://github.com/starkware-libs/blockifier" }
 pyo3 = { version = "0.17.3", features = ["extension-module"] }
