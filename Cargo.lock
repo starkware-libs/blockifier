@@ -1220,7 +1220,10 @@ dependencies = [
 name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
+ "papyrus_storage",
  "pyo3",
+ "starknet_api",
+ "thiserror",
 ]
 
 [[package]]
