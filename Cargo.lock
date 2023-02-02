@@ -210,7 +210,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.10.6",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=0a11ad3)",
  "test-case",
  "thiserror",
 ]
@@ -1220,7 +1220,10 @@ dependencies = [
 name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
+ "papyrus_storage",
  "pyo3",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api)",
+ "thiserror",
 ]
 
 [[package]]
@@ -1371,7 +1374,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=0a11ad3)",
  "tempfile",
  "test_utils",
  "thiserror",
@@ -2141,6 +2144,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "starknet_api"
+version = "0.1.0"
+source = "git+https://github.com/starkware-libs/starknet-api#9a1fca8665bb68dbea7d39cc5a81d41a58acb9f7"
+dependencies = [
+ "derive_more",
+ "hex",
+ "indexmap",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "starknet-crypto",
+ "thiserror",
+ "web3",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2248,7 +2267,7 @@ dependencies = [
  "rand_chacha",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=0a11ad3)",
  "tracing",
 ]
 
