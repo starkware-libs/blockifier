@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use assert_matches::assert_matches;
 use itertools::concat;
@@ -26,7 +27,8 @@ use crate::test_utils::{
     get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -64,7 +66,7 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY));
     let storage_view = HashMap::from([
         ((test_erc20_address, test_erc20_sequencer_balance_key), stark_felt!(0)),
-        ((test_erc20_address, test_erc20_account_balance_key), stark_felt!(actual_fee().0 as u64)),
+        ((test_erc20_address, test_erc20_account_balance_key), stark_felt!(100)),
     ]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
@@ -144,12 +146,12 @@ fn expected_fee_transfer_call_info(
 fn validate_final_balances(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
+    expected_account_balance: StarkFelt,
     expected_sequencer_balance: StarkFelt,
     erc20_account_balance_key: &str,
 ) {
     // We currently assume the total fee charged for the transaction is equal to the initial balance
     // of the account.
-    let expected_account_balance = stark_felt!(0);
     assert_eq!(
         state
             .get_storage_at(
@@ -263,6 +265,7 @@ fn test_invoke_tx() {
     validate_final_balances(
         state,
         block_context,
+        stark_felt!(99),
         expected_sequencer_balance,
         TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
@@ -403,6 +406,7 @@ fn test_declare_tx() {
     validate_final_balances(
         state,
         block_context,
+        stark_felt!(99),
         expected_sequencer_balance,
         TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
@@ -503,6 +507,7 @@ fn test_deploy_account_tx() {
     validate_final_balances(
         state,
         block_context,
+        stark_felt!(0),
         expected_sequencer_balance,
         TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY,
     );
@@ -510,4 +515,40 @@ fn test_deploy_account_tx() {
     // Verify deployment.
     let class_hash_from_state = *state.get_class_hash_at(deployed_account_address).unwrap();
     assert_eq!(class_hash_from_state, class_hash);
+}
+
+#[test]
+fn test_invoke_erc20_transfer() {
+    let n = 100;
+    let mut duration = Duration::ZERO;
+    for _ in 0..n {
+        let state = &mut create_account_tx_test_state();
+        let block_context = &BlockContext::create_for_testing();
+        let entry_point_selector = selector_from_name("transfer");
+        let calldata = calldata![
+            stark_felt!(TEST_ERC20_CONTRACT_ADDRESS), // Contract address.
+            entry_point_selector.0,                   // EP selector.
+            stark_felt!(3),                           // Calldata length.
+            stark_felt!(TEST_SEQUENCER_ADDRESS),      // Calldata: recipient.
+            stark_felt!(1),                           // Calldata: lsb_amount.
+            stark_felt!(0)                            // Calldata: msb_amount.
+        ];
+
+        let invoke_tx = InvokeTransaction {
+            max_fee: Fee(1),
+            version: TransactionVersion(stark_felt!(1)),
+            sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+            calldata,
+            ..Default::default()
+        };
+
+        let account_tx = AccountTransaction::Invoke(invoke_tx);
+        let start = Instant::now();
+        let _actual_execution_info = account_tx.execute(state, block_context).unwrap();
+        duration += start.elapsed();
+    }
+    duration /= n;
+    dbg!(duration);
+    let tps = 1.0 / duration.as_secs_f64();
+    dbg!(tps);
 }
