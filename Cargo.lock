@@ -1220,6 +1220,7 @@ dependencies = [
 name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
  "papyrus_storage",
  "pyo3",
  "starknet_api",
