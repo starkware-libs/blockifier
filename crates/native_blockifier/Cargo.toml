@@ -14,11 +14,17 @@ crate-type = ["cdylib"]
 
 [dependencies]
 blockifier = { git = "https://github.com/starkware-libs/blockifier" }
+hex = { version = "0.4.3" }
+indexmap = { version = "1.9.2" }
 num-bigint = { version = "0.4" }
 papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", features = [
     "testing",
 ] }
-pyo3 = { version = "0.17.3", features = ["extension-module", "num-bigint"] }
+pyo3 = { version = "0.17.3", features = [
+    "extension-module",
+    "num-bigint",
+    "hashbrown",
+] }
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "0a11ad3", features = [
     "testing",
