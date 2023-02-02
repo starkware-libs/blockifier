@@ -1,8 +1,19 @@
 mod py_transaction;
 
+use std::collections::HashMap;
+use std::convert::TryFrom;
+
+use indexmap::IndexMap;
+use num_bigint::BigUint;
+use papyrus_storage::header::HeaderStorageReader;
+use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use py_transaction::tx_from_python;
-use pyo3::exceptions::PyOSError;
+use pyo3::exceptions::{PyOSError, PyValueError};
 use pyo3::prelude::*;
+use starknet_api::block::BlockNumber;
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::{ContractClass, StateDiff, StorageKey};
 use starknet_api::StarknetApiError;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
@@ -30,7 +41,6 @@ pub struct Storage {
     pub writer: papyrus_storage::StorageWriter,
 }
 
-// TODO: Add rest of the storage api.
 #[pymethods]
 impl Storage {
     #[new]
@@ -42,6 +52,118 @@ impl Storage {
 
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
         Ok(Storage { reader, writer })
+    }
+
+    pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
+        let block_number = self.reader.begin_ro_txn()?.get_state_marker()?;
+        Ok(block_number.0)
+    }
+
+    pub fn get_block_hash(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
+        let block_number = BlockNumber(block_number);
+        let block_hash = self
+            .reader
+            .begin_ro_txn()?
+            .get_block_header(block_number)?
+            .map(|block_header| Vec::from(block_header.block_hash.0.bytes()));
+        Ok(block_hash)
+    }
+
+    // TODO: Do we want to return the stateDiff dropped?
+    pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        let (txn, _) = self.writer.begin_rw_txn()?.revert_state_diff(BlockNumber(block_number))?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    pub fn append_state_diff(
+        &mut self,
+        block_number: u64,
+        py_state_diff: &PyAny,
+        _py_deployed_contract_class_definitions: &PyAny,
+    ) -> NativeBlockifierResult<()> {
+        let py_state_diff: PyStateDiff = py_state_diff.extract()?;
+        let state_diff = StateDiff::try_from(py_state_diff)?;
+
+        // TODO: Figure out how to go from `py_state_diff.class_hash_to_compiled_class_hash` into
+        // this type.
+        let deployed_contract_class_definitions = IndexMap::<ClassHash, ContractClass>::new();
+
+        let block_number = BlockNumber(block_number);
+
+        let append_result = self.writer.begin_rw_txn()?.append_state_diff(
+            block_number,
+            state_diff,
+            deployed_contract_class_definitions,
+        );
+        append_result?.commit()?;
+        Ok(())
+    }
+}
+
+#[derive(FromPyObject)]
+pub struct PyStateDiff {
+    pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
+    pub address_to_nonce: HashMap<PyFelt, PyFelt>,
+    pub class_hash_to_compiled_class_hash: HashMap<PyFelt, PyFelt>,
+    pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
+}
+
+#[derive(FromPyObject, Hash, Eq, PartialEq)]
+// Cannot use tuple struct since Pyo3 doesn't support `from_py_with` for them.
+pub struct PyFelt {
+    #[pyo3(from_py_with = "big_uint_to_stark_felt")]
+    value: StarkFelt,
+}
+
+fn big_uint_to_stark_felt(py_int: &PyAny) -> PyResult<StarkFelt> {
+    let val_biguint: BigUint = py_int.extract()?;
+    let mut val_bytes = val_biguint.to_bytes_be();
+    if 32 < val_bytes.len() {
+        let hex_str = format!("0x{}", hex::encode(val_bytes));
+        return Err(PyValueError::new_err(format!("Out of range: {hex_str}")));
+    }
+
+    let mut bytes = [0u8; 32];
+    val_bytes.resize(32, 0);
+    bytes.copy_from_slice(&val_bytes);
+    StarkFelt::new(bytes).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+impl TryFrom<PyStateDiff> for StateDiff {
+    type Error = NativeBlockifierError;
+
+    fn try_from(state_diff: PyStateDiff) -> NativeBlockifierResult<Self> {
+        let mut deployed_contracts: IndexMap<ContractAddress, ClassHash> = IndexMap::new();
+        for (address, class_hash) in state_diff.address_to_class_hash {
+            let address = ContractAddress::try_from(address.value)?;
+            let class_hash = ClassHash(class_hash.value);
+            deployed_contracts.insert(address, class_hash);
+        }
+
+        let mut storage_diffs = IndexMap::new();
+        for (address, storage_mapping) in state_diff.storage_updates {
+            let address = ContractAddress::try_from(address.value)?;
+            storage_diffs.insert(address, IndexMap::new());
+
+            for (key, value) in storage_mapping {
+                let storage_key = StorageKey::try_from(key.value)?;
+                let storage_value = value.value;
+                storage_diffs.entry(address).and_modify(|changes| {
+                    changes.insert(storage_key, storage_value);
+                });
+            }
+        }
+
+        let declared_classes = IndexMap::new();
+        let mut nonces = IndexMap::new();
+        for (address, nonce) in state_diff.address_to_nonce {
+            let address = ContractAddress::try_from(address.value)?;
+            let nonce = Nonce(nonce.value);
+            nonces.insert(address, nonce);
+        }
+
+        Ok(Self { deployed_contracts, storage_diffs, declared_classes, nonces })
     }
 }
 
