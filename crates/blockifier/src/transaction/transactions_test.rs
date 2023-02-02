@@ -200,7 +200,7 @@ fn test_invoke_tx() {
     let sender_address = invoke_tx.sender_address;
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let (_, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
@@ -365,7 +365,7 @@ fn test_declare_tx() {
     let class_hash = declare_tx.class_hash.0;
 
     let account_tx = AccountTransaction::Declare(declare_tx);
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let (_, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
@@ -453,7 +453,7 @@ fn test_deploy_account_tx() {
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let (_, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let validate_calldata =

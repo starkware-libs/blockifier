@@ -1,3 +1,4 @@
+use starknet_api::state::StateDiff;
 use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
 
 use crate::block_context::BlockContext;
@@ -19,7 +20,7 @@ impl Transaction {
         self,
         state: &mut dyn State,
         block_context: &BlockContext,
-    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+    ) -> TransactionExecutionResult<(StateDiff, TransactionExecutionInfo)> {
         match self {
             Self::AccountTransaction(account_tx) => account_tx.execute(state, block_context),
             Self::L1HandlerTransaction(tx) => {
@@ -31,13 +32,16 @@ impl Transaction {
                     nonce: tx.nonce,
                     sender_address: tx.contract_address,
                 };
-                Ok(TransactionExecutionInfo {
-                    validate_call_info: None,
-                    execute_call_info: tx.execute(state, block_context, &tx_context)?,
-                    fee_transfer_call_info: None,
-                    actual_fee: Fee::default(),
-                    actual_resources: ResourcesMapping::default(),
-                })
+                Ok((
+                    state.to_state_diff(),
+                    TransactionExecutionInfo {
+                        validate_call_info: None,
+                        execute_call_info: tx.execute(state, block_context, &tx_context)?,
+                        fee_transfer_call_info: None,
+                        actual_fee: Fee::default(),
+                        actual_resources: ResourcesMapping::default(),
+                    },
+                ))
             }
         }
     }
