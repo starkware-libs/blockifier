@@ -1,6 +1,6 @@
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::StorageKey;
+use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::{StateError, StateReaderError};
@@ -67,4 +67,6 @@ pub trait State {
     ) -> StateResult<()>;
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass>;
+
+    fn to_state_diff(&self) -> StateDiff;
 }

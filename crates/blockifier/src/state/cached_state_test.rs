@@ -262,5 +262,5 @@ fn cached_state_state_diff_conversion() {
         deployed_contracts: IndexMap::from_iter([(contract_address2, new_class_hash)]),
     };
 
-    assert_eq!(expected_state_diff, StateDiff::from(state));
+    assert_eq!(expected_state_diff, state.to_state_diff());
 }

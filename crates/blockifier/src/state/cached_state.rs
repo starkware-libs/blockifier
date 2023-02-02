@@ -133,13 +133,11 @@ impl<SR: StateReader> State for CachedState<SR> {
         self.cache.set_class_hash_write(contract_address, class_hash);
         Ok(())
     }
-}
 
-impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
-    fn from(cached_state: CachedState<SR>) -> Self {
+    fn to_state_diff(&self) -> StateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
-        let state_cache = cached_state.cache;
+        let state_cache = &self.cache;
 
         // Contract instance attributes.
         let deployed_contracts = subtract_mappings(
@@ -153,7 +151,7 @@ impl<SR: StateReader> From<CachedState<SR>> for StateDiff {
 
         let declared_classes = IndexMap::new();
 
-        Self {
+        StateDiff {
             deployed_contracts: IndexMap::from_iter(deployed_contracts),
             storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
             declared_classes,

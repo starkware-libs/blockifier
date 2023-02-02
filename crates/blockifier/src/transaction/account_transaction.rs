@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::EntryPointType;
+use starknet_api::state::{EntryPointType, StateDiff};
 use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransaction,
     TransactionVersion,
@@ -36,7 +36,7 @@ impl AccountTransaction {
         self,
         state: &mut dyn State,
         block_context: &BlockContext,
-    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+    ) -> TransactionExecutionResult<(StateDiff, TransactionExecutionInfo)> {
         let account_tx_context = self.get_account_transaction_context();
         Self::verify_tx_version(account_tx_context.version)?;
         Self::handle_nonce(&account_tx_context, state)?;
@@ -99,13 +99,14 @@ impl AccountTransaction {
         let (actual_fee, fee_transfer_call_info) =
             Self::charge_fee(state, block_context, &account_tx_context)?;
 
-        Ok(TransactionExecutionInfo {
+        let tx_execution_info = TransactionExecutionInfo {
             validate_call_info: Some(validate_call_info),
             execute_call_info,
             fee_transfer_call_info: Some(fee_transfer_call_info),
             actual_fee,
             actual_resources,
-        })
+        };
+        Ok((state.to_state_diff(), tx_execution_info))
     }
 
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
