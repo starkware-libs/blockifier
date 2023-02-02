@@ -18,12 +18,8 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
+use crate::py_utils::biguint_to_felt;
 use crate::{NativeBlockifierError, NativeBlockifierResult};
-
-fn biguint_to_felt(biguint: BigUint) -> NativeBlockifierResult<StarkFelt> {
-    let biguint_hex = format!("{biguint:#x}");
-    Ok(StarkFelt::try_from(&*biguint_hex)?)
-}
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
