@@ -97,6 +97,7 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+    pub vm_resources: ExecutionResources,
 }
 
 pub struct CallInfoIter<'a> {

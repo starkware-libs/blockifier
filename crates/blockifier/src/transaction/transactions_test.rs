@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
@@ -226,6 +227,7 @@ fn test_invoke_tx() {
     let expected_execute_call_info = Some(CallInfo {
         call: expected_execute_call,
         execution: CallExecution::from_retdata(Retdata(expected_return_result_retdata.0.clone())),
+        vm_resources: ExecutionResources::default(),
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
