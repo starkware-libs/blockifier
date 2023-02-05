@@ -79,7 +79,6 @@ pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<EventContent>,
     pub l2_to_l1_messages: Vec<MessageToL1>,
-    pub vm_resources: ExecutionResources,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -87,6 +86,7 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+    pub vm_resources: ExecutionResources,
 }
 
 pub struct CallInfoIter<'a> {
