@@ -10,6 +10,7 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transactions::Executable;
 
+#[derive(Debug)]
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
     L1HandlerTransaction(L1HandlerTransaction),

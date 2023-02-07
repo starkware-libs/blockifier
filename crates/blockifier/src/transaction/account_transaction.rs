@@ -25,6 +25,7 @@ use crate::transaction::transaction_utils::{calculate_tx_fee, verify_no_calls_to
 use crate::transaction::transactions::Executable;
 
 /// Represents a paid StarkNet transaction.
+#[derive(Debug)]
 pub enum AccountTransaction {
     Declare(DeclareTransaction),
     DeployAccount(DeployAccountTransaction),
