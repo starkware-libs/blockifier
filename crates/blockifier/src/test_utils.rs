@@ -22,8 +22,9 @@ use crate::state::state_api::{State, StateReader, StateReaderResult};
 use crate::transaction::objects::AccountTransactionContext;
 
 // Addresses.
-pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
+pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 
@@ -31,6 +32,7 @@ pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -43,6 +45,8 @@ pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/empty_contract_compiled.json";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
+    "./feature_contracts/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 
@@ -74,6 +78,8 @@ pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
     "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812";
 pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
     "0x2a2c49c4dba0d91b34f2ade85d41d09561f9a77884c15ba2ab0f2241b080deb";
+pub const TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY: &str =
+    "0x176b9d9821754727ab3f9c5d6709a9c64f6c2326aeb37b834ea8c98853017c5";
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
