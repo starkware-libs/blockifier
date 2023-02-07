@@ -89,7 +89,7 @@ fn test_account_flow_test() {
         stark_felt!(1),                    // Constructor calldata: address.
         stark_felt!(1)                     // Constructor calldata: value.
     ];
-    let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee);
+    let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx =
         AccountTransaction::Invoke(InvokeTransactionV1 { nonce: Nonce(stark_felt!(2)), ..tx });
     account_tx.execute(state, block_context).unwrap();
@@ -111,7 +111,7 @@ fn test_account_flow_test() {
         stark_felt!(1),            // Calldata length.
         stark_felt!(2)             // Calldata: num.
     ];
-    let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee);
+    let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx =
         AccountTransaction::Invoke(InvokeTransactionV1 { nonce: Nonce(stark_felt!(3)), ..tx });
     account_tx.execute(state, block_context).unwrap();
