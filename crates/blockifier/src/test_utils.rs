@@ -30,8 +30,9 @@ use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
 
 // Addresses.
-pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
+pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 
@@ -39,6 +40,7 @@ pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -51,6 +53,8 @@ pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/empty_contract_compiled.json";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
+    "./feature_contracts/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 
@@ -60,6 +64,10 @@ pub static TEST_ERC20_SEQUENCER_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
 });
 pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
     get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
+        .unwrap()
+});
+pub static TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
+    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)])
         .unwrap()
 });
 
