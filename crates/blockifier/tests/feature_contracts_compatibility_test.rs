@@ -38,7 +38,7 @@ fn verify_feature_contracts_compatibility(fix: bool) {
         let existing_compiled_path = format!(
             "{FEATURE_CONTRACTS_DIR}/{COMPILED_CONTRACTS_SUBDIR}/{file_name}_compiled.json"
         );
-        let mut command = Command::new("starknet-compile");
+        let mut command = Command::new("starknet-compile-deprecated");
         command.args([&path_str, "--no_debug_info"]);
         if file_name.starts_with("account") {
             command.arg("--account_contract");
