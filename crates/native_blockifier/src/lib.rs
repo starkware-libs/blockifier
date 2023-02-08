@@ -1,18 +1,12 @@
 mod py_transaction;
 
-use py_transaction::tx_from_python;
+use blockifier::transaction::errors::TransactionExecutionError;
+use py_transaction::PyTransactionExecutor;
 use pyo3::exceptions::PyOSError;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
-
-#[pyfunction]
-fn execute_tx(tx: &PyAny) -> PyResult<()> {
-    let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
-    let _tx = tx_from_python(tx, tx_type)?;
-    Ok(())
-}
 
 #[pyfunction]
 fn hello_world() {
@@ -28,7 +22,7 @@ fn test_ret_value(x: i32, y: i32) -> i32 {
 fn native_blockifier(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(hello_world, m)?)?;
     m.add_function(wrap_pyfunction!(test_ret_value, m)?)?;
-    m.add_function(wrap_pyfunction!(execute_tx, m)?)?;
+    m.add_class::<PyTransactionExecutor>()?;
 
     Ok(())
 }
@@ -39,6 +33,8 @@ pub enum NativeBlockifierError {
     Pyo3Error(#[from] PyErr),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error(transparent)]
+    TransactionExecutionError(#[from] TransactionExecutionError),
 }
 
 impl From<NativeBlockifierError> for PyErr {

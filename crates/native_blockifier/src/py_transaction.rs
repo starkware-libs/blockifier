@@ -1,11 +1,15 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 
+use blockifier::block_context::BlockContext;
+use blockifier::state::cached_state::CachedState;
+use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use num_bigint::BigUint;
 use pyo3::prelude::*;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
@@ -13,7 +17,7 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
-use crate::NativeBlockifierResult;
+use crate::{NativeBlockifierError, NativeBlockifierResult};
 
 /// Common fields used in all account transactions.
 #[derive(Debug)]
@@ -136,5 +140,51 @@ pub fn tx_from_python(tx: &PyAny, tx_type: &str) -> NativeBlockifierResult<Trans
             Ok(Transaction::L1HandlerTransaction(l1_handler_tx))
         }
         _ => unimplemented!(),
+    }
+}
+
+#[pyclass]
+pub struct PyTransactionExecutor {
+    pub state: CachedState<DictStateReader>,
+    pub block_context: BlockContext,
+}
+
+#[allow(clippy::new_without_default)]
+#[pymethods]
+impl PyTransactionExecutor {
+    #[new]
+    pub fn new(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
+        // TODO: Use Papyrus storage as state reader.
+        let state = CachedState::new(DictStateReader::default());
+
+        let starknet_os_config = general_config.getattr("starknet_os_config")?;
+        let chain_id =
+            starknet_os_config.getattr("starknet_os_config")?.getattr("name")?.extract()?;
+        let block_context = BlockContext {
+            chain_id: ChainId(chain_id),
+            block_number: BlockNumber(block_info.getattr("block_number")?.extract()?),
+            block_timestamp: BlockTimestamp(block_info.getattr("block_timestamp")?.extract()?),
+            sequencer_address: ContractAddress::try_from(py_felt_attr(
+                general_config,
+                "sequencer_address",
+            )?)?,
+            fee_token_address: ContractAddress::try_from(py_felt_attr(
+                starknet_os_config,
+                "fee_token_address",
+            )?)?,
+            cairo_resource_fee_weights: general_config
+                .getattr("cairo_resource_fee_weights")?
+                .extract()?,
+            invoke_tx_max_n_steps: general_config.getattr("invoke_tx_max_n_steps")?.extract()?,
+            validate_max_n_steps: general_config.getattr("validate_max_n_steps")?.extract()?,
+        };
+        Ok(Self { state, block_context })
+    }
+
+    pub fn execute(&mut self, tx: &PyAny) -> PyResult<()> {
+        let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
+        let tx = tx_from_python(tx, tx_type)?;
+        tx.execute(&mut self.state, &self.block_context).map_err(NativeBlockifierError::from)?;
+        Ok(())
     }
 }
