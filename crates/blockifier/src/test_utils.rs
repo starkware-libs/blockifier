@@ -8,7 +8,10 @@ use starknet_api::core::{
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{EntryPointType, StorageKey};
-use starknet_api::transaction::{Calldata, ContractAddressSalt};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, DeployAccountTransaction, Fee, InvokeTransaction,
+    TransactionVersion,
+};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::block_context::BlockContext;
@@ -72,8 +75,11 @@ pub const TEST_STORAGE_VAR_SELECTOR: &str =
 // Storage keys.
 pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
     "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812";
+// Will be removed once `get_storage_var_address` is implemented.
 pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
     "0x2a2c49c4dba0d91b34f2ade85d41d09561f9a77884c15ba2ab0f2241b080deb";
+pub const TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY: &str =
+    "0x59edd60f3f5ec74e9044489e795cf85179665185dd4317e31668390760f3011";
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
@@ -217,5 +223,42 @@ impl BlockContext {
 impl CallExecution {
     pub fn from_retdata(retdata: Retdata) -> Self {
         Self { retdata, ..Default::default() }
+    }
+}
+
+// Transactions
+pub fn deploy_account_tx(class_hash: &str, max_fee: Fee) -> DeployAccountTransaction {
+    let class_hash = ClassHash(stark_felt!(class_hash));
+    let deployer_address = ContractAddress::default();
+    let contract_address_salt = ContractAddressSalt::default();
+    let contract_address = calculate_contract_address(
+        contract_address_salt,
+        class_hash,
+        &calldata![],
+        deployer_address,
+    )
+    .unwrap();
+
+    DeployAccountTransaction {
+        max_fee,
+        version: TransactionVersion(stark_felt!(1)),
+        class_hash,
+        contract_address,
+        contract_address_salt,
+        ..Default::default()
+    }
+}
+
+pub fn invoke_tx(
+    calldata: Calldata,
+    sender_address: ContractAddress,
+    max_fee: Fee,
+) -> InvokeTransaction {
+    InvokeTransaction {
+        max_fee,
+        version: TransactionVersion(stark_felt!(1)),
+        sender_address,
+        calldata,
+        ..Default::default()
     }
 }
