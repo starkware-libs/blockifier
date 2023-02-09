@@ -1,6 +1,6 @@
 mod py_transaction;
 
-use py_transaction::tx_from_python;
+use py_transaction::py_tx;
 use pyo3::exceptions::PyOSError;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
@@ -10,7 +10,7 @@ pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 #[pyfunction]
 fn execute_tx(tx: &PyAny) -> PyResult<()> {
     let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
-    let _tx = tx_from_python(tx, tx_type)?;
+    let _tx = py_tx(tx, tx_type)?;
     Ok(())
 }
 
