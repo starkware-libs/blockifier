@@ -17,8 +17,8 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
-use crate::state::errors::StateReaderError;
-use crate::state::state_api::{State, StateReader, StateReaderResult};
+use crate::state::errors::StateError;
+use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::AccountTransactionContext;
 
 // Addresses.
@@ -86,29 +86,29 @@ pub struct DictStateReader {
 
 impl StateReader for DictStateReader {
     fn get_storage_at(
-        &self,
+        &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateReaderResult<StarkFelt> {
+    ) -> StateResult<StarkFelt> {
         let contract_storage_key = (contract_address, key);
         let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
         Ok(value)
     }
 
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateReaderResult<Nonce> {
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let nonce = self.address_to_nonce.get(&contract_address).copied().unwrap_or_default();
         Ok(nonce)
     }
 
-    fn get_contract_class(&self, class_hash: &ClassHash) -> StateReaderResult<ContractClass> {
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
             Some(contract_class) => Ok(contract_class),
-            None => Err(StateReaderError::UndeclaredClassHash(*class_hash)),
+            None => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
 
-    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateReaderResult<ClassHash> {
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let class_hash =
             self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
         Ok(class_hash)

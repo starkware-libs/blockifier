@@ -12,7 +12,7 @@ use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::papyrus_state::PapyrusStateReader;
-use crate::state::state_api::State;
+use crate::state::state_api::StateReader;
 use crate::test_utils::{
     get_test_contract_class, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
 };
@@ -61,7 +61,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
 
     // Verify that the state has changed.
     let storage_key = StorageKey::try_from(key).unwrap();
-    let value_from_state = *state.get_storage_at(storage_address, storage_key).unwrap();
+    let value_from_state = state.get_storage_at(storage_address, storage_key).unwrap();
     assert_eq!(value_from_state, value);
     Ok(())
 }
