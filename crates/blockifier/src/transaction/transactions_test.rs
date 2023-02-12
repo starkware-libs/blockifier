@@ -44,7 +44,12 @@ use crate::transaction::transactions::ExecutableTransaction;
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
+pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+
+// Cairo constants.
+pub const CAIRO_FALSE: u64 = 0;
+pub const CAIRO_TRUE: u64 = 1;
 
 fn create_account_tx_test_state(
     account_class_hash: &str,
@@ -417,10 +422,10 @@ fn test_negative_invoke_tx_flows() {
     );
 }
 
-fn declare_tx() -> DeclareTransaction {
+fn declare_tx(class_hash: &str, sender_address: &str) -> DeclareTransaction {
     crate::test_utils::declare_tx(
-        TEST_EMPTY_CONTRACT_CLASS_HASH,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        class_hash,
+        ContractAddress(patricia_key!(sender_address)),
         Fee(2),
     )
 }
@@ -429,7 +434,7 @@ fn declare_tx() -> DeclareTransaction {
 fn test_declare_tx() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_testing();
-    let declare_tx = declare_tx();
+    let declare_tx = declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS);
 
     // Extract declare transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -513,15 +518,24 @@ fn test_declare_tx() {
     assert_eq!(format!("Class with hash {class_hash:?} is already declared."), format!("{error}"));
 }
 
-fn deploy_account_tx() -> DeployAccountTransaction {
-    crate::test_utils::deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, Fee(2))
+fn deploy_account_tx(
+    account_class_hash: &str,
+    constructor_calldata: Option<Calldata>,
+    signature: Option<TransactionSignature>,
+) -> DeployAccountTransaction {
+    crate::test_utils::deploy_account_tx(
+        account_class_hash,
+        Fee(2),
+        constructor_calldata,
+        signature,
+    )
 }
 
 #[test]
 fn test_deploy_account_tx() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_testing();
-    let deploy_account_tx = deploy_account_tx();
+    let deploy_account_tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None);
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -630,7 +644,8 @@ fn test_validate_invoke_function() {
         // it to set the contract_address.
         let signature = TransactionSignature(vec![
             StarkFelt::from(scenario),
-            additional_data.unwrap_or_else(|| StarkFelt::from(0)),
+            // Assumes the default value of StarkFelt is 0.
+            additional_data.unwrap_or_default(),
         ]);
 
         crate::test_utils::invoke_tx(
@@ -642,6 +657,7 @@ fn test_validate_invoke_function() {
     }
 
     // Positive flows.
+
     // Valid logic.
     let mut account_tx = AccountTransaction::Invoke(create_tx(VALID, None));
     account_tx.execute(state, block_context).unwrap();
@@ -652,4 +668,76 @@ fn test_validate_invoke_function() {
         ..create_tx(CALL_CONTRACT, Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)))
     });
     account_tx.execute(state, block_context).unwrap();
+
+    // Negative flows.
+
+    // Logic failure
+    account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        nonce: Nonce(stark_felt!(2)),
+        ..create_tx(INVALID, None)
+    });
+    let mut error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+
+    // Trying to call other contract (forbidden).
+    account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        nonce: Nonce(stark_felt!(2)),
+        ..create_tx(CALL_CONTRACT, Some(stark_felt!(TEST_CONTRACT_ADDRESS)))
+    });
+    error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
+        entry_point_kind == "__validate__");
+}
+
+#[test]
+fn test_validate_declare() {
+    let state = &mut create_state_with_falliable_validation_account();
+    let block_context = &BlockContext::create_for_testing();
+    let contract_class = get_contract_class(TEST_FAULTY_ACCOUNT_CONTRACT_PATH);
+    // Negative flow.
+
+    // Logic failure: Try to apply transaction on stage but have the __validate_declare__ fail.
+    let account_tx = AccountTransaction::Declare(
+        declare_tx(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+        contract_class,
+    );
+    let error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+
+    // All other cases are covered in `test_validate_invoke_function`.
+}
+
+#[test]
+fn test_validate_deploy_account() {
+    let state = &mut create_state_with_falliable_validation_account();
+    let block_context = &BlockContext::create_for_testing();
+    // Negative flows.
+
+    // Deploy another instance of 'faulty_account' and trying to call other contract in the
+    // constructor (forbidden).
+    let tx1 = deploy_account_tx(
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        Some(calldata![stark_felt!(CAIRO_TRUE)]),
+        Some(TransactionSignature(vec![
+            stark_felt!(CALL_CONTRACT),
+            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+        ])),
+    );
+
+    let mut account_tx = AccountTransaction::DeployAccount(tx1);
+    let mut error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
+        entry_point_kind == "an account constructor");
+
+    // Logic failure on validate.
+    let tx2 = deploy_account_tx(
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        Some(calldata![stark_felt!(CAIRO_FALSE)]),
+        Some(TransactionSignature(vec![stark_felt!(INVALID), stark_felt!(0)])),
+    );
+    account_tx = AccountTransaction::DeployAccount(tx2);
+    error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+
+    // All other cases are covered in `test_validate_invoke_function`.
 }

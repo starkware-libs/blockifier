@@ -98,8 +98,9 @@ func test_nested_library_call{syscall_ptr: felt*}(
 ) -> (result: felt) {
     alloc_locals;
     assert calldata_len = 2;
-    local nested_library_calldata: felt* = new (class_hash, nested_selector, 2,
-        calldata[0] + 1, calldata[1] + 1);
+    local nested_library_calldata: felt* = new (
+        class_hash, nested_selector, 2, calldata[0] + 1, calldata[1] + 1
+    );
     let (retdata_size: felt, retdata: felt*) = library_call(
         class_hash=class_hash,
         function_selector=lib_selector,
@@ -174,4 +175,9 @@ func test_contract_address{pedersen_ptr: HashBuiltin*, range_check_ptr}(
     );
 
     return (contract_address=contract_address);
+}
+
+@external
+func foo() {
+    return ();
 }
