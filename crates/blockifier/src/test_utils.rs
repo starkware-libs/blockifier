@@ -226,14 +226,20 @@ impl CallExecution {
 }
 
 // Transactions.
-pub fn deploy_account_tx(class_hash: &str, max_fee: Fee) -> DeployAccountTransaction {
+pub fn deploy_account_tx(
+    class_hash: &str,
+    max_fee: Fee,
+    constructor_calldata: Option<Calldata>,
+    signature: Option<TransactionSignature>,
+) -> DeployAccountTransaction {
     let class_hash = ClassHash(stark_felt!(class_hash));
     let deployer_address = ContractAddress::default();
     let contract_address_salt = ContractAddressSalt::default();
+    let constructor_calldata = constructor_calldata.unwrap_or_default();
     let contract_address = calculate_contract_address(
         contract_address_salt,
         class_hash,
-        &calldata![],
+        &constructor_calldata,
         deployer_address,
     )
     .unwrap();
@@ -241,9 +247,11 @@ pub fn deploy_account_tx(class_hash: &str, max_fee: Fee) -> DeployAccountTransac
     DeployAccountTransaction {
         max_fee,
         version: TransactionVersion(stark_felt!(1)),
+        signature: signature.unwrap_or_default(),
         class_hash,
         contract_address,
         contract_address_salt,
+        constructor_calldata,
         ..Default::default()
     }
 }
@@ -267,11 +275,13 @@ pub fn declare_tx(
     class_hash: &str,
     sender_address: ContractAddress,
     max_fee: Fee,
+    signature: Option<TransactionSignature>,
 ) -> DeclareTransactionV0V1 {
     DeclareTransactionV0V1 {
         max_fee,
         class_hash: ClassHash(stark_felt!(class_hash)),
         sender_address,
+        signature: signature.unwrap_or_default(),
         ..Default::default()
     }
 }
