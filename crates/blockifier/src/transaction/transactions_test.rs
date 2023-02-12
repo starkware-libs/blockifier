@@ -40,10 +40,12 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
+pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 
 fn create_account_tx_test_state(
@@ -162,7 +164,7 @@ fn expected_fee_transfer_call_info(
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
-            retdata: retdata![stark_felt!(true as u64)],
+            retdata: retdata![stark_felt!(constants::FELT_TRUE)],
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
@@ -378,11 +380,16 @@ fn test_negative_invoke_tx_flows() {
     );
 }
 
-fn declare_tx() -> DeclareTransactionV0V1 {
+fn declare_tx(
+    class_hash: &str,
+    sender_address: &str,
+    signature: Option<TransactionSignature>,
+) -> DeclareTransactionV0V1 {
     crate::test_utils::declare_tx(
-        TEST_EMPTY_CONTRACT_CLASS_HASH,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        class_hash,
+        ContractAddress(patricia_key!(sender_address)),
         Fee(u128::from(BALANCE)),
+        signature,
     )
 }
 
@@ -390,7 +397,8 @@ fn declare_tx() -> DeclareTransactionV0V1 {
 fn test_declare_tx() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
-    let declare_tx = declare_tx();
+    let declare_tx =
+        declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None);
 
     // Extract declare transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -472,15 +480,24 @@ fn test_declare_tx() {
     assert_eq!(contract_class_from_state, Arc::from(contract_class));
 }
 
-fn deploy_account_tx() -> DeployAccountTransaction {
-    crate::test_utils::deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, Fee(u128::from(BALANCE)))
+fn deploy_account_tx(
+    account_class_hash: &str,
+    constructor_calldata: Option<Calldata>,
+    signature: Option<TransactionSignature>,
+) -> DeployAccountTransaction {
+    crate::test_utils::deploy_account_tx(
+        account_class_hash,
+        Fee(u128::from(BALANCE)),
+        constructor_calldata,
+        signature,
+    )
 }
 
 #[test]
 fn test_deploy_account_tx() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
-    let deploy_account_tx = deploy_account_tx();
+    let deploy_account_tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None);
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -578,42 +595,123 @@ fn test_deploy_account_tx() {
     assert_eq!(class_hash_from_state, class_hash);
 }
 
+fn create_account_tx_for_validate_test(
+    tx_type: TransactionType,
+    scenario: u64,
+    additional_data: Option<StarkFelt>,
+) -> AccountTransaction {
+    // The first felt of the signature is used to set the scenario. If the scenario is
+    // `CALL_CONTRACT` the second felt is used to pass the contract address.
+    let signature = TransactionSignature(vec![
+        StarkFelt::from(scenario),
+        // Assumes the default value of StarkFelt is 0.
+        additional_data.unwrap_or_default(),
+    ]);
+
+    match tx_type {
+        TransactionType::Declare => {
+            let contract_class = get_contract_class(TEST_FAULTY_ACCOUNT_CONTRACT_PATH);
+            let declare_tx = crate::test_utils::declare_tx(
+                TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                Fee(0),
+                Some(signature),
+            );
+
+            AccountTransaction::Declare(DeclareTransaction::V1(declare_tx), contract_class)
+        }
+        TransactionType::DeployAccount => {
+            let deploy_account_tx = crate::test_utils::deploy_account_tx(
+                TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+                Fee(0),
+                Some(calldata![stark_felt!(constants::FELT_FALSE)]),
+                Some(signature),
+            );
+            AccountTransaction::DeployAccount(deploy_account_tx)
+        }
+        TransactionType::InvokeFunction => {
+            let entry_point_selector = selector_from_name("foo");
+            let execute_calldata = calldata![
+                stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
+                entry_point_selector.0,                            // EP selector.
+                stark_felt!(0)                                     // Calldata length.
+            ];
+            let invoke_tx = crate::test_utils::invoke_tx(
+                execute_calldata,
+                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                Fee(0),
+                Some(signature),
+            );
+            AccountTransaction::Invoke(invoke_tx)
+        }
+        TransactionType::L1Handler => unimplemented!(),
+    }
+}
 #[test]
-fn test_validate_invoke_function() {
-    let state = &mut create_state_with_falliable_validation_account();
-    let block_context = &BlockContext::create_for_testing();
+fn test_validate_accounts_tx() {
+    fn test_validate_account_tx(tx_type: TransactionType) {
+        let block_context = &BlockContext::create_for_testing();
 
-    fn create_tx(scenario: u64, additional_data: Option<StarkFelt>) -> InvokeTransactionV1 {
-        let entry_point_selector = selector_from_name("foo");
-        let execute_calldata = calldata![
-            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
-            entry_point_selector.0,                            // EP selector.
-            stark_felt!(0)                                     // Calldata length.
-        ];
-        // The first felt of the signature is used to set the scenario. If the scenario is
-        // `CALL_CONTRACT` the second felt is used to pass the contract address.
-        let signature = TransactionSignature(vec![
-            StarkFelt::from(scenario),
-            additional_data.unwrap_or_else(|| StarkFelt::from(0)),
-        ]);
+        // Positive flows.
 
-        crate::test_utils::invoke_tx(
-            execute_calldata,
-            ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
-            Fee(0),
-            Some(signature),
-        )
+        // Valid logic.
+        let state = &mut create_state_with_falliable_validation_account();
+        let account_tx = create_account_tx_for_validate_test(tx_type, VALID, None);
+        account_tx.execute(state, block_context).unwrap();
+
+        if tx_type != TransactionType::DeployAccount {
+            // Calling self (allowed).
+            let state = &mut create_state_with_falliable_validation_account();
+            let account_tx = create_account_tx_for_validate_test(
+                tx_type,
+                CALL_CONTRACT,
+                Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+            );
+            account_tx.execute(state, block_context).unwrap();
+        }
+
+        // Negative flows.
+
+        // Logic failure.
+        let state = &mut create_state_with_falliable_validation_account();
+        let account_tx = create_account_tx_for_validate_test(tx_type, INVALID, None);
+        let error = account_tx.execute(state, block_context).unwrap_err();
+        // TODO(Noa,01/05/2023): Test the exact failure reason.
+        assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+
+        // Trying to call another contract (forbidden).
+        let account_tx = create_account_tx_for_validate_test(
+            tx_type,
+            CALL_CONTRACT,
+            Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
+        );
+        let error = account_tx.execute(state, block_context).unwrap_err();
+        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
+        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
+
+        // Constructor
+        if tx_type == TransactionType::DeployAccount {
+            // Deploy another instance of 'faulty_account' and trying to call other contract in the
+            // constructor (forbidden).
+
+            let deploy_account_tx = crate::test_utils::deploy_account_tx(
+                TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+                Fee(0),
+                Some(calldata![stark_felt!(constants::FELT_TRUE)]),
+                // run  faulty_validate() in the constructor.
+                Some(TransactionSignature(vec![
+                    stark_felt!(CALL_CONTRACT),
+                    stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                ])),
+            );
+            let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+            let error = account_tx.execute(state, block_context).unwrap_err();
+            assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
+        entry_point_kind == "an account constructor");
+        }
     }
 
-    // Positive flows.
-    // Valid logic.
-    let mut account_tx = AccountTransaction::Invoke(create_tx(VALID, None));
-    account_tx.execute(state, block_context).unwrap();
-
-    // Calling self (allowed).
-    account_tx = AccountTransaction::Invoke(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(1)),
-        ..create_tx(CALL_CONTRACT, Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)))
-    });
-    account_tx.execute(state, block_context).unwrap();
+    test_validate_account_tx(TransactionType::InvokeFunction);
+    test_validate_account_tx(TransactionType::Declare);
+    test_validate_account_tx(TransactionType::DeployAccount);
 }

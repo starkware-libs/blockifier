@@ -5,3 +5,7 @@ pub const VALIDATE_DECLARE_ENTRY_POINT_NAME: &str = "__validate_declare__";
 pub const VALIDATE_DEPLOY_ENTRY_POINT_NAME: &str = "__validate_deploy__";
 
 pub const TRANSFER_EVENT_NAME: &str = "Transfer";
+
+// Cairo constants.
+pub const FELT_FALSE: u64 = 0;
+pub const FELT_TRUE: u64 = 1;
