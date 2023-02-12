@@ -51,7 +51,8 @@ fn test_account_flow_test() {
     let max_fee = Fee(BALANCE as u128);
 
     // Deploy an account contract.
-    let deploy_account_tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee);
+    let deploy_account_tx =
+        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee, None, None);
     let deployed_account_address = deploy_account_tx.contract_address;
 
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
@@ -69,7 +70,7 @@ fn test_account_flow_test() {
 
     // Declare a contract.
     let contract_class = get_contract_class(TEST_CONTRACT_PATH);
-    let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee);
+    let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::V1(DeclareTransactionV0V1 {
             nonce: Nonce(stark_felt!(1)),
