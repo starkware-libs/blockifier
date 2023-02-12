@@ -182,7 +182,7 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
-        let current_nonce = *state.get_nonce_at(account_tx_context.sender_address)?;
+        let current_nonce = state.get_nonce_at(account_tx_context.sender_address)?;
         if current_nonce != account_tx_context.nonce {
             return Err(TransactionExecutionError::InvalidNonce {
                 expected_nonce: current_nonce,

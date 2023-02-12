@@ -63,7 +63,7 @@ pub fn initialize_execution_context<'a>(
     let contract_class = state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
-    let entry_point_pc = call.resolve_entry_point_pc(contract_class)?;
+    let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;

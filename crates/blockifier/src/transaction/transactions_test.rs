@@ -21,7 +21,7 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::State;
+use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
@@ -149,16 +149,15 @@ fn validate_final_balances(
 ) {
     // We currently assume the total fee charged for the transaction is equal to the initial balance
     // of the account.
+    let account_balance = state
+        .get_storage_at(
+            block_context.fee_token_address,
+            StorageKey(patricia_key!(erc20_account_balance_key)),
+        )
+        .unwrap();
     let expected_account_balance = stark_felt!(0);
-    assert_eq!(
-        state
-            .get_storage_at(
-                block_context.fee_token_address,
-                StorageKey(patricia_key!(erc20_account_balance_key))
-            )
-            .unwrap(),
-        &stark_felt!(expected_account_balance)
-    );
+    assert_eq!(account_balance, stark_felt!(expected_account_balance));
+
     assert_eq!(
         state
             .get_storage_at(
@@ -166,7 +165,7 @@ fn validate_final_balances(
                 StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY))
             )
             .unwrap(),
-        &stark_felt!(expected_sequencer_balance)
+        stark_felt!(expected_sequencer_balance)
     );
 }
 
@@ -255,7 +254,7 @@ fn test_invoke_tx() {
     assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
-    let nonce_from_state = *state.get_nonce_at(sender_address).unwrap();
+    let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
 
     // Test final balances.
@@ -395,7 +394,7 @@ fn test_declare_tx() {
     assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
-    let nonce_from_state = *state.get_nonce_at(sender_address).unwrap();
+    let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
 
     // Test final balances.
@@ -495,7 +494,7 @@ fn test_deploy_account_tx() {
     assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
-    let nonce_from_state = *state.get_nonce_at(deployed_account_address).unwrap();
+    let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
 
     // Test final balances.
@@ -508,6 +507,6 @@ fn test_deploy_account_tx() {
     );
 
     // Verify deployment.
-    let class_hash_from_state = *state.get_class_hash_at(deployed_account_address).unwrap();
+    let class_hash_from_state = state.get_class_hash_at(deployed_account_address).unwrap();
     assert_eq!(class_hash_from_state, class_hash);
 }

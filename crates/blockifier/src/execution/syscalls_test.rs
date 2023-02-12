@@ -10,7 +10,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::State;
+use crate::state::state_api::StateReader;
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, trivial_external_entry_point, DictStateReader,
     TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
@@ -34,7 +34,7 @@ fn test_storage_read_write() {
     );
     // Verify that the state has changed.
     let value_from_state =
-        *state.get_storage_at(storage_address, StorageKey::try_from(key).unwrap()).unwrap();
+        state.get_storage_at(storage_address, StorageKey::try_from(key).unwrap()).unwrap();
     assert_eq!(value_from_state, value);
 }
 
@@ -263,7 +263,7 @@ fn test_deploy(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![*contract_address.0.key()])
     );
-    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
 
 #[test]

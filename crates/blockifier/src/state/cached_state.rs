@@ -40,13 +40,12 @@ impl<SR: StateReader> CachedState<SR> {
     }
 }
 
-/// Refer to `StateReader` for documentation on the getter functions.
-impl<SR: StateReader> State for CachedState<SR> {
+impl<SR: StateReader> StateReader for CachedState<SR> {
     fn get_storage_at(
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<&StarkFelt> {
+    ) -> StateResult<StarkFelt> {
         if self.cache.get_storage_at(contract_address, key).is_none() {
             let storage_value = self.reader.get_storage_at(contract_address, key)?;
             self.cache.set_storage_initial_value(contract_address, key, storage_value);
@@ -55,10 +54,10 @@ impl<SR: StateReader> State for CachedState<SR> {
         let value = self.cache.get_storage_at(contract_address, key).unwrap_or_else(|| {
             panic!("Cannot retrieve '{contract_address:?}' and '{key:?}' from the cache.")
         });
-        Ok(value)
+        Ok(*value)
     }
 
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<&Nonce> {
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
         if self.cache.get_nonce_at(contract_address).is_none() {
             let nonce = self.reader.get_nonce_at(contract_address)?;
             self.cache.set_nonce_initial_value(contract_address, nonce);
@@ -68,23 +67,10 @@ impl<SR: StateReader> State for CachedState<SR> {
             .cache
             .get_nonce_at(contract_address)
             .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
-        Ok(nonce)
+        Ok(*nonce)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.reader.get_contract_class(class_hash)?;
-            self.class_hash_to_class.insert(*class_hash, contract_class);
-        }
-
-        let contract_class = self
-            .class_hash_to_class
-            .get(class_hash)
-            .expect("The class hash must appear in the cache.");
-        Ok(contract_class)
-    }
-
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<&ClassHash> {
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         if self.cache.get_class_hash_at(contract_address).is_none() {
             let class_hash = self.reader.get_class_hash_at(contract_address)?;
             self.cache.set_class_hash_initial_value(contract_address, class_hash);
@@ -94,9 +80,24 @@ impl<SR: StateReader> State for CachedState<SR> {
             .cache
             .get_class_hash_at(contract_address)
             .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
-        Ok(class_hash)
+        Ok(*class_hash)
     }
 
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+        if !self.class_hash_to_class.contains_key(class_hash) {
+            let contract_class = self.reader.get_contract_class(class_hash)?;
+            self.class_hash_to_class.insert(*class_hash, contract_class);
+        }
+
+        let contract_class = self
+            .class_hash_to_class
+            .get(class_hash)
+            .expect("The class hash must appear in the cache.");
+        Ok(contract_class.clone())
+    }
+}
+
+impl<SR: StateReader> State for CachedState<SR> {
     fn set_storage_at(
         &mut self,
         contract_address: ContractAddress,
@@ -107,7 +108,7 @@ impl<SR: StateReader> State for CachedState<SR> {
     }
 
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
-        let current_nonce = *self.get_nonce_at(contract_address)?;
+        let current_nonce = self.get_nonce_at(contract_address)?;
         let current_nonce_as_u64 = usize::try_from(current_nonce.0)? as u64;
         let next_nonce_val = 1_u64 + current_nonce_as_u64;
         let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
@@ -126,7 +127,7 @@ impl<SR: StateReader> State for CachedState<SR> {
         }
 
         let current_class_hash = self.get_class_hash_at(contract_address)?;
-        if *current_class_hash != ClassHash::default() {
+        if current_class_hash != ClassHash::default() {
             return Err(StateError::UnavailableContractAddress(contract_address));
         }
 

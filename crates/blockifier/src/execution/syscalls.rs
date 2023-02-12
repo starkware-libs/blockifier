@@ -170,7 +170,7 @@ pub fn storage_read(
     let value =
         syscall_handler.state.get_storage_at(syscall_handler.storage_address, request.address)?;
 
-    Ok(StorageReadResponse { value: *value })
+    Ok(StorageReadResponse { value })
 }
 
 // StorageWrite syscall.
@@ -318,7 +318,7 @@ pub fn delegate_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
-    let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let class_hash = syscall_handler.state.get_class_hash_at(request.contract_address)?;
     let retdata_segment = execute_library_call(
         syscall_handler,
         vm,
@@ -339,7 +339,7 @@ pub fn delegate_l1_handler(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = false;
-    let class_hash = *syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let class_hash = syscall_handler.state.get_class_hash_at(request.contract_address)?;
     let retdata_segment = execute_library_call(
         syscall_handler,
         vm,
