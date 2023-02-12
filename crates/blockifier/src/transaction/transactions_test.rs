@@ -42,7 +42,12 @@ pub const TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY: &str =
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
+pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+
+// Cairo constants.
+pub const CAIRO_FALSE: u64 = 0;
+pub const CAIRO_TRUE: u64 = 1;
 
 fn create_account_tx_test_state(
     account_class_hash: &str,
@@ -382,12 +387,12 @@ fn test_negative_invoke_tx_flows() {
     );
 }
 
-fn declare_tx() -> DeclareTransaction {
+fn declare_tx(class_hash: &str, sender_address: &str) -> DeclareTransaction {
     DeclareTransaction {
         max_fee: Fee(1),
         version: TransactionVersion(StarkFelt::from(1)),
-        class_hash: ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
-        sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        class_hash: ClassHash(stark_felt!(class_hash)),
+        sender_address: ContractAddress(patricia_key!(sender_address)),
         ..Default::default()
     }
 }
@@ -396,7 +401,7 @@ fn declare_tx() -> DeclareTransaction {
 fn test_declare_tx() {
     let state = &mut create_state_with_no_validation_account();
     let block_context = &BlockContext::create_for_testing();
-    let declare_tx = declare_tx();
+    let declare_tx = declare_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS);
 
     // Extract declare transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -447,33 +452,44 @@ fn test_declare_tx() {
     );
 }
 
-fn deploy_account_tx() -> DeployAccountTransaction {
-    let class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+fn deploy_account_tx(
+    account_class_hash: &str,
+    constructor_calldata: Option<Calldata>,
+    signature: Option<TransactionSignature>,
+) -> (DeployAccountTransaction, ContractAddress) {
+    let class_hash = ClassHash(stark_felt!(account_class_hash));
     let deployer_address = ContractAddress::default();
     let contract_address_salt = ContractAddressSalt::default();
+    let constructor_calldata = constructor_calldata.unwrap_or_default();
     let contract_address = calculate_contract_address(
         contract_address_salt,
         class_hash,
-        &calldata![],
+        &constructor_calldata,
         deployer_address,
     )
     .unwrap();
 
-    DeployAccountTransaction {
-        max_fee: Fee(1),
-        version: TransactionVersion(stark_felt!(1)),
-        class_hash,
+    (
+        DeployAccountTransaction {
+            max_fee: Fee(1),
+            version: TransactionVersion(stark_felt!(1)),
+            class_hash,
+            contract_address,
+            contract_address_salt,
+            constructor_calldata,
+            signature: signature.unwrap_or_default(),
+            ..Default::default()
+        },
         contract_address,
-        contract_address_salt,
-        ..Default::default()
-    }
+    )
 }
 
 #[test]
 fn test_deploy_account_tx() {
     let state = &mut create_state_with_no_validation_account();
     let block_context = &BlockContext::create_for_testing();
-    let deploy_account_tx = deploy_account_tx();
+    let (deploy_account_tx, _contract_address) =
+        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None);
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -565,7 +581,8 @@ fn test_validate_invoke_function() {
         ];
         let signature = TransactionSignature(vec![
             StarkFelt::from(scenario),
-            additional_data.unwrap_or_else(|| StarkFelt::from(0)),
+            // Assumes the default value of StarkFelt is 0.
+            additional_data.unwrap_or_default(),
         ]);
 
         InvokeTransaction {
@@ -579,6 +596,7 @@ fn test_validate_invoke_function() {
     }
 
     // Positive flows.
+
     // Valid logic.
     let mut account_tx = AccountTransaction::Invoke(create_tx(VALID, None));
     account_tx.execute(state, block_context).unwrap();
@@ -589,4 +607,75 @@ fn test_validate_invoke_function() {
         ..create_tx(CALL_CONTRACT, Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)))
     });
     account_tx.execute(state, block_context).unwrap();
+
+    // Negative flows.
+
+    // Logic failure
+    account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        nonce: Nonce(stark_felt!(2)),
+        ..create_tx(INVALID, None)
+    });
+    let mut error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::EntryPointExecutionError(_));
+
+    // Trying to call other contract (forbidden).
+    account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        nonce: Nonce(stark_felt!(3)),
+        ..create_tx(CALL_CONTRACT, Some(stark_felt!(TEST_CONTRACT_ADDRESS)))
+    });
+    error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
+        entry_point_kind == "'validate'");
+}
+
+#[test]
+fn test_validate_declare() {
+    let state = &mut create_state_faulty_account();
+    let block_context = &BlockContext::create_for_testing();
+    // Negative flow.
+
+    // Logic failure: Try to apply transaction on stage but have the __validate_declare__ fail.
+    let account_tx = AccountTransaction::Declare(declare_tx(
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    ));
+    let error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::EntryPointExecutionError(_));
+
+    // All other cases are covered in `test_validate_invoke_function`.
+}
+
+#[test]
+fn test_validate_deploy_account() {
+    let state = &mut create_state_faulty_account();
+    let block_context = &BlockContext::create_for_testing();
+    // Negative flows.
+
+    // Deploy another instance of 'faulty_account' and trying to call other contract in the
+    // constructor (forbidden).
+    let (tx1, _contract_address) = deploy_account_tx(
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        Some(calldata![stark_felt!(CAIRO_TRUE)]),
+        Some(TransactionSignature(vec![
+            stark_felt!(CALL_CONTRACT),
+            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+        ])),
+    );
+
+    let mut account_tx = AccountTransaction::DeployAccount(tx1);
+    let mut error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
+        entry_point_kind == "an account constructor");
+
+    // Logic failure on validate.
+    let (tx2, _contract_address) = deploy_account_tx(
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        Some(calldata![stark_felt!(CAIRO_FALSE)]),
+        Some(TransactionSignature(vec![stark_felt!(INVALID), stark_felt!(0)])),
+    );
+    account_tx = AccountTransaction::DeployAccount(tx2);
+    error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(error, TransactionExecutionError::EntryPointExecutionError(_));
+
+    // All other cases are covered in `test_validate_invoke_function`.
 }
