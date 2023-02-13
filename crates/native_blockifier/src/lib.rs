@@ -21,8 +21,9 @@ pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
 #[pymodule]
 fn native_blockifier(_py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
-    py_module.add_class::<Storage>()?;
+    py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutor>()?;
+    py_module.add_class::<Storage>()?;
 
     Ok(())
 }
@@ -94,12 +95,31 @@ impl Storage {
     }
 }
 
-#[derive(FromPyObject)]
+#[pyclass]
+#[derive(Clone)]
 pub struct PyStateDiff {
     pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
-    pub class_hash_to_compiled_class_hash: HashMap<PyFelt, PyFelt>,
+    pub declared_contract_hashes: Vec<PyFelt>,
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
+}
+
+#[pymethods]
+impl PyStateDiff {
+    #[new]
+    pub fn new(
+        address_to_class_hash: HashMap<PyFelt, PyFelt>,
+        address_to_nonce: HashMap<PyFelt, PyFelt>,
+        declared_contract_hashes: Vec<PyFelt>,
+        storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
+    ) -> NativeBlockifierResult<PyStateDiff> {
+        Ok(PyStateDiff {
+            address_to_class_hash,
+            address_to_nonce,
+            declared_contract_hashes,
+            storage_updates,
+        })
+    }
 }
 
 impl TryFrom<PyStateDiff> for StateDiff {

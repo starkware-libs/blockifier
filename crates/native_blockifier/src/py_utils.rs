@@ -7,7 +7,7 @@ use starknet_api::hash::StarkFelt;
 
 use crate::NativeBlockifierResult;
 
-#[derive(Eq, FromPyObject, Hash, PartialEq)]
+#[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy, Debug)]
 pub struct PyFelt(#[pyo3(from_py_with = "pyint_to_stark_felt")] pub StarkFelt);
 
 fn pyint_to_stark_felt(int: &PyAny) -> PyResult<StarkFelt> {
