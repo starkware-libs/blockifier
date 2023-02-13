@@ -6,7 +6,6 @@ use std::convert::TryFrom;
 
 use blockifier::transaction::errors::TransactionExecutionError;
 use indexmap::IndexMap;
-use papyrus_storage::header::HeaderStorageReader;
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use py_transaction::PyTransactionExecutor;
 use py_utils::PyFelt;
@@ -54,14 +53,10 @@ impl Storage {
     }
 
     #[args(block_number)]
-    pub fn get_block_hash(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
+    pub fn get_state_diff(&self, block_number: u64) -> NativeBlockifierResult<Option<PyStateDiff>> {
         let block_number = BlockNumber(block_number);
-        let block_hash = self
-            .reader
-            .begin_ro_txn()?
-            .get_block_header(block_number)?
-            .map(|block_header| Vec::from(block_header.block_hash.0.bytes()));
-        Ok(block_hash)
+        let thin_state_diff = self.reader.begin_ro_txn()?.get_state_diff(block_number)?;
+        Ok(thin_state_diff.map(PyStateDiff::from))
     }
 
     #[args(block_number)]
@@ -98,9 +93,13 @@ impl Storage {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyStateDiff {
+    #[pyo3(get)]
     pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
+    #[pyo3(get)]
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
+    #[pyo3(get)]
     pub declared_contract_hashes: Vec<PyFelt>,
+    #[pyo3(get)]
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
 }
 
@@ -156,6 +155,37 @@ impl TryFrom<PyStateDiff> for StateDiff {
         }
 
         Ok(Self { deployed_contracts, storage_diffs, declared_classes, nonces })
+    }
+}
+
+impl From<papyrus_storage::state::data::ThinStateDiff> for PyStateDiff {
+    fn from(state_diff: papyrus_storage::state::data::ThinStateDiff) -> Self {
+        let mut address_to_class_hash = HashMap::<PyFelt, PyFelt>::new();
+        for (address, class_hash) in state_diff.deployed_contracts {
+            address_to_class_hash.insert(PyFelt::from(address), PyFelt(class_hash.0));
+        }
+        let mut address_to_nonce = HashMap::<PyFelt, PyFelt>::new();
+        for (address, nonce) in state_diff.nonces {
+            address_to_nonce.insert(PyFelt::from(address), PyFelt(nonce.0));
+        }
+        let declared_contract_hashes = state_diff
+            .declared_contract_hashes
+            .iter()
+            .map(|&class_hash| PyFelt(class_hash.0))
+            .collect();
+
+        let mut storage_updates = HashMap::<PyFelt, HashMap<PyFelt, PyFelt>>::new();
+        for (address, storage_diff) in state_diff.storage_diffs {
+            let felt_address = PyFelt::from(address);
+            for (key, value) in storage_diff {
+                let storage_key = *key.0.key();
+                storage_updates.entry(felt_address).and_modify(|changes| {
+                    changes.insert(PyFelt(storage_key), PyFelt(value));
+                });
+            }
+        }
+
+        Self { address_to_class_hash, address_to_nonce, declared_contract_hashes, storage_updates }
     }
 }
 
