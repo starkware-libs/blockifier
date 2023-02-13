@@ -68,5 +68,12 @@ pub trait State {
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<&ContractClass>;
 
+    /// Sets the given contract class under the given class hash.
+    fn set_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+        contract_class: ContractClass,
+    ) -> StateResult<()>;
+
     fn to_state_diff(&self) -> StateDiff;
 }

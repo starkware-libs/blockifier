@@ -26,7 +26,6 @@ pub struct CachedState<SR: StateReader> {
     pub reader: SR,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
-    // Invariant: read-only mapping.
     class_hash_to_class: ContractClassMapping,
 }
 
@@ -131,6 +130,15 @@ impl<SR: StateReader> State for CachedState<SR> {
         }
 
         self.cache.set_class_hash_write(contract_address, class_hash);
+        Ok(())
+    }
+
+    fn set_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+        contract_class: ContractClass,
+    ) -> StateResult<()> {
+        self.class_hash_to_class.insert(*class_hash, contract_class);
         Ok(())
     }
 
