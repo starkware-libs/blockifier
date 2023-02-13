@@ -8,7 +8,6 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
-use crate::state::errors::StateReaderError;
 use crate::test_utils::{
     create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
 };
@@ -34,7 +33,7 @@ fn get_uninitialized_storage_value() {
     let contract_address = ContractAddress(patricia_key!("0x1"));
     let key = StorageKey(patricia_key!("0x10"));
 
-    assert_eq!(*state.get_storage_at(contract_address, key).unwrap(), StarkFelt::default());
+    assert_eq!(state.get_storage_at(contract_address, key).unwrap(), StarkFelt::default());
 }
 
 #[test]
@@ -53,18 +52,18 @@ fn get_and_set_storage_value() {
         ]),
         ..Default::default()
     });
-    assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), storage_val0);
-    assert_eq!(*state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
+    assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), storage_val0);
+    assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
 
     let modified_storage_value0 = stark_felt!("0xA");
     state.set_storage_at(contract_address0, key0, modified_storage_value0);
-    assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
-    assert_eq!(*state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
+    assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
+    assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
 
     let modified_storage_value1 = stark_felt!("0x7");
     state.set_storage_at(contract_address1, key1, modified_storage_value1);
-    assert_eq!(*state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
-    assert_eq!(*state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
+    assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
+    assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
 }
 
 #[test]
@@ -98,7 +97,7 @@ fn get_uninitialized_value() {
     let mut state = CachedState::new(DictStateReader::default());
     let contract_address = ContractAddress(patricia_key!("0x1"));
 
-    assert_eq!(*state.get_nonce_at(contract_address).unwrap(), Nonce::default());
+    assert_eq!(state.get_nonce_at(contract_address).unwrap(), Nonce::default());
 }
 
 #[test]
@@ -114,23 +113,23 @@ fn get_and_increment_nonce() {
         ]),
         ..Default::default()
     });
-    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), initial_nonce);
-    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
+    assert_eq!(state.get_nonce_at(contract_address1).unwrap(), initial_nonce);
+    assert_eq!(state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
 
     assert!(state.increment_nonce(contract_address1).is_ok());
     let nonce1_plus_one = Nonce(stark_felt!("0x2"));
-    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_one);
-    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
+    assert_eq!(state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_one);
+    assert_eq!(state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
 
     assert!(state.increment_nonce(contract_address1).is_ok());
     let nonce1_plus_two = Nonce(stark_felt!("0x3"));
-    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
-    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
+    assert_eq!(state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
+    assert_eq!(state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
 
     assert!(state.increment_nonce(contract_address2).is_ok());
     let nonce2_plus_one = Nonce(stark_felt!("0x2"));
-    assert_eq!(*state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
-    assert_eq!(*state.get_nonce_at(contract_address2).unwrap(), nonce2_plus_one);
+    assert_eq!(state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
+    assert_eq!(state.get_nonce_at(contract_address2).unwrap(), nonce2_plus_one);
 }
 
 #[test]
@@ -138,15 +137,13 @@ fn get_contract_class() {
     // Positive flow.
     let existing_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let mut state = create_test_state();
-    assert_eq!(*state.get_contract_class(&existing_class_hash).unwrap(), get_test_contract_class());
+    assert_eq!(state.get_contract_class(&existing_class_hash).unwrap(), get_test_contract_class());
 
     // Negative flow.
     let missing_class_hash = ClassHash(stark_felt!("0x101"));
     assert_matches!(
         state.get_contract_class(&missing_class_hash).unwrap_err(),
-        StateError::StateReaderError(
-            StateReaderError::UndeclaredClassHash(undeclared)
-        ) if undeclared == missing_class_hash
+        StateError::UndeclaredClassHash(undeclared) if undeclared == missing_class_hash
     );
 }
 
@@ -155,7 +152,7 @@ fn get_uninitialized_class_hash_value() {
     let mut state = CachedState::new(DictStateReader::default());
     let valid_contract_address = ContractAddress(patricia_key!("0x1"));
 
-    assert_eq!(*state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
+    assert_eq!(state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
 }
 
 #[test]
@@ -165,7 +162,7 @@ fn set_and_get_contract_hash() {
     let class_hash = ClassHash(stark_felt!("0x10"));
 
     assert!(state.set_class_hash_at(contract_address, class_hash).is_ok());
-    assert_eq!(*state.get_class_hash_at(contract_address).unwrap(), class_hash);
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
 
 #[test]
