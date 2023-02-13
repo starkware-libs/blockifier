@@ -1244,6 +1244,7 @@ version = "0.1.0"
 dependencies = [
  "blockifier 0.1.0 (git+https://github.com/starkware-libs/blockifier)",
  "num-bigint",
+ "papyrus_storage",
  "pyo3",
  "starknet_api",
  "thiserror",
