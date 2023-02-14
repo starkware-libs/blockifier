@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
@@ -100,7 +101,7 @@ impl StateReader for DictStateReader {
         Ok(nonce)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
             Some(contract_class) => Ok(contract_class),
@@ -115,12 +116,15 @@ impl StateReader for DictStateReader {
     }
 }
 
-pub fn get_contract_class(contract_path: &str) -> ContractClass {
+pub fn get_contract_class(contract_path: &str) -> Arc<ContractClass> {
     let path = PathBuf::from(contract_path);
-    ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
+    let contract_class = ContractClass::try_from(path)
+        .expect("File must contain the content of a compiled contract.");
+
+    Arc::from(contract_class)
 }
 
-pub fn get_test_contract_class() -> ContractClass {
+pub fn get_test_contract_class() -> Arc<ContractClass> {
     get_contract_class(TEST_CONTRACT_PATH)
 }
 
@@ -140,12 +144,15 @@ pub fn create_test_state_util(
     contract_path: &str,
     contract_address: &str,
 ) -> CachedState<DictStateReader> {
-    let class_hash_to_class =
-        HashMap::from([(ClassHash(stark_felt!(class_hash)), get_contract_class(contract_path))]);
+    let class_hash_to_class = HashMap::from([(
+        ClassHash(stark_felt!(class_hash)),
+        get_contract_class(contract_path),
+    )]);
     let address_to_class_hash = HashMap::from([(
         ContractAddress(patricia_key!(contract_address)),
         ClassHash(stark_felt!(class_hash)),
     )]);
+
     CachedState::new(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
@@ -181,6 +188,7 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
+
     CachedState::new(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,

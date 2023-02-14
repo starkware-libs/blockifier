@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
@@ -15,7 +16,7 @@ use crate::utils::subtract_mappings;
 #[path = "cached_state_test.rs"]
 mod test;
 
-pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+pub type ContractClassMapping = HashMap<ClassHash, Arc<ContractClass>>;
 
 /// Caches read and write requests.
 ///
@@ -82,7 +83,7 @@ impl<SR: StateReader> StateReader for CachedState<SR> {
         Ok(*class_hash)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
         if !self.class_hash_to_class.contains_key(class_hash) {
             let contract_class = self.reader.get_contract_class(class_hash)?;
             self.class_hash_to_class.insert(*class_hash, contract_class);
@@ -139,7 +140,7 @@ impl<SR: StateReader> State for CachedState<SR> {
         class_hash: &ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        self.class_hash_to_class.insert(*class_hash, contract_class);
+        self.class_hash_to_class.insert(*class_hash, Arc::from(contract_class));
         Ok(())
     }
 
