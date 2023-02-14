@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
@@ -12,6 +13,7 @@ use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StateDiff;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
     InvokeTransaction, L1HandlerTransaction, TransactionHash, TransactionSignature,
@@ -187,5 +189,10 @@ impl PyTransactionExecutor {
         let tx = py_tx(tx, &tx_type)?;
         tx.execute(&mut self.state, &self.block_context).map_err(NativeBlockifierError::from)?;
         Ok(())
+    }
+
+    /// Returns the state diff resulting in executing transactions.
+    pub fn finalize(&mut self) -> StateDiff {
+        self.state.to_state_diff()
     }
 }
