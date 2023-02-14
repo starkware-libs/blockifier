@@ -35,7 +35,7 @@ impl Transaction {
                 };
                 let tx_execution_info = TransactionExecutionInfo {
                     validate_call_info: None,
-                    execute_call_info: tx.execute(state, block_context, &tx_context)?,
+                    execute_call_info: tx.execute(state, block_context, &tx_context, None)?,
                     fee_transfer_call_info: None,
                     actual_fee: Fee::default(),
                     actual_resources: ResourcesMapping::default(),
