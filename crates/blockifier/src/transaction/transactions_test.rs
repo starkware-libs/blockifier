@@ -363,7 +363,8 @@ fn test_declare_tx() {
     let sender_address = declare_tx.sender_address;
     let class_hash = declare_tx.class_hash.0;
 
-    let account_tx = AccountTransaction::Declare(declare_tx);
+    let contract_class = get_contract_class(ACCOUNT_CONTRACT_PATH);
+    let account_tx = AccountTransaction::Declare(declare_tx, contract_class);
     let (_state_diff, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.

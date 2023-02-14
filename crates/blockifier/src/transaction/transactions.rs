@@ -8,6 +8,7 @@ use starknet_api::transaction::{
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::state_api::State;
@@ -25,6 +26,7 @@ pub trait Executable {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
@@ -34,6 +36,7 @@ impl Executable for DeclareTransaction {
         _state: &mut dyn State,
         _block_context: &BlockContext,
         _account_tx_context: &AccountTransactionContext,
+        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         Ok(None)
     }
@@ -45,6 +48,7 @@ impl Executable for DeployAccountTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let call_info = execute_deployment(
             state,
@@ -67,6 +71,7 @@ impl Executable for InvokeTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
@@ -87,6 +92,7 @@ impl Executable for L1HandlerTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::L1Handler,

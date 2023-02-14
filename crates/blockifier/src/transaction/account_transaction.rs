@@ -11,6 +11,7 @@ use starknet_api::transaction::{
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::state::state_api::State;
 use crate::transaction::constants;
@@ -27,7 +28,7 @@ use crate::transaction::transactions::Executable;
 /// Represents a paid StarkNet transaction.
 #[derive(Debug)]
 pub enum AccountTransaction {
-    Declare(DeclareTransaction),
+    Declare(DeclareTransaction, ContractClass),
     DeployAccount(DeployAccountTransaction),
     Invoke(InvokeTransaction),
 }
@@ -48,7 +49,7 @@ impl AccountTransaction {
         let validate_entry_point_selector = self.validate_entry_point_selector();
         let validate_entrypoint_calldata = self.validate_entrypoint_calldata();
         match self {
-            Self::Declare(tx) => {
+            Self::Declare(tx, contract_class) => {
                 // Validate.
                 validate_call_info = Self::validate_tx(
                     state,
@@ -59,11 +60,12 @@ impl AccountTransaction {
                 )?;
 
                 // Execute.
-                execute_call_info = tx.execute(state, block_context, &account_tx_context)?;
+                execute_call_info =
+                    tx.execute(state, block_context, &account_tx_context, Some(contract_class))?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info = tx.execute(state, block_context, &account_tx_context)?;
+                execute_call_info = tx.execute(state, block_context, &account_tx_context, None)?;
 
                 // Validate.
                 validate_call_info = Self::validate_tx(
@@ -91,7 +93,7 @@ impl AccountTransaction {
                 )?;
 
                 // Execute.
-                execute_call_info = tx.execute(state, block_context, &account_tx_context)?;
+                execute_call_info = tx.execute(state, block_context, &account_tx_context, None)?;
             }
         };
 
@@ -112,7 +114,7 @@ impl AccountTransaction {
 
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
-            Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
+            Self::Declare(_, _) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
             Self::DeployAccount(_) => constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
             Self::Invoke(_) => constants::VALIDATE_ENTRY_POINT_NAME,
         };
@@ -123,7 +125,7 @@ impl AccountTransaction {
     // `get_tx_info()`.
     fn validate_entrypoint_calldata(&self) -> Calldata {
         match self {
-            Self::Declare(tx) => calldata![tx.class_hash.0],
+            Self::Declare(tx, _contract_class) => calldata![tx.class_hash.0],
             Self::DeployAccount(tx) => {
                 let validate_calldata = concat(vec![
                     vec![tx.class_hash.0, tx.contract_address_salt.0],
@@ -138,7 +140,7 @@ impl AccountTransaction {
 
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
-            Self::Declare(tx) => AccountTransactionContext {
+            Self::Declare(tx, _contract_class) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash,
                 max_fee: tx.max_fee,
                 version: tx.version,
