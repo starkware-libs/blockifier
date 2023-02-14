@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use papyrus_storage::db::TransactionKind;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -63,11 +65,11 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
     fn get_contract_class(
         &mut self,
         class_hash: &starknet_api::core::ClassHash,
-    ) -> StateResult<ContractClass> {
+    ) -> StateResult<Arc<ContractClass>> {
         let state_number = StateNumber(*self.latest_block());
         match self.reader.get_class_definition_at(state_number, class_hash) {
             Ok(Some(starknet_api_contract_class)) => {
-                Ok(ContractClass::from(starknet_api_contract_class))
+                Ok(Arc::from(ContractClass::from(starknet_api_contract_class)))
             }
             Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
             Err(err) => Err(StateError::StateReadError(err.to_string())),
