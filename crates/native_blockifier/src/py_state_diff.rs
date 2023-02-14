@@ -10,6 +10,7 @@ use super::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
 
 #[derive(FromPyObject)]
+#[pyclass]
 pub struct PyStateDiff {
     pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
@@ -51,5 +52,33 @@ impl TryFrom<PyStateDiff> for StateDiff {
         }
 
         Ok(Self { deployed_contracts, storage_diffs, declared_classes, nonces })
+    }
+}
+
+impl From<StateDiff> for PyStateDiff {
+    fn from(value: StateDiff) -> Self {
+        let mut address_to_class_hash: HashMap<PyFelt, PyFelt> = HashMap::new();
+        let mut address_to_nonce: HashMap<PyFelt, PyFelt> = HashMap::new();
+        let mut storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>> = HashMap::new();
+        for (address, class_hash) in value.deployed_contracts {
+            address_to_class_hash.insert(address.into(), class_hash.into());
+        }
+        for (address, nonce) in value.nonces {
+            address_to_nonce.insert(address.into(), nonce.into());
+        }
+        for (address, diffs) in value.storage_diffs {
+            let mut updates_at_address = HashMap::new();
+            for (key, felt) in diffs {
+                updates_at_address.insert(key.into(), felt.into());
+            }
+            storage_updates.insert(address.into(), updates_at_address);
+        }
+
+        PyStateDiff {
+            address_to_class_hash,
+            address_to_nonce,
+            class_hash_to_compiled_class_hash: HashMap::new(),
+            storage_updates,
+        }
     }
 }
