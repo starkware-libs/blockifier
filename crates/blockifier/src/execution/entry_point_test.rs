@@ -231,14 +231,12 @@ fn test_vm_execution_security_failures() {
         &mut state,
     );
 
-    // TODO(AlonH, 21/12/2022): Uncomment and fix expected error message after LC implement
-    // substitute_error_message_references.
-    // run_security_test(
-    //     "Bad expr: {test}",
-    //     "test_bad_expr_eval",
-    //     calldata![],
-    //     &mut state,
-    // );
+    run_security_test(
+        "Bad expr: {test}. (Cannot evaluate ap-based or complex references: ['test'])",
+        "test_bad_expr_eval",
+        calldata![],
+        &mut state,
+    );
 }
 
 #[test]
@@ -260,7 +258,7 @@ fn test_builtin_execution_security_failures() {
     );
 
     run_security_test(
-        "Signature not found",
+        "Signature hint is missing",
         "test_missing_signature_hint",
         calldata![],
         &mut state,
@@ -274,21 +272,19 @@ fn test_builtin_execution_security_failures() {
     //     &mut state,
     // );
 
-    // TODO(AlonH, 21/12/2022): Uncomment after LC fix the ec_op impl.
-    // run_security_test(
-    //     "Cannot apply EC operation: computation reached two points with the same x coordinate",
-    //     "test_ec_op_invalid_input",
-    //     calldata![],
-    //     &mut state,
-    // );
+    run_security_test(
+        "Cannot apply EC operation: computation reached two points with the same x coordinate",
+        "test_ec_op_invalid_input",
+        calldata![],
+        &mut state,
+    );
 
-    // TODO(AlonH, 21/12/2022): Uncomment after LC fix the ec_op point_on_curve.
-    // run_security_test(
-    //     "ec_op builtin: point \\({invalid_pt_x}, {invalid_pt_y}\\) is not on the curve",
-    //     "test_ec_op_point_not_on_curve",
-    //     calldata![],
-    //     &mut state,
-    // );
+    run_security_test(
+        "is not on the curve",
+        "test_ec_op_point_not_on_curve",
+        calldata![],
+        &mut state,
+    );
 }
 
 #[test]
