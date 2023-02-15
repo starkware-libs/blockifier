@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
@@ -18,6 +19,7 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
+use crate::py_state_diff::PyStateDiff;
 use crate::py_utils::biguint_to_felt;
 use crate::{NativeBlockifierError, NativeBlockifierResult};
 
@@ -184,5 +186,10 @@ impl PyTransactionExecutor {
         let tx = py_tx(tx, &tx_type)?;
         tx.execute(&mut self.state, &self.block_context).map_err(NativeBlockifierError::from)?;
         Ok(())
+    }
+
+    /// Returns the state diff resulting in executing transactions.
+    pub fn finalize(&mut self) -> PyStateDiff {
+        PyStateDiff::from(self.state.to_state_diff())
     }
 }
