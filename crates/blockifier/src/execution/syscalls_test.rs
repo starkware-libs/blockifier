@@ -10,10 +10,11 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
+use crate::state::dict_state_reader::DictStateReader;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, trivial_external_entry_point, DictStateReader,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]

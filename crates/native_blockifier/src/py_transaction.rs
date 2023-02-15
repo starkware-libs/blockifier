@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
-use blockifier::test_utils::DictStateReader;
+use blockifier::state::dict_state_reader::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -126,10 +126,11 @@ pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction>
 
 pub fn py_tx(tx: &PyAny, tx_type: &str) -> NativeBlockifierResult<Transaction> {
     match tx_type {
-        "DECLARE" => {
-            let declare_tx = AccountTransaction::Declare(py_declare(tx)?);
-            Ok(Transaction::AccountTransaction(declare_tx))
-        }
+        // TODO: Fix this.
+        // "DECLARE" => {
+        //     let declare_tx = AccountTransaction::Declare(py_declare(tx)?);
+        //     Ok(Transaction::AccountTransaction(declare_tx))
+        // }
         "DEPLOY_ACCOUNT" => {
             let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(tx)?);
             Ok(Transaction::AccountTransaction(deploy_account_tx))

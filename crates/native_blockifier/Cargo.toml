@@ -13,9 +13,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { git = "https://github.com/starkware-libs/blockifier", features = [
-    "testing",
-] }
+blockifier = { git = "https://github.com/starkware-libs/blockifier", rev = "7943f59" }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
 num-bigint = { version = "0.4" }

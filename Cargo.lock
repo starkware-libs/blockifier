@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/blockifier#5105f2968974a665a8a62b37ad4d9715bd6b24df"
+source = "git+https://github.com/starkware-libs/blockifier?rev=7943f59#7943f59ed79ea189278d50dcc7c00dc361c2d7b6"
 dependencies = [
  "cairo-felt",
  "cairo-vm",
@@ -1256,7 +1256,7 @@ dependencies = [
 name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
- "blockifier 0.1.0 (git+https://github.com/starkware-libs/blockifier)",
+ "blockifier 0.1.0 (git+https://github.com/starkware-libs/blockifier?rev=7943f59)",
  "hex",
  "indexmap",
  "num-bigint",

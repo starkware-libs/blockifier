@@ -21,12 +21,13 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
+use crate::state::dict_state_reader::DictStateReader;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    get_contract_class, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
+    TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;

@@ -199,7 +199,7 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockifier"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/blockifier#a2399a1bcf35e06aff85eee37b9cbd7c138ca942"
+source = "git+https://github.com/starkware-libs/blockifier?rev=7943f59#7943f59ed79ea189278d50dcc7c00dc361c2d7b6"
 dependencies = [
  "cairo-felt",
  "cairo-vm",

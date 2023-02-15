@@ -8,8 +8,9 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
+use crate::state::dict_state_reader::DictStateReader;
 use crate::test_utils::{
-    create_security_test_state, create_test_state, trivial_external_entry_point, DictStateReader,
+    create_security_test_state, create_test_state, trivial_external_entry_point,
 };
 
 #[test]
