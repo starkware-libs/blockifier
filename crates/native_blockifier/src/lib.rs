@@ -22,6 +22,7 @@ pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
 #[pymodule]
 fn native_blockifier(_py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
+    py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<Storage>()?;
 

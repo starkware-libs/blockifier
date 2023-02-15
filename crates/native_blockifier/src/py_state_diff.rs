@@ -9,11 +9,14 @@ use starknet_api::state::{StateDiff, StorageKey};
 use super::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
 
-#[derive(FromPyObject)]
+#[pyclass]
+#[derive(Clone)]
 pub struct PyStateDiff {
+    #[pyo3(get)]
     pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
+    #[pyo3(get)]
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
-    pub class_hash_to_compiled_class_hash: HashMap<PyFelt, PyFelt>,
+    #[pyo3(get)]
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
 }
 
@@ -51,5 +54,31 @@ impl TryFrom<PyStateDiff> for StateDiff {
         }
 
         Ok(Self { deployed_contracts, storage_diffs, declared_classes, nonces })
+    }
+}
+
+impl From<StateDiff> for PyStateDiff {
+    fn from(state_diff: StateDiff) -> Self {
+        let mut address_to_class_hash = HashMap::<PyFelt, PyFelt>::new();
+        for (address, class_hash) in state_diff.deployed_contracts {
+            address_to_class_hash.insert(PyFelt::from(address), PyFelt(class_hash.0));
+        }
+        let mut address_to_nonce = HashMap::<PyFelt, PyFelt>::new();
+        for (address, nonce) in state_diff.nonces {
+            address_to_nonce.insert(PyFelt::from(address), PyFelt(nonce.0));
+        }
+
+        let mut storage_updates = HashMap::<PyFelt, HashMap<PyFelt, PyFelt>>::new();
+        for (address, storage_diff) in state_diff.storage_diffs {
+            let felt_address = PyFelt::from(address);
+            for (key, value) in storage_diff {
+                let storage_key = *key.0.key();
+                storage_updates.entry(felt_address).and_modify(|changes| {
+                    changes.insert(PyFelt(storage_key), PyFelt(value));
+                });
+            }
+        }
+
+        Self { address_to_class_hash, address_to_nonce, storage_updates }
     }
 }
