@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
+use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
@@ -126,9 +127,20 @@ pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction>
     })
 }
 
-pub fn py_tx(tx: &PyAny, tx_type: &str) -> NativeBlockifierResult<Transaction> {
-    // TODO: Add "DECLARE".
+pub fn py_tx(
+    tx: &PyAny,
+    tx_type: &str,
+    contract_class: Option<&str>,
+) -> NativeBlockifierResult<Transaction> {
     match tx_type {
+        "DECLARE" => {
+            let non_opt_contract_class =
+                contract_class.expect("A contract class must be passed in a declare transaction.");
+            let contract_class: ContractClass = serde_json::from_str(non_opt_contract_class)
+                .expect("Illegal class schema from Python.");
+            let declare_tx = AccountTransaction::Declare(py_declare(tx)?, contract_class);
+            Ok(Transaction::AccountTransaction(declare_tx))
+        }
         "DEPLOY_ACCOUNT" => {
             let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(tx)?);
             Ok(Transaction::AccountTransaction(deploy_account_tx))
@@ -181,9 +193,9 @@ impl PyTransactionExecutor {
     }
 
     #[args(tx)]
-    pub fn execute(&mut self, tx: &PyAny) -> PyResult<()> {
+    pub fn execute(&mut self, tx: &PyAny, contract_class: Option<&str>) -> PyResult<()> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let tx = py_tx(tx, &tx_type)?;
+        let tx: Transaction = py_tx(tx, &tx_type, contract_class)?;
         tx.execute(&mut self.state, &self.block_context).map_err(NativeBlockifierError::from)?;
         Ok(())
     }
