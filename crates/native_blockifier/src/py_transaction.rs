@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CachedState;
-use blockifier::test_utils::DictStateReader;
+use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -19,7 +19,7 @@ use starknet_api::transaction::{
 };
 
 use crate::py_utils::biguint_to_felt;
-use crate::{NativeBlockifierError, NativeBlockifierResult};
+use crate::{NativeBlockifierError, NativeBlockifierResult, Storage};
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
@@ -126,10 +126,11 @@ pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction>
 
 pub fn py_tx(tx: &PyAny, tx_type: &str) -> NativeBlockifierResult<Transaction> {
     match tx_type {
-        "DECLARE" => {
-            let declare_tx = AccountTransaction::Declare(py_declare(tx)?);
-            Ok(Transaction::AccountTransaction(declare_tx))
-        }
+        // TODO: Fix this.
+        // "DECLARE" => {
+        //     let declare_tx = AccountTransaction::Declare(py_declare(tx)?);
+        //     Ok(Transaction::AccountTransaction(declare_tx))
+        // }
         "DEPLOY_ACCOUNT" => {
             let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(tx)?);
             Ok(Transaction::AccountTransaction(deploy_account_tx))
@@ -148,7 +149,7 @@ pub fn py_tx(tx: &PyAny, tx_type: &str) -> NativeBlockifierResult<Transaction> {
 
 #[pyclass]
 pub struct PyTransactionExecutor {
-    pub state: CachedState<DictStateReader>,
+    pub state: CachedState<dyn State>,
     pub block_context: BlockContext,
 }
 
