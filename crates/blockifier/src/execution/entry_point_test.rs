@@ -260,7 +260,7 @@ fn test_builtin_execution_security_failures() {
     );
 
     run_security_test(
-        "Signature not found",
+        "Signature hint is missing",
         "test_missing_signature_hint",
         calldata![],
         &mut state,
