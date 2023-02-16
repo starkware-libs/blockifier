@@ -5,6 +5,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
+use starknet_api::serde_utils::hex_str_from_bytes;
+use starknet_api::transaction::EthAddress;
 
 use crate::NativeBlockifierResult;
 
@@ -20,6 +22,16 @@ impl IntoPy<PyObject> for PyFelt {
 impl From<ContractAddress> for PyFelt {
     fn from(address: ContractAddress) -> Self {
         Self(*address.0.key())
+    }
+}
+
+impl From<EthAddress> for PyFelt {
+    fn from(address: EthAddress) -> Self {
+        let felt = StarkFelt::try_from(
+            hex_str_from_bytes::<20, true>(address.0.to_fixed_bytes()).as_str(),
+        )
+        .expect("Illegal Ethereum address.");
+        PyFelt(felt)
     }
 }
 
