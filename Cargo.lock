@@ -1240,6 +1240,7 @@ dependencies = [
  "num-bigint",
  "papyrus_storage",
  "pyo3",
+ "serde_json",
  "starknet_api",
  "thiserror",
 ]
@@ -1379,7 +1380,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#494e759eb3795816633d3cd30a463901709caaf7"
+source = "git+https://github.com/starkware-libs/papyrus#e5657ddccc1653b3760d1d852fba55c537779477"
 dependencies = [
  "bincode",
  "flate2",
@@ -2264,7 +2265,7 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#494e759eb3795816633d3cd30a463901709caaf7"
+source = "git+https://github.com/starkware-libs/papyrus#e5657ddccc1653b3760d1d852fba55c537779477"
 dependencies = [
  "indexmap",
  "rand",
