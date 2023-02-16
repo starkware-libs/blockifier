@@ -137,7 +137,10 @@ fn get_contract_class() {
     // Positive flow.
     let existing_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let mut state = create_test_state();
-    assert_eq!(state.get_contract_class(&existing_class_hash).unwrap(), get_test_contract_class());
+    assert_eq!(
+        state.get_contract_class(&existing_class_hash).unwrap(),
+        Arc::from(get_test_contract_class())
+    );
 
     // Negative flow.
     let missing_class_hash = ClassHash(stark_felt!("0x101"));
@@ -198,7 +201,8 @@ fn cached_state_state_diff_conversion() {
     // This will not appear in the diff, since this mapping is immutable for the current version we
     // are aligned with.
     let test_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class())]);
+    let class_hash_to_class =
+        HashMap::from([(test_class_hash, Arc::from(get_test_contract_class()))]);
 
     let nonce_initial_values = HashMap::new();
 
