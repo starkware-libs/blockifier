@@ -22,6 +22,7 @@ use starknet_api::transaction::{
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
+use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::biguint_to_felt;
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
@@ -193,11 +194,18 @@ impl PyTransactionExecutor {
     }
 
     #[args(tx)]
-    pub fn execute(&mut self, tx: &PyAny, contract_class: Option<&str>) -> PyResult<()> {
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        contract_class: Option<&str>,
+    ) -> PyResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, contract_class)?;
-        tx.execute(&mut self.state, &self.block_context).map_err(NativeBlockifierError::from)?;
-        Ok(())
+        let (_state_diff, tx_execution_info) = tx
+            .execute(&mut self.state, &self.block_context)
+            .map_err(NativeBlockifierError::from)?;
+
+        Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 
     /// Returns the state diff resulting in executing transactions.
