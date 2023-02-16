@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::iter::zip;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -23,7 +24,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     ExecutionResources, Retdata,
 };
-use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
+use crate::state::cached_state::{CachedState, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
@@ -91,7 +92,7 @@ pub struct DictStateReader {
     pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
-    pub class_hash_to_class: ContractClassMapping,
+    pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
 }
 
 impl StateReader for DictStateReader {
@@ -110,10 +111,10 @@ impl StateReader for DictStateReader {
         Ok(nonce)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
-            Some(contract_class) => Ok(contract_class),
+            Some(contract_class) => Ok(Arc::from(contract_class)),
             None => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
@@ -157,6 +158,7 @@ pub fn create_test_state_util(
         ContractAddress(patricia_key!(contract_address)),
         ClassHash(stark_felt!(class_hash)),
     )]);
+
     CachedState::new(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
@@ -192,6 +194,7 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
+
     CachedState::new(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,

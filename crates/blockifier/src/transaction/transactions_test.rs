@@ -459,7 +459,7 @@ fn test_declare_tx() {
 
     // Verify class declaration.
     let contract_class_from_state = state.get_contract_class(&class_hash).unwrap();
-    assert_eq!(contract_class_from_state, contract_class);
+    assert_eq!(contract_class_from_state, Arc::from(contract_class.clone()));
 
     // Negative flow: check that the same class hash cannot be declared twice.
     let invalid_declare_tx = AccountTransaction::Declare(
