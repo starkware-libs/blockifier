@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 
-use crate::NativeBlockifierResult;
+use crate::errors::NativeBlockifierResult;
 
 #[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy)]
 pub struct PyFelt(#[pyo3(from_py_with = "pyint_to_stark_felt")] pub StarkFelt);
