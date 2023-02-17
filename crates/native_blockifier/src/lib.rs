@@ -1,3 +1,4 @@
+mod py_block_info;
 pub mod py_state_diff;
 pub mod py_transaction;
 pub mod py_utils;
@@ -6,13 +7,15 @@ use std::convert::TryFrom;
 
 use blockifier::transaction::errors::TransactionExecutionError;
 use indexmap::IndexMap;
-use papyrus_storage::header::HeaderStorageReader;
+use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
+use py_block_info::PyBlockInfo;
 use py_transaction::PyTransactionExecutor;
+use py_utils::PyFelt;
 use pyo3::exceptions::PyOSError;
 use pyo3::prelude::*;
-use starknet_api::block::BlockNumber;
-use starknet_api::core::ClassHash;
+use starknet_api::block::{BlockHash, BlockHeader, BlockNumber, BlockTimestamp, GasPrice};
+use starknet_api::core::{ClassHash, ContractAddress, GlobalRoot};
 use starknet_api::state::{ContractClass, StateDiff};
 use starknet_api::StarknetApiError;
 
@@ -67,20 +70,26 @@ impl Storage {
 
     #[args(block_number)]
     pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
-        let (revert_txn, _) =
-            self.writer.begin_rw_txn()?.revert_state_diff(BlockNumber(block_number))?;
+        let block_number = BlockNumber(block_number);
+        let revert_txn = self.writer.begin_rw_txn()?;
+
+        let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
+        let revert_txn = revert_txn.revert_header(block_number)?;
         revert_txn.commit()?;
         Ok(())
     }
 
     #[args(block_number, py_state_diff, _py_deployed_contract_class_definitions)]
+    /// Appends state diff and block header into papyrus storage.
     pub fn append_state_diff(
         &mut self,
-        block_number: u64,
+        block_id: PyFelt,
+        previous_block_id: PyFelt,
+        block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
         _py_deployed_contract_class_definitions: &PyAny,
     ) -> NativeBlockifierResult<()> {
-        let block_number = BlockNumber(block_number);
+        let block_number = BlockNumber(block_info.block_number);
         let state_diff = StateDiff::try_from(py_state_diff)?;
         // TODO: Figure out how to go from `py_state_diff.class_hash_to_compiled_class_hash` into
         // this type.
@@ -91,7 +100,20 @@ impl Storage {
             state_diff,
             deployed_contract_class_definitions,
         );
-        append_txn?.commit()?;
+        let append_txn = append_txn?;
+
+        let block_header = BlockHeader {
+            block_hash: BlockHash(block_id.0),
+            parent_hash: BlockHash(previous_block_id.0),
+            block_number,
+            gas_price: GasPrice(block_info.gas_price),
+            state_root: GlobalRoot::default(),
+            sequencer: ContractAddress::try_from(block_info.sequencer_address.0)?,
+            timestamp: BlockTimestamp(block_info.block_timestamp),
+        };
+        let append_txn = append_txn.append_header(block_number, &block_header)?;
+
+        append_txn.commit()?;
         Ok(())
     }
 }
