@@ -131,14 +131,14 @@ pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction>
 pub fn py_tx(
     tx_type: &str,
     tx: &PyAny,
-    contract_class: Option<&str>,
+    raw_contract_class: Option<&str>,
 ) -> NativeBlockifierResult<Transaction> {
     match tx_type {
         "DECLARE" => {
-            let contract_class: &str =
-                contract_class.expect("A contract class must be passed in a Declare transaction.");
-            let contract_class: ContractClass =
-                serde_json::from_str(contract_class).expect("Illegal class schema from Python.");
+            let raw_contract_class: &str = raw_contract_class
+                .expect("A contract class must be passed in a Declare transaction.");
+            let contract_class: ContractClass = serde_json::from_str(raw_contract_class)
+                .expect("Illegal class schema from Python.");
             let declare_tx = AccountTransaction::Declare(py_declare(tx)?, contract_class);
             Ok(Transaction::AccountTransaction(declare_tx))
         }
@@ -197,10 +197,10 @@ impl PyTransactionExecutor {
     pub fn execute(
         &mut self,
         tx: &PyAny,
-        contract_class: Option<&str>,
+        raw_contract_class: Option<&str>,
     ) -> PyResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let tx: Transaction = py_tx(&tx_type, tx, contract_class)?;
+        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
         let (_state_diff, tx_execution_info) = tx
             .execute(&mut self.state, &self.block_context)
             .map_err(NativeBlockifierError::from)?;
