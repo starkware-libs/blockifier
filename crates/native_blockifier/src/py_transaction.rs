@@ -20,9 +20,9 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_utils::biguint_to_felt;
-use crate::{NativeBlockifierError, NativeBlockifierResult};
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
