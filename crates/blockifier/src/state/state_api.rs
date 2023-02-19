@@ -1,9 +1,15 @@
+use starknet_api::block;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
 use crate::state::errors::StateError;
+use crate::transaction::objects::AccountTransactionContext;
+
+use super::cached_state::{self, CachedState};
 
 pub type StateResult<T> = Result<T, StateError>;
 
@@ -66,4 +72,34 @@ pub trait State: StateReader {
     ) -> StateResult<()>;
 
     fn to_state_diff(&self) -> StateDiff;
+}
+
+pub trait ExecutableState: State + Sized {
+    /// Executes the call; returns modified `self` together with the call info only upon success.
+    fn execute_call(
+        self,
+        call: CallEntryPoint,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> EntryPointExecutionResult<(Self, CallInfo)>;
+}
+
+pub trait TransactionalState: State + Sized {
+    fn execute_call(
+        &mut self,
+        call: CallEntryPoint,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        let cached_state = CachedState::new(*self);
+        let execution_result = cached_state.execute_call(call, block_context, account_tx_context);
+
+        match execution_result {
+            Ok((modified_cached_state, call_info)) => {
+                self = modified_cached_state;
+                call_info
+            }
+            Err(error) => error,
+        }
+    }
 }

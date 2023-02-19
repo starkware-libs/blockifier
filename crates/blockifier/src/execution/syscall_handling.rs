@@ -58,7 +58,7 @@ pub struct SyscallHintProcessor<'a> {
     // Additional fields.
     // Invariant: must only contain allowed hints.
     builtin_hint_processor: BuiltinHintProcessor,
-    // Transaction info. and signature segments; allocated on-demand.
+    // Transaction info and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
     syscall_counter: HashMap<SyscallSelector, usize>,

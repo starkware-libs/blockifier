@@ -6,10 +6,15 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, EntryPointExecutionResult};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
+use crate::transaction::objects::AccountTransactionContext;
 use crate::utils::subtract_mappings;
+
+use super::state_api::ExecutableState;
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -169,6 +174,25 @@ impl<SR: StateReader> State for CachedState<SR> {
     }
 }
 
+impl<SR: StateReader> ExecutableState for CachedState<SR> {
+    fn execute_call(
+        self,
+        call: CallEntryPoint,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> EntryPointExecutionResult<(Self, CallInfo)> {
+        let execution_result = call.execute(&mut self, block_context, account_tx_context)?;
+        Ok((self, CallInfo::default()))
+    }
+}
+
+impl<SR: StateReader> CachedState<SR> {
+    /// Merges changes of other cached state into `self`.
+    pub fn squash(&mut self, other: CachedState<SR>) {
+        unimplemented!()
+    }
+}
+
 pub type ContractStorageKey = (ContractAddress, StorageKey);
 
 #[derive(IntoIterator, Debug, Default)]
@@ -269,5 +293,10 @@ impl StateCache {
 
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
         self.class_hash_writes.insert(contract_address, class_hash);
+    }
+
+    /// Merges changes of other cache into `self`.
+    pub fn squash(&mut self, other: StateCache) {
+        unimplemented!()
     }
 }
