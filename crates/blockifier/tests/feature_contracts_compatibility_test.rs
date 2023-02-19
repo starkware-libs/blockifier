@@ -12,7 +12,6 @@ const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
 fn verify_feature_contracts_compatibility(fix: bool) {
     for file in fs::read_dir(FEATURE_CONTRACTS_DIR).unwrap() {
         let path = file.unwrap().path();
-
         // Test `TEST_CONTRACTS` file and directory structure.
         if !path.is_file() {
             if let Some(dir_name) = path.file_name() {
@@ -47,6 +46,7 @@ fn verify_feature_contracts_compatibility(fix: bool) {
             command.arg("--disable_hint_validation");
         }
         let compile_output = command.output().unwrap();
+        println!("PATH: {existing_compiled_path}");
         let stderr_output = String::from_utf8(compile_output.stderr).unwrap();
         assert!(compile_output.status.success(), "{stderr_output}");
         let expected_compiled_output = compile_output.stdout;
@@ -64,7 +64,6 @@ fn verify_feature_contracts_compatibility(fix: bool) {
 }
 
 #[test]
-#[ignore]
 fn verify_feature_contracts() {
     verify_feature_contracts_compatibility(false)
 }

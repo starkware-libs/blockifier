@@ -38,7 +38,9 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 pub const TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY: &str =
     "0x59edd60f3f5ec74e9044489e795cf85179665185dd4317e31668390760f3011";
 
-fn create_account_tx_test_state() -> CachedState<DictStateReader> {
+type TransactionalState = CachedState<CachedState<DictStateReader>>;
+
+fn create_account_tx_test_state() -> TransactionalState {
     let block_context = BlockContext::create_for_testing();
 
     let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
@@ -66,12 +68,14 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         ((test_erc20_address, test_erc20_sequencer_balance_key), stark_felt!(0)),
         ((test_erc20_address, test_erc20_account_balance_key), stark_felt!(actual_fee().0 as u64)),
     ]);
-    CachedState::new(DictStateReader {
+
+    let state_reader = CachedState::new(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
         storage_view,
         ..Default::default()
-    })
+    });
+    CachedState::new(state_reader)
 }
 
 fn actual_fee() -> Fee {
@@ -142,7 +146,7 @@ fn expected_fee_transfer_call_info(
 }
 
 fn validate_final_balances(
-    state: &mut CachedState<DictStateReader>,
+    state: &mut TransactionalState,
     block_context: &BlockContext,
     expected_sequencer_balance: StarkFelt,
     erc20_account_balance_key: &str,
@@ -340,6 +344,95 @@ fn test_negative_invoke_tx_flows() {
         TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
         if (expected_nonce, actual_nonce) == (Nonce::default(), invalid_nonce)
     );
+}
+
+#[test]
+fn test_transactional_invoke_tx() {
+    let state = &mut create_account_tx_test_state();
+    let block_context = &BlockContext::create_for_testing();
+    let valid_invoke_tx = invoke_tx();
+
+    // Failing inner entry point.
+    let entry_point_selector = selector_from_name("test_failure");
+    let execute_calldata = calldata![
+        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
+        entry_point_selector.0,             // EP selector.
+        stark_felt!(0)                      // Calldata length.
+    ];
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+        calldata: execute_calldata,
+        ..valid_invoke_tx.clone()
+    });
+
+    // Check initial storage value.
+    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let key = StorageKey(patricia_key!(1));
+    let initial_storage_value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(initial_storage_value, stark_felt!(0));
+
+    // Test it was remained unchanged.
+    invalid_tx.execute(state, block_context).unwrap();
+    let current_storage_value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(initial_storage_value, current_storage_value);
+
+    // // Test error.
+    // let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
+    // assert_matches!(
+    //     execution_error,
+    //     TransactionExecutionError::InvalidVersion { version, allowed_versions }
+    //     if (version, allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
+    // );
+
+    // // Insufficient fee.
+    // let invalid_max_fee = Fee(0);
+    // let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+    //     max_fee: invalid_max_fee,
+    //     ..valid_invoke_tx.clone()
+    // });
+    // let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
+
+    // // Test error.
+    // let expected_actual_fee = actual_fee();
+    // assert_matches!(
+    //     execution_error,
+    //     TransactionExecutionError::FeeTransferError(FeeTransferError::MaxFeeExceeded {
+    //         max_fee,
+    //         actual_fee,
+    //     })
+    //     if (max_fee, actual_fee) == (invalid_max_fee, expected_actual_fee)
+    // );
+
+    // // Invalid selector.
+    // let invalid_selector = Some(EntryPointSelector::default());
+    // let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+    //     entry_point_selector: invalid_selector,
+    //     ..valid_invoke_tx.clone()
+    // });
+    // let execution_error =
+    //     invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
+
+    // // Test error.
+    // assert_matches!(
+    //     execution_error,
+    //     TransactionExecutionError::InvokeTransactionError(
+    //         InvokeTransactionError::SpecifiedEntryPoint
+    //     )
+    // );
+
+    // // Invalid nonce.
+    // // Use a fresh state to facilitate testing.
+    // let invalid_nonce = Nonce(stark_felt!(1));
+    // let invalid_tx =
+    //     AccountTransaction::Invoke(InvokeTransaction { nonce: invalid_nonce, ..valid_invoke_tx });
+    // let execution_error =
+    //     invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
+
+    // // Test error.
+    // assert_matches!(
+    //     execution_error,
+    //     TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
+    //     if (expected_nonce, actual_nonce) == (Nonce::default(), invalid_nonce)
+    // );
 }
 
 fn declare_tx() -> DeclareTransaction {

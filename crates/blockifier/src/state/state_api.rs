@@ -4,6 +4,7 @@ use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
+use crate::transaction::errors::TransactionExecutionError;
 
 pub type StateResult<T> = Result<T, StateError>;
 

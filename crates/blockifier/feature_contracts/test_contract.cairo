@@ -170,3 +170,10 @@ func test_contract_address{pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
     return (contract_address=contract_address);
 }
+
+@external
+func test_failure{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    storage_write(address=1, value=1991);
+    assert 0 = 1;
+    return ();
+}
