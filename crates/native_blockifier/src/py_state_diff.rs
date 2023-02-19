@@ -10,7 +10,7 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(FromPyObject)]
 // TODO: Add support for returning the declared_classes to python.
 pub struct PyStateDiff {
     #[pyo3(get)]
