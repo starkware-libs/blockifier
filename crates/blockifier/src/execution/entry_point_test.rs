@@ -354,7 +354,7 @@ fn test_post_run_validation_security_failure() {
     );
 
     run_security_test(
-        "Missing memory cells for builtin hash",
+        "Missing memory cells for builtin pedersen",
         "test_missing_pedersen_values",
         calldata![],
         &mut state,

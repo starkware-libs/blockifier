@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use cairo_felt::Felt;
 use cairo_vm::serde::deserialize_program::{
-    deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, HintParams, Identifier,
-    ReferenceManager,
+    deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, BuiltinName, HintParams,
+    Identifier, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -224,7 +224,7 @@ pub fn validate_run(
     }
 
     // Validate syscall segment size.
-    let syscall_end_ptr = vm.get_relocatable(&implicit_args_start)?;
+    let syscall_end_ptr = vm.get_relocatable(implicit_args_start)?;
     let syscall_used_size = vm
         .get_segment_used_size(syscall_start_ptr.segment_index as usize)
         .expect("Segments must contain the syscall segment.");
@@ -283,7 +283,10 @@ pub fn convert_program_to_cairo_runner_format(
     };
 
     Ok(Program {
-        builtins: serde_json::from_value::<Vec<String>>(program.builtins)?,
+        builtins: serde_json::from_value::<Vec<BuiltinName>>(program.builtins)?
+            .iter()
+            .map(BuiltinName::name)
+            .collect(),
         prime: deserialize_felt_hex(program.prime)?.to_string(),
         data: deserialize_array_of_bigint_hex(program.data)?,
         constants: {
@@ -316,9 +319,9 @@ pub fn convert_program_to_cairo_runner_format(
 
 pub fn felt_from_memory_ptr(
     vm: &VirtualMachine,
-    memory_ptr: &Relocatable,
+    memory_ptr: Relocatable,
 ) -> Result<StarkFelt, VirtualMachineError> {
-    let maybe_relocatable = vm.get_maybe(memory_ptr)?;
+    let maybe_relocatable = vm.get_maybe(&memory_ptr)?;
     felt_from_memory_cell(maybe_relocatable.ok_or(VirtualMachineError::NoneInMemoryRange)?)
 }
 
