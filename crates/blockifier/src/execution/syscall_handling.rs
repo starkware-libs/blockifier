@@ -181,18 +181,18 @@ impl<'a> SyscallHintProcessor<'a> {
             &mut SyscallHintProcessor<'_>,
         ) -> SyscallResult<Response>,
     {
-        let request = Request::read(vm, &self.syscall_ptr)?;
-        self.syscall_ptr = self.syscall_ptr + Request::SIZE;
+        let request = Request::read(vm, self.syscall_ptr)?;
+        self.syscall_ptr += Request::SIZE;
 
         let response = execute_callback(request, vm, self)?;
-        response.write(vm, &self.syscall_ptr)?;
-        self.syscall_ptr = self.syscall_ptr + Response::SIZE;
+        response.write(vm, self.syscall_ptr)?;
+        self.syscall_ptr += Response::SIZE;
 
         Ok(())
     }
 
     fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
-        let selector = felt_from_memory_ptr(vm, &self.syscall_ptr)?;
+        let selector = felt_from_memory_ptr(vm, self.syscall_ptr)?;
         self.syscall_ptr = self.syscall_ptr + 1;
 
         Ok(selector)
@@ -266,15 +266,11 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
     }
 }
 
-pub fn write_felt(
-    vm: &mut VirtualMachine,
-    ptr: &Relocatable,
-    felt: StarkFelt,
-) -> SyscallResult<()> {
+pub fn write_felt(vm: &mut VirtualMachine, ptr: Relocatable, felt: StarkFelt) -> SyscallResult<()> {
     Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
 }
 
-pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Vec<StarkFelt>> {
+pub fn read_felt_array(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Vec<StarkFelt>> {
     let array_size = felt_from_memory_ptr(vm, ptr)?;
     let Some(array_data_ptr) = vm.get_maybe(&(ptr + 1))? else {
         return Err(VirtualMachineError::NoneInMemoryRange.into())
@@ -283,16 +279,16 @@ pub fn read_felt_array(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<
     Ok(felt_range_from_ptr(vm, &array_data_ptr, usize::try_from(array_size)?)?)
 }
 
-pub fn read_calldata(vm: &VirtualMachine, ptr: &Relocatable) -> SyscallResult<Calldata> {
+pub fn read_calldata(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Calldata> {
     Ok(Calldata(read_felt_array(vm, ptr)?.into()))
 }
 
 pub fn read_call_params(
     vm: &VirtualMachine,
-    ptr: &Relocatable,
+    ptr: Relocatable,
 ) -> SyscallResult<(EntryPointSelector, Calldata)> {
     let function_selector = EntryPointSelector(felt_from_memory_ptr(vm, ptr)?);
-    let calldata = read_calldata(vm, &(ptr + 1))?;
+    let calldata = read_calldata(vm, ptr + 1)?;
 
     Ok((function_selector, calldata))
 }

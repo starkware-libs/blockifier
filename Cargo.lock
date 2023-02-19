@@ -253,7 +253,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cairo-felt"
 version = "0.1.3"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#d13f4968508af28b0f586e2bee7fa4bd372fa8d0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#abaf2151036e094abe573f6be40123bb0aed2002"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -265,7 +265,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.1.3"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#d13f4968508af28b0f586e2bee7fa4bd372fa8d0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#abaf2151036e094abe573f6be40123bb0aed2002"
 dependencies = [
  "bincode",
  "cairo-felt",
@@ -313,9 +313,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clang-sys"
-version = "1.4.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa2e27ae6ab525c3d369ded447057bca5438d86dc3a68f6faafb8269ba82ebf3"
+checksum = "77ed9a53e5d4d9c573ae844bfac6872b159cb1d1585a83b29e7a64b7eef7332a"
 dependencies = [
  "glob",
  "libc",
@@ -841,9 +841,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75f43d41e26995c17e71ee126451dd3941010b0514a81a9d11f3b341debc2399"
+checksum = "bd6effc99afb63425aff9b05836f029929e345a6148a14b7ecd5ab67af944482"
 dependencies = [
  "bytes",
  "fnv",
@@ -1380,7 +1380,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#e5657ddccc1653b3760d1d852fba55c537779477"
+source = "git+https://github.com/starkware-libs/papyrus#b18ccbfc08a33a54c502ea91735a859083609901"
 dependencies = [
  "bincode",
  "flate2",
@@ -1455,7 +1455,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#d13f4968508af28b0f586e2bee7fa4bd372fa8d0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#abaf2151036e094abe573f6be40123bb0aed2002"
 dependencies = [
  "nom",
 ]
@@ -2265,7 +2265,7 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#e5657ddccc1653b3760d1d852fba55c537779477"
+source = "git+https://github.com/starkware-libs/papyrus#b18ccbfc08a33a54c502ea91735a859083609901"
 dependencies = [
  "indexmap",
  "rand",
