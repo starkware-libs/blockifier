@@ -7,7 +7,6 @@ pushd /io/crates/native_blockifier/
 yum -y install centos-release-scl
 yum -y install openssl-devel llvm-toolset-7.0
 
-
 # Install Rust.
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
