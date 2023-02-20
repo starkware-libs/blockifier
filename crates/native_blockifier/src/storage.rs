@@ -33,6 +33,7 @@ impl Storage {
         Ok(Storage { reader, writer })
     }
 
+    /// Returns the the block number _after_ the last created block's number.
     pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
         let block_number = self.reader.begin_ro_txn()?.get_state_marker()?;
         Ok(block_number.0)
