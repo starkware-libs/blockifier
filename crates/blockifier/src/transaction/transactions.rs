@@ -34,11 +34,15 @@ pub trait Executable {
 impl Executable for DeclareTransaction {
     fn execute(
         &self,
-        _state: &mut dyn State,
+        state: &mut dyn State,
         _block_context: &BlockContext,
         _account_tx_context: &AccountTransactionContext,
-        _contract_class: Option<ContractClass>,
+        contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        state.set_contract_class(
+            &self.class_hash,
+            contract_class.expect("Declare transaction must have a contract_class"),
+        )?;
         Ok(None)
     }
 }
