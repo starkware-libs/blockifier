@@ -21,13 +21,13 @@ pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
+    pub caller_address: ContractAddress,
+    pub storage_address: ContractAddress,
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
-    pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
+    pub entry_point_type: EntryPointType,
     pub calldata: Calldata,
-    pub storage_address: ContractAddress,
-    pub caller_address: ContractAddress,
 }
 
 impl CallEntryPoint {

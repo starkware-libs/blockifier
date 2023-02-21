@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::entry_point::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use pyo3::prelude::*;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{EventContent, MessageToL1};
 
 use crate::py_utils::{starkfelt_to_pyfelt_vec, PyFelt};
@@ -36,15 +37,49 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyCallInfo {
+    // Call params.
+    #[pyo3(get)]
     pub caller_address: PyFelt,
+    #[pyo3(get)]
     pub contract_address: PyFelt,
+    #[pyo3(get)]
     pub class_hash: Option<PyFelt>,
+    #[pyo3(get)]
     pub entry_point_selector: PyFelt,
+    #[pyo3(get)]
     pub entry_point_type: usize,
+    #[pyo3(get)]
     pub calldata: Vec<PyFelt>,
+
+    // Call results.
+    #[pyo3(get)]
+    pub gas_consumed: PyFelt, // Currently not in use.
+    #[pyo3(get)]
+    pub failure_flag: PyFelt, // Currently not in use.
+    #[pyo3(get)]
     pub retdata: Vec<PyFelt>,
+    #[pyo3(get)]
+    pub execution_resources: PyExecutionResources,
+    #[pyo3(get)]
     pub events: Vec<PyEvent>,
+    #[pyo3(get)]
     pub l2_to_l1_messages: Vec<PyL2ToL1Message>,
+
+    // Internal calls invoked by this call.
+    #[pyo3(get)]
+    pub internal_calls: Vec<PyCallInfo>,
+
+    // Information kept for following flows (fee, OS).
+    #[pyo3(get)]
+    pub storage_read_values: Vec<PyFelt>,
+    #[pyo3(get)]
+    pub accessed_storage_keys: HashSet<PyFelt>,
+
+    // Deprecated fields; maintained for backward compatibility to Python.
+    #[pyo3(get)]
+    pub call_type: usize,
+    #[pyo3(get)]
+    pub code_address: Option<PyFelt>,
 }
 
 impl From<CallInfo> for PyCallInfo {
@@ -54,18 +89,27 @@ impl From<CallInfo> for PyCallInfo {
 
         Self {
             caller_address: PyFelt::from(call.caller_address),
+            call_type: 0, // CallType::CALL.
             contract_address: PyFelt::from(call.storage_address),
             class_hash: call.class_hash.map(|class_hash| PyFelt(class_hash.0)),
             entry_point_selector: PyFelt(call.entry_point_selector.0),
             entry_point_type: call.entry_point_type as usize,
             calldata: starkfelt_to_pyfelt_vec(call.calldata.0.to_vec()),
+            gas_consumed: PyFelt(StarkFelt::default()),
+            failure_flag: PyFelt(StarkFelt::default()),
             retdata: starkfelt_to_pyfelt_vec(execution.retdata.0),
+            // TODO(Elin, 01/03/2023): Initialize correctly.
+            execution_resources: PyExecutionResources::default(),
             events: execution.events.into_iter().map(PyEvent::from).collect(),
             l2_to_l1_messages: execution
                 .l2_to_l1_messages
                 .into_iter()
                 .map(PyL2ToL1Message::from)
                 .collect(),
+            storage_read_values: vec![],
+            accessed_storage_keys: HashSet::new(),
+            internal_calls: call_info.inner_calls.into_iter().map(PyCallInfo::from).collect(),
+            code_address: None,
         }
     }
 }
@@ -73,7 +117,9 @@ impl From<CallInfo> for PyCallInfo {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyEvent {
+    #[pyo3(get)]
     pub keys: Vec<PyFelt>,
+    #[pyo3(get)]
     pub data: Vec<PyFelt>,
 }
 
@@ -88,7 +134,9 @@ impl From<EventContent> for PyEvent {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyL2ToL1Message {
+    #[pyo3(get)]
     pub to_address: PyFelt,
+    #[pyo3(get)]
     pub payload: Vec<PyFelt>,
 }
 
@@ -97,4 +145,15 @@ impl From<MessageToL1> for PyL2ToL1Message {
         let payload = starkfelt_to_pyfelt_vec(message.payload.0);
         Self { to_address: PyFelt::from(message.to_address), payload }
     }
+}
+
+#[pyclass]
+#[derive(Clone, Default)]
+pub struct PyExecutionResources {
+    #[pyo3(get)]
+    pub n_steps: usize,
+    #[pyo3(get)]
+    pub builtin_instance_counter: HashMap<String, usize>,
+    #[pyo3(get)]
+    pub n_memory_holes: usize,
 }
