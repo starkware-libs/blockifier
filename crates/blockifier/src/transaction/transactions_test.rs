@@ -25,8 +25,9 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -346,7 +347,7 @@ fn declare_tx() -> DeclareTransaction {
     DeclareTransaction {
         max_fee: Fee(1),
         version: TransactionVersion(StarkFelt::from(1)),
-        class_hash: ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)),
+        class_hash: ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
         sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         ..Default::default()
     }
@@ -363,8 +364,8 @@ fn test_declare_tx() {
     let sender_address = declare_tx.sender_address;
     let class_hash = declare_tx.class_hash.0;
 
-    let contract_class = get_contract_class(ACCOUNT_CONTRACT_PATH);
-    let account_tx = AccountTransaction::Declare(declare_tx, contract_class);
+    let contract_class = get_contract_class(TEST_EMPTY_CONTRACT_PATH);
+    let account_tx = AccountTransaction::Declare(declare_tx, contract_class.clone());
     let (_state_diff, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
@@ -406,6 +407,10 @@ fn test_declare_tx() {
         expected_sequencer_balance,
         TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
+
+    // Verify class declaration.
+    let contract_class_from_state = state.get_contract_class(&ClassHash(class_hash)).unwrap();
+    assert_eq!(contract_class_from_state, contract_class);
 }
 
 fn deploy_account_tx() -> DeployAccountTransaction {
