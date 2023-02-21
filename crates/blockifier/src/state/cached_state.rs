@@ -169,6 +169,13 @@ impl<SR: StateReader> State for CachedState<SR> {
     }
 }
 
+impl<SR: StateReader> CachedState<SR> {
+    pub fn squash(&mut self, other: CachedState<SR>) {
+        self.cache.squash(other.cache);
+        self.class_hash_to_class.extend(other.class_hash_to_class);
+    }
+}
+
 pub type ContractStorageKey = (ContractAddress, StorageKey);
 
 #[derive(IntoIterator, Debug, Default)]
@@ -269,5 +276,12 @@ impl StateCache {
 
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
         self.class_hash_writes.insert(contract_address, class_hash);
+    }
+
+    /// Merges changes of other cache into `self`.
+    pub fn squash(&mut self, other: StateCache) {
+        self.nonce_writes.extend(other.nonce_writes);
+        self.class_hash_writes.extend(other.class_hash_writes);
+        self.storage_writes.extend(other.storage_writes);
     }
 }
