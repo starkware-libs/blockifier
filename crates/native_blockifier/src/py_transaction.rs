@@ -5,15 +5,21 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
+use blockifier::test_utils::{
+    get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, TEST_CONTRACT_PATH,
+};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use num_bigint::BigUint;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{
+    ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
+};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::patricia_key;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
     InvokeTransaction, L1HandlerTransaction, TransactionHash, TransactionSignature,
@@ -195,11 +201,39 @@ impl PyTransactionExecutor {
     ) -> PyResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        println!("DORI: Executing tx {:?}", tx);
         let (_state_diff, tx_execution_info) = tx
             .execute(&mut self.state, &self.block_context)
             .map_err(NativeBlockifierError::from)?;
 
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
+    }
+
+    pub fn init_state_for_testing(&mut self) -> PyResult<()> {
+        // 0x2d2 is the dummy contract address on dev.
+        let account_address = ContractAddress(patricia_key!("0x2d2"));
+        let account_hash = ClassHash(StarkFelt::try_from("0x2d2").unwrap());
+        // 0x64 is the test contract address on dev.
+        let test_address = ContractAddress(patricia_key!("0x64"));
+        let test_hash = ClassHash(StarkFelt::try_from("0x64").unwrap());
+        let path_prefix = "/home/dori/workspace/blockifier/crates/blockifier/";
+        let account_path = path_prefix.to_owned() + ACCOUNT_CONTRACT_PATH;
+        let test_path = path_prefix.to_owned() + TEST_CONTRACT_PATH;
+        self.state
+            .set_contract_class(&account_hash, get_contract_class(account_path.as_str()))
+            .map_err(|_| {
+                PyTypeError::new_err("Init state for test failed: cannot set contract class.")
+            })?;
+        self.state.set_class_hash_at(account_address, account_hash).map_err(|_| {
+            PyTypeError::new_err("Init state for test failed: cannot set class hash.")
+        })?;
+        self.state.set_contract_class(&test_hash, get_contract_class(test_path.as_str())).map_err(
+            |_| PyTypeError::new_err("Init state for test failed: cannot set contract class."),
+        )?;
+        self.state.set_class_hash_at(test_address, test_hash).map_err(|_| {
+            PyTypeError::new_err("Init state for test failed: cannot set class hash.")
+        })?;
+        Ok(())
     }
 
     /// Returns the state diff resulting in executing transactions.
