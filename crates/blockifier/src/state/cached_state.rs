@@ -6,6 +6,7 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
+use super::state_api::TransactionalState;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -16,6 +17,64 @@ use crate::utils::subtract_mappings;
 mod test;
 
 pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+
+pub struct StateWrapper<'a, T: State>(&'a mut T);
+impl<'a, T: State> StateWrapper<'a, T> {
+    pub fn new(state: &'a mut T) -> Self {
+        Self(state)
+    }
+}
+impl<'a, T: State> StateReader for StateWrapper<'a, T> {
+    fn get_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        self.0.get_storage_at(contract_address, key)
+    }
+
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.0.get_nonce_at(contract_address)
+    }
+
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        self.0.get_class_hash_at(contract_address)
+    }
+
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+        self.0.get_contract_class(class_hash)
+    }
+}
+impl<'a, T: State> State for StateWrapper<'a, T> {
+    fn set_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+        value: StarkFelt,
+    ) {
+        self.0.set_storage_at(contract_address, key, value)
+    }
+    fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
+        self.0.increment_nonce(contract_address)
+    }
+    fn set_class_hash_at(
+        &mut self,
+        contract_address: ContractAddress,
+        class_hash: ClassHash,
+    ) -> StateResult<()> {
+        self.0.set_class_hash_at(contract_address, class_hash)
+    }
+    fn set_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+        contract_class: ContractClass,
+    ) -> StateResult<()> {
+        self.0.set_contract_class(class_hash, contract_class)
+    }
+    fn to_state_diff(&self) -> StateDiff {
+        self.0.to_state_diff()
+    }
+}
 
 /// Caches read and write requests.
 ///
@@ -34,12 +93,14 @@ impl<S: StateReader> CachedState<S> {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
 
-    pub fn merge(&mut self, child: Self) {
+    pub fn merge(&mut self, child: CachedState<Self>) {
         self.cache.nonce_writes.extend(child.cache.nonce_writes);
         self.cache.class_hash_writes.extend(child.cache.class_hash_writes);
         self.cache.storage_writes.extend(child.cache.storage_writes);
         self.class_hash_to_class.extend(child.class_hash_to_class);
     }
+
+    fn abort(self) {}
 }
 
 impl<S: StateReader> StateReader for CachedState<S> {
@@ -148,28 +209,41 @@ impl<S: StateReader> State for CachedState<S> {
 
     fn to_state_diff(&self) -> StateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
-
-        let state_cache = &self.cache;
-
-        // Contract instance attributes.
-        let deployed_contracts = subtract_mappings(
-            &state_cache.class_hash_writes,
-            &state_cache.class_hash_initial_values,
-        );
-        let storage_diffs =
-            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
-        let nonces =
-            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
-
-        let declared_classes = IndexMap::new();
+        let state_cache_diff = self.cache.get_state_diff();
 
         StateDiff {
-            deployed_contracts: IndexMap::from_iter(deployed_contracts),
-            storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
-            declared_classes,
-            nonces: IndexMap::from_iter(nonces),
+            deployed_contracts: IndexMap::from_iter(state_cache_diff.class_hash_writes),
+            storage_diffs: StorageDiff::from(StorageView(state_cache_diff.storage_writes)),
+            declared_classes: IndexMap::new(),
+            nonces: IndexMap::from_iter(state_cache_diff.nonce_writes),
         }
     }
+}
+
+impl<S: State> TransactionalState<S> for CachedState<S> {
+    fn commit(mut self) -> StateResult<()> {
+        let state_diff = self.cache.get_state_diff();
+
+        // for (address, nonce) in state_diff.nonce_writes {
+        //     let initial_nonce = self.state.get_nonce_at(address);
+
+        //     for _ in initial_nonce..=nonce {
+        //         self.state.increment_nonce(address);
+        //     }
+        // }
+
+        for (address, class_hash) in state_diff.class_hash_writes {
+            self.state.set_class_hash_at(address, class_hash)?;
+        }
+
+        for ((address, key), value) in state_diff.storage_writes {
+            self.state.set_storage_at(address, key, value);
+        }
+
+        Ok(())
+    }
+
+    fn abort(self) {}
 }
 
 pub type ContractStorageKey = (ContractAddress, StorageKey);
@@ -272,5 +346,21 @@ impl StateCache {
 
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
         self.class_hash_writes.insert(contract_address, class_hash);
+    }
+
+    fn get_state_diff(&self) -> StateCache {
+        let deployed_contracts =
+            subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values);
+        let storage_diffs = subtract_mappings(&self.storage_writes, &self.storage_initial_values);
+        let nonce_diffs = subtract_mappings(&self.nonce_writes, &self.nonce_initial_values);
+
+        StateCache {
+            nonce_initial_values: HashMap::default(),
+            class_hash_initial_values: HashMap::default(),
+            storage_initial_values: HashMap::default(),
+            nonce_writes: nonce_diffs,
+            class_hash_writes: deployed_contracts,
+            storage_writes: storage_diffs,
+        }
     }
 }

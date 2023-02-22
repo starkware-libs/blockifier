@@ -67,3 +67,8 @@ pub trait State: StateReader {
 
     fn to_state_diff(&self) -> StateDiff;
 }
+
+pub trait TransactionalState<S: State>: State {
+    fn commit(self) -> StateResult<()>;
+    fn abort(self);
+}
