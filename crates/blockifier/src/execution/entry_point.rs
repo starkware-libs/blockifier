@@ -38,6 +38,7 @@ impl CallEntryPoint {
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
+        println!("DORI: executing {:?}", self);
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());

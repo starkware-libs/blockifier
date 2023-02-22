@@ -6,7 +6,7 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
 pub fn calculate_tx_fee(_block_context: &BlockContext) -> Fee {
-    Fee(1)
+    Fee(0)
 }
 
 pub fn verify_no_calls_to_other_contracts(
