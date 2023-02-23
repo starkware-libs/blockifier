@@ -22,10 +22,10 @@ use crate::transaction::transaction_utils::verify_no_calls_to_other_contracts;
 #[path = "transactions_test.rs"]
 mod test;
 
-pub trait Executable {
+pub trait Executable<S: State> {
     fn execute(
         &self,
-        state: &mut dyn State,
+        state: &mut S,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         // Only used for `DeclareTransaction`.
@@ -33,10 +33,10 @@ pub trait Executable {
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
-impl Executable for DeclareTransaction {
+impl<S: State> Executable<S> for DeclareTransaction {
     fn execute(
         &self,
-        state: &mut dyn State,
+        state: &mut S,
         _block_context: &BlockContext,
         _account_tx_context: &AccountTransactionContext,
         contract_class: Option<ContractClass>,
@@ -61,10 +61,10 @@ impl Executable for DeclareTransaction {
     }
 }
 
-impl Executable for DeployAccountTransaction {
+impl<S: State> Executable<S> for DeployAccountTransaction {
     fn execute(
         &self,
-        state: &mut dyn State,
+        state: &mut S,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
@@ -84,10 +84,10 @@ impl Executable for DeployAccountTransaction {
     }
 }
 
-impl Executable for InvokeTransaction {
+impl<S: State> Executable<S> for InvokeTransaction {
     fn execute(
         &self,
-        state: &mut dyn State,
+        state: &mut S,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
@@ -105,10 +105,10 @@ impl Executable for InvokeTransaction {
     }
 }
 
-impl Executable for L1HandlerTransaction {
+impl<S: State> Executable<S> for L1HandlerTransaction {
     fn execute(
         &self,
-        state: &mut dyn State,
+        state: &mut S,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,

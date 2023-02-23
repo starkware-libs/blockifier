@@ -201,7 +201,7 @@ fn test_invoke_tx() {
     let sender_address = invoke_tx.sender_address;
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
-    let (_state_diff, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
@@ -374,7 +374,7 @@ fn test_declare_tx() {
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
-    let (_state_diff, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
@@ -474,7 +474,7 @@ fn test_deploy_account_tx() {
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let (_state_diff, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let validate_calldata =
