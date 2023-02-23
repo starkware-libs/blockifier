@@ -12,7 +12,7 @@ from starkware.cairo.common.uint256 import (
     uint256_sub,
 )
 from starkware.starknet.common.syscalls import get_caller_address
-from blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base import (
+from ERC20_without_some_syscalls.ERC20.ERC20_base import (
     ERC20_allowances,
     ERC20_approve,
     ERC20_burn,
@@ -26,13 +26,13 @@ from blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base import (
     symbol,
     totalSupply,
 )
-from blockifier.ERC20_without_some_syscalls.ERC20.permitted import (
+from ERC20_without_some_syscalls.ERC20.permitted import (
     permitted_initializer,
     permitted_minter,
     permitted_minter_only,
     permittedMinter,
 )
-from blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable import (
+from ERC20_without_some_syscalls.upgradability_proxy.initializable import (
     initialized,
     set_initialized,
 )
