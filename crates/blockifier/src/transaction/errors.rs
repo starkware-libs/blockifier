@@ -1,4 +1,4 @@
-use starknet_api::core::Nonce;
+use starknet_api::core::{ClassHash, Nonce};
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -19,7 +19,15 @@ pub enum InvokeTransactionError {
 }
 
 #[derive(Debug, Error)]
+pub enum DeclareTransactionError {
+    #[error("Class with hash {class_hash:?} is already declared.")]
+    ClassAlreadyDeclared { class_hash: ClassHash },
+}
+
+#[derive(Debug, Error)]
 pub enum TransactionExecutionError {
+    #[error(transparent)]
+    DeclareTransactionError(#[from] DeclareTransactionError),
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error(transparent)]

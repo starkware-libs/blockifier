@@ -21,6 +21,7 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
+use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
@@ -362,17 +363,24 @@ fn test_declare_tx() {
     // Extract declare transaction fields for testing, as it is consumed when creating an account
     // transaction.
     let sender_address = declare_tx.sender_address;
-    let class_hash = declare_tx.class_hash.0;
+    let class_hash = declare_tx.class_hash;
 
     let contract_class = get_contract_class(TEST_EMPTY_CONTRACT_PATH);
-    let account_tx = AccountTransaction::Declare(declare_tx, contract_class.clone());
+    let account_tx = AccountTransaction::Declare(declare_tx.clone(), contract_class.clone());
+
+    // Check state before transaction application.
+    assert_matches!(
+        state.get_contract_class(&class_hash).unwrap_err(),
+        StateError::UndeclaredClassHash(undeclared_class_hash) if
+        undeclared_class_hash == class_hash
+    );
     let (_state_diff, actual_execution_info) = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let expected_validate_call_info = expected_validate_call_info(
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
-        calldata![class_hash],
+        calldata![class_hash.0],
         expected_account_address,
     );
 
@@ -409,8 +417,16 @@ fn test_declare_tx() {
     );
 
     // Verify class declaration.
-    let contract_class_from_state = state.get_contract_class(&ClassHash(class_hash)).unwrap();
+    let contract_class_from_state = state.get_contract_class(&class_hash).unwrap();
     assert_eq!(contract_class_from_state, contract_class);
+
+    // Negative flow: check that the same class hash cannot be declared twice.
+    let invalid_declare_tx = AccountTransaction::Declare(
+        DeclareTransaction { nonce: Nonce(stark_felt!(1)), ..declare_tx },
+        contract_class,
+    );
+    let error = invalid_declare_tx.execute(state, block_context).unwrap_err();
+    assert_eq!(format!("Class with hash {class_hash:?} is already declared."), format!("{error}"));
 }
 
 fn deploy_account_tx() -> DeployAccountTransaction {
