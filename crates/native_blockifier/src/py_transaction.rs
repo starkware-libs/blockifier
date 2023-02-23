@@ -97,12 +97,6 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
 }
 
 pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
-    let entry_point_selector: Option<BigUint> = py_attr(tx, "entry_point_selector")?;
-    let entry_point_selector = if let Some(selector) = entry_point_selector {
-        Some(EntryPointSelector(biguint_to_felt(selector)?))
-    } else {
-        None
-    };
     let account_data_context = py_account_data_context(tx)?;
 
     Ok(InvokeTransaction {
@@ -112,7 +106,7 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
         signature: account_data_context.signature,
         nonce: account_data_context.nonce,
         sender_address: account_data_context.sender_address,
-        entry_point_selector,
+        entry_point_selector: None, // Hardcoded `__execute__` selector; set inside execution.
         calldata: py_calldata(tx, "calldata")?,
     })
 }
