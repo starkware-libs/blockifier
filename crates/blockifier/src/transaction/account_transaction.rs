@@ -105,7 +105,7 @@ impl AccountTransaction {
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info: Some(validate_call_info),
             execute_call_info,
-            fee_transfer_call_info: Some(fee_transfer_call_info),
+            fee_transfer_call_info,
             actual_fee,
             actual_resources,
         };
@@ -221,12 +221,17 @@ impl AccountTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-    ) -> TransactionExecutionResult<(Fee, CallInfo)> {
+    ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
+        if account_tx_context.max_fee == Fee(0) {
+            // Fee charging is not enforced in some tests.
+            return Ok((Fee(0), None));
+        }
+
         let actual_fee = calculate_tx_fee(block_context);
         let fee_transfer_call_info =
             Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
 
-        Ok((actual_fee, fee_transfer_call_info))
+        Ok((actual_fee, Some(fee_transfer_call_info)))
     }
 
     fn execute_fee_transfer(
