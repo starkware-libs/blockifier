@@ -11,8 +11,10 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
 use crate::execution::execution_utils::execute_deployment;
+use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::constants;
+use crate::transaction::errors::{DeclareTransactionError, TransactionExecutionError};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 use crate::transaction::transaction_utils::verify_no_calls_to_other_contracts;
 
@@ -39,12 +41,23 @@ impl Executable for DeclareTransaction {
         _account_tx_context: &AccountTransactionContext,
         contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        state.set_contract_class(
-            &self.class_hash,
-            contract_class.expect("Declare transaction must have a contract_class"),
-        )?;
+        match state.get_contract_class(&self.class_hash) {
+            Err(StateError::UndeclaredClassHash(_)) => {
+                // Class is undeclared; declare it.
+                state.set_contract_class(
+                    &self.class_hash,
+                    contract_class.expect("Declare transaction must have a contract_class"),
+                )?;
 
-        Ok(None)
+                Ok(None)
+            }
+            Err(error) => Err(error).map_err(TransactionExecutionError::from),
+            Ok(_) => {
+                // Class is already declared; cannot redeclare.
+                Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash: self.class_hash })
+                    .map_err(TransactionExecutionError::from)
+            }
+        }
     }
 }
 
