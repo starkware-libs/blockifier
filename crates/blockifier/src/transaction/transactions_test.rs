@@ -76,7 +76,7 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
 }
 
 fn actual_fee() -> Fee {
-    Fee(1)
+    Fee(2)
 }
 
 fn expected_validate_call_info(
@@ -180,7 +180,7 @@ fn invoke_tx() -> InvokeTransaction {
     ];
 
     InvokeTransaction {
-        max_fee: Fee(1),
+        max_fee: Fee(2),
         version: TransactionVersion(stark_felt!(1)),
         sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         calldata: execute_calldata,
@@ -292,7 +292,7 @@ fn test_negative_invoke_tx_flows() {
     );
 
     // Insufficient fee.
-    let invalid_max_fee = Fee(0);
+    let invalid_max_fee = Fee(1);
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
@@ -345,7 +345,7 @@ fn test_negative_invoke_tx_flows() {
 
 fn declare_tx() -> DeclareTransaction {
     DeclareTransaction {
-        max_fee: Fee(1),
+        max_fee: Fee(2),
         version: TransactionVersion(StarkFelt::from(1)),
         class_hash: ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
         sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
@@ -426,7 +426,7 @@ fn deploy_account_tx() -> DeployAccountTransaction {
     .unwrap();
 
     DeployAccountTransaction {
-        max_fee: Fee(1),
+        max_fee: Fee(2),
         version: TransactionVersion(stark_felt!(1)),
         class_hash,
         contract_address,
