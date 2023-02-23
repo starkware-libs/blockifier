@@ -196,7 +196,7 @@ impl PyTransactionExecutor {
     ) -> PyResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
-        let (_state_diff, tx_execution_info) = tx
+        let tx_execution_info = tx
             .execute(&mut self.state, &self.block_context)
             .map_err(NativeBlockifierError::from)?;
 
