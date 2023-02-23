@@ -22,6 +22,7 @@ use starknet_api::transaction::{
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
+use crate::py_test_utils::create_py_test_state;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::biguint_to_felt;
 
@@ -170,7 +171,7 @@ impl PyTransactionExecutor {
     #[args(general_config, block_info)]
     pub fn new(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
         // TODO: Use Papyrus storage as state reader.
-        let state = CachedState::new(DictStateReader::default());
+        let state = create_py_test_state();
 
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_context = BlockContext {
