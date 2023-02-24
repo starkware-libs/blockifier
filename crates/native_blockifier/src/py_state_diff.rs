@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::state::{StateDiff, StorageKey};
+use starknet_api::state::{ContractClass, StateDiff, StorageKey};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
@@ -46,7 +46,8 @@ impl TryFrom<PyStateDiff> for StateDiff {
             }
         }
 
-        let declared_classes = IndexMap::new();
+        let declared_classes = IndexMap::<ClassHash, ContractClass>::new();
+
         let mut nonces = IndexMap::new();
         for (address, nonce) in state_diff.address_to_nonce {
             let address = ContractAddress::try_from(address.0)?;

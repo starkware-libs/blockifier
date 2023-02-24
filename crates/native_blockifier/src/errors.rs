@@ -10,6 +10,8 @@ pub enum NativeBlockifierError {
     #[error(transparent)]
     Pyo3Error(#[from] PyErr),
     #[error(transparent)]
+    SerdeError(#[from] serde_json::Error),
+    #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     TransactionExecutionError(#[from] TransactionExecutionError),
