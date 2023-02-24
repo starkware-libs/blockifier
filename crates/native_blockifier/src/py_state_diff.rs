@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::state::{StateDiff, StorageKey};
+use starknet_api::state::{ContractClass, StateDiff, StorageKey};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
@@ -19,6 +19,9 @@ pub struct PyStateDiff {
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
     #[pyo3(get)]
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
+    #[pyo3(get)]
+    // Classes are passed as a JSON string.
+    pub declared_class_hash_to_class: HashMap<PyFelt, String>,
 }
 
 impl TryFrom<PyStateDiff> for StateDiff {
@@ -46,7 +49,14 @@ impl TryFrom<PyStateDiff> for StateDiff {
             }
         }
 
-        let declared_classes = IndexMap::new();
+        let mut declared_classes = IndexMap::<ClassHash, ContractClass>::new();
+        for (class_hash, raw_class) in state_diff.declared_class_hash_to_class {
+            let blockifier_contract_class: blockifier::execution::contract_class::ContractClass =
+                serde_json::from_str(raw_class.as_str()).map_err(NativeBlockifierError::from)?;
+            declared_classes
+                .insert(ClassHash(class_hash.0), ContractClass::from(blockifier_contract_class));
+        }
+
         let mut nonces = IndexMap::new();
         for (address, nonce) in state_diff.address_to_nonce {
             let address = ContractAddress::try_from(address.0)?;
@@ -78,7 +88,14 @@ impl From<StateDiff> for PyStateDiff {
             storage_updates.insert(PyFelt::from(address), updates_at);
         }
 
-        Self { address_to_class_hash, address_to_nonce, storage_updates }
+        let declared_class_hash_to_class = HashMap::<PyFelt, String>::new();
+
+        Self {
+            address_to_class_hash,
+            address_to_nonce,
+            storage_updates,
+            declared_class_hash_to_class,
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use indexmap::IndexMap;
@@ -11,6 +12,7 @@ use starknet_api::state::{ContractClass, StateDiff};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
 
 #[pyclass]
@@ -69,10 +71,13 @@ impl Storage {
         previous_block_id: u64,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
+        declared_class_hash_to_class: HashMap<PyFelt, String>,
         _py_deployed_contract_class_definitions: &PyAny,
     ) -> NativeBlockifierResult<()> {
         let block_number = BlockNumber(py_block_info.block_number);
-        let state_diff = StateDiff::try_from(py_state_diff)?;
+        let py_state_diff_with_declares =
+            PyStateDiff { declared_class_hash_to_class, ..py_state_diff };
+        let state_diff = StateDiff::try_from(py_state_diff_with_declares)?;
         // TODO: Figure out how to go from `py_state_diff.class_hash_to_compiled_class_hash` into
         // this type.
         let deployed_contract_class_definitions = IndexMap::<ClassHash, ContractClass>::new();
