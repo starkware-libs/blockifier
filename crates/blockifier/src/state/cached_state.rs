@@ -9,7 +9,7 @@ use starknet_api::state::{StateDiff, StorageKey};
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::utils::subtract_mappings;
+use crate::utils::{subtract_mappings, Merge};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -22,20 +22,28 @@ pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 /// Writer functionality is builtin, whereas Reader functionality is injected through
 /// initialization.
 #[derive(Debug, Default)]
-pub struct CachedState<S: StateReader> {
+pub struct CachedState<S: StateReader + Merge> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
     class_hash_to_class: ContractClassMapping,
 }
 
-impl<S: StateReader> CachedState<S> {
+impl<S: StateReader + Merge> CachedState<S> {
     pub fn new(state: S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
 }
 
-impl<S: StateReader> StateReader for CachedState<S> {
+impl<S: StateReader + Merge> Merge for CachedState<S> {
+    fn merge(&mut self, other: Self) {
+        self.state.merge(other.state);
+        self.cache.merge(other.cache);
+        self.class_hash_to_class.extend(other.class_hash_to_class);
+    }
+}
+
+impl<S: StateReader + Merge> StateReader for CachedState<S> {
     fn get_storage_at(
         &mut self,
         contract_address: ContractAddress,
@@ -92,7 +100,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
     }
 }
 
-impl<S: StateReader> State for CachedState<S> {
+impl<S: StateReader + Merge> State for CachedState<S> {
     fn set_storage_at(
         &mut self,
         contract_address: ContractAddress,
@@ -201,6 +209,17 @@ struct StateCache {
     nonce_writes: HashMap<ContractAddress, Nonce>,
     class_hash_writes: HashMap<ContractAddress, ClassHash>,
     storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+}
+
+impl Merge for StateCache {
+    fn merge(&mut self, other: Self) {
+        self.nonce_initial_values.extend(other.nonce_initial_values);
+        self.class_hash_initial_values.extend(other.class_hash_initial_values);
+        self.storage_initial_values.extend(other.storage_initial_values);
+        self.nonce_writes.extend(other.nonce_writes);
+        self.class_hash_writes.extend(other.class_hash_writes);
+        self.storage_writes.extend(other.storage_writes);
+    }
 }
 
 impl StateCache {

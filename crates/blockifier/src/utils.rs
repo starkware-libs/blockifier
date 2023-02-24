@@ -14,3 +14,7 @@ where
 {
     lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
+
+pub trait Merge {
+    fn merge(&mut self, other: Self);
+}

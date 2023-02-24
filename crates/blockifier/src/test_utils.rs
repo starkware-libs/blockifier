@@ -20,6 +20,7 @@ use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStor
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::AccountTransactionContext;
+use crate::utils::Merge;
 
 // Addresses.
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
@@ -82,6 +83,15 @@ pub struct DictStateReader {
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     pub class_hash_to_class: ContractClassMapping,
+}
+
+impl Merge for DictStateReader {
+    fn merge(&mut self, other: Self) {
+        self.storage_view.extend(other.storage_view);
+        self.address_to_nonce.extend(other.address_to_nonce);
+        self.address_to_class_hash.extend(other.address_to_class_hash);
+        self.class_hash_to_class.extend(other.class_hash_to_class);
+    }
 }
 
 impl StateReader for DictStateReader {
