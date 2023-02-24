@@ -33,6 +33,13 @@ impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
+
+    pub fn merge(&mut self, child: Self) {
+        self.cache.nonce_writes.extend(child.cache.nonce_writes);
+        self.cache.class_hash_writes.extend(child.cache.class_hash_writes);
+        self.cache.storage_writes.extend(child.cache.storage_writes);
+        self.class_hash_to_class.extend(child.class_hash_to_class);
+    }
 }
 
 impl<S: StateReader> StateReader for CachedState<S> {
