@@ -204,7 +204,7 @@ impl PyTransactionExecutor {
     }
 
     /// Returns the state diff resulting in executing transactions.
-    pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.state.to_state_diff())
+    pub fn finalize(&mut self) -> PyResult<PyStateDiff> {
+        Ok(PyStateDiff::try_from(self.state.to_state_diff())?)
     }
 }
