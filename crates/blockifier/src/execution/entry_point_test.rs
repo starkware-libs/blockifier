@@ -264,13 +264,12 @@ fn test_builtin_execution_security_failures() {
         &mut state,
     );
 
-    // TODO(AlonH, 21/12/2022): Uncomment after LC implement add_signature hint.
-    // run_security_test(
-    //     "Signature hint must point to the signature builtin segment",
-    //     "test_signature_hint_on_wrong_segment",
-    //     calldata![],
-    //     &mut state,
-    // );
+    run_security_test(
+        "Signature hint must point to the signature builtin segment",
+        "test_signature_hint_on_wrong_segment",
+        calldata![],
+        &mut state,
+    );
 
     run_security_test(
         "Cannot apply EC operation: computation reached two points with the same x coordinate",
