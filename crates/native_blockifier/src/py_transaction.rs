@@ -4,12 +4,15 @@ use std::sync::Arc;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::papyrus_state::PapyrusStateReader;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use num_bigint::BigUint;
+use ouroboros::self_referencing;
+use papyrus_storage::db::RO;
+use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
@@ -22,7 +25,6 @@ use starknet_api::transaction::{
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
-use crate::py_test_utils::create_py_test_state;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::biguint_to_felt;
 
@@ -154,19 +156,23 @@ pub fn py_tx(
 }
 
 #[pyclass]
+#[self_referencing]
 pub struct PyTransactionExecutor {
-    pub state: CachedState<DictStateReader>,
     pub block_context: BlockContext,
+    pub storage_reader: papyrus_storage::StorageReader,
+    #[borrows(storage_reader)]
+    #[covariant]
+    pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
+    #[borrows(storage_tx)]
+    #[covariant]
+    pub state: CachedState<PapyrusStateReader<'this, RO>>,
 }
 
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
     #[args(general_config, block_info)]
-    pub fn new(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
-        // TODO: Use Papyrus storage as state reader.
-        let state = create_py_test_state();
-
+    pub fn create(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_context = BlockContext {
             chain_id: ChainId(py_enum_name(starknet_os_config, "chain_id")?),
@@ -185,7 +191,32 @@ impl PyTransactionExecutor {
             validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
         };
 
-        Ok(Self { state, block_context })
+        // TODO: Use actual (not test) Papyrus storage as state reader.
+        let (storage_reader, mut _storage_writer) = papyrus_storage::test_utils::get_test_storage();
+
+        fn storage_tx_builder(
+            storage_reader: &papyrus_storage::StorageReader,
+        ) -> papyrus_storage::StorageTxn<'_, RO> {
+            storage_reader.begin_ro_txn().unwrap()
+        }
+
+        fn state_builder<'a>(
+            storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
+        ) -> CachedState<PapyrusStateReader<'a, RO>> {
+            let state_reader = storage_tx.get_state_reader().unwrap();
+
+            let block_number = BlockNumber::default();
+            let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+            CachedState::new(papyrus_reader)
+        }
+
+        Ok(PyTransactionExecutorBuilder {
+            block_context,
+            storage_reader,
+            storage_tx_builder,
+            state_builder,
+        }
+        .build())
     }
 
     #[args(tx)]
@@ -196,15 +227,15 @@ impl PyTransactionExecutor {
     ) -> PyResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
-        let tx_execution_info = tx
-            .execute(&mut self.state, &self.block_context)
-            .map_err(NativeBlockifierError::from)?;
+        let tx_execution_info = self.with_mut(|fields| {
+            tx.execute(fields.state, fields.block_context).map_err(NativeBlockifierError::from)
+        })?;
 
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.state.to_state_diff())
+        PyStateDiff::from(self.borrow_state().to_state_diff())
     }
 }
