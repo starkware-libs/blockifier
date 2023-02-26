@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use indexmap::IndexMap;
@@ -9,8 +10,9 @@ use starknet_api::core::{ClassHash, ContractAddress, GlobalRoot};
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff};
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
 
 #[pyclass]
@@ -69,12 +71,24 @@ impl Storage {
         previous_block_id: u64,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
+        declared_class_hash_to_class: HashMap<PyFelt, String>,
         _py_deployed_contract_class_definitions: &PyAny,
     ) -> NativeBlockifierResult<()> {
         let block_number = BlockNumber(py_block_info.block_number);
-        let state_diff = StateDiff::try_from(py_state_diff)?;
-        // TODO: Figure out how to go from `py_state_diff.class_hash_to_compiled_class_hash` into
-        // this type.
+
+        // Deserialize contract classes.
+        let mut declared_classes: IndexMap<ClassHash, ContractClass> = IndexMap::new();
+        for (class_hash, raw_class) in declared_class_hash_to_class {
+            let blockifier_contract_class: blockifier::execution::contract_class::ContractClass =
+                serde_json::from_str(raw_class.as_str()).map_err(NativeBlockifierError::from)?;
+            declared_classes
+                .insert(ClassHash(class_hash.0), ContractClass::from(blockifier_contract_class));
+        }
+
+        // Construct state diff; manually add declared classes.
+        let mut state_diff = StateDiff::try_from(py_state_diff)?;
+        state_diff.declared_classes = declared_classes;
+
         let deployed_contract_class_definitions = IndexMap::<ClassHash, ContractClass>::new();
         let append_txn = self.writer.begin_rw_txn()?.append_state_diff(
             block_number,
