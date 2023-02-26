@@ -1,5 +1,6 @@
+use std::mem;
+
 use itertools::concat;
-use once_cell::sync::Lazy;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
@@ -35,48 +36,36 @@ pub enum AccountTransaction {
 
 impl AccountTransaction {
     pub fn execute<S: State>(
-        self,
+        mut self,
         state: &mut S,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
-        Self::verify_tx_version(account_tx_context.version)?;
+        self.verify_tx_version(account_tx_context.version)?;
         Self::handle_nonce(&account_tx_context, state)?;
 
         // Handle transaction-type specific execution.
-        let validate_call_info: CallInfo;
+        let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
-        let validate_entry_point_selector = self.validate_entry_point_selector();
-        let validate_entrypoint_calldata = self.validate_entrypoint_calldata();
         match self {
-            Self::Declare(tx, contract_class) => {
+            Self::Declare(ref tx, ref mut contract_class) => {
+                let contract_class = Some(mem::take(contract_class));
+
                 // Validate.
-                validate_call_info = Self::validate_tx(
-                    state,
-                    block_context,
-                    &account_tx_context,
-                    validate_entry_point_selector,
-                    validate_entrypoint_calldata,
-                )?;
+                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
 
                 // Execute.
                 execute_call_info =
-                    tx.execute(state, block_context, &account_tx_context, Some(contract_class))?;
+                    tx.execute(state, block_context, &account_tx_context, contract_class)?;
             }
-            Self::DeployAccount(tx) => {
+            Self::DeployAccount(ref tx) => {
                 // Execute the constructor of the deployed class.
                 execute_call_info = tx.execute(state, block_context, &account_tx_context, None)?;
 
                 // Validate.
-                validate_call_info = Self::validate_tx(
-                    state,
-                    block_context,
-                    &account_tx_context,
-                    validate_entry_point_selector,
-                    validate_entrypoint_calldata,
-                )?;
+                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
             }
-            Self::Invoke(tx) => {
+            Self::Invoke(ref tx) => {
                 // Specifying an entry point selector is not allowed; `__execute__` is called, and
                 // the inner selector appears in the calldata.
                 if tx.entry_point_selector.is_some() {
@@ -84,13 +73,7 @@ impl AccountTransaction {
                 }
 
                 // Validate.
-                validate_call_info = Self::validate_tx(
-                    state,
-                    block_context,
-                    &account_tx_context,
-                    validate_entry_point_selector,
-                    validate_entrypoint_calldata,
-                )?;
+                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
 
                 // Execute.
                 execute_call_info = tx.execute(state, block_context, &account_tx_context, None)?;
@@ -103,7 +86,7 @@ impl AccountTransaction {
             Self::charge_fee(state, block_context, &account_tx_context)?;
 
         let tx_execution_info = TransactionExecutionInfo {
-            validate_call_info: Some(validate_call_info),
+            validate_call_info,
             execute_call_info,
             fee_transfer_call_info,
             actual_fee,
@@ -167,16 +150,17 @@ impl AccountTransaction {
         }
     }
 
-    fn verify_tx_version(version: TransactionVersion) -> TransactionExecutionResult<()> {
-        static ALLOWED_VERSIONS: Lazy<Vec<TransactionVersion>> =
-            Lazy::new(|| vec![TransactionVersion(StarkFelt::from(1))]);
-        if ALLOWED_VERSIONS.contains(&version) {
+    fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
+        let allowed_versions: Vec<TransactionVersion> = match self {
+            Self::Declare(_, _) => {
+                vec![TransactionVersion(StarkFelt::from(0)), TransactionVersion(StarkFelt::from(1))]
+            }
+            _ => vec![TransactionVersion(StarkFelt::from(1))],
+        };
+        if allowed_versions.contains(&version) {
             Ok(())
         } else {
-            Err(TransactionExecutionError::InvalidVersion {
-                version,
-                allowed_versions: &ALLOWED_VERSIONS,
-            })
+            Err(TransactionExecutionError::InvalidVersion { version, allowed_versions })
         }
     }
 
@@ -197,24 +181,30 @@ impl AccountTransaction {
     }
 
     fn validate_tx(
+        &self,
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        validate_entry_point_selector: EntryPointSelector,
-        validate_entry_point_calldata: Calldata,
-    ) -> TransactionExecutionResult<CallInfo> {
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        if account_tx_context.version == TransactionVersion(StarkFelt::from(0)) {
+            return Ok(None);
+        }
+
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
-            entry_point_selector: validate_entry_point_selector,
-            calldata: validate_entry_point_calldata,
+            entry_point_selector: self.validate_entry_point_selector(),
+            calldata: self.validate_entrypoint_calldata(),
             class_hash: None,
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
         let validate_call_info = validate_call.execute(state, block_context, account_tx_context)?;
-        verify_no_calls_to_other_contracts(&validate_call_info, String::from("'validate'"))?;
+        verify_no_calls_to_other_contracts(
+            &validate_call_info,
+            String::from(constants::VALIDATE_ENTRY_POINT_NAME),
+        )?;
 
-        Ok(validate_call_info)
+        Ok(Some(validate_call_info))
     }
 
     fn charge_fee(

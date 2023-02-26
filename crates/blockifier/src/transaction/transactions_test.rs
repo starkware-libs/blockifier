@@ -288,7 +288,7 @@ fn test_negative_invoke_tx_flows() {
     let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
     assert_matches!(
         execution_error,
-        TransactionExecutionError::InvalidVersion { version, allowed_versions }
+        TransactionExecutionError::InvalidVersion { version, ref allowed_versions }
         if (version, allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
     );
 
