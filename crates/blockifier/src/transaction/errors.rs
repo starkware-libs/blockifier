@@ -38,13 +38,13 @@ pub enum TransactionExecutionError {
         "Transaction version {version:?} is not supported. Supported versions: \
          {allowed_versions:?}."
     )]
-    InvalidVersion { version: TransactionVersion, allowed_versions: &'static [TransactionVersion] },
+    InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
     #[error(transparent)]
     InvokeTransactionError(#[from] InvokeTransactionError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     StateError(#[from] StateError),
-    #[error("Calling other contracts during {entry_point_kind} execution is forbidden.")]
+    #[error("Calling other contracts during '{entry_point_kind}' execution is forbidden.")]
     UnauthorizedInnerCall { entry_point_kind: String },
 }
