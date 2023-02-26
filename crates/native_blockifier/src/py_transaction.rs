@@ -4,12 +4,15 @@ use std::sync::Arc;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::papyrus_state::PapyrusStateReader;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use num_bigint::BigUint;
+use ouroboros;
+use papyrus_storage::db::RO;
+use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
@@ -22,7 +25,6 @@ use starknet_api::transaction::{
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
-use crate::py_test_utils::create_py_test_state;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::biguint_to_felt;
 
@@ -154,23 +156,34 @@ pub fn py_tx(
 }
 
 #[pyclass]
+// To access a field you must use `self.borrow_{field_name}()`.·
+// Alternately, you can borrow the whole object using `self.with[_mut]()`.
+#[ouroboros::self_referencing]
 pub struct PyTransactionExecutor {
-    pub state: CachedState<DictStateReader>,
     pub block_context: BlockContext,
+
+    // State-related fields.
+    // Storage reader and transaction are kept merely for lifetime parameter referencing.
+    pub storage_reader: papyrus_storage::StorageReader,
+    #[borrows(storage_reader)]
+    #[covariant]
+    pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
+    #[borrows(storage_tx)]
+    #[covariant]
+    pub state: CachedState<PapyrusStateReader<'this, RO>>,
 }
 
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
     #[args(general_config, block_info)]
-    pub fn new(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
-        // TODO: Use Papyrus storage as state reader.
-        let state = create_py_test_state();
-
+    pub fn create(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
+        // Build block context.
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
+        let block_number = BlockNumber(py_attr(block_info, "block_number")?);
         let block_context = BlockContext {
             chain_id: ChainId(py_enum_name(starknet_os_config, "chain_id")?),
-            block_number: BlockNumber(py_attr(block_info, "block_number")?),
+            block_number,
             block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
             sequencer_address: ContractAddress::try_from(py_felt_attr(
                 general_config,
@@ -185,7 +198,34 @@ impl PyTransactionExecutor {
             validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
         };
 
-        Ok(Self { state, block_context })
+        // Build Papyrus reader-based state.
+        // TODO: Use actual (not test) Papyrus storage as state reader.
+        let (storage_reader, mut _storage_writer) = papyrus_storage::test_utils::get_test_storage();
+
+        // The following callbacks are required to capture the local lifetime parameter.
+        fn storage_tx_builder(
+            storage_reader: &papyrus_storage::StorageReader,
+        ) -> NativeBlockifierResult<papyrus_storage::StorageTxn<'_, RO>> {
+            Ok(storage_reader.begin_ro_txn()?)
+        }
+
+        fn state_builder<'a>(
+            storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
+            block_number: BlockNumber,
+        ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a, RO>>> {
+            let state_reader = storage_tx.get_state_reader()?;
+            let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+            Ok(CachedState::new(papyrus_reader))
+        }
+
+        // The builder struct below is implicitly created by `ouroboros`.
+        let py_tx_executor_builder = PyTransactionExecutorTryBuilder {
+            block_context,
+            storage_reader,
+            storage_tx_builder,
+            state_builder: |storage_tx| state_builder(storage_tx, block_number),
+        };
+        py_tx_executor_builder.try_build()
     }
 
     #[args(tx, raw_contract_class)]
@@ -196,15 +236,15 @@ impl PyTransactionExecutor {
     ) -> PyResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
-        let tx_execution_info = tx
-            .execute(&mut self.state, &self.block_context)
-            .map_err(NativeBlockifierError::from)?;
+        let tx_execution_info = self.with_mut(|executor| {
+            tx.execute(executor.state, executor.block_context).map_err(NativeBlockifierError::from)
+        })?;
 
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.state.to_state_diff())
+        PyStateDiff::from(self.borrow_state().to_state_diff())
     }
 }
