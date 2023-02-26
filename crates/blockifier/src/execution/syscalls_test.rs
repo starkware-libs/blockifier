@@ -111,7 +111,15 @@ fn test_nested_library_call() {
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
-        vm_resources: ExecutionResources { n_steps: 300, ..Default::default() },
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (String::from("range_check"), 0),
+                (String::from("bitwise"), 0),
+                (String::from("pedersen"), 0),
+            ]),
+        },
         ..Default::default()
     };
     let library_call_info = CallInfo {
@@ -131,13 +139,29 @@ fn test_nested_library_call() {
     let storage_call_info = CallInfo {
         call: storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
-        vm_resources: ExecutionResources { n_steps: 200, ..Default::default() },
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                ("bitwise".to_string(), 0),
+                ("range_check".to_string(), 0),
+                ("pedersen".to_string(), 0),
+            ]),
+        },
         ..Default::default()
     };
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution::from_retdata(retdata![stark_felt!(0)]),
-        vm_resources: ExecutionResources { n_steps: 100, ..Default::default() },
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                ("bitwise".to_string(), 0),
+                ("range_check".to_string(), 1),
+                ("pedersen".to_string(), 0),
+            ]),
+        },
         inner_calls: vec![library_call_info, storage_call_info],
     };
 

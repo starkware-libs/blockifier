@@ -81,6 +81,7 @@ fn expected_validate_call_info(
     entry_point_selector_name: &str,
     calldata: Calldata,
     storage_address: ContractAddress,
+    vm_resources: ExecutionResources,
 ) -> Option<CallInfo> {
     Some(CallInfo {
         call: CallEntryPoint {
@@ -93,6 +94,7 @@ fn expected_validate_call_info(
         },
         // The account contract we use for testing has trivial `validate` functions.
         execution: CallExecution::default(),
+        vm_resources,
         ..Default::default()
     })
 }
@@ -101,6 +103,7 @@ fn expected_fee_transfer_call_info(
     block_context: &BlockContext,
     account_address: ContractAddress,
     actual_fee: Fee,
+    vm_resources: ExecutionResources,
 ) -> Option<CallInfo> {
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
@@ -139,6 +142,7 @@ fn expected_fee_transfer_call_info(
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
+        vm_resources,
         ..Default::default()
     })
 }
@@ -207,6 +211,14 @@ fn test_invoke_tx() {
         constants::VALIDATE_ENTRY_POINT_NAME,
         calldata,
         expected_account_address,
+        ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (String::from("pedersen"), 0),
+                (String::from("range_check"), 1),
+            ]),
+        },
     );
 
     // Build expected execute call info.
@@ -227,10 +239,26 @@ fn test_invoke_tx() {
     let expected_execute_call_info = Some(CallInfo {
         call: expected_execute_call,
         execution: CallExecution::from_retdata(Retdata(expected_return_result_retdata.0.clone())),
-        vm_resources: ExecutionResources::default(),
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (String::from("range_check"), 1),
+                (String::from("pedersen"), 0),
+            ]),
+        },
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
+            vm_resources: ExecutionResources {
+                n_steps: 0,
+                n_memory_holes: 1,
+                builtin_instance_counter: HashMap::from([
+                    (String::from("pedersen"), 0),
+                    (String::from("range_check"), 0),
+                    (String::from("bitwise"), 0),
+                ]),
+            },
             ..Default::default()
         }],
     });
@@ -241,6 +269,14 @@ fn test_invoke_tx() {
         block_context,
         expected_account_address,
         expected_actual_fee,
+        ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 60,
+            builtin_instance_counter: HashMap::from([
+                (String::from("pedersen"), 4),
+                (String::from("range_check"), 21),
+            ]),
+        },
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -379,6 +415,14 @@ fn test_declare_tx() {
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
         calldata![class_hash.0],
         expected_account_address,
+        ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (String::from("pedersen"), 0),
+                (String::from("range_check"), 0),
+            ]),
+        },
     );
 
     // Build expected fee transfer call info.
@@ -387,6 +431,14 @@ fn test_declare_tx() {
         block_context,
         expected_account_address,
         expected_actual_fee,
+        ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 60,
+            builtin_instance_counter: HashMap::from([
+                (String::from("range_check"), 21),
+                (String::from("pedersen"), 4),
+            ]),
+        },
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -463,6 +515,14 @@ fn test_deploy_account_tx() {
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
         Calldata(validate_calldata.into()),
         deployed_account_address,
+        ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([
+                (String::from("pedersen"), 0),
+                (String::from("range_check"), 0),
+            ]),
+        },
     );
 
     // Build expected execute call info.
@@ -481,6 +541,14 @@ fn test_deploy_account_tx() {
         block_context,
         deployed_account_address,
         expected_actual_fee,
+        ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 58,
+            builtin_instance_counter: HashMap::from([
+                (String::from("pedersen"), 4),
+                (String::from("range_check"), 21),
+            ]),
+        },
     );
 
     let expected_execution_info = TransactionExecutionInfo {
