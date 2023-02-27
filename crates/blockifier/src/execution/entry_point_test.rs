@@ -1,3 +1,4 @@
+use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkFelt;
@@ -250,8 +251,13 @@ fn test_builtin_execution_security_failures() {
         &mut state,
     );
 
+    let u128_bound: BigInt = BigInt::from(u128::MAX) + 1;
+    let u123_bound_plus_one = u128_bound.clone() + 1;
     run_security_test(
-        "Range-check validation failed, number is out of valid range",
+        &format!(
+            "Range-check validation failed, number {u123_bound_plus_one} is out of valid range \
+             [0, {u128_bound}]"
+        ),
         "test_bad_range_check_values",
         calldata![],
         &mut state,
@@ -317,7 +323,7 @@ fn test_syscall_execution_security_failures() {
     );
 
     run_security_test(
-        "Memory addresses must be relocatable",
+        "Custom Hint Error: Found a memory gap when calling get_continuous_range",
         "test_bad_syscall_request_arg_type",
         calldata![],
         &mut state,
