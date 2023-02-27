@@ -63,7 +63,7 @@ impl Storage {
         Ok(())
     }
 
-    #[args(block_number, py_state_diff, _py_deployed_contract_class_definitions)]
+    #[args(block_id, previous_block_id, py_block_info, py_state_diff, declared_class_hash_to_class)]
     /// Appends state diff and block header into Papyrus storage.
     pub fn append_state_diff(
         &mut self,
@@ -72,7 +72,6 @@ impl Storage {
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, String>,
-        _py_deployed_contract_class_definitions: &PyAny,
     ) -> NativeBlockifierResult<()> {
         let block_number = BlockNumber(py_block_info.block_number);
 
