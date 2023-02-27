@@ -18,7 +18,9 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, OrderedEvent, Retdata,
+};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
@@ -123,14 +125,17 @@ fn expected_fee_transfer_call_info(
         caller_address: account_address,
     };
     let expected_fee_sender_address = *account_address.0.key();
-    let expected_fee_transfer_event = EventContent {
-        keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
-        data: EventData(vec![
-            expected_fee_sender_address,
-            expected_sequencer_address, // Recipient.
-            lsb_expected_amount,
-            msb_expected_amount,
-        ]),
+    let expected_fee_transfer_event = OrderedEvent {
+        order: 0,
+        event: EventContent {
+            keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
+            data: EventData(vec![
+                expected_fee_sender_address,
+                expected_sequencer_address, // Recipient.
+                lsb_expected_amount,
+                msb_expected_amount,
+            ]),
+        },
     };
     Some(CallInfo {
         call: expected_fee_transfer_call,
