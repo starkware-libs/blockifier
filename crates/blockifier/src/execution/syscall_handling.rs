@@ -15,8 +15,9 @@ use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
+use starknet_api::transaction::Calldata;
 
+use super::entry_point::{OrderedEvent, OrderedL2ToL1Message};
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
@@ -48,8 +49,8 @@ pub struct SyscallHintProcessor<'a> {
     // Execution results.
     /// Inner calls invoked by the current execution.
     pub inner_calls: Vec<CallInfo>,
-    pub events: Vec<EventContent>,
-    pub l2_to_l1_messages: Vec<MessageToL1>,
+    pub events: Vec<OrderedEvent>,
+    pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
 
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
@@ -58,6 +59,10 @@ pub struct SyscallHintProcessor<'a> {
     // Additional fields.
     // Invariant: must only contain allowed hints.
     builtin_hint_processor: BuiltinHintProcessor,
+    // Used for tracking events order during the current execution.
+    pub n_emitted_events: usize,
+    // Used for tracking L2-to-L1 messages order during the current execution.
+    pub n_sent_messages_to_l1: usize,
     // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
@@ -88,6 +93,8 @@ impl<'a> SyscallHintProcessor<'a> {
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
             syscall_counter: HashMap::default(),
+            n_emitted_events: 0,
+            n_sent_messages_to_l1: 0,
         }
     }
 

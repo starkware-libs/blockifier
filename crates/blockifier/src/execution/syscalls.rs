@@ -12,7 +12,7 @@ use starknet_api::transaction::{
     MessageToL1,
 };
 
-use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::entry_point::{CallEntryPoint, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     execute_deployment, execute_library_call, felt_from_memory_ptr, ReadOnlySegment,
@@ -455,7 +455,10 @@ pub fn emit_event(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
-    syscall_handler.events.push(request.content);
+    let ordered_event =
+        OrderedEvent { order: syscall_handler.n_emitted_events, event: request.content };
+    syscall_handler.events.push(ordered_event);
+    syscall_handler.n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
 }
@@ -486,7 +489,12 @@ pub fn send_message_to_l1(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
-    syscall_handler.l2_to_l1_messages.push(request.message);
+    let ordered_message_to_l1 = OrderedL2ToL1Message {
+        order: syscall_handler.n_sent_messages_to_l1,
+        message: request.message,
+    };
+    syscall_handler.l2_to_l1_messages.push(ordered_message_to_l1);
+    syscall_handler.n_sent_messages_to_l1 += 1;
 
     Ok(SendMessageToL1Response {})
 }
