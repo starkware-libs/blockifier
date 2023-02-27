@@ -63,7 +63,14 @@ impl Storage {
         Ok(())
     }
 
-    #[args(block_number, py_state_diff, _py_deployed_contract_class_definitions)]
+    #[args(
+        block_id,
+        previous_block_id,
+        py_block_info,
+        py_state_diff,
+        declared_class_hash_to_class,
+        _py_deployed_contract_class_definitions
+    )]
     /// Appends state diff and block header into Papyrus storage.
     pub fn append_state_diff(
         &mut self,

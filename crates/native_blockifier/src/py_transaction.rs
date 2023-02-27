@@ -188,7 +188,7 @@ impl PyTransactionExecutor {
         Ok(Self { state, block_context })
     }
 
-    #[args(tx)]
+    #[args(tx, raw_contract_class)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
