@@ -249,7 +249,9 @@ fn read_execution_retdata(
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
         MaybeRelocatable::Int(retdata_size) => retdata_size.bits() as usize,
-        relocatable => return Err(VirtualMachineError::ExpectedInteger(relocatable).into()),
+        relocatable => {
+            return Err(VirtualMachineError::ExpectedIntAtRange(Some(relocatable)).into());
+        }
     };
 
     Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?))
@@ -321,8 +323,9 @@ pub fn felt_from_memory_ptr(
     vm: &VirtualMachine,
     memory_ptr: Relocatable,
 ) -> Result<StarkFelt, VirtualMachineError> {
-    let maybe_relocatable = vm.get_maybe(&memory_ptr)?;
-    felt_from_memory_cell(maybe_relocatable.ok_or(VirtualMachineError::NoneInMemoryRange)?)
+    let maybe_relocatable =
+        vm.get_maybe(&memory_ptr).ok_or(VirtualMachineError::NoneInMemoryRange)?;
+    felt_from_memory_cell(maybe_relocatable)
 }
 
 pub fn felt_from_memory_cell(
@@ -330,7 +333,7 @@ pub fn felt_from_memory_cell(
 ) -> Result<StarkFelt, VirtualMachineError> {
     match memory_cell {
         MaybeRelocatable::Int(value) => Ok(felt_to_stark_felt(&value)),
-        _ => Err(VirtualMachineError::ExpectedInteger(memory_cell)),
+        _ => Err(VirtualMachineError::ExpectedIntAtRange(Some(memory_cell))),
     }
 }
 

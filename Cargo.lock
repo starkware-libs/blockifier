@@ -221,7 +221,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.10.6",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=0a11ad3)",
  "test-case",
  "thiserror",
 ]
@@ -253,7 +253,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cairo-felt"
 version = "0.1.3"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#abaf2151036e094abe573f6be40123bb0aed2002"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#841ac660c7b149cc51f257c32bfc2b2bdccec886"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -265,7 +265,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.1.3"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#abaf2151036e094abe573f6be40123bb0aed2002"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#841ac660c7b149cc51f257c32bfc2b2bdccec886"
 dependencies = [
  "bincode",
  "cairo-felt",
@@ -511,6 +511,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071a31f4ee85403370b58aca746f01041ede6f0da2730960ad001edc2b71b394"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "errno"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f639046355ee4f37944e44f60642c6f3a7efa3cf6b78c78a0d989a8ce6c396a1"
+dependencies = [
+ "errno-dragonfly",
+ "libc",
+ "winapi",
+]
+
+[[package]]
+name = "errno-dragonfly"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
+dependencies = [
+ "cc",
+ "libc",
 ]
 
 [[package]]
@@ -1002,6 +1023,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8bb03732005da905c88227371639bf1ad885cc712789c011c31c5fb3ab3ccf02"
 
 [[package]]
+name = "io-lifetimes"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1abeb7a0dd0f8181267ff8adc397075586500b81b28a73e8a0208b00fc170fb3"
+dependencies = [
+ "libc",
+ "windows-sys 0.45.0",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1118,6 +1149,12 @@ checksum = "4c970c8ea4c7b023a41cfa4af4c785a16694604c2f2a3b0d1f20a9bcb73fa550"
 dependencies = [
  "bytes",
 ]
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
 name = "lock_api"
@@ -1241,7 +1278,7 @@ dependencies = [
  "papyrus_storage",
  "pyo3",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=0a11ad3)",
  "thiserror",
 ]
 
@@ -1253,15 +1290,6 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
-]
-
-[[package]]
-name = "nom8"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae01545c9c7fc4486ab7debaf2aad7003ac19431791868fb2e8066df97fad2f8"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -1380,7 +1408,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#b18ccbfc08a33a54c502ea91735a859083609901"
+source = "git+https://github.com/starkware-libs/papyrus#93e4459edc33798465b1ad86683d0e850595c001"
 dependencies = [
  "bincode",
  "flate2",
@@ -1393,7 +1421,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=9a1fca8)",
  "tempfile",
  "test_utils",
  "thiserror",
@@ -1455,7 +1483,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#abaf2151036e094abe573f6be40123bb0aed2002"
+source = "git+https://github.com/lambdaclass/cairo-rs.git#841ac660c7b149cc51f257c32bfc2b2bdccec886"
 dependencies = [
  "nom",
 ]
@@ -1559,9 +1587,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "1.3.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66618389e4ec1c7afe67d51a9bf34ff9236480f8d51e7489b7d5ab0303c13f34"
+checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
 dependencies = [
  "once_cell",
  "toml_edit",
@@ -1732,15 +1760,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "456c603be3e8d448b072f410900c09faf164fbce2d480456f50eea6e25f9c848"
 
 [[package]]
-name = "remove_dir_all"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "reqwest"
 version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1826,6 +1845,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
  "semver 1.0.16",
+]
+
+[[package]]
+name = "rustix"
+version = "0.36.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f43abb88211988493c1abb44a70efa56ff0ce98f233b7b276146f1f3f7ba9644"
+dependencies = [
+ "bitflags",
+ "errno",
+ "io-lifetimes",
+ "libc",
+ "linux-raw-sys",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -2053,9 +2086,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4614a76b2a8be0058caa9dbbaf66d988527d86d003c11a94fbd335d7661edcef"
+checksum = "6528351c9bc8ab22353f9d776db39a20288e8d6c37ef8cfe3317cf875eecfc2d"
 dependencies = [
  "autocfg",
 ]
@@ -2165,6 +2198,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "starknet_api"
+version = "0.1.0"
+source = "git+https://github.com/starkware-libs/starknet-api?rev=9a1fca8#9a1fca8665bb68dbea7d39cc5a81d41a58acb9f7"
+dependencies = [
+ "derive_more",
+ "hex",
+ "indexmap",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "starknet-crypto",
+ "thiserror",
+ "web3",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2184,9 +2233,9 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "syn"
-version = "1.0.107"
+version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f4064b5b16e03ae50984a5a8ed5d4f8803e6bc1fd170a3cda91a1be4b18e3f5"
+checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2219,16 +2268,15 @@ checksum = "8ae9980cab1db3fceee2f6c6f643d5d8de2997c58ee8d25fb0cc8a9e9e7348e5"
 
 [[package]]
 name = "tempfile"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cdb1ef4eaeeaddc8fbd371e5017057064af0911902ef36b39801f67cc6d79e4"
+checksum = "af18f7ae1acd354b992402e9ec5864359d693cd8a79dcbef59f76891701c1e95"
 dependencies = [
  "cfg-if",
  "fastrand",
- "libc",
  "redox_syscall",
- "remove_dir_all",
- "winapi",
+ "rustix",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
@@ -2265,14 +2313,14 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#b18ccbfc08a33a54c502ea91735a859083609901"
+source = "git+https://github.com/starkware-libs/papyrus#93e4459edc33798465b1ad86683d0e850595c001"
 dependencies = [
  "indexmap",
  "rand",
  "rand_chacha",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.1.0 (git+https://github.com/starkware-libs/starknet-api?rev=9a1fca8)",
  "tracing",
 ]
 
@@ -2369,9 +2417,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d660770404473ccd7bc9f8b28494a811bc18542b915c0855c51e8f419d5223ce"
+checksum = "8fb52b74f05dbf495a8fba459fdc331812b96aa086d9eb78101fa0d4569c3313"
 dependencies = [
  "futures-core",
  "pin-project-lite",
@@ -2409,19 +2457,19 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.5.1"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4553f467ac8e3d374bc9a177a26801e5d0f9b211aa1673fb137a403afd1c9cf5"
+checksum = "3ab8ed2edee10b50132aed5f331333428b011c99402b5a534154ed15746f9622"
 
 [[package]]
 name = "toml_edit"
-version = "0.18.1"
+version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c59d8dd7d0dcbc6428bf7aa2f0e823e26e43b3c9aca15bbc9475d23e5fa12b"
+checksum = "9a1eb0622d28f4b9c90adc4ea4b2b46b47663fde9ac5fafcb14a1369d5508825"
 dependencies = [
  "indexmap",
- "nom8",
  "toml_datetime",
+ "winnow",
 ]
 
 [[package]]
@@ -2800,6 +2848,15 @@ name = "windows_x86_64_msvc"
 version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
+
+[[package]]
+name = "winnow"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faf09497b8f8b5ac5d3bb4d05c0a99be20f26fd3d5f2db7b0716e946d5103658"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winreg"
