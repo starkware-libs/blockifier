@@ -148,7 +148,6 @@ pub fn execute_entry_point_call(
     )?;
 
     Ok(finalize_execution(
-        execution_context.runner,
         execution_context.vm,
         execution_context.runner,
         call,
@@ -172,7 +171,6 @@ pub fn run_entry_point(
 }
 
 pub fn finalize_execution(
-    runner: CairoRunner,
     mut vm: VirtualMachine,
     cairo_runner: CairoRunner,
     call: CallEntryPoint,
@@ -186,7 +184,7 @@ pub fn finalize_execution(
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     let vm_resources =
-        runner.get_execution_resources(&vm).map_err(VirtualMachineError::TracerError)?;
+        cairo_runner.get_execution_resources(&vm).map_err(VirtualMachineError::TracerError)?;
     Ok(CallInfo {
         call,
         execution: CallExecution {
