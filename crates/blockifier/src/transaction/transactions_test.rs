@@ -289,7 +289,7 @@ fn test_negative_invoke_tx_flows() {
     assert_matches!(
         execution_error,
         TransactionExecutionError::InvalidVersion { version, allowed_versions }
-        if (version, allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
+        if (version, &allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
     );
 
     // Insufficient fee.
