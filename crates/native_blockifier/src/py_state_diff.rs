@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::state::{StateDiff, StorageKey};
+use starknet_api::state::{ContractClass, StateDiff, StorageKey};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
@@ -21,19 +21,20 @@ pub struct PyStateDiff {
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
 }
 
-impl TryFrom<PyStateDiff> for StateDiff {
-    type Error = NativeBlockifierError;
-
-    fn try_from(state_diff: PyStateDiff) -> NativeBlockifierResult<Self> {
+impl PyStateDiff {
+    pub fn with_declared_classes(
+        self,
+        declared_class_hash_to_class: HashMap<PyFelt, String>,
+    ) -> NativeBlockifierResult<StateDiff> {
         let mut deployed_contracts: IndexMap<ContractAddress, ClassHash> = IndexMap::new();
-        for (address, class_hash) in state_diff.address_to_class_hash {
+        for (address, class_hash) in self.address_to_class_hash {
             let address = ContractAddress::try_from(address.0)?;
             let class_hash = ClassHash(class_hash.0);
             deployed_contracts.insert(address, class_hash);
         }
 
         let mut storage_diffs = IndexMap::new();
-        for (address, storage_mapping) in state_diff.storage_updates {
+        for (address, storage_mapping) in self.storage_updates {
             let address = ContractAddress::try_from(address.0)?;
             storage_diffs.insert(address, IndexMap::new());
 
@@ -46,15 +47,23 @@ impl TryFrom<PyStateDiff> for StateDiff {
             }
         }
 
-        let declared_classes = IndexMap::new();
+        // Deserialize contract classes.
+        let mut declared_classes: IndexMap<ClassHash, ContractClass> = IndexMap::new();
+        for (class_hash, raw_class) in declared_class_hash_to_class {
+            let blockifier_contract_class: blockifier::execution::contract_class::ContractClass =
+                serde_json::from_str(raw_class.as_str()).map_err(NativeBlockifierError::from)?;
+            declared_classes
+                .insert(ClassHash(class_hash.0), ContractClass::from(blockifier_contract_class));
+        }
+
         let mut nonces = IndexMap::new();
-        for (address, nonce) in state_diff.address_to_nonce {
+        for (address, nonce) in self.address_to_nonce {
             let address = ContractAddress::try_from(address.0)?;
             let nonce = Nonce(nonce.0);
             nonces.insert(address, nonce);
         }
 
-        Ok(Self { deployed_contracts, storage_diffs, declared_classes, nonces })
+        Ok(StateDiff { deployed_contracts, storage_diffs, declared_classes, nonces })
     }
 }
 
