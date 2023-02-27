@@ -1,10 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::entry_point::CallInfo;
+use blockifier::execution::entry_point::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use pyo3::prelude::*;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{EventContent, MessageToL1};
 
 use crate::py_utils::{starkfelt_to_pyfelt_vec, PyFelt};
 
@@ -118,16 +117,18 @@ impl From<CallInfo> for PyCallInfo {
 #[derive(Clone)]
 pub struct PyEvent {
     #[pyo3(get)]
+    pub order: usize,
+    #[pyo3(get)]
     pub keys: Vec<PyFelt>,
     #[pyo3(get)]
     pub data: Vec<PyFelt>,
 }
 
-impl From<EventContent> for PyEvent {
-    fn from(events: EventContent) -> Self {
-        let keys = events.keys.into_iter().map(|x| PyFelt(x.0)).collect();
-        let data = starkfelt_to_pyfelt_vec(events.data.0);
-        Self { keys, data }
+impl From<OrderedEvent> for PyEvent {
+    fn from(event: OrderedEvent) -> Self {
+        let keys = event.content.keys.into_iter().map(|x| PyFelt(x.0)).collect();
+        let data = starkfelt_to_pyfelt_vec(event.content.data.0);
+        Self { order: event.order, keys, data }
     }
 }
 
@@ -135,15 +136,17 @@ impl From<EventContent> for PyEvent {
 #[derive(Clone)]
 pub struct PyL2ToL1Message {
     #[pyo3(get)]
+    pub order: usize,
+    #[pyo3(get)]
     pub to_address: PyFelt,
     #[pyo3(get)]
     pub payload: Vec<PyFelt>,
 }
 
-impl From<MessageToL1> for PyL2ToL1Message {
-    fn from(message: MessageToL1) -> Self {
-        let payload = starkfelt_to_pyfelt_vec(message.payload.0);
-        Self { to_address: PyFelt::from(message.to_address), payload }
+impl From<OrderedL2ToL1Message> for PyL2ToL1Message {
+    fn from(message: OrderedL2ToL1Message) -> Self {
+        let payload = starkfelt_to_pyfelt_vec(message.content.payload.0);
+        Self { order: message.order, to_address: PyFelt::from(message.content.to_address), payload }
     }
 }
 
