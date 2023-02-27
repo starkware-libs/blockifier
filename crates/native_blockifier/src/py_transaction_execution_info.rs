@@ -1,10 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::entry_point::CallInfo;
+use blockifier::execution::entry_point::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use pyo3::prelude::*;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{EventContent, MessageToL1};
 
 use crate::py_utils::{starkfelt_to_pyfelt_vec, PyFelt};
 
@@ -61,9 +60,9 @@ pub struct PyCallInfo {
     #[pyo3(get)]
     pub execution_resources: PyExecutionResources,
     #[pyo3(get)]
-    pub events: Vec<PyEvent>,
+    pub events: Vec<PyOrderedEvent>,
     #[pyo3(get)]
-    pub l2_to_l1_messages: Vec<PyL2ToL1Message>,
+    pub l2_to_l1_messages: Vec<PyOrderedL2ToL1Message>,
 
     // Internal calls invoked by this call.
     #[pyo3(get)]
@@ -99,11 +98,11 @@ impl From<CallInfo> for PyCallInfo {
             retdata: starkfelt_to_pyfelt_vec(execution.retdata.0),
             // TODO(Elin, 01/03/2023): Initialize correctly.
             execution_resources: PyExecutionResources::default(),
-            events: execution.events.into_iter().map(PyEvent::from).collect(),
+            events: execution.events.into_iter().map(PyOrderedEvent::from).collect(),
             l2_to_l1_messages: execution
                 .l2_to_l1_messages
                 .into_iter()
-                .map(PyL2ToL1Message::from)
+                .map(PyOrderedL2ToL1Message::from)
                 .collect(),
             internal_calls: call_info.inner_calls.into_iter().map(PyCallInfo::from).collect(),
             storage_read_values: vec![],
@@ -116,34 +115,38 @@ impl From<CallInfo> for PyCallInfo {
 
 #[pyclass]
 #[derive(Clone)]
-pub struct PyEvent {
+pub struct PyOrderedEvent {
+    #[pyo3(get)]
+    pub order: usize,
     #[pyo3(get)]
     pub keys: Vec<PyFelt>,
     #[pyo3(get)]
     pub data: Vec<PyFelt>,
 }
 
-impl From<EventContent> for PyEvent {
-    fn from(events: EventContent) -> Self {
-        let keys = events.keys.into_iter().map(|x| PyFelt(x.0)).collect();
-        let data = starkfelt_to_pyfelt_vec(events.data.0);
-        Self { keys, data }
+impl From<OrderedEvent> for PyOrderedEvent {
+    fn from(event: OrderedEvent) -> Self {
+        let keys = event.content.keys.into_iter().map(|x| PyFelt(x.0)).collect();
+        let data = starkfelt_to_pyfelt_vec(event.content.data.0);
+        Self { order: event.order, keys, data }
     }
 }
 
 #[pyclass]
 #[derive(Clone)]
-pub struct PyL2ToL1Message {
+pub struct PyOrderedL2ToL1Message {
+    #[pyo3(get)]
+    pub order: usize,
     #[pyo3(get)]
     pub to_address: PyFelt,
     #[pyo3(get)]
     pub payload: Vec<PyFelt>,
 }
 
-impl From<MessageToL1> for PyL2ToL1Message {
-    fn from(message: MessageToL1) -> Self {
-        let payload = starkfelt_to_pyfelt_vec(message.payload.0);
-        Self { to_address: PyFelt::from(message.to_address), payload }
+impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
+    fn from(message: OrderedL2ToL1Message) -> Self {
+        let payload = starkfelt_to_pyfelt_vec(message.content.payload.0);
+        Self { order: message.order, to_address: PyFelt::from(message.content.to_address), payload }
     }
 }
 

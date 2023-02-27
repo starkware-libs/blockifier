@@ -74,10 +74,21 @@ macro_rules! retdata {
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
+pub struct OrderedEvent {
+    pub order: usize,
+    pub content: EventContent,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct OrderedL2ToL1Message {
+    pub order: usize,
+    pub content: MessageToL1,
+}
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallExecution {
     pub retdata: Retdata,
-    pub events: Vec<EventContent>,
-    pub l2_to_l1_messages: Vec<MessageToL1>,
+    pub events: Vec<OrderedEvent>,
+    pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
