@@ -279,9 +279,7 @@ pub fn write_felt(vm: &mut VirtualMachine, ptr: Relocatable, felt: StarkFelt) ->
 
 pub fn read_felt_array(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Vec<StarkFelt>> {
     let array_size = felt_from_memory_ptr(vm, ptr)?;
-    let Some(array_data_ptr) = vm.get_maybe(&(ptr + 1))? else {
-        return Err(VirtualMachineError::NoneInMemoryRange.into())
-    };
+    let array_data_ptr = vm.get_maybe(&(ptr + 1)).ok_or(VirtualMachineError::NoneInMemoryRange)?;
 
     Ok(felt_range_from_ptr(vm, &array_data_ptr, usize::try_from(array_size)?)?)
 }
