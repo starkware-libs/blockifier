@@ -1,13 +1,17 @@
 use std::convert::TryFrom;
 
+use blockifier::transaction::errors::TransactionExecutionError;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use starknet_api::core::ContractAddress;
+use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::EthAddress;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+
+pub const CHAIN_NAMES: &[&str; 4] =
+    &["SN_MAIN", "SN_GOERLI", "SN_GOERLI2", "PRIVATE_SN_POTC_GOERLI"];
 
 #[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy)]
 pub struct PyFelt(#[pyo3(from_py_with = "pyint_to_stark_felt")] pub StarkFelt);
@@ -47,4 +51,16 @@ pub fn biguint_to_felt(biguint: BigUint) -> NativeBlockifierResult<StarkFelt> {
 
 pub fn starkfelt_to_pyfelt_vec(stark_felts: Vec<StarkFelt>) -> Vec<PyFelt> {
     stark_felts.into_iter().map(PyFelt).collect()
+}
+
+pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
+    let expected_name = String::from_utf8_lossy(&value.to_bytes_be()).to_string();
+    for chain_name in CHAIN_NAMES {
+        if expected_name == *chain_name {
+            return Ok(ChainId(expected_name));
+        }
+    }
+    Err(NativeBlockifierError::from(TransactionExecutionError::UnknownChainId {
+        chain_id: value.to_string(),
+    }))
 }

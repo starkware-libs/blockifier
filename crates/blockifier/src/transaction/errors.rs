@@ -47,4 +47,6 @@ pub enum TransactionExecutionError {
     StateError(#[from] StateError),
     #[error("Calling other contracts during '{entry_point_kind}' execution is forbidden.")]
     UnauthorizedInnerCall { entry_point_kind: String },
+    #[error("Unknown chain ID '{chain_id:?}'.")]
+    UnknownChainId { chain_id: String },
 }
