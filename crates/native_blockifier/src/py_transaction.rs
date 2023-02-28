@@ -15,7 +15,7 @@ use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
@@ -26,7 +26,7 @@ use starknet_api::transaction::{
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
-use crate::py_utils::biguint_to_felt;
+use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
@@ -182,7 +182,7 @@ impl PyTransactionExecutor {
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_number = BlockNumber(py_attr(block_info, "block_number")?);
         let block_context = BlockContext {
-            chain_id: ChainId(py_enum_name(starknet_os_config, "chain_id")?),
+            chain_id: to_chain_id_enum(py_attr(starknet_os_config, "chain_id")?)?,
             block_number,
             block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
             sequencer_address: ContractAddress::try_from(py_felt_attr(
