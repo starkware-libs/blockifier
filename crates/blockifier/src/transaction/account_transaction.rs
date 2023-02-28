@@ -169,6 +169,10 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
+        if account_tx_context.version == TransactionVersion(StarkFelt::from(0)) {
+            return Ok(());
+        }
+
         let current_nonce = state.get_nonce_at(account_tx_context.sender_address)?;
         if current_nonce != account_tx_context.nonce {
             return Err(TransactionExecutionError::InvalidNonce {
