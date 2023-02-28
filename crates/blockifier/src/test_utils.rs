@@ -75,6 +75,8 @@ pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
 pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
     "0x2a2c49c4dba0d91b34f2ade85d41d09561f9a77884c15ba2ab0f2241b080deb";
 
+pub type TestCachedState<'a> = CachedState<'a, DictStateReader>;
+
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -115,6 +117,12 @@ impl StateReader for DictStateReader {
     }
 }
 
+impl<'a> CachedState<'a, DictStateReader> {
+    pub fn create_for_testing(state_reader: &'a mut DictStateReader) -> Self {
+        CachedState::new(state_reader)
+    }
+}
+
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
     let path = PathBuf::from(contract_path);
     ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
@@ -135,33 +143,32 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
     }
 }
 
-pub fn create_test_state_util(
+pub fn create_test_state_util<'a>(
     class_hash: &str,
     contract_path: &str,
     contract_address: &str,
-) -> CachedState<DictStateReader> {
+) -> TestCachedState<'a> {
     let class_hash_to_class =
         HashMap::from([(ClassHash(stark_felt!(class_hash)), get_contract_class(contract_path))]);
     let address_to_class_hash = HashMap::from([(
         ContractAddress(patricia_key!(contract_address)),
         ClassHash(stark_felt!(class_hash)),
     )]);
-    CachedState::new(DictStateReader {
-        class_hash_to_class,
-        address_to_class_hash,
-        ..Default::default()
-    })
+
+    let mut state_reader =
+        DictStateReader { class_hash_to_class, address_to_class_hash, ..Default::default() };
+    CachedState::create_for_testing(&mut state_reader)
 }
 
-pub fn create_test_state() -> CachedState<DictStateReader> {
+pub fn create_test_state<'a>() -> TestCachedState<'a> {
     create_test_state_util(TEST_CLASS_HASH, TEST_CONTRACT_PATH, TEST_CONTRACT_ADDRESS)
 }
 
-pub fn create_security_test_state() -> CachedState<DictStateReader> {
+pub fn create_security_test_state<'a>() -> TestCachedState<'a> {
     create_test_state_util(TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_PATH, TEST_CONTRACT_ADDRESS)
 }
 
-pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+pub fn create_deploy_test_state<'a>() -> TestCachedState<'a> {
     let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let empty_contract_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
@@ -181,11 +188,10 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
-    CachedState::new(DictStateReader {
-        class_hash_to_class,
-        address_to_class_hash,
-        ..Default::default()
-    })
+
+    let mut state_reader =
+        DictStateReader { class_hash_to_class, address_to_class_hash, ..Default::default() };
+    CachedState::create_for_testing(&mut state_reader)
 }
 
 impl CallEntryPoint {

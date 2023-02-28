@@ -6,7 +6,6 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
-use super::state_api::TransactionalState;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -17,6 +16,81 @@ use crate::utils::subtract_mappings;
 mod test;
 
 pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+
+// pub struct TransactionalState<'a, T: State>(CachedState<StateWrapper<'a, CachedState<T>>>);
+
+// impl<'a, T: State> TransactionalState<'a, T> {
+//     pub fn new(state: &'a mut CachedState<T>) -> Self {
+//         let cached_state = CachedState::new(StateWrapper::new(state));
+//         Self(cached_state)
+//     }
+
+//     pub fn commit(self) {
+//         let child_cached_state = self.0;
+//         let child_cache = child_cached_state.cache;
+//         let parent_cached_state = child_cached_state.state.0;
+//         let parent_cache = &mut parent_cached_state.cache;
+
+//         parent_cache.nonce_writes.extend(child_cache.nonce_writes);
+//         parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
+//         parent_cache.storage_writes.extend(child_cache.storage_writes);
+//         parent_cached_state.class_hash_to_class.extend(child_cached_state.class_hash_to_class);
+//     }
+
+//     pub fn abort(self) {}
+// }
+
+// impl<'a, T: State> StateReader for TransactionalState<'a, T> {
+//     fn get_storage_at(
+//         &mut self,
+//         contract_address: ContractAddress,
+//         key: StorageKey,
+//     ) -> StateResult<StarkFelt> {
+//         self.0.get_storage_at(contract_address, key)
+//     }
+
+//     fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+//         self.0.get_nonce_at(contract_address)
+//     }
+
+//     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+//         self.0.get_class_hash_at(contract_address)
+//     }
+
+//     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+//         self.0.get_contract_class(class_hash)
+//     }
+// }
+// impl<'a, T: State> State for TransactionalState<'a, T> {
+//     fn set_storage_at(
+//         &mut self,
+//         contract_address: ContractAddress,
+//         key: StorageKey,
+//         value: StarkFelt,
+//     ) {
+//         self.0.set_storage_at(contract_address, key, value)
+//     }
+//     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
+//         self.0.increment_nonce(contract_address)
+//     }
+//     fn set_class_hash_at(
+//         &mut self,
+//         contract_address: ContractAddress,
+//         class_hash: ClassHash,
+//     ) -> StateResult<()> {
+//         self.0.set_class_hash_at(contract_address, class_hash)
+//     }
+//     fn set_contract_class(
+//         &mut self,
+//         class_hash: &ClassHash,
+//         contract_class: ContractClass,
+//     ) -> StateResult<()> {
+//         self.0.set_contract_class(class_hash, contract_class)
+//     }
+//     fn to_state_diff(&self) -> StateDiff {
+//         self.0.to_state_diff()
+//     }
+// }
 
 pub struct StateWrapper<'a, T: State>(&'a mut T);
 impl<'a, T: State> StateWrapper<'a, T> {
@@ -80,30 +154,46 @@ impl<'a, T: State> State for StateWrapper<'a, T> {
 ///
 /// Writer functionality is builtin, whereas Reader functionality is injected through
 /// initialization.
-#[derive(Debug, Default)]
-pub struct CachedState<S: StateReader> {
-    pub state: S,
+#[derive(Debug)]
+pub struct CachedState<'a, S: StateReader> {
+    pub state: &'a mut S,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
     class_hash_to_class: ContractClassMapping,
 }
 
-impl<S: StateReader> CachedState<S> {
-    pub fn new(state: S) -> Self {
+impl<'a, S: StateReader> CachedState<'a, S> {
+    pub fn new(state: &'a mut S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
 
-    pub fn merge(&mut self, child: CachedState<Self>) {
-        self.cache.nonce_writes.extend(child.cache.nonce_writes);
-        self.cache.class_hash_writes.extend(child.cache.class_hash_writes);
-        self.cache.storage_writes.extend(child.cache.storage_writes);
-        self.class_hash_to_class.extend(child.class_hash_to_class);
-    }
-
-    fn abort(self) {}
+    // pub fn merge(&mut self, child: CachedState<'a, Self>) {
+    //     self.cache.nonce_writes.extend(child.cache.nonce_writes);
+    //     self.cache.class_hash_writes.extend(child.cache.class_hash_writes);
+    //     self.cache.storage_writes.extend(child.cache.storage_writes);
+    //     self.class_hash_to_class.extend(child.class_hash_to_class);
+    // }
 }
 
-impl<S: StateReader> StateReader for CachedState<S> {
+impl<'a, S: StateReader> CachedState<'a, CachedState<'a, S>> {
+    // pub fn new(state: &'a mut S) -> Self {
+    //     Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+    // }
+
+    pub fn commit(self) {
+        let parent_cache = &mut self.state.cache;
+        let child_cache = self.cache;
+
+        parent_cache.nonce_writes.extend(child_cache.nonce_writes);
+        parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
+        parent_cache.storage_writes.extend(child_cache.storage_writes);
+        self.state.class_hash_to_class.extend(self.class_hash_to_class);
+    }
+
+    pub fn abort(self) {}
+}
+
+impl<'a, S: StateReader> StateReader for CachedState<'a, S> {
     fn get_storage_at(
         &mut self,
         contract_address: ContractAddress,
@@ -160,7 +250,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
     }
 }
 
-impl<S: StateReader> State for CachedState<S> {
+impl<'a, S: StateReader> State for CachedState<'a, S> {
     fn set_storage_at(
         &mut self,
         contract_address: ContractAddress,
@@ -218,32 +308,6 @@ impl<S: StateReader> State for CachedState<S> {
             nonces: IndexMap::from_iter(state_cache_diff.nonce_writes),
         }
     }
-}
-
-impl<S: State> TransactionalState<S> for CachedState<S> {
-    fn commit(mut self) -> StateResult<()> {
-        let state_diff = self.cache.get_state_diff();
-
-        // for (address, nonce) in state_diff.nonce_writes {
-        //     let initial_nonce = self.state.get_nonce_at(address);
-
-        //     for _ in initial_nonce..=nonce {
-        //         self.state.increment_nonce(address);
-        //     }
-        // }
-
-        for (address, class_hash) in state_diff.class_hash_writes {
-            self.state.set_class_hash_at(address, class_hash)?;
-        }
-
-        for ((address, key), value) in state_diff.storage_writes {
-            self.state.set_storage_at(address, key, value);
-        }
-
-        Ok(())
-    }
-
-    fn abort(self) {}
 }
 
 pub type ContractStorageKey = (ContractAddress, StorageKey);

@@ -1,9 +1,8 @@
 use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
 
-use super::errors::TransactionExecutionError;
 use crate::block_context::BlockContext;
-use crate::state::cached_state::{CachedState, StateWrapper};
-use crate::state::state_api::{State, TransactionalState};
+use crate::state::cached_state::CachedState;
+use crate::state::state_api::State;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
@@ -18,12 +17,13 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub fn execute<S: State>(
+    pub fn execute<'a, S: State>(
         self,
-        state: &mut CachedState<S>,
+        state: &'a mut CachedState<'a, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let mut cached_state = CachedState::new(StateWrapper::new(state));
+        // let mut transactional_state = TransactionalState::new(state);
+        let mut cached_state = CachedState::new(state);
 
         let tx_execution_result = match self {
             Self::AccountTransaction(account_tx) => {
@@ -57,13 +57,14 @@ impl Transaction {
 
         match tx_execution_result {
             Ok(tx_execution_info) => {
-                // Apply changes.
-                state.merge(cached_state);
+                // Apply changes.(
+                cached_state.commit();
+                // transactional_state.commit();
                 Ok(tx_execution_info)
             }
             Err(error) => {
                 // Abort, return error.
-                cached_state.abort();
+                // transactional_state.abort();
                 Err(error)
             }
         }

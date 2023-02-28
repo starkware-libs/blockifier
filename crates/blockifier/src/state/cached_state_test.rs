@@ -29,7 +29,8 @@ fn set_initial_state_values(
 
 #[test]
 fn get_uninitialized_storage_value() {
-    let mut state: CachedState<DictStateReader> = CachedState::default();
+    let state_reader = DictStateReader::default();
+    let mut state: CachedState<'_, DictStateReader> = CachedState::new(&mut state_reader);
     let contract_address = ContractAddress(patricia_key!("0x1"));
     let key = StorageKey(patricia_key!("0x10"));
 
