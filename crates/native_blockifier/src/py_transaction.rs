@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
@@ -9,7 +10,7 @@ use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
@@ -19,6 +20,7 @@ use starknet_api::transaction::{
     InvokeTransaction, L1HandlerTransaction, TransactionHash, TransactionSignature,
     TransactionVersion,
 };
+use starknet_api::StarknetApiError;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
@@ -159,6 +161,15 @@ pub struct PyTransactionExecutor {
     pub block_context: BlockContext,
 }
 
+fn chain_id_int_to_chain_id(value: BigInt) -> NativeBlockifierResult<ChainId> {
+    for known_chain_name in vec!["SN_MAIN", "SN_GOERLI", "SN_GOERLI2"] {
+        if value == BigInt::from_bytes_be(Sign::Plus, known_chain_name.as_bytes()) {
+            return Ok(ChainId(String::from_str(known_chain_name).unwrap()));
+        }
+    }
+    Err(NativeBlockifierError::from(StarknetApiError::OutOfRange { string: value.to_string() }))
+}
+
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
@@ -169,7 +180,7 @@ impl PyTransactionExecutor {
 
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_context = BlockContext {
-            chain_id: ChainId(py_enum_name(starknet_os_config, "chain_id")?),
+            chain_id: chain_id_int_to_chain_id(py_attr(starknet_os_config, "chain_id")?)?,
             block_number: BlockNumber(py_attr(block_info, "block_number")?),
             block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
             sequencer_address: ContractAddress::try_from(py_felt_attr(
@@ -184,7 +195,6 @@ impl PyTransactionExecutor {
             invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
             validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
         };
-
         Ok(Self { state, block_context })
     }
 
