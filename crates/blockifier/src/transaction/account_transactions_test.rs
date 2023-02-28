@@ -1,21 +1,20 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{calculate_contract_address, ClassHash, Nonce, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::StorageKey;
+use starknet_api::core::{calculate_contract_address, ClassHash, Nonce};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, Fee, InvokeTransaction,
 };
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{
     declare_tx, deploy_account_tx, get_contract_class, invoke_tx, DictStateReader,
     ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY,
+    TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 
@@ -36,21 +35,11 @@ fn create_state() -> CachedState<DictStateReader> {
     let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
-    let mut state = CachedState::new(DictStateReader {
+    CachedState::new(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
         ..Default::default()
-    });
-
-    // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
-    // can pay for the transaction execution.
-    state.set_storage_at(
-        block_context.fee_token_address,
-        StorageKey(patricia_key!(TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY)),
-        stark_felt!(Fee(BALANCE as u128).0 as u64),
-    );
-
-    state
+    })
 }
 
 #[test]
@@ -62,6 +51,17 @@ fn test_account_flow_test() {
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee);
     let deployed_account_address = deploy_account_tx.contract_address;
+
+    // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
+    // can pay for the transaction execution.
+    let deployed_account_balance_key =
+        get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]).unwrap();
+    state.set_storage_at(
+        block_context.fee_token_address,
+        deployed_account_balance_key,
+        stark_felt!(Fee(BALANCE as u128).0 as u64),
+    );
+
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     account_tx.execute(state, block_context).unwrap();
 
