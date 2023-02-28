@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
@@ -7,6 +8,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::DictStateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use num_bigint::BigUint;
@@ -159,6 +161,17 @@ pub struct PyTransactionExecutor {
     pub block_context: BlockContext,
 }
 
+fn chain_id_int_to_chain_id(value: BigUint) -> NativeBlockifierResult<ChainId> {
+    for chain_name in &["SN_MAIN", "SN_GOERLI", "SN_GOERLI2", "PRIVATE_SN_POTC_GOERLI"] {
+        if value == BigUint::from_bytes_be(chain_name.as_bytes()) {
+            return Ok(ChainId(String::from_str(chain_name).unwrap()));
+        }
+    }
+    Err(NativeBlockifierError::from(TransactionExecutionError::UnknownChainId {
+        chain_id: value.to_string(),
+    }))
+}
+
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
@@ -169,7 +182,7 @@ impl PyTransactionExecutor {
 
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_context = BlockContext {
-            chain_id: ChainId(py_enum_name(starknet_os_config, "chain_id")?),
+            chain_id: chain_id_int_to_chain_id(py_attr(starknet_os_config, "chain_id")?)?,
             block_number: BlockNumber(py_attr(block_info, "block_number")?),
             block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
             sequencer_address: ContractAddress::try_from(py_felt_attr(
