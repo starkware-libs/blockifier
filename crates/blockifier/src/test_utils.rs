@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use once_cell::sync::Lazy;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
@@ -11,6 +12,7 @@ use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
+use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
@@ -70,10 +72,13 @@ pub const TEST_STORAGE_VAR_SELECTOR: &str =
     "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
 
 // Storage keys.
-pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: &str =
-    "0x723973208639b7839ce298f7ffea61e3f9533872defd7abdb91023db4658812";
-pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: &str =
-    "0x2a2c49c4dba0d91b34f2ade85d41d09561f9a77884c15ba2ab0f2241b080deb";
+pub static TEST_ERC20_SEQUENCER_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
+    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap()
+});
+pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
+    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
+        .unwrap()
+});
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
