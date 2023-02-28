@@ -26,6 +26,10 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_utils::{calculate_tx_fee, verify_no_calls_to_other_contracts};
 use crate::transaction::transactions::Executable;
 
+#[cfg(test)]
+#[path = "account_transactions_test.rs"]
+mod test;
+
 /// Represents a paid StarkNet transaction.
 #[derive(Debug)]
 pub enum AccountTransaction {

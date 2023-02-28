@@ -4,14 +4,12 @@ use std::sync::Arc;
 use assert_matches::assert_matches;
 use itertools::concat;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
-};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, EventContent,
-    EventData, EventKey, Fee, InvokeTransaction, TransactionVersion,
+    Calldata, DeclareTransaction, DeployAccountTransaction, EventContent, EventData, EventKey, Fee,
+    InvokeTransaction, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -30,7 +28,7 @@ use crate::test_utils::{
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
     TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY, TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -38,9 +36,6 @@ use crate::transaction::errors::{
     FeeTransferError, InvokeTransactionError, TransactionExecutionError,
 };
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
-
-pub const TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY: &str =
-    "0x59edd60f3f5ec74e9044489e795cf85179665185dd4317e31668390760f3011";
 
 fn create_account_tx_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
@@ -64,12 +59,10 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         (test_erc20_address, test_erc20_class_hash),
     ]);
     let test_erc20_account_balance_key = StorageKey(patricia_key!(TEST_ERC20_ACCOUNT_BALANCE_KEY));
-    let test_erc20_sequencer_balance_key =
-        StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY));
-    let storage_view = HashMap::from([
-        ((test_erc20_address, test_erc20_sequencer_balance_key), stark_felt!(0)),
-        ((test_erc20_address, test_erc20_account_balance_key), stark_felt!(actual_fee().0 as u64)),
-    ]);
+    let storage_view = HashMap::from([(
+        (test_erc20_address, test_erc20_account_balance_key),
+        stark_felt!(actual_fee().0 as u64),
+    )]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
@@ -185,13 +178,11 @@ fn invoke_tx() -> InvokeTransaction {
         stark_felt!(2)                      // Calldata: num.
     ];
 
-    InvokeTransaction {
-        max_fee: Fee(2),
-        version: TransactionVersion(stark_felt!(1)),
-        sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        calldata: execute_calldata,
-        ..Default::default()
-    }
+    crate::test_utils::invoke_tx(
+        execute_calldata,
+        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        Fee(2),
+    )
 }
 
 #[test]
@@ -350,13 +341,11 @@ fn test_negative_invoke_tx_flows() {
 }
 
 fn declare_tx() -> DeclareTransaction {
-    DeclareTransaction {
-        max_fee: Fee(2),
-        version: TransactionVersion(StarkFelt::from(1)),
-        class_hash: ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
-        sender_address: ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        ..Default::default()
-    }
+    crate::test_utils::declare_tx(
+        TEST_EMPTY_CONTRACT_CLASS_HASH,
+        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        Fee(2),
+    )
 }
 
 #[test]
@@ -435,25 +424,7 @@ fn test_declare_tx() {
 }
 
 fn deploy_account_tx() -> DeployAccountTransaction {
-    let class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let deployer_address = ContractAddress::default();
-    let contract_address_salt = ContractAddressSalt::default();
-    let contract_address = calculate_contract_address(
-        contract_address_salt,
-        class_hash,
-        &calldata![],
-        deployer_address,
-    )
-    .unwrap();
-
-    DeployAccountTransaction {
-        max_fee: Fee(2),
-        version: TransactionVersion(stark_felt!(1)),
-        class_hash,
-        contract_address,
-        contract_address_salt,
-        ..Default::default()
-    }
+    crate::test_utils::deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, Fee(2))
 }
 
 #[test]
