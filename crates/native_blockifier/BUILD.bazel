@@ -1,0 +1,14 @@
+# load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_pyo3//:build_defs.bzl", "pyo3_extension")
+
+# py_test(
+#     name = "uses_my_ext",
+#     srcs = ["uses_my_ext.py"],
+#     deps = [":my_ext"],
+# )
+
+pyo3_extension(
+    name = "native_blockifier",
+    srcs = [],
+    # srcs = ["errors.rs","lib.rs","py_state_diff.rs","py_test_utils.rs","py_transaction_execution_info.rs","py_transaction.rs","py_utils.rs","storage.rs"],
+)

@@ -1,0 +1,2 @@
+# Ensures warnings are always printed out, even when cached
+build --experimental_replay_action_out_err
