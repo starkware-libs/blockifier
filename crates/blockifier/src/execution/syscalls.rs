@@ -167,10 +167,7 @@ pub fn storage_read(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<StorageReadResponse> {
-    let value =
-        syscall_handler.state.get_storage_at(syscall_handler.storage_address, request.address)?;
-
-    Ok(StorageReadResponse { value })
+    syscall_handler.get_contract_storage_at(request.address)
 }
 
 // StorageWrite syscall.
@@ -198,11 +195,11 @@ pub fn storage_write(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<StorageWriteResponse> {
-    syscall_handler.state.set_storage_at(
-        syscall_handler.storage_address,
-        request.address,
-        request.value,
-    );
+    // Read the value before the write operation in order to log it in the list of read·
+    // values. This is needed to correctly build the `DictAccess` entry corresponding to·
+    // `storage_write` syscall in the OS.
+    syscall_handler.get_contract_storage_at(request.address)?;
+    syscall_handler.set_contract_storage_at(request.address, request.value)?;
 
     Ok(StorageWriteResponse {})
 }

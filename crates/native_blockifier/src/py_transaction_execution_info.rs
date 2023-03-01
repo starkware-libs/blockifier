@@ -105,8 +105,12 @@ impl From<CallInfo> for PyCallInfo {
                 .map(PyOrderedL2ToL1Message::from)
                 .collect(),
             internal_calls: call_info.inner_calls.into_iter().map(PyCallInfo::from).collect(),
-            storage_read_values: vec![],
-            accessed_storage_keys: HashSet::new(),
+            storage_read_values: starkfelt_to_pyfelt_vec(execution.storage_read_values),
+            accessed_storage_keys: execution
+                .accessed_storage_keys
+                .into_iter()
+                .map(|storage_key| PyFelt(*storage_key.0.key()))
+                .collect(),
             call_type: 0, // CallType::CALL.
             code_address: None,
         }
