@@ -1,6 +1,8 @@
+use std::collections::HashSet;
+
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::EntryPointType;
+use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::abi::abi_utils::selector_from_name;
@@ -96,6 +98,8 @@ pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
     pub inner_calls: Vec<CallInfo>,
+    pub storage_read_values: Vec<StarkFelt>,
+    pub accessed_storage_keys: HashSet<StorageKey>,
 }
 
 pub struct CallInfoIter<'a> {
