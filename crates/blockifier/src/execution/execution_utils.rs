@@ -191,6 +191,8 @@ pub fn finalize_execution(
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
         },
         inner_calls: syscall_handler.inner_calls,
+        storage_read_values: syscall_handler.read_values,
+        accessed_storage_keys: syscall_handler.accessed_keys,
     })
 }
 

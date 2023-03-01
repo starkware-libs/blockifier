@@ -12,8 +12,9 @@ use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, trivial_external_entry_point, DictStateReader,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    compare_call_info_fields, create_deploy_test_state, create_test_state,
+    trivial_external_entry_point, DictStateReader, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
@@ -114,6 +115,7 @@ fn test_nested_library_call() {
         call: library_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         inner_calls: vec![nested_storage_call_info],
+        ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
@@ -124,9 +126,13 @@ fn test_nested_library_call() {
         call: main_entry_point.clone(),
         execution: CallExecution::from_retdata(retdata![stark_felt!(0)]),
         inner_calls: vec![library_call_info, storage_call_info],
+        ..Default::default()
     };
 
-    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+    compare_call_info_fields(
+        &main_entry_point.execute_directly(&mut state).unwrap(),
+        &expected_call_info,
+    );
 }
 
 #[test]
