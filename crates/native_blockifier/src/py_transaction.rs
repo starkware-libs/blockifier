@@ -177,7 +177,7 @@ pub struct PyTransactionExecutor {
 impl PyTransactionExecutor {
     #[new]
     #[args(general_config, block_info)]
-    pub fn create(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
+    pub fn create(general_config: &PyAny, block_info: &PyAny) -> anyhow::Result<Self> {
         // Build block context.
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_number = BlockNumber(py_attr(block_info, "block_number")?);
@@ -233,7 +233,7 @@ impl PyTransactionExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
+    ) -> anyhow::Result<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
         let tx_execution_info = self.with_mut(|executor| {
