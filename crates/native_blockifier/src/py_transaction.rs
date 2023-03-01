@@ -233,7 +233,7 @@ impl PyTransactionExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> PyResult<PyTransactionExecutionInfo> {
+    ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
         let tx_execution_info = self.with_mut(|executor| {
