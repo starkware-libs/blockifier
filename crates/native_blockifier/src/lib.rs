@@ -1,3 +1,6 @@
+#![feature(error_generic_member_access)]
+#![feature(provide_any)]
+
 pub mod errors;
 pub mod py_state_diff;
 pub mod py_test_utils;

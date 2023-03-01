@@ -1,29 +1,47 @@
+use std::backtrace::Backtrace;
+
 use blockifier::transaction::errors::TransactionExecutionError;
-use pyo3::exceptions::PyOSError;
+use pyo3::create_exception;
+use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
-#[derive(thiserror::Error, Debug)]
-pub enum NativeBlockifierError {
-    #[error(transparent)]
-    Pyo3Error(#[from] PyErr),
-    #[error(transparent)]
-    SerdeError(#[from] serde_json::Error),
-    #[error(transparent)]
-    StarknetApiError(#[from] StarknetApiError),
-    #[error(transparent)]
-    TransactionExecutionError(#[from] TransactionExecutionError),
-    #[error(transparent)]
-    StorageError(#[from] papyrus_storage::StorageError),
+/// Macro to create NativeBlockifierError variants, their respective Python types, and implements
+/// `From<NativeBlockifierError> for PyErr`.
+macro_rules! native_blockifier_errors {
+    ($(($name:ident, $from_type:ty, $py_error_name:ident)),*) => {
+        #[derive(thiserror::Error, Debug)]
+        pub enum NativeBlockifierError {
+            $(
+                #[error("Source error: {source:?}\nBacktrace: {backtrace:?}.")]
+                $name {
+                    #[from]
+                    source: $from_type,
+                    backtrace: Backtrace,
+                }
+            ),*
+        }
+
+        $(create_exception!(native_blockifier, $py_error_name, PyException);)*
+
+        impl From<NativeBlockifierError> for PyErr {
+            fn from(error: NativeBlockifierError) -> PyErr {
+                match error {
+                    $(NativeBlockifierError::$name { source, backtrace } => $py_error_name::new_err(
+                        format!("Source: {:?}.\nBacktrace: {:?}.", source, backtrace),
+                    )),*
+                }
+            }
+        }
+    };
 }
 
-impl From<NativeBlockifierError> for PyErr {
-    fn from(error: NativeBlockifierError) -> PyErr {
-        match error {
-            NativeBlockifierError::Pyo3Error(py_error) => py_error,
-            _ => PyOSError::new_err(error.to_string()),
-        }
-    }
-}
+native_blockifier_errors!(
+    (Pyo3Error, PyErr, PyPyo3Error),
+    (SerdeError, serde_json::Error, PySerdeError),
+    (StarknetApiError, StarknetApiError, PyStarknetApiError),
+    (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
+    (StorageError, papyrus_storage::StorageError, PyStorageError)
+);
