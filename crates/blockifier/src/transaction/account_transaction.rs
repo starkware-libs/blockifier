@@ -14,7 +14,8 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
-use crate::state::state_api::State;
+use crate::state::cached_state::CachedState;
+use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::{
     FeeTransferError, InvokeTransactionError, TransactionExecutionError,
@@ -23,7 +24,9 @@ use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
 };
-use crate::transaction::transaction_utils::{calculate_tx_fee, verify_no_calls_to_other_contracts};
+use crate::transaction::transaction_utils::{
+    calculate_tx_fee, execute_transactionally, verify_no_calls_to_other_contracts,
+};
 use crate::transaction::transactions::Executable;
 
 #[cfg(test)]
@@ -39,9 +42,20 @@ pub enum AccountTransaction {
 }
 
 impl AccountTransaction {
-    pub fn execute<S: State>(
+    /// Executes the transaction in a transactional manner
+    /// (if it fails, given state does not modify).
+    pub fn execute<S: StateReader>(
+        self,
+        state: &mut CachedState<S>,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        execute_transactionally(self, state, block_context, AccountTransaction::execute_raw)
+    }
+
+    /// Executes the transaction in a non-transactional manner.
+    fn execute_raw<S: StateReader>(
         mut self,
-        state: &mut S,
+        state: &mut CachedState<S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
