@@ -45,6 +45,9 @@ pub fn biguint_to_felt(biguint: BigUint) -> NativeBlockifierResult<StarkFelt> {
     Ok(StarkFelt::try_from(&*biguint_hex)?)
 }
 
-pub fn starkfelt_to_pyfelt_vec(stark_felts: Vec<StarkFelt>) -> Vec<PyFelt> {
-    stark_felts.into_iter().map(PyFelt).collect()
+pub fn to_py_vec<T, PyT, F>(values: Vec<T>, converter: F) -> Vec<PyT>
+where
+    F: FnMut(T) -> PyT,
+{
+    values.into_iter().map(converter).collect()
 }
