@@ -24,9 +24,9 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    get_contract_class, validate_tx_execution_info, DictStateReader, ACCOUNT_CONTRACT_PATH,
+    ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
     TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
@@ -223,6 +223,7 @@ fn test_invoke_tx() {
             execution: CallExecution::from_retdata(expected_return_result_retdata),
             ..Default::default()
         }],
+        ..Default::default()
     });
 
     // Build expected fee transfer call info.
@@ -242,7 +243,7 @@ fn test_invoke_tx() {
     };
 
     // Test execution info result.
-    assert_eq!(actual_execution_info, expected_execution_info);
+    validate_tx_execution_info(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
@@ -388,7 +389,7 @@ fn test_declare_tx() {
     };
 
     // Test execution info result.
-    assert_eq!(actual_execution_info, expected_execution_info);
+    validate_tx_execution_info(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
@@ -484,7 +485,7 @@ fn test_deploy_account_tx() {
     };
 
     // Test execution info result.
-    assert_eq!(actual_execution_info, expected_execution_info);
+    validate_tx_execution_info(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();

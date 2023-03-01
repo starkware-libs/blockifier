@@ -1,11 +1,14 @@
+use std::collections::HashSet;
+
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
-use starknet_api::core::EntryPointSelector;
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{EntryPointSelector, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
@@ -418,5 +421,39 @@ fn test_post_run_validation_security_failure() {
         "test_out_of_bounds_write_to_calldata_segment",
         calldata,
         &mut state,
+    );
+}
+
+// Test correct update of the fields: `storage_read_values` and `accessed_storage_keys`.
+#[test]
+fn test_storage_related_members() {
+    let mut state = create_test_state();
+
+    // Storage var.
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_storage_var"),
+        ..trivial_external_entry_point()
+    };
+    let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
+    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0), stark_felt!(39)]);
+    assert_eq!(
+        actual_call_info.accessed_storage_keys,
+        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1)],).unwrap()])
+    );
+
+    // Storage read and write.
+    let key = stark_felt!(1234);
+    let value = stark_felt!(18);
+    let calldata = calldata![key, value];
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test_storage_read_write"),
+        ..trivial_external_entry_point()
+    };
+    let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
+    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0), value]);
+    assert_eq!(
+        actual_call_info.accessed_storage_keys,
+        HashSet::from([StorageKey(patricia_key!(key))])
     );
 }
