@@ -24,7 +24,7 @@ use crate::execution::entry_point::{
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
 
 // Addresses.
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
@@ -277,4 +277,35 @@ pub fn declare_tx(
         sender_address,
         ..Default::default()
     }
+}
+
+// Validations
+
+pub fn compare_call_infos(actual: Option<CallInfo>, expected: Option<CallInfo>) {
+    match (&expected, &actual) {
+        (Some(expected), Some(actual)) => {
+            // Check selected members
+            assert_eq!(expected.call, actual.call);
+            assert_eq!(expected.execution.retdata, actual.execution.retdata);
+            assert_eq!(expected.execution.events, actual.execution.events);
+            assert_eq!(expected.inner_calls, actual.inner_calls);
+        }
+        (None, None) => (),
+        _ => panic!(
+            "The actual call info does not equal the expected call info. Expected: {:?}, Actual: \
+             {:?}",
+            expected, actual
+        ),
+    }
+}
+
+pub fn validate_tx_execution_info(
+    actual: TransactionExecutionInfo,
+    expected: TransactionExecutionInfo,
+) {
+    compare_call_infos(expected.validate_call_info, actual.validate_call_info);
+    compare_call_infos(expected.execute_call_info, actual.execute_call_info);
+    compare_call_infos(expected.fee_transfer_call_info, actual.fee_transfer_call_info);
+    assert_eq!(expected.actual_fee, actual.actual_fee);
+    assert_eq!(expected.actual_resources, actual.actual_resources);
 }

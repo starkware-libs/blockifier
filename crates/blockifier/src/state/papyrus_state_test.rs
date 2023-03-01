@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use indexmap::IndexMap;
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use starknet_api::block::BlockNumber;
@@ -54,10 +56,14 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
         ..trivial_external_entry_point()
     };
     let storage_address = entry_point_call.storage_address;
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![value])
-    );
+    let expected_call_execution = CallExecution {
+        storage_read_values: vec![stark_felt!(0), value],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        retdata: retdata![value],
+        ..Default::default()
+    };
+    let actual_call_execution = entry_point_call.execute_directly(&mut state).unwrap().execution;
+    assert_eq!(actual_call_execution, expected_call_execution);
 
     // Verify that the state has changed.
     let storage_key = StorageKey::try_from(key).unwrap();

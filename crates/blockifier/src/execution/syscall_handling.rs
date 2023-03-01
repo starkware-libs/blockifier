@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -15,12 +15,12 @@ use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
 
-use super::entry_point::{OrderedEvent, OrderedL2ToL1Message};
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment,
@@ -31,7 +31,8 @@ use crate::execution::syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
     get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
-    storage_read, storage_write, SyscallRequest, SyscallResponse, SyscallResult, SyscallSelector,
+    storage_read, storage_write, StorageReadResponse, SyscallRequest, SyscallResponse,
+    SyscallResult, SyscallSelector,
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -55,14 +56,16 @@ pub struct SyscallHintProcessor<'a> {
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
     pub syscall_ptr: Relocatable,
-
-    // Additional fields.
-    // Invariant: must only contain allowed hints.
-    builtin_hint_processor: BuiltinHintProcessor,
+    pub read_values: Vec<StarkFelt>,
+    pub accessed_keys: HashSet<StorageKey>,
     // Used for tracking events order during the current execution.
     pub n_emitted_events: usize,
     // Used for tracking L2-to-L1 messages order during the current execution.
     pub n_sent_messages_to_l1: usize,
+
+    // Additional fields.
+    // Invariant: must only contain allowed hints.
+    builtin_hint_processor: BuiltinHintProcessor,
     // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
@@ -89,12 +92,14 @@ impl<'a> SyscallHintProcessor<'a> {
             l2_to_l1_messages: vec![],
             read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
+            read_values: vec![],
+            accessed_keys: HashSet::new(),
+            n_emitted_events: 0,
+            n_sent_messages_to_l1: 0,
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
             syscall_counter: HashMap::default(),
-            n_emitted_events: 0,
-            n_sent_messages_to_l1: 0,
         }
     }
 
@@ -315,4 +320,15 @@ pub fn execute_inner_call(
 
     syscall_handler.inner_calls.push(call_info);
     Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: retdata.len() })
+}
+
+pub fn read(
+    address: StorageKey,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<StorageReadResponse> {
+    syscall_handler.accessed_keys.insert(address);
+    let value = syscall_handler.state.get_storage_at(syscall_handler.storage_address, address)?;
+    syscall_handler.read_values.push(value);
+
+    Ok(StorageReadResponse { value })
 }

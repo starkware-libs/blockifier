@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use pretty_assertions::assert_eq;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -28,9 +30,15 @@ fn test_storage_read_write() {
         ..trivial_external_entry_point()
     };
     let storage_address = entry_point_call.storage_address;
+    let expected_call_execution = CallExecution {
+        storage_read_values: vec![stark_felt!(0), value],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        retdata: retdata![value],
+        ..Default::default()
+    };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(value)])
+        expected_call_execution
     );
     // Verify that the state has changed.
     let value_from_state =
@@ -107,7 +115,12 @@ fn test_nested_library_call() {
     };
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
-        execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
+        execution: CallExecution {
+            storage_read_values: vec![stark_felt!(0), stark_felt!(value + 1)],
+            accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
+            retdata: retdata![stark_felt!(value + 1)],
+            ..Default::default()
+        },
         ..Default::default()
     };
     let library_call_info = CallInfo {
@@ -117,7 +130,12 @@ fn test_nested_library_call() {
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
-        execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
+        execution: CallExecution {
+            storage_read_values: vec![stark_felt!(0), stark_felt!(value)],
+            accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+            retdata: retdata![stark_felt!(value)],
+            ..Default::default()
+        },
         ..Default::default()
     };
     let expected_call_info = CallInfo {

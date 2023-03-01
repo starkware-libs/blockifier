@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
 use starknet_api::core::EntryPointSelector;
@@ -5,7 +7,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, stark_felt};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
@@ -139,9 +141,18 @@ fn test_storage_var() {
         entry_point_selector: selector_from_name("test_storage_var"),
         ..trivial_external_entry_point()
     };
+    let expected_call_execution = CallExecution {
+        storage_read_values: vec![stark_felt!(0), stark_felt!(39)],
+        accessed_storage_keys: HashSet::from([get_storage_var_address(
+            "number_map",
+            &[stark_felt!(1)],
+        )
+        .unwrap()]),
+        ..Default::default()
+    };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::default()
+        expected_call_execution
     );
 }
 

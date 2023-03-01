@@ -18,8 +18,8 @@ use crate::execution::execution_utils::{
     execute_deployment, execute_library_call, felt_from_memory_ptr, ReadOnlySegment,
 };
 use crate::execution::syscall_handling::{
-    execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
-    SyscallHintProcessor,
+    execute_inner_call, felt_to_bool, read, read_call_params, read_calldata, read_felt_array,
+    write_felt, SyscallHintProcessor,
 };
 
 #[cfg(test)]
@@ -167,10 +167,7 @@ pub fn storage_read(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<StorageReadResponse> {
-    let value =
-        syscall_handler.state.get_storage_at(syscall_handler.storage_address, request.address)?;
-
-    Ok(StorageReadResponse { value })
+    read(request.address, syscall_handler)
 }
 
 // StorageWrite syscall.
@@ -198,6 +195,11 @@ pub fn storage_write(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<StorageWriteResponse> {
+    // Read the value before the write operation in order to log it in the read_values list.
+    // This value is needed to create the DictAccess while executing the corresponding storage_write
+    // system call.
+    read(request.address, syscall_handler)?;
+
     syscall_handler.state.set_storage_at(
         syscall_handler.storage_address,
         request.address,
