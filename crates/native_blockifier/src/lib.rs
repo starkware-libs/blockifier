@@ -1,3 +1,6 @@
+#![feature(error_generic_member_access)]
+#![feature(provide_any)]
+
 pub mod errors;
 pub mod py_state_diff;
 pub mod py_test_utils;
@@ -6,6 +9,7 @@ pub mod py_transaction_execution_info;
 pub mod py_utils;
 pub mod storage;
 
+use errors::add_py_exceptions;
 use py_transaction::PyTransactionExecutor;
 use py_transaction_execution_info::{
     PyCallInfo, PyExecutionResources, PyOrderedEvent, PyOrderedL2ToL1Message,
@@ -26,6 +30,7 @@ fn native_blockifier(_py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyTransactionExecutionInfo>()?;
     py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<Storage>()?;
+    add_py_exceptions(_py, py_module)?;
 
     Ok(())
 }
