@@ -11,6 +11,11 @@ yum -y install openssl-devel llvm-toolset-7.0
 # Install Rust.
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
+# Override build to nightly version for experimental features.
+source "$HOME/.cargo/env"
+rustup toolchain install nightly-2022-11-03
+rustup override set nightly-2022-11-03
+
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # Required for libclang > 3.9, by default there is only clang 3.4 in this image.
