@@ -179,7 +179,12 @@ fn test_vm_execution_security_failures() {
         &mut state,
     );
 
-    run_security_test("Couldn't compute operand", "test_unknown_memory", calldata![], &mut state);
+    run_security_test(
+        "Unknown value for memory cell",
+        "test_unknown_memory",
+        calldata![],
+        &mut state,
+    );
 
     run_security_test(
         "Can only subtract two relocatable values of the same segment",
