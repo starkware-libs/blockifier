@@ -16,6 +16,7 @@ use crate::utils::subtract_mappings;
 mod test;
 
 pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Caches read and write requests.
 ///
@@ -32,13 +33,6 @@ pub struct CachedState<S: StateReader> {
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
-    }
-
-    pub fn merge(&mut self, child: Self) {
-        self.cache.nonce_writes.extend(child.cache.nonce_writes);
-        self.cache.class_hash_writes.extend(child.cache.class_hash_writes);
-        self.cache.storage_writes.extend(child.cache.storage_writes);
-        self.class_hash_to_class.extend(child.class_hash_to_class);
     }
 }
 
@@ -341,4 +335,21 @@ impl<'a, S: State> State for MutRefState<'a, S> {
     fn to_state_diff(&self) -> StateDiff {
         self.0.to_state_diff()
     }
+}
+
+/// Adds the ability to perform a transactional execution.
+impl<'a, S: StateReader> TransactionalState<'a, S> {
+    /// Commits changes in the child (wrapping) state to its parent.
+    pub fn commit(self) {
+        let child_cache = self.cache;
+        let parent_cache = &mut self.state.0.cache;
+
+        parent_cache.nonce_writes.extend(child_cache.nonce_writes);
+        parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
+        parent_cache.storage_writes.extend(child_cache.storage_writes);
+        self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
+    }
+
+    /// Drops `self`.
+    pub fn abort(self) {}
 }

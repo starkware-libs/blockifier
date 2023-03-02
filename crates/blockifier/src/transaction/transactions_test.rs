@@ -36,6 +36,7 @@ use crate::transaction::errors::{
     FeeTransferError, InvokeTransactionError, TransactionExecutionError,
 };
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::transactions::ExecutableTransaction;
 
 fn create_account_tx_test_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
