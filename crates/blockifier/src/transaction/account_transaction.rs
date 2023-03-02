@@ -14,7 +14,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo};
-use crate::state::cached_state::CachedState;
+use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -24,10 +24,8 @@ use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
 };
-use crate::transaction::transaction_utils::{
-    calculate_tx_fee, execute_transactionally, verify_no_calls_to_other_contracts,
-};
-use crate::transaction::transactions::Executable;
+use crate::transaction::transaction_utils::{calculate_tx_fee, verify_no_calls_to_other_contracts};
+use crate::transaction::transactions::{Executable, ExecutableTransaction};
 
 #[cfg(test)]
 #[path = "account_transactions_test.rs"]
@@ -42,77 +40,6 @@ pub enum AccountTransaction {
 }
 
 impl AccountTransaction {
-    /// Executes the transaction in a transactional manner
-    /// (if it fails, given state does not modify).
-    pub fn execute<S: StateReader>(
-        self,
-        state: &mut CachedState<S>,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        execute_transactionally(self, state, block_context, AccountTransaction::execute_raw)
-    }
-
-    /// Executes the transaction in a non-transactional manner.
-    fn execute_raw<S: StateReader>(
-        mut self,
-        state: &mut CachedState<S>,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let account_tx_context = self.get_account_transaction_context();
-        self.verify_tx_version(account_tx_context.version)?;
-        Self::handle_nonce(&account_tx_context, state)?;
-
-        // Handle transaction-type specific execution.
-        let validate_call_info: Option<CallInfo>;
-        let execute_call_info: Option<CallInfo>;
-        match self {
-            Self::Declare(ref tx, ref mut contract_class) => {
-                let contract_class = Some(mem::take(contract_class));
-
-                // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
-
-                // Execute.
-                execute_call_info =
-                    tx.execute(state, block_context, &account_tx_context, contract_class)?;
-            }
-            Self::DeployAccount(ref tx) => {
-                // Execute the constructor of the deployed class.
-                execute_call_info = tx.execute(state, block_context, &account_tx_context, None)?;
-
-                // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
-            }
-            Self::Invoke(ref tx) => {
-                // Specifying an entry point selector is not allowed; `__execute__` is called, and
-                // the inner selector appears in the calldata.
-                if tx.entry_point_selector.is_some() {
-                    return Err(InvokeTransactionError::SpecifiedEntryPoint)?;
-                }
-
-                // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
-
-                // Execute.
-                execute_call_info = tx.execute(state, block_context, &account_tx_context, None)?;
-            }
-        };
-
-        // Charge fee.
-        let actual_resources = ResourcesMapping::default();
-        let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, block_context, &account_tx_context)?;
-
-        let tx_execution_info = TransactionExecutionInfo {
-            validate_call_info,
-            execute_call_info,
-            fee_transfer_call_info,
-            actual_fee,
-            actual_resources,
-        };
-        Ok(tx_execution_info)
-    }
-
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
             Self::Declare(_, _) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
@@ -278,5 +205,69 @@ impl AccountTransaction {
         };
 
         Ok(fee_transfer_call.execute(state, block_context, account_tx_context)?)
+    }
+}
+
+impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
+    fn execute_raw(
+        mut self,
+        state: &mut TransactionalState<'_, S>,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        let account_tx_context = self.get_account_transaction_context();
+        self.verify_tx_version(account_tx_context.version)?;
+        Self::handle_nonce(&account_tx_context, state)?;
+
+        // Handle transaction-type specific execution.
+        let validate_call_info: Option<CallInfo>;
+        let execute_call_info: Option<CallInfo>;
+        match self {
+            Self::Declare(ref tx, ref mut contract_class) => {
+                let contract_class = Some(mem::take(contract_class));
+
+                // Validate.
+                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+
+                // Execute.
+                execute_call_info =
+                    tx.run_execute(state, block_context, &account_tx_context, contract_class)?;
+            }
+            Self::DeployAccount(ref tx) => {
+                // Execute the constructor of the deployed class.
+                execute_call_info =
+                    tx.run_execute(state, block_context, &account_tx_context, None)?;
+
+                // Validate.
+                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+            }
+            Self::Invoke(ref tx) => {
+                // Specifying an entry point selector is not allowed; `__execute__` is called, and
+                // the inner selector appears in the calldata.
+                if tx.entry_point_selector.is_some() {
+                    return Err(InvokeTransactionError::SpecifiedEntryPoint)?;
+                }
+
+                // Validate.
+                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+
+                // Execute.
+                execute_call_info =
+                    tx.run_execute(state, block_context, &account_tx_context, None)?;
+            }
+        };
+
+        // Charge fee.
+        let actual_resources = ResourcesMapping::default();
+        let (actual_fee, fee_transfer_call_info) =
+            Self::charge_fee(state, block_context, &account_tx_context)?;
+
+        let tx_execution_info = TransactionExecutionInfo {
+            validate_call_info,
+            execute_call_info,
+            fee_transfer_call_info,
+            actual_fee,
+            actual_resources,
+        };
+        Ok(tx_execution_info)
     }
 }

@@ -17,10 +17,9 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
-use super::entry_point::{OrderedEvent, OrderedL2ToL1Message};
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment,
