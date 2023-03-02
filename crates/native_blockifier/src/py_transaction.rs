@@ -9,6 +9,7 @@ use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transactions::ExecutableTransaction;
 use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;

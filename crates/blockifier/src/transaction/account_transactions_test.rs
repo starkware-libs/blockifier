@@ -18,6 +18,7 @@ use crate::test_utils::{
     TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY,
 };
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::transactions::ExecutableTransaction;
 
 // The amount of test-token allocated to the account in this test.
 pub const BALANCE: u64 = 1000000 * 100000000000; // 1000000 * min_gas_price.
