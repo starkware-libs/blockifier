@@ -135,6 +135,7 @@ fn expected_fee_transfer_call_info(
             ]),
         },
     };
+
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
