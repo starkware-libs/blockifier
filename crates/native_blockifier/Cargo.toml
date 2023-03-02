@@ -13,6 +13,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = { version = "1.0.69" }
 blockifier = { path = "../blockifier" }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
@@ -22,6 +23,7 @@ papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", features 
     "testing",
 ] }
 pyo3 = { version = "0.17.3", features = [
+    "anyhow",
     "extension-module",
     "num-bigint",
     "hashbrown",
