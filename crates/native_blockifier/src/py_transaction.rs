@@ -7,6 +7,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::papyrus_state::PapyrusStateReader;
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use num_bigint::BigUint;
@@ -226,6 +227,10 @@ impl PyTransactionExecutor {
             state_builder: |storage_tx| state_builder(storage_tx, block_number),
         };
         py_tx_executor_builder.try_build()
+    }
+
+    pub fn do_err(&self) -> NativeBlockifierResult<()> {
+        Err(TransactionExecutionError::UnknownChainId { chain_id: String::from("woot") }.into())
     }
 
     #[args(tx, raw_contract_class)]
