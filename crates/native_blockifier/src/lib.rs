@@ -15,13 +15,14 @@ use py_transaction_execution_info::{
     PyCallInfo, PyExecutionResources, PyOrderedEvent, PyOrderedL2ToL1Message,
     PyTransactionExecutionInfo,
 };
+use py_utils::raise_error_for_testing;
 use pyo3::prelude::*;
 use storage::Storage;
 
 use crate::py_state_diff::PyStateDiff;
 
 #[pymodule]
-fn native_blockifier(_py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
+fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyCallInfo>()?;
     py_module.add_class::<PyExecutionResources>()?;
     py_module.add_class::<PyOrderedEvent>()?;
@@ -30,7 +31,8 @@ fn native_blockifier(_py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyTransactionExecutionInfo>()?;
     py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<Storage>()?;
-    add_py_exceptions(_py, py_module)?;
+    py_module.add_function(wrap_pyfunction!(raise_error_for_testing, py)?)?;
+    add_py_exceptions(py, py_module)?;
 
     Ok(())
 }
