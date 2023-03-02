@@ -13,7 +13,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
@@ -28,7 +28,7 @@ use crate::test_utils::{
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
     TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_ERC20_SEQUENCER_BALANCE_KEY,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -59,9 +59,8 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         (test_account_address, test_account_class_hash),
         (test_erc20_address, test_erc20_class_hash),
     ]);
-    let test_erc20_account_balance_key = StorageKey(patricia_key!(TEST_ERC20_ACCOUNT_BALANCE_KEY));
     let storage_view = HashMap::from([(
-        (test_erc20_address, test_erc20_account_balance_key),
+        (test_erc20_address, *TEST_ERC20_ACCOUNT_BALANCE_KEY),
         stark_felt!(actual_fee().0 as u64),
     )]);
     CachedState::new(DictStateReader {
@@ -146,25 +145,18 @@ fn validate_final_balances(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
     expected_sequencer_balance: StarkFelt,
-    erc20_account_balance_key: &str,
+    erc20_account_balance_key: StorageKey,
 ) {
     // We currently assume the total fee charged for the transaction is equal to the initial balance
     // of the account.
     let expected_account_balance = stark_felt!(0);
-    let account_balance = state
-        .get_storage_at(
-            block_context.fee_token_address,
-            StorageKey(patricia_key!(erc20_account_balance_key)),
-        )
-        .unwrap();
+    let account_balance =
+        state.get_storage_at(block_context.fee_token_address, erc20_account_balance_key).unwrap();
     assert_eq!(account_balance, expected_account_balance);
 
     assert_eq!(
         state
-            .get_storage_at(
-                block_context.fee_token_address,
-                StorageKey(patricia_key!(TEST_ERC20_SEQUENCER_BALANCE_KEY))
-            )
+            .get_storage_at(block_context.fee_token_address, *TEST_ERC20_SEQUENCER_BALANCE_KEY)
             .unwrap(),
         stark_felt!(expected_sequencer_balance)
     );
@@ -262,7 +254,7 @@ fn test_invoke_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 }
 
@@ -408,7 +400,7 @@ fn test_declare_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 
     // Verify class declaration.
@@ -444,9 +436,11 @@ fn test_deploy_account_tx() {
     // Update the balance of the about to be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
     let expected_actual_fee = actual_fee();
+    let deployed_account_balance_key =
+        get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]).unwrap();
     state.set_storage_at(
         block_context.fee_token_address,
-        StorageKey(patricia_key!(TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY)),
+        deployed_account_balance_key,
         stark_felt!(expected_actual_fee.0 as u64),
     );
 
@@ -502,7 +496,7 @@ fn test_deploy_account_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        TEST_ERC20_DEPLOYED_ACCOUNT_BALANCE_KEY,
+        deployed_account_balance_key,
     );
 
     // Verify deployment.
