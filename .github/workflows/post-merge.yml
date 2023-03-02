@@ -21,4 +21,4 @@ jobs:
           cache: 'pip'
       - run:
           pip install -r crates/blockifier/tests/requirements.txt;
-          cargo test -- --include-ignored
+          cargo +nightly-2022-11-03 test -- --include-ignored
