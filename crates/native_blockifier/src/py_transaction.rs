@@ -243,6 +243,7 @@ impl PyTransactionExecutor {
         max_size: usize,
         latest_block_id: BigInt,
     ) -> NativeBlockifierResult<Self> {
+        log::info!("Initialize Transaction Executor.");
         // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
         // executor and storage - (storage_path, max_size).
         let storage = Storage::new(storage_path, max_size)?;
@@ -268,6 +269,7 @@ impl PyTransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
+        log::trace!("Finalizing execution.");
         PyStateDiff::from(self.borrow_state().to_state_diff())
     }
 }
