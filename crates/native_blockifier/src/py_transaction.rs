@@ -28,6 +28,7 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
+use crate::storage::Storage;
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
@@ -177,8 +178,12 @@ pub struct PyTransactionExecutor {
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info)]
-    pub fn create(general_config: &PyAny, block_info: &PyAny) -> NativeBlockifierResult<Self> {
+    #[args(general_config, block_info, storage_path)]
+    pub fn create(
+        general_config: &PyAny,
+        block_info: &PyAny,
+        storage_path: String,
+    ) -> NativeBlockifierResult<Self> {
         // Build block context.
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_number = BlockNumber(py_attr(block_info, "block_number")?);
@@ -200,8 +205,7 @@ impl PyTransactionExecutor {
         };
 
         // Build Papyrus reader-based state.
-        // TODO: Use actual (not test) Papyrus storage as state reader.
-        let (storage_reader, mut _storage_writer) = papyrus_storage::test_utils::get_test_storage();
+        let Storage { reader, writer: _ } = Storage::new(storage_path)?;
 
         // The following callbacks are required to capture the local lifetime parameter.
         fn storage_tx_builder(
@@ -222,7 +226,7 @@ impl PyTransactionExecutor {
         // The builder struct below is implicitly created by `ouroboros`.
         let py_tx_executor_builder = PyTransactionExecutorTryBuilder {
             block_context,
-            storage_reader,
+            storage_reader: reader,
             storage_tx_builder,
             state_builder: |storage_tx| state_builder(storage_tx, block_number),
         };
