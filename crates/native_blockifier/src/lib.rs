@@ -18,6 +18,10 @@ use crate::py_state_diff::PyStateDiff;
 
 #[pymodule]
 fn native_blockifier(_py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
+    // Initialize Rust to Python logging.
+    // Usage: just create a Python logger as usual, and it'll capture Rust prints.
+    pyo3_log::init();
+
     py_module.add_class::<PyCallInfo>()?;
     py_module.add_class::<PyExecutionResources>()?;
     py_module.add_class::<PyOrderedEvent>()?;
