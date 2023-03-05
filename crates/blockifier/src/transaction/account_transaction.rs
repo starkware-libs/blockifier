@@ -13,7 +13,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionResourcesManager};
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -133,6 +133,7 @@ impl AccountTransaction {
     fn validate_tx(
         &self,
         state: &mut dyn State,
+        resources_manager: &mut ExecutionResourcesManager,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
@@ -148,7 +149,8 @@ impl AccountTransaction {
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
-        let validate_call_info = validate_call.execute(state, block_context, account_tx_context)?;
+        let validate_call_info =
+            validate_call.execute(state, resources_manager, block_context, account_tx_context)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
@@ -159,6 +161,7 @@ impl AccountTransaction {
 
     fn charge_fee(
         state: &mut dyn State,
+        resources_manager: &mut ExecutionResourcesManager,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
@@ -169,14 +172,20 @@ impl AccountTransaction {
         }
 
         let actual_fee = calculate_tx_fee(block_context);
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
+        let fee_transfer_call_info = Self::execute_fee_transfer(
+            state,
+            resources_manager,
+            block_context,
+            account_tx_context,
+            actual_fee,
+        )?;
 
         Ok((actual_fee, Some(fee_transfer_call_info)))
     }
 
     fn execute_fee_transfer(
         state: &mut dyn State,
+        resources_manager: &mut ExecutionResourcesManager,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         actual_fee: Fee,
@@ -204,7 +213,12 @@ impl AccountTransaction {
             caller_address: account_tx_context.sender_address,
         };
 
-        Ok(fee_transfer_call.execute(state, block_context, account_tx_context)?)
+        Ok(fee_transfer_call.execute(
+            state,
+            resources_manager,
+            block_context,
+            account_tx_context,
+        )?)
     }
 }
 
@@ -221,24 +235,37 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         // Handle transaction-type specific execution.
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
+        let resources_manager = &mut ExecutionResourcesManager::default();
         match self {
             Self::Declare(ref tx, ref mut contract_class) => {
                 let contract_class = Some(mem::take(contract_class));
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+                validate_call_info =
+                    self.validate_tx(state, resources_manager, block_context, &account_tx_context)?;
 
                 // Execute.
-                execute_call_info =
-                    tx.run_execute(state, block_context, &account_tx_context, contract_class)?;
+                execute_call_info = tx.run_execute(
+                    state,
+                    resources_manager,
+                    block_context,
+                    &account_tx_context,
+                    contract_class,
+                )?;
             }
             Self::DeployAccount(ref tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info =
-                    tx.run_execute(state, block_context, &account_tx_context, None)?;
+                execute_call_info = tx.run_execute(
+                    state,
+                    resources_manager,
+                    block_context,
+                    &account_tx_context,
+                    None,
+                )?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+                validate_call_info =
+                    self.validate_tx(state, resources_manager, block_context, &account_tx_context)?;
             }
             Self::Invoke(ref tx) => {
                 // Specifying an entry point selector is not allowed; `__execute__` is called, and
@@ -248,18 +275,24 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 }
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+                validate_call_info =
+                    self.validate_tx(state, resources_manager, block_context, &account_tx_context)?;
 
                 // Execute.
-                execute_call_info =
-                    tx.run_execute(state, block_context, &account_tx_context, None)?;
+                execute_call_info = tx.run_execute(
+                    state,
+                    resources_manager,
+                    block_context,
+                    &account_tx_context,
+                    None,
+                )?;
             }
         };
 
         // Charge fee.
         let actual_resources = ResourcesMapping::default();
         let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, block_context, &account_tx_context)?;
+            Self::charge_fee(state, resources_manager, block_context, &account_tx_context)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
