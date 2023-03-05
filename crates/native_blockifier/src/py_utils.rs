@@ -64,3 +64,10 @@ pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
         chain_id: value.to_string(),
     }))
 }
+
+// TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
+#[pyfunction]
+pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
+    Err(TransactionExecutionError::UnknownChainId { chain_id: String::from("Dummy message.") }
+        .into())
+}
