@@ -29,7 +29,9 @@ impl Storage {
     #[new]
     #[args(path, max_size)]
     pub fn new(path: String, max_size: usize) -> NativeBlockifierResult<Storage> {
+        log::info!("Initialize Blockifier storage.");
         let db_config = papyrus_storage::db::DbConfig { path, max_size };
+
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
         Ok(Storage { reader, writer })
     }
