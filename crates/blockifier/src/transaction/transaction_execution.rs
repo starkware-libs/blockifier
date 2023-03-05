@@ -1,6 +1,7 @@
 use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
 
 use crate::block_context::BlockContext;
+use crate::execution::entry_point::ExecutionResourcesManager;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
@@ -30,10 +31,17 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: self.nonce,
             sender_address: self.contract_address,
         };
+        let resources_manager = &mut ExecutionResourcesManager::default();
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
-            execute_call_info: self.run_execute(state, block_context, &tx_context, None)?,
+            execute_call_info: self.run_execute(
+                state,
+                resources_manager,
+                block_context,
+                &tx_context,
+                None,
+            )?,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
             actual_resources: ResourcesMapping::default(),
