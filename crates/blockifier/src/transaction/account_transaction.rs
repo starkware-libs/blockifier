@@ -148,11 +148,20 @@ impl AccountTransaction {
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
-        let validate_call_info = validate_call.execute(state, block_context, account_tx_context)?;
-        verify_no_calls_to_other_contracts(
+        let validate_call_result = validate_call.execute(state, block_context, account_tx_context);
+        if validate_call_result.is_err() {
+            log::warn!("Transaction validation has failed.")
+        }
+        let validate_call_info = validate_call_result?;
+
+        let validate_call_result = verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
-        )?;
+        );
+        if validate_call_result.is_err() {
+            log::warn!("Transaction validation has failed.")
+        }
+        validate_call_result?;
 
         Ok(Some(validate_call_info))
     }
@@ -169,8 +178,12 @@ impl AccountTransaction {
         }
 
         let actual_fee = calculate_tx_fee(block_context);
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
+        let fee_transfer_result =
+            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee);
+        if fee_transfer_result.is_err() {
+            log::warn!("Unable to charge fee.");
+        }
+        let fee_transfer_call_info = fee_transfer_result?;
 
         Ok((actual_fee, Some(fee_transfer_call_info)))
     }

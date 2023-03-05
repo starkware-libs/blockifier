@@ -26,6 +26,7 @@ impl Storage {
     #[new]
     #[args(path)]
     pub fn new(path: String) -> NativeBlockifierResult<Storage> {
+        log::info!("Initialize Blockifier storage.");
         let db_config = papyrus_storage::db::DbConfig {
             path,
             max_size: 1 << 35, // 32GB.

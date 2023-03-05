@@ -3,7 +3,7 @@ from setuptools_rust import Binding, RustExtension
 
 setup(
     name="native_blockifier",
-    version="0.11.0",
+    version="0.13.0",
     rust_extensions=[RustExtension("native_blockifier.native_blockifier", binding=Binding.PyO3)],
     author="Starkware",
     author_email="info@starkware.co",

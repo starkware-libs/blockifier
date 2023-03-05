@@ -184,6 +184,7 @@ impl PyTransactionExecutor {
         block_info: &PyAny,
         storage_path: String,
     ) -> NativeBlockifierResult<Self> {
+        log::info!("Initialize Transaction Executor.");
         // Build block context.
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_number = BlockNumber(py_attr(block_info, "block_number")?);
@@ -250,6 +251,7 @@ impl PyTransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
+        log::trace!("Finalizing execution.");
         PyStateDiff::from(self.borrow_state().to_state_diff())
     }
 }
