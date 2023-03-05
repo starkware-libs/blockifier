@@ -33,15 +33,18 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         state: &mut CachedState<S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        log::trace!("Executing Transaction.");
         let mut transactional_state = CachedState::new(MutRefState::new(state));
         let execution_result = self.execute_raw(&mut transactional_state, block_context);
 
         match execution_result {
             Ok(value) => {
                 transactional_state.commit();
+                log::trace!("Transaction execution complete.");
                 Ok(value)
             }
             Err(error) => {
+                log::trace!("Transaction execution FAILED, aborting.");
                 transactional_state.abort();
                 Err(error)
             }
@@ -104,7 +107,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let call_info = execute_deployment(
+        let deployment_result = execute_deployment(
             state,
             block_context,
             account_tx_context,
@@ -112,7 +115,11 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             self.contract_address,
             ContractAddress::default(),
             self.constructor_calldata.clone(),
-        )?;
+        );
+        if deployment_result.is_err() {
+            log::warn!("Deployment failed.")
+        }
+        let call_info = deployment_result?;
         verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
 
         Ok(Some(call_info))
@@ -136,7 +143,11 @@ impl<S: State> Executable<S> for InvokeTransaction {
             caller_address: ContractAddress::default(),
         };
 
-        Ok(Some(execute_call.execute(state, block_context, account_tx_context)?))
+        let execute_result = execute_call.execute(state, block_context, account_tx_context);
+        if execute_result.is_err() {
+            log::warn!("Transaction execution Failed.")
+        }
+        Ok(Some(execute_result?))
     }
 }
 
@@ -157,6 +168,10 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             caller_address: ContractAddress::default(),
         };
 
-        Ok(Some(execute_call.execute(state, block_context, account_tx_context)?))
+        let execute_result = execute_call.execute(state, block_context, account_tx_context);
+        if execute_result.is_err() {
+            log::warn!("Transaction execution Failed.")
+        }
+        Ok(Some(execute_result?))
     }
 }
