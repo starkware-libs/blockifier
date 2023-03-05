@@ -1,3 +1,4 @@
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -9,6 +10,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
+use crate::execution::syscall_handling::SyscallCounter;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -30,10 +32,17 @@ pub struct CallEntryPoint {
     pub caller_address: ContractAddress,
 }
 
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct ExecutionResourcesManager {
+    pub vm_resources: ExecutionResources,
+    pub syscall_counter: SyscallCounter,
+}
+
 impl CallEntryPoint {
     pub fn execute(
         self,
         state: &mut dyn State,
+        resources_manager: &mut ExecutionResourcesManager,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
@@ -47,7 +56,14 @@ impl CallEntryPoint {
             Some(class_hash) => class_hash,
             None => storage_class_hash,
         };
-        execute_entry_point_call(self, class_hash, state, block_context, account_tx_context)
+        execute_entry_point_call(
+            self,
+            class_hash,
+            state,
+            resources_manager,
+            block_context,
+            account_tx_context,
+        )
     }
 
     pub fn resolve_entry_point_pc(
@@ -125,8 +141,10 @@ impl<'a> IntoIterator for &'a CallInfo {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
+    resources_manager: &mut ExecutionResourcesManager,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
@@ -152,7 +170,7 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
     };
-    constructor_call.execute(state, block_context, account_tx_context)
+    constructor_call.execute(state, resources_manager, block_context, account_tx_context)
 }
 
 pub fn handle_empty_constructor(

@@ -19,7 +19,8 @@ use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, Retdata,
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionResourcesManager,
+    Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
@@ -201,6 +202,7 @@ impl CallEntryPoint {
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         self.execute(
             state,
+            &mut ExecutionResourcesManager::default(),
             &BlockContext::create_for_testing(),
             &AccountTransactionContext::default(),
         )
