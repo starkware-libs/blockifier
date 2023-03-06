@@ -287,9 +287,8 @@ pub fn compare_optional_call_infos(actual: Option<CallInfo>, expected: Option<Ca
         (Some(actual), Some(expected)) => compare_call_info_fields(actual, expected),
         (None, None) => (),
         _ => panic!(
-            "The actual call info does not equal the expected call info. Expected: {:?}, Actual: \
-             {:?}",
-            actual, expected
+            "The actual call info does not equal the expected call info. Expected: {expected:?}, \
+             Actual: {actual:?}"
         ),
     }
 }
