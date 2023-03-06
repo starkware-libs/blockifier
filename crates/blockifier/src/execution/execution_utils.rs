@@ -67,8 +67,12 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
-    let mut runner = CairoRunner::new(&program, "all", false)?;
-    let mut vm = VirtualMachine::new(false);
+    let proof_mode = false;
+    let mut runner = CairoRunner::new(&program, "all", proof_mode)?;
+
+    let trace_enabled = true;
+    let mut vm = VirtualMachine::new(trace_enabled);
+
     runner.initialize_builtins(&mut vm)?;
     runner.initialize_segments(&mut vm, None);
 
@@ -157,7 +161,7 @@ pub fn execute_entry_point_call(
 }
 
 pub fn run_entry_point(
-    cairo_runner: &mut CairoRunner,
+    runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
     args: Args,
@@ -166,13 +170,13 @@ pub fn run_entry_point(
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
 
-    cairo_runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+    runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
     Ok(())
 }
 
 pub fn finalize_execution(
     mut vm: VirtualMachine,
-    cairo_runner: CairoRunner,
+    runner: CairoRunner,
     call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
@@ -180,7 +184,7 @@ pub fn finalize_execution(
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
     let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
-    validate_run(&mut vm, cairo_runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
+    validate_run(&mut vm, runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     Ok(CallInfo {
@@ -198,14 +202,14 @@ pub fn finalize_execution(
 
 pub fn validate_run(
     vm: &mut VirtualMachine,
-    cairo_runner: CairoRunner,
+    runner: CairoRunner,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
     syscall_handler: &SyscallHintProcessor<'_>,
 ) -> Result<(), PostExecutionError> {
     // Validate builtins' final stack.
     let mut current_builtin_ptr = implicit_args_end;
-    current_builtin_ptr = cairo_runner.get_builtins_final_stack(vm, current_builtin_ptr)?;
+    current_builtin_ptr = runner.get_builtins_final_stack(vm, current_builtin_ptr)?;
 
     // Validate implicit arguments segment length is unchanged.
     // Subtract one to get to the first implicit arg segment (the syscall pointer).
