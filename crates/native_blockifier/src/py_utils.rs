@@ -1,14 +1,17 @@
 use std::convert::TryFrom;
 
 use blockifier::transaction::errors::TransactionExecutionError;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::EthAddress;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{
+    NativeBlockifierError, NativeBlockifierResult, NativeBlockifierValidationError,
+};
+use crate::storage::Storage;
 
 pub const CHAIN_NAMES: &[&str; 4] =
     &["SN_MAIN", "SN_GOERLI", "SN_GOERLI2", "PRIVATE_SN_POTC_GOERLI"];
@@ -73,4 +76,26 @@ pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
     Err(TransactionExecutionError::UnknownChainId { chain_id: String::from("Dummy message.") }
         .into())
+}
+
+pub fn validate_storage_aligned(
+    storage: &Storage,
+    latest_block_id: BigInt,
+) -> NativeBlockifierResult<()> {
+    let block_number = storage.get_state_marker()? - 1;
+    let block_id = storage.get_block_hash(block_number)?;
+    let block_id = match block_id {
+        Some(id) => BigInt::from_bytes_be(Sign::Plus, &id),
+        None => BigInt::from(-1),
+    };
+    if block_id != latest_block_id {
+        return Err(NativeBlockifierError::from(
+            NativeBlockifierValidationError::StorageUnaligned {
+                blockifier_latest_block_id: block_id,
+                actual_latest_block_id: latest_block_id,
+            },
+        ));
+    }
+
+    Ok(())
 }
