@@ -34,7 +34,7 @@ pub struct CallEntryPoint {
 
 impl CallEntryPoint {
     pub fn execute(
-        self,
+        mut self,
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
@@ -47,8 +47,11 @@ impl CallEntryPoint {
 
         let class_hash = match self.class_hash {
             Some(class_hash) => class_hash,
-            None => storage_class_hash,
+            None => storage_class_hash, // If not given, take the storage contract class hash.
         };
+        // Add class hash to the call, that will appear in the output (call info).
+        self.class_hash = Some(class_hash);
+
         execute_entry_point_call(self, class_hash, state, block_context, account_tx_context)
     }
 
@@ -146,7 +149,7 @@ pub fn execute_constructor_entry_point(
 
     if constructor_entry_points.is_empty() {
         // Contract has no constructor.
-        return handle_empty_constructor(storage_address, caller_address, calldata);
+        return handle_empty_constructor(class_hash, calldata, storage_address, caller_address);
     }
 
     let constructor_call = CallEntryPoint {
@@ -161,9 +164,10 @@ pub fn execute_constructor_entry_point(
 }
 
 pub fn handle_empty_constructor(
+    class_hash: ClassHash,
+    calldata: Calldata,
     storage_address: ContractAddress,
     caller_address: ContractAddress,
-    calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
     if !calldata.0.is_empty() {
@@ -175,7 +179,7 @@ pub fn handle_empty_constructor(
 
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: None,
+            class_hash: Some(class_hash),
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),
