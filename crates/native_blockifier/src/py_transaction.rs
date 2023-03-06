@@ -10,7 +10,7 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint, Sign};
 use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
@@ -24,7 +24,9 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{
+    NativeBlockifierError, NativeBlockifierResult, NativeBlockifierValidationError,
+};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
@@ -178,12 +180,31 @@ pub struct PyTransactionExecutor {
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info, storage_path)]
+    #[args(general_config, block_info, storage_path, latest_block_id)]
     pub fn create(
         general_config: &PyAny,
         block_info: &PyAny,
         storage_path: String,
+        latest_block_id: BigInt,
     ) -> NativeBlockifierResult<Self> {
+        let storage = Storage::new(storage_path)?;
+
+        // Verify storage is aligned.
+        let block_number = storage.get_state_marker()? - 1;
+        let block_hash = storage.get_block_hash(block_number)?;
+        let block_id = match block_hash {
+            Some(hash) => BigInt::from_bytes_be(Sign::Plus, &hash),
+            None => BigInt::from(-1),
+        };
+        if block_id != latest_block_id {
+            return Err(NativeBlockifierError::from(
+                NativeBlockifierValidationError::UnalignedStorage {
+                    blockifier_latest_block: block_id,
+                    actual_latest_block: latest_block_id,
+                },
+            ));
+        }
+
         // Build block context.
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
         let block_number = BlockNumber(py_attr(block_info, "block_number")?);
@@ -205,8 +226,6 @@ impl PyTransactionExecutor {
         };
 
         // Build Papyrus reader-based state.
-        let Storage { reader, writer: _ } = Storage::new(storage_path)?;
-
         // The following callbacks are required to capture the local lifetime parameter.
         fn storage_tx_builder(
             storage_reader: &papyrus_storage::StorageReader,
@@ -226,7 +245,7 @@ impl PyTransactionExecutor {
         // The builder struct below is implicitly created by `ouroboros`.
         let py_tx_executor_builder = PyTransactionExecutorTryBuilder {
             block_context,
-            storage_reader: reader,
+            storage_reader: storage.reader,
             storage_tx_builder,
             state_builder: |storage_tx| state_builder(storage_tx, block_number),
         };
