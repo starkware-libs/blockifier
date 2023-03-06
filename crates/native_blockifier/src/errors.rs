@@ -1,8 +1,10 @@
 use blockifier::transaction::errors::TransactionExecutionError;
+use num_bigint::BigInt;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
+use thiserror::Error;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
@@ -45,9 +47,23 @@ macro_rules! native_blockifier_errors {
 }
 
 native_blockifier_errors!(
+    (
+        NativeBlockifierValidationError,
+        NativeBlockifierValidationError,
+        PyNativeBlockifierValidationError
+    ),
     (Pyo3Error, PyErr, PyPyo3Error),
     (SerdeError, serde_json::Error, PySerdeError),
     (StarknetApiError, StarknetApiError, PyStarknetApiError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
     (StorageError, papyrus_storage::StorageError, PyStorageError)
 );
+
+#[derive(Debug, Error)]
+pub enum NativeBlockifierValidationError {
+    #[error(
+        "Blockifier storage is not aligned with the main storage; latest block in blockifier: \
+         {blockifier_latest_block}, latest block in main storage: {actual_latest_block}."
+    )]
+    UnalignedStorage { blockifier_latest_block: BigInt, actual_latest_block: BigInt },
+}
