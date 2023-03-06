@@ -27,13 +27,9 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    #[args(path)]
-    pub fn new(path: String) -> NativeBlockifierResult<Storage> {
-        let db_config = papyrus_storage::db::DbConfig {
-            path,
-            max_size: 1 << 35, // 32GB.
-        };
-
+    #[args(path, max_size)]
+    pub fn new(path: String, max_size: usize) -> NativeBlockifierResult<Storage> {
+        let db_config = papyrus_storage::db::DbConfig { path, max_size };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
         Ok(Storage { reader, writer })
     }

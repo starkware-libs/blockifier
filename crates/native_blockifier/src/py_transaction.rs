@@ -235,14 +235,17 @@ pub fn build_tx_executor(
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info, storage_path, latest_block_id)]
+    #[args(general_config, block_info, storage_path, max_size, latest_block_id)]
     pub fn create(
         general_config: &PyAny,
         block_info: &PyAny,
         storage_path: String,
+        max_size: usize,
         latest_block_id: BigInt,
     ) -> NativeBlockifierResult<Self> {
-        let storage = Storage::new(storage_path)?;
+        // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
+        // executor and storage - (storage_path, max_size).
+        let storage = Storage::new(storage_path, max_size)?;
         storage.validate_aligned(latest_block_id)?;
         let block_context = py_block_context(general_config, block_info)?;
         build_tx_executor(block_context, storage.reader)
