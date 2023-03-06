@@ -178,11 +178,12 @@ pub struct PyTransactionExecutor {
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info, storage_path)]
+    #[args(general_config, block_info, storage_path, max_size)]
     pub fn create(
         general_config: &PyAny,
         block_info: &PyAny,
         storage_path: String,
+        max_size: usize,
     ) -> NativeBlockifierResult<Self> {
         // Build block context.
         let starknet_os_config = general_config.getattr("starknet_os_config")?;
@@ -205,7 +206,7 @@ impl PyTransactionExecutor {
         };
 
         // Build Papyrus reader-based state.
-        let Storage { reader, writer: _ } = Storage::new(storage_path)?;
+        let Storage { reader, writer: _ } = Storage::new(storage_path, max_size)?;
 
         // The following callbacks are required to capture the local lifetime parameter.
         fn storage_tx_builder(
