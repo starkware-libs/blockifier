@@ -76,13 +76,14 @@ fn actual_fee() -> Fee {
 }
 
 fn expected_validate_call_info(
+    class_hash: ClassHash,
     entry_point_selector_name: &str,
     calldata: Calldata,
     storage_address: ContractAddress,
 ) -> Option<CallInfo> {
     Some(CallInfo {
         call: CallEntryPoint {
-            class_hash: None,
+            class_hash: Some(class_hash),
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(entry_point_selector_name),
             calldata,
@@ -100,13 +101,14 @@ fn expected_fee_transfer_call_info(
     account_address: ContractAddress,
     actual_fee: Fee,
 ) -> Option<CallInfo> {
+    let expected_fee_token_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0 as u64);
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0);
     let expected_fee_transfer_call = CallEntryPoint {
-        class_hash: None,
+        class_hash: Some(expected_fee_token_class_hash),
         entry_point_type: EntryPointType::External,
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
@@ -193,8 +195,10 @@ fn test_invoke_tx() {
     let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
+    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let expected_validate_call_info = expected_validate_call_info(
+        expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
         calldata,
         expected_account_address,
@@ -204,7 +208,7 @@ fn test_invoke_tx() {
     let expected_return_result_calldata = vec![stark_felt!(2)];
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
-        class_hash: None,
+        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
         storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
@@ -364,8 +368,10 @@ fn test_declare_tx() {
     let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
+    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let expected_validate_call_info = expected_validate_call_info(
+        expected_account_class_hash,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
         calldata![class_hash.0],
         expected_account_address,
@@ -450,8 +456,9 @@ fn test_deploy_account_tx() {
     // Build expected validate call info.
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
-
+    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_validate_call_info = expected_validate_call_info(
+        expected_account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
         Calldata(validate_calldata.into()),
         deployed_account_address,
@@ -460,6 +467,7 @@ fn test_deploy_account_tx() {
     // Build expected execute call info.
     let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
+            class_hash: Some(expected_account_class_hash),
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,

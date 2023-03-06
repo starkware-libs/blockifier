@@ -150,9 +150,10 @@ pub fn execute_entry_point_call(
     Ok(finalize_execution(
         execution_context.vm,
         execution_context.runner,
-        call,
         execution_context.syscall_handler,
         implicit_args,
+        call,
+        class_hash,
     )?)
 }
 
@@ -173,9 +174,10 @@ pub fn run_entry_point(
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     cairo_runner: CairoRunner,
-    call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
+    call: CallEntryPoint,
+    class_hash: ClassHash,
 ) -> Result<CallInfo, PostExecutionError> {
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
@@ -183,15 +185,16 @@ pub fn finalize_execution(
     validate_run(&mut vm, cairo_runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
-    Ok(CallInfo {
+    Ok(CallInfo::new(
         call,
-        execution: CallExecution {
+        class_hash,
+        CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
         },
-        inner_calls: syscall_handler.inner_calls,
-    })
+        syscall_handler.inner_calls,
+    ))
 }
 
 pub fn validate_run(

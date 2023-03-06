@@ -45,8 +45,9 @@ impl CallEntryPoint {
 
         let class_hash = match self.class_hash {
             Some(class_hash) => class_hash,
-            None => storage_class_hash,
+            None => storage_class_hash, // If not given, take the storage contract class hash.
         };
+
         execute_entry_point_call(self, class_hash, state, block_context, account_tx_context)
     }
 
@@ -98,6 +99,22 @@ pub struct CallInfo {
     pub inner_calls: Vec<CallInfo>,
 }
 
+impl CallInfo {
+    pub fn new(
+        mut call: CallEntryPoint,
+        class_hash: ClassHash,
+        execution: CallExecution,
+        inner_calls: Vec<CallInfo>,
+    ) -> CallInfo {
+        // Add the storage contract class hash to the call appearing in the output.
+        if call.class_hash.is_none() {
+            call.class_hash = Some(class_hash);
+        }
+
+        CallInfo { call, execution, inner_calls }
+    }
+}
+
 pub struct CallInfoIter<'a> {
     call_infos: Vec<&'a CallInfo>,
 }
@@ -141,7 +158,7 @@ pub fn execute_constructor_entry_point(
 
     if constructor_entry_points.is_empty() {
         // Contract has no constructor.
-        return handle_empty_constructor(storage_address, caller_address, calldata);
+        return handle_empty_constructor(class_hash, storage_address, caller_address, calldata);
     }
 
     let constructor_call = CallEntryPoint {
@@ -156,6 +173,7 @@ pub fn execute_constructor_entry_point(
 }
 
 pub fn handle_empty_constructor(
+    class_hash: ClassHash,
     storage_address: ContractAddress,
     caller_address: ContractAddress,
     calldata: Calldata,
@@ -168,8 +186,10 @@ pub fn handle_empty_constructor(
         });
     }
 
-    let empty_constructor_call_info = CallInfo {
-        call: CallEntryPoint {
+    let empty_call_execution = CallExecution::default();
+    let empty_inner_calls: Vec<CallInfo> = vec![];
+    let empty_constructor_call_info = CallInfo::new(
+        CallEntryPoint {
             class_hash: None,
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
@@ -177,8 +197,10 @@ pub fn handle_empty_constructor(
             storage_address,
             caller_address,
         },
-        ..Default::default()
-    };
+        class_hash,
+        empty_call_execution,
+        empty_inner_calls,
+    );
 
     Ok(empty_constructor_call_info)
 }
