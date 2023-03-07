@@ -29,8 +29,11 @@ impl Storage {
     #[new]
     #[args(path, max_size)]
     pub fn new(path: String, max_size: usize) -> NativeBlockifierResult<Storage> {
+        log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig { path, max_size };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
+        log::debug!("Initialized Blockifier storage.");
+
         Ok(Storage { reader, writer })
     }
 
@@ -54,6 +57,7 @@ impl Storage {
 
     #[args(block_number)]
     pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        log::debug!("Reverting state diff for {block_number:?}.",);
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer.begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
@@ -73,6 +77,10 @@ impl Storage {
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, String>,
     ) -> NativeBlockifierResult<()> {
+        log::debug!(
+            "Appending state diff with {block_id:?} for block_number: {}.",
+            py_block_info.block_number
+        );
         let block_number = BlockNumber(py_block_info.block_number);
 
         // Deserialize contract classes.
