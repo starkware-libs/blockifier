@@ -113,7 +113,7 @@ fn test_entry_point_with_return_value() {
     let calldata = calldata![stark_felt!(23)];
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: selector_from_name("return_result"),
+        entry_point_selector: selector_from_name("write_and_return_result"),
         ..trivial_external_entry_point()
     };
     assert_eq!(

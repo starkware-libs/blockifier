@@ -37,9 +37,9 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
             actual_fee: info.actual_fee.0,
             // TODO: Get actual values.
-            n_storage_updates: 0,
-            n_modified_contracts: 0,
-            n_class_updates: 0,
+            n_storage_updates: info.n_storage_updates,
+            n_modified_contracts: info.n_modified_contracts,
+            n_class_updates: info.n_class_updates,
             syscall_counter: HashMap::default(),
         }
     }
