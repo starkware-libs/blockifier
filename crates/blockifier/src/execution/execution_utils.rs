@@ -171,6 +171,16 @@ pub fn run_entry_point(
     let args: Vec<&CairoArg> = args.iter().collect();
 
     runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+
+    // When execution starts the stack holds entry_point_args + [ret_fp, ret_pc].
+    let args_ptr = runner
+        .get_initial_fp()
+        .expect("run_from_entrypoint should initialize the initial_fp")
+        .sub_usize(args.len() + 2)?;
+    // The arguments are touched by the OS and should not be counted as holes, mark them as
+    // accessed.
+    vm.mark_address_range_as_accessed(args_ptr, args.len())?;
+
     Ok(())
 }
 
