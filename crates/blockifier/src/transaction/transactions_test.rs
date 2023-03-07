@@ -185,7 +185,7 @@ fn validate_final_balances(
 }
 
 fn invoke_tx() -> InvokeTransaction {
-    let entry_point_selector = selector_from_name("return_result");
+    let entry_point_selector = selector_from_name("write_and_return_result");
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
         entry_point_selector.0,             // EP selector.
@@ -227,7 +227,7 @@ fn test_invoke_tx() {
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2)];
     let expected_return_result_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("return_result"),
+        entry_point_selector: selector_from_name("write_and_return_result"),
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),

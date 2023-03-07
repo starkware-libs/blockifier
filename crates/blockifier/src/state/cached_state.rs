@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
@@ -33,6 +33,18 @@ pub struct CachedState<S: StateReader> {
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+    }
+
+    /// Returns the number of storage changes done through this state, the number of modified
+    /// contracts, where a contract is considered as modified if one or more of its storage cells
+    /// has changed and the number of deployed contracts.
+    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+        let storage_diffs = &self.cache.get_stoarge_diffs();
+        let modified_contracts: HashSet<ContractAddress> =
+            storage_diffs.keys().map(|address_key_pair| address_key_pair.0).collect();
+        let deployed_contracts = &self.cache.get_deployed_contracts();
+
+        (storage_diffs.len(), modified_contracts.len(), deployed_contracts.len())
     }
 }
 
@@ -146,12 +158,8 @@ impl<S: StateReader> State for CachedState<S> {
         let state_cache = &self.cache;
 
         // Contract instance attributes.
-        let deployed_contracts = subtract_mappings(
-            &state_cache.class_hash_writes,
-            &state_cache.class_hash_initial_values,
-        );
-        let storage_diffs =
-            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
+        let deployed_contracts = state_cache.get_deployed_contracts();
+        let storage_diffs = state_cache.get_stoarge_diffs();
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
@@ -266,6 +274,14 @@ impl StateCache {
 
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
         self.class_hash_writes.insert(contract_address, class_hash);
+    }
+
+    fn get_stoarge_diffs(&self) -> HashMap<ContractStorageKey, StarkFelt> {
+        subtract_mappings(&self.storage_writes, &self.storage_initial_values)
+    }
+
+    fn get_deployed_contracts(&self) -> HashMap<ContractAddress, ClassHash> {
+        subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
 }
 

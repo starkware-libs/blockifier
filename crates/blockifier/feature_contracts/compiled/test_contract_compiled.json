@@ -39,7 +39,7 @@
                     "type": "felt"
                 }
             ],
-            "name": "return_result",
+            "name": "write_and_return_result",
             "outputs": [
                 {
                     "name": "result",
@@ -297,7 +297,7 @@
         ],
         "EXTERNAL": [
             {
-                "offset": "0x178",
+                "offset": "0x183",
                 "selector": "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95"
             },
             {
@@ -305,31 +305,35 @@
                 "selector": "0xe7def693d16806ca2a2f398d8de5951344663ba77f340ed7a958da731872fc"
             },
             {
-                "offset": "0x1dd",
+                "offset": "0x1e8",
                 "selector": "0x120c24672855cfe872cb35256ea85172417f2aada7a22c15908906dc5f3c69d"
             },
             {
-                "offset": "0x190",
+                "offset": "0x19b",
                 "selector": "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309"
             },
             {
-                "offset": "0x28b",
+                "offset": "0x296",
                 "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f"
             },
             {
-                "offset": "0x260",
+                "offset": "0x26b",
                 "selector": "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"
             },
             {
-                "offset": "0x1f2",
+                "offset": "0x1fd",
                 "selector": "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50"
             },
             {
-                "offset": "0x2be",
+                "offset": "0x2c9",
                 "selector": "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5"
             },
             {
-                "offset": "0x2e1",
+                "offset": "0x168",
+                "selector": "0x37842fcba04b43ca0eba2f15412d1c7aa8a9ec41861918dbf069b654d38d2ac"
+            },
+            {
+                "offset": "0x2ec",
                 "selector": "0x38215592552d97419658d30db8f189b242ec2056641de3dff8a7217745ec205"
             },
             {
@@ -337,15 +341,11 @@
                 "selector": "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f"
             },
             {
-                "offset": "0x160",
-                "selector": "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701"
-            },
-            {
-                "offset": "0x23a",
+                "offset": "0x245",
                 "selector": "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331"
             },
             {
-                "offset": "0x1b3",
+                "offset": "0x1be",
                 "selector": "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97"
             }
         ],
@@ -701,6 +701,14 @@
             "0x0",
             "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
+            "0x480a7ffa7fff8000",
+            "0x480a7ffb7fff8000",
+            "0x480a7ffc7fff8000",
+            "0x480680017fff8000",
+            "0x2",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffb5",
             "0x480a7ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
@@ -715,14 +723,17 @@
             "0x482680017ffd8000",
             "0x1",
             "0x402a7ffd7ffc7fff",
-            "0x480280007ffd8000",
-            "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff2",
-            "0x480280027ffb8000",
-            "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff1",
             "0x480280007ffb8000",
             "0x480280017ffb8000",
+            "0x480280027ffb8000",
+            "0x480280007ffd8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe7",
+            "0x48127ffe7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffee",
+            "0x48127ff47fff8000",
+            "0x48127ff47fff8000",
             "0x48127ffb7fff8000",
             "0x480280037ffb8000",
             "0x48127ffa7fff8000",
@@ -781,10 +792,10 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffeca",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffebf",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffebf",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffeb4",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -856,7 +867,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe5f",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe54",
             "0x208b7fff7fff7ffe",
             "0x480280027ffb8000",
             "0x480280027ffd8000",
@@ -898,7 +909,7 @@
             "0x482480017ffb8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdef",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffde4",
             "0x482480017fff8000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffc",
             "0x40137fff7fff8000",
@@ -909,14 +920,14 @@
             "0x5",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe2a",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe1f",
             "0x48127ffd7fff8000",
             "0x480a7ff97fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe23",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe18",
             "0x48127ffd7fff8000",
             "0x480680017fff8000",
             "0x0",
@@ -966,7 +977,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffde5",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdda",
             "0x208b7fff7fff7ffe",
             "0x480280027ffb8000",
             "0x480280027ffd8000",
@@ -1000,7 +1011,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffddb",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdd0",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -1051,11 +1062,11 @@
             "0x480680017fff8000",
             "0x27",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe5e",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe53",
             "0x480680017fff8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe4c",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe41",
             "0x400680017fff7fff",
             "0x27",
             "0x48127ffc7fff8000",
@@ -1086,7 +1097,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe00",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdf5",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -1334,13 +1345,13 @@
                     }
                 }
             ],
-            "343": [
+            "351": [
                 {
                     "accessible_scopes": [
                         "__main__",
                         "__main__",
                         "__wrappers__",
-                        "__wrappers__.return_result_encode_return"
+                        "__wrappers__.write_and_return_result_encode_return"
                     ],
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
@@ -1352,7 +1363,7 @@
                     }
                 }
             ],
-            "384": [
+            "395": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1370,7 +1381,7 @@
                     }
                 }
             ],
-            "396": [
+            "407": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1390,7 +1401,7 @@
                     }
                 }
             ],
-            "407": [
+            "418": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1408,7 +1419,7 @@
                     }
                 }
             ],
-            "426": [
+            "437": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1426,7 +1437,7 @@
                     }
                 }
             ],
-            "464": [
+            "475": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1444,7 +1455,7 @@
                     }
                 }
             ],
-            "561": [
+            "572": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1462,7 +1473,7 @@
                     }
                 }
             ],
-            "642": [
+            "653": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1480,7 +1491,7 @@
                     }
                 }
             ],
-            "708": [
+            "719": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1498,7 +1509,7 @@
                     }
                 }
             ],
-            "728": [
+            "739": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1534,7 +1545,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 368,
+                "pc": 379,
                 "type": "function"
             },
             "__main__.bitwise_and.Args": {
@@ -1800,43 +1811,11 @@
                 "type": "const",
                 "value": 0
             },
-            "__main__.return_result": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 341,
-                "type": "function"
-            },
-            "__main__.return_result.Args": {
-                "full_name": "__main__.return_result.Args",
-                "members": {
-                    "num": {
-                        "cairo_type": "felt",
-                        "offset": 0
-                    }
-                },
-                "size": 1,
-                "type": "struct"
-            },
-            "__main__.return_result.ImplicitArgs": {
-                "full_name": "__main__.return_result.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__main__.return_result.Return": {
-                "cairo_type": "(result: felt)",
-                "type": "type_definition"
-            },
-            "__main__.return_result.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
             "__main__.sqrt": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 394,
+                "pc": 405,
                 "type": "function"
             },
             "__main__.sqrt.Args": {
@@ -1878,7 +1857,7 @@
                             "group": 36,
                             "offset": 1
                         },
-                        "pc": 396,
+                        "pc": 407,
                         "value": "[cast(fp, felt*)]"
                     }
                 ],
@@ -1893,7 +1872,7 @@
                             "group": 36,
                             "offset": 0
                         },
-                        "pc": 394,
+                        "pc": 405,
                         "value": "[cast(fp + (-3), felt*)]"
                     }
                 ],
@@ -1912,7 +1891,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 600,
+                "pc": 611,
                 "type": "function"
             },
             "__main__.test_call_contract.Args": {
@@ -1961,7 +1940,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 718,
+                "pc": 729,
                 "type": "function"
             },
             "__main__.test_contract_address.Args": {
@@ -2018,7 +1997,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 633,
+                "pc": 644,
                 "type": "function"
             },
             "__main__.test_deploy.Args": {
@@ -2072,7 +2051,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 490,
+                "pc": 501,
                 "type": "function"
             },
             "__main__.test_library_call.Args": {
@@ -2121,7 +2100,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 453,
+                "pc": 464,
                 "type": "function"
             },
             "__main__.test_long_retdata.Args": {
@@ -2148,7 +2127,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 523,
+                "pc": 534,
                 "type": "function"
             },
             "__main__.test_nested_library_call.Args": {
@@ -2201,7 +2180,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 417,
+                "pc": 428,
                 "type": "function"
             },
             "__main__.test_storage_read_write.Args": {
@@ -2242,7 +2221,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 683,
+                "pc": 694,
                 "type": "function"
             },
             "__main__.test_storage_var.Args": {
@@ -2337,11 +2316,56 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.write_and_return_result": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 341,
+                "type": "function"
+            },
+            "__main__.write_and_return_result.Args": {
+                "full_name": "__main__.write_and_return_result.Args",
+                "members": {
+                    "num": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.write_and_return_result.ImplicitArgs": {
+                "full_name": "__main__.write_and_return_result.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 1
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 3,
+                "type": "struct"
+            },
+            "__main__.write_and_return_result.Return": {
+                "cairo_type": "(result: felt)",
+                "type": "type_definition"
+            },
+            "__main__.write_and_return_result.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__wrappers__.bitwise_and": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 376,
+                "pc": 387,
                 "type": "function"
             },
             "__wrappers__.bitwise_and.Args": {
@@ -2407,80 +2431,11 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
-            "__wrappers__.return_result": {
-                "decorators": [
-                    "external"
-                ],
-                "pc": 352,
-                "type": "function"
-            },
-            "__wrappers__.return_result.Args": {
-                "full_name": "__wrappers__.return_result.Args",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.return_result.ImplicitArgs": {
-                "full_name": "__wrappers__.return_result.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.return_result.Return": {
-                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
-                "type": "type_definition"
-            },
-            "__wrappers__.return_result.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 0
-            },
-            "__wrappers__.return_result.__wrapped_func": {
-                "destination": "__main__.return_result",
-                "type": "alias"
-            },
-            "__wrappers__.return_result_encode_return": {
-                "decorators": [],
-                "pc": 343,
-                "type": "function"
-            },
-            "__wrappers__.return_result_encode_return.Args": {
-                "full_name": "__wrappers__.return_result_encode_return.Args",
-                "members": {
-                    "range_check_ptr": {
-                        "cairo_type": "felt",
-                        "offset": 1
-                    },
-                    "ret_value": {
-                        "cairo_type": "(result: felt)",
-                        "offset": 0
-                    }
-                },
-                "size": 2,
-                "type": "struct"
-            },
-            "__wrappers__.return_result_encode_return.ImplicitArgs": {
-                "full_name": "__wrappers__.return_result_encode_return.ImplicitArgs",
-                "members": {},
-                "size": 0,
-                "type": "struct"
-            },
-            "__wrappers__.return_result_encode_return.Return": {
-                "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
-                "type": "type_definition"
-            },
-            "__wrappers__.return_result_encode_return.SIZEOF_LOCALS": {
-                "type": "const",
-                "value": 1
-            },
-            "__wrappers__.return_result_encode_return.memcpy": {
-                "destination": "starkware.cairo.common.memcpy.memcpy",
-                "type": "alias"
-            },
             "__wrappers__.sqrt": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 400,
+                "pc": 411,
                 "type": "function"
             },
             "__wrappers__.sqrt.Args": {
@@ -2516,7 +2471,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 608,
+                "pc": 619,
                 "type": "function"
             },
             "__wrappers__.test_call_contract.Args": {
@@ -2551,7 +2506,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 737,
+                "pc": 748,
                 "type": "function"
             },
             "__wrappers__.test_contract_address.Args": {
@@ -2580,7 +2535,7 @@
             },
             "__wrappers__.test_contract_address_encode_return": {
                 "decorators": [],
-                "pc": 728,
+                "pc": 739,
                 "type": "function"
             },
             "__wrappers__.test_contract_address_encode_return.Args": {
@@ -2620,7 +2575,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 651,
+                "pc": 662,
                 "type": "function"
             },
             "__wrappers__.test_deploy.Args": {
@@ -2649,7 +2604,7 @@
             },
             "__wrappers__.test_deploy_encode_return": {
                 "decorators": [],
-                "pc": 642,
+                "pc": 653,
                 "type": "function"
             },
             "__wrappers__.test_deploy_encode_return.Args": {
@@ -2690,7 +2645,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 498,
+                "pc": 509,
                 "type": "function"
             },
             "__wrappers__.test_library_call.Args": {
@@ -2725,7 +2680,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 477,
+                "pc": 488,
                 "type": "function"
             },
             "__wrappers__.test_long_retdata.Args": {
@@ -2754,7 +2709,7 @@
             },
             "__wrappers__.test_long_retdata_encode_return": {
                 "decorators": [],
-                "pc": 464,
+                "pc": 475,
                 "type": "function"
             },
             "__wrappers__.test_long_retdata_encode_return.Args": {
@@ -2794,7 +2749,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 570,
+                "pc": 581,
                 "type": "function"
             },
             "__wrappers__.test_nested_library_call.Args": {
@@ -2823,7 +2778,7 @@
             },
             "__wrappers__.test_nested_library_call_encode_return": {
                 "decorators": [],
-                "pc": 561,
+                "pc": 572,
                 "type": "function"
             },
             "__wrappers__.test_nested_library_call_encode_return.Args": {
@@ -2863,7 +2818,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 435,
+                "pc": 446,
                 "type": "function"
             },
             "__wrappers__.test_storage_read_write.Args": {
@@ -2892,7 +2847,7 @@
             },
             "__wrappers__.test_storage_read_write_encode_return": {
                 "decorators": [],
-                "pc": 426,
+                "pc": 437,
                 "type": "function"
             },
             "__wrappers__.test_storage_read_write_encode_return.Args": {
@@ -2932,7 +2887,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 702,
+                "pc": 713,
                 "type": "function"
             },
             "__wrappers__.test_storage_var.Args": {
@@ -3030,6 +2985,75 @@
                 "type": "alias"
             },
             "__wrappers__.without_arg_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
+            "__wrappers__.write_and_return_result": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 360,
+                "type": "function"
+            },
+            "__wrappers__.write_and_return_result.Args": {
+                "full_name": "__wrappers__.write_and_return_result.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.write_and_return_result.ImplicitArgs": {
+                "full_name": "__wrappers__.write_and_return_result.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.write_and_return_result.Return": {
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: starkware.cairo.common.cairo_builtins.HashBuiltin*, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.write_and_return_result.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.write_and_return_result.__wrapped_func": {
+                "destination": "__main__.write_and_return_result",
+                "type": "alias"
+            },
+            "__wrappers__.write_and_return_result_encode_return": {
+                "decorators": [],
+                "pc": 351,
+                "type": "function"
+            },
+            "__wrappers__.write_and_return_result_encode_return.Args": {
+                "full_name": "__wrappers__.write_and_return_result_encode_return.Args",
+                "members": {
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "ret_value": {
+                        "cairo_type": "(result: felt)",
+                        "offset": 0
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__wrappers__.write_and_return_result_encode_return.ImplicitArgs": {
+                "full_name": "__wrappers__.write_and_return_result_encode_return.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.write_and_return_result_encode_return.Return": {
+                "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.write_and_return_result_encode_return.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 1
+            },
+            "__wrappers__.write_and_return_result_encode_return.memcpy": {
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
@@ -5004,7 +5028,7 @@
                         "group": 36,
                         "offset": 0
                     },
-                    "pc": 394,
+                    "pc": 405,
                     "value": "[cast(fp + (-3), felt*)]"
                 },
                 {
@@ -5012,7 +5036,7 @@
                         "group": 36,
                         "offset": 1
                     },
-                    "pc": 396,
+                    "pc": 407,
                     "value": "[cast(fp, felt*)]"
                 }
             ]
