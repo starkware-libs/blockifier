@@ -245,12 +245,17 @@ impl PyTransactionExecutor {
         max_size: usize,
         latest_block_id: BigInt,
     ) -> NativeBlockifierResult<Self> {
+        log::debug!("Initializing Transaction Executor...");
+
         // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
         // executor and storage - (storage_path, max_size).
         let storage = Storage::new(storage_path, max_size)?;
         storage.validate_aligned(latest_block_id)?;
         let block_context = py_block_context(general_config, block_info)?;
-        build_tx_executor(block_context, storage.reader)
+        let build_result = build_tx_executor(block_context, storage.reader);
+        log::debug!("Initialized Transaction Executor.");
+
+        build_result
     }
 
     #[args(tx, raw_contract_class, enough_room_for_tx)]
@@ -294,6 +299,10 @@ impl PyTransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.borrow_state().to_state_diff())
+        log::debug!("Finalizing execution...");
+        let state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
+        log::debug!("Finalized execution.");
+
+        state_diff
     }
 }
