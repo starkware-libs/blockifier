@@ -25,7 +25,21 @@ pub enum DeclareTransactionError {
 }
 
 #[derive(Debug, Error)]
+pub enum ContractConstructorExecutionError {
+    #[error("Contract constructor execution has failed.")]
+    ContractConstructorExecutionFailed(#[from] EntryPointExecutionError),
+}
+
+#[derive(Debug, Error)]
+pub enum ValidateTransactionError {
+    #[error("Transaction validation has failed.")]
+    ValidateExecutionFailed(#[from] EntryPointExecutionError),
+}
+
+#[derive(Debug, Error)]
 pub enum TransactionExecutionError {
+    #[error(transparent)]
+    ContractConstructorExecutionFailed(#[from] ContractConstructorExecutionError),
     #[error(transparent)]
     DeclareTransactionError(#[from] DeclareTransactionError),
     #[error(transparent)]
@@ -49,4 +63,6 @@ pub enum TransactionExecutionError {
     UnauthorizedInnerCall { entry_point_kind: String },
     #[error("Unknown chain ID '{chain_id:?}'.")]
     UnknownChainId { chain_id: String },
+    #[error(transparent)]
+    ValidateTransactionError(#[from] ValidateTransactionError),
 }
