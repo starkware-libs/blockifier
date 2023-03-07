@@ -30,13 +30,19 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: self.nonce,
             sender_address: self.contract_address,
         };
+        let execute_call_info = self.run_execute(state, block_context, &tx_context, None)?;
+        let (n_storage_updates, n_modified_contracts, n_class_updates) =
+            state.count_actual_state_changes();
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
-            execute_call_info: self.run_execute(state, block_context, &tx_context, None)?,
+            execute_call_info,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
             actual_resources: ResourcesMapping::default(),
+            n_storage_updates,
+            n_modified_contracts,
+            n_class_updates,
         })
     }
 }

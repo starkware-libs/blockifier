@@ -38,6 +38,14 @@ func return_result(num: felt) -> (result: felt) {
 }
 
 @external
+func write_and_return_result{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    num: felt
+) -> (result: felt) {
+    number_map.write(key=2, value=num);
+    return (result=num);
+}
+
+@external
 func bitwise_and{bitwise_ptr: BitwiseBuiltin*}(x: felt, y: felt) {
     bitwise_ptr.x = x;
     bitwise_ptr.y = y;
@@ -93,8 +101,9 @@ func test_nested_library_call{syscall_ptr: felt*}(
 ) -> (result: felt) {
     alloc_locals;
     assert calldata_len = 2;
-    local nested_library_calldata: felt* = new (class_hash, nested_selector, 2,
-        calldata[0] + 1, calldata[1] + 1);
+    local nested_library_calldata: felt* = new (
+        class_hash, nested_selector, 2, calldata[0] + 1, calldata[1] + 1
+    );
     let (retdata_size: felt, retdata: felt*) = library_call(
         class_hash=class_hash,
         function_selector=lib_selector,
