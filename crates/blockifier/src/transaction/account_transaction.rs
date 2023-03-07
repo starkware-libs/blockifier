@@ -20,7 +20,7 @@ use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::{
-    FeeTransferError, InvokeTransactionError, TransactionExecutionError,
+    FeeTransferError, InvokeTransactionError, TransactionExecutionError, ValidateTransactionError,
 };
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
@@ -154,13 +154,15 @@ impl AccountTransaction {
         };
         let mut execution_context = ExecutionContext::default();
 
-        let validate_call_info = validate_call.execute(
-            state,
-            execution_resources,
-            &mut execution_context,
-            block_context,
-            account_tx_context,
-        )?;
+        let validate_call_info = validate_call
+            .execute(
+                state,
+                execution_resources,
+                &mut execution_context,
+                block_context,
+                account_tx_context,
+            )
+            .map_err(ValidateTransactionError::ValidateExecutionFailed)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
