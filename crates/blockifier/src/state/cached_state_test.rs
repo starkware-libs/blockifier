@@ -261,3 +261,20 @@ fn cached_state_state_diff_conversion() {
 
     assert_eq!(expected_state_diff, state.to_state_diff());
 }
+
+#[test]
+fn count_actual_state_changes() {
+    let contract_address = ContractAddress(patricia_key!("0x100"));
+    let class_hash = ClassHash(stark_felt!("0x10"));
+    let key = StorageKey(patricia_key!("0x10"));
+    let storage_val: StarkFelt = stark_felt!("0x1");
+
+    let mut state = CachedState::new(DictStateReader::default());
+    state.set_class_hash_at(contract_address, class_hash).unwrap();
+    state.set_storage_at(contract_address, key, storage_val);
+
+    let (n_storage_updates, n_modified_contracts, n_class_updates) =
+        state.count_actual_state_changes();
+
+    assert_eq!((n_storage_updates, n_modified_contracts, n_class_updates), (1, 1, 1));
+}
