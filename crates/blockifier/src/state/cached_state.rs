@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
@@ -33,6 +33,24 @@ pub struct CachedState<S: StateReader> {
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+    }
+
+    /// Returns the number of storage changes done through this state.
+    /// Any change to the contract's state (storage, nonce, class hash) is considered.
+    /// Exclude fee-related contracts (sequencer account, fee token), since they are charged once
+    /// throughout the block.
+    // TODO(Noa, 30/04/23): Add nonce count.
+    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+        // Storage Update.
+        let storage_updates = &self.cache.get_stoarge_updates();
+        let mut modified_contracts: HashSet<ContractAddress> =
+            storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
+
+        // Class hash Update (deployed contracts).
+        let class_hash_updates = &self.cache.get_class_hash_updates();
+        modified_contracts.extend(class_hash_updates.keys());
+
+        (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
     }
 }
 
@@ -146,12 +164,8 @@ impl<S: StateReader> State for CachedState<S> {
         let state_cache = &self.cache;
 
         // Contract instance attributes.
-        let deployed_contracts = subtract_mappings(
-            &state_cache.class_hash_writes,
-            &state_cache.class_hash_initial_values,
-        );
-        let storage_diffs =
-            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
+        let deployed_contracts = state_cache.get_class_hash_updates();
+        let storage_diffs = state_cache.get_stoarge_updates();
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
@@ -266,6 +280,14 @@ impl StateCache {
 
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
         self.class_hash_writes.insert(contract_address, class_hash);
+    }
+
+    fn get_stoarge_updates(&self) -> HashMap<ContractStorageKey, StarkFelt> {
+        subtract_mappings(&self.storage_writes, &self.storage_initial_values)
+    }
+
+    fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
+        subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
 }
 
