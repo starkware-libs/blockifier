@@ -79,6 +79,8 @@ impl From<SyscallExecutionError> for cairo_vm_errors::hint_errors::HintError {
 pub enum VirtualMachineExecutionError {
     #[error(transparent)]
     CairoRunError(#[from] cairo_vm_errors::cairo_run_errors::CairoRunError),
+    #[error(transparent)]
+    VirtualMachineError(#[from] cairo_vm_errors::vm_errors::VirtualMachineError),
 }
 
 #[derive(Debug, Error)]
