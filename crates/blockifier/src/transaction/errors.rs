@@ -25,9 +25,23 @@ pub enum DeclareTransactionError {
 }
 
 #[derive(Debug, Error)]
+pub enum DeployTransactionError {
+    #[error("Transaction deployment has failed.")]
+    DeployExecutionFailed(#[from] EntryPointExecutionError),
+}
+
+#[derive(Debug, Error)]
+pub enum ValidateTransactionError {
+    #[error("Transaction validation has failed.")]
+    ValidateExecutionFailed(#[from] EntryPointExecutionError),
+}
+
+#[derive(Debug, Error)]
 pub enum TransactionExecutionError {
     #[error(transparent)]
     DeclareTransactionError(#[from] DeclareTransactionError),
+    #[error(transparent)]
+    DeployTransactionError(#[from] DeployTransactionError),
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error(transparent)]
@@ -49,4 +63,6 @@ pub enum TransactionExecutionError {
     UnauthorizedInnerCall { entry_point_kind: String },
     #[error("Unknown chain ID '{chain_id:?}'.")]
     UnknownChainId { chain_id: String },
+    #[error(transparent)]
+    ValidateTransactionError(#[from] ValidateTransactionError),
 }

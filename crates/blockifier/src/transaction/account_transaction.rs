@@ -10,6 +10,7 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
+use super::errors::ValidateTransactionError;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
@@ -148,7 +149,10 @@ impl AccountTransaction {
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
-        let validate_call_info = validate_call.execute(state, block_context, account_tx_context)?;
+        let validate_call_info = validate_call
+            .execute(state, block_context, account_tx_context)
+            .map_err(ValidateTransactionError::ValidateExecutionFailed)?;
+
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),

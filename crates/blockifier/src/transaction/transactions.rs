@@ -6,6 +6,7 @@ use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
 };
 
+use super::errors::DeployTransactionError;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
@@ -33,15 +34,18 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         state: &mut CachedState<S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        log::trace!("Executing Transaction.");
         let mut transactional_state = CachedState::new(MutRefState::new(state));
         let execution_result = self.execute_raw(&mut transactional_state, block_context);
 
         match execution_result {
             Ok(value) => {
                 transactional_state.commit();
+                log::trace!("Transaction execution complete.");
                 Ok(value)
             }
             Err(error) => {
+                log::warn!("Transaction execution failed with: {error}");
                 transactional_state.abort();
                 Err(error)
             }
@@ -104,7 +108,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let call_info = execute_deployment(
+        let deployment_result = execute_deployment(
             state,
             block_context,
             account_tx_context,
@@ -112,7 +116,8 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             self.contract_address,
             ContractAddress::default(),
             self.constructor_calldata.clone(),
-        )?;
+        );
+        let call_info = deployment_result.map_err(DeployTransactionError::DeployExecutionFailed)?;
         verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
 
         Ok(Some(call_info))
