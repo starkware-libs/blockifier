@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
@@ -146,12 +146,8 @@ impl<S: StateReader> State for CachedState<S> {
         let state_cache = &self.cache;
 
         // Contract instance attributes.
-        let deployed_contracts = subtract_mappings(
-            &state_cache.class_hash_writes,
-            &state_cache.class_hash_initial_values,
-        );
-        let storage_diffs =
-            subtract_mappings(&state_cache.storage_writes, &state_cache.storage_initial_values);
+        let deployed_contracts = state_cache.get_deployed_contracts();
+        let storage_diffs = state_cache.get_stoarge_diffs();
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
@@ -267,6 +263,14 @@ impl StateCache {
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
         self.class_hash_writes.insert(contract_address, class_hash);
     }
+
+    fn get_stoarge_diffs(&self) -> HashMap<ContractStorageKey, StarkFelt> {
+        subtract_mappings(&self.storage_writes, &self.storage_initial_values)
+    }
+
+    fn get_deployed_contracts(&self) -> HashMap<ContractAddress, ClassHash> {
+        subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
+    }
 }
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
@@ -352,4 +356,20 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
+
+    /// Returns the number of storage changes done through this state, the number of modified
+    /// contracts, where a contract is considered as modified if one or more of its storage cells
+    /// has changed and the number of deployed contracts.
+    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+        let state_cache = &self.cache;
+
+        let storage_diffs = state_cache.get_stoarge_diffs();
+        let modified_contracts: HashSet<ContractAddress> =
+            storage_diffs.keys().map(|key| key.0).collect();
+        let deployed_contracts = state_cache.get_deployed_contracts();
+
+        // Exclude the sequencer balance update, since it's charged once throughout the batch.
+        // Exclude the ERC20 contract, since it's changed one time in a batch.
+        (storage_diffs.len() - 1, modified_contracts.len() - 1, deployed_contracts.len())
+    }
 }

@@ -104,7 +104,7 @@ fn test_account_flow_test() {
     .unwrap();
 
     // Invoke a function from the newly deployed contract.
-    let entry_point_selector = selector_from_name("return_result");
+    let entry_point_selector = selector_from_name("write_and_return_result");
     let execute_calldata = calldata![
         *contract_address.0.key(), // Contract address.
         entry_point_selector.0,    // EP selector.
