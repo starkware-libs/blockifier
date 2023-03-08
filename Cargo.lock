@@ -2358,7 +2358,6 @@ dependencies = [
  "indexmap",
  "rand",
  "rand_chacha",
- "reqwest",
  "serde",
  "serde_json",
  "starknet_api",

@@ -192,7 +192,7 @@ pub struct PyTransactionExecutor {
 
     // State-related fields.
     // Storage reader and transaction are kept merely for lifetime parameter referencing.
-    pub storage_reader: papyrus_storage::StorageReader,
+    pub storage_reader: Option<papyrus_storage::StorageReader>,
     #[borrows(storage_reader)]
     #[covariant]
     pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
@@ -203,13 +203,13 @@ pub struct PyTransactionExecutor {
 
 pub fn build_tx_executor(
     block_context: BlockContext,
-    storage_reader: papyrus_storage::StorageReader,
+    storage_reader: Option<papyrus_storage::StorageReader>,
 ) -> NativeBlockifierResult<PyTransactionExecutor> {
     // The following callbacks are required to capture the local lifetime parameter.
     fn storage_tx_builder(
-        storage_reader: &papyrus_storage::StorageReader,
+        storage_reader: &Option<papyrus_storage::StorageReader>,
     ) -> NativeBlockifierResult<papyrus_storage::StorageTxn<'_, RO>> {
-        Ok(storage_reader.begin_ro_txn()?)
+        Ok(storage_reader.as_ref().unwrap().begin_ro_txn()?)
     }
 
     fn state_builder<'a>(
@@ -247,7 +247,8 @@ impl PyTransactionExecutor {
         // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
         // executor and storage - (storage_path, max_size).
         log::info!("DORI DORI DORI HOORAY");
-        let storage = Storage::new(storage_path, max_size)?;
+        let mut storage = Storage::new(storage_path, max_size)?;
+        storage.writer = None;
         storage.validate_aligned(latest_block_id)?;
         let block_context = py_block_context(general_config, block_info)?;
         build_tx_executor(block_context, storage.reader)
@@ -271,6 +272,8 @@ impl PyTransactionExecutor {
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
         log::trace!("Finalizing execution.");
-        PyStateDiff::from(self.borrow_state().to_state_diff())
+        let state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
+        self.with_mut(|mut executor| executor.storage_reader = &None);
+        state_diff
     }
 }

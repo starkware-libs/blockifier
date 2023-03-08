@@ -20,8 +20,8 @@ use crate::PyStateDiff;
 
 #[pyclass]
 pub struct Storage {
-    pub reader: papyrus_storage::StorageReader,
-    pub writer: papyrus_storage::StorageWriter,
+    pub reader: Option<papyrus_storage::StorageReader>,
+    pub writer: Option<papyrus_storage::StorageWriter>,
 }
 
 #[pymethods]
@@ -32,18 +32,17 @@ impl Storage {
         log::info!("Initialize Blockifier storage.");
         let db_config = papyrus_storage::db::DbConfig { path, max_size };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
-        Ok(Storage { reader, writer })
+        Ok(Storage { reader: Some(reader), writer: Some(writer) })
     }
 
-    pub fn drop(&mut self) -> NativeBlockifierResult<()> {
-        self.reader.drop()?;
-        self.writer.drop()?;
-        Ok(())
+    pub fn close(&mut self) {
+        self.reader = None;
+        self.writer = None;
     }
 
     /// Returns the next block number (the one that was not yet created).
     pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
-        let block_number = self.reader.begin_ro_txn()?.get_state_marker()?;
+        let block_number = self.reader.as_ref().unwrap().begin_ro_txn()?.get_state_marker()?;
         Ok(block_number.0)
     }
 
@@ -53,6 +52,8 @@ impl Storage {
         let block_number = BlockNumber(block_number);
         let block_hash = self
             .reader
+            .as_ref()
+            .unwrap()
             .begin_ro_txn()?
             .get_block_header(block_number)?
             .map(|block_header| Vec::from(block_header.block_hash.0.bytes()));
@@ -62,9 +63,9 @@ impl Storage {
     #[args(block_number)]
     pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
         let block_number = BlockNumber(block_number);
-        let revert_txn = self.writer.begin_rw_txn()?;
+        let revert_txn = self.writer.as_mut().unwrap().begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
-        let (revert_txn, _) = revert_txn.revert_header(block_number)?;
+        let revert_txn = revert_txn.revert_header(block_number)?;
 
         revert_txn.commit()?;
         Ok(())
@@ -96,7 +97,7 @@ impl Storage {
         state_diff.declared_classes = declared_classes;
 
         let deployed_contract_class_definitions = IndexMap::<ClassHash, ContractClass>::new();
-        let append_txn = self.writer.begin_rw_txn()?.append_state_diff(
+        let append_txn = self.writer.as_mut().unwrap().begin_rw_txn()?.append_state_diff(
             block_number,
             state_diff,
             deployed_contract_class_definitions,

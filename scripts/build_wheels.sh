@@ -16,8 +16,8 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Required for libclang > 3.9, by default there is only clang 3.4 in this image.
 source /opt/rh/llvm-toolset-7.0/enable
 
-cpython_bins=$(echo /opt/python/cp{37,38,39,310}*/bin)
-pypy_bins=$(echo /opt/python/pp{37,38,39}*/bin)
+cpython_bins=$(echo /opt/python/cp39*/bin)
+pypy_bins=$(echo /opt/python/pp39*/bin)
 
 # Compile wheels.
 for py_bin in ${cpython_bins} ${pypy_bins}; do
@@ -27,7 +27,7 @@ for py_bin in ${cpython_bins} ${pypy_bins}; do
 done
 
 # Bundle external shared libraries into the wheels.
-for whl in dist/*{cp37,cp38,cp39,cp310,pp37,pp38,pp39}*.whl; do
+for whl in dist/*{cp39,pp39}*.whl; do
     auditwheel repair "$whl" -w ./dist/
 done
 
