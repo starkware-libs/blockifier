@@ -17,10 +17,9 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
-use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, ExecutionResources, OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
@@ -34,19 +33,13 @@ use crate::execution::syscalls::{
     get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
     storage_read, storage_write, SyscallRequest, SyscallResponse, SyscallResult, SyscallSelector,
 };
-use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
-
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
-pub struct SyscallHintProcessor<'a> {
+pub struct SyscallHintProcessor<'a, 'b> {
     // Input for execution.
-    pub state: &'a mut dyn State,
-    pub execution_resources: &'a mut ExecutionResources,
-    pub block_context: &'a BlockContext,
-    pub account_tx_context: &'a AccountTransactionContext,
+    pub context: &'b mut ExecutionContext<'a>,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
 
@@ -72,21 +65,15 @@ pub struct SyscallHintProcessor<'a> {
     tx_info_start_ptr: Option<Relocatable>,
 }
 
-impl<'a> SyscallHintProcessor<'a> {
+impl<'a, 'b> SyscallHintProcessor<'a, 'b> {
     pub fn new(
-        state: &'a mut dyn State,
-        execution_resources: &'a mut ExecutionResources,
-        block_context: &'a BlockContext,
-        account_tx_context: &'a AccountTransactionContext,
+        context: &'b mut ExecutionContext<'a>,
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
     ) -> Self {
         SyscallHintProcessor {
-            state,
-            execution_resources,
-            block_context,
-            account_tx_context,
+            context,
             storage_address,
             caller_address,
             inner_calls: vec![],
@@ -189,7 +176,7 @@ impl<'a> SyscallHintProcessor<'a> {
         ExecuteCallback: FnOnce(
             Request,
             &mut VirtualMachine,
-            &mut SyscallHintProcessor<'_>,
+            &mut SyscallHintProcessor<'_, '_>,
         ) -> SyscallResult<Response>,
     {
         let request = Request::read(vm, self.syscall_ptr)?;
@@ -210,7 +197,8 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
-        let syscall_count = self.execution_resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count =
+            self.context.execution_resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -218,7 +206,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        let signature = &self.account_tx_context.signature.0;
+        let signature = &self.context.account_tx_context.signature.0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -228,16 +216,17 @@ impl<'a> SyscallHintProcessor<'a> {
 
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
-        let tx_signature_length = self.account_tx_context.signature.0.len();
+        let account_tx_context = self.context.account_tx_context;
+        let tx_signature_length = account_tx_context.signature.0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(self.account_tx_context.version.0).into(),
-            stark_felt_to_felt(*self.account_tx_context.sender_address.0.key()).into(),
-            Felt::from(self.account_tx_context.max_fee.0).into(),
+            stark_felt_to_felt(account_tx_context.version.0).into(),
+            stark_felt_to_felt(*account_tx_context.sender_address.0.key()).into(),
+            Felt::from(account_tx_context.max_fee.0).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(self.account_tx_context.transaction_hash.0).into(),
-            Felt::from_bytes_be(self.block_context.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(self.account_tx_context.nonce.0).into(),
+            stark_felt_to_felt(account_tx_context.transaction_hash.0).into(),
+            Felt::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(account_tx_context.nonce.0).into(),
         ];
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
@@ -245,7 +234,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 }
 
-impl HintProcessor for SyscallHintProcessor<'_> {
+impl<'a, 'b> HintProcessor for SyscallHintProcessor<'a, 'b> {
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
@@ -305,14 +294,9 @@ pub fn read_call_params(
 pub fn execute_inner_call(
     call: CallEntryPoint,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(
-        syscall_handler.state,
-        syscall_handler.execution_resources,
-        syscall_handler.block_context,
-        syscall_handler.account_tx_context,
-    )?;
+    let call_info = call.execute(syscall_handler.context)?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
         retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
