@@ -10,7 +10,9 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
+use cairo_vm::vm::runners::cairo_runner::{
+    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
+};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
@@ -20,7 +22,7 @@ use starknet_api::transaction::Calldata;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
-    EntryPointExecutionResult, Retdata,
+    EntryPointExecutionResult, ExecutionResources, Retdata,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -29,8 +31,6 @@ use crate::execution::syscall_handling::{execute_inner_call, SyscallHintProcesso
 use crate::execution::syscalls::SyscallResult;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
-
-use super::entry_point::ExecutionResourcesManager;
 
 pub type Args = Vec<CairoArg>;
 
@@ -59,7 +59,7 @@ pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     class_hash: ClassHash,
     state: &'a mut dyn State,
-    resources_manager: &'a mut ExecutionResourcesManager,
+    execution_resources: &'a mut ExecutionResources,
     block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<ExecutionContext<'a>, PreExecutionError> {
@@ -83,7 +83,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = SyscallHintProcessor::new(
         state,
-        resources_manager,
+        execution_resources,
         block_context,
         account_tx_context,
         initial_syscall_ptr,
@@ -135,17 +135,17 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     class_hash: ClassHash,
     state: &mut dyn State,
-    resources_manager: &mut ExecutionResourcesManager,
+    execution_resources: &mut ExecutionResources,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let previous_vm_resources = resources_manager.vm_resources.clone();
+    let previous_vm_resources = execution_resources.vm_resources.clone();
 
     let mut execution_context = initialize_execution_context(
         &call,
         class_hash,
         state,
-        resources_manager,
+        execution_resources,
         block_context,
         account_tx_context,
     )?;
@@ -192,7 +192,7 @@ pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
     call: CallEntryPoint,
-    _previous_vm_resources: ExecutionResources,
+    _previous_vm_resources: VmExecutionResources,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -411,7 +411,7 @@ impl ReadOnlySegments {
 #[allow(clippy::too_many_arguments)]
 pub fn execute_deployment(
     state: &mut dyn State,
-    resources_manager: &mut ExecutionResourcesManager,
+    execution_resources: &mut ExecutionResources,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
@@ -424,7 +424,7 @@ pub fn execute_deployment(
     state.set_class_hash_at(deployed_contract_address, class_hash)?;
     execute_constructor_entry_point(
         state,
-        resources_manager,
+        execution_resources,
         block_context,
         account_tx_context,
         class_hash,
