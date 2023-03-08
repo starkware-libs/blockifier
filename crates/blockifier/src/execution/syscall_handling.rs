@@ -21,7 +21,7 @@ use starknet_api::transaction::Calldata;
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, ExecutionResourcesManager, OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, ExecutionResources, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
@@ -46,7 +46,7 @@ pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
-    pub resources_manager: &'a mut ExecutionResourcesManager,
+    pub execution_resources: &'a mut ExecutionResources,
     pub block_context: &'a BlockContext,
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
@@ -81,7 +81,7 @@ pub struct SyscallHintProcessor<'a> {
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
-        resources_manager: &'a mut ExecutionResourcesManager,
+        execution_resources: &'a mut ExecutionResources,
         block_context: &'a BlockContext,
         account_tx_context: &'a AccountTransactionContext,
         initial_syscall_ptr: Relocatable,
@@ -90,7 +90,7 @@ impl<'a> SyscallHintProcessor<'a> {
     ) -> Self {
         SyscallHintProcessor {
             state,
-            resources_manager,
+            execution_resources,
             block_context,
             account_tx_context,
             storage_address,
@@ -218,7 +218,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
-        let syscall_count = self.resources_manager.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.execution_resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -339,7 +339,7 @@ pub fn execute_inner_call(
 ) -> SyscallResult<ReadOnlySegment> {
     let call_info = call.execute(
         syscall_handler.state,
-        syscall_handler.resources_manager,
+        syscall_handler.execution_resources,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
     )?;
