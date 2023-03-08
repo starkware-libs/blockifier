@@ -165,10 +165,12 @@ impl SyscallResponse for StorageReadResponse {
 pub fn storage_read(
     request: StorageReadRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<StorageReadResponse> {
-    let value =
-        syscall_handler.state.get_storage_at(syscall_handler.storage_address, request.address)?;
+    let value = syscall_handler
+        .ctx
+        .state
+        .get_storage_at(syscall_handler.storage_address, request.address)?;
 
     Ok(StorageReadResponse { value })
 }
@@ -196,9 +198,9 @@ type StorageWriteResponse = EmptyResponse;
 pub fn storage_write(
     request: StorageWriteRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<StorageWriteResponse> {
-    syscall_handler.state.set_storage_at(
+    syscall_handler.ctx.state.set_storage_at(
         syscall_handler.storage_address,
         request.address,
         request.value,
@@ -232,7 +234,7 @@ pub type CallContractResponse = SingleSegmentResponse;
 pub fn call_contract(
     request: CallContractRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<CallContractResponse> {
     let entry_point = CallEntryPoint {
         class_hash: None,
@@ -272,7 +274,7 @@ type LibraryCallResponse = CallContractResponse;
 pub fn library_call(
     request: LibraryCallRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = true;
     let retdata_segment = execute_library_call(
@@ -292,7 +294,7 @@ pub fn library_call(
 pub fn library_call_l1_handler(
     request: LibraryCallRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
     let retdata_segment = execute_library_call(
@@ -315,10 +317,10 @@ type DelegateCallResponse = CallContractResponse;
 pub fn delegate_call(
     request: DelegateCallRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = true;
-    let class_hash = syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let class_hash = syscall_handler.ctx.state.get_class_hash_at(request.contract_address)?;
     let retdata_segment = execute_library_call(
         syscall_handler,
         vm,
@@ -336,10 +338,10 @@ pub fn delegate_call(
 pub fn delegate_l1_handler(
     request: DelegateCallRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<DelegateCallResponse> {
     let call_to_external = false;
-    let class_hash = syscall_handler.state.get_class_hash_at(request.contract_address)?;
+    let class_hash = syscall_handler.ctx.state.get_class_hash_at(request.contract_address)?;
     let retdata_segment = execute_library_call(
         syscall_handler,
         vm,
@@ -401,7 +403,7 @@ impl SyscallResponse for DeployResponse {
 pub fn deploy(
     request: DeployRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<DeployResponse> {
     let deployer_address = syscall_handler.storage_address;
     let deployer_address_for_calculation = match request.deploy_from_zero {
@@ -416,10 +418,7 @@ pub fn deploy(
     )?;
 
     let call_info = execute_deployment(
-        syscall_handler.state,
-        syscall_handler.resources_manager,
-        syscall_handler.block_context,
-        syscall_handler.account_tx_context,
+        syscall_handler.ctx,
         request.class_hash,
         deployed_contract_address,
         deployer_address,
@@ -454,7 +453,7 @@ type EmitEventResponse = EmptyResponse;
 pub fn emit_event(
     request: EmitEventRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<EmptyResponse> {
     let ordered_event =
         OrderedEvent { order: syscall_handler.n_emitted_events, event: request.content };
@@ -488,7 +487,7 @@ type SendMessageToL1Response = EmptyResponse;
 pub fn send_message_to_l1(
     request: SendMessageToL1Request,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<EmptyResponse> {
     let ordered_message_to_l1 = OrderedL2ToL1Message {
         order: syscall_handler.n_sent_messages_to_l1,
@@ -520,7 +519,7 @@ impl SyscallResponse for GetContractAddressResponse {
 pub fn get_contract_address(
     _request: GetContractAddressRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetContractAddressResponse> {
     Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
 }
@@ -533,7 +532,7 @@ type GetCallerAddressResponse = GetContractAddressResponse;
 pub fn get_caller_address(
     _request: GetCallerAddressRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetCallerAddressResponse> {
     Ok(GetCallerAddressResponse { address: syscall_handler.caller_address })
 }
@@ -546,9 +545,9 @@ type GetSequencerAddressResponse = GetContractAddressResponse;
 pub fn get_sequencer_address(
     _request: GetSequencerAddressRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetSequencerAddressResponse> {
-    Ok(GetSequencerAddressResponse { address: syscall_handler.block_context.sequencer_address })
+    Ok(GetSequencerAddressResponse { address: syscall_handler.ctx.block_context.sequencer_address })
 }
 
 // GetBlockNumber syscall.
@@ -571,9 +570,9 @@ impl SyscallResponse for GetBlockNumberResponse {
 pub fn get_block_number(
     _request: GetBlockNumberRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetBlockNumberResponse> {
-    Ok(GetBlockNumberResponse { block_number: syscall_handler.block_context.block_number })
+    Ok(GetBlockNumberResponse { block_number: syscall_handler.ctx.block_context.block_number })
 }
 
 // GetBlockTimestamp syscall.
@@ -596,9 +595,11 @@ impl SyscallResponse for GetBlockTimestampResponse {
 pub fn get_block_timestamp(
     _request: GetBlockTimestampRequest,
     _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetBlockTimestampResponse> {
-    Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
+    Ok(GetBlockTimestampResponse {
+        block_timestamp: syscall_handler.ctx.block_context.block_timestamp,
+    })
 }
 
 // GetTxSignature syscall.
@@ -609,10 +610,10 @@ type GetTxSignatureResponse = SingleSegmentResponse;
 pub fn get_tx_signature(
     _request: GetTxSignatureRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetTxSignatureResponse> {
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.account_tx_context.signature.0.len();
+    let length = syscall_handler.ctx.account_tx_context.signature.0.len();
 
     Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }
@@ -636,7 +637,7 @@ impl SyscallResponse for GetTxInfoResponse {
 pub fn get_tx_info(
     _request: GetTxInfoRequest,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<GetTxInfoResponse> {
     let tx_info_start_ptr = syscall_handler.get_or_allocate_tx_info_start_ptr(vm)?;
 
