@@ -1,4 +1,4 @@
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -33,8 +33,8 @@ pub struct CallEntryPoint {
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
-pub struct ExecutionResourcesManager {
-    pub vm_resources: ExecutionResources,
+pub struct ExecutionResources {
+    pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
 }
 
@@ -42,7 +42,7 @@ impl CallEntryPoint {
     pub fn execute(
         self,
         state: &mut dyn State,
-        resources_manager: &mut ExecutionResourcesManager,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
@@ -60,7 +60,7 @@ impl CallEntryPoint {
             self,
             class_hash,
             state,
-            resources_manager,
+            execution_resources,
             block_context,
             account_tx_context,
         )
@@ -144,7 +144,7 @@ impl<'a> IntoIterator for &'a CallInfo {
 #[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
-    resources_manager: &mut ExecutionResourcesManager,
+    execution_resources: &mut ExecutionResources,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
@@ -170,7 +170,7 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
     };
-    constructor_call.execute(state, resources_manager, block_context, account_tx_context)
+    constructor_call.execute(state, execution_resources, block_context, account_tx_context)
 }
 
 pub fn handle_empty_constructor(

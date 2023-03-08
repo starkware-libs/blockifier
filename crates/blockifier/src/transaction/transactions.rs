@@ -9,7 +9,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionResourcesManager};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionResources};
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::errors::StateError;
@@ -61,7 +61,7 @@ pub trait Executable<S: State> {
     fn run_execute(
         &self,
         state: &mut S,
-        resources_manager: &mut ExecutionResourcesManager,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         // Only used for `DeclareTransaction`.
@@ -73,7 +73,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        _resources_manager: &mut ExecutionResourcesManager,
+        _execution_resources: &mut ExecutionResources,
         _block_context: &BlockContext,
         _account_tx_context: &AccountTransactionContext,
         contract_class: Option<ContractClass>,
@@ -102,14 +102,14 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        resources_manager: &mut ExecutionResourcesManager,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let call_info = execute_deployment(
             state,
-            resources_manager,
+            execution_resources,
             block_context,
             account_tx_context,
             self.class_hash,
@@ -127,7 +127,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        resources_manager: &mut ExecutionResourcesManager,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
@@ -143,7 +143,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
 
         Ok(Some(execute_call.execute(
             state,
-            resources_manager,
+            execution_resources,
             block_context,
             account_tx_context,
         )?))
@@ -154,7 +154,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        resources_manager: &mut ExecutionResourcesManager,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
@@ -170,7 +170,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
 
         Ok(Some(execute_call.execute(
             state,
-            resources_manager,
+            execution_resources,
             block_context,
             account_tx_context,
         )?))
