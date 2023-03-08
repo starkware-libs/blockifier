@@ -19,29 +19,25 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
 
-use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
-    EntryPointExecutionResult, ExecutionResources, Retdata,
+    EntryPointExecutionResult, ExecutionContext, Retdata,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::syscall_handling::{execute_inner_call, SyscallHintProcessor};
 use crate::execution::syscalls::SyscallResult;
-use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
-
 pub type Args = Vec<CairoArg>;
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
 pub mod test;
 
-pub struct ExecutionContext<'a> {
+pub struct VmExecutionContext<'a, 'b> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
-    pub syscall_handler: SyscallHintProcessor<'a>,
+    pub syscall_handler: SyscallHintProcessor<'a, 'b>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point_pc: usize,
 }
@@ -55,15 +51,12 @@ pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
     StarkFelt::try_from(biguint.as_str()).expect("Felt must be in StarkFelt's range.")
 }
 
-pub fn initialize_execution_context<'a>(
+pub fn initialize_execution_context<'a, 'b>(
     call: &CallEntryPoint,
     class_hash: ClassHash,
-    state: &'a mut dyn State,
-    execution_resources: &'a mut ExecutionResources,
-    block_context: &'a BlockContext,
-    account_tx_context: &'a AccountTransactionContext,
-) -> Result<ExecutionContext<'a>, PreExecutionError> {
-    let contract_class = state.get_contract_class(&class_hash)?;
+    ctx: &'b mut ExecutionContext<'a>,
+) -> Result<VmExecutionContext<'a, 'b>, PreExecutionError> {
+    let contract_class = ctx.state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
@@ -78,16 +71,13 @@ pub fn initialize_execution_context<'a>(
     // Instantiate syscall handler.
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = SyscallHintProcessor::new(
-        state,
-        execution_resources,
-        block_context,
-        account_tx_context,
+        ctx,
         initial_syscall_ptr,
         call.storage_address,
         call.caller_address,
     );
 
-    Ok(ExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
+    Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
 }
 
 pub fn prepare_call_arguments(
@@ -130,21 +120,11 @@ pub fn prepare_call_arguments(
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
     class_hash: ClassHash,
-    state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    block_context: &BlockContext,
-    account_tx_context: &AccountTransactionContext,
+    ctx: &mut ExecutionContext<'_>,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let previous_vm_resources = execution_resources.vm_resources.clone();
+    let previous_vm_resources = ctx.execution_resources.vm_resources.clone();
 
-    let mut execution_context = initialize_execution_context(
-        &call,
-        class_hash,
-        state,
-        execution_resources,
-        block_context,
-        account_tx_context,
-    )?;
+    let mut execution_context = initialize_execution_context(&call, class_hash, ctx)?;
     let (implicit_args, args) = prepare_call_arguments(
         &call,
         &mut execution_context.vm,
@@ -175,7 +155,7 @@ pub fn run_entry_point(
     vm: &mut VirtualMachine,
     entry_point_pc: usize,
     args: Args,
-    hint_processor: &mut SyscallHintProcessor<'_>,
+    hint_processor: &mut SyscallHintProcessor<'_, '_>,
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
@@ -189,7 +169,7 @@ pub fn finalize_execution(
     cairo_runner: CairoRunner,
     call: CallEntryPoint,
     _previous_vm_resources: VmExecutionResources,
-    syscall_handler: SyscallHintProcessor<'_>,
+    syscall_handler: SyscallHintProcessor<'_, '_>,
     implicit_args: Vec<MaybeRelocatable>,
 ) -> Result<CallInfo, PostExecutionError> {
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
@@ -214,7 +194,7 @@ pub fn validate_run(
     cairo_runner: CairoRunner,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
-    syscall_handler: &SyscallHintProcessor<'_>,
+    syscall_handler: &SyscallHintProcessor<'_, '_>,
 ) -> Result<(), PostExecutionError> {
     // Validate builtins' final stack.
     let mut current_builtin_ptr = implicit_args_end;
@@ -402,12 +382,8 @@ impl ReadOnlySegments {
 
 /// Instantiates the given class and assigns it an address.
 /// Returns the call info of the deployed class' constructor execution.
-#[allow(clippy::too_many_arguments)]
 pub fn execute_deployment(
-    state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    block_context: &BlockContext,
-    account_tx_context: &AccountTransactionContext,
+    ctx: &mut ExecutionContext<'_>,
     class_hash: ClassHash,
     deployed_contract_address: ContractAddress,
     deployer_address: ContractAddress,
@@ -415,12 +391,9 @@ pub fn execute_deployment(
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
-    state.set_class_hash_at(deployed_contract_address, class_hash)?;
+    ctx.state.set_class_hash_at(deployed_contract_address, class_hash)?;
     execute_constructor_entry_point(
-        state,
-        execution_resources,
-        block_context,
-        account_tx_context,
+        ctx,
         class_hash,
         deployed_contract_address,
         deployer_address,
@@ -429,7 +402,7 @@ pub fn execute_deployment(
 }
 
 pub fn execute_library_call(
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut SyscallHintProcessor<'_, '_>,
     vm: &mut VirtualMachine,
     class_hash: ClassHash,
     call_to_external: bool,

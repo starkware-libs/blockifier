@@ -20,6 +20,14 @@ pub mod test;
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
+// Contains common information used throughout the execution of a block.
+pub struct ExecutionContext<'a> {
+    pub state: &'a mut dyn State,
+    pub execution_resources: &'a mut ExecutionResources,
+    pub block_context: &'a BlockContext,
+    pub account_tx_context: &'a AccountTransactionContext,
+}
+
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
@@ -39,15 +47,9 @@ pub struct ExecutionResources {
 }
 
 impl CallEntryPoint {
-    pub fn execute(
-        self,
-        state: &mut dyn State,
-        execution_resources: &mut ExecutionResources,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
-    ) -> EntryPointExecutionResult<CallInfo> {
+    pub fn execute(self, ctx: &mut ExecutionContext<'_>) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
-        let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
+        let storage_class_hash = ctx.state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
         }
@@ -56,14 +58,7 @@ impl CallEntryPoint {
             Some(class_hash) => class_hash,
             None => storage_class_hash,
         };
-        execute_entry_point_call(
-            self,
-            class_hash,
-            state,
-            execution_resources,
-            block_context,
-            account_tx_context,
-        )
+        execute_entry_point_call(self, class_hash, ctx)
     }
 
     pub fn resolve_entry_point_pc(
@@ -141,19 +136,15 @@ impl<'a> IntoIterator for &'a CallInfo {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
-    state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    block_context: &BlockContext,
-    account_tx_context: &AccountTransactionContext,
+    ctx: &mut ExecutionContext<'_>,
     class_hash: ClassHash,
     storage_address: ContractAddress,
     caller_address: ContractAddress,
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_contract_class(&class_hash)?;
+    let contract_class = ctx.state.get_contract_class(&class_hash)?;
     let constructor_entry_points =
         &contract_class.entry_points_by_type[&EntryPointType::Constructor];
 
@@ -170,7 +161,7 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
     };
-    constructor_call.execute(state, execution_resources, block_context, account_tx_context)
+    constructor_call.execute(ctx)
 }
 
 pub fn handle_empty_constructor(
