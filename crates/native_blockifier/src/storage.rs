@@ -35,6 +35,12 @@ impl Storage {
         Ok(Storage { reader, writer })
     }
 
+    pub fn drop(&mut self) -> NativeBlockifierResult<()> {
+        self.reader.drop()?;
+        self.writer.drop()?;
+        Ok(())
+    }
+
     /// Returns the next block number (the one that was not yet created).
     pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
         let block_number = self.reader.begin_ro_txn()?.get_state_marker()?;
@@ -58,7 +64,7 @@ impl Storage {
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer.begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
-        let revert_txn = revert_txn.revert_header(block_number)?;
+        let (revert_txn, _) = revert_txn.revert_header(block_number)?;
 
         revert_txn.commit()?;
         Ok(())

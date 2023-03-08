@@ -19,7 +19,7 @@ num-bigint = { version = "0.4" }
 num-integer = { version = "0.1.45" }
 num-traits = { version = "0.2" }
 once_cell = { version = "1.16.0" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus" }
+papyrus_storage = { path = "../papyrus/crates/papyrus_storage" }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.81", features = ["arbitrary_precision"] }
 sha3 = { version = "0.10.6" }
@@ -30,7 +30,7 @@ thiserror = { version = "1.0.37" }
 
 [dev-dependencies]
 assert_matches = { version = "1.5.0" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", features = [
+papyrus_storage = { path = "../papyrus/crates/papyrus_storage", features = [
     "testing",
 ] }
 pretty_assertions = { version = "1.2.1" }

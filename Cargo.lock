@@ -1453,14 +1453,15 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#93e4459edc33798465b1ad86683d0e850595c001"
 dependencies = [
+ "assert_matches",
  "bincode",
  "flate2",
  "futures-util",
  "indexmap",
  "integer-encoding",
  "libmdbx",
+ "paste",
  "rand",
  "rand_chacha",
  "reqwest",
@@ -2353,11 +2354,11 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#93e4459edc33798465b1ad86683d0e850595c001"
 dependencies = [
  "indexmap",
  "rand",
  "rand_chacha",
+ "reqwest",
  "serde",
  "serde_json",
  "starknet_api",
