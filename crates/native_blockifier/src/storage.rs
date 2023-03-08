@@ -21,6 +21,62 @@ pub struct Storage {
     pub writer: papyrus_storage::StorageWriter,
 }
 
+#[pyclass]
+pub struct StorageWrapper {
+    storage: Option<Storage>,
+}
+
+#[pymethods]
+impl StorageWrapper {
+    #[new]
+    #[args(path)]
+    pub fn new(path: String) -> NativeBlockifierResult<StorageWrapper> {
+        Ok(StorageWrapper { storage: Some(Storage::new(path)?) })
+    }
+
+    /// Returns the next block number (the one that was not yet created).
+    pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
+        let storage = self.storage.unwrap();
+        storage.get_state_marker()
+    }
+
+    #[args(block_number)]
+    pub fn get_block_hash(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
+        let storage = self.storage.unwrap();
+        storage.get_block_hash(block_number)
+    }
+
+    #[args(block_number)]
+    pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        let storage = self.storage.unwrap();
+        storage.revert_state_diff(block_number)
+    }
+
+    #[args(block_id, previous_block_id, py_block_info, py_state_diff, declared_class_hash_to_class)]
+    /// Appends state diff and block header into Papyrus storage.
+    pub fn append_state_diff(
+        &mut self,
+        block_id: u64,
+        previous_block_id: u64,
+        py_block_info: PyBlockInfo,
+        py_state_diff: PyStateDiff,
+        declared_class_hash_to_class: HashMap<PyFelt, String>,
+    ) -> NativeBlockifierResult<()> {
+        let storage = self.storage.unwrap();
+        storage.append_state_diff(
+            block_id,
+            previous_block_id,
+            py_block_info,
+            py_state_diff,
+            declared_class_hash_to_class,
+        )
+    }
+
+    pub fn close(&mut self) {
+        self.storage = None;
+    }
+}
+
 #[pymethods]
 impl Storage {
     #[new]
