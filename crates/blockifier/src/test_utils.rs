@@ -20,7 +20,7 @@ use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, Retdata,
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext, Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
@@ -199,12 +199,12 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 
 impl CallEntryPoint {
     // Executes the call directly, without account context.
-    pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-        self.execute(
+    pub fn execute_directly(self, state: &mut impl State) -> EntryPointExecutionResult<CallInfo> {
+        self.execute(&mut ExecutionContext {
             state,
-            &BlockContext::create_for_testing(),
-            &AccountTransactionContext::default(),
-        )
+            block_context: &BlockContext::create_for_testing(),
+            account_tx_context: &AccountTransactionContext::default(),
+        })
     }
 }
 
