@@ -32,6 +32,7 @@ impl Storage {
         log::info!("Initialize Blockifier storage.");
         let db_config = papyrus_storage::db::DbConfig { path, max_size };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
+        log::info!("GGG Done initializing storage.");
         Ok(Storage { reader: Some(reader), writer: Some(writer) })
     }
 
@@ -65,7 +66,7 @@ impl Storage {
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer.as_mut().unwrap().begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
-        let revert_txn = revert_txn.revert_header(block_number)?;
+        let (revert_txn, _) = revert_txn.revert_header(block_number)?;
 
         revert_txn.commit()?;
         Ok(())
