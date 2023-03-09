@@ -29,6 +29,7 @@ pub struct PyTransactionExecutionInfo {
 }
 
 impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
+    // TODO(Gilad, 1/4/2023): Check that everything can't fail, recursively.
     fn from(info: TransactionExecutionInfo) -> Self {
         Self {
             validate_call_info: info.validate_call_info.map(PyCallInfo::from),
