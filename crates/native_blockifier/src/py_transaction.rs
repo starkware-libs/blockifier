@@ -18,6 +18,7 @@ use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StateDiff;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
     InvokeTransaction, L1HandlerTransaction, TransactionHash, TransactionSignature,
@@ -274,10 +275,18 @@ impl PyTransactionExecutor {
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
         log::debug!("Finalizing execution.");
-        let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
-        let state_diff =
-            PyStateDiff::from(storage.with_mut(|executor| executor.state.to_state_diff()));
-        self.storage_fields = None;
-        state_diff
+        let optional_storage = self.storage_fields.as_mut();
+        match optional_storage {
+            Some(storage) => {
+                let state_diff =
+                    PyStateDiff::from(storage.with_mut(|executor| executor.state.to_state_diff()));
+                self.storage_fields = None;
+                state_diff
+            }
+            None => {
+                log::warn!("Called finalize on uninitialized / finalized executor.");
+                PyStateDiff::from(StateDiff::default())
+            }
+        }
     }
 }
