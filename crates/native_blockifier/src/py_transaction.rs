@@ -246,7 +246,7 @@ impl PyTransactionExecutor {
         log::info!("Initialize Transaction Executor.");
         // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
         // executor and storage - (storage_path, max_size).
-        log::info!("DORI DORI DORI HOORAY");
+        log::info!("DORI x3 HOORAY");
         let mut storage = Storage::new(storage_path, max_size)?;
         storage.writer = None;
         storage.validate_aligned(latest_block_id)?;
@@ -271,7 +271,7 @@ impl PyTransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        log::trace!("Finalizing execution.");
+        log::debug!("Finalizing execution.");
         let state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
         self.with_mut(|mut executor| executor.storage_reader = &None);
         state_diff
