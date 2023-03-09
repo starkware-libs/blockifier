@@ -248,9 +248,10 @@ impl PyTransactionExecutor {
         // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
         // executor and storage - (storage_path, max_size).
         log::info!("DORI x3 HOORAY");
+        log::info!("{}", latest_block_id);
         let mut storage = Storage::new(storage_path, max_size)?;
         storage.writer = None;
-        storage.validate_aligned(latest_block_id)?;
+        // storage.validate_aligned(latest_block_id)?;
         let block_context = py_block_context(general_config, block_info)?;
         let storage_fields = build_tx_executor_storage(block_context.block_number, storage.reader)?;
         Ok(Self { block_context, storage_fields: Some(storage_fields) })

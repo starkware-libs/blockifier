@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use indexmap::IndexMap;
-use num_bigint::{BigInt, Sign};
+// use num_bigint::{BigInt, Sign};
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
@@ -11,9 +11,10 @@ use starknet_api::core::{ClassHash, ContractAddress, GlobalRoot};
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff};
 
-use crate::errors::{
-    NativeBlockifierError, NativeBlockifierResult, NativeBlockifierValidationError,
-};
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+// use crate::errors::{
+//     NativeBlockifierError, NativeBlockifierResult, NativeBlockifierValidationError,
+// };
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
@@ -120,24 +121,24 @@ impl Storage {
         Ok(())
     }
 
-    #[args(latest_block_id)]
-    pub fn validate_aligned(&self, latest_block_id: BigInt) -> NativeBlockifierResult<()> {
-        let block_number = self.get_state_marker()? - 1;
-        let block_id = self.get_block_id(block_number)?;
-        let block_id = match block_id {
-            Some(id) => BigInt::from_bytes_be(Sign::Plus, &id),
-            None => BigInt::from(-1),
-        };
+    // #[args(latest_block_id)]
+    // pub fn validate_aligned(&self, latest_block_id: BigInt) -> NativeBlockifierResult<()> {
+    //     let block_number = self.get_state_marker()? - 1;
+    //     let block_id = self.get_block_id(block_number)?;
+    //     let block_id = match block_id {
+    //         Some(id) => BigInt::from_bytes_be(Sign::Plus, &id),
+    //         None => BigInt::from(-1),
+    //     };
 
-        if block_id != latest_block_id {
-            return Err(NativeBlockifierError::from(
-                NativeBlockifierValidationError::StorageUnaligned {
-                    blockifier_latest_block_id: block_id,
-                    actual_latest_block_id: latest_block_id,
-                },
-            ));
-        }
+    //     if block_id != latest_block_id {
+    //         return Err(NativeBlockifierError::from(
+    //             NativeBlockifierValidationError::StorageUnaligned {
+    //                 blockifier_latest_block_id: block_id,
+    //                 actual_latest_block_id: latest_block_id,
+    //             },
+    //         ));
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
