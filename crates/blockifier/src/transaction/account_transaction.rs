@@ -161,7 +161,6 @@ impl AccountTransaction {
 
     fn charge_fee(
         state: &mut dyn State,
-        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
@@ -174,7 +173,7 @@ impl AccountTransaction {
         let actual_fee = calculate_tx_fee(block_context);
         let fee_transfer_call_info = Self::execute_fee_transfer(
             state,
-            execution_resources,
+            &mut ExecutionResources::default(),
             block_context,
             account_tx_context,
             actual_fee,
@@ -304,7 +303,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         // Charge fee.
         let actual_resources = ResourcesMapping::default();
         let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, execution_resources, block_context, &account_tx_context)?;
+            Self::charge_fee(state, block_context, &account_tx_context)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
