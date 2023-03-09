@@ -187,10 +187,7 @@ pub fn py_tx(
 // To access a field you must use `self.borrow_{field_name}()`.
 // Alternately, you can borrow the whole object using `self.with[_mut]()`.
 #[ouroboros::self_referencing]
-pub struct PyTransactionExecutor {
-    pub block_context: BlockContext,
-
-    // State-related fields.
+pub struct PyTransactionExecutorStorage {
     // Storage reader and transaction are kept merely for lifetime parameter referencing.
     pub storage_reader: Option<papyrus_storage::StorageReader>,
     #[borrows(storage_reader)]
@@ -201,10 +198,16 @@ pub struct PyTransactionExecutor {
     pub state: CachedState<PapyrusStateReader<'this, RO>>,
 }
 
-pub fn build_tx_executor(
-    block_context: BlockContext,
+#[pyclass]
+pub struct PyTransactionExecutor {
+    pub block_context: BlockContext,
+    pub storage_fields: Option<PyTransactionExecutorStorage>,
+}
+
+pub fn build_tx_executor_storage(
+    block_number: BlockNumber,
     storage_reader: Option<papyrus_storage::StorageReader>,
-) -> NativeBlockifierResult<PyTransactionExecutor> {
+) -> NativeBlockifierResult<PyTransactionExecutorStorage> {
     // The following callbacks are required to capture the local lifetime parameter.
     fn storage_tx_builder(
         storage_reader: &Option<papyrus_storage::StorageReader>,
@@ -220,16 +223,13 @@ pub fn build_tx_executor(
         let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
         Ok(CachedState::new(papyrus_reader))
     }
-
-    let block_number = block_context.block_number;
     // The builder struct below is implicitly created by `ouroboros`.
-    let py_tx_executor_builder = PyTransactionExecutorTryBuilder {
-        block_context,
+    let py_tx_executor_storage_builder = PyTransactionExecutorStorageTryBuilder {
         storage_reader,
         storage_tx_builder,
         state_builder: |storage_tx| state_builder(storage_tx, block_number),
     };
-    py_tx_executor_builder.try_build()
+    py_tx_executor_storage_builder.try_build()
 }
 
 #[pymethods]
@@ -251,7 +251,8 @@ impl PyTransactionExecutor {
         storage.writer = None;
         storage.validate_aligned(latest_block_id)?;
         let block_context = py_block_context(general_config, block_info)?;
-        build_tx_executor(block_context, storage.reader)
+        let storage_fields = build_tx_executor_storage(block_context.block_number, storage.reader)?;
+        Ok(Self { block_context, storage_fields: Some(storage_fields) })
     }
 
     #[args(tx, raw_contract_class)]
@@ -259,21 +260,24 @@ impl PyTransactionExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> PyResult<PyTransactionExecutionInfo> {
+    ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
-        let tx_execution_info = self.with_mut(|executor| {
-            tx.execute(executor.state, executor.block_context).map_err(NativeBlockifierError::from)
+        let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
+        let block_context = &self.block_context;
+        let tx_execution_info = storage.with_mut(|executor| {
+            tx.execute(executor.state, block_context).map_err(NativeBlockifierError::from)
         })?;
-
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
         log::debug!("Finalizing execution.");
-        let state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
-        self.with_mut(|mut executor| executor.storage_reader = &None);
+        let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
+        let state_diff =
+            PyStateDiff::from(storage.with_mut(|executor| executor.state.to_state_diff()));
+        self.storage_fields = None;
         state_diff
     }
 }
