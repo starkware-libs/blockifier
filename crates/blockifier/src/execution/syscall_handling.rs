@@ -57,10 +57,6 @@ pub struct SyscallHintProcessor<'a, 'b> {
     // Invariant: must only contain allowed hints.
     builtin_hint_processor: BuiltinHintProcessor,
     // Used for tracking events order during the current execution.
-    pub n_emitted_events: usize,
-    // Used for tracking L2-to-L1 messages order during the current execution.
-    pub n_sent_messages_to_l1: usize,
-    // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
 }
@@ -84,8 +80,6 @@ impl<'a, 'b> SyscallHintProcessor<'a, 'b> {
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
-            n_emitted_events: 0,
-            n_sent_messages_to_l1: 0,
         }
     }
 

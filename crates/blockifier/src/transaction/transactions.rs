@@ -96,6 +96,8 @@ impl Executable for DeployAccountTransaction {
         context: &mut ExecutionContext<'_>,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        context.n_emitted_events = 0;
+        context.n_sent_messages_to_l1 = 0;
         let call_info = execute_deployment(
             context,
             self.class_hash,
@@ -124,7 +126,7 @@ impl Executable for InvokeTransaction {
             caller_address: ContractAddress::default(),
         };
 
-        Ok(Some(execute_call.execute(context)?))
+        Ok(Some(execute_call.execute_tx_ep(context)?))
     }
 }
 
@@ -143,6 +145,6 @@ impl Executable for L1HandlerTransaction {
             caller_address: ContractAddress::default(),
         };
 
-        Ok(Some(execute_call.execute(context)?))
+        Ok(Some(execute_call.execute_tx_ep(context)?))
     }
 }
