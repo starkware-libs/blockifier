@@ -9,7 +9,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionContext};
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::errors::StateError;
@@ -104,8 +104,10 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let mut execution_context = ExecutionContext::default();
         let call_info = execute_deployment(
             state,
+            &mut execution_context,
             block_context,
             account_tx_context,
             self.class_hash,
@@ -135,8 +137,15 @@ impl<S: State> Executable<S> for InvokeTransaction {
             storage_address: self.sender_address,
             caller_address: ContractAddress::default(),
         };
+        let mut execution_context = ExecutionContext::default();
 
-        Ok(Some(execute_call.execute(state, block_context, account_tx_context)?))
+        let call_info = execute_call.execute(
+            state,
+            &mut execution_context,
+            block_context,
+            account_tx_context,
+        )?;
+        Ok(Some(call_info))
     }
 }
 
@@ -156,7 +165,14 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
         };
+        let mut execution_context = ExecutionContext::default();
 
-        Ok(Some(execute_call.execute(state, block_context, account_tx_context)?))
+        let call_info = execute_call.execute(
+            state,
+            &mut execution_context,
+            block_context,
+            account_tx_context,
+        )?;
+        Ok(Some(call_info))
     }
 }

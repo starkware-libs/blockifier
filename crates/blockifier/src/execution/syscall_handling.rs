@@ -20,7 +20,9 @@ use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallInfo, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
+};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment,
@@ -42,6 +44,7 @@ use crate::transaction::objects::AccountTransactionContext;
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
+    pub execution_context: &'a mut ExecutionContext,
     pub block_context: &'a BlockContext,
     pub account_tx_context: &'a AccountTransactionContext,
     pub storage_address: ContractAddress,
@@ -60,10 +63,6 @@ pub struct SyscallHintProcessor<'a> {
     // Additional information gathered during execution.
     pub read_values: Vec<StarkFelt>,
     pub accessed_keys: HashSet<StorageKey>,
-    // Used for tracking events order during the current execution.
-    pub n_emitted_events: usize,
-    // Used for tracking L2-to-L1 messages order during the current execution.
-    pub n_sent_messages_to_l1: usize,
 
     // Additional fields.
     // Invariant: must only contain allowed hints.
@@ -77,6 +76,7 @@ pub struct SyscallHintProcessor<'a> {
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
+        execution_context: &'a mut ExecutionContext,
         block_context: &'a BlockContext,
         account_tx_context: &'a AccountTransactionContext,
         initial_syscall_ptr: Relocatable,
@@ -85,6 +85,7 @@ impl<'a> SyscallHintProcessor<'a> {
     ) -> Self {
         SyscallHintProcessor {
             state,
+            execution_context,
             block_context,
             account_tx_context,
             storage_address,
@@ -96,8 +97,6 @@ impl<'a> SyscallHintProcessor<'a> {
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
             accessed_keys: HashSet::new(),
-            n_emitted_events: 0,
-            n_sent_messages_to_l1: 0,
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
@@ -334,6 +333,7 @@ pub fn execute_inner_call(
 ) -> SyscallResult<ReadOnlySegment> {
     let call_info = call.execute(
         syscall_handler.state,
+        syscall_handler.execution_context,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
     )?;
