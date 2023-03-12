@@ -13,7 +13,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionContext};
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -148,7 +148,14 @@ impl AccountTransaction {
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
-        let validate_call_info = validate_call.execute(state, block_context, account_tx_context)?;
+        let mut execution_context = ExecutionContext::default();
+
+        let validate_call_info = validate_call.execute(
+            state,
+            &mut execution_context,
+            block_context,
+            account_tx_context,
+        )?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
@@ -203,8 +210,14 @@ impl AccountTransaction {
             storage_address: block_context.fee_token_address,
             caller_address: account_tx_context.sender_address,
         };
+        let mut execution_context = ExecutionContext::default();
 
-        Ok(fee_transfer_call.execute(state, block_context, account_tx_context)?)
+        Ok(fee_transfer_call.execute(
+            state,
+            &mut execution_context,
+            block_context,
+            account_tx_context,
+        )?)
     }
 }
 

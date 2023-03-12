@@ -20,6 +20,14 @@ pub mod test;
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct ExecutionContext {
+    // Used for tracking events order during the current execution.
+    pub n_emitted_events: usize,
+    // Used for tracking L2-to-L1 messages order during the current execution.
+    pub n_sent_messages_to_l1: usize,
+}
+
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
@@ -36,6 +44,7 @@ impl CallEntryPoint {
     pub fn execute(
         mut self,
         state: &mut dyn State,
+        execution_context: &mut ExecutionContext,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
@@ -52,7 +61,14 @@ impl CallEntryPoint {
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
 
-        execute_entry_point_call(self, class_hash, state, block_context, account_tx_context)
+        execute_entry_point_call(
+            self,
+            class_hash,
+            state,
+            execution_context,
+            block_context,
+            account_tx_context,
+        )
     }
 
     pub fn resolve_entry_point_pc(
@@ -160,7 +176,9 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
     };
-    constructor_call.execute(state, block_context, account_tx_context)
+    let mut execution_context = ExecutionContext::default();
+
+    constructor_call.execute(state, &mut execution_context, block_context, account_tx_context)
 }
 
 pub fn handle_empty_constructor(
