@@ -34,6 +34,8 @@ impl From<cairo_vm_errors::runner_errors::RunnerError> for PreExecutionError {
 #[derive(Debug, Error)]
 pub enum PostExecutionError {
     #[error(transparent)]
+    MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
+    #[error(transparent)]
     MemoryError(#[from] cairo_vm_errors::memory_errors::MemoryError),
     #[error("Validation failed: {0}.")]
     SecurityValidationError(String),
@@ -57,6 +59,8 @@ pub enum SyscallExecutionError {
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
+    #[error(transparent)]
+    MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
     #[error(transparent)]
     MemoryError(#[from] cairo_vm_errors::memory_errors::MemoryError),
     #[error(transparent)]
