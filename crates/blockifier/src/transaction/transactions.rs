@@ -9,7 +9,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionContext};
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::errors::StateError;
@@ -142,8 +142,10 @@ impl<S: State> Executable<S> for InvokeTransaction {
             storage_address: self.sender_address,
             caller_address: ContractAddress::default(),
         };
+        let mut execution_context = ExecutionContext::default();
 
-        let execute_result = execute_call.execute(state, block_context, account_tx_context);
+        let execute_result =
+            execute_call.execute(state, &mut execution_context, block_context, account_tx_context);
         if execute_result.is_err() {
             log::warn!("Transaction execution Failed.")
         }
@@ -167,8 +169,10 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
         };
+        let mut execution_context = ExecutionContext::default();
 
-        let execute_result = execute_call.execute(state, block_context, account_tx_context);
+        let execute_result =
+            execute_call.execute(state, &mut execution_context, block_context, account_tx_context);
         if execute_result.is_err() {
             log::warn!("Transaction execution Failed.")
         }
