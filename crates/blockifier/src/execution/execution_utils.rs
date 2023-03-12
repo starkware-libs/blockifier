@@ -183,7 +183,7 @@ pub fn finalize_execution(
 ) -> Result<CallInfo, PostExecutionError> {
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
-    let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
+    let implicit_args_end_ptr = (vm.get_ap() - 2)?;
     validate_run(&mut vm, runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
@@ -213,8 +213,8 @@ pub fn validate_run(
 
     // Validate implicit arguments segment length is unchanged.
     // Subtract one to get to the first implicit arg segment (the syscall pointer).
-    let implicit_args_start = current_builtin_ptr.sub_usize(1)?;
-    if implicit_args_start + implicit_args.len() != implicit_args_end {
+    let implicit_args_start = (current_builtin_ptr - 1)?;
+    if (implicit_args_start + implicit_args.len())? != implicit_args_end {
         return Err(PostExecutionError::SecurityValidationError(
             "Implicit arguments' segments".to_string(),
         ));
@@ -234,7 +234,7 @@ pub fn validate_run(
     let syscall_used_size = vm
         .get_segment_used_size(syscall_start_ptr.segment_index as usize)
         .expect("Segments must contain the syscall segment.");
-    if syscall_start_ptr + syscall_used_size != syscall_end_ptr {
+    if (syscall_start_ptr + syscall_used_size)? != syscall_end_ptr {
         return Err(PostExecutionError::SecurityValidationError(
             "Syscall segment size".to_string(),
         ));
@@ -260,19 +260,25 @@ fn read_execution_retdata(
         }
     };
 
-    Ok(Retdata(felt_range_from_ptr(&vm, &retdata_ptr, retdata_size)?))
+    Ok(Retdata(felt_range_from_ptr(&vm, Relocatable::try_from(&retdata_ptr)?, retdata_size)?))
+}
+
+pub fn felt_from_ptr(
+    vm: &VirtualMachine,
+    memory_ptr: Relocatable,
+) -> Result<StarkFelt, VirtualMachineError> {
+    Ok(felt_to_stark_felt(vm.get_integer(memory_ptr)?.as_ref()))
 }
 
 pub fn felt_range_from_ptr(
     vm: &VirtualMachine,
-    ptr: &MaybeRelocatable,
+    ptr: Relocatable,
     size: usize,
 ) -> Result<Vec<StarkFelt>, VirtualMachineError> {
-    let values = vm.get_continuous_range(ptr, size)?;
+    let values = vm.get_integer_range(ptr, size)?;
     // Extract values as `StarkFelt`.
-    let values: Result<Vec<StarkFelt>, VirtualMachineError> =
-        values.into_iter().map(felt_from_memory_cell).collect();
-    values
+    let values = values.into_iter().map(|felt| felt_to_stark_felt(&felt)).collect();
+    Ok(values)
 }
 
 pub fn convert_program_to_cairo_runner_format(
@@ -325,24 +331,6 @@ pub fn convert_program_to_cairo_runner_format(
     })
 }
 
-pub fn felt_from_memory_ptr(
-    vm: &VirtualMachine,
-    memory_ptr: Relocatable,
-) -> Result<StarkFelt, VirtualMachineError> {
-    let maybe_relocatable =
-        vm.get_maybe(&memory_ptr).ok_or(VirtualMachineError::NoneInMemoryRange)?;
-    felt_from_memory_cell(maybe_relocatable)
-}
-
-pub fn felt_from_memory_cell(
-    memory_cell: MaybeRelocatable,
-) -> Result<StarkFelt, VirtualMachineError> {
-    match memory_cell {
-        MaybeRelocatable::Int(value) => Ok(felt_to_stark_felt(&value)),
-        _ => Err(VirtualMachineError::ExpectedIntAtRange(Some(memory_cell))),
-    }
-}
-
 #[derive(Debug)]
 // Invariant: read-only.
 pub struct ReadOnlySegment {
@@ -363,7 +351,7 @@ impl ReadOnlySegments {
     ) -> Result<Relocatable, MemoryError> {
         let start_ptr = vm.add_memory_segment();
         self.0.push(ReadOnlySegment { start_ptr, length: data.len() });
-        vm.load_data(&MaybeRelocatable::from(start_ptr), data)?;
+        vm.load_data(start_ptr, data)?;
         Ok(start_ptr)
     }
 
