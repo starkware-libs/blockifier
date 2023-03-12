@@ -190,14 +190,14 @@ fn test_vm_execution_security_failures() {
     );
 
     run_security_test(
-        "Can only subtract two relocatable values of the same segment",
+        "cant substract two relocatable values with different segment indexes",
         "test_subtraction_between_relocatables",
         calldata![],
         &mut state,
     );
 
     run_security_test(
-        "Cannot add two relocatable values",
+        "cant add two relocatable values",
         "test_relocatables_addition_failure",
         calldata![],
         &mut state,
@@ -227,7 +227,7 @@ fn test_vm_execution_security_failures() {
     );
 
     run_security_test(
-        "exceeds maximum offset value",
+        "maximum offset value exceeded",
         "test_out_of_bound_memory_value",
         calldata![],
         &mut state,
@@ -331,7 +331,7 @@ fn test_syscall_execution_security_failures() {
     );
 
     run_security_test(
-        "Custom Hint Error: Found a memory gap when calling get_continuous_range",
+        "Custom Hint Error: Expected relocatable",
         "test_bad_syscall_request_arg_type",
         calldata![],
         &mut state,

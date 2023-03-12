@@ -15,7 +15,7 @@ use starknet_api::transaction::{
 use crate::execution::entry_point::{CallEntryPoint, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    execute_deployment, execute_library_call, felt_from_memory_ptr, ReadOnlySegment,
+    execute_deployment, execute_library_call, felt_from_ptr, ReadOnlySegment,
 };
 use crate::execution::syscall_handling::{
     execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
@@ -129,7 +129,7 @@ impl SyscallResponse for SingleSegmentResponse {
 
     fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
         vm.insert_value(ptr, self.segment.length)?;
-        Ok(vm.insert_value(ptr + 1, self.segment.start_ptr)?)
+        Ok(vm.insert_value((ptr + 1)?, self.segment.start_ptr)?)
     }
 }
 
@@ -144,7 +144,7 @@ impl SyscallRequest for StorageReadRequest {
     const SIZE: usize = 1;
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address = StorageKey::try_from(felt_from_memory_ptr(vm, ptr)?)?;
+        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address })
     }
 }
@@ -182,8 +182,8 @@ impl SyscallRequest for StorageWriteRequest {
     const SIZE: usize = 2;
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address = StorageKey::try_from(felt_from_memory_ptr(vm, ptr)?)?;
-        let value = felt_from_memory_ptr(vm, ptr + 1)?;
+        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
+        let value = felt_from_ptr(vm, (ptr + 1)?)?;
         Ok(StorageWriteRequest { address, value })
     }
 }
@@ -215,8 +215,8 @@ impl SyscallRequest for CallContractRequest {
     const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address = ContractAddress::try_from(felt_from_memory_ptr(vm, ptr)?)?;
-        let (function_selector, calldata) = read_call_params(vm, ptr + 1)?;
+        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let (function_selector, calldata) = read_call_params(vm, (ptr + 1)?)?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
     }
@@ -255,8 +255,8 @@ impl SyscallRequest for LibraryCallRequest {
     const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(felt_from_memory_ptr(vm, ptr)?);
-        let (function_selector, calldata) = read_call_params(vm, ptr + 1)?;
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let (function_selector, calldata) = read_call_params(vm, (ptr + 1)?)?;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
     }
@@ -361,10 +361,10 @@ impl SyscallRequest for DeployRequest {
     const SIZE: usize = 3 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<DeployRequest> {
-        let class_hash = ClassHash(felt_from_memory_ptr(vm, ptr)?);
-        let contract_address_salt = ContractAddressSalt(felt_from_memory_ptr(vm, ptr + 1)?);
-        let constructor_calldata = read_calldata(vm, ptr + 2)?;
-        let deploy_from_zero = felt_from_memory_ptr(vm, ptr + 2 + ARRAY_METADATA_SIZE)?;
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, (ptr + 1)?)?);
+        let constructor_calldata = read_calldata(vm, (ptr + 2)?)?;
+        let deploy_from_zero = felt_from_ptr(vm, (ptr + (2 + ARRAY_METADATA_SIZE))?)?;
 
         Ok(DeployRequest {
             class_hash,
@@ -388,8 +388,8 @@ impl SyscallResponse for DeployResponse {
 
     fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
         write_felt(vm, ptr, *self.contract_address.0.key())?;
-        vm.insert_value(ptr + 1, 0)?;
-        Ok(vm.insert_value(ptr + 2, 0)?)
+        vm.insert_value((ptr + 1)?, 0)?;
+        Ok(vm.insert_value((ptr + 2)?, 0)?)
     }
 }
 
@@ -438,7 +438,7 @@ impl SyscallRequest for EmitEventRequest {
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<EmitEventRequest> {
         let keys = read_felt_array(vm, ptr)?.into_iter().map(EventKey).collect();
-        let data = EventData(read_felt_array(vm, ptr + ARRAY_METADATA_SIZE)?);
+        let data = EventData(read_felt_array(vm, (ptr + ARRAY_METADATA_SIZE)?)?);
 
         Ok(EmitEventRequest { content: EventContent { keys, data } })
     }
@@ -472,8 +472,8 @@ impl SyscallRequest for SendMessageToL1Request {
     const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
 
     fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(felt_from_memory_ptr(vm, ptr)?)?;
-        let payload = L2ToL1Payload(read_felt_array(vm, ptr + 1)?);
+        let to_address = EthAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let payload = L2ToL1Payload(read_felt_array(vm, (ptr + 1)?)?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
     }

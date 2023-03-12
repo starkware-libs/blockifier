@@ -11,7 +11,6 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
@@ -25,8 +24,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_memory_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment,
-    ReadOnlySegments,
+    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::{
@@ -205,8 +203,8 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
-        let selector = felt_from_memory_ptr(vm, self.syscall_ptr)?;
-        self.syscall_ptr = self.syscall_ptr + 1;
+        let selector = felt_from_ptr(vm, self.syscall_ptr)?;
+        self.syscall_ptr = (self.syscall_ptr + 1)?;
 
         Ok(selector)
     }
@@ -306,10 +304,10 @@ pub fn write_felt(vm: &mut VirtualMachine, ptr: Relocatable, felt: StarkFelt) ->
 }
 
 pub fn read_felt_array(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Vec<StarkFelt>> {
-    let array_size = felt_from_memory_ptr(vm, ptr)?;
-    let array_data_ptr = vm.get_maybe(&(ptr + 1)).ok_or(VirtualMachineError::NoneInMemoryRange)?;
+    let array_size = felt_from_ptr(vm, ptr)?;
+    let array_data_ptr = vm.get_relocatable((ptr + 1)?)?;
 
-    Ok(felt_range_from_ptr(vm, &array_data_ptr, usize::try_from(array_size)?)?)
+    Ok(felt_range_from_ptr(vm, array_data_ptr, usize::try_from(array_size)?)?)
 }
 
 pub fn read_calldata(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Calldata> {
@@ -320,8 +318,8 @@ pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: Relocatable,
 ) -> SyscallResult<(EntryPointSelector, Calldata)> {
-    let function_selector = EntryPointSelector(felt_from_memory_ptr(vm, ptr)?);
-    let calldata = read_calldata(vm, ptr + 1)?;
+    let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
+    let calldata = read_calldata(vm, (ptr + 1)?)?;
 
     Ok((function_selector, calldata))
 }
