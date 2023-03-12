@@ -57,10 +57,6 @@ pub struct SyscallHintProcessor<'a, 'b> {
     // Additional information gathered during execution.
     pub read_values: Vec<StarkFelt>,
     pub accessed_keys: HashSet<StorageKey>,
-    // Used for tracking events order during the current execution.
-    pub n_emitted_events: usize,
-    // Used for tracking L2-to-L1 messages order during the current execution.
-    pub n_sent_messages_to_l1: usize,
 
     // Additional fields.
     // Invariant: must only contain allowed hints.
@@ -89,8 +85,6 @@ impl<'a, 'b> SyscallHintProcessor<'a, 'b> {
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
             accessed_keys: HashSet::new(),
-            n_emitted_events: 0,
-            n_sent_messages_to_l1: 0,
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,

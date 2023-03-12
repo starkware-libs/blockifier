@@ -25,6 +25,26 @@ pub struct ExecutionContext<'a> {
     pub state: &'a mut dyn State,
     pub block_context: &'a BlockContext,
     pub account_tx_context: &'a AccountTransactionContext,
+    // Used for tracking events order during the current execution.
+    pub n_emitted_events: usize,
+    // Used for tracking L2-to-L1 messages order during the current execution.
+    pub n_sent_messages_to_l1: usize,
+}
+
+impl<'a> ExecutionContext<'a> {
+    pub fn new(
+        state: &'a mut dyn State,
+        block_context: &'a BlockContext,
+        account_tx_context: &'a AccountTransactionContext,
+    ) -> Self {
+        ExecutionContext {
+            state,
+            block_context,
+            account_tx_context,
+            n_emitted_events: 0,
+            n_sent_messages_to_l1: 0,
+        }
+    }
 }
 
 /// Represents a call to an entry point of a StarkNet contract.
@@ -58,6 +78,15 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
 
         execute_entry_point_call(self, class_hash, context)
+    }
+
+    pub fn execute_tx_ep(
+        self,
+        context: &mut ExecutionContext<'_>,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        context.n_emitted_events = 0;
+        context.n_sent_messages_to_l1 = 0;
+        self.execute(context)
     }
 
     pub fn resolve_entry_point_pc(

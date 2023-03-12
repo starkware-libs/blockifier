@@ -31,8 +31,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: self.nonce,
             sender_address: self.contract_address,
         };
-        let mut context =
-            ExecutionContext { state, block_context, account_tx_context: &tx_context };
+        let mut context = ExecutionContext::new(state, block_context, &tx_context);
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
             execute_call_info: self.run_execute(&mut context, None)?,
