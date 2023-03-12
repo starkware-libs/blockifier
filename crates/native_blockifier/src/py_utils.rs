@@ -33,7 +33,7 @@ impl From<EthAddress> for PyFelt {
         let address_as_bytes: [u8; 20] = address.0.to_fixed_bytes();
         // Pad with 12 zeros.
         let mut bytes = [0; 32];
-        bytes[..24].copy_from_slice(&address_as_bytes);
+        bytes[12..32].copy_from_slice(&address_as_bytes);
         PyFelt(StarkFelt::new(bytes).expect("Convert Ethereum address to StarkFelt"))
     }
 }
