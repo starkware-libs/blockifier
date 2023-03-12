@@ -449,9 +449,9 @@ pub fn emit_event(
     syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<EmptyResponse> {
     let ordered_event =
-        OrderedEvent { order: syscall_handler.n_emitted_events, event: request.content };
+        OrderedEvent { order: syscall_handler.context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
-    syscall_handler.n_emitted_events += 1;
+    syscall_handler.context.n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
 }
@@ -483,11 +483,11 @@ pub fn send_message_to_l1(
     syscall_handler: &mut SyscallHintProcessor<'_, '_>,
 ) -> SyscallResult<EmptyResponse> {
     let ordered_message_to_l1 = OrderedL2ToL1Message {
-        order: syscall_handler.n_sent_messages_to_l1,
+        order: syscall_handler.context.n_sent_messages_to_l1,
         message: request.message,
     };
     syscall_handler.l2_to_l1_messages.push(ordered_message_to_l1);
-    syscall_handler.n_sent_messages_to_l1 += 1;
+    syscall_handler.context.n_sent_messages_to_l1 += 1;
 
     Ok(SendMessageToL1Response {})
 }

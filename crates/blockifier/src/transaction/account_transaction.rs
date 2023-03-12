@@ -148,7 +148,7 @@ impl AccountTransaction {
             storage_address: context.account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
         };
-        let validate_call_info = validate_call.execute(context)?;
+        let validate_call_info = validate_call.execute_tx_ep(context)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
@@ -199,7 +199,7 @@ impl AccountTransaction {
             caller_address: context.account_tx_context.sender_address,
         };
 
-        Ok(fee_transfer_call.execute(context)?)
+        Ok(fee_transfer_call.execute_tx_ep(context)?)
     }
 }
 
@@ -217,12 +217,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         let execution_resources = &mut ExecutionResources::default();
-        let context = &mut ExecutionContext {
+        let context = &mut ExecutionContext::new(
             state,
             execution_resources,
             block_context,
-            account_tx_context: &account_tx_context,
-        };
+            &account_tx_context,
+        );
         match self {
             Self::Declare(ref tx, ref mut contract_class) => {
                 let contract_class = Some(mem::take(contract_class));
