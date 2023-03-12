@@ -142,6 +142,7 @@ pub fn execute_entry_point_call(
         execution_context.initial_syscall_ptr,
         &mut execution_context.syscall_handler.read_only_segments,
     )?;
+    let n_total_args = args.len();
 
     run_entry_point(
         &mut execution_context.runner,
@@ -157,6 +158,7 @@ pub fn execute_entry_point_call(
         call,
         execution_context.syscall_handler,
         implicit_args,
+        n_total_args,
     )?)
 }
 
@@ -171,6 +173,7 @@ pub fn run_entry_point(
     let args: Vec<&CairoArg> = args.iter().collect();
 
     runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+
     Ok(())
 }
 
@@ -180,7 +183,17 @@ pub fn finalize_execution(
     call: CallEntryPoint,
     syscall_handler: SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
+    n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
+    // The arguments and RO segments are touched by the OS and should not be counted as
+    // holes, mark them as accessed.
+    let args_ptr = runner
+        .get_initial_fp()
+        .expect("The initial_fp field should be initialized after running the entry point.")
+        // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
+        .sub_usize(n_total_args + 2)?;
+    vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
+
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
     let implicit_args_end_ptr = vm.get_ap().sub_usize(2)?;
