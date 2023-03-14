@@ -51,6 +51,26 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         }
     }
 
+    fn execute_dry_run<'a>(
+        self,
+        transactional_state: &mut TransactionalState<'a, S>,
+        block_context: &'a BlockContext,
+    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        log::trace!("Executing Transaction.");
+        let execution_result = self.execute_raw(transactional_state, block_context);
+
+        match execution_result {
+            Ok(value) => {
+                log::trace!("Transaction execution complete.");
+                Ok(value)
+            }
+            Err(error) => {
+                log::trace!("Transaction execution FAILED, aborting.");
+                Err(error)
+            }
+        }
+    }
+
     /// Executes the transaction in a transactional manner
     /// (if it fails, given state might become corrupted; i.e., changes until failure will appear).
     fn execute_raw(

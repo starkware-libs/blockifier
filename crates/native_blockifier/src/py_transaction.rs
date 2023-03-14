@@ -4,7 +4,7 @@ use std::sync::Arc;
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::papyrus_state::PapyrusStateReader;
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -16,6 +16,7 @@ use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
+use pyo3::types::IntoPyDict;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
@@ -258,19 +259,42 @@ impl PyTransactionExecutor {
         Ok(Self { block_context, storage_fields: Some(storage_fields) })
     }
 
-    #[args(tx, raw_contract_class)]
+    #[args(tx, raw_contract_class, can_add_tx)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
+        // This is functools.partial(bouncer.add_weights,tx_time_created=tx_written.time_created)
+        can_add_tx: &PyAny,
     ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
         let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
         let block_context = &self.block_context;
-        let tx_execution_info = storage.with_mut(|executor| {
-            tx.execute(executor.state, block_context).map_err(NativeBlockifierError::from)
-        })?;
+
+        let tx_execution_result = storage.with_state_mut(|state| {
+            let mut transactional_state = CachedState::new(MutRefState::new(state));
+            let tx_info_result = tx
+                .execute_dry_run(&mut transactional_state, block_context)
+                .map_err(NativeBlockifierError::from);
+            // Commit the transaction if and only if it can be added into the batch.
+            match &tx_info_result {
+                Ok(tx_execution_info) => {
+                    let tx_weights = &tx_execution_info.actual_resources.0;
+                    Python::with_gil(|py| {
+                        let kwargs = [("tx_weights".to_string(), tx_weights)].into_py_dict(py);
+                        match can_add_tx.call((), Some(kwargs)) {
+                            Ok(_) => transactional_state.commit(),
+                            Err(_tx_weighs_too_much) => transactional_state.abort(),
+                        }
+                    });
+                }
+                Err(_tx_execution_failed) => transactional_state.abort(),
+            }
+            tx_info_result
+        });
+        let tx_execution_info = tx_execution_result?;
+
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 
