@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{calculate_contract_address, ClassHash, Nonce};
+use starknet_api::api_core::{calculate_contract_address, ClassHash, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,

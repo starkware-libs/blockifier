@@ -1,7 +1,7 @@
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors as cairo_vm_errors;
 use num_bigint::{BigInt, TryFromBigIntError};
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::api_core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
 use thiserror::Error;

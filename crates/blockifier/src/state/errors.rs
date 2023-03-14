@@ -1,4 +1,4 @@
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::api_core::{ClassHash, ContractAddress};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 

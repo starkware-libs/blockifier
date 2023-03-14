@@ -1,4 +1,4 @@
-use starknet_api::core::EntryPointSelector;
+use starknet_api::api_core::EntryPointSelector;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 

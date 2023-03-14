@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use thiserror::Error;
+
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
@@ -13,4 +15,12 @@ where
     V: Clone + PartialEq,
 {
     lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
+}
+
+#[derive(Debug, Error)]
+pub enum MaybeRelocatableError {
+    #[error("Expected a Felt")]
+    ExpectedFelt,
+    #[error("Expected a Relocatable")]
+    ExpectedRelocatable,
 }

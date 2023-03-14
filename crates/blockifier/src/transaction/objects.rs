@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::api_core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::entry_point::CallInfo;

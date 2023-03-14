@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use assert_matches::assert_matches;
 use indexmap::indexmap;
 use pretty_assertions::assert_eq;
-use starknet_api::core::PatriciaKey;
+use starknet_api::api_core::PatriciaKey;
 use starknet_api::hash::StarkHash;
 use starknet_api::{patricia_key, stark_felt};
 

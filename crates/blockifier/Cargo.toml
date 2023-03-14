@@ -4,37 +4,36 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = ["std"]
+std = ["cairo-felt/std", "cairo-vm/std", "starknet_api/std", "once_cell/std"]
 testing = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "bc52e17"}
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17" }
-derive_more = { version = "0.99.17" }
-indexmap = { version = "1.9.2" }
-itertools = { version = "0.10.3" }
-log = { version = "0.4" }
-num-bigint = { version = "0.4" }
-num-integer = { version = "0.1.45" }
-num-traits = { version = "0.2" }
-once_cell = { version = "1.16.0" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "1d791aa" }
-serde = { version = "1.0.130", features = ["derive"] }
-serde_json = { version = "1.0.81", features = ["arbitrary_precision"] }
-sha3 = { version = "0.10.6" }
-# Should match the commit `papyrus_storage` is using.
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "783885b", features = [
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17", default-features = false }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17", default-features = false }
+derive_more = { version = "0.99.17", default-features = false }
+indexmap = { version = "1.9.2", default-features = false }
+itertools = { version = "0.10.3", default-features = false }
+num-bigint = { version = "0.4", default-features = false }
+num-integer = { version = "0.1.45", default-features = false }
+num-traits = { version = "0.2", default-features = false }
+once_cell = { version = "1.16.0", default-features = false }
+serde = { version = "1.0.130", features = ["derive"], default-features = false }
+serde_json = { version = "1.0.81", features = [
+    "arbitrary_precision",
+], default-features = false }
+sha3 = { version = "0.10.6", default-features = false }
+starknet_api = { git = "https://github.com/tdelabro/starknet-api", branch = "no_std-support", features = [
     "testing",
-] }
+], default-features = false }
 strum = { version = "0.24.1" }
 strum_macros = { version = "0.24.3" }
 thiserror = { version = "1.0.37" }
+log = { version = "0.4" }
 
 [dev-dependencies]
 assert_matches = { version = "1.5.0" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "1d791aa", features = [
-    "testing",
-] }
 pretty_assertions = { version = "1.2.1" }
 test-case = { version = "2.2.2" }

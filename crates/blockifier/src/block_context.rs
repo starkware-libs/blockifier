@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use starknet_api::api_core::{ChainId, ContractAddress};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ContractAddress};
 
 #[derive(Debug)]
 pub struct BlockContext {

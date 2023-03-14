@@ -1,4 +1,4 @@
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
+use starknet_api::api_core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};

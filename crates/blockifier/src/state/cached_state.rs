@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::api_core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 

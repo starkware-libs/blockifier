@@ -14,11 +14,12 @@ use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::api_core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::{EntryPointType, Program as DeprecatedProgram};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use super::syscalls::SyscallResult;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo, CallType,
@@ -28,7 +29,6 @@ use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::syscall_handling::{execute_inner_call, SyscallHintProcessor};
-use crate::execution::syscalls::SyscallResult;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -295,7 +295,7 @@ pub fn validate_run(
 fn read_execution_retdata(
     vm: VirtualMachine,
     retdata_size: MaybeRelocatable,
-    retdata_ptr: MaybeRelocatable,
+    retdata_ptr: Relocatable,
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
         MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())

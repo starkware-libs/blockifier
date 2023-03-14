@@ -2,10 +2,10 @@ use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use serde::Deserialize;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{
+use starknet_api::api_core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
+use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
