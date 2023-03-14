@@ -8,7 +8,7 @@ genrule(
     name = "copy_libnative_blockifier_so",
     srcs = ["//:libnative_blockifier.so"],
     outs = ["libnative_blockifier.so"],
-    cmd = "cp $< $@" # Copy SRC to DST.
+    cmd = "cp $SRCS $OUTS" # Copy SRC to DST.
 )
 
 py_library(
