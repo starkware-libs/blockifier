@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use starknet_api::api_core::{calculate_contract_address, ClassHash, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
@@ -9,6 +7,7 @@ use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::collections::HashMap;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{

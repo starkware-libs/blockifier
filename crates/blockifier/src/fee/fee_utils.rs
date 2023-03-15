@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use alloc::string::String;
 
 use itertools::max;
 
 use crate::block_context::BlockContext;
+use crate::collections::{HashMap, HashSet};
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 

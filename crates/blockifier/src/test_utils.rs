@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-use std::iter::zip;
-use std::path::PathBuf;
-use std::sync::Arc;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use core::iter::zip;
 
-use once_cell::sync::Lazy;
 use starknet_api::api_core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
     PatriciaKey,
@@ -20,6 +18,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
+use crate::collections::HashMap;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
@@ -46,24 +45,48 @@ pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
-pub const ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_without_validations_compiled.json";
-pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
-pub const SECURITY_TEST_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/security_tests_contract_compiled.json";
-pub const TEST_EMPTY_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/empty_contract_compiled.json";
-pub const ERC20_CONTRACT_PATH: &str =
-    "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+pub const ACCOUNT_CONTRACT_PATH: &[u8] =
+    include_bytes!("../feature_contracts/compiled/account_without_validations_compiled.json");
+pub const TEST_CONTRACT_PATH: &[u8] =
+    include_bytes!("../feature_contracts/compiled/test_contract_compiled.json");
+pub const SECURITY_TEST_CONTRACT_PATH: &[u8] =
+    include_bytes!("../feature_contracts/compiled/security_tests_contract_compiled.json");
+pub const TEST_EMPTY_CONTRACT_PATH: &[u8] =
+    include_bytes!("../feature_contracts/compiled/empty_contract_compiled.json");
+pub const ERC20_CONTRACT_PATH: &[u8] = include_bytes!(
+    "../ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json"
+);
 
 // Storage keys.
-pub static TEST_ERC20_SEQUENCER_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap()
-});
-pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
-        .unwrap()
-});
+pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: StorageKey = unsafe {
+    core::mem::transmute([
+        0x07u8, 0x23, 0x97, 0x32, 0x08, 0x63, 0x9b, 0x78, 0x39, 0xce, 0x29, 0x8f, 0x7f, 0xfe, 0xa6,
+        0x1e, 0x3f, 0x95, 0x33, 0x87, 0x2d, 0xef, 0xd7, 0xab, 0xdb, 0x91, 0x02, 0x3d, 0xb4, 0x65,
+        0x88, 0x12,
+    ])
+};
+pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: StorageKey = unsafe {
+    core::mem::transmute([
+        0x02u8, 0xa2, 0xc4, 0x9c, 0x4d, 0xba, 0x0d, 0x91, 0xb3, 0x4f, 0x2a, 0xde, 0x85, 0xd4, 0x1d,
+        0x09, 0x56, 0x1f, 0x9a, 0x77, 0x88, 0x4c, 0x15, 0xba, 0x2a, 0xb0, 0xf2, 0x24, 0x1b, 0x08,
+        0x0d, 0xeb,
+    ])
+};
+#[test]
+fn ensure_test_erc20_sequencer_balance_key_is_correct() {
+    assert_eq!(
+        get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap(),
+        TEST_ERC20_SEQUENCER_BALANCE_KEY
+    )
+}
+#[test]
+fn ensure_test_erc20_account_balance_key_is_correct() {
+    assert_eq!(
+        get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
+            .unwrap(),
+        TEST_ERC20_ACCOUNT_BALANCE_KEY
+    )
+}
 
 pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
@@ -107,9 +130,10 @@ impl StateReader for DictStateReader {
     }
 }
 
-pub fn get_contract_class(contract_path: &str) -> ContractClass {
-    let path = PathBuf::from(contract_path);
-    ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
+pub fn get_contract_class(contract_content: &'static [u8]) -> ContractClass {
+    let raw_contract_class = serde_json::from_slice(contract_content)
+        .expect("File must contain the content of a compiled contract.");
+    raw_contract_class
 }
 
 pub fn get_test_contract_class() -> ContractClass {
@@ -130,7 +154,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
 
 pub fn create_test_state_util(
     class_hash: &str,
-    contract_path: &str,
+    contract_path: &'static [u8],
     contract_address: &str,
 ) -> CachedState<DictStateReader> {
     let class_hash_to_class =

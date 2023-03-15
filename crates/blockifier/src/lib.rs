@@ -1,12 +1,22 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[macro_use]
+extern crate alloc;
+
 pub mod abi;
 pub mod block_context;
 pub mod execution;
 pub mod fee;
 pub mod state;
-// TODO: uncomment once we fix native_extension; making it no longer require DictStateReader.
-// #[cfg(any(feature = "testing", test))]
+#[cfg(any(feature = "testing", test))]
 pub mod test_utils;
 pub mod transaction;
 pub mod utils;
 
-extern crate alloc;
+mod collections {
+    #[cfg(feature = "std")]
+    pub use std::collections::{HashMap, HashSet};
+
+    #[cfg(not(feature = "std"))]
+    pub use hashbrown::{HashMap, HashSet};
+}

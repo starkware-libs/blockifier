@@ -1,4 +1,6 @@
-use std::mem;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::mem;
 
 use itertools::concat;
 use starknet_api::api_core::{ContractAddress, EntryPointSelector};

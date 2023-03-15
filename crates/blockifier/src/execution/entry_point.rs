@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::api_core::{ClassHash, ContractAddress, EntryPointSelector};
@@ -10,6 +11,7 @@ use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payloa
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
+use crate::collections::HashSet;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;

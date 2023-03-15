@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use alloc::string::ToString;
 
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -11,6 +11,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::collections::{HashMap, HashSet};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;

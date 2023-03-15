@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use starknet_api::transaction::Fee;
 
 use crate::block_context::BlockContext;

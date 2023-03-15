@@ -1,4 +1,5 @@
-use std::iter::zip;
+use alloc::vec::Vec;
+use core::iter::zip;
 
 use cairo_felt::Felt252;
 use num_bigint::BigUint;

@@ -1,6 +1,8 @@
+use alloc::string::String;
+
 use starknet_api::api_core::{ClassHash, ContractAddress};
 use starknet_api::StarknetApiError;
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 #[derive(Debug, Error)]
 pub enum StateError {

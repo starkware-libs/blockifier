@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use alloc::string::ToString;
+use alloc::sync::Arc;
 
 use assert_matches::assert_matches;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
@@ -19,6 +19,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
+use crate::collections::HashMap;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
@@ -61,7 +62,7 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         (test_erc20_address, test_erc20_class_hash),
     ]);
     let storage_view = HashMap::from([(
-        (test_erc20_address, *TEST_ERC20_ACCOUNT_BALANCE_KEY),
+        (test_erc20_address, TEST_ERC20_ACCOUNT_BALANCE_KEY),
         stark_felt!(actual_fee().0 as u64),
     )]);
     CachedState::new(DictStateReader {
@@ -177,7 +178,7 @@ fn validate_final_balances(
 
     assert_eq!(
         state
-            .get_storage_at(block_context.fee_token_address, *TEST_ERC20_SEQUENCER_BALANCE_KEY)
+            .get_storage_at(block_context.fee_token_address, TEST_ERC20_SEQUENCER_BALANCE_KEY)
             .unwrap(),
         stark_felt!(expected_sequencer_balance)
     );
@@ -300,7 +301,7 @@ fn test_invoke_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 }
 
@@ -428,7 +429,7 @@ fn test_declare_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 
     // Verify class declaration.

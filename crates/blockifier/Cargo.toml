@@ -5,21 +5,30 @@ edition = "2021"
 
 [features]
 default = ["std"]
-std = ["cairo-felt/std", "cairo-vm/std", "starknet_api/std", "once_cell/std"]
+std = [
+    "cairo-felt/std",
+    "cairo-vm/std",
+    "starknet_api/std",
+    "thiserror-no-std/std",
+    "num-bigint/std",
+]
 testing = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17", default-features = false }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17", default-features = false }
-derive_more = { version = "0.99.17", default-features = false }
-indexmap = { version = "1.9.2", default-features = false }
+cairo-felt = { git = "https://github.com/tdelabro/cairo-rs.git", branch = "fix-no-std", default-features = false }
+cairo-vm = { git = "https://github.com/tdelabro/cairo-rs.git", branch = "fix-no-std", default-features = false }
+derive_more = { version = "0.99.17", default-features = false, features = [
+    "into_iterator",
+] }
+indexmap = { git = "https://github.com/bluss/indexmap", rev = "ca5f848e10c31e80aeaad0720d14aa2f6dd6cfb1", features = [
+    "serde",
+], default-features = false }
 itertools = { version = "0.10.3", default-features = false }
 num-bigint = { version = "0.4", default-features = false }
 num-integer = { version = "0.1.45", default-features = false }
 num-traits = { version = "0.2", default-features = false }
-once_cell = { version = "1.16.0", default-features = false }
 serde = { version = "1.0.130", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.81", features = [
     "arbitrary_precision",
@@ -28,10 +37,13 @@ sha3 = { version = "0.10.6", default-features = false }
 starknet_api = { git = "https://github.com/tdelabro/starknet-api", branch = "no_std-support", features = [
     "testing",
 ], default-features = false }
-strum = { version = "0.24.1" }
+strum = { version = "0.24.1", default-features = false }
 strum_macros = { version = "0.24.3" }
-thiserror = { version = "1.0.37" }
 log = { version = "0.4" }
+thiserror-no-std = { version = "2.0.2" }
+hashbrown = { version = "0.13.2" }
+phf = { version = "0.11", default-features = false, features = ["macros"] }
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 
 [dev-dependencies]
 assert_matches = { version = "1.5.0" }

@@ -1,6 +1,7 @@
-use std::collections::HashMap;
-use std::ops::Shl;
-use std::rc::Rc;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::{String, ToString};
+use core::ops::Shl;
 
 use cairo_felt::{Felt252, PRIME_STR};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -18,6 +19,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use num_traits::{Num, One, Zero};
 
+use crate::collections::HashMap;
 use crate::execution::hint_code::{
     NORMALIZE_ADDRESS_SET_IS_250_HINT, NORMALIZE_ADDRESS_SET_IS_SMALL_HINT,
 };

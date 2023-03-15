@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use thiserror_no_std::Error;
 
-use thiserror::Error;
+use crate::collections::HashMap;
 
 #[cfg(test)]
 #[path = "utils_test.rs"]
@@ -11,10 +11,13 @@ pub mod test;
 /// Usage: Get updated items from a mapping.
 pub fn subtract_mappings<K, V>(lhs: &HashMap<K, V>, rhs: &HashMap<K, V>) -> HashMap<K, V>
 where
-    K: Clone + Eq + std::hash::Hash,
+    K: Clone + Eq + core::hash::Hash,
     V: Clone + PartialEq,
 {
-    lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
+    lhs.iter()
+        .filter(|(k, v)| rhs.get(*k) != Some(v))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
 }
 
 #[derive(Debug, Error)]

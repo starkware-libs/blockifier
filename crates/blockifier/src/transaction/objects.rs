@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use alloc::string::String;
 
 use starknet_api::api_core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
+use crate::collections::HashMap;
 use crate::execution::entry_point::CallInfo;
 use crate::transaction::errors::TransactionExecutionError;
 

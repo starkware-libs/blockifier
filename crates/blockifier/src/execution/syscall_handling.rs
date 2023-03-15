@@ -1,5 +1,7 @@
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::any::Any;
 
 use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -18,6 +20,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
+use crate::collections::{HashMap, HashSet};
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources, OrderedEvent,

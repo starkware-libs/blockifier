@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use alloc::borrow::ToOwned;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
@@ -21,6 +23,7 @@ use starknet_api::transaction::Calldata;
 
 use super::syscalls::SyscallResult;
 use crate::block_context::BlockContext;
+use crate::collections::HashMap;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo, CallType,
     EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
@@ -72,7 +75,7 @@ pub fn initialize_execution_context<'a>(
     // Instantiate Cairo runner.
     let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&program, "all", proof_mode)?;
+    let mut runner = CairoRunner::new(&program, "all_cairo", proof_mode)?;
 
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
@@ -191,7 +194,7 @@ pub fn run_entry_point(
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
-    runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+    runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, None, vm, hint_processor)?;
 
     Ok(())
 }
@@ -295,7 +298,7 @@ pub fn validate_run(
 fn read_execution_retdata(
     vm: VirtualMachine,
     retdata_size: MaybeRelocatable,
-    retdata_ptr: Relocatable,
+    retdata_ptr: MaybeRelocatable,
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
         MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())

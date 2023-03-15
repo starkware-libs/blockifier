@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::Deserialize;
 
+use crate::collections::HashMap;
 use crate::execution::syscall_handling::SyscallCounter;
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::os_resources::OS_RESOURCES;
