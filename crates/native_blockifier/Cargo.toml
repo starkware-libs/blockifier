@@ -13,7 +13,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier" }
+blockifier = { path = "../blockifier", features = ["papyrus"] }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
 num-bigint = { version = "0.4" }

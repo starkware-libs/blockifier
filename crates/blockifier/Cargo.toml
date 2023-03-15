@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 testing = []
+papyrus = ["dep:papyrus_storage"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,7 +18,7 @@ itertools = { version = "0.10.3" }
 num-bigint = { version = "0.4" }
 num-integer = { version = "0.1.45" }
 num-traits = { version = "0.2" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", optional = true }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.81", features = ["arbitrary_precision"] }
 sha3 = { version = "0.10.6" }
