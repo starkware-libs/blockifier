@@ -28,11 +28,11 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    get_contract_class, validate_tx_execution_info, DictStateReader, ACCOUNT_CONTRACT_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
-    TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    get_contract_class, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
+    test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader,
+    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
 };
@@ -184,7 +184,7 @@ fn validate_final_balances(
 
     assert_eq!(
         state
-            .get_storage_at(block_context.fee_token_address, *TEST_ERC20_SEQUENCER_BALANCE_KEY)
+            .get_storage_at(block_context.fee_token_address, test_erc20_sequencer_balance_key())
             .unwrap(),
         stark_felt!(expected_sequencer_balance)
     );
@@ -213,7 +213,7 @@ fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_ACCOUNT_CONTRACT_ADDRESS,
         ACCOUNT_CONTRACT_PATH,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        test_erc20_account_balance_key(),
         account_balance,
     )
 }
@@ -224,7 +224,7 @@ fn create_state_with_falliable_validation_account() -> CachedState<DictStateRead
         TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
         TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
-        *TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY,
+        test_erc20_faulty_account_balance_key(),
         account_balance * 2,
     )
 }
@@ -334,7 +334,7 @@ fn test_invoke_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        test_erc20_account_balance_key(),
         expected_account_balance,
     );
 }
@@ -463,7 +463,7 @@ fn test_declare_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        test_erc20_account_balance_key(),
         expected_account_balance,
     );
 
