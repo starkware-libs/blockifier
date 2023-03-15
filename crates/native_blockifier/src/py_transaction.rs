@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 
+use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CachedState;
@@ -145,7 +146,7 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
 pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction> {
     Ok(L1HandlerTransaction {
         transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
-        version: TransactionVersion(py_felt_attr(tx, "version")?),
+        version: TransactionVersion(StarkFelt::from(L1_HANDLER_VERSION)),
         nonce: Nonce(py_felt_attr(tx, "nonce")?),
         contract_address: ContractAddress::try_from(py_felt_attr(tx, "contract_address")?)?,
         entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
