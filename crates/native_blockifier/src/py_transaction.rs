@@ -4,9 +4,10 @@ use std::sync::Arc;
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, TransactionalState};
 use blockifier::state::papyrus_state::PapyrusStateReader;
 use blockifier::state::state_api::State;
+use blockifier::transaction;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -198,6 +199,9 @@ pub struct PyTransactionExecutorStorage {
     #[borrows(storage_tx)]
     #[covariant]
     pub state: CachedState<PapyrusStateReader<'this, RO>>,
+    #[borrows(storage_tx)]
+    #[not_covariant]
+    pub transactional_state: Option<TransactionalState<'this, PapyrusStateReader<'this, RO>>>,
 }
 
 #[pyclass]
@@ -217,6 +221,12 @@ pub fn build_tx_executor_storage(
         Ok(storage_reader.as_ref().unwrap().begin_ro_txn()?)
     }
 
+    fn transactional_state_builder<'a>(
+        _storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
+    ) -> NativeBlockifierResult<Option<TransactionalState<'_, PapyrusStateReader<'_, RO>>>> {
+        Ok(None)
+    }
+
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
@@ -230,6 +240,7 @@ pub fn build_tx_executor_storage(
         storage_reader,
         storage_tx_builder,
         state_builder: |storage_tx| state_builder(storage_tx, block_number),
+        transactional_state_builder,
     };
     py_tx_executor_storage_builder.try_build()
 }
@@ -269,8 +280,14 @@ impl PyTransactionExecutor {
         let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
         let block_context = &self.block_context;
         let tx_execution_info = storage.with_mut(|executor| {
-            tx.execute(executor.state, block_context).map_err(NativeBlockifierError::from)
+            tx.execute_dry_run(executor.state, block_context, executor.transactional_state)
+                .map_err(NativeBlockifierError::from)
         })?;
+
+        // let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
+        // storage.with_transactional_state_mut(|d| {
+        //     *d = Some(f);
+        // });
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 

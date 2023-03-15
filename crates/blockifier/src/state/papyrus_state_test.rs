@@ -19,7 +19,11 @@ use crate::test_utils::{
 
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
+    let db_config =
+        papyrus_storage::db::DbConfig { path: "/tmp/giladd".to_string(), max_size: 2 << 37 };
+    let (_storage_reader, _storage_writer) = papyrus_storage::open_storage(db_config)?;
     let (storage_reader, mut storage_writer) = papyrus_storage::test_utils::get_test_storage();
+    storage_reader.begin_ro_txn()?.get_state_reader()?.get_class_definition_at(state_number, class_hash)
 
     // Initialize Storage: add test contract and class.
     let deployed_contracts = IndexMap::from([(

@@ -51,6 +51,33 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         }
     }
 
+    /// Executes the transaction.
+    /// If it fails, given state does not modify.
+    /// Otherwise, stores the new state in the executor, for a future commit.
+    fn execute_dry_run<'a: 'b, 'b>(
+        self,
+        state: &'a mut CachedState<S>,
+        block_context: &BlockContext,
+        transactional_state_ref: &mut Option<TransactionalState<'b, S>>,
+    ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        log::trace!("Executing Transaction.");
+        let mut transactional_state = CachedState::new(MutRefState::new(state));
+        let execution_result = self.execute_raw(&mut transactional_state, block_context);
+
+        match execution_result {
+            Ok(value) => {
+                *transactional_state_ref = Some(transactional_state);
+                log::trace!("Transaction execution SUCCESS.");
+                Ok(value)
+            }
+            Err(error) => {
+                log::trace!("Transaction execution FAILED, aborting.");
+                transactional_state.abort();
+                Err(error)
+            }
+        }
+    }
+
     /// Executes the transaction in a transactional manner
     /// (if it fails, given state might become corrupted; i.e., changes until failure will appear).
     fn execute_raw(
