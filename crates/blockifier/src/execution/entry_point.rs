@@ -149,8 +149,10 @@ impl<'a> IntoIterator for &'a CallInfo {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
+    execution_context: &mut ExecutionContext,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
@@ -176,9 +178,8 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
     };
-    let mut execution_context = ExecutionContext::default();
 
-    constructor_call.execute(state, &mut execution_context, block_context, account_tx_context)
+    constructor_call.execute(state, execution_context, block_context, account_tx_context)
 }
 
 pub fn handle_empty_constructor(

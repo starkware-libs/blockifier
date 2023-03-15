@@ -400,8 +400,10 @@ impl ReadOnlySegments {
 
 /// Instantiates the given class and assigns it an address.
 /// Returns the call info of the deployed class' constructor execution.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_deployment(
     state: &mut dyn State,
+    execution_context: &mut ExecutionContext,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
@@ -414,6 +416,7 @@ pub fn execute_deployment(
     state.set_class_hash_at(deployed_contract_address, class_hash)?;
     execute_constructor_entry_point(
         state,
+        execution_context,
         block_context,
         account_tx_context,
         class_hash,

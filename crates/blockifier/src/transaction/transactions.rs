@@ -107,8 +107,10 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let mut execution_context = ExecutionContext::default();
         let deployment_result = execute_deployment(
             state,
+            &mut execution_context,
             block_context,
             account_tx_context,
             self.class_hash,
