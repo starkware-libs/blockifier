@@ -26,6 +26,7 @@ starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "
     "testing",
 ] }
 thiserror = { version = "1.0.37" }
+phf = { version = "0.11", default-features = false, features = ["macros"] }
 
 [dev-dependencies]
 assert_matches = { version = "1.5.0" }
