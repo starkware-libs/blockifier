@@ -412,6 +412,7 @@ pub fn deploy(
 
     let call_info = execute_deployment(
         syscall_handler.state,
+        syscall_handler.execution_context,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
         request.class_hash,
@@ -450,10 +451,11 @@ pub fn emit_event(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
+    let mut execution_context = &mut syscall_handler.execution_context;
     let ordered_event =
-        OrderedEvent { order: syscall_handler.n_emitted_events, event: request.content };
+        OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
-    syscall_handler.n_emitted_events += 1;
+    execution_context.n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
 }
@@ -484,12 +486,13 @@ pub fn send_message_to_l1(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
+    let mut execution_context = &mut syscall_handler.execution_context;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
-        order: syscall_handler.n_sent_messages_to_l1,
+        order: execution_context.n_sent_messages_to_l1,
         message: request.message,
     };
     syscall_handler.l2_to_l1_messages.push(ordered_message_to_l1);
-    syscall_handler.n_sent_messages_to_l1 += 1;
+    execution_context.n_sent_messages_to_l1 += 1;
 
     Ok(SendMessageToL1Response {})
 }

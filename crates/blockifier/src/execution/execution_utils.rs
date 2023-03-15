@@ -20,7 +20,7 @@ use starknet_api::transaction::Calldata;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
-    EntryPointExecutionResult, Retdata,
+    EntryPointExecutionResult, ExecutionContext, Retdata,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -36,7 +36,7 @@ pub type Args = Vec<CairoArg>;
 #[path = "execution_utils_test.rs"]
 pub mod test;
 
-pub struct ExecutionContext<'a> {
+pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
     pub syscall_handler: SyscallHintProcessor<'a>,
@@ -57,9 +57,10 @@ pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     class_hash: ClassHash,
     state: &'a mut dyn State,
+    execution_context: &'a mut ExecutionContext,
     block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
-) -> Result<ExecutionContext<'a>, PreExecutionError> {
+) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let contract_class = state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
@@ -80,6 +81,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = SyscallHintProcessor::new(
         state,
+        execution_context,
         block_context,
         account_tx_context,
         initial_syscall_ptr,
@@ -87,7 +89,7 @@ pub fn initialize_execution_context<'a>(
         call.caller_address,
     );
 
-    Ok(ExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
+    Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
 }
 
 pub fn prepare_call_arguments(
@@ -131,35 +133,39 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     class_hash: ClassHash,
     state: &mut dyn State,
+    execution_context: &mut ExecutionContext,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let mut execution_context =
-        initialize_execution_context(&call, class_hash, state, block_context, account_tx_context)?;
+    let vm_execution_context = initialize_execution_context(
+        &call,
+        class_hash,
+        state,
+        execution_context,
+        block_context,
+        account_tx_context,
+    )?;
+    let mut vm = vm_execution_context.vm;
+    let mut runner = vm_execution_context.runner;
+    let mut syscall_handler = vm_execution_context.syscall_handler;
+
     let (implicit_args, args) = prepare_call_arguments(
         &call,
-        &mut execution_context.vm,
-        execution_context.initial_syscall_ptr,
-        &mut execution_context.syscall_handler.read_only_segments,
+        &mut vm,
+        vm_execution_context.initial_syscall_ptr,
+        &mut syscall_handler.read_only_segments,
     )?;
     let n_total_args = args.len();
 
     run_entry_point(
-        &mut execution_context.runner,
-        &mut execution_context.vm,
-        execution_context.entry_point_pc,
+        &mut runner,
+        &mut vm,
+        vm_execution_context.entry_point_pc,
         args,
-        &mut execution_context.syscall_handler,
+        &mut syscall_handler,
     )?;
 
-    Ok(finalize_execution(
-        execution_context.vm,
-        execution_context.runner,
-        call,
-        execution_context.syscall_handler,
-        implicit_args,
-        n_total_args,
-    )?)
+    Ok(finalize_execution(vm, runner, call, syscall_handler, implicit_args, n_total_args)?)
 }
 
 pub fn run_entry_point(
@@ -406,8 +412,10 @@ impl ReadOnlySegments {
 
 /// Instantiates the given class and assigns it an address.
 /// Returns the call info of the deployed class' constructor execution.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_deployment(
     state: &mut dyn State,
+    execution_context: &mut ExecutionContext,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
@@ -420,6 +428,7 @@ pub fn execute_deployment(
     state.set_class_hash_at(deployed_contract_address, class_hash)?;
     execute_constructor_entry_point(
         state,
+        execution_context,
         block_context,
         account_tx_context,
         class_hash,
