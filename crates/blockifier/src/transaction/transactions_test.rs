@@ -60,7 +60,7 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         (test_erc20_address, test_erc20_class_hash),
     ]);
     let storage_view = HashMap::from([(
-        (test_erc20_address, *TEST_ERC20_ACCOUNT_BALANCE_KEY),
+        (test_erc20_address, TEST_ERC20_ACCOUNT_BALANCE_KEY),
         stark_felt!(actual_fee().0 as u64),
     )]);
     CachedState::new(DictStateReader {
@@ -158,7 +158,7 @@ fn validate_final_balances(
 
     assert_eq!(
         state
-            .get_storage_at(block_context.fee_token_address, *TEST_ERC20_SEQUENCER_BALANCE_KEY)
+            .get_storage_at(block_context.fee_token_address, TEST_ERC20_SEQUENCER_BALANCE_KEY)
             .unwrap(),
         stark_felt!(expected_sequencer_balance)
     );
@@ -259,7 +259,7 @@ fn test_invoke_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 }
 
@@ -407,7 +407,7 @@ fn test_declare_tx() {
         state,
         block_context,
         expected_sequencer_balance,
-        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        TEST_ERC20_ACCOUNT_BALANCE_KEY,
     );
 
     // Verify class declaration.

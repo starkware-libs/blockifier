@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::iter::zip;
 use std::path::PathBuf;
 
-use once_cell::sync::Lazy;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
@@ -16,7 +15,6 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
@@ -76,13 +74,43 @@ pub const TEST_STORAGE_VAR_SELECTOR: &str =
     "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5";
 
 // Storage keys.
-pub static TEST_ERC20_SEQUENCER_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap()
-});
-pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
-        .unwrap()
-});
+pub const TEST_ERC20_SEQUENCER_BALANCE_KEY: StorageKey = unsafe {
+    core::mem::transmute([
+        0x07u8, 0x23, 0x97, 0x32, 0x08, 0x63, 0x9b, 0x78, 0x39, 0xce, 0x29, 0x8f, 0x7f, 0xfe, 0xa6,
+        0x1e, 0x3f, 0x95, 0x33, 0x87, 0x2d, 0xef, 0xd7, 0xab, 0xdb, 0x91, 0x02, 0x3d, 0xb4, 0x65,
+        0x88, 0x12,
+    ])
+};
+pub const TEST_ERC20_ACCOUNT_BALANCE_KEY: StorageKey = unsafe {
+    core::mem::transmute([
+        0x02u8, 0xa2, 0xc4, 0x9c, 0x4d, 0xba, 0x0d, 0x91, 0xb3, 0x4f, 0x2a, 0xde, 0x85, 0xd4, 0x1d,
+        0x09, 0x56, 0x1f, 0x9a, 0x77, 0x88, 0x4c, 0x15, 0xba, 0x2a, 0xb0, 0xf2, 0x24, 0x1b, 0x08,
+        0x0d, 0xeb,
+    ])
+};
+
+#[test]
+fn ensure_test_erc20_sequencer_balance_key_is_correct() {
+    assert_eq!(
+        crate::abi::abi_utils::get_storage_var_address(
+            "ERC20_balances",
+            &[stark_felt!(TEST_SEQUENCER_ADDRESS)]
+        )
+        .unwrap(),
+        TEST_ERC20_SEQUENCER_BALANCE_KEY
+    )
+}
+#[test]
+fn ensure_test_erc20_account_balance_key_is_correct() {
+    assert_eq!(
+        crate::abi::abi_utils::get_storage_var_address(
+            "ERC20_balances",
+            &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)]
+        )
+        .unwrap(),
+        TEST_ERC20_ACCOUNT_BALANCE_KEY
+    )
+}
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]

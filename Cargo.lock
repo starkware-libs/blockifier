@@ -227,7 +227,6 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
- "once_cell",
  "papyrus_storage",
  "phf",
  "pretty_assertions",
