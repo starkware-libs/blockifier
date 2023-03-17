@@ -75,10 +75,6 @@ impl CallEntryPoint {
         &self,
         contract_class: &ContractClass,
     ) -> Result<usize, PreExecutionError> {
-        // TODO(Dori, 1/4/2023): Be more specific with errors: NoEntryPointsOfType (when the
-        //   filtered list is empty) should be added.
-        let selector_not_found_error =
-            Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector));
         let entry_points_of_same_type =
             &contract_class.entry_points_by_type[&self.entry_point_type];
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
@@ -91,11 +87,12 @@ impl CallEntryPoint {
                         if entry_point.selector == selector_from_name(DEFAULT_ENTRY_POINT_NAME) {
                             Ok(entry_point.offset.0)
                         } else {
-                            selector_not_found_error
+                            Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector))
                         }
                     }
-                    // TODO(Dori, 1/4/2023): Return NoEntryPointsOfType error here.
-                    None => selector_not_found_error,
+                    None => Err(PreExecutionError::NoEntryPointOfTypeFound(
+                        self.entry_point_type.clone(),
+                    )),
                 }
             }
         }
