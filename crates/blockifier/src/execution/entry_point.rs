@@ -6,7 +6,7 @@ use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_NAME};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -75,11 +75,25 @@ impl CallEntryPoint {
         &self,
         contract_class: &ContractClass,
     ) -> Result<usize, PreExecutionError> {
+        let not_found_error = Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector));
         let entry_points_of_same_type =
             &contract_class.entry_points_by_type[&self.entry_point_type];
         match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
             Some(entry_point) => Ok(entry_point.offset.0),
-            None => Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector)),
+            None => {
+                // If there are entry points at all, and the first one is the default entry point,
+                // return it's offset.
+                match entry_points_of_same_type.get(0) {
+                    Some(entry_point) => {
+                        if entry_point.selector == selector_from_name(DEFAULT_ENTRY_POINT_NAME) {
+                            Ok(entry_point.offset.0)
+                        } else {
+                            not_found_error
+                        }
+                    }
+                    None => not_found_error,
+                }
+            }
         }
     }
 }
