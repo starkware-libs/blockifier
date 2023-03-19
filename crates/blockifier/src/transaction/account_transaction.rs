@@ -13,7 +13,9 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, ExecutionContext};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources,
+};
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -133,6 +135,7 @@ impl AccountTransaction {
     fn validate_tx(
         &self,
         state: &mut dyn State,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
@@ -152,6 +155,7 @@ impl AccountTransaction {
 
         let validate_call_info = validate_call.execute(
             state,
+            execution_resources,
             &mut execution_context,
             block_context,
             account_tx_context,
@@ -176,14 +180,20 @@ impl AccountTransaction {
         }
 
         let actual_fee = calculate_tx_fee(block_context);
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
+        let fee_transfer_call_info = Self::execute_fee_transfer(
+            state,
+            &mut ExecutionResources::default(),
+            block_context,
+            account_tx_context,
+            actual_fee,
+        )?;
 
         Ok((actual_fee, Some(fee_transfer_call_info)))
     }
 
     fn execute_fee_transfer(
         state: &mut dyn State,
+        execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         actual_fee: Fee,
@@ -214,6 +224,7 @@ impl AccountTransaction {
 
         Ok(fee_transfer_call.execute(
             state,
+            execution_resources,
             &mut execution_context,
             block_context,
             account_tx_context,
@@ -234,24 +245,45 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         // Handle transaction-type specific execution.
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
+        let execution_resources = &mut ExecutionResources::default();
         match self {
             Self::Declare(ref tx, ref mut contract_class) => {
                 let contract_class = Some(mem::take(contract_class));
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+                validate_call_info = self.validate_tx(
+                    state,
+                    execution_resources,
+                    block_context,
+                    &account_tx_context,
+                )?;
 
                 // Execute.
-                execute_call_info =
-                    tx.run_execute(state, block_context, &account_tx_context, contract_class)?;
+                execute_call_info = tx.run_execute(
+                    state,
+                    execution_resources,
+                    block_context,
+                    &account_tx_context,
+                    contract_class,
+                )?;
             }
             Self::DeployAccount(ref tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info =
-                    tx.run_execute(state, block_context, &account_tx_context, None)?;
+                execute_call_info = tx.run_execute(
+                    state,
+                    execution_resources,
+                    block_context,
+                    &account_tx_context,
+                    None,
+                )?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+                validate_call_info = self.validate_tx(
+                    state,
+                    execution_resources,
+                    block_context,
+                    &account_tx_context,
+                )?;
             }
             Self::Invoke(ref tx) => {
                 // Specifying an entry point selector is not allowed; `__execute__` is called, and
@@ -261,11 +293,21 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 }
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, block_context, &account_tx_context)?;
+                validate_call_info = self.validate_tx(
+                    state,
+                    execution_resources,
+                    block_context,
+                    &account_tx_context,
+                )?;
 
                 // Execute.
-                execute_call_info =
-                    tx.run_execute(state, block_context, &account_tx_context, None)?;
+                execute_call_info = tx.run_execute(
+                    state,
+                    execution_resources,
+                    block_context,
+                    &account_tx_context,
+                    None,
+                )?;
             }
         };
 

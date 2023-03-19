@@ -12,6 +12,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
+use crate::execution::syscall_handling::SyscallCounter;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -41,10 +42,17 @@ pub struct CallEntryPoint {
     pub caller_address: ContractAddress,
 }
 
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct ExecutionResources {
+    pub vm_resources: VmExecutionResources,
+    pub syscall_counter: SyscallCounter,
+}
+
 impl CallEntryPoint {
     pub fn execute(
         mut self,
         state: &mut dyn State,
+        execution_resources: &mut ExecutionResources,
         execution_context: &mut ExecutionContext,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
@@ -66,6 +74,7 @@ impl CallEntryPoint {
             self,
             class_hash,
             state,
+            execution_resources,
             execution_context,
             block_context,
             account_tx_context,
@@ -155,6 +164,7 @@ impl<'a> IntoIterator for &'a CallInfo {
 #[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
+    execution_resources: &mut ExecutionResources,
     execution_context: &mut ExecutionContext,
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
@@ -182,7 +192,13 @@ pub fn execute_constructor_entry_point(
         caller_address,
     };
 
-    constructor_call.execute(state, execution_context, block_context, account_tx_context)
+    constructor_call.execute(
+        state,
+        execution_resources,
+        execution_context,
+        block_context,
+        account_tx_context,
+    )
 }
 
 pub fn handle_empty_constructor(
