@@ -412,6 +412,7 @@ pub fn deploy(
 
     let call_info = execute_deployment(
         syscall_handler.state,
+        syscall_handler.execution_resources,
         syscall_handler.execution_context,
         syscall_handler.block_context,
         syscall_handler.account_tx_context,
