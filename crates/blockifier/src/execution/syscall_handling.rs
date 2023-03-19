@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -232,11 +232,11 @@ impl<'a> SyscallHintProcessor<'a> {
         let tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(self.account_tx_context.version.0).into(),
             stark_felt_to_felt(*self.account_tx_context.sender_address.0.key()).into(),
-            Felt::from(self.account_tx_context.max_fee.0).into(),
+            Felt252::from(self.account_tx_context.max_fee.0).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
             stark_felt_to_felt(self.account_tx_context.transaction_hash.0).into(),
-            Felt::from_bytes_be(self.block_context.chain_id.0.as_bytes()).into(),
+            Felt252::from_bytes_be(self.block_context.chain_id.0.as_bytes()).into(),
             stark_felt_to_felt(self.account_tx_context.nonce.0).into(),
         ];
 
@@ -273,7 +273,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
         vm: &mut VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        constants: &HashMap<String, Felt>,
+        constants: &HashMap<String, Felt252>,
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {

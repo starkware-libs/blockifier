@@ -190,14 +190,14 @@ fn test_vm_execution_security_failures() {
     );
 
     run_security_test(
-        "cant substract two relocatable values with different segment indexes",
+        "can't subtract two relocatable values with different segment indexes",
         "test_subtraction_between_relocatables",
         calldata![],
         &mut state,
     );
 
     run_security_test(
-        "cant add two relocatable values",
+        "can't add two relocatable values",
         "test_relocatables_addition_failure",
         calldata![],
         &mut state,
