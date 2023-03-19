@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::{EntryPointType, StorageKey};
+use starknet_api::state::{EntryPoint, EntryPointType, StorageKey};
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::abi::abi_utils::selector_from_name;
@@ -78,23 +78,40 @@ impl CallEntryPoint {
         let not_found_error = Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector));
         let entry_points_of_same_type =
             &contract_class.entry_points_by_type[&self.entry_point_type];
-        match entry_points_of_same_type.iter().find(|ep| ep.selector == self.entry_point_selector) {
-            Some(entry_point) => Ok(entry_point.offset.0),
-            None => {
-                // If there are entry points at all, and the first one is the default entry point,
-                // return it's offset.
-                match entry_points_of_same_type.get(0) {
-                    Some(entry_point) => {
-                        if entry_point.selector == selector_from_name(DEFAULT_ENTRY_POINT_NAME) {
-                            Ok(entry_point.offset.0)
-                        } else {
-                            not_found_error
-                        }
+        let filtered_entry_points: Vec<&EntryPoint> = entry_points_of_same_type
+            .iter()
+            .filter(|ep| ep.selector == self.entry_point_selector)
+            .collect();
+
+        // Returns the default entrypoint if the given selector is missing.
+        if filtered_entry_points.is_empty() {
+            match entry_points_of_same_type.get(0) {
+                Some(entry_point) => {
+                    // Selectors for the default entry point of each entry point type are identical.
+                    if entry_point.selector == selector_from_name(DEFAULT_ENTRY_POINT_NAME) {
+                        return Ok(entry_point.offset.0);
+                    } else {
+                        // No default entry point.
+                        return not_found_error;
                     }
-                    None => not_found_error,
+                }
+                None => {
+                    // No entry points of the correct type.
+                    return not_found_error;
                 }
             }
         }
+
+        // Non-unique entry points are not possible.
+        if filtered_entry_points.len() > 1 {
+            return not_found_error;
+        }
+
+        // Filtered entry points contain exactly one element.
+        let entry_point = filtered_entry_points
+            .get(0)
+            .expect("The number of entry points with the given selector is exactly one.");
+        Ok(entry_point.offset.0)
     }
 }
 
