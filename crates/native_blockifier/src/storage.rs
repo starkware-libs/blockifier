@@ -57,7 +57,7 @@ impl Storage {
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer.begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
-        let revert_txn = revert_txn.revert_header(block_number)?;
+        let (revert_txn, _) = revert_txn.revert_header(block_number)?;
 
         revert_txn.commit()?;
         Ok(())
