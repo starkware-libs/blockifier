@@ -1,4 +1,4 @@
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use num_integer::Integer;
 use sha3::{Digest, Keccak256};
 use starknet_api::core::{EntryPointSelector, L2_ADDRESS_UPPER_BOUND};
@@ -14,14 +14,14 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 mod test;
 
 /// A variant of eth-keccak that computes a value that fits in a StarkNet field element.
-pub fn starknet_keccak(data: &[u8]) -> Felt {
+pub fn starknet_keccak(data: &[u8]) -> Felt252 {
     let mut hasher = Keccak256::new();
     hasher.update(data);
     let mut result = hasher.finalize();
 
     // Truncate result to 250 bits.
     *result.first_mut().unwrap() &= 3;
-    Felt::from_bytes_be(&result)
+    Felt252::from_bytes_be(&result)
 }
 
 /// Returns an entry point selector, given its name.
@@ -50,7 +50,7 @@ pub fn get_storage_var_address(
         args.iter().fold(storage_var_name_hash, |res, arg| pedersen_hash(&res, arg));
 
     let storage_key = stark_felt_to_felt(storage_key_hash)
-        .mod_floor(&Felt::from_bytes_be(&L2_ADDRESS_UPPER_BOUND.to_bytes_be()));
+        .mod_floor(&Felt252::from_bytes_be(&L2_ADDRESS_UPPER_BOUND.to_bytes_be()));
 
     StorageKey::try_from(felt_to_stark_felt(&storage_key))
 }

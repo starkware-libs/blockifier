@@ -1,4 +1,4 @@
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -561,7 +561,7 @@ impl SyscallResponse for GetBlockNumberResponse {
     const SIZE: usize = 1;
 
     fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, Felt::from(self.block_number.0))?)
+        Ok(vm.insert_value(ptr, Felt252::from(self.block_number.0))?)
     }
 }
 
@@ -586,7 +586,7 @@ impl SyscallResponse for GetBlockTimestampResponse {
     const SIZE: usize = 1;
 
     fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, Felt::from(self.block_timestamp.0))?)
+        Ok(vm.insert_value(ptr, Felt252::from(self.block_timestamp.0))?)
     }
 }
 

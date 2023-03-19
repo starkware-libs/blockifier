@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt;
+use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
-    deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, BuiltinName, HintParams,
-    Identifier, ReferenceManager,
+    deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, HintParams, Identifier,
+    ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -44,13 +44,13 @@ pub struct VmExecutionContext<'a> {
     pub entry_point_pc: usize,
 }
 
-pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt {
-    Felt::from_bytes_be(stark_felt.bytes())
+pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt252 {
+    Felt252::from_bytes_be(stark_felt.bytes())
 }
 
-pub fn felt_to_stark_felt(felt: &Felt) -> StarkFelt {
+pub fn felt_to_stark_felt(felt: &Felt252) -> StarkFelt {
     let biguint = format!("{:#x}", felt.to_biguint());
-    StarkFelt::try_from(biguint.as_str()).expect("Felt must be in StarkFelt's range.")
+    StarkFelt::try_from(biguint.as_str()).expect("Felt252 must be in StarkFelt's range.")
 }
 
 pub fn initialize_execution_context<'a>(
@@ -196,6 +196,7 @@ pub fn finalize_execution(
     let initial_fp = runner
         .get_initial_fp()
         .expect("The initial_fp field should be initialized after running the entry point.");
+    // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
     let args_ptr = (initial_fp - (n_total_args + 2))?;
     vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
 
@@ -315,10 +316,7 @@ pub fn convert_program_to_cairo_runner_format(
     };
 
     Ok(Program {
-        builtins: serde_json::from_value::<Vec<BuiltinName>>(program.builtins)?
-            .iter()
-            .map(BuiltinName::name)
-            .collect(),
+        builtins: serde_json::from_value(program.builtins)?,
         prime: deserialize_felt_hex(program.prime)?.to_string(),
         data: deserialize_array_of_bigint_hex(program.data)?,
         constants: {
