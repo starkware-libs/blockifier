@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
-use cairo_vm::vm::runners::builtin_runner as cairo_vm_builtin_runner;
+use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
@@ -90,7 +90,7 @@ fn expected_validate_call_info(
         n_steps: 21,
         n_memory_holes: 1,
         builtin_instance_counter: HashMap::from([(
-            cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(),
+            RANGE_CHECK_BUILTIN_NAME.to_string(),
             n_range_checks,
         )]),
     };
@@ -243,10 +243,7 @@ fn test_invoke_tx() {
         vm_resources: VmExecutionResources {
             n_steps: 39,
             n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(
-                cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(),
-                1,
-            )]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
@@ -271,8 +268,8 @@ fn test_invoke_tx() {
             n_steps: 525,
             n_memory_holes: 60,
             builtin_instance_counter: HashMap::from([
-                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 4),
-                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
+                (HASH_BUILTIN_NAME.to_string(), 4),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
             ]),
         },
     );
@@ -427,8 +424,8 @@ fn test_declare_tx() {
             n_steps: 525,
             n_memory_holes: 60,
             builtin_instance_counter: HashMap::from([
-                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 4),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
+                (HASH_BUILTIN_NAME.to_string(), 4),
             ]),
         },
     );
@@ -533,8 +530,8 @@ fn test_deploy_account_tx() {
             n_steps: 525,
             n_memory_holes: 58,
             builtin_instance_counter: HashMap::from([
-                (cairo_vm_builtin_runner::HASH_BUILTIN_NAME.to_string(), 4),
-                (cairo_vm_builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
+                (HASH_BUILTIN_NAME.to_string(), 4),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
             ]),
         },
     );
