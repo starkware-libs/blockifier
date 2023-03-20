@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
@@ -116,7 +117,9 @@ pub struct CallExecution {
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
+    pub vm_resources: VmExecutionResources,
     pub inner_calls: Vec<CallInfo>,
+
     // Additional information gathered during execution.
     pub storage_read_values: Vec<StarkFelt>,
     pub accessed_storage_keys: HashSet<StorageKey>,
