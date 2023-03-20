@@ -6,7 +6,7 @@ use starknet_api::state::{EntryPoint, EntryPointType, StorageKey};
 use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_NAME};
+use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -87,8 +87,9 @@ impl CallEntryPoint {
         if filtered_entry_points.is_empty() {
             match entry_points_of_same_type.get(0) {
                 Some(entry_point) => {
-                    // Selectors for the default entry point of each entry point type are identical.
-                    if entry_point.selector == selector_from_name(DEFAULT_ENTRY_POINT_NAME) {
+                    if entry_point.selector
+                        == EntryPointSelector(DEFAULT_ENTRY_POINT_SELECTOR.into())
+                    {
                         return Ok(entry_point.offset.0);
                     } else {
                         // No default entry point.
