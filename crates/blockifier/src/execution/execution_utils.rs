@@ -142,8 +142,6 @@ pub fn execute_entry_point_call(
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let previous_vm_resources = execution_resources.vm_resources.clone();
-
     let VmExecutionContext {
         mut runner,
         mut vm,
@@ -168,25 +166,31 @@ pub fn execute_entry_point_call(
     )?;
     let n_total_args = args.len();
 
-    run_entry_point(&mut runner, &mut vm, entry_point_pc, args, &mut syscall_handler)?;
+    // Fix the VM resources, in order to calculate the usage of this run at the end.
+    let previous_vm_resources = syscall_handler.execution_resources.vm_resources.clone();
+
+    // Execute.
+    run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
 
     Ok(finalize_execution(
         vm,
         runner,
+        syscall_handler,
         call,
         previous_vm_resources,
-        syscall_handler,
         implicit_args,
         n_total_args,
     )?)
 }
 
+/// Runs the runner from the given PC.
+/// Returns the VM execution resources used, including inner calls.
 pub fn run_entry_point(
-    runner: &mut CairoRunner,
     vm: &mut VirtualMachine,
+    runner: &mut CairoRunner,
+    hint_processor: &mut SyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
-    hint_processor: &mut SyscallHintProcessor<'_>,
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
@@ -198,16 +202,12 @@ pub fn run_entry_point(
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
-    call: CallEntryPoint,
-    _previous_vm_resources: VmExecutionResources,
     syscall_handler: SyscallHintProcessor<'_>,
+    call: CallEntryPoint,
+    previous_vm_resources: VmExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
-    let vm_resources =
-        runner.get_execution_resources(&vm).map_err(VirtualMachineError::TracerError)?;
-    let vm_resources = vm_resources.filter_unused_builtins();
-
     // The arguments and RO segments are touched by the OS and should not be counted as
     // holes, mark them as accessed.
     let initial_fp = runner
@@ -216,12 +216,22 @@ pub fn finalize_execution(
     // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
     let args_ptr = (initial_fp - (n_total_args + 2))?;
     vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
+    syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
+    // Take into account the VM execution resources of the current call, without inner calls.
+    // Has to happen after marking holes in segments as accessed.
+    let external_call_vm_resources = runner
+        .get_execution_resources(&vm)
+        .map_err(VirtualMachineError::TracerError)?
+        .filter_unused_builtins();
+    syscall_handler.execution_resources.vm_resources =
+        (syscall_handler.execution_resources.vm_resources).clone() + external_call_vm_resources;
+
+    // Validate run.
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
     let implicit_args_end_ptr = (vm.get_ap() - 2)?;
     validate_run(&mut vm, runner, implicit_args, implicit_args_end_ptr, &syscall_handler)?;
-    syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     Ok(CallInfo {
         call,
@@ -230,7 +240,8 @@ pub fn finalize_execution(
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
         },
-        vm_resources,
+        vm_resources: (syscall_handler.execution_resources.vm_resources).clone()
+            - previous_vm_resources,
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
@@ -404,8 +415,8 @@ impl ReadOnlySegments {
         Ok(())
     }
 
-    pub fn mark_as_accessed(self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
-        for segment in self.0 {
+    pub fn mark_as_accessed(&self, vm: &mut VirtualMachine) -> Result<(), PostExecutionError> {
+        for segment in &self.0 {
             vm.mark_address_range_as_accessed(segment.start_ptr, segment.length)?;
         }
 
