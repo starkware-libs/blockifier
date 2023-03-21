@@ -113,22 +113,27 @@ impl Storage {
 
     #[args(latest_block_id)]
     pub fn validate_aligned(&self, latest_block_id: BigInt) -> NativeBlockifierResult<()> {
-        let block_number = self.get_state_marker()? - 1;
-        let block_id = self.get_block_id(block_number)?;
-        let block_id = match block_id {
-            Some(id) => BigInt::from_bytes_be(Sign::Plus, &id),
-            None => BigInt::from(-1),
-        };
-
-        if block_id != latest_block_id {
-            return Err(NativeBlockifierError::from(
-                NativeBlockifierValidationError::StorageUnaligned {
-                    blockifier_latest_block_id: block_id,
+        let next_block_number: u64 = self.get_state_marker()?;
+        if next_block_number == 0 {
+            return if BigInt::from(-1) == latest_block_id {
+                Ok(())
+            } else {
+                Err(NativeBlockifierValidationError::EmptyBlockifierStorage {
                     actual_latest_block_id: latest_block_id,
-                },
-            ));
+                })?
+            };
         }
 
-        Ok(())
+        let current_block_number: u64 = next_block_number - 1;
+        let block_id =
+            self.get_block_id(current_block_number)?.expect("Current block must have an ID.");
+        if block_id == latest_block_id.to_signed_bytes_be() {
+            Ok(())
+        } else {
+            Err(NativeBlockifierValidationError::StorageMisaligned {
+                blockifier_latest_block_id: BigInt::from_bytes_be(Sign::Plus, &block_id),
+                actual_latest_block_id: latest_block_id,
+            })?
+        }
     }
 }

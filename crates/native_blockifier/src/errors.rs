@@ -65,5 +65,10 @@ pub enum NativeBlockifierValidationError {
         "Blockifier storage is not aligned with the main storage; latest block ID in blockifier: \
          {blockifier_latest_block_id}, latest block ID in main storage: {actual_latest_block_id}."
     )]
-    StorageUnaligned { blockifier_latest_block_id: BigInt, actual_latest_block_id: BigInt },
+    StorageMisaligned { blockifier_latest_block_id: BigInt, actual_latest_block_id: BigInt },
+    #[error(
+        "Blockifier storage is not aligned with the main storage; blockifier storage is empty, \
+         whereas latest block ID in main storage is {actual_latest_block_id}."
+    )]
+    EmptyBlockifierStorage { actual_latest_block_id: BigInt },
 }
