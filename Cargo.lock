@@ -250,6 +250,7 @@ dependencies = [
  "derive_more",
  "indexmap",
  "itertools",
+ "lazy_static",
  "num-bigint",
  "num-integer",
  "num-traits",

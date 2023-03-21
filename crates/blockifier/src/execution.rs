@@ -4,5 +4,6 @@ pub mod entry_point;
 pub mod errors;
 pub mod execution_utils;
 pub mod hint_code;
+pub mod resources;
 pub mod syscall_handling;
 pub mod syscalls;
