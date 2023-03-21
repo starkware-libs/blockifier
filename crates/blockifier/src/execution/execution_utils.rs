@@ -224,12 +224,11 @@ pub fn finalize_execution(
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
-    let vm_resources_without_inner_calls = runner
+    let vm_resources_without_inner_calls = &runner
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.execution_resources.vm_resources =
-        syscall_handler.execution_resources.vm_resources.clone() + vm_resources_without_inner_calls;
+    syscall_handler.execution_resources.vm_resources += vm_resources_without_inner_calls;
 
     let full_call_vm_resources =
         syscall_handler.execution_resources.vm_resources.clone() - previous_vm_resources;
