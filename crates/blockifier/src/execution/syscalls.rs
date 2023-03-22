@@ -12,7 +12,7 @@ use starknet_api::transaction::{
     MessageToL1,
 };
 
-use crate::execution::entry_point::{CallEntryPoint, OrderedEvent, OrderedL2ToL1Message};
+use crate::execution::entry_point::{CallEntryPoint, CallType, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     execute_deployment, execute_library_call, felt_from_ptr, ReadOnlySegment,
@@ -236,6 +236,7 @@ pub fn call_contract(
         calldata: request.calldata,
         storage_address: request.contract_address,
         caller_address: syscall_handler.storage_address,
+        call_type: CallType::Call,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 

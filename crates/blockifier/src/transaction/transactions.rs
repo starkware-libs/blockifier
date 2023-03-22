@@ -10,7 +10,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources,
+    CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
@@ -143,6 +143,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             class_hash: None,
             storage_address: self.sender_address,
             caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();
 
@@ -173,6 +174,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             class_hash: None,
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();
 
