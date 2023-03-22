@@ -1,1 +1,2 @@
-cairo-lang
+# TODO(Gilad,01/04/2023): remove version fix after offset serialization is fixed.
+cairo-lang==0.10.3
