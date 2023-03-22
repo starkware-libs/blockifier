@@ -291,7 +291,11 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cairo-felt"
 version = "0.2.0"
+<<<<<<< HEAD
 source = "git+https://github.com/lambdaclass/cairo-rs.git#77fe09ebbf72710935b455b1c5ff56b0bad7a4b8"
+=======
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=07e0c3f0ac7a9f1ccd8dacd97b152997563bb299#07e0c3f0ac7a9f1ccd8dacd97b152997563bb299"
+>>>>>>> b7a5b55 (Use native bazel rules for build rust and cargo)
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -303,7 +307,11 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.2.0"
+<<<<<<< HEAD
 source = "git+https://github.com/lambdaclass/cairo-rs.git#77fe09ebbf72710935b455b1c5ff56b0bad7a4b8"
+=======
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=07e0c3f0ac7a9f1ccd8dacd97b152997563bb299#07e0c3f0ac7a9f1ccd8dacd97b152997563bb299"
+>>>>>>> b7a5b55 (Use native bazel rules for build rust and cargo)
 dependencies = [
  "anyhow",
  "bincode 2.0.0-rc.2",
@@ -1460,7 +1468,11 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/starkware-libs/papyrus#21958c15fb5d47fef372c4869efbd30643fd8633"
+=======
+source = "git+https://github.com/starkware-libs/papyrus?rev=21958c15fb5d47fef372c4869efbd30643fd8633#21958c15fb5d47fef372c4869efbd30643fd8633"
+>>>>>>> b7a5b55 (Use native bazel rules for build rust and cargo)
 dependencies = [
  "bincode 1.3.3",
  "flate2",
@@ -1535,7 +1547,11 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
+<<<<<<< HEAD
 source = "git+https://github.com/lambdaclass/cairo-rs.git#77fe09ebbf72710935b455b1c5ff56b0bad7a4b8"
+=======
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=07e0c3f0ac7a9f1ccd8dacd97b152997563bb299#07e0c3f0ac7a9f1ccd8dacd97b152997563bb299"
+>>>>>>> b7a5b55 (Use native bazel rules for build rust and cargo)
 dependencies = [
  "nom",
 ]
@@ -2420,7 +2436,11 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/starkware-libs/papyrus#21958c15fb5d47fef372c4869efbd30643fd8633"
+=======
+source = "git+https://github.com/starkware-libs/papyrus?rev=21958c15fb5d47fef372c4869efbd30643fd8633#21958c15fb5d47fef372c4869efbd30643fd8633"
+>>>>>>> b7a5b55 (Use native bazel rules for build rust and cargo)
 dependencies = [
  "indexmap",
  "rand",
