@@ -22,14 +22,13 @@ pub mod test;
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
-pub struct ExecutionContext {
-    // Used for tracking events order during the current execution.
-    pub n_emitted_events: usize,
-    // Used for tracking L2-to-L1 messages order during the current execution.
-    pub n_sent_messages_to_l1: usize,
+/// Represents a the type of the call (used for debugging).
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum CallType {
+    #[default]
+    Call = 0,
+    Delegate = 1,
 }
-
 /// Represents a call to an entry point of a StarkNet contract.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
@@ -40,12 +39,21 @@ pub struct CallEntryPoint {
     pub calldata: Calldata,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
+    pub call_type: CallType,
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
+}
+
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct ExecutionContext {
+    // Used for tracking events order during the current execution.
+    pub n_emitted_events: usize,
+    // Used for tracking L2-to-L1 messages order during the current execution.
+    pub n_sent_messages_to_l1: usize,
 }
 
 impl CallEntryPoint {
@@ -222,6 +230,7 @@ pub fn execute_constructor_entry_point(
         calldata,
         storage_address,
         caller_address,
+        call_type: CallType::Call,
     };
 
     constructor_call.execute(
@@ -255,6 +264,7 @@ pub fn handle_empty_constructor(
             calldata: Calldata::default(),
             storage_address,
             caller_address,
+            call_type: CallType::Call,
         },
         ..Default::default()
     };

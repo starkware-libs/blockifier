@@ -21,7 +21,7 @@ use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
-    execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
+    execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo, CallType,
     EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
 };
 use crate::execution::errors::{
@@ -471,6 +471,7 @@ pub fn execute_library_call(
         // The call context remains the same in a library call.
         storage_address: syscall_handler.storage_address,
         caller_address: syscall_handler.caller_address,
+        call_type: CallType::Delegate,
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)

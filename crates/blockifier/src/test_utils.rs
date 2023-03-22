@@ -20,7 +20,7 @@ use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
+    CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     ExecutionResources, Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
@@ -142,6 +142,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         calldata: calldata![],
         storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
         caller_address: ContractAddress::default(),
+        call_type: CallType::Call,
     }
 }
 

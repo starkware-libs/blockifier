@@ -19,7 +19,7 @@ use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, OrderedEvent, Retdata,
+    CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
 use crate::retdata;
 use crate::state::cached_state::CachedState;
@@ -103,6 +103,7 @@ fn expected_validate_call_info(
             calldata,
             storage_address,
             caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
         },
         // The account contract we use for testing has trivial `validate` functions.
         execution: CallExecution::default(),
@@ -134,6 +135,7 @@ fn expected_fee_transfer_call_info(
         ],
         storage_address: block_context.fee_token_address,
         caller_address: account_address,
+        call_type: CallType::Call,
     };
     let expected_fee_sender_address = *account_address.0.key();
     let expected_fee_transfer_event = OrderedEvent {
@@ -231,6 +233,7 @@ fn test_invoke_tx() {
         calldata: Calldata(expected_return_result_calldata.clone().into()),
         storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
         caller_address: expected_account_address,
+        call_type: CallType::Call,
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),

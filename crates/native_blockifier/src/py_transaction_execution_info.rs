@@ -61,6 +61,8 @@ pub struct PyCallInfo {
     pub entry_point_type: usize,
     #[pyo3(get)]
     pub calldata: Vec<PyFelt>,
+    #[pyo3(get)]
+    pub call_type: u8,
 
     // Call results.
     #[pyo3(get)]
@@ -87,8 +89,6 @@ pub struct PyCallInfo {
     pub accessed_storage_keys: HashSet<PyFelt>,
 
     // Deprecated fields; maintained for backward compatibility to Python.
-    #[pyo3(get)]
-    pub call_type: usize,
     #[pyo3(get)]
     pub code_address: Option<PyFelt>,
 }
@@ -119,7 +119,7 @@ impl From<CallInfo> for PyCallInfo {
                 .into_iter()
                 .map(|storage_key| PyFelt(*storage_key.0.key()))
                 .collect(),
-            call_type: 0, // CallType::CALL.
+            call_type: call.call_type as u8,
             code_address: None,
         }
     }

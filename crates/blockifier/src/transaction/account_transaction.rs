@@ -14,7 +14,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources,
+    CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
@@ -150,6 +150,7 @@ impl AccountTransaction {
             class_hash: None,
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();
 
@@ -219,6 +220,7 @@ impl AccountTransaction {
             ],
             storage_address: block_context.fee_token_address,
             caller_address: account_tx_context.sender_address,
+            call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();
 
