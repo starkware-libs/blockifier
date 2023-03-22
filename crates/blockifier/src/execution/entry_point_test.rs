@@ -78,6 +78,27 @@ fn test_entry_point_with_arg() {
 }
 
 #[test]
+fn test_long_retdata() {
+    let mut state = create_test_state();
+    let calldata = calldata![];
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test_long_retdata"),
+        ..trivial_external_entry_point()
+    };
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution::from_retdata(retdata![
+            stark_felt!(0),
+            stark_felt!(1),
+            stark_felt!(2),
+            stark_felt!(3),
+            stark_felt!(4)
+        ])
+    );
+}
+
+#[test]
 fn test_entry_point_with_builtin() {
     let mut state = create_test_state();
     let calldata = calldata![stark_felt!(47), stark_felt!(31)];

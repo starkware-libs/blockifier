@@ -1,5 +1,6 @@
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors as cairo_vm_errors;
+use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
@@ -37,6 +38,8 @@ pub enum PostExecutionError {
     MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
     #[error(transparent)]
     MemoryError(#[from] cairo_vm_errors::memory_errors::MemoryError),
+    #[error(transparent)]
+    RetdataSizeTooBig(#[from] TryFromBigIntError<BigInt>),
     #[error("Validation failed: {0}.")]
     SecurityValidationError(String),
     #[error(transparent)]
