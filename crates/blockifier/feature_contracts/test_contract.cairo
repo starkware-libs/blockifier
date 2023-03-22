@@ -74,6 +74,11 @@ func test_storage_read_write{syscall_ptr: felt*}(address: felt, value: felt) -> 
 }
 
 @external
+func test_long_retdata() -> (a: felt, b: felt, c: felt, d: felt, e: felt) {
+    return (a=0, b=1, c=2, d=3, e=4);
+}
+
+@external
 @raw_output
 func test_library_call{syscall_ptr: felt*}(
     class_hash: felt, selector: felt, calldata_len: felt, calldata: felt*
