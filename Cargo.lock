@@ -1453,9 +1453,9 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#1cb6137ac74415d80bcd18bcf5fd4cd5a959fa4f"
+source = "git+https://github.com/starkware-libs/papyrus?rev=e3d752e#e3d752eddaac537148c7253886a4796125a8235e"
 dependencies = [
- "bincode",
+ "byteorder",
  "flate2",
  "futures-util",
  "indexmap",
@@ -1474,6 +1474,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
+ "web3",
 ]
 
 [[package]]
@@ -2353,7 +2354,7 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus#1cb6137ac74415d80bcd18bcf5fd4cd5a959fa4f"
+source = "git+https://github.com/starkware-libs/papyrus?rev=e3d752e#e3d752eddaac537148c7253886a4796125a8235e"
 dependencies = [
  "indexmap",
  "rand",
@@ -2363,6 +2364,7 @@ dependencies = [
  "serde_json",
  "starknet_api",
  "tracing",
+ "web3",
 ]
 
 [[package]]
