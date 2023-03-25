@@ -3,15 +3,12 @@ use std::collections::HashMap;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use lazy_static::lazy_static;
 
-#[derive(Eq, Hash, PartialEq)]
-pub enum TransactionType {
-    Declare,
-    Deploy,
-    DeployAccount,
-    InitializeBlockInfo,
-    InvokeFunction,
-    L1Handler,
-}
+use super::errors::PostExecutionError;
+use crate::transaction::objects::TransactionType;
+
+#[cfg(test)]
+#[path = "resources_test.rs"]
+pub mod test;
 
 pub struct OsResources {
     // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
@@ -36,7 +33,7 @@ fn execution_resources(n_steps: usize, n_rc: usize, n_pedersen: usize) -> Execut
 }
 
 lazy_static! {
-    static ref OS_RESOURCES: OsResources = OsResources {
+    pub static ref OS_RESOURCES: OsResources = OsResources {
         execute_syscalls: HashMap::from([
             ("call_contract", execution_resources(630, 18, 0)),
             ("delegate_call", execution_resources(652, 18, 0)),
@@ -70,17 +67,22 @@ lazy_static! {
 pub fn get_additional_os_resources(
     syscall_counter: HashMap<String, usize>,
     tx_type: TransactionType,
-) -> ExecutionResources {
+) -> Result<ExecutionResources, PostExecutionError> {
     // Calculate the additional resources needed for the OS to run the given syscalls;
     // i.e., the resources of the function execute_syscalls().
     let mut os_additional_resources = execution_resources(0, 0, 0);
     for (syscall_name, count) in syscall_counter {
-        // TODO(Dori, 1/5/2023): Use `+=` when available.
-        os_additional_resources = os_additional_resources
-            + (OS_RESOURCES.execute_syscalls.get(syscall_name.as_str()).unwrap().clone() * count);
+        match OS_RESOURCES.execute_syscalls.get(syscall_name.as_str()) {
+            Some(syscall_resources) => {
+                // TODO(Dori, 1/5/2023): Use `+=` when available.
+                os_additional_resources =
+                    os_additional_resources + (syscall_resources.clone() * count);
+            }
+            None => return Err(PostExecutionError::UnknownSyscallResources(syscall_name)),
+        }
     }
 
     // Calculate the additional resources needed for the OS to run the given transaction;
     // i.e., the resources of the StarkNet OS function execute_transactions_inner().
-    os_additional_resources + OS_RESOURCES.execute_txs_inner.get(&tx_type).unwrap().clone()
+    Ok(os_additional_resources + OS_RESOURCES.execute_txs_inner.get(&tx_type).unwrap().clone())
 }
