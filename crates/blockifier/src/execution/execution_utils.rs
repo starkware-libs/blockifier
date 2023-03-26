@@ -300,7 +300,8 @@ fn read_execution_retdata(
     retdata_ptr: MaybeRelocatable,
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
-        MaybeRelocatable::Int(retdata_size) => retdata_size.bits() as usize,
+        MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())
+            .map_err(PostExecutionError::RetdataSizeTooBig)?,
         relocatable => {
             return Err(VirtualMachineError::ExpectedIntAtRange(Some(relocatable)).into());
         }
