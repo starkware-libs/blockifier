@@ -18,7 +18,7 @@ hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
 num-bigint = { version = "0.4" }
 ouroboros = { version = "0.15.6" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", features = [
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "21958c15fb5d47fef372c4869efbd30643fd8633", features = [
     "testing",
 ] }
 pyo3 = { version = "0.17.3", features = [
