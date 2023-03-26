@@ -3,6 +3,7 @@ use cairo_vm::vm::errors as cairo_vm_errors;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::EntryPointType;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -14,6 +15,10 @@ use crate::state::errors::StateError;
 pub enum PreExecutionError {
     #[error("Entry point {0:?} not found in contract.")]
     EntryPointNotFound(EntryPointSelector),
+    #[error("Entry point {selector:?} has {n_matches:?} matches.")]
+    DuplicateSelector { selector: EntryPointSelector, n_matches: usize },
+    #[error("No entry points of type {0:?} found in contract.")]
+    NoEntryPointOfTypeFound(EntryPointType),
     #[error(transparent)]
     MemoryError(#[from] cairo_vm_errors::memory_errors::MemoryError),
     #[error(transparent)]
