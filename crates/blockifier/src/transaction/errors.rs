@@ -49,4 +49,6 @@ pub enum TransactionExecutionError {
     UnauthorizedInnerCall { entry_point_kind: String },
     #[error("Unknown chain ID '{chain_id:?}'.")]
     UnknownChainId { chain_id: String },
+    #[error("OS resources of syscall '{0}' are unknown.")]
+    UnknownSyscallResources(String),
 }

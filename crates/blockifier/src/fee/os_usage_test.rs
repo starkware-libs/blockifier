@@ -1,7 +1,7 @@
 use strum::IntoEnumIterator;
 
 use crate::fee::os_usage::OS_RESOURCES;
-use crate::transaction::objects::TransactionType;
+use crate::transaction::transaction_types::TransactionType;
 
 #[test]
 fn test_tx_types_have_resources_entry() {
