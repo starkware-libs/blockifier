@@ -93,7 +93,6 @@ impl CallEntryPoint {
         &self,
         contract_class: &ContractClass,
     ) -> Result<usize, PreExecutionError> {
-        let not_found_error = Err(PreExecutionError::EntryPointNotFound(self.entry_point_selector));
         let entry_points_of_same_type =
             &contract_class.entry_points_by_type[&self.entry_point_type];
         let filtered_entry_points: Vec<&EntryPoint> = entry_points_of_same_type
@@ -110,20 +109,22 @@ impl CallEntryPoint {
                     {
                         return Ok(entry_point.offset.0);
                     } else {
-                        // No default entry point.
-                        return not_found_error;
+                        return Err(PreExecutionError::EntryPointNotFound(
+                            self.entry_point_selector,
+                        ));
                     }
                 }
                 None => {
-                    // No entry points of the correct type.
-                    return not_found_error;
+                    return Err(PreExecutionError::NoEntryPointOfTypeFound(self.entry_point_type));
                 }
             }
         }
 
-        // Non-unique entry points are not possible.
         if filtered_entry_points.len() > 1 {
-            return not_found_error;
+            return Err(PreExecutionError::DuplicateSelector {
+                selector: self.entry_point_selector,
+                typ: self.entry_point_type,
+            });
         }
 
         // Filtered entry points contain exactly one element.
