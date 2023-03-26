@@ -1,19 +1,10 @@
 load("@crates//:defs.bzl", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_library")
+load("@rules_rust//rust:defs.bzl", "rust_shared_library")
 load("@rules_python//python:defs.bzl", "py_library")
 
-rust_library(
+rust_shared_library(
     name = "native_blockifier",
-    srcs = [
-        "src/errors.rs",
-        "src/lib.rs",
-        "src/py_state_diff.rs",
-        "src/py_test_utils.rs",
-        "src/py_transaction_execution_info.rs",
-        "src/py_transaction.rs",
-        "src/py_utils.rs",
-        "src/storage.rs",
-    ],
+    srcs = glob(["src/**/*.rs"]),
     visibility = ["//crates:__subpackages__"],
     deps = all_crate_deps() + ["//crates/blockifier"],
 )
@@ -21,7 +12,7 @@ rust_library(
 genrule(
     name = "native_blockifier.so",
     srcs = ["native_blockifier"],
-    outs = ["native_blockifier.so"],
+    outs = ["native_blockifier/native_blockifier.so"],
     cmd = "cp $< $@",
 )
 
@@ -29,5 +20,6 @@ py_library(
     name = "native_blockifier_py",
     srcs = ["native_blockifier/__init__.py"],
     data = ["native_blockifier.so"],
+    imports = ["."], # Allow using "import native_blockifier" directly in any Python code.
     visibility = ["//visibility:public"],
 )
