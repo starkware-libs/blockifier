@@ -9,8 +9,8 @@ testing = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "07e0c3f0ac7a9f1ccd8dacd97b152997563bb299" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "07e0c3f0ac7a9f1ccd8dacd97b152997563bb299" }
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "77fe09ebbf72710935b455b1c5ff56b0bad7a4b8" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "77fe09ebbf72710935b455b1c5ff56b0bad7a4b8" }
 derive_more = { version = "0.99.17" }
 indexmap = { version = "1.9.2" }
 itertools = { version = "0.10.3" }

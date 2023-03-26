@@ -291,7 +291,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cairo-felt"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=07e0c3f0ac7a9f1ccd8dacd97b152997563bb299#07e0c3f0ac7a9f1ccd8dacd97b152997563bb299"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=77fe09ebbf72710935b455b1c5ff56b0bad7a4b8#77fe09ebbf72710935b455b1c5ff56b0bad7a4b8"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -303,7 +303,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=07e0c3f0ac7a9f1ccd8dacd97b152997563bb299#07e0c3f0ac7a9f1ccd8dacd97b152997563bb299"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=77fe09ebbf72710935b455b1c5ff56b0bad7a4b8#77fe09ebbf72710935b455b1c5ff56b0bad7a4b8"
 dependencies = [
  "anyhow",
  "bincode 2.0.0-rc.2",
@@ -1535,7 +1535,7 @@ dependencies = [
 [[package]]
 name = "parse-hyperlinks"
 version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=07e0c3f0ac7a9f1ccd8dacd97b152997563bb299#07e0c3f0ac7a9f1ccd8dacd97b152997563bb299"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=77fe09ebbf72710935b455b1c5ff56b0bad7a4b8#77fe09ebbf72710935b455b1c5ff56b0bad7a4b8"
 dependencies = [
  "nom",
 ]
