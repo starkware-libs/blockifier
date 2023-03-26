@@ -44,6 +44,8 @@ pub enum PostExecutionError {
     SecurityValidationError(String),
     #[error(transparent)]
     VirtualMachineError(#[from] cairo_vm_errors::vm_errors::VirtualMachineError),
+    #[error("OS resources of syscall '{0}' are unknown.")]
+    UnknownSyscallResources(String),
 }
 
 impl From<cairo_vm_errors::runner_errors::RunnerError> for PostExecutionError {
