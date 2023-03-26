@@ -1,6 +1,7 @@
+use serde::Deserialize;
 use strum_macros::EnumIter;
 
-#[derive(EnumIter, Eq, Hash, PartialEq)]
+#[derive(Deserialize, EnumIter, Eq, Hash, PartialEq)]
 pub enum TransactionType {
     Declare,
     DeployAccount,

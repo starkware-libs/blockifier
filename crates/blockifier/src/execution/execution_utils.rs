@@ -113,9 +113,7 @@ pub fn prepare_call_arguments(
     let mut implicit_args = vec![];
     implicit_args.push(MaybeRelocatable::from(initial_syscall_ptr));
     implicit_args.extend(
-        vm.get_builtin_runners()
-            .iter()
-            .flat_map(|(_name, builtin_runner)| builtin_runner.initial_stack()),
+        vm.get_builtin_runners().iter().flat_map(|builtin_runner| builtin_runner.initial_stack()),
     );
     args.push(CairoArg::from(implicit_args.clone()));
 
