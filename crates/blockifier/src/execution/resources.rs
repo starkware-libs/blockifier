@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
 use super::errors::PostExecutionError;
 use crate::transaction::objects::TransactionType;
@@ -32,37 +32,35 @@ fn execution_resources(n_steps: usize, n_rc: usize, n_pedersen: usize) -> Execut
     .filter_unused_builtins()
 }
 
-lazy_static! {
-    pub static ref OS_RESOURCES: OsResources = OsResources {
-        execute_syscalls: HashMap::from([
-            ("call_contract", execution_resources(630, 18, 0)),
-            ("delegate_call", execution_resources(652, 18, 0)),
-            ("delegate_l1_handler", execution_resources(631, 14, 0)),
-            ("deploy", execution_resources(878, 17, 7)),
-            ("emit_event", execution_resources(19, 0, 0)),
-            ("get_block_number", execution_resources(40, 0, 0)),
-            ("get_block_timestamp", execution_resources(38, 0, 0)),
-            ("get_caller_address", execution_resources(32, 0, 0)),
-            ("get_contract_address", execution_resources(36, 0, 0)),
-            ("get_sequencer_address", execution_resources(34, 0, 0)),
-            ("get_tx_info", execution_resources(29, 0, 0)),
-            ("get_tx_signature", execution_resources(44, 0, 0)),
-            ("library_call", execution_resources(619, 18, 0)),
-            ("library_call_l1_handler", execution_resources(598, 14, 0)),
-            ("replace_class", execution_resources(73, 0, 0)),
-            ("send_message_to_l1", execution_resources(84, 0, 0)),
-            ("storage_read", execution_resources(44, 0, 0)),
-            ("storage_write", execution_resources(46, 0, 0)),
-        ]),
-        execute_txs_inner: HashMap::from([
-            (TransactionType::Declare, execution_resources(2581, 61, 15)),
-            (TransactionType::Deploy, execution_resources(0, 0, 0)),
-            (TransactionType::DeployAccount, execution_resources(3434, 80, 23)),
-            (TransactionType::InvokeFunction, execution_resources(3181, 77, 16)),
-            (TransactionType::L1Handler, execution_resources(1006, 16, 11)),
-        ])
-    };
-}
+pub static OS_RESOURCES: Lazy<OsResources> = Lazy::new(|| OsResources {
+    execute_syscalls: HashMap::from([
+        ("call_contract", execution_resources(630, 18, 0)),
+        ("delegate_call", execution_resources(652, 18, 0)),
+        ("delegate_l1_handler", execution_resources(631, 14, 0)),
+        ("deploy", execution_resources(878, 17, 7)),
+        ("emit_event", execution_resources(19, 0, 0)),
+        ("get_block_number", execution_resources(40, 0, 0)),
+        ("get_block_timestamp", execution_resources(38, 0, 0)),
+        ("get_caller_address", execution_resources(32, 0, 0)),
+        ("get_contract_address", execution_resources(36, 0, 0)),
+        ("get_sequencer_address", execution_resources(34, 0, 0)),
+        ("get_tx_info", execution_resources(29, 0, 0)),
+        ("get_tx_signature", execution_resources(44, 0, 0)),
+        ("library_call", execution_resources(619, 18, 0)),
+        ("library_call_l1_handler", execution_resources(598, 14, 0)),
+        ("replace_class", execution_resources(73, 0, 0)),
+        ("send_message_to_l1", execution_resources(84, 0, 0)),
+        ("storage_read", execution_resources(44, 0, 0)),
+        ("storage_write", execution_resources(46, 0, 0)),
+    ]),
+    execute_txs_inner: HashMap::from([
+        (TransactionType::Declare, execution_resources(2581, 61, 15)),
+        (TransactionType::Deploy, execution_resources(0, 0, 0)),
+        (TransactionType::DeployAccount, execution_resources(3434, 80, 23)),
+        (TransactionType::InvokeFunction, execution_resources(3181, 77, 16)),
+        (TransactionType::L1Handler, execution_resources(1006, 16, 11)),
+    ]),
+});
 
 pub fn get_additional_os_resources(
     syscall_counter: HashMap<String, usize>,
