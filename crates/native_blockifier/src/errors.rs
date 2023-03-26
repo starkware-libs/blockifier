@@ -21,6 +21,11 @@ macro_rules! native_blockifier_errors {
             ),*
         }
 
+        // Utility method for Python code to know which error types exist.
+        pub fn py_error_names() -> Vec<String> {
+            vec![$(String::from(stringify!($py_error_name))),*]
+        }
+
         // Creates new types that implement `Into<PyException>`.
         $(create_exception!(native_blockifier, $py_error_name, PyException);)*
 
