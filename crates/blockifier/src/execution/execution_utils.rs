@@ -228,11 +228,10 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.execution_resources.vm_resources =
-        syscall_handler.execution_resources.vm_resources.clone() + vm_resources_without_inner_calls;
+    syscall_handler.execution_resources.vm_resources += &vm_resources_without_inner_calls;
 
     let full_call_vm_resources =
-        syscall_handler.execution_resources.vm_resources.clone() - previous_vm_resources;
+        &syscall_handler.execution_resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {
