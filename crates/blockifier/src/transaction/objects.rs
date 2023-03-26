@@ -2,11 +2,21 @@ use std::collections::HashMap;
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
+use strum_macros::EnumIter;
 
 use crate::execution::entry_point::CallInfo;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
+
+#[derive(EnumIter, Eq, Hash, PartialEq)]
+pub enum TransactionType {
+    Declare,
+    Deploy,
+    DeployAccount,
+    InvokeFunction,
+    L1Handler,
+}
 
 /// Contains the account information of the transaction (outermost call).
 #[derive(Debug, Default, Eq, PartialEq)]
