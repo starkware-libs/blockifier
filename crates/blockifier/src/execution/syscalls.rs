@@ -11,6 +11,7 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
     MessageToL1,
 };
+use strum_macros::EnumIter;
 
 use crate::execution::entry_point::{CallEntryPoint, CallType, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::errors::SyscallExecutionError;
@@ -29,7 +30,7 @@ pub mod test;
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, EnumIter, Eq, Hash, PartialEq)]
 pub enum SyscallSelector {
     CallContract,
     DelegateCall,
@@ -43,6 +44,7 @@ pub enum SyscallSelector {
     GetSequencerAddress,
     GetTxInfo,
     GetTxSignature,
+    ReplaceClass,
     LibraryCall,
     LibraryCallL1Handler,
     SendMessageToL1,

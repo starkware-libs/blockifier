@@ -149,6 +149,7 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::LibraryCallL1Handler => {
                 self.execute_syscall(vm, library_call_l1_handler)
             }
+            SyscallSelector::ReplaceClass => panic!("ReplaceClass not implemented."),
             SyscallSelector::SendMessageToL1 => self.execute_syscall(vm, send_message_to_l1),
             SyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
             SyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
