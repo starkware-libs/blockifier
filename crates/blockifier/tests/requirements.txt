@@ -1,4 +1,1 @@
-# TODO(Gilad,01/04/2023): remove version fix (and typeguard alltogether)
-# after offset serialization is fixed.
-cairo-lang==0.10.3
-typeguard<3.0.0
+cairo-lang

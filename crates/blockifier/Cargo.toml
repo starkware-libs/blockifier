@@ -22,7 +22,8 @@ papyrus_storage = { git = "https://github.com/starkware-libs/papyrus" }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.81", features = ["arbitrary_precision"] }
 sha3 = { version = "0.10.6" }
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "9a1fca8", features = [
+# Should match the commit `papyrus_storage` is using.
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "482a359", features = [
     "testing",
 ] }
 thiserror = { version = "1.0.37" }
