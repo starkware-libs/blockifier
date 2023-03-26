@@ -4,7 +4,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPoint, EntryPointType, StorageKey};
-use starknet_api::transaction::{Calldata, EventContent, MessageToL1};
+use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
@@ -148,6 +148,12 @@ macro_rules! retdata {
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct MessageToL1 {
+    pub to_address: EthAddress,
+    pub payload: L2ToL1Payload,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]

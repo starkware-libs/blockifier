@@ -9,10 +9,11 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{EntryPointType, StorageKey};
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
-    MessageToL1,
 };
 
-use crate::execution::entry_point::{CallEntryPoint, CallType, OrderedEvent, OrderedL2ToL1Message};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
+};
 use crate::execution::errors::SyscallExecutionError;
 use crate::execution::execution_utils::{
     execute_deployment, execute_library_call, felt_from_ptr, ReadOnlySegment,
