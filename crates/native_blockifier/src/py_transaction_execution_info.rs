@@ -18,12 +18,6 @@ pub struct PyTransactionExecutionInfo {
     #[pyo3(get)]
     pub actual_fee: u128,
     #[pyo3(get)]
-    pub n_storage_updates: usize,
-    #[pyo3(get)]
-    pub n_modified_contracts: usize,
-    #[pyo3(get)]
-    pub n_class_updates: usize,
-    #[pyo3(get)]
     pub syscall_counter: HashMap<String, usize>,
     // TODO: Create and add a PyExecutionResources field.
 }
@@ -37,9 +31,6 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
             actual_fee: info.actual_fee.0,
             // TODO: Get actual values.
-            n_storage_updates: 0,
-            n_modified_contracts: 0,
-            n_class_updates: 0,
             syscall_counter: HashMap::default(),
         }
     }
