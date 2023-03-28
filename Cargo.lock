@@ -1312,6 +1312,7 @@ name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
  "blockifier",
+ "cairo-vm",
  "hex",
  "indexmap",
  "log",
