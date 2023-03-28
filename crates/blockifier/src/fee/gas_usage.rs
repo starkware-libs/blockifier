@@ -1,5 +1,6 @@
 use super::eth_gas_constants;
 use crate::abi::constants;
+use crate::execution::entry_point::MessageToL1;
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
@@ -19,6 +20,20 @@ pub fn get_onchain_data_segment_length(
     onchain_data_segment_length += n_storage_changes * 2;
 
     onchain_data_segment_length
+}
+
+/// Returns the cost of LogMessageToL1 event emissions caused by the given messages.
+pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_messages: &[&MessageToL1]) -> u64 {
+    l2_to_l1_messages
+        .iter()
+        .map(|message| {
+            get_event_emission_cost(
+                constants::LOG_MSG_TO_L1_N_TOPICS,
+                // We're assuming the existence of one (not indexed) payload array.
+                constants::LOG_MSG_TO_L1_ENCODED_DATA_SIZE + (message.payload.0.len() as u64),
+            )
+        })
+        .sum()
 }
 
 fn get_event_emission_cost(n_topics: u64, data_length: u64) -> u64 {
