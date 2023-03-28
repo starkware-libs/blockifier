@@ -1,9 +1,19 @@
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{Fee, L1HandlerTransaction};
 
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::CallInfo;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
+
+pub trait HasPayloadSize {
+    fn get_payload_size(&self) -> u64;
+}
+
+impl HasPayloadSize for L1HandlerTransaction {
+    fn get_payload_size(&self) -> u64 {
+        (self.calldata.0.len() as u64) - 1
+    }
+}
 
 pub fn calculate_tx_fee(_block_context: &BlockContext) -> Fee {
     Fee(2)
