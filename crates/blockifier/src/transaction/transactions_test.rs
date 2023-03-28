@@ -283,6 +283,9 @@ fn test_invoke_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping::default(),
+        n_storage_updates: 0,
+        n_modified_contracts: 0,
+        n_class_updates: 0,
     };
 
     // Test execution info result.
@@ -439,6 +442,9 @@ fn test_declare_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping::default(),
+        n_storage_updates: 0,
+        n_modified_contracts: 0,
+        n_class_updates: 0,
     };
 
     // Test execution info result.
@@ -545,6 +551,9 @@ fn test_deploy_account_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping::default(),
+        n_storage_updates: 0,
+        n_modified_contracts: 1,
+        n_class_updates: 1,
     };
 
     // Test execution info result.
