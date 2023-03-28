@@ -19,3 +19,28 @@ pub fn get_onchain_data_segment_length(
 
     onchain_data_segment_length
 }
+
+/// Returns the number of felts added to the output messages segment as a result of adding
+/// a transaction with the given parameters to a batch. Note that constant cells - such as the one
+/// that holds the segment size - are not counted.
+pub fn get_message_segment_length(
+    payload_lengths: Vec<u64>,
+    l1_handler_payload_size: Option<u64>,
+) -> u64 {
+    // Add L2-to-L1 message segment length; for each message, the OS outputs the following:
+    // to_address, from_address, payload_size, payload.
+    let mut message_segment_length = payload_lengths
+        .iter()
+        .map(|payload_length| constants::L2_TO_L1_MSG_HEADER_SIZE + payload_length)
+        .sum();
+
+    if let Some(payload_size) = l1_handler_payload_size {
+        // The corresponding transaction is of type L1 handler; add the length of the L1-to-L2
+        // message sent by the sequencer (that will be outputted by the OS), which is of the
+        // following format: from_address=calldata[0], to_address=contract_address,
+        // nonce, selector, payload_size, payload=calldata[1:].
+        message_segment_length += constants::L1_TO_L2_MSG_HEADER_SIZE + payload_size;
+    }
+
+    message_segment_length
+}
