@@ -1,3 +1,4 @@
+use super::eth_gas_constants;
 use crate::abi::constants;
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
@@ -18,4 +19,10 @@ pub fn get_onchain_data_segment_length(
     onchain_data_segment_length += n_storage_changes * 2;
 
     onchain_data_segment_length
+}
+
+fn get_event_emission_cost(n_topics: u64, data_length: u64) -> u64 {
+    eth_gas_constants::GAS_PER_LOG
+        + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
+        + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD
 }
