@@ -26,6 +26,8 @@ sha3 = { version = "0.10.6" }
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "482a359", features = [
     "testing",
 ] }
+strum = { version = "0.24.1" }
+strum_macros = { version = "0.24.3" }
 thiserror = { version = "1.0.37" }
 
 [dev-dependencies]

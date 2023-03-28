@@ -3,5 +3,6 @@ pub mod constants;
 pub mod errors;
 pub mod objects;
 pub mod transaction_execution;
+pub mod transaction_types;
 pub mod transaction_utils;
 pub mod transactions;
