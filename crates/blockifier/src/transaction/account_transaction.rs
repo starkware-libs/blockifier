@@ -315,6 +315,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Charge fee.
         let actual_resources = ResourcesMapping::default();
+        let (n_storage_updates, n_modified_contracts, n_class_updates) =
+            state.count_actual_state_changes();
+
         let (actual_fee, fee_transfer_call_info) =
             Self::charge_fee(state, block_context, &account_tx_context)?;
 
@@ -324,6 +327,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             fee_transfer_call_info,
             actual_fee,
             actual_resources,
+            n_storage_updates,
+            n_modified_contracts,
+            n_class_updates,
         };
         Ok(tx_execution_info)
     }
