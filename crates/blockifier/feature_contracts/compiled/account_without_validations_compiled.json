@@ -121,27 +121,27 @@
         "CONSTRUCTOR": [],
         "EXTERNAL": [
             {
-                "offset": "0x85",
+                "offset": 133,
                 "selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
             },
             {
-                "offset": "0x5e",
+                "offset": 94,
                 "selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"
             },
             {
-                "offset": "0xaf",
+                "offset": 175,
                 "selector": "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8"
             },
             {
-                "offset": "0x3d",
+                "offset": 61,
                 "selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3"
             },
             {
-                "offset": "0x2f",
+                "offset": 47,
                 "selector": "0x2de154d8a89be65c1724e962dc4c65637c05532a6c2825d0a7b7d774169dbba"
             },
             {
-                "offset": "0x4d",
+                "offset": 77,
                 "selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895"
             }
         ],
@@ -153,7 +153,7 @@
             "pedersen",
             "range_check"
         ],
-        "compiler_version": "0.10.3",
+        "compiler_version": "0.11.0.1",
         "data": [
             "0x480680017fff8000",
             "0x43616c6c436f6e7472616374",
@@ -1145,6 +1145,25 @@
                 "destination": "starkware.cairo.common.keccak_state.KeccakBuiltinState",
                 "type": "alias"
             },
+            "starkware.cairo.common.cairo_builtins.PoseidonBuiltin": {
+                "full_name": "starkware.cairo.common.cairo_builtins.PoseidonBuiltin",
+                "members": {
+                    "input": {
+                        "cairo_type": "starkware.cairo.common.poseidon_state.PoseidonBuiltinState",
+                        "offset": 0
+                    },
+                    "output": {
+                        "cairo_type": "starkware.cairo.common.poseidon_state.PoseidonBuiltinState",
+                        "offset": 3
+                    }
+                },
+                "size": 6,
+                "type": "struct"
+            },
+            "starkware.cairo.common.cairo_builtins.PoseidonBuiltinState": {
+                "destination": "starkware.cairo.common.poseidon_state.PoseidonBuiltinState",
+                "type": "alias"
+            },
             "starkware.cairo.common.cairo_builtins.SignatureBuiltin": {
                 "full_name": "starkware.cairo.common.cairo_builtins.SignatureBuiltin",
                 "members": {
@@ -1244,6 +1263,25 @@
             "starkware.cairo.common.math.TRUE": {
                 "destination": "starkware.cairo.common.bool.TRUE",
                 "type": "alias"
+            },
+            "starkware.cairo.common.poseidon_state.PoseidonBuiltinState": {
+                "full_name": "starkware.cairo.common.poseidon_state.PoseidonBuiltinState",
+                "members": {
+                    "s0": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    },
+                    "s1": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "s2": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    }
+                },
+                "size": 3,
+                "type": "struct"
             },
             "starkware.starknet.common.storage.ADDR_BOUND": {
                 "type": "const",
@@ -1769,6 +1807,25 @@
                     }
                 },
                 "size": 5,
+                "type": "struct"
+            },
+            "starkware.starknet.common.syscalls.REPLACE_CLASS_SELECTOR": {
+                "type": "const",
+                "value": 25500403217443378527601783667
+            },
+            "starkware.starknet.common.syscalls.ReplaceClass": {
+                "full_name": "starkware.starknet.common.syscalls.ReplaceClass",
+                "members": {
+                    "class_hash": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
+                    "selector": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 2,
                 "type": "struct"
             },
             "starkware.starknet.common.syscalls.SEND_MESSAGE_TO_L1_SELECTOR": {
