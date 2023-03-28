@@ -68,7 +68,7 @@ impl Storage {
     pub fn append_state_diff(
         &mut self,
         block_id: u64,
-        previous_block_id: u64,
+        previous_block_id: Option<u64>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, String>,
@@ -96,6 +96,10 @@ impl Storage {
         );
         let append_txn = append_txn?;
 
+        let previous_block_id = match previous_block_id {
+            Some(id) => id,
+            None => (2_u128.pow(64) - 1) as u64,
+        };
         let block_header = BlockHeader {
             block_hash: BlockHash(StarkHash::from(block_id)),
             parent_hash: BlockHash(StarkHash::from(previous_block_id)),
