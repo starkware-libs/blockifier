@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{EntryPoint, EntryPointType, StorageKey};
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
@@ -14,6 +14,7 @@ use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::execution::syscall_handling::SyscallCounter;
 use crate::state::state_api::State;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::AccountTransactionContext;
 
 #[cfg(test)]
@@ -106,7 +107,7 @@ impl CallEntryPoint {
             match entry_points_of_same_type.get(0) {
                 Some(entry_point) => {
                     if entry_point.selector
-                        == EntryPointSelector(DEFAULT_ENTRY_POINT_SELECTOR.into())
+                        == EntryPointSelector(StarkHash::from(DEFAULT_ENTRY_POINT_SELECTOR))
                     {
                         return Ok(entry_point.offset.0);
                     } else {
@@ -178,6 +179,32 @@ pub struct CallInfo {
     // Additional information gathered during execution.
     pub storage_read_values: Vec<StarkFelt>,
     pub accessed_storage_keys: HashSet<StorageKey>,
+}
+
+impl CallInfo {
+    /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
+    /// by the order in which they were sent.
+    pub fn get_sorted_l2_to_l1_payloads_length(
+        &self,
+    ) -> Result<Vec<usize>, TransactionExecutionError> {
+        let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
+        let mut starknet_l2_to_l1_payloads_length: Vec<Option<usize>> = vec![None; n_messages];
+
+        for call in self.into_iter() {
+            for ordered_message_content in &call.execution.l2_to_l1_messages {
+                if starknet_l2_to_l1_payloads_length[ordered_message_content.order].is_some() {
+                    return Err(TransactionExecutionError::UnexpectedHoles {
+                        object: "L2-to-L1 message".to_string(),
+                        order: ordered_message_content.order,
+                    });
+                }
+                starknet_l2_to_l1_payloads_length[ordered_message_content.order] =
+                    Some(ordered_message_content.message.payload.0.len());
+            }
+        }
+
+        Ok(starknet_l2_to_l1_payloads_length.into_iter().flatten().collect())
+    }
 }
 
 pub struct CallInfoIter<'a> {
