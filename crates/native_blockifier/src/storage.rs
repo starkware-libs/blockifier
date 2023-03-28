@@ -18,6 +18,8 @@ use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
 
+const GENESIS_BLOCK_ID: u64 = u64::MAX;
+
 #[pyclass]
 pub struct Storage {
     pub reader: papyrus_storage::StorageReader,
@@ -68,7 +70,7 @@ impl Storage {
     pub fn append_state_diff(
         &mut self,
         block_id: u64,
-        previous_block_id: u64,
+        previous_block_id: Option<u64>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, String>,
@@ -96,6 +98,7 @@ impl Storage {
         );
         let append_txn = append_txn?;
 
+        let previous_block_id = previous_block_id.unwrap_or(GENESIS_BLOCK_ID);
         let block_header = BlockHeader {
             block_hash: BlockHash(StarkHash::from(block_id)),
             parent_hash: BlockHash(StarkHash::from(previous_block_id)),
