@@ -8,3 +8,5 @@ pub const L1_HANDLER_VERSION: u64 = 0;
 pub const CLASS_UPDATE_SIZE: u64 = 1;
 pub const L2_TO_L1_MSG_HEADER_SIZE: usize = 3;
 pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;
+// StarkNet solidity contract-related constants.
+pub const N_DEFAULT_TOPICS: u64 = 1; // Events have one default topic.
