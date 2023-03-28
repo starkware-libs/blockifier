@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::entry_point::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::hash::StarkFelt;
 
@@ -25,7 +26,6 @@ pub struct PyTransactionExecutionInfo {
     pub n_class_updates: usize,
     #[pyo3(get)]
     pub syscall_counter: HashMap<String, usize>,
-    // TODO: Create and add a PyExecutionResources field.
 }
 
 impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
@@ -108,8 +108,7 @@ impl From<CallInfo> for PyCallInfo {
             gas_consumed: PyFelt(StarkFelt::default()),
             failure_flag: PyFelt(StarkFelt::default()),
             retdata: to_py_vec(execution.retdata.0, PyFelt),
-            // TODO(Elin, 01/03/2023): Initialize correctly.
-            execution_resources: PyExecutionResources::default(),
+            execution_resources: PyExecutionResources::from(call_info.vm_resources),
             events: to_py_vec(execution.events, PyOrderedEvent::from),
             l2_to_l1_messages: to_py_vec(execution.l2_to_l1_messages, PyOrderedL2ToL1Message::from),
             internal_calls: to_py_vec(call_info.inner_calls, PyCallInfo::from),
@@ -175,4 +174,14 @@ pub struct PyExecutionResources {
     pub builtin_instance_counter: HashMap<String, usize>,
     #[pyo3(get)]
     pub n_memory_holes: usize,
+}
+
+impl From<VmExecutionResources> for PyExecutionResources {
+    fn from(vm_resources: VmExecutionResources) -> Self {
+        Self {
+            n_steps: vm_resources.n_steps,
+            builtin_instance_counter: vm_resources.builtin_instance_counter,
+            n_memory_holes: vm_resources.n_memory_holes,
+        }
+    }
 }
