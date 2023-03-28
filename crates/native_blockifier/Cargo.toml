@@ -14,6 +14,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 blockifier = { path = "../blockifier" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "77fe09ebbf72710935b455b1c5ff56b0bad7a4b8" }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
 num-bigint = { version = "0.4" }
