@@ -198,6 +198,7 @@ impl BlockContext {
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
             cairo_resource_fee_weights: HashMap::default(),
+            gas_price: 33.3,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
         }
