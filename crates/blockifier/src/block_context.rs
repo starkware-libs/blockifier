@@ -13,6 +13,7 @@ pub struct BlockContext {
     pub sequencer_address: ContractAddress,
     pub fee_token_address: ContractAddress,
     pub cairo_resource_fee_weights: HashMap<String, u32>,
+    pub gas_price: f64,
 
     // Limits.
     pub invoke_tx_max_n_steps: u32,
