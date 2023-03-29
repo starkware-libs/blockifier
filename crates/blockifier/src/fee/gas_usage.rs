@@ -24,9 +24,9 @@ pub fn get_onchain_data_segment_length(
 /// a transaction with the given parameters to a batch. Note that constant cells - such as the one
 /// that holds the segment size - are not counted.
 pub fn get_message_segment_length(
-    payload_lengths: &Vec<u64>,
-    l1_handler_payload_size: Option<u64>,
-) -> u64 {
+    payload_lengths: &Vec<usize>,
+    l1_handler_payload_size: Option<usize>,
+) -> usize {
     // Add L2-to-L1 message segment length; for each message, the OS outputs the following:
     // to_address, from_address, payload_size, payload.
     let mut message_segment_length = payload_lengths
