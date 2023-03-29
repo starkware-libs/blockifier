@@ -63,6 +63,8 @@ pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
         .unwrap()
 });
 
+pub const DEFAULT_GAS_PRICE: u64 = 100 * u64::pow(10, 9); // Given in units of wei.
+
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -201,7 +203,7 @@ impl BlockContext {
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
             cairo_resource_fee_weights: HashMap::default(),
-            gas_price: 33.3,
+            gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
         }
