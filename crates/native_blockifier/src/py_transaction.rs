@@ -92,6 +92,7 @@ pub fn py_block_context(
             "fee_token_address",
         )?)?,
         cairo_resource_fee_weights: py_attr(general_config, "cairo_resource_fee_weights")?,
+        gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
         validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
     };
