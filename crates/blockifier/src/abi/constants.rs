@@ -9,16 +9,16 @@ pub const L1_HANDLER_VERSION: u64 = 0;
 // OS-related constants.
 pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;
 pub const L2_TO_L1_MSG_HEADER_SIZE: usize = 3;
-pub const CLASS_UPDATE_SIZE: u64 = 1;
+pub const CLASS_UPDATE_SIZE: usize = 1;
 
 // StarkNet solidity contract-related constants.
-pub const N_DEFAULT_TOPICS: u64 = 1; // Events have one default topic.
+pub const N_DEFAULT_TOPICS: usize = 1; // Events have one default topic.
 
 // Excluding the default topic.
-pub const LOG_MSG_TO_L1_N_TOPICS: u64 = 2;
-pub const CONSUMED_MSG_TO_L2_N_TOPICS: u64 = 3;
+pub const LOG_MSG_TO_L1_N_TOPICS: usize = 2;
+pub const CONSUMED_MSG_TO_L2_N_TOPICS: usize = 3;
 
 // The headers include the payload size, so we need to add +1 since arrays are encoded with two
 // additional parameters (offset and length) in solidity.
-pub const LOG_MSG_TO_L1_ENCODED_DATA_SIZE: u64 =
-    (L2_TO_L1_MSG_HEADER_SIZE as u64 + 1) - LOG_MSG_TO_L1_N_TOPICS;
+pub const LOG_MSG_TO_L1_ENCODED_DATA_SIZE: usize =
+    (L2_TO_L1_MSG_HEADER_SIZE + 1) - LOG_MSG_TO_L1_N_TOPICS;
