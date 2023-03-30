@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
+use std::time::Instant;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
@@ -266,11 +267,18 @@ impl PyTransactionExecutor {
     ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        log::info!("Executing transaction..."); // TODO: print tx_hash here if non-obvious.
+        let execution_time = Instant::now();
         let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
         let block_context = &self.block_context;
         let tx_execution_info = storage.with_mut(|executor| {
             tx.execute(executor.state, block_context).map_err(NativeBlockifierError::from)
         })?;
+
+        let end_execution_time = execution_time.elapsed().as_secs_f32();
+        log::info!(
+            "Rust transaction execution without context switch Complete in {end_execution_time:?}"
+        );
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
     }
 
