@@ -29,7 +29,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
     let declared_classes = IndexMap::from([(
         ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        get_test_contract_class().into(),
+        starknet_api::state::ContractClass::from(get_test_contract_class()),
     )]);
     storage_writer
         .begin_rw_txn()?
