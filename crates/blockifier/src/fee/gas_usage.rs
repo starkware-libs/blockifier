@@ -46,6 +46,21 @@ pub fn get_message_segment_length(
     message_segment_length
 }
 
+/// Returns the cost of ConsumedMessageToL2 event emissions caused by an L1 handler with the given
+/// payload size.
+pub fn get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size: Option<usize>) -> usize {
+    match l1_handler_payload_size {
+        None => 0, // The corresponding transaction is not an L1 handler.,
+        Some(l1_handler_payload_size) => {
+            get_event_emission_cost(
+                constants::CONSUMED_MSG_TO_L2_N_TOPICS,
+                // We're assuming the existence of one (not indexed) payload array.
+                constants::CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE + l1_handler_payload_size,
+            )
+        }
+    }
+}
+
 /// Returns the cost of LogMessageToL1 event emissions caused by the given messages payload length.
 pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payloads_length: &[usize]) -> usize {
     l2_to_l1_payloads_length
