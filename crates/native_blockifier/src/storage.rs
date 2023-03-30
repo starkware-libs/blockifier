@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use indexmap::IndexMap;
-use num_bigint::{BigInt, Sign};
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
@@ -11,9 +10,7 @@ use starknet_api::core::{ClassHash, ContractAddress, GlobalRoot};
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff};
 
-use crate::errors::{
-    NativeBlockifierError, NativeBlockifierResult, NativeBlockifierValidationError,
-};
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
@@ -21,9 +18,12 @@ use crate::PyStateDiff;
 const GENESIS_BLOCK_ID: u64 = u64::MAX;
 
 #[pyclass]
+// Invariant: Only one instance of this struct should exist.
+// Reader and writer fields must be cleared before the struct goes out of scope in Python;
+// to prevent possible memory leaks (TODO: see if this is indeed necessary).
 pub struct Storage {
-    pub reader: papyrus_storage::StorageReader,
-    pub writer: papyrus_storage::StorageWriter,
+    reader: Option<papyrus_storage::StorageReader>,
+    writer: Option<papyrus_storage::StorageWriter>,
 }
 
 #[pymethods]
@@ -36,12 +36,19 @@ impl Storage {
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
         log::debug!("Initialized Blockifier storage.");
 
-        Ok(Storage { reader, writer })
+        Ok(Storage { reader: Some(reader), writer: Some(writer) })
+    }
+
+    /// Manually drop the storage reader and writer.
+    /// Python does not drop them instance is no longer live.
+    pub fn close(&mut self) {
+        self.reader = None;
+        self.writer = None;
     }
 
     /// Returns the next block number (the one that was not yet created).
     pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
-        let block_number = self.reader.begin_ro_txn()?.get_state_marker()?;
+        let block_number = self.reader().begin_ro_txn()?.get_state_marker()?;
         Ok(block_number.0)
     }
 
@@ -50,7 +57,7 @@ impl Storage {
     pub fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
         let block_number = BlockNumber(block_number);
         let block_hash = self
-            .reader
+            .reader()
             .begin_ro_txn()?
             .get_block_header(block_number)?
             .map(|block_header| Vec::from(block_header.block_hash.0.bytes()));
@@ -61,7 +68,7 @@ impl Storage {
     pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
         log::debug!("Reverting state diff for {block_number:?}.");
         let block_number = BlockNumber(block_number);
-        let revert_txn = self.writer.begin_rw_txn()?;
+        let revert_txn = self.writer().begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
         let (revert_txn, _) = revert_txn.revert_header(block_number)?;
 
@@ -99,7 +106,7 @@ impl Storage {
         state_diff.declared_classes = declared_classes;
 
         let deployed_contract_class_definitions = IndexMap::<ClassHash, ContractClass>::new();
-        let append_txn = self.writer.begin_rw_txn()?.append_state_diff(
+        let append_txn = self.writer().begin_rw_txn()?.append_state_diff(
             block_number,
             state_diff,
             deployed_contract_class_definitions,
@@ -120,25 +127,14 @@ impl Storage {
         append_txn.commit()?;
         Ok(())
     }
+}
 
-    #[args(latest_block_id)]
-    pub fn validate_aligned(&self, latest_block_id: BigInt) -> NativeBlockifierResult<()> {
-        let block_number = self.get_state_marker()? - 1;
-        let block_id = self.get_block_id(block_number)?;
-        let block_id = match block_id {
-            Some(id) => BigInt::from_bytes_be(Sign::Plus, &id),
-            None => BigInt::from(-1),
-        };
-
-        if block_id != latest_block_id {
-            return Err(NativeBlockifierError::from(
-                NativeBlockifierValidationError::StorageUnaligned {
-                    blockifier_latest_block_id: block_id,
-                    actual_latest_block_id: latest_block_id,
-                },
-            ));
-        }
-
-        Ok(())
+// Internal getters, Python should not have access to them, and only use the API.
+impl Storage {
+    pub fn reader(&self) -> &papyrus_storage::StorageReader {
+        self.reader.as_ref().expect("Storage should be initialized.")
+    }
+    pub fn writer(&mut self) -> &mut papyrus_storage::StorageWriter {
+        self.writer.as_mut().expect("Storage should be initialized.")
     }
 }
