@@ -23,6 +23,7 @@ ouroboros = { version = "0.15.6" }
 papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "14a7f0f", features = [
     "testing",
 ] }
+pprof = { version = "0.11", features = ["flamegraph"] }
 pyo3 = { version = "0.17.3", features = [
     "extension-module",
     "num-bigint",
