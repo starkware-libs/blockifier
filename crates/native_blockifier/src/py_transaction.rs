@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fs::File;
 use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
@@ -266,8 +267,14 @@ impl PyTransactionExecutor {
         // This is functools.partial(bouncer.add_weights, tx_time_created=tx_written.time_created).
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
+        let guard = pprof::ProfilerGuardBuilder::default()
+            .frequency(1000)
+            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+            .build()
+            .unwrap();
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        let tx_hash = tx.get_tx_hash();
 
         let tx_execution_info = self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
@@ -294,7 +301,12 @@ impl PyTransactionExecutor {
             tx_execution_result
         })?;
 
-        Ok(PyTransactionExecutionInfo::from(tx_execution_info))
+        let py_transaction_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+        if let Ok(report) = guard.report().build() {
+            let file = File::create(format!("flamegraph_tx_hash_{:?}.svg", tx_hash)).unwrap();
+            report.flamegraph(file).unwrap();
+        };
+        Ok(py_transaction_execution_info)
     }
 
     /// Returns the state diff resulting in executing transactions.
