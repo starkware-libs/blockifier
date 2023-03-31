@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fs::File;
 use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
@@ -15,6 +16,7 @@ use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
+use pprof::ProfilerGuard;
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -212,11 +214,15 @@ pub struct PyTransactionExecutor {
     #[borrows(storage_tx)]
     #[covariant]
     pub state: CachedState<PapyrusStateReader<'this, RO>>,
+
+    // Profiler.
+    pub profiler: Option<ProfilerGuard<'static>>,
 }
 
 pub fn build_tx_executor(
     block_context: BlockContext,
     storage_reader: papyrus_storage::StorageReader,
+    profile: bool,
 ) -> NativeBlockifierResult<PyTransactionExecutor> {
     // The following callbacks are required to capture the local lifetime parameter.
     fn storage_tx_builder(
@@ -241,18 +247,59 @@ pub fn build_tx_executor(
         storage_reader,
         storage_tx_builder,
         state_builder: |storage_tx| state_builder(storage_tx, block_number),
+        profiler: if profile { PyTransactionExecutor::try_start_profiler() } else { None },
     };
     py_tx_executor_builder.try_build()
+}
+
+impl PyTransactionExecutor {
+    fn try_start_profiler() -> Option<ProfilerGuard<'static>> {
+        match pprof::ProfilerGuardBuilder::default()
+            .frequency(1000)
+            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+            .build()
+        {
+            Ok(profiler) => Some(profiler),
+            Err(error) => {
+                log::debug!("Failed to init profiler: {:?}", error);
+                None
+            }
+        }
+    }
+
+    fn try_output_flamegraph(suffix: &str, guard: &Option<ProfilerGuard<'_>>) {
+        match guard {
+            None => (),
+            Some(guard) => match guard.report().build() {
+                Ok(report) => {
+                    let filename = format!("/data/flamegraph_{}.svg", suffix);
+                    match File::create(filename.clone()) {
+                        Ok(file) => match report.flamegraph(file) {
+                            Err(error) => {
+                                log::debug!("pprof flamegraph generation failed: {:?}", error)
+                            }
+                            Ok(()) => log::debug!("pprof flamegraph generated at '{:?}'", filename),
+                        },
+                        Err(error) => {
+                            log::debug!("Couldn't create file {:?}: {:?}", filename, error)
+                        }
+                    }
+                }
+                Err(error) => log::debug!("pprof report generation failed: {:?}", error),
+            },
+        }
+    }
 }
 
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info, papyrus_storage)]
+    #[args(general_config, block_info, papyrus_storage, profile)]
     pub fn create(
         general_config: &PyAny,
         block_info: &PyAny,
         papyrus_storage: &Storage,
+        profile: bool,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
 
@@ -260,7 +307,7 @@ impl PyTransactionExecutor {
         let reader = papyrus_storage.reader().clone();
 
         let block_context = py_block_context(general_config, block_info)?;
-        let build_result = build_tx_executor(block_context, reader);
+        let build_result = build_tx_executor(block_context, reader, profile);
         log::debug!("Initialized Transaction Executor.");
 
         build_result
@@ -322,7 +369,8 @@ impl PyTransactionExecutor {
     pub fn finalize(&mut self) -> PyStateDiff {
         log::debug!("Finalizing execution...");
         let state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
-        log::debug!("Finalized execution.");
+        log::debug!("Finalized execution. Attempting flamegraph output...");
+        PyTransactionExecutor::try_output_flamegraph("", self.borrow_profiler());
 
         state_diff
     }
