@@ -22,7 +22,7 @@ pub fn extract_l1_gas_and_cairo_usage(
 pub fn calculate_l1_gas_by_cairo_usage(
     block_context: &BlockContext,
     cairo_resource_usage: &ResourcesMapping,
-) -> u64 {
+) -> usize {
     let cairo_resource_fee_weights = &block_context.cairo_resource_fee_weights;
     let cairo_resource_names = HashSet::<&String>::from_iter(cairo_resource_usage.0.keys());
     assert!(
@@ -34,8 +34,8 @@ pub fn calculate_l1_gas_by_cairo_usage(
     let cairo_l1_gas_usage =
         max(cairo_resource_fee_weights.iter().map(
             |(key, resource_val)| match cairo_resource_usage.0.get(key) {
-                Some(usage_val) => u64::from(*resource_val) * ((*usage_val) as u64),
-                None => 0 as u64,
+                Some(usage_val) => (*resource_val as usize) * (*usage_val),
+                None => 0_usize,
             },
         ));
     match cairo_l1_gas_usage {
