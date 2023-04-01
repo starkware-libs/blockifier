@@ -63,7 +63,7 @@ pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
         .unwrap()
 });
 
-pub const DEFAULT_GAS_PRICE: u64 = 100 * u64::pow(10, 9); // Given in units of wei.
+pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
