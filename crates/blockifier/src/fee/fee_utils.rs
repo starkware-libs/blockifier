@@ -59,6 +59,10 @@ pub fn calculate_tx_resources<S: StateReader>(
     Ok(ResourcesMapping(tx_resources))
 }
 
+#[cfg(test)]
+#[path = "fee_test.rs"]
+pub mod test;
+
 pub fn extract_l1_gas_and_cairo_usage(
     resources: &ResourcesMapping,
 ) -> (usize, HashMap<String, usize>) {
