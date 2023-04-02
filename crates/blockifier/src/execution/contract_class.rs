@@ -5,7 +5,9 @@ use std::io::BufReader;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use starknet_api::state::{EntryPoint, EntryPointType, Program};
+use starknet_api::deprecated_contract_class::{
+    ContractClass as DeprecatedContractClass, EntryPoint, EntryPointType, Program,
+};
 
 /// Represents a StarkNet contract class.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize, Serialize)]
@@ -17,7 +19,7 @@ pub struct ContractClass {
     pub abi: Option<serde_json::Value>,
 }
 
-impl From<ContractClass> for starknet_api::state::ContractClass {
+impl From<ContractClass> for DeprecatedContractClass {
     fn from(contract_class: ContractClass) -> Self {
         Self {
             program: contract_class.program,
@@ -28,8 +30,8 @@ impl From<ContractClass> for starknet_api::state::ContractClass {
     }
 }
 
-impl From<starknet_api::state::ContractClass> for ContractClass {
-    fn from(contract_class: starknet_api::state::ContractClass) -> Self {
+impl From<DeprecatedContractClass> for ContractClass {
+    fn from(contract_class: DeprecatedContractClass) -> Self {
         Self {
             program: contract_class.program,
             entry_points_by_type: contract_class.entry_points_by_type,

@@ -11,7 +11,7 @@ use crate::py_utils::PyFelt;
 
 #[pyclass]
 #[derive(FromPyObject)]
-// TODO: Add support for returning the declared_classes to python.
+// TODO: Add support for returning the `declared_classes` to python.
 pub struct PyStateDiff {
     #[pyo3(get)]
     pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
@@ -46,7 +46,6 @@ impl TryFrom<PyStateDiff> for StateDiff {
             }
         }
 
-        let declared_classes = IndexMap::new();
         let mut nonces = IndexMap::new();
         for (address, nonce) in state_diff.address_to_nonce {
             let address = ContractAddress::try_from(address.0)?;
@@ -54,7 +53,14 @@ impl TryFrom<PyStateDiff> for StateDiff {
             nonces.insert(address, nonce);
         }
 
-        Ok(Self { deployed_contracts, storage_diffs, declared_classes, nonces })
+        Ok(Self {
+            deployed_contracts,
+            storage_diffs,
+            declared_classes: IndexMap::new(),
+            deprecated_declared_classes: IndexMap::new(),
+            nonces,
+            replaced_classes: IndexMap::new(),
+        })
     }
 }
 

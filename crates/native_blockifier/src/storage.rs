@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::path::PathBuf;
 
 use indexmap::IndexMap;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
@@ -7,8 +8,9 @@ use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockHeader, BlockNumber, BlockTimestamp, GasPrice};
 use starknet_api::core::{ClassHash, ContractAddress, GlobalRoot};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
-use starknet_api::state::{ContractClass, StateDiff};
+use starknet_api::state::StateDiff;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::PyBlockInfo;
@@ -30,9 +32,14 @@ pub struct Storage {
 impl Storage {
     #[new]
     #[args(path, max_size)]
-    pub fn new(path: String, max_size: usize) -> NativeBlockifierResult<Storage> {
+    pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
-        let db_config = papyrus_storage::db::DbConfig { path, max_size };
+        let db_config = papyrus_storage::db::DbConfig {
+            path,
+            min_size: 1 << 20, // 1MB.
+            max_size,
+            growth_step: 1 << 26, // 64MB.
+        };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
         log::debug!("Initialized Blockifier storage.");
 
@@ -93,19 +100,23 @@ impl Storage {
         let block_number = BlockNumber(py_block_info.block_number);
 
         // Deserialize contract classes.
-        let mut declared_classes: IndexMap<ClassHash, ContractClass> = IndexMap::new();
+        let mut deprecated_declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
+            IndexMap::new();
         for (class_hash, raw_class) in declared_class_hash_to_class {
             let blockifier_contract_class: blockifier::execution::contract_class::ContractClass =
                 serde_json::from_str(raw_class.as_str()).map_err(NativeBlockifierError::from)?;
-            declared_classes
-                .insert(ClassHash(class_hash.0), ContractClass::from(blockifier_contract_class));
+            deprecated_declared_classes.insert(
+                ClassHash(class_hash.0),
+                DeprecatedContractClass::from(blockifier_contract_class),
+            );
         }
 
         // Construct state diff; manually add declared classes.
         let mut state_diff = StateDiff::try_from(py_state_diff)?;
-        state_diff.declared_classes = declared_classes;
+        state_diff.deprecated_declared_classes = deprecated_declared_classes;
 
-        let deployed_contract_class_definitions = IndexMap::<ClassHash, ContractClass>::new();
+        let deployed_contract_class_definitions =
+            IndexMap::<ClassHash, DeprecatedContractClass>::new();
         let append_txn = self.writer().begin_rw_txn()?.append_state_diff(
             block_number,
             state_diff,

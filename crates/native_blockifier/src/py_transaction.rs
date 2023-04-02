@@ -10,6 +10,7 @@ use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use num_bigint::BigUint;
 use ouroboros;
@@ -21,12 +22,12 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
-    InvokeTransaction, L1HandlerTransaction, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1,
+    DeployAccountTransaction, Fee, InvokeTransactionV1, L1HandlerTransaction, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
@@ -102,16 +103,28 @@ pub fn py_block_context(
 
 pub fn py_declare(tx: &PyAny) -> NativeBlockifierResult<DeclareTransaction> {
     let account_data_context = py_account_data_context(tx)?;
+    let class_hash = ClassHash(py_felt_attr(tx, "class_hash")?);
 
-    Ok(DeclareTransaction {
+    let version = usize::try_from(account_data_context.version.0)?;
+    let declare_tx = DeclareTransactionV0V1 {
         transaction_hash: account_data_context.transaction_hash,
         max_fee: account_data_context.max_fee,
-        version: account_data_context.version,
         signature: account_data_context.signature,
         nonce: account_data_context.nonce,
-        class_hash: ClassHash(py_felt_attr(tx, "class_hash")?),
+        class_hash,
         sender_address: account_data_context.sender_address,
-    })
+    };
+
+    match version {
+        0 => Ok(DeclareTransaction::V0(declare_tx)),
+        1 => Ok(DeclareTransaction::V1(declare_tx)),
+        _ => Err(NativeBlockifierError::from(
+            NativeBlockifierInputError::UnsupportedTransactionVersion {
+                tx_type: TransactionType::Declare,
+                version,
+            },
+        )),
+    }
 }
 
 pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
@@ -130,17 +143,15 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
     })
 }
 
-pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
+pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactionV1> {
     let account_data_context = py_account_data_context(tx)?;
 
-    Ok(InvokeTransaction {
+    Ok(InvokeTransactionV1 {
         transaction_hash: account_data_context.transaction_hash,
         max_fee: account_data_context.max_fee,
-        version: account_data_context.version,
         signature: account_data_context.signature,
         nonce: account_data_context.nonce,
         sender_address: account_data_context.sender_address,
-        entry_point_selector: None, // Hardcoded `__execute__` selector; set inside execution.
         calldata: py_calldata(tx, "calldata")?,
     })
 }

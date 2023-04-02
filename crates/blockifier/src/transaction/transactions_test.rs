@@ -6,12 +6,14 @@ use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILT
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
+use starknet_api::deprecated_contract_class::EntryPointType;
+
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::{EntryPointType, StorageKey};
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, EventContent, EventData, EventKey, Fee,
-    InvokeTransaction, TransactionVersion,
+    Calldata, DeclareTransaction, DeclareTransactionV0V1, DeployAccountTransaction, EventContent,
+    EventData, EventKey, Fee, InvokeTransactionV1,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -34,9 +36,7 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::errors::{
-    FeeTransferError, InvokeTransactionError, TransactionExecutionError,
-};
+use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::transactions::ExecutableTransaction;
 
@@ -184,7 +184,7 @@ fn validate_final_balances(
     );
 }
 
-fn invoke_tx() -> InvokeTransaction {
+fn invoke_tx() -> InvokeTransactionV1 {
     let entry_point_selector = selector_from_name("return_result");
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
@@ -311,26 +311,9 @@ fn test_negative_invoke_tx_flows() {
     let block_context = &BlockContext::create_for_testing();
     let valid_invoke_tx = invoke_tx();
 
-    // Invalid version.
-    // Note: there is no need to test for a negative version, as it cannot be constructed.
-    let invalid_tx_version = TransactionVersion(stark_felt!(0));
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
-        version: invalid_tx_version,
-        ..valid_invoke_tx.clone()
-    });
-    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
-
-    // Test error.
-    let expected_allowed_versions = vec![TransactionVersion(stark_felt!(1))];
-    assert_matches!(
-        execution_error,
-        TransactionExecutionError::InvalidVersion { version, allowed_versions }
-        if (version, &allowed_versions) == (invalid_tx_version, &expected_allowed_versions)
-    );
-
     // Insufficient fee.
     let invalid_max_fee = Fee(1);
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransactionV1 {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
     });
@@ -347,28 +330,11 @@ fn test_negative_invoke_tx_flows() {
         if (max_fee, actual_fee) == (invalid_max_fee, expected_actual_fee)
     );
 
-    // Invalid selector.
-    let invalid_selector = Some(EntryPointSelector::default());
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction {
-        entry_point_selector: invalid_selector,
-        ..valid_invoke_tx.clone()
-    });
-    let execution_error =
-        invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
-
-    // Test error.
-    assert_matches!(
-        execution_error,
-        TransactionExecutionError::InvokeTransactionError(
-            InvokeTransactionError::SpecifiedEntryPoint
-        )
-    );
-
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
     let invalid_nonce = Nonce(stark_felt!(1));
     let invalid_tx =
-        AccountTransaction::Invoke(InvokeTransaction { nonce: invalid_nonce, ..valid_invoke_tx });
+        AccountTransaction::Invoke(InvokeTransactionV1 { nonce: invalid_nonce, ..valid_invoke_tx });
     let execution_error =
         invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
 
@@ -380,7 +346,7 @@ fn test_negative_invoke_tx_flows() {
     );
 }
 
-fn declare_tx() -> DeclareTransaction {
+fn declare_tx() -> DeclareTransactionV0V1 {
     crate::test_utils::declare_tx(
         TEST_EMPTY_CONTRACT_CLASS_HASH,
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
@@ -400,7 +366,10 @@ fn test_declare_tx() {
     let class_hash = declare_tx.class_hash;
 
     let contract_class = get_contract_class(TEST_EMPTY_CONTRACT_PATH);
-    let account_tx = AccountTransaction::Declare(declare_tx.clone(), contract_class.clone());
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::V1(declare_tx.clone()),
+        contract_class.clone(),
+    );
 
     // Check state before transaction application.
     assert_matches!(
@@ -468,8 +437,8 @@ fn test_declare_tx() {
     assert_eq!(contract_class_from_state, Arc::from(contract_class.clone()));
 
     // Negative flow: check that the same class hash cannot be declared twice.
-    let invalid_declare_tx = AccountTransaction::Declare(
-        DeclareTransaction { nonce: Nonce(stark_felt!(1)), ..declare_tx },
+    let invalid_declare_tx = AccountTransaction::create_declare_tx_v1(
+        DeclareTransactionV0V1 { nonce: Nonce(stark_felt!(1)), ..declare_tx },
         contract_class,
     );
     let error = invalid_declare_tx.execute(state, block_context).unwrap_err();
