@@ -45,9 +45,16 @@ macro_rules! native_blockifier_errors {
 }
 
 native_blockifier_errors!(
+    (NativeBlockifierInputError, NativeBlockifierInputError, PyNativeBlockifierInputError),
     (Pyo3Error, PyErr, PyPyo3Error),
     (SerdeError, serde_json::Error, PySerdeError),
     (StarknetApiError, StarknetApiError, PyStarknetApiError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
     (StorageError, papyrus_storage::StorageError, PyStorageError)
 );
+
+#[derive(Debug, Error)]
+pub enum NativeBlockifierInputError {
+    #[error("Transaction of type {tx_type} is unsupported in version {version}.")]
+    UnsupportedTransactionVersion { tx_type: String, version: usize },
+}

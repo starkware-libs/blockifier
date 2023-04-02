@@ -168,13 +168,13 @@ impl<S: StateReader> State for CachedState<S> {
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
-        let declared_classes = IndexMap::new();
-
         StateDiff {
             deployed_contracts: IndexMap::from_iter(deployed_contracts),
             storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
-            declared_classes,
+            declared_classes: IndexMap::new(),
+            deprecated_declared_classes: IndexMap::new(),
             nonces: IndexMap::from_iter(nonces),
+            replaced_classes: IndexMap::new(),
         }
     }
 }

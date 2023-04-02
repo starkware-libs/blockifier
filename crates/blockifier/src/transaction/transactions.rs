@@ -1,9 +1,10 @@
+use starknet_api::deprecated_contract_class::EntryPointType;
 use std::sync::Arc;
 
 use starknet_api::core::ContractAddress;
-use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
+    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransactionV1,
+    L1HandlerTransaction,
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -72,7 +73,7 @@ pub trait Executable<S: State> {
         execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        // Only used for `DeclareTransaction`.
+        // Only used for declare transaction.
         contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
@@ -86,11 +87,13 @@ impl<S: State> Executable<S> for DeclareTransaction {
         _account_tx_context: &AccountTransactionContext,
         contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        match state.get_contract_class(&self.class_hash) {
+        let class_hash = self.class_hash();
+
+        match state.get_contract_class(&class_hash) {
             Err(StateError::UndeclaredClassHash(_)) => {
                 // Class is undeclared; declare it.
                 state.set_contract_class(
-                    &self.class_hash,
+                    &class_hash,
                     contract_class.expect("Declare transaction must have a contract_class"),
                 )?;
 
@@ -99,7 +102,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
             Err(error) => Err(error).map_err(TransactionExecutionError::from),
             Ok(_) => {
                 // Class is already declared; cannot redeclare.
-                Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash: self.class_hash })?
+                Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash })?
             }
         }
     }
@@ -134,7 +137,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
     }
 }
 
-impl<S: State> Executable<S> for InvokeTransaction {
+impl<S: State> Executable<S> for InvokeTransactionV1 {
     fn run_execute(
         &self,
         state: &mut S,

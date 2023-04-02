@@ -15,8 +15,8 @@ use cairo_vm::vm::runners::cairo_runner::{
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::deprecated_contract_class::{EntryPointType, Program as DeprecatedProgram};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::EntryPointType;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
@@ -327,7 +327,7 @@ pub fn felt_range_from_ptr(
 }
 
 pub fn convert_program_to_cairo_runner_format(
-    program: &starknet_api::state::Program,
+    program: &DeprecatedProgram,
 ) -> Result<Program, ProgramError> {
     let program = program.clone();
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;

@@ -67,7 +67,7 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
         class_hash: &starknet_api::core::ClassHash,
     ) -> StateResult<Arc<ContractClass>> {
         let state_number = StateNumber(*self.latest_block());
-        match self.reader.get_class_definition_at(state_number, class_hash) {
+        match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
             Ok(Some(starknet_api_contract_class)) => {
                 Ok(Arc::from(ContractClass::from(starknet_api_contract_class)))
             }

@@ -257,10 +257,12 @@ fn cached_state_state_diff_conversion() {
     // Only changes to contract_address2 should be shown, since contract_address_0 wasn't changed
     // and contract_address_1 was changed but ended up with the original values.
     let expected_state_diff = StateDiff {
-        declared_classes: IndexMap::new(),
-        storage_diffs: IndexMap::from_iter([(contract_address2, indexmap! {key_y => new_value})]),
-        nonces: IndexMap::from_iter([(contract_address2, Nonce(StarkFelt::from(1_u64)))]),
         deployed_contracts: IndexMap::from_iter([(contract_address2, new_class_hash)]),
+        storage_diffs: IndexMap::from_iter([(contract_address2, indexmap! {key_y => new_value})]),
+        declared_classes: IndexMap::new(),
+        deprecated_declared_classes: IndexMap::new(),
+        nonces: IndexMap::from_iter([(contract_address2, Nonce(StarkFelt::from(1_u64)))]),
+        replaced_classes: IndexMap::new(),
     };
 
     assert_eq!(expected_state_diff, state.to_state_diff());
