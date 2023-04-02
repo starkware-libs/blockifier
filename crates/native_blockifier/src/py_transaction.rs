@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fs::File;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -16,6 +17,7 @@ use num_bigint::{BigInt, BigUint};
 use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
+use pprof::ProfilerGuard;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
@@ -235,6 +237,45 @@ pub fn build_tx_executor_storage(
     py_tx_executor_storage_builder.try_build()
 }
 
+impl PyTransactionExecutor {
+    fn try_start_profiler() -> Option<ProfilerGuard<'static>> {
+        match pprof::ProfilerGuardBuilder::default()
+            .frequency(1000)
+            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+            .build()
+        {
+            Ok(profiler) => Some(profiler),
+            Err(error) => {
+                log::debug!("Failed to init profiler: {:?}", error);
+                None
+            }
+        }
+    }
+
+    fn try_output_flamegraph(tx_hash: TransactionHash, guard: Option<ProfilerGuard<'_>>) {
+        match guard {
+            None => (),
+            Some(guard) => match guard.report().build() {
+                Ok(report) => {
+                    let filename = format!("/data/flamegraph_tx_hash_{}.svg", tx_hash);
+                    match File::create(filename.clone()) {
+                        Ok(file) => match report.flamegraph(file) {
+                            Err(error) => {
+                                log::debug!("pprof flamegraph generation failed: {:?}", error)
+                            }
+                            Ok(()) => log::debug!("pprof flamegraph generated at '{:?}'", filename),
+                        },
+                        Err(error) => {
+                            log::debug!("Couldn't create file {:?}: {:?}", filename, error)
+                        }
+                    }
+                }
+                Err(error) => log::debug!("pprof report generation failed: {:?}", error),
+            },
+        }
+    }
+}
+
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
@@ -259,15 +300,20 @@ impl PyTransactionExecutor {
         Ok(Self { block_context, storage_fields: Some(storage_fields) })
     }
 
-    #[args(tx, raw_contract_class)]
+    #[args(tx, raw_contract_class, profile)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
+        profile: bool,
     ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
+        let guard: Option<ProfilerGuard<'_>> =
+            if profile { PyTransactionExecutor::try_start_profiler() } else { None };
+
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
-        log::info!("Executing transaction..."); // TODO: print tx_hash here if non-obvious.
+        let tx_hash = tx.get_tx_hash();
+        log::info!("Executing transaction with hash '{:?}'...", tx_hash);
         let execution_time = Instant::now();
         let storage = self.storage_fields.as_mut().expect("Storage not initialized.");
         let block_context = &self.block_context;
@@ -279,7 +325,9 @@ impl PyTransactionExecutor {
         log::info!(
             "Rust transaction execution without context switch Complete in {end_execution_time:?}"
         );
-        Ok(PyTransactionExecutionInfo::from(tx_execution_info))
+        let py_transaction_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+        PyTransactionExecutor::try_output_flamegraph(tx_hash, guard);
+        Ok(py_transaction_execution_info)
     }
 
     /// Returns the state diff resulting in executing transactions.

@@ -1,4 +1,4 @@
-use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
+use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionHash, TransactionSignature};
 
 use crate::block_context::BlockContext;
 use crate::state::cached_state::TransactionalState;
@@ -14,6 +14,19 @@ use crate::transaction::transactions::{Executable, ExecutableTransaction};
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
     L1HandlerTransaction(L1HandlerTransaction),
+}
+
+impl Transaction {
+    pub fn get_tx_hash(&self) -> TransactionHash {
+        match self {
+            Transaction::AccountTransaction(account_tx) => match account_tx {
+                AccountTransaction::Declare(declare_tx, _) => declare_tx.transaction_hash,
+                AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.transaction_hash,
+                AccountTransaction::Invoke(invoke_tx) => invoke_tx.transaction_hash,
+            },
+            Transaction::L1HandlerTransaction(l1_handler_tx) => l1_handler_tx.transaction_hash,
+        }
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
