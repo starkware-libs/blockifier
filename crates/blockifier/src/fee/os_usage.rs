@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 
 use crate::execution::syscall_handling::SyscallCounter;
 use crate::execution::syscalls::SyscallSelector;
+use crate::fee::os_resources::OS_RESOURCES;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
 
@@ -22,18 +22,6 @@ pub struct OsResources {
     // i.e., resources that don't count during the execution itself.
     execute_txs_inner: HashMap<TransactionType, ExecutionResources>,
 }
-
-// Filename can't be a static string because `include_str!` macro won't work.
-macro_rules! os_resources_filename {
-    () => {
-        "os_resources.json"
-    };
-}
-pub static OS_RESOURCES: Lazy<OsResources> = Lazy::new(|| {
-    serde_json::from_str(include_str!(os_resources_filename!())).unwrap_or_else(|_| {
-        panic!("{} either does not exist or cannot be deserialized.", os_resources_filename!())
-    })
-});
 
 pub fn get_additional_os_resources(
     syscall_counter: SyscallCounter,
@@ -52,8 +40,9 @@ pub fn get_additional_os_resources(
 
     // Calculate the additional resources needed for the OS to run the given transaction;
     // i.e., the resources of the StarkNet OS function execute_transactions_inner().
-    Ok(&os_additional_resources
-        + OS_RESOURCES.execute_txs_inner.get(&tx_type).unwrap_or_else(|| {
-            panic!("{} must contain all transaction types.", os_resources_filename!())
-        }))
+    let os_resources = OS_RESOURCES
+        .execute_txs_inner
+        .get(&tx_type)
+        .expect("OS_RESOURCES must contain all transaction types.");
+    Ok(&os_additional_resources + os_resources)
 }
