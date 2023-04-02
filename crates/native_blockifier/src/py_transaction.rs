@@ -11,7 +11,7 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
@@ -237,22 +237,19 @@ pub fn build_tx_executor(
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info, storage_path, max_size, latest_block_id)]
+    #[args(general_config, block_info, papyrus_storage)]
     pub fn create(
         general_config: &PyAny,
         block_info: &PyAny,
-        storage_path: String,
-        max_size: usize,
-        latest_block_id: BigInt,
+        papyrus_storage: &Storage,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
 
-        // TODO(Elin,01/04/2023): think of how to decouple the args needed to instantiate
-        // executor and storage - (storage_path, max_size).
-        let storage = Storage::new(storage_path, max_size)?;
-        storage.validate_aligned(latest_block_id)?;
+        // Assumption: storage is aligned.
+        let reader = papyrus_storage.reader().clone();
+
         let block_context = py_block_context(general_config, block_info)?;
-        let build_result = build_tx_executor(block_context, storage.reader);
+        let build_result = build_tx_executor(block_context, reader);
         log::debug!("Initialized Transaction Executor.");
 
         build_result
