@@ -2,6 +2,7 @@ use indexmap::IndexMap;
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
@@ -27,13 +28,13 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
         ClassHash(stark_felt!(TEST_CLASS_HASH)),
     )]);
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
-    let declared_classes = IndexMap::from([(
+    let deprecated_declared_classes = IndexMap::from([(
         ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        starknet_api::state::ContractClass::from(get_test_contract_class()),
+        DeprecatedContractClass::from(get_test_contract_class()),
     )]);
     storage_writer
         .begin_rw_txn()?
-        .append_state_diff(BlockNumber::default(), state_diff, declared_classes)?
+        .append_state_diff(BlockNumber::default(), state_diff, deprecated_declared_classes)?
         .commit()?;
 
     let storage_tx = storage_reader.begin_ro_txn()?;
