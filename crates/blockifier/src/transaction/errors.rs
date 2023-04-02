@@ -13,12 +13,6 @@ pub enum FeeTransferError {
 }
 
 #[derive(Debug, Error)]
-pub enum InvokeTransactionError {
-    #[error("Entry point selector must not be specified for an invoke transaction.")]
-    SpecifiedEntryPoint,
-}
-
-#[derive(Debug, Error)]
 pub enum DeclareTransactionError {
     #[error("Class with hash {class_hash:?} is already declared.")]
     ClassAlreadyDeclared { class_hash: ClassHash },
@@ -61,8 +55,6 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
-    #[error(transparent)]
-    InvokeTransactionError(#[from] InvokeTransactionError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
