@@ -6,6 +6,10 @@ use crate::block_context::BlockContext;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
+#[cfg(test)]
+#[path = "fee_test.rs"]
+pub mod test;
+
 pub fn extract_l1_gas_and_cairo_usage(
     resources: &ResourcesMapping,
 ) -> (usize, HashMap<String, usize>) {
