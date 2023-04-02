@@ -1,58 +1,83 @@
 use std::collections::HashMap;
+use std::panic;
+
+use ::rstest::{fixture, rstest};
 
 use crate::block_context::BlockContext;
-use crate::transaction::objects::ResourcesMapping;
-use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::fee::fee_utils::calculate_l1_gas_by_cairo_usage;
-use ::rstest::rstest;
+use crate::transaction::objects::ResourcesMapping;
 
-// #[fixture]
-// def general_config() -> StarknetGeneralConfig:
-//     return StarknetGeneralConfig(
-//         sequencer_address=1991,
-//         starknet_os_config=StarknetOsConfig(fee_token_address=2022),
-//         cairo_resource_fee_weights={
-//             N_STEPS_RESOURCE: 1.0,
-//             **{builtin: 1.0 for builtin in ALL_BUILTINS.except_for(KECCAK_BUILTIN).with_suffix()},
-//         },
-//     )
+/// Use this function instead of panic::catch_unwind to achieve silence in output for
+/// expected exceptions. For more information see here:
+/// https://stackoverflow.com/questions/26469715
+pub fn catch_unwind_silent<F: FnOnce() -> R + panic::UnwindSafe, R>(
+    f: F,
+) -> std::thread::Result<R> {
+    let prev_hook = panic::take_hook();
+    panic::set_hook(Box::new(|_| {}));
+    let result = panic::catch_unwind(f);
+    panic::set_hook(prev_hook);
+    result
+}
 
 #[fixture]
-fn cairo_resource_usage() -> &ResourcesMapping{
-    let cairo_resource_usage = ResourcesMapping(HashMap::<String, usize>::new());
-    cairo_resource_usage.0.insert(k, v)
+fn block_context() -> BlockContext {
+    let mut block_context = BlockContext::create_for_testing();
+    let mut cairo_resource_fee_weights = HashMap::<String, u32>::new();
+    cairo_resource_fee_weights.insert(String::from("n_steps"), 1);
+    cairo_resource_fee_weights.insert(String::from("pedersen_builtin"), 1);
+    cairo_resource_fee_weights.insert(String::from("range_check_builtin"), 1);
+    cairo_resource_fee_weights.insert(String::from("ecdsa_builtin"), 1);
+    cairo_resource_fee_weights.insert(String::from("bitwise_builtin"), 1);
+    cairo_resource_fee_weights.insert(String::from("poseidon_builtin"), 1);
+    cairo_resource_fee_weights.insert(String::from("output_builtin"), 1);
+    cairo_resource_fee_weights.insert(String::from("ec_op_builtin"), 1);
+    block_context.cairo_resource_fee_weights = cairo_resource_fee_weights;
+    block_context
 }
-    return {
-        N_STEPS_RESOURCE: 1800,
-        with_suffix(PEDERSEN_BUILTIN): 10,
-        with_suffix(RANGE_CHECK_BUILTIN): 24,
-        with_suffix(ECDSA_BUILTIN): 1,
-        with_suffix(BITWISE_BUILTIN): 1,
-        with_suffix(POSEIDON_BUILTIN): 1,
-    }
+
+#[fixture]
+fn cairo_resource_usage() -> ResourcesMapping {
+    let mut cairo_resource_usg = ResourcesMapping(HashMap::<String, usize>::new());
+    cairo_resource_usg.0.insert(String::from("n_steps"), 1800);
+    cairo_resource_usg.0.insert(String::from("pedersen_builtin"), 10);
+    cairo_resource_usg.0.insert(String::from("range_check_builtin"), 24);
+    cairo_resource_usg.0.insert(String::from("ecdsa_builtin"), 1);
+    cairo_resource_usg.0.insert(String::from("bitwise_builtin"), 1);
+    cairo_resource_usg.0.insert(String::from("poseidon_builtin"), 1);
+    cairo_resource_usg
+}
 
 #[rstest]
 fn test_calculate_l1_gas_by_cairo_usage(
-    block_context: &BlockContext, cairo_resource_usage: &ResourcesMapping){
-    
+    block_context: BlockContext,
+    cairo_resource_usage: ResourcesMapping,
+) {
     // Positive flow.
     // Verify calculation - in our case, n_steps is the heaviest resource.
-    let l1_gas_by_cairo_usage = cairo_resource_usage.0.get(N_STEPS_RESOURCE);
-    assert_eq!(l1_gas_by_cairo_usage, calculate_l1_gas_by_cairo_usage(
-            block_context, cairo_resource_usage)
+    let l1_gas_by_cairo_usage = cairo_resource_usage
+        .0
+        .get("n_steps")
+        .expect("cairo_resource_usage should have the key n_steps");
+    assert_eq!(
+        *l1_gas_by_cairo_usage,
+        calculate_l1_gas_by_cairo_usage(&block_context, &cairo_resource_usage)
     );
 
     // Negative flow.
     // Pass dict with extra key.
-    let invalid_cairo_resource_usage = ResourcesMapping(cairo_resource_usage.clone());
+    let mut invalid_cairo_resource_usage = ResourcesMapping(cairo_resource_usage.0.clone());
     invalid_cairo_resource_usage.0.insert(String::from("bad_resource_name"), 17);
-    // The assertion below is similar to pytest.raises(..) in python.
+    let expected_panic_msg = &"Cairo resource names must be contained in fee weights dict.";
+    // Assert a panic with the message expected_panic_msg was raised.
     assert_eq!(
-        std::panic::catch_unwind(||
-            calculate_l1_gas_by_cairo_usage(block_context, &invalid_cairo_resource_usage);
-        ).err().and_then(|a| a.downcast_ref::<String>().map(|s| {
-            s == "Cairo resource names must be contained in fee weights dict."
-        })),
-        Some(true)
-    );    
+        catch_unwind_silent(|| {
+            calculate_l1_gas_by_cairo_usage(&block_context, &invalid_cairo_resource_usage);
+        })
+        .err()
+        .and_then(|a| a.downcast_ref::<&str>().map(|s| { s == expected_panic_msg })),
+        Some(true),
+        "Panic with expected message '{}' was not raised.",
+        expected_panic_msg
+    );
 }
