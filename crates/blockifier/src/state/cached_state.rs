@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use cairo_vm::types::program::Program;
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -8,6 +9,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
+use crate::execution::errors::PreExecutionError;
+use crate::execution::execution_utils::convert_program_to_cairo_runner_format;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::utils::subtract_mappings;
@@ -29,11 +32,17 @@ pub struct CachedState<S: StateReader> {
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
     class_hash_to_class: ContractClassMapping,
+    class_hash_to_cairo_vm_program: HashMap<ClassHash, Arc<Program>>,
 }
 
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
-        Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+        Self {
+            state,
+            cache: StateCache::default(),
+            class_hash_to_class: HashMap::default(),
+            class_hash_to_cairo_vm_program: HashMap::default(),
+        }
     }
 
     /// Returns the number of storage changes done through this state.
@@ -50,6 +59,23 @@ impl<S: StateReader> CachedState<S> {
         modified_contracts.extend(class_hash_updates.keys());
 
         (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
+    }
+
+    pub fn get_cairo_vm_program(
+        &self,
+        class_hash: ClassHash,
+    ) -> Result<Arc<Program>, PreExecutionError> {
+        if self.class_hash_to_cairo_vm_program.get(&class_hash).is_none() {
+            let contract_class = self.state.get_contract_class(&class_hash)?;
+            let cairo_vm_program = convert_program_to_cairo_runner_format(&contract_class.program)?;
+            self.class_hash_to_cairo_vm_program.insert(class_hash, Arc::from(cairo_vm_program));
+        }
+
+        let cairo_vm_program = self
+            .class_hash_to_cairo_vm_program
+            .get(&class_hash)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
+        Ok(*cairo_vm_program)
     }
 }
 
