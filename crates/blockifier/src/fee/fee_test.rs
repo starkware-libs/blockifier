@@ -23,29 +23,29 @@ pub fn catch_unwind_silent<F: FnOnce() -> R + panic::UnwindSafe, R>(
 #[fixture]
 fn block_context() -> BlockContext {
     let mut block_context = BlockContext::create_for_testing();
-    let mut cairo_resource_fee_weights = HashMap::<String, u32>::new();
-    cairo_resource_fee_weights.insert(String::from("n_steps"), 1);
-    cairo_resource_fee_weights.insert(String::from("pedersen_builtin"), 1);
-    cairo_resource_fee_weights.insert(String::from("range_check_builtin"), 1);
-    cairo_resource_fee_weights.insert(String::from("ecdsa_builtin"), 1);
-    cairo_resource_fee_weights.insert(String::from("bitwise_builtin"), 1);
-    cairo_resource_fee_weights.insert(String::from("poseidon_builtin"), 1);
-    cairo_resource_fee_weights.insert(String::from("output_builtin"), 1);
-    cairo_resource_fee_weights.insert(String::from("ec_op_builtin"), 1);
-    block_context.cairo_resource_fee_weights = cairo_resource_fee_weights;
+    block_context.cairo_resource_fee_weights = HashMap::from([
+        (String::from("n_steps"), 1),
+        (String::from("pedersen_builtin"), 1),
+        (String::from("range_check_builtin"), 1),
+        (String::from("ecdsa_builtin"), 1),
+        (String::from("bitwise_builtin"), 1),
+        (String::from("poseidon_builtin"), 1),
+        (String::from("output_builtin"), 1),
+        (String::from("ec_op_builtin"), 1),
+    ]);
     block_context
 }
 
 #[fixture]
 fn cairo_resource_usage() -> ResourcesMapping {
-    let mut cairo_resource_usg = ResourcesMapping(HashMap::<String, usize>::new());
-    cairo_resource_usg.0.insert(String::from("n_steps"), 1800);
-    cairo_resource_usg.0.insert(String::from("pedersen_builtin"), 10);
-    cairo_resource_usg.0.insert(String::from("range_check_builtin"), 24);
-    cairo_resource_usg.0.insert(String::from("ecdsa_builtin"), 1);
-    cairo_resource_usg.0.insert(String::from("bitwise_builtin"), 1);
-    cairo_resource_usg.0.insert(String::from("poseidon_builtin"), 1);
-    cairo_resource_usg
+    ResourcesMapping(HashMap::from([
+        (String::from("n_steps"), 1800),
+        (String::from("pedersen_builtin"), 10),
+        (String::from("range_check_builtin"), 24),
+        (String::from("ecdsa_builtin"), 1),
+        (String::from("bitwise_builtin"), 1),
+        (String::from("poseidon_builtin"), 1),
+    ]))
 }
 
 #[rstest]
@@ -57,10 +57,10 @@ fn test_calculate_l1_gas_by_cairo_usage(
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_cairo_usage = cairo_resource_usage
         .0
-        .get("n_steps")
-        .expect("cairo_resource_usage should have the key n_steps");
+        .get("n_steps").cloned()
+        .expect("cairo_resource_usage should have the key n_steps") as u128;
     assert_eq!(
-        *l1_gas_by_cairo_usage,
+        l1_gas_by_cairo_usage,
         calculate_l1_gas_by_cairo_usage(&block_context, &cairo_resource_usage)
     );
 
@@ -75,7 +75,9 @@ fn test_calculate_l1_gas_by_cairo_usage(
             calculate_l1_gas_by_cairo_usage(&block_context, &invalid_cairo_resource_usage);
         })
         .err()
-        .and_then(|a| a.downcast_ref::<&str>().map(|s| { s == expected_panic_msg })),
+        .and_then(|panic_str| panic_str
+            .downcast_ref::<&str>()
+            .map(|panic_msg| { panic_msg == expected_panic_msg })),
         Some(true),
         "Panic with expected message '{}' was not raised.",
         expected_panic_msg
