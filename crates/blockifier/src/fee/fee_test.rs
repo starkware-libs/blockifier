@@ -57,8 +57,10 @@ fn test_calculate_l1_gas_by_cairo_usage(
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_cairo_usage = cairo_resource_usage
         .0
-        .get("n_steps").cloned()
-        .expect("cairo_resource_usage should have the key n_steps") as u128;
+        .get("n_steps")
+        .cloned()
+        .expect("cairo_resource_usage should have the key n_steps")
+        as u128;
     assert_eq!(
         l1_gas_by_cairo_usage,
         calculate_l1_gas_by_cairo_usage(&block_context, &cairo_resource_usage)
