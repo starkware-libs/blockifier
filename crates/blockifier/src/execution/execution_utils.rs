@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use cairo_felt::Felt;
 use cairo_vm::serde::deserialize_program::{
@@ -12,6 +13,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use once_cell::sync::Lazy;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::EntryPointType;
@@ -31,6 +33,9 @@ use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
 pub type Args = Vec<CairoArg>;
+
+pub static CAIRO_PROGRAM_CACHE: Lazy<Mutex<HashMap<ClassHash, Program>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
@@ -67,9 +72,19 @@ pub fn initialize_execution_context<'a>(
     let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
 
     // Instantiate Cairo runner.
-    let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
+    let mut cache = CAIRO_PROGRAM_CACHE.lock().unwrap();
+    let program = match cache.get(&class_hash) {
+        Some(program) => program,
+        None => {
+            cache.insert(
+                class_hash,
+                convert_program_to_cairo_runner_format(&contract_class.program)?,
+            );
+            &cache[&class_hash]
+        }
+    };
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&program, "all", proof_mode)?;
+    let mut runner = CairoRunner::new(program, "all", proof_mode)?;
 
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
