@@ -1,8 +1,10 @@
 use blockifier::transaction::errors::TransactionExecutionError;
+use blockifier::transaction::transaction_types::TransactionType;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
+use thiserror::Error;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
@@ -11,7 +13,7 @@ pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 macro_rules! native_blockifier_errors {
     ($(($variant_name:ident, $from_error_type:ty, $py_error_name:ident)),*) => {
 
-        #[derive(Debug, thiserror::Error)]
+        #[derive(Debug, Error)]
         pub enum NativeBlockifierError {
             $(
                 #[error(transparent)]
@@ -45,9 +47,16 @@ macro_rules! native_blockifier_errors {
 }
 
 native_blockifier_errors!(
+    (NativeBlockifierInputError, NativeBlockifierInputError, PyNativeBlockifierInputError),
     (Pyo3Error, PyErr, PyPyo3Error),
     (SerdeError, serde_json::Error, PySerdeError),
     (StarknetApiError, StarknetApiError, PyStarknetApiError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
     (StorageError, papyrus_storage::StorageError, PyStorageError)
 );
+
+#[derive(Debug, Error)]
+pub enum NativeBlockifierInputError {
+    #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
+    UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+}

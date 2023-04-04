@@ -2,8 +2,9 @@ use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::deprecated_contract_class::{EntryPoint, EntryPointType};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::{EntryPoint, EntryPointType, StorageKey};
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;

@@ -9,11 +9,12 @@ use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
     PatriciaKey,
 };
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::{EntryPointType, StorageKey};
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransaction, DeployAccountTransaction, Fee,
-    InvokeTransaction, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1,
+    DeployAccountTransaction, Fee, InvokeTransactionV1, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -27,6 +28,7 @@ use crate::execution::entry_point::{
 use crate::state::cached_state::{CachedState, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
 
 // Addresses.
@@ -216,6 +218,15 @@ impl CallExecution {
     }
 }
 
+impl AccountTransaction {
+    pub fn create_declare_tx_v1(
+        declare_tx: DeclareTransactionV0V1,
+        contract_class: ContractClass,
+    ) -> AccountTransaction {
+        AccountTransaction::Declare(DeclareTransaction::V1(declare_tx), contract_class)
+    }
+}
+
 // Transactions.
 pub fn deploy_account_tx(class_hash: &str, max_fee: Fee) -> DeployAccountTransaction {
     let class_hash = ClassHash(stark_felt!(class_hash));
@@ -243,24 +254,17 @@ pub fn invoke_tx(
     calldata: Calldata,
     sender_address: ContractAddress,
     max_fee: Fee,
-) -> InvokeTransaction {
-    InvokeTransaction {
-        max_fee,
-        version: TransactionVersion(stark_felt!(1)),
-        sender_address,
-        calldata,
-        ..Default::default()
-    }
+) -> InvokeTransactionV1 {
+    InvokeTransactionV1 { max_fee, sender_address, calldata, ..Default::default() }
 }
 
 pub fn declare_tx(
     class_hash: &str,
     sender_address: ContractAddress,
     max_fee: Fee,
-) -> DeclareTransaction {
-    DeclareTransaction {
+) -> DeclareTransactionV0V1 {
+    DeclareTransactionV0V1 {
         max_fee,
-        version: TransactionVersion(StarkFelt::from(1)),
         class_hash: ClassHash(stark_felt!(class_hash)),
         sender_address,
         ..Default::default()

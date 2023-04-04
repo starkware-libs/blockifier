@@ -3,10 +3,10 @@ use std::mem;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransaction,
+    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransactionV1,
     TransactionVersion,
 };
 
@@ -20,7 +20,7 @@ use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::{
-    FeeTransferError, InvokeTransactionError, TransactionExecutionError, ValidateTransactionError,
+    FeeTransferError, TransactionExecutionError, ValidateTransactionError,
 };
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
@@ -38,7 +38,7 @@ mod test;
 pub enum AccountTransaction {
     Declare(DeclareTransaction, ContractClass),
     DeployAccount(DeployAccountTransaction),
-    Invoke(InvokeTransaction),
+    Invoke(InvokeTransactionV1),
 }
 
 impl AccountTransaction {
@@ -55,7 +55,7 @@ impl AccountTransaction {
     // `get_tx_info()`.
     fn validate_entrypoint_calldata(&self) -> Calldata {
         match self {
-            Self::Declare(tx, _contract_class) => calldata![tx.class_hash.0],
+            Self::Declare(tx, _contract_class) => calldata![tx.class_hash().0],
             Self::DeployAccount(tx) => {
                 let validate_calldata = concat(vec![
                     vec![tx.class_hash.0, tx.contract_address_salt.0],
@@ -71,12 +71,16 @@ impl AccountTransaction {
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
             Self::Declare(tx, _contract_class) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash,
-                max_fee: tx.max_fee,
-                version: tx.version,
-                signature: tx.signature.clone(),
-                nonce: tx.nonce,
-                sender_address: tx.sender_address,
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: match tx {
+                    DeclareTransaction::V0(_) => TransactionVersion(StarkFelt::from(0)),
+                    DeclareTransaction::V1(_) => TransactionVersion(StarkFelt::from(1)),
+                    DeclareTransaction::V2(_) => TransactionVersion(StarkFelt::from(2)),
+                },
+                signature: tx.signature(),
+                nonce: tx.nonce(),
+                sender_address: tx.sender_address(),
             },
             Self::DeployAccount(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash,
@@ -89,7 +93,7 @@ impl AccountTransaction {
             Self::Invoke(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash,
                 max_fee: tx.max_fee,
-                version: tx.version,
+                version: TransactionVersion(StarkFelt::from(1)),
                 signature: tx.signature.clone(),
                 nonce: tx.nonce,
                 sender_address: tx.sender_address,
@@ -290,12 +294,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 )?;
             }
             Self::Invoke(ref tx) => {
-                // Specifying an entry point selector is not allowed; `__execute__` is called, and
-                // the inner selector appears in the calldata.
-                if tx.entry_point_selector.is_some() {
-                    return Err(InvokeTransactionError::SpecifiedEntryPoint)?;
-                }
-
                 // Validate.
                 validate_call_info = self.validate_tx(
                     state,
