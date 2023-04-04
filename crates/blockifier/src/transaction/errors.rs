@@ -38,6 +38,8 @@ pub enum ExecuteTransactionError {
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
+    #[error("Cairo resource names must be contained in fee weights dict.")]
+    CairoResourcesNotContainedInFeeWeights,
     #[error(transparent)]
     ContractConstructorExecutionFailed(#[from] ContractConstructorExecutionError),
     #[error(transparent)]
