@@ -25,7 +25,7 @@ use crate::execution::entry_point::{
     EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
 };
 use crate::execution::errors::{
-    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
+    EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::syscall_handling::{execute_inner_call, SyscallHintProcessor};
 use crate::execution::syscalls::SyscallResult;
@@ -168,7 +168,12 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.execution_resources.vm_resources.clone();
 
     // Execute.
-    run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
+    run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args).map_err(
+        |vm_error| EntryPointExecutionError::VirtualMachineExecutionError {
+            contract_address: call.storage_address,
+            source: vm_error,
+        },
+    )?;
 
     Ok(finalize_execution(
         vm,

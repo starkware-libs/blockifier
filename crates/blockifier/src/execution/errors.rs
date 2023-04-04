@@ -101,6 +101,10 @@ pub enum EntryPointExecutionError {
     #[error(transparent)]
     StateError(#[from] StateError),
     /// Gathers all errors from running the Cairo VM, excluding hints.
-    #[error(transparent)]
-    VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
+    #[error("VM error in contract at address '{contract_address:?}': {source:?}.")]
+    VirtualMachineExecutionError {
+        contract_address: ContractAddress,
+        #[source]
+        source: VirtualMachineExecutionError,
+    },
 }
