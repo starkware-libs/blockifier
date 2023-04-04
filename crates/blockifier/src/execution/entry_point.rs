@@ -16,7 +16,7 @@ use crate::execution::execution_utils::execute_entry_point_call;
 use crate::execution::syscall_handling::SyscallCounter;
 use crate::state::state_api::State;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -185,9 +185,7 @@ pub struct CallInfo {
 impl CallInfo {
     /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
-    pub fn get_sorted_l2_to_l1_payloads_length(
-        &self,
-    ) -> Result<Vec<usize>, TransactionExecutionError> {
+    pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
         let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
         let mut starknet_l2_to_l1_payloads_length: Vec<Option<usize>> = vec![None; n_messages];
 
