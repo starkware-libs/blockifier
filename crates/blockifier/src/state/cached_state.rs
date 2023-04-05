@@ -20,7 +20,7 @@ use crate::utils::subtract_mappings;
 #[path = "cached_state_test.rs"]
 mod test;
 
-type ContractClassMapping = HashMap<ClassHash, Arc<ContractClass>>;
+pub type ContractClassMapping = HashMap<ClassHash, Arc<ContractClass>>;
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Caches read and write requests.
