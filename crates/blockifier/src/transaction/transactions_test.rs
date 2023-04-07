@@ -384,7 +384,7 @@ fn test_declare_tx() {
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
         calldata![class_hash.0],
         expected_account_address,
-    );
+    )
 
     // Build expected fee transfer call info.
     let expected_actual_fee = actual_fee();
