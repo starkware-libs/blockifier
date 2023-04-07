@@ -101,8 +101,17 @@ impl<S: State> Executable<S> for DeclareTransaction {
             }
             Err(error) => Err(error).map_err(TransactionExecutionError::from),
             Ok(_) => {
-                // Class is already declared; cannot redeclare.
-                Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash })?
+                // Class is already declared.
+                match self {
+                    // No class commitment, so this check is meaningless.
+                    DeclareTransaction::V0(_) => Ok(None),
+                    DeclareTransaction::V1(_) => Ok(None),
+                    // From V2 up, cannot redeclare (i.e., make sure the leaf is uninitialized).
+                    // Changing class leaf in the commitment is possible only through syscall.
+                    DeclareTransaction::V2(_) => {
+                        Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash })?
+                    }
+                }
             }
         }
     }
