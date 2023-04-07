@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use starknet_api::core::{calculate_contract_address, ClassHash, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
+    Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1, Fee,
+    InvokeTransactionV1,
 };
 use starknet_api::{calldata, stark_felt};
 
@@ -69,8 +70,11 @@ fn test_account_flow_test() {
     // Declare a contract.
     let contract_class = get_contract_class(TEST_CONTRACT_PATH);
     let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee);
-    let account_tx = AccountTransaction::create_declare_tx_v1(
-        DeclareTransactionV0V1 { nonce: Nonce(stark_felt!(1)), ..declare_tx },
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::V1(DeclareTransactionV0V1 {
+            nonce: Nonce(stark_felt!(1)),
+            ..declare_tx
+        }),
         contract_class,
     );
     account_tx.execute(state, block_context).unwrap();

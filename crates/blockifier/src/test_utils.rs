@@ -13,8 +13,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1,
-    DeployAccountTransaction, Fee, InvokeTransactionV1, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
+    InvokeTransactionV1, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -28,7 +28,6 @@ use crate::execution::entry_point::{
 use crate::state::cached_state::{CachedState, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
 
 // Addresses.
@@ -215,15 +214,6 @@ impl BlockContext {
 impl CallExecution {
     pub fn from_retdata(retdata: Retdata) -> Self {
         Self { retdata, ..Default::default() }
-    }
-}
-
-impl AccountTransaction {
-    pub fn create_declare_tx_v1(
-        declare_tx: DeclareTransactionV0V1,
-        contract_class: ContractClass,
-    ) -> AccountTransaction {
-        AccountTransaction::Declare(DeclareTransaction::V1(declare_tx), contract_class)
     }
 }
 

@@ -101,8 +101,15 @@ impl<S: State> Executable<S> for DeclareTransaction {
             }
             Err(error) => Err(error).map_err(TransactionExecutionError::from),
             Ok(_) => {
-                // Class is already declared; cannot redeclare.
-                Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash })?
+                // Class is already declared.
+                match self {
+                    DeclareTransaction::V0(_) => Ok(None),
+                    DeclareTransaction::V1(_) => Ok(None),
+                    // From V2 up, cannot redeclare.
+                    DeclareTransaction::V2(_) => {
+                        Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash })?
+                    }
+                }
             }
         }
     }
