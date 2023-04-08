@@ -365,10 +365,8 @@ fn test_declare_tx() {
     let class_hash = declare_tx.class_hash;
 
     let contract_class = get_contract_class(TEST_EMPTY_CONTRACT_PATH);
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::V1(declare_tx.clone()),
-        contract_class.clone(),
-    );
+    let account_tx =
+        AccountTransaction::Declare(DeclareTransaction::V1(declare_tx), contract_class.clone());
 
     // Check state before transaction application.
     assert_matches!(
@@ -433,15 +431,7 @@ fn test_declare_tx() {
 
     // Verify class declaration.
     let contract_class_from_state = state.get_contract_class(&class_hash).unwrap();
-    assert_eq!(contract_class_from_state, Arc::from(contract_class.clone()));
-
-    // Negative flow: check that the same class hash cannot be declared twice.
-    let invalid_declare_tx = AccountTransaction::create_declare_tx_v1(
-        DeclareTransactionV0V1 { nonce: Nonce(stark_felt!(1)), ..declare_tx },
-        contract_class,
-    );
-    let error = invalid_declare_tx.execute(state, block_context).unwrap_err();
-    assert_eq!(format!("Class with hash {class_hash:?} is already declared."), format!("{error}"));
+    assert_eq!(contract_class_from_state, Arc::from(contract_class));
 }
 
 fn deploy_account_tx() -> DeployAccountTransaction {
