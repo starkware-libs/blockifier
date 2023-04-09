@@ -14,15 +14,13 @@ crate-type = ["cdylib"]
 
 [dependencies]
 blockifier = { path = "../blockifier" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17" }
-hex = { version = "0.4.3" }
-indexmap = { version = "1.9.2" }
-log = { version = "0.4" }
-num-bigint = { version = "0.4" }
-ouroboros = { version = "0.15.6" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "1d791aa", features = [
-    "testing",
-] }
+cairo-vm.workspace = true
+hex.workspace = true
+indexmap.workspace = true
+log.workspace = true
+num-bigint.workspace = true
+ouroboros.workspace = true
+papyrus_storage = { workspace = true, features = [ "testing", ] }
 pyo3 = { version = "0.17.3", features = [
     "extension-module",
     "num-bigint",
@@ -30,10 +28,8 @@ pyo3 = { version = "0.17.3", features = [
 ] }
 pyo3-log = { version = "0.8.1" }
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
-serde_json = { version = "1.0.81", features = ["arbitrary_precision"] }
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
 # Should match the commit `papyrus_storage` is using.
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "783885b", features = [
-    "testing",
-] }
+starknet_api = { workspace = true, features = [ "testing" ] }
 
-thiserror = { version = "1.0.37" }
+thiserror.workspace = true
