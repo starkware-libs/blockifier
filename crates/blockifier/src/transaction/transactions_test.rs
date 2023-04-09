@@ -12,7 +12,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeclareTransactionV0V1, DeployAccountTransaction, EventContent,
-    EventData, EventKey, Fee, InvokeTransactionV1,
+    EventData, EventKey, Fee, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -31,7 +31,9 @@ use crate::test_utils::{
     ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
     TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY, TEST_ERC20_SEQUENCER_BALANCE_KEY,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -39,21 +41,31 @@ use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::transactions::ExecutableTransaction;
 
-fn create_account_tx_test_state() -> CachedState<DictStateReader> {
+// Corresponding constants to the ones in faulty_account.
+pub const VALID: u64 = 0;
+pub const CALL_CONTRACT: u64 = 2;
+
+fn create_account_tx_test_state(
+    account_class_hash: &str,
+    account_address: &str,
+    account_path: &str,
+    erc20_account_balance_key: StorageKey,
+    initial_account_balance: u64,
+) -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
     let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class(account_path)),
         (test_contract_class_hash, get_contract_class(TEST_CONTRACT_PATH)),
         (test_erc20_class_hash, get_contract_class(ERC20_CONTRACT_PATH)),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
-    let test_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let test_account_address = ContractAddress(patricia_key!(account_address));
     let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
@@ -61,8 +73,8 @@ fn create_account_tx_test_state() -> CachedState<DictStateReader> {
         (test_erc20_address, test_erc20_class_hash),
     ]);
     let storage_view = HashMap::from([(
-        (test_erc20_address, *TEST_ERC20_ACCOUNT_BALANCE_KEY),
-        stark_felt!(actual_fee().0 as u64),
+        (test_erc20_address, erc20_account_balance_key),
+        stark_felt!(initial_account_balance),
     )]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
@@ -196,12 +208,35 @@ fn invoke_tx() -> InvokeTransactionV1 {
         execute_calldata,
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         Fee(2),
+        None,
+    )
+}
+
+fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
+    let account_balance = actual_fee().0 as u64;
+    create_account_tx_test_state(
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_ACCOUNT_CONTRACT_ADDRESS,
+        ACCOUNT_CONTRACT_PATH,
+        *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        account_balance,
+    )
+}
+
+fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
+    let account_balance = actual_fee().0 as u64;
+    create_account_tx_test_state(
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+        TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+        *TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY,
+        account_balance * 2,
     )
 }
 
 #[test]
 fn test_invoke_tx() {
-    let state = &mut create_account_tx_test_state();
+    let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_testing();
     let invoke_tx = invoke_tx();
 
@@ -306,7 +341,7 @@ fn test_invoke_tx() {
 
 #[test]
 fn test_negative_invoke_tx_flows() {
-    let state = &mut create_account_tx_test_state();
+    let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_testing();
     let valid_invoke_tx = invoke_tx();
 
@@ -334,8 +369,9 @@ fn test_negative_invoke_tx_flows() {
     let invalid_nonce = Nonce(stark_felt!(1));
     let invalid_tx =
         AccountTransaction::Invoke(InvokeTransactionV1 { nonce: invalid_nonce, ..valid_invoke_tx });
-    let execution_error =
-        invalid_tx.execute(&mut create_account_tx_test_state(), block_context).unwrap_err();
+    let execution_error = invalid_tx
+        .execute(&mut create_state_with_trivial_validation_account(), block_context)
+        .unwrap_err();
 
     // Test error.
     assert_matches!(
@@ -355,7 +391,7 @@ fn declare_tx() -> DeclareTransactionV0V1 {
 
 #[test]
 fn test_declare_tx() {
-    let state = &mut create_account_tx_test_state();
+    let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_testing();
     let declare_tx = declare_tx();
 
@@ -440,7 +476,7 @@ fn deploy_account_tx() -> DeployAccountTransaction {
 
 #[test]
 fn test_deploy_account_tx() {
-    let state = &mut create_account_tx_test_state();
+    let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_testing();
     let deploy_account_tx = deploy_account_tx();
 
@@ -533,4 +569,44 @@ fn test_deploy_account_tx() {
     // Verify deployment.
     let class_hash_from_state = state.get_class_hash_at(deployed_account_address).unwrap();
     assert_eq!(class_hash_from_state, class_hash);
+}
+
+#[test]
+fn test_validate_invoke_function() {
+    let state = &mut create_state_with_falliable_validation_account();
+    let block_context = &BlockContext::create_for_testing();
+
+    fn create_tx(scenario: u64, additional_data: Option<StarkFelt>) -> InvokeTransactionV1 {
+        let entry_point_selector = selector_from_name("foo");
+        let execute_calldata = calldata![
+            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
+            entry_point_selector.0,                            // EP selector.
+            stark_felt!(0)                                     // Calldata length.
+        ];
+        // The first felt of the signature is used to set the scenario. If the scenario is
+        // `CALL_CONTRACT` the second felt is used to pass the contract address.
+        let signature = TransactionSignature(vec![
+            StarkFelt::from(scenario),
+            additional_data.unwrap_or_else(|| StarkFelt::from(0)),
+        ]);
+
+        crate::test_utils::invoke_tx(
+            execute_calldata,
+            ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+            Fee(2),
+            Some(signature),
+        )
+    }
+
+    // Positive flows.
+    // Valid logic.
+    let mut account_tx = AccountTransaction::Invoke(create_tx(VALID, None));
+    account_tx.execute(state, block_context).unwrap();
+
+    // Calling self (allowed).
+    account_tx = AccountTransaction::Invoke(InvokeTransactionV1 {
+        nonce: Nonce(stark_felt!(1)),
+        ..create_tx(CALL_CONTRACT, Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)))
+    });
+    account_tx.execute(state, block_context).unwrap();
 }
