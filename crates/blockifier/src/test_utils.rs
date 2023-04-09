@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use std::iter::zip;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -115,8 +116,8 @@ impl StateReader for DictStateReader {
 }
 
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
-    let path = PathBuf::from(contract_path);
-    ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
+    let contract_path = PathBuf::from(contract_path);
+    ContractClass::try_from(contract_path).unwrap()
 }
 
 pub fn get_test_contract_class() -> ContractClass {
