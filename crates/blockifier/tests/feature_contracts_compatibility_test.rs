@@ -66,5 +66,5 @@ fn verify_feature_contracts_compatibility(fix: bool) {
 #[test]
 #[ignore]
 fn verify_feature_contracts() {
-    verify_feature_contracts_compatibility(false)
+    verify_feature_contracts_compatibility(true)
 }
