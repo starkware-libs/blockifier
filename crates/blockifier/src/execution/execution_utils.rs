@@ -70,9 +70,8 @@ pub fn initialize_execution_context<'a>(
     let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
 
     // Instantiate Cairo runner.
-    let program = convert_program_to_cairo_runner_format(&contract_class.program)?;
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&program, "all", proof_mode)?;
+    let mut runner = CairoRunner::new(&contract_class.program, "all", proof_mode)?;
 
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
@@ -326,10 +325,8 @@ pub fn felt_range_from_ptr(
     Ok(values)
 }
 
-pub fn convert_program_to_cairo_runner_format(
-    program: &DeprecatedProgram,
-) -> Result<Program, ProgramError> {
-    let program = program.clone();
+// TODO(Elin,01/05/2023): aim to use LC's implementation once it's in a separate crate.
+pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program, ProgramError> {
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
 
     let start = match identifiers.get("__main__.__start__") {

@@ -35,6 +35,7 @@ mod test;
 
 /// Represents a paid StarkNet transaction.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum AccountTransaction {
     Declare(DeclareTransaction, ContractClass),
     DeployAccount(DeployAccountTransaction),
