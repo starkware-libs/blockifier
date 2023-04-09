@@ -6,7 +6,7 @@ resolver = "2"
 members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.dependencies]
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "bc52e17"}
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17" }
 derive_more = { version = "0.99.17" }
 hex = { version = "0.4.3" }
@@ -21,7 +21,7 @@ once_cell = { version = "1.16.0" }
 papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "48a58ff" }
 serde = { version = "1.0.130" }
 serde_json = { version = "1.0.81" }
-sha3 = { version = "0.10.6" } # Should match the commit `papyrus_storage` is using.
+sha3 = { version = "0.10.6" }
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "0029ffe" }
 strum = { version = "0.24.1" }
 strum_macros = { version = "0.24.3" }
