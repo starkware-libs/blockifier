@@ -12,7 +12,7 @@ use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContract
 use starknet_api::hash::StarkHash;
 use starknet_api::state::StateDiff;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
@@ -103,12 +103,8 @@ impl Storage {
         let mut deprecated_declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
             IndexMap::new();
         for (class_hash, raw_class) in declared_class_hash_to_class {
-            let blockifier_contract_class: blockifier::execution::contract_class::ContractClass =
-                serde_json::from_str(raw_class.as_str()).map_err(NativeBlockifierError::from)?;
-            deprecated_declared_classes.insert(
-                ClassHash(class_hash.0),
-                DeprecatedContractClass::from(blockifier_contract_class),
-            );
+            let deprecated_contract_class = serde_json::from_str(&raw_class)?;
+            deprecated_declared_classes.insert(ClassHash(class_hash.0), deprecated_contract_class);
         }
 
         // Construct state diff; manually add declared classes.

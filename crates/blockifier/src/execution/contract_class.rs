@@ -1,55 +1,42 @@
 use std::collections::HashMap;
-use std::fs::File;
-use std::io;
-use std::io::BufReader;
-use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use cairo_vm::types::errors::program_errors::ProgramError;
+use cairo_vm::types::program::Program;
+use serde::de::Error as DeserializationError;
+use serde::{Deserialize, Deserializer, Serialize};
 use starknet_api::deprecated_contract_class::{
-    ContractClass as DeprecatedContractClass, EntryPoint, EntryPointType, Program,
+    ContractClass as DeprecatedContractClass, EntryPoint, EntryPointType,
+    Program as DeprecatedProgram,
 };
 
-/// Represents a StarkNet contract class.
+use crate::execution::execution_utils::sn_api_to_cairo_vm_program;
+
+/// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
+// Note: when deserializing from a SN API class JSON string, the ABI field is ignored·
+// by serde, since it is not required for execution.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize, Serialize)]
 pub struct ContractClass {
+    #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
-    /// The selector of each entry point is a unique identifier in the program.
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
-    // Not required for execution, thus can be omitted from the raw contract file.
-    pub abi: Option<serde_json::Value>,
 }
 
-impl From<ContractClass> for DeprecatedContractClass {
-    fn from(contract_class: ContractClass) -> Self {
-        Self {
-            program: contract_class.program,
-            entry_points_by_type: contract_class.entry_points_by_type,
-            // ABI is not used for execution.
-            abi: None,
-        }
+impl TryFrom<DeprecatedContractClass> for ContractClass {
+    type Error = ProgramError;
+
+    fn try_from(class: DeprecatedContractClass) -> Result<Self, Self::Error> {
+        Ok(Self {
+            program: sn_api_to_cairo_vm_program(class.program)?,
+            entry_points_by_type: class.entry_points_by_type,
+        })
     }
 }
 
-impl From<DeprecatedContractClass> for ContractClass {
-    fn from(contract_class: DeprecatedContractClass) -> Self {
-        Self {
-            program: contract_class.program,
-            entry_points_by_type: contract_class.entry_points_by_type,
-            // ABI is not used for execution.
-            abi: None,
-        }
-    }
-}
-
-/// Instantiates a contract class object given a compiled contract file path.
-impl TryFrom<PathBuf> for ContractClass {
-    type Error = io::Error;
-
-    fn try_from(path: PathBuf) -> io::Result<Self> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-
-        let raw_contract_class = serde_json::from_reader(reader)?;
-        Ok(raw_contract_class)
-    }
+/// Convert the program type from SN API into a Cairo VM compatible type.
+pub fn deserialize_program<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Program, D::Error> {
+    let deprecated_program = DeprecatedProgram::deserialize(deserializer)?;
+    sn_api_to_cairo_vm_program(deprecated_program)
+        .map_err(|err| DeserializationError::custom(err.to_string()))
 }
