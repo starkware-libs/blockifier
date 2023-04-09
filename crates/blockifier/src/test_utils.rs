@@ -1,6 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
 use std::iter::zip;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
@@ -9,7 +9,9 @@ use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
     PatriciaKey,
 };
-use starknet_api::deprecated_contract_class::EntryPointType;
+use starknet_api::deprecated_contract_class::{
+    ContractClass as DeprecatedContractClass, EntryPointType,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -115,8 +117,21 @@ impl StateReader for DictStateReader {
 }
 
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
-    let path = PathBuf::from(contract_path);
-    ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
+    let raw_contract_class = fs::read_to_string(contract_path).unwrap();
+    serde_json::from_str(&raw_contract_class).unwrap()
+}
+
+pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
+    let contract = fs::read_to_string(contract_path).unwrap();
+    let mut raw_contract_class: serde_json::Value = serde_json::from_str(&contract).unwrap();
+
+    // ABI is not required for execution.
+    raw_contract_class
+        .as_object_mut()
+        .expect("A compiled contract must be a JSON object.")
+        .remove("abi");
+
+    serde_json::from_value(raw_contract_class).unwrap()
 }
 
 pub fn get_test_contract_class() -> ContractClass {
