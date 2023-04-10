@@ -1,5 +1,6 @@
 use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
 
+use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::ExecutionResources;
 use crate::state::cached_state::TransactionalState;
@@ -41,7 +42,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let validate_call_info = None;
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(self.calldata.0.len() - 1);
-        let actual_resources = calculate_tx_resources(
+        let (mut actual_resources, l1_gas_usage) = calculate_tx_resources(
             execution_resources,
             execute_call_info.as_ref(),
             validate_call_info,
@@ -52,6 +53,9 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
 
         let (n_storage_updates, n_modified_contracts, n_class_updates) =
             state.count_actual_state_changes();
+
+        // Adds the l1 gas usage to the actual resources for the bouncer.
+        actual_resources.0.insert(constants::GAS_USAGE.to_string(), l1_gas_usage);
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,

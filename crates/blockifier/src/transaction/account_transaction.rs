@@ -11,6 +11,7 @@ use starknet_api::transaction::{
 };
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
@@ -327,7 +328,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         };
 
         //  Handle fee.
-        let actual_resources = calculate_tx_resources(
+        let (mut actual_resources, l1_gas_usage) = calculate_tx_resources(
             execution_resources,
             execute_call_info.as_ref(),
             validate_call_info.as_ref(),
@@ -342,6 +343,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         // Charge fee.
         let (actual_fee, fee_transfer_call_info) =
             Self::charge_fee(state, block_context, &account_tx_context)?;
+
+        // Adds the l1 gas usage to the actual resources for the bouncer.
+        actual_resources.0.insert(abi_constants::GAS_USAGE.to_string(), l1_gas_usage);
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
