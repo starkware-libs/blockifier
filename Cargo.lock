@@ -260,6 +260,7 @@ dependencies = [
  "starknet_api",
  "strum",
  "strum_macros",
+ "tempfile",
  "test-case",
  "thiserror",
 ]
@@ -1476,14 +1477,10 @@ dependencies = [
  "indexmap",
  "integer-encoding",
  "libmdbx",
- "rand",
- "rand_chacha",
  "reqwest",
  "serde",
  "serde_json",
  "starknet_api",
- "tempfile",
- "test_utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -2457,22 +2454,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "test_utils"
-version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus?rev=1d791aa#1d791aaa9b97abe7140c6601f89c1a2bbf0d0f9e"
-dependencies = [
- "indexmap",
- "rand",
- "rand_chacha",
- "reqwest",
- "serde",
- "serde_json",
- "starknet_api",
- "tracing",
- "web3",
 ]
 
 [[package]]

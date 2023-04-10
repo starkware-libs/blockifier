@@ -1,5 +1,7 @@
 use indexmap::IndexMap;
+use papyrus_storage::db::DbConfig;
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
+use papyrus_storage::{open_storage, StorageReader, StorageWriter};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
@@ -18,9 +20,24 @@ use crate::test_utils::{
     get_test_contract_class, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
 };
 
+pub fn get_test_config() -> DbConfig {
+    let dir = tempfile::tempdir().unwrap();
+    DbConfig {
+        path: dir.path().to_path_buf(),
+        min_size: 1 << 20,    // 1MB
+        max_size: 1 << 35,    // 32GB
+        growth_step: 1 << 26, // 64MB
+    }
+}
+
+pub fn get_test_storage() -> (StorageReader, StorageWriter) {
+    let config = get_test_config();
+    open_storage(config).unwrap()
+}
+
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
-    let (storage_reader, mut storage_writer) = papyrus_storage::test_utils::get_test_storage();
+    let (storage_reader, mut storage_writer) = get_test_storage();
 
     // Initialize Storage: add test contract and class.
     let deployed_contracts = IndexMap::from([(

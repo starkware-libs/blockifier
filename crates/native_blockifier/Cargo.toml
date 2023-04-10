@@ -20,7 +20,7 @@ indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 ouroboros.workspace = true
-papyrus_storage = { workspace = true, features = [ "testing", ] }
+papyrus_storage.workspace = true
 pyo3 = { version = "0.17.3", features = [
     "extension-module",
     "num-bigint",
@@ -30,6 +30,6 @@ pyo3-log = { version = "0.8.1" }
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 # Should match the commit `papyrus_storage` is using.
-starknet_api = { workspace = true, features = [ "testing" ] }
+starknet_api = { workspace = true, features = ["testing"] }
 
 thiserror.workspace = true
