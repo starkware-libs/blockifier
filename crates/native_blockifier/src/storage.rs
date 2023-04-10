@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
-use blockifier::execution::contract_class::DeprecatedContractClassWithoutAbi;
 use indexmap::IndexMap;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
@@ -104,9 +103,7 @@ impl Storage {
         let mut deprecated_declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
             IndexMap::new();
         for (class_hash, raw_class) in declared_class_hash_to_class {
-            let deprecated_contract_class = DeprecatedContractClass::from(
-                DeprecatedContractClassWithoutAbi::try_from(raw_class.as_str())?,
-            );
+            let deprecated_contract_class = serde_json::from_str(&raw_class)?;
             deprecated_declared_classes.insert(ClassHash(class_hash.0), deprecated_contract_class);
         }
 
