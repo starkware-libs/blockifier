@@ -16,7 +16,7 @@ const FEE_TRANSFER_N_STORAGE_CHANGES: u8 = 2; // Sender and sequencer balance up
 // Exclude the sequencer balance update, since it's charged once throughout the batch.
 const FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE: u8 = FEE_TRANSFER_N_STORAGE_CHANGES - 1;
 
-/// Returns the total resources needed to include the most recent transaction in a StarkNet batch
+/// Calculates the total resources needed to include the most recent transaction in a StarkNet batch
 /// (recent w.r.t. application on the given state) i.e., L1 gas usage and Cairo execution resources.
 /// Used for transaction fee; calculation is made as if the transaction is the first in batch, for
 /// consistency.
@@ -59,15 +59,13 @@ pub fn calculate_tx_resources<S: StateReader>(
     Ok(ResourcesMapping(tx_resources))
 }
 
-pub fn extract_l1_gas_and_cairo_usage(
-    resources: &ResourcesMapping,
-) -> (usize, HashMap<String, usize>) {
+pub fn extract_l1_gas_and_cairo_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
     let mut cairo_resource_usage = resources.0.clone();
     let l1_gas_usage = cairo_resource_usage
         .remove("l1_gas_usage")
         .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
 
-    (l1_gas_usage, cairo_resource_usage)
+    (l1_gas_usage, ResourcesMapping(cairo_resource_usage))
 }
 
 /// Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
@@ -89,4 +87,21 @@ pub fn calculate_l1_gas_by_cairo_usage(
             * cairo_resource_usage.0.get(key).cloned().unwrap_or_default() as u128
     }));
     Ok(cairo_l1_gas_usage.expect("`cairo_resource_fee_weights` is empty."))
+}
+
+/// Calculates the fee that should be charged, given execution resources.
+/// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1 messages)
+/// to the gas consumed by Cairo VM resource and multiply by the L1 gas price.
+pub fn calculate_tx_fee(
+    resources: &ResourcesMapping,
+    block_context: &BlockContext,
+) -> TransactionExecutionResult<u128> {
+    let (l1_gas_usage, vm_resources) = extract_l1_gas_and_cairo_usage(resources);
+    let l1_gas_by_cairo_usage = calculate_l1_gas_by_cairo_usage(block_context, &vm_resources)?;
+    let total_l1_gas_usage = u128::try_from(l1_gas_usage)
+        .expect("`l1_gas_usage` should be at most 128 bit number.")
+        + l1_gas_by_cairo_usage;
+    let gas_price = block_context.gas_price;
+
+    Ok(total_l1_gas_usage * gas_price)
 }
