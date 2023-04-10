@@ -24,3 +24,7 @@ pub const LOG_MSG_TO_L1_ENCODED_DATA_SIZE: usize =
     (L2_TO_L1_MSG_HEADER_SIZE + 1) - LOG_MSG_TO_L1_N_TOPICS;
 pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: usize =
     (L1_TO_L2_MSG_HEADER_SIZE + 1) - CONSUMED_MSG_TO_L2_N_TOPICS;
+
+// Transaction resource names.
+pub const GAS_USAGE: &str = "l1_gas_usage";
+pub const N_STEPS_RESOURCE: &str = "n_steps";
