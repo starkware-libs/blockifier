@@ -16,6 +16,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
+use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -23,11 +24,12 @@ use crate::transaction::errors::{
     FeeTransferError, TransactionExecutionError, ValidateTransactionError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
+    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
+    TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
-    calculate_tx_fee, calculate_tx_resources, verify_no_calls_to_other_contracts,
+    calculate_tx_resources, verify_no_calls_to_other_contracts,
 };
 use crate::transaction::transactions::{Executable, ExecutableTransaction};
 
@@ -193,6 +195,7 @@ impl AccountTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        resources: &ResourcesMapping,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
         if account_tx_context.max_fee == no_fee {
@@ -200,7 +203,7 @@ impl AccountTransaction {
             return Ok((no_fee, None));
         }
 
-        let actual_fee = calculate_tx_fee(block_context);
+        let actual_fee = calculate_tx_fee(resources, block_context)?;
         let fee_transfer_call_info = Self::execute_fee_transfer(
             state,
             &mut ExecutionResources::default(),
@@ -343,7 +346,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Charge fee.
         let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, block_context, &account_tx_context)?;
+            Self::charge_fee(state, block_context, &account_tx_context, &actual_resources)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,

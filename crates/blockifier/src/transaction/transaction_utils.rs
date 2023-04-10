@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
-use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
@@ -19,10 +17,6 @@ pub const BUILTIN_NAME_SUFFIX: &str = "_builtin";
 const FEE_TRANSFER_N_STORAGE_CHANGES: u8 = 2; // Sender and sequencer balance update.
 // Exclude the sequencer balance update, since it's charged once throughout the batch.
 const FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE: u8 = FEE_TRANSFER_N_STORAGE_CHANGES - 1;
-
-pub fn calculate_tx_fee(_block_context: &BlockContext) -> Fee {
-    Fee(2)
-}
 
 pub fn verify_no_calls_to_other_contracts(
     call_info: &CallInfo,
