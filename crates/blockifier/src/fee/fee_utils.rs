@@ -1,7 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use itertools::max;
-
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
@@ -76,7 +74,7 @@ pub fn extract_l1_gas_and_cairo_usage(
 pub fn calculate_l1_gas_by_cairo_usage(
     block_context: &BlockContext,
     cairo_resource_usage: &ResourcesMapping,
-) -> TransactionExecutionResult<u128> {
+) -> TransactionExecutionResult<f64> {
     let cairo_resource_fee_weights = &block_context.cairo_resource_fee_weights;
     let cairo_resource_names = HashSet::<&String>::from_iter(cairo_resource_usage.0.keys());
     if !cairo_resource_names.is_subset(&HashSet::from_iter(cairo_resource_fee_weights.keys())) {
@@ -84,9 +82,12 @@ pub fn calculate_l1_gas_by_cairo_usage(
     };
 
     // Convert Cairo usage to L1 gas usage.
-    let cairo_l1_gas_usage = max(cairo_resource_fee_weights.iter().map(|(key, resource_val)| {
-        u128::from(*resource_val)
-            * cairo_resource_usage.0.get(key).cloned().unwrap_or_default() as u128
-    }));
-    Ok(cairo_l1_gas_usage.expect("`cairo_resource_fee_weights` is empty."))
+    let cairo_l1_gas_usage = cairo_resource_fee_weights
+        .iter()
+        .map(|(key, resource_val)| {
+            (*resource_val) * cairo_resource_usage.0.get(key).cloned().unwrap_or_default() as f64
+        })
+        .fold(f64::NAN, f64::max);
+
+    Ok(cairo_l1_gas_usage)
 }
