@@ -49,7 +49,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     tx_type: TransactionType,
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<ResourcesMapping> {
+) -> TransactionExecutionResult<(ResourcesMapping, usize)> {
     let (n_storage_changes, n_modified_contracts, n_class_updates) =
         state.count_actual_state_changes();
 
@@ -84,14 +84,11 @@ pub fn calculate_tx_resources<S: StateReader>(
     let total_cairo_usage =
         &cairo_usage + &get_additional_os_resources(resources_manager.syscall_counter, tx_type)?;
     let total_cairo_usage = total_cairo_usage.filter_unused_builtins();
-    let mut tx_resources = HashMap::from([
-        (constants::GAS_USAGE.to_string(), l1_gas_usage),
-        (
-            constants::N_STEPS_RESOURCE.to_string(),
-            total_cairo_usage.n_steps + total_cairo_usage.n_memory_holes,
-        ),
-    ]);
+    let mut tx_resources = HashMap::from([(
+        constants::N_STEPS_RESOURCE.to_string(),
+        total_cairo_usage.n_steps + total_cairo_usage.n_memory_holes,
+    )]);
     tx_resources.extend(total_cairo_usage.builtin_instance_counter);
 
-    Ok(ResourcesMapping(tx_resources))
+    Ok((ResourcesMapping(tx_resources), l1_gas_usage))
 }
