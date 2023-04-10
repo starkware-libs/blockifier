@@ -117,17 +117,15 @@ impl CallEntryPoint {
                     }
                 }
                 None => {
-                    return Err(PreExecutionError::NoEntryPointOfTypeFound(
-                        self.entry_point_type.clone(),
-                    ));
+                    return Err(PreExecutionError::NoEntryPointOfTypeFound(self.entry_point_type));
                 }
             }
         }
 
         if filtered_entry_points.len() > 1 {
-            return Err(PreExecutionError::DuplicateSelector {
+            return Err(PreExecutionError::DuplicatedEntryPointSelector {
                 selector: self.entry_point_selector,
-                typ: self.entry_point_type.clone(),
+                typ: self.entry_point_type,
             });
         }
 

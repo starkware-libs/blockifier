@@ -16,7 +16,7 @@ pub enum PreExecutionError {
     #[error("Entry point {0:?} not found in contract.")]
     EntryPointNotFound(EntryPointSelector),
     #[error("Entry point {selector:?} of type {typ:?} is not unique.")]
-    DuplicateSelector { selector: EntryPointSelector, typ: EntryPointType },
+    DuplicatedEntryPointSelector { selector: EntryPointSelector, typ: EntryPointType },
     #[error("No entry points of type {0:?} found in contract.")]
     NoEntryPointOfTypeFound(EntryPointType),
     #[error(transparent)]
