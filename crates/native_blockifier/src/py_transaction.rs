@@ -284,6 +284,7 @@ impl PyTransactionExecutor {
                 .execute_raw(&mut transactional_state, executor.block_context)
                 .map_err(NativeBlockifierError::from);
 
+            let mut callback_error = None;
             // Commit the transaction if and only if it can be added into the batch.
             match &tx_execution_result {
                 Ok(tx_execution_info) => {
@@ -293,14 +294,20 @@ impl PyTransactionExecutor {
                         let kwargs = [("tx_weights".to_string(), tx_weights)].into_py_dict(py);
                         match enough_room_for_tx.call((), Some(kwargs)) {
                             Ok(_) => transactional_state.commit(),
-                            Err(_tx_too_big) => transactional_state.abort(),
+                            Err(error) => {
+                                transactional_state.abort();
+                                callback_error = Some(error);
+                            }
                         }
                     });
                 }
                 Err(_tx_execution_failed) => transactional_state.abort(),
             }
-
-            tx_execution_result
+            if let Some(callback_error) = callback_error {
+                Err(NativeBlockifierError::from(callback_error))
+            } else {
+                tx_execution_result
+            }
         })?;
 
         Ok(PyTransactionExecutionInfo::from(tx_execution_info))
