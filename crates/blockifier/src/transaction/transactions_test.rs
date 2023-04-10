@@ -22,6 +22,7 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
+use crate::fee::fee_utils::{L1_GAS_USAGE, N_STEPS};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
@@ -316,7 +317,12 @@ fn test_invoke_tx() {
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        actual_resources: ResourcesMapping::default(),
+        actual_resources: ResourcesMapping(HashMap::from([
+            (L1_GAS_USAGE.to_string(), 1224),
+            ("pedersen_builtin".to_string(), 16),
+            ("range_check_builtin".to_string(), 101),
+            (N_STEPS.to_string(), 4082),
+        ])),
         n_storage_updates: 0,
         n_modified_contracts: 0,
         n_class_updates: 0,
@@ -443,7 +449,12 @@ fn test_declare_tx() {
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        actual_resources: ResourcesMapping::default(),
+        actual_resources: ResourcesMapping(HashMap::from([
+            (L1_GAS_USAGE.to_string(), 1224),
+            ("pedersen_builtin".to_string(), 15),
+            ("range_check_builtin".to_string(), 63),
+            (N_STEPS.to_string(), 2688),
+        ])),
         n_storage_updates: 0,
         n_modified_contracts: 0,
         n_class_updates: 0,
@@ -544,7 +555,12 @@ fn test_deploy_account_tx() {
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        actual_resources: ResourcesMapping::default(),
+        actual_resources: ResourcesMapping(HashMap::from([
+            (L1_GAS_USAGE.to_string(), 3060),
+            ("pedersen_builtin".to_string(), 23),
+            ("range_check_builtin".to_string(), 83),
+            (N_STEPS.to_string(), 3584),
+        ])),
         n_storage_updates: 0,
         n_modified_contracts: 1,
         n_class_updates: 1,

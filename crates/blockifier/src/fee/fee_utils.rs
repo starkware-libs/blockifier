@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::max;
 
 use crate::block_context::BlockContext;
@@ -15,6 +16,10 @@ use crate::transaction::transaction_types::TransactionType;
 const FEE_TRANSFER_N_STORAGE_CHANGES: u8 = 2; // Sender and sequencer balance update.
 // Exclude the sequencer balance update, since it's charged once throughout the batch.
 const FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE: u8 = FEE_TRANSFER_N_STORAGE_CHANGES - 1;
+
+pub const L1_GAS_USAGE: &str = "l1_gas_usage";
+pub const N_STEPS: &str = "n_steps";
+pub const BUILTIN_NAME_SUFFIX: &str = "_builtin";
 
 /// Returns the total resources needed to include the most recent transaction in a StarkNet batch
 /// (recent w.r.t. application on the given state) i.e., L1 gas usage and Cairo execution resources.
@@ -46,15 +51,27 @@ pub fn calculate_tx_resources<S: StateReader>(
         n_class_updates,
     );
 
-    let mut cairo_usage = resources_manager.vm_resources;
+    // TODO(Noa, 30/04/23): Consider adding builtin suffix in the VM or remove the suffix from the
+    // flow.
+    let mut builtin_instance_counter: HashMap<String, usize> = HashMap::new();
+    for (name, value) in resources_manager.vm_resources.builtin_instance_counter {
+        builtin_instance_counter.insert(name + BUILTIN_NAME_SUFFIX, value);
+    }
+    let cairo_usage =
+        VmExecutionResources { builtin_instance_counter, ..resources_manager.vm_resources };
+
     // Add additional Cairo resources needed for the OS to run the transaction.
-    cairo_usage += &get_additional_os_resources(resources_manager.syscall_counter, tx_type)?;
-    cairo_usage = cairo_usage.filter_unused_builtins();
+    let all_cairo_usage =
+        &cairo_usage + &get_additional_os_resources(resources_manager.syscall_counter, tx_type)?;
+    let all_cairo_usage_filtered = all_cairo_usage.filter_unused_builtins();
     let mut tx_resources = HashMap::from([
-        ("l1_gas_usage".to_string(), l1_gas_usage),
-        ("n_steps".to_string(), cairo_usage.n_steps + cairo_usage.n_memory_holes),
+        (L1_GAS_USAGE.to_string(), l1_gas_usage),
+        (
+            N_STEPS.to_string(),
+            all_cairo_usage_filtered.n_steps + all_cairo_usage_filtered.n_memory_holes,
+        ),
     ]);
-    tx_resources.extend(cairo_usage.builtin_instance_counter);
+    tx_resources.extend(all_cairo_usage_filtered.builtin_instance_counter);
 
     Ok(ResourcesMapping(tx_resources))
 }
@@ -64,7 +81,7 @@ pub fn extract_l1_gas_and_cairo_usage(
 ) -> (usize, HashMap<String, usize>) {
     let mut cairo_resource_usage = resources.0.clone();
     let l1_gas_usage = cairo_resource_usage
-        .remove("l1_gas_usage")
+        .remove(L1_GAS_USAGE)
         .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
 
     (l1_gas_usage, cairo_resource_usage)

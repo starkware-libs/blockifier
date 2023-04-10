@@ -10,12 +10,14 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
+use super::transaction_types::TransactionType;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
+use crate::fee::fee_utils::calculate_tx_resources;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -23,8 +25,7 @@ use crate::transaction::errors::{
     FeeTransferError, TransactionExecutionError, ValidateTransactionError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
-    TransactionExecutionResult,
+    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
 use crate::transaction::transaction_utils::{calculate_tx_fee, verify_no_calls_to_other_contracts};
 use crate::transaction::transactions::{Executable, ExecutableTransaction};
@@ -253,7 +254,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         // Handle transaction-type specific execution.
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
-        let execution_resources = &mut ExecutionResources::default();
+        let tx_type: TransactionType;
+        let mut execution_resources = ExecutionResources::default();
         match self {
             Self::Declare(ref tx, ref mut contract_class) => {
                 let contract_class = Some(mem::take(contract_class));
@@ -261,7 +263,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 // Validate.
                 validate_call_info = self.validate_tx(
                     state,
-                    execution_resources,
+                    &mut execution_resources,
                     block_context,
                     &account_tx_context,
                 )?;
@@ -269,17 +271,19 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 // Execute.
                 execute_call_info = tx.run_execute(
                     state,
-                    execution_resources,
+                    &mut execution_resources,
                     block_context,
                     &account_tx_context,
                     contract_class,
                 )?;
+
+                tx_type = TransactionType::Declare;
             }
             Self::DeployAccount(ref tx) => {
                 // Execute the constructor of the deployed class.
                 execute_call_info = tx.run_execute(
                     state,
-                    execution_resources,
+                    &mut execution_resources,
                     block_context,
                     &account_tx_context,
                     None,
@@ -288,16 +292,18 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 // Validate.
                 validate_call_info = self.validate_tx(
                     state,
-                    execution_resources,
+                    &mut execution_resources,
                     block_context,
                     &account_tx_context,
                 )?;
+
+                tx_type = TransactionType::DeployAccount;
             }
             Self::Invoke(ref tx) => {
                 // Validate.
                 validate_call_info = self.validate_tx(
                     state,
-                    execution_resources,
+                    &mut execution_resources,
                     block_context,
                     &account_tx_context,
                 )?;
@@ -305,19 +311,29 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 // Execute.
                 execute_call_info = tx.run_execute(
                     state,
-                    execution_resources,
+                    &mut execution_resources,
                     block_context,
                     &account_tx_context,
                     None,
                 )?;
+
+                tx_type = TransactionType::InvokeFunction;
             }
         };
 
-        // Charge fee.
-        let actual_resources = ResourcesMapping::default();
+        //  Handle fee.
+        let actual_resources = calculate_tx_resources(
+            execution_resources,
+            &[execute_call_info.as_ref(), validate_call_info.as_ref()],
+            tx_type,
+            state,
+            None,
+        )?;
+
         let (n_storage_updates, n_modified_contracts, n_class_updates) =
             state.count_actual_state_changes();
 
+        // Charge fee.
         let (actual_fee, fee_transfer_call_info) =
             Self::charge_fee(state, block_context, &account_tx_context)?;
 
