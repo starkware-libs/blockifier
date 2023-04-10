@@ -6,9 +6,10 @@ use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
-    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
-    TransactionExecutionResult,
+    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
+use crate::transaction::transaction_types::TransactionType;
+use crate::transaction::transaction_utils::calculate_tx_resources;
 use crate::transaction::transactions::{Executable, ExecutableTransaction};
 
 #[derive(Debug)]
@@ -31,9 +32,19 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: self.nonce,
             sender_address: self.contract_address,
         };
-        let execution_resources = &mut ExecutionResources::default();
+        let mut execution_resources = ExecutionResources::default();
         let execute_call_info =
-            self.run_execute(state, execution_resources, block_context, &tx_context, None)?;
+            self.run_execute(state, &mut execution_resources, block_context, &tx_context, None)?;
+
+        let actual_resources = calculate_tx_resources(
+            execution_resources,
+            &[execute_call_info.as_ref()],
+            TransactionType::L1Handler,
+            state,
+            // The calldata includes the "from" field, which is not a part of the payload. We thus
+            // subtract 1.
+            Some(self.calldata.0.len() - 1),
+        )?;
 
         let (n_storage_updates, n_modified_contracts, n_class_updates) =
             state.count_actual_state_changes();
@@ -43,7 +54,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             execute_call_info,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
-            actual_resources: ResourcesMapping::default(),
+            actual_resources,
             n_storage_updates,
             n_modified_contracts,
             n_class_updates,
