@@ -23,12 +23,12 @@ pub struct OsResources {
     execute_txs_inner: HashMap<TransactionType, ExecutionResources>,
 }
 
+/// Calculates the additional resources needed for the OS to run the given syscalls;
+/// i.e., the resources of the StarkNet OS function `execute_syscalls`.
 pub fn get_additional_os_resources(
     syscall_counter: SyscallCounter,
     tx_type: TransactionType,
 ) -> Result<ExecutionResources, TransactionExecutionError> {
-    // Calculate the additional resources needed for the OS to run the given syscalls;
-    // i.e., the resources of the function execute_syscalls().
     let mut os_additional_resources = ExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
@@ -38,8 +38,10 @@ pub fn get_additional_os_resources(
         os_additional_resources += &(syscall_resources * count);
     }
 
-    // Calculate the additional resources needed for the OS to run the given transaction;
-    // i.e., the resources of the StarkNet OS function execute_transactions_inner().
+    // Calculates the additional resources needed for the OS to run the given transaction;
+    // i.e., the resources of the StarkNet OS function `execute_transactions_inner`.
+    // Also adds the resources needed for the fee transfer execution, performed in the end·
+    // of every transaction.
     let os_resources = OS_RESOURCES
         .execute_txs_inner
         .get(&tx_type)

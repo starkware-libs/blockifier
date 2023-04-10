@@ -1,4 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+
+use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
@@ -9,15 +11,13 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 #[path = "fee_test.rs"]
 pub mod test;
 
-pub fn extract_l1_gas_and_cairo_usage(
-    resources: &ResourcesMapping,
-) -> (usize, HashMap<String, usize>) {
+pub fn extract_l1_gas_and_cairo_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
     let mut cairo_resource_usage = resources.0.clone();
     let l1_gas_usage = cairo_resource_usage
         .remove(constants::GAS_USAGE)
         .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
 
-    (l1_gas_usage, cairo_resource_usage)
+    (l1_gas_usage, ResourcesMapping(cairo_resource_usage))
 }
 
 /// Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
@@ -42,4 +42,18 @@ pub fn calculate_l1_gas_by_cairo_usage(
         .fold(f64::NAN, f64::max);
 
     Ok(cairo_l1_gas_usage)
+}
+
+/// Calculates the fee that should be charged, given execution resources.
+/// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1 messages)
+/// to the gas consumed by Cairo VM resource and multiply by the L1 gas price.
+pub fn calculate_tx_fee(
+    resources: &ResourcesMapping,
+    block_context: &BlockContext,
+) -> TransactionExecutionResult<Fee> {
+    let (l1_gas_usage, vm_resources) = extract_l1_gas_and_cairo_usage(resources);
+    let l1_gas_by_cairo_usage = calculate_l1_gas_by_cairo_usage(block_context, &vm_resources)?;
+    let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_cairo_usage;
+
+    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_price))
 }
