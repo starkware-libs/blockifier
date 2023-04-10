@@ -12,7 +12,7 @@ pub struct BlockContext {
     // Fee-related.
     pub sequencer_address: ContractAddress,
     pub fee_token_address: ContractAddress,
-    pub cairo_resource_fee_weights: HashMap<String, u32>,
+    pub cairo_resource_fee_weights: HashMap<String, f64>,
     pub gas_price: u128, // In wei.
 
     // Limits.
