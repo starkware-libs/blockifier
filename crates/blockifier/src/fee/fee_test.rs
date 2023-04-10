@@ -7,20 +7,6 @@ use crate::fee::fee_utils::calculate_l1_gas_by_cairo_usage;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::ResourcesMapping;
 
-fn get_block_context() -> BlockContext {
-    let cairo_resource_fee_weights = HashMap::from([
-        (String::from("n_steps"), 1_f64),
-        (String::from("pedersen_builtin"), 1_f64),
-        (String::from("range_check_builtin"), 1_f64),
-        (String::from("ecdsa_builtin"), 1_f64),
-        (String::from("bitwise_builtin"), 1_f64),
-        (String::from("poseidon_builtin"), 1_f64),
-        (String::from("output_builtin"), 1_f64),
-        (String::from("ec_op_builtin"), 1_f64),
-    ]);
-    BlockContext { cairo_resource_fee_weights, ..BlockContext::create_for_testing() }
-}
-
 fn get_cairo_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
         (String::from("n_steps"), 1800),
@@ -34,7 +20,7 @@ fn get_cairo_resource_usage() -> ResourcesMapping {
 
 #[test]
 fn test_calculate_l1_gas_by_cairo_usage() {
-    let block_context = get_block_context();
+    let block_context = BlockContext::create_for_account_testing();
     let cairo_resource_usage = get_cairo_resource_usage();
 
     // Positive flow.

@@ -14,17 +14,14 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{
     declare_tx, deploy_account_tx, get_contract_class, invoke_tx, DictStateReader,
-    ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
-// The amount of test-token allocated to the account in this test.
-pub const BALANCE: u64 = 1000000 * 100000000000; // 1000000 * min_gas_price.
-
 fn create_state() -> CachedState<DictStateReader> {
-    let block_context = BlockContext::create_for_testing();
+    let block_context = BlockContext::create_for_account_testing();
 
     // Declare all the needed contracts.
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
@@ -47,8 +44,8 @@ fn create_state() -> CachedState<DictStateReader> {
 #[test]
 fn test_account_flow_test() {
     let state = &mut create_state();
-    let block_context = &BlockContext::create_for_testing();
-    let max_fee = Fee(BALANCE as u128);
+    let block_context = &BlockContext::create_for_account_testing();
+    let max_fee = Fee(u128::from(BALANCE));
 
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee);
@@ -61,7 +58,7 @@ fn test_account_flow_test() {
     state.set_storage_at(
         block_context.fee_token_address,
         deployed_account_balance_key,
-        stark_felt!(Fee(BALANCE as u128).0 as u64),
+        stark_felt!(Fee(u128::from(BALANCE)).0 as u64),
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
