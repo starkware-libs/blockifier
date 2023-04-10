@@ -40,6 +40,7 @@ pub fn get_additional_os_resources(
 
     // Calculate the additional resources needed for the OS to run the given transaction;
     // i.e., the resources of the StarkNet OS function execute_transactions_inner().
+    // In addition, adds the resources needed for the fee transfer execution.
     let os_resources = OS_RESOURCES
         .execute_txs_inner
         .get(&tx_type)
