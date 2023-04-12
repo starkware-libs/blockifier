@@ -42,17 +42,14 @@ fn test_calculate_l1_gas_by_cairo_usage() {
     let l1_gas_by_cairo_usage = cairo_resource_usage.0.get("n_steps").unwrap();
     assert_eq!(
         *l1_gas_by_cairo_usage as u128,
-        calculate_l1_gas_by_cairo_usage(&block_context, &cairo_resource_usage)
-            .expect("calculate_l1_gas_by_cairo_usage returned error on valid input.")
+        calculate_l1_gas_by_cairo_usage(&block_context, &cairo_resource_usage).unwrap()
     );
 
     // Negative flow.
     // Pass dict with extra key.
     let mut invalid_cairo_resource_usage = ResourcesMapping(cairo_resource_usage.0.clone());
     invalid_cairo_resource_usage.0.insert(String::from("bad_resource_name"), 17);
-    let error = calculate_l1_gas_by_cairo_usage(&block_context, &invalid_cairo_resource_usage)
-        .expect_err(
-            "Expected TransactionExecutionError::CairoResourcesNotContainedInFeeWeights, got Ok.",
-        );
+    let error =
+        calculate_l1_gas_by_cairo_usage(&block_context, &invalid_cairo_resource_usage).unwrap_err();
     assert_matches!(error, TransactionExecutionError::CairoResourcesNotContainedInFeeWeights);
 }
