@@ -252,7 +252,6 @@ dependencies = [
  "num-integer",
  "num-traits",
  "once_cell",
- "papyrus_storage",
  "pretty_assertions",
  "serde",
  "serde_json",

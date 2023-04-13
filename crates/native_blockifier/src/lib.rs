@@ -1,4 +1,5 @@
 pub mod errors;
+pub mod papyrus_state;
 pub mod py_state_diff;
 pub mod py_test_utils;
 pub mod py_transaction;
