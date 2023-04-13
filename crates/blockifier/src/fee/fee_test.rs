@@ -9,14 +9,14 @@ use crate::transaction::objects::ResourcesMapping;
 
 fn get_block_context() -> BlockContext {
     let cairo_resource_fee_weights = HashMap::from([
-        (String::from("n_steps"), 1),
-        (String::from("pedersen_builtin"), 1),
-        (String::from("range_check_builtin"), 1),
-        (String::from("ecdsa_builtin"), 1),
-        (String::from("bitwise_builtin"), 1),
-        (String::from("poseidon_builtin"), 1),
-        (String::from("output_builtin"), 1),
-        (String::from("ec_op_builtin"), 1),
+        (String::from("n_steps"), 1.0),
+        (String::from("pedersen_builtin"), 1.0),
+        (String::from("range_check_builtin"), 1.0),
+        (String::from("ecdsa_builtin"), 1.0),
+        (String::from("bitwise_builtin"), 1.0),
+        (String::from("poseidon_builtin"), 1.0),
+        (String::from("output_builtin"), 1.0),
+        (String::from("ec_op_builtin"), 1.0),
     ]);
     BlockContext { cairo_resource_fee_weights, ..BlockContext::create_for_testing() }
 }
@@ -41,7 +41,7 @@ fn test_calculate_l1_gas_by_cairo_usage() {
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_cairo_usage = cairo_resource_usage.0.get("n_steps").unwrap();
     assert_eq!(
-        *l1_gas_by_cairo_usage as u128,
+        *l1_gas_by_cairo_usage as f64,
         calculate_l1_gas_by_cairo_usage(&block_context, &cairo_resource_usage).unwrap()
     );
 
