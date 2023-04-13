@@ -18,4 +18,6 @@ pub struct BlockContext {
     // Limits.
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
+
+    pub is_0_10: bool,
 }
