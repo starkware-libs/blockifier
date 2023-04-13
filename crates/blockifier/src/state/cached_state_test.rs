@@ -280,7 +280,7 @@ fn count_actual_state_changes() {
     state.set_storage_at(contract_address, key, storage_val);
 
     let (n_storage_updates, n_modified_contracts, n_class_updates) =
-        state.count_actual_state_changes();
+        state.count_actual_state_changes(false);
 
     assert_eq!((n_storage_updates, n_modified_contracts, n_class_updates), (1, 1, 1));
 }

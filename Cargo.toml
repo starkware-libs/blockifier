@@ -28,5 +28,6 @@ thiserror = { version = "1.0.37" }
 assert_matches = { version = "1.5.0" }
 pretty_assertions = { version = "1.2.1" }
 test-case = { version = "2.2.2" }
+rand = { version = "0.8.5", features = [ "small_rng" ] }
 phf = { version = "0.11", features = ["macros"] }
 ctor = "0.2.0"

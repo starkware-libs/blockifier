@@ -41,9 +41,10 @@ pub fn calculate_tx_resources<S: StateReader>(
     tx_type: TransactionType,
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
+    is_0_10: bool,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let (n_storage_changes, n_modified_contracts, n_class_updates) =
-        state.count_actual_state_changes();
+        state.count_actual_state_changes(is_0_10);
 
     let non_optional_call_infos: Vec<&CallInfo> = vec![execute_call_info, validate_call_info]
         .iter()
@@ -61,6 +62,7 @@ pub fn calculate_tx_resources<S: StateReader>(
         n_storage_changes + usize::from(FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE),
         l1_handler_payload_size,
         n_class_updates,
+        is_0_10,
     );
 
     // Add additional Cairo resources needed for the OS to run the transaction.
