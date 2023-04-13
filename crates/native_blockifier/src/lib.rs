@@ -5,6 +5,7 @@ pub mod py_transaction;
 pub mod py_transaction_execution_info;
 pub mod py_utils;
 pub mod storage;
+pub mod papyrus_state;
 
 use errors::add_py_exceptions;
 use py_transaction::PyTransactionExecutor;
