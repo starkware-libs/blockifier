@@ -53,9 +53,15 @@ impl Storage {
         self.writer = None;
     }
 
-    /// Returns the next block number (the one that was not yet created).
+    /// Returns the next block number, for which state diff was not yet appended.
     pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
         let block_number = self.reader().begin_ro_txn()?.get_state_marker()?;
+        Ok(block_number.0)
+    }
+
+    /// Returns the next block number, for which block header was not yet appended.
+    pub fn get_header_marker(&self) -> NativeBlockifierResult<u64> {
+        let block_number = self.reader().begin_ro_txn()?.get_header_marker()?;
         Ok(block_number.0)
     }
 
@@ -71,6 +77,8 @@ impl Storage {
         Ok(block_hash)
     }
 
+    /// Atomically reverts block header and state diff of given block number.
+    /// If header exists without a state diff, only the header is reverted.
     #[args(block_number)]
     pub fn revert_state_diff(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
         log::debug!("Reverting state diff for {block_number:?}.");
