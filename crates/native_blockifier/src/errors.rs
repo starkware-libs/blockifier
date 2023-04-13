@@ -1,5 +1,6 @@
 use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::transaction_types::TransactionType;
+use cairo_vm::types::errors::program_errors::ProgramError;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
@@ -57,6 +58,8 @@ native_blockifier_errors!(
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
+    #[error(transparent)]
+    ProgramError(#[from] ProgramError),
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
 }

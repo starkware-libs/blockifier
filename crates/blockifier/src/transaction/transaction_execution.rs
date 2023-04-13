@@ -12,6 +12,8 @@ use crate::transaction::objects::{
 use crate::transaction::transactions::{Executable, ExecutableTransaction};
 
 #[derive(Debug)]
+// TODO(Gilad, 15/4/2023): Remove clippy ignore, box large variants.
+#[allow(clippy::large_enum_variant)]
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
     L1HandlerTransaction(L1HandlerTransaction),
