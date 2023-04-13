@@ -3,7 +3,7 @@ use std::sync::Arc;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransactionV1,
+    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransactionV1,
     L1HandlerTransaction,
 };
 
@@ -41,7 +41,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = CachedState::new(MutRefState::new(state));
-        let execution_result = self.execute_raw(&mut transactional_state, block_context);
+        let execution_result = self.execute_raw(&mut transactional_state, block_context, Fee(2));
 
         match execution_result {
             Ok(value) => {
@@ -63,6 +63,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        actual_fee: Fee,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
 

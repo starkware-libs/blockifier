@@ -275,12 +275,13 @@ impl PyTransactionExecutor {
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let actual_fee = Fee(py_attr(tx, "actual_fee")?);
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
         let tx_execution_info = self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context)
+                .execute_raw(&mut transactional_state, executor.block_context, actual_fee)
                 .map_err(NativeBlockifierError::from);
 
             let mut unexpected_callback_error = None;
