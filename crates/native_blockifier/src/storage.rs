@@ -99,7 +99,7 @@ impl Storage {
     pub fn append_block(
         &mut self,
         block_id: u64,
-        previous_block_id: Option<u64>,
+        previous_block_id: Option<PyFelt>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, String>,
@@ -131,9 +131,13 @@ impl Storage {
         );
         let append_txn = append_txn?;
 
+        let parent_hash = match previous_block_id {
+            Some(block_id) => block_id.0,
+            None => StarkHash::from(GENESIS_BLOCK_ID),
+        };
         let block_header = BlockHeader {
             block_hash: BlockHash(StarkHash::from(block_id)),
-            parent_hash: BlockHash(StarkHash::from(previous_block_id.unwrap_or(GENESIS_BLOCK_ID))),
+            parent_hash: BlockHash(parent_hash),
             block_number,
             gas_price: GasPrice(py_block_info.gas_price),
             state_root: GlobalRoot::default(),

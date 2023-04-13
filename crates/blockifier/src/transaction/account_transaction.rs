@@ -10,7 +10,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
-use crate::fee::fee_utils::calculate_tx_fee;
+// use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -181,7 +181,8 @@ impl AccountTransaction {
     fn charge_fee(
         state: &mut dyn State,
         context: &mut ExecutionContext,
-        resources: &ResourcesMapping,
+        _resources: &ResourcesMapping,
+        actual_fee: Fee,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
         if context.account_tx_context.max_fee == no_fee {
@@ -189,7 +190,7 @@ impl AccountTransaction {
             return Ok((no_fee, None));
         }
 
-        let actual_fee = calculate_tx_fee(resources, &context.block_context)?;
+        // let actual_fee = calculate_tx_fee(resources, &context.block_context)?;
         let fee_transfer_call_info = Self::execute_fee_transfer(state, context, actual_fee)?;
 
         Ok((actual_fee, Some(fee_transfer_call_info)))
@@ -235,6 +236,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        actual_fee: Fee,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
@@ -274,14 +276,20 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let actual_resources =
-            calculate_tx_resources(context.resources, &call_infos, tx_type, state, None)?;
+        let actual_resources = calculate_tx_resources(
+            context.resources,
+            &call_infos,
+            tx_type,
+            state,
+            None,
+            block_context.is_0_10,
+        )?;
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
         let mut context = ExecutionContext::new(context.block_context, context.account_tx_context);
         let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, &mut context, &actual_resources)?;
+            Self::charge_fee(state, &mut context, &actual_resources, actual_fee)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,

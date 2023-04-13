@@ -5,7 +5,8 @@ use serde::Deserialize;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
-use crate::fee::os_resources::OS_RESOURCES;
+use crate::fee::os_resources_0_10_3::OS_RESOURCES_0_10_3;
+use crate::fee::os_resources_0_11_0::OS_RESOURCES_0_11_0;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
 
@@ -13,7 +14,7 @@ use crate::transaction::transaction_types::TransactionType;
 #[path = "os_usage_test.rs"]
 pub mod test;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OsResources {
     // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
     // steps).
@@ -28,11 +29,16 @@ pub struct OsResources {
 pub fn get_additional_os_resources(
     syscall_counter: SyscallCounter,
     tx_type: TransactionType,
+    is_0_10: bool,
 ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    let os_resources: OsResources = match is_0_10 {
+        true => OS_RESOURCES_0_10_3.clone(),
+        false => OS_RESOURCES_0_11_0.clone(),
+    };
     let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
-            OS_RESOURCES.execute_syscalls.get(&syscall_selector).unwrap_or_else(|| {
+            os_resources.execute_syscalls.get(&syscall_selector).unwrap_or_else(|| {
                 panic!("OS resources of syscall '{:?}' are unknown.", syscall_selector)
             });
         os_additional_vm_resources += &(syscall_resources * count);
@@ -42,7 +48,7 @@ pub fn get_additional_os_resources(
     // i.e., the resources of the StarkNet OS function `execute_transactions_inner`.
     // Also adds the resources needed for the fee transfer execution, performed in the end·
     // of every transaction.
-    let os_resources = OS_RESOURCES
+    let os_resources = os_resources
         .execute_txs_inner
         .get(&tx_type)
         .expect("OS_RESOURCES must contain all transaction types.");

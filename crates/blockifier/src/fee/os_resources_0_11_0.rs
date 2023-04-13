@@ -3,7 +3,7 @@ use serde_json::json;
 use crate::fee::os_usage::OsResources;
 
 #[ctor::ctor]
-pub static OS_RESOURCES: OsResources = {
+pub static OS_RESOURCES_0_11_0: OsResources = {
     serde_json::from_value(os_resources())
         .expect("os_resources json does not exist or cannot be deserialized.")
 };

@@ -15,14 +15,19 @@ pub fn calculate_tx_gas_usage(
     n_storage_changes: usize,
     l1_handler_payload_size: Option<usize>,
     n_class_updates: usize,
+    is_0_10: bool,
 ) -> usize {
     // Calculate the addition of the transaction to the output messages segment.
     let residual_message_segment_length =
         get_message_segment_length(l2_to_l1_payloads_length, l1_handler_payload_size);
 
     // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_segment_length =
-        get_onchain_data_segment_length(n_modified_contracts, n_storage_changes, n_class_updates);
+    let residual_onchain_data_segment_length = get_onchain_data_segment_length(
+        n_modified_contracts,
+        n_storage_changes,
+        n_class_updates,
+        is_0_10,
+    );
 
     let n_l2_to_l1_messages = l2_to_l1_payloads_length.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
@@ -55,11 +60,19 @@ pub fn get_onchain_data_segment_length(
     n_modified_contracts: usize,
     n_storage_changes: usize,
     n_class_updates: usize,
+    is_0_10: bool,
 ) -> usize {
+    // Data availability: In 0.10.3 for every deploy we print contract_address,class_hash. In 0.11.0
+    // we added the deployed contract to the modified contract so we print the contract address only
+    // one time for each deployment.
+    let class_update_factor = match is_0_10 {
+        true => constants::DEPLOYMENT_INFO_SIZE,
+        false => constants::CLASS_UPDATE_SIZE,
+    };
     // For each newly modified contract: contract address, number of modified storage cells.
     let mut onchain_data_segment_length = n_modified_contracts * 2;
     // For each class updated (through a deploy or a class replacement).
-    onchain_data_segment_length += n_class_updates * constants::CLASS_UPDATE_SIZE;
+    onchain_data_segment_length += n_class_updates * class_update_factor;
     // For each modified storage cell: key, new value.
     onchain_data_segment_length += n_storage_changes * 2;
 

@@ -79,6 +79,7 @@ pub fn py_block_context(
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.getattr("starknet_os_config")?;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
+    let starknet_version: String = py_attr(block_info, "starknet_version")?;
     let block_context = BlockContext {
         chain_id: to_chain_id_enum(py_attr(starknet_os_config, "chain_id")?)?,
         block_number,
@@ -95,6 +96,7 @@ pub fn py_block_context(
         gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
         validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
+        is_0_10: starknet_version == "0.10.3",
     };
 
     Ok(block_context)
@@ -295,12 +297,13 @@ impl PyTransactionExecutor {
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<Py<PyTransactionExecutionInfo>> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let actual_fee = Fee(py_attr(tx, "actual_fee")?);
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
         self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context)
+                .execute_raw(&mut transactional_state, executor.block_context, actual_fee)
                 .map_err(NativeBlockifierError::from);
             let py_tx_execution_info = match tx_execution_result {
                 Ok(tx_execution_info) => Python::with_gil(|py| {
