@@ -25,6 +25,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        _actual_fee: Fee,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = AccountTransactionContext {
             transaction_hash: self.transaction_hash,
@@ -48,6 +49,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,
+            block_context.is_0_10,
         )?;
 
         Ok(TransactionExecutionInfo {
@@ -65,10 +67,13 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        actual_fee: Fee,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         match self {
-            Self::AccountTransaction(account_tx) => account_tx.execute_raw(state, block_context),
-            Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context),
+            Self::AccountTransaction(account_tx) => {
+                account_tx.execute_raw(state, block_context, actual_fee)
+            }
+            Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context, actual_fee),
         }
     }
 }
