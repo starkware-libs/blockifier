@@ -1,11 +1,4 @@
-use std::collections::HashMap;
-
 use cairo_vm::felt::Felt252;
-use cairo_vm::serde::deserialize_program::{
-    deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
-};
-use cairo_vm::types::errors::program_errors::ProgramError;
-use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
@@ -14,7 +7,7 @@ use cairo_vm::vm::runners::cairo_runner::{
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::deprecated_contract_class::{EntryPointType, Program as DeprecatedProgram};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
@@ -330,34 +323,6 @@ pub fn felt_range_from_ptr(
     // Extract values as `StarkFelt`.
     let values = values.into_iter().map(|felt| felt_to_stark_felt(felt.as_ref())).collect();
     Ok(values)
-}
-
-// TODO(Elin,01/05/2023): aim to use LC's implementation once it's in a separate crate.
-pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program, ProgramError> {
-    let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
-    let builtins = serde_json::from_value(program.builtins)?;
-    let data = deserialize_array_of_bigint_hex(program.data)?;
-    let hints = serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?;
-    let main = None;
-    let error_message_attributes = serde_json::from_value::<Vec<Attribute>>(program.attributes)?
-        .into_iter()
-        .filter(|attr| attr.name == "error_message")
-        .collect();
-    let instruction_locations = None;
-    let reference_manager = serde_json::from_value::<ReferenceManager>(program.reference_manager)?;
-
-    let program = Program::new(
-        builtins,
-        data,
-        main,
-        hints,
-        reference_manager,
-        identifiers,
-        error_message_attributes,
-        instruction_locations,
-    )?;
-
-    Ok(program)
 }
 
 #[derive(Debug)]

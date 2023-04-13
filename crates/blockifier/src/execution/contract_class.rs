@@ -8,8 +8,7 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointType,
     Program as DeprecatedProgram,
 };
-
-use crate::execution::execution_utils::sn_api_to_cairo_vm_program;
+use starknet_contract_class::to_cairo_runner_program;
 
 /// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
@@ -26,7 +25,7 @@ impl TryFrom<DeprecatedContractClass> for ContractClass {
 
     fn try_from(class: DeprecatedContractClass) -> Result<Self, Self::Error> {
         Ok(Self {
-            program: sn_api_to_cairo_vm_program(class.program)?,
+            program: to_cairo_runner_program(class.program)?,
             entry_points_by_type: class.entry_points_by_type,
         })
     }
@@ -37,6 +36,6 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
     let deprecated_program = DeprecatedProgram::deserialize(deserializer)?;
-    sn_api_to_cairo_vm_program(deprecated_program)
+    to_cairo_runner_program(deprecated_program)
         .map_err(|err| DeserializationError::custom(err.to_string()))
 }

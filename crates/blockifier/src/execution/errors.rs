@@ -84,7 +84,7 @@ pub enum SyscallExecutionError {
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
-// cairo-rs API.
+// Cairo VM API.
 impl From<SyscallExecutionError> for HintError {
     fn from(error: SyscallExecutionError) -> Self {
         HintError::CustomHint(error.to_string())

@@ -25,6 +25,7 @@ serde = { version = "1.0.130" }
 serde_json = { version = "1.0.81" }
 sha3 = { version = "0.10.6" }
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "2bea163" }
+starknet-contract-class = { git = "ttps://github.com/lambdaclass/starknet_in_rust.git", rev = "47d091d" }
 strum = { version = "0.24.1" }
 strum_macros = { version = "0.24.3" }
 test-case = { version = "2.2.2" }
