@@ -115,7 +115,8 @@ impl StateReader for DictStateReader {
 }
 
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
-    let path = PathBuf::from(contract_path);
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push(contract_path);
     ContractClass::try_from(path).expect("File must contain the content of a compiled contract.")
 }
 
