@@ -37,6 +37,8 @@ mod test;
 
 /// Represents a paid StarkNet transaction.
 #[derive(Debug)]
+// TODO(Gilad, 15/4/2023): Remove clippy ignore, box large variants.
+#[allow(clippy::large_enum_variant)]
 pub enum AccountTransaction {
     Declare(DeclareTransaction, ContractClass),
     DeployAccount(DeployAccountTransaction),
