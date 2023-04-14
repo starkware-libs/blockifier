@@ -1,5 +1,6 @@
 use cairo_vm::types::relocatable::Relocatable;
-use cairo_vm::vm::errors as cairo_vm_errors;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::{self as cairo_vm_errors};
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -108,4 +109,40 @@ pub enum EntryPointExecutionError {
     /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
+}
+
+impl EntryPointExecutionError {
+    /// Unwrap inner VM exception and return it as a string. If unsuccessful, returns the debug
+    /// string of self.
+    pub fn try_to_vm_trace(&self) -> String {
+        match self {
+            EntryPointExecutionError::VirtualMachineExecutionError(
+                VirtualMachineExecutionError::CairoRunError(
+                    cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(vm_exception),
+                ),
+            ) => {
+                let mut trace_string = format!("Error at pc=0:{}: ", vm_exception.pc);
+
+                // If inner error is a hint error, show generic text.
+                match &vm_exception.inner_exc {
+                    VirtualMachineError::Hint(_, _) => {
+                        trace_string += "Got an exception while executing a hint."
+                    }
+                    other_inner_error => trace_string += format!("{}", &other_inner_error).as_str(),
+                }
+
+                match &vm_exception.traceback {
+                    None => trace_string,
+                    Some(traceback) => {
+                        // TODO(Dori, 1/5/2023): Once LC add newlines between the 'Unknown location'
+                        //   strings, remove the `replace`.
+                        trace_string
+                            + " "
+                            + traceback.replace(")Unknown location", ")\nUnknown location").as_str()
+                    }
+                }
+            }
+            _ => format!("{:?}", self),
+        }
+    }
 }
