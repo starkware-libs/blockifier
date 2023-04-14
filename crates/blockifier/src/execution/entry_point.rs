@@ -56,6 +56,21 @@ pub struct ExecutionContext {
     pub n_emitted_events: usize,
     // Used for tracking L2-to-L1 messages order during the current execution.
     pub n_sent_messages_to_l1: usize,
+    // Used to track error stack for call chain.
+    pub error_stack: Vec<(ContractAddress, String)>,
+}
+
+impl ExecutionContext {
+    pub fn error_trace(&self) -> String {
+        let mut frame_errors: Vec<String> = vec![];
+        for (contract_address, trace_string) in self.error_stack.iter().rev() {
+            frame_errors.push(
+                format!("Error in the called contract ({}):\n", contract_address.0.key())
+                    + trace_string,
+            );
+        }
+        frame_errors.join("\n\n")
+    }
 }
 
 impl CallEntryPoint {
@@ -68,6 +83,7 @@ impl CallEntryPoint {
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
+        let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
@@ -89,6 +105,10 @@ impl CallEntryPoint {
             block_context,
             account_tx_context,
         )
+        .map_err(|error| {
+            execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
+            error
+        })
     }
 
     pub fn resolve_entry_point_pc(
