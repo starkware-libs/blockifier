@@ -136,16 +136,18 @@ impl AccountTransaction {
             return Ok(());
         }
 
-        let current_nonce = state.get_nonce_at(account_tx_context.sender_address)?;
+        let address = account_tx_context.sender_address;
+        let current_nonce = state.get_nonce_at(address)?;
         if current_nonce != account_tx_context.nonce {
             return Err(TransactionExecutionError::InvalidNonce {
+                address,
                 expected_nonce: current_nonce,
                 actual_nonce: account_tx_context.nonce,
             });
         }
 
         // Increment nonce.
-        Ok(state.increment_nonce(account_tx_context.sender_address)?)
+        Ok(state.increment_nonce(address)?)
     }
 
     fn validate_tx(

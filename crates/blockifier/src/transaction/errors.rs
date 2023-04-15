@@ -1,4 +1,4 @@
-use starknet_api::core::{ClassHash, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -50,8 +50,11 @@ pub enum TransactionExecutionError {
     ExecutionError(#[from] ExecuteTransactionError),
     #[error(transparent)]
     FeeTransferError(#[from] FeeTransferError),
-    #[error("Invalid transaction nonce. Expected: {expected_nonce:?}; got: {actual_nonce:?}.")]
-    InvalidNonce { expected_nonce: Nonce, actual_nonce: Nonce },
+    #[error(
+        "Invalid transaction nonce of contract at address {address:?}. Expected: \
+         {expected_nonce:?}; got: {actual_nonce:?}."
+    )]
+    InvalidNonce { address: ContractAddress, expected_nonce: Nonce, actual_nonce: Nonce },
     #[error(
         "Transaction version {version:?} is not supported. Supported versions: \
          {allowed_versions:?}."
