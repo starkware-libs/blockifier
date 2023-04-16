@@ -381,8 +381,9 @@ fn test_negative_invoke_tx_flows() {
     // Test error.
     assert_matches!(
         execution_error,
-        TransactionExecutionError::InvalidNonce { expected_nonce, actual_nonce }
-        if (expected_nonce, actual_nonce) == (Nonce::default(), invalid_nonce)
+        TransactionExecutionError::InvalidNonce { address, expected_nonce, actual_nonce }
+        if (address, expected_nonce, actual_nonce) ==
+        (valid_invoke_tx.sender_address, Nonce::default(), invalid_nonce)
     );
 }
 
