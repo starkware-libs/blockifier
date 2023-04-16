@@ -1,6 +1,10 @@
 use crate::abi::constants;
 use crate::fee::eth_gas_constants;
 
+#[cfg(test)]
+#[path = "gas_usage_test.rs"]
+pub mod test;
+
 /// Returns an estimation of the L1 gas amount that will be used (by StarkNet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in StarkNet L1 contract
