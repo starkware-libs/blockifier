@@ -7,7 +7,6 @@ use crate::fee::gas_usage::{
 
 /// This test goes over five cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.
-
 /// The five cases are:
 ///     1. A deploy transaction.
 ///     2. An L1 handler.
@@ -18,11 +17,12 @@ use crate::fee::gas_usage::{
 fn test_calculate_tx_gas_usage_basic() {
     // Deploy.
 
-    let deploy_gas_usage = calculate_tx_gas_usage(&[], 0, 0, None, 2);
+    let deploy_n_class_updates = 2;
+    let deploy_gas_usage = calculate_tx_gas_usage(&[], 0, 0, None, deploy_n_class_updates);
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
-    let onchain_data_segment_length = get_onchain_data_segment_length(0, 0, 2);
+    let onchain_data_segment_length = get_onchain_data_segment_length(0, 0, deploy_n_class_updates);
     let manual_sharp_gas_usage =
         onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
