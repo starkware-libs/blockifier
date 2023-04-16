@@ -61,15 +61,16 @@ pub struct ExecutionContext {
 }
 
 impl ExecutionContext {
-    /// Combine individual errors into a single stack trace string, with contract addresses printed
+    /// Combines individual errors into a single stack trace string, with contract addresses printed
     /// alongside their respective trace.
     pub fn error_trace(&self) -> String {
         let mut frame_errors: Vec<String> = vec![];
         for (contract_address, trace_string) in self.error_stack.iter().rev() {
-            frame_errors.push(
-                format!("Error in the called contract ({}):\n", contract_address.0.key())
-                    + trace_string,
-            );
+            frame_errors.push(format!(
+                "Error in the called contract ({}):\n{}",
+                contract_address.0.key(),
+                trace_string
+            ));
         }
         frame_errors.join("\n\n")
     }
@@ -107,9 +108,16 @@ impl CallEntryPoint {
             block_context,
             account_tx_context,
         )
-        .map_err(|error| {
-            execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
-            error
+        .map_err(|error| match error {
+            // On VM error, pack the stack trace into the propagated error.
+            EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                    trace: execution_context.error_trace(),
+                    source: error,
+                }
+            }
+            other_error => other_error,
         })
     }
 

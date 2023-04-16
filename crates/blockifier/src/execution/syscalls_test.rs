@@ -11,11 +11,8 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::block_context::BlockContext;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, CallType, ExecutionContext, ExecutionResources,
-    Retdata,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -24,7 +21,6 @@ use crate::test_utils::{
     DictStateReader, OTHER_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_ADDRESS_2, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
-use crate::transaction::objects::AccountTransactionContext;
 
 #[test]
 fn test_storage_read_write() {
@@ -205,37 +201,35 @@ fn test_stack_trace() {
         calldata,
         ..trivial_external_entry_point()
     };
-    let mut execution_context = ExecutionContext::default();
     let expected_trace = format!(
         "Error in the called contract ({}):
 Error at pc=0:19:
-Got an exception while executing a hint. Cairo traceback (most recent call last):
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
 Unknown location (pc=0:622)
 Unknown location (pc=0:605)
 
 Error in the called contract ({}):
 Error at pc=0:19:
-Got an exception while executing a hint. Cairo traceback (most recent call last):
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
 Unknown location (pc=0:622)
 Unknown location (pc=0:605)
 
 Error in the called contract ({}):
 Error at pc=0:2:
-An ASSERT_EQ instruction failed: 1 != 0. Cairo traceback (most recent call last):
+An ASSERT_EQ instruction failed: 1 != 0.
+Cairo traceback (most recent call last):
 Unknown location (pc=0:6)",
         pad_address_to_64(TEST_CONTRACT_ADDRESS),
         pad_address_to_64(TEST_CONTRACT_ADDRESS_2),
         pad_address_to_64(OTHER_TEST_CONTRACT_ADDRESS)
     );
-    match entry_point_call.execute(
-        &mut state,
-        &mut ExecutionResources::default(),
-        &mut execution_context,
-        &BlockContext::create_for_testing(),
-        &AccountTransactionContext::default(),
-    ) {
-        Err(_) => assert_eq!(execution_context.error_trace(), expected_trace),
-        Ok(_) => panic!("Execute should fail on 0 != 1."),
+    match entry_point_call.execute_directly(&mut state).unwrap_err() {
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source: _ } => {
+            assert_eq!(trace, expected_trace)
+        }
+        other_error => panic!("Unexpected error type: {:?}", other_error),
     }
 }
 
