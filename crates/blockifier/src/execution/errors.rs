@@ -109,17 +109,21 @@ pub enum EntryPointExecutionError {
     /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
+    #[error("{trace}")]
+    VirtualMachineExecutionErrorWithTrace {
+        trace: String,
+        #[source]
+        source: VirtualMachineExecutionError,
+    },
 }
 
-impl EntryPointExecutionError {
+impl VirtualMachineExecutionError {
     /// Unwrap inner VM exception and return it as a string. If unsuccessful, returns the debug
     /// string of self.
     pub fn try_to_vm_trace(&self) -> String {
         match self {
-            EntryPointExecutionError::VirtualMachineExecutionError(
-                VirtualMachineExecutionError::CairoRunError(
-                    cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(vm_exception),
-                ),
+            VirtualMachineExecutionError::CairoRunError(
+                cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(vm_exception),
             ) => {
                 let mut trace_string = format!("Error at pc=0:{}:\n", vm_exception.pc);
 

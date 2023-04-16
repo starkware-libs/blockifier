@@ -16,6 +16,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, ExecutionContext, ExecutionResources,
     Retdata,
 };
+use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -234,7 +235,13 @@ Unknown location (pc=0:6)",
         &BlockContext::create_for_testing(),
         &AccountTransactionContext::default(),
     ) {
-        Err(_) => assert_eq!(execution_context.error_trace(), expected_trace),
+        Err(EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+            trace,
+            source: _,
+        }) => {
+            assert_eq!(trace, expected_trace)
+        }
+        Err(error) => panic!("Unexpected error type: {:?}", error),
         Ok(_) => panic!("Execute should fail on 0 != 1."),
     }
 }

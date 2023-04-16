@@ -107,9 +107,16 @@ impl CallEntryPoint {
             block_context,
             account_tx_context,
         )
-        .map_err(|error| {
-            execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
-            error
+        .map_err(|error| match error {
+            // On VM error, pack the stack trace into the propagated error.
+            EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                    trace: execution_context.error_trace(),
+                    source: error,
+                }
+            }
+            other_error => other_error,
         })
     }
 
