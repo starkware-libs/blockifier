@@ -18,11 +18,13 @@ fn test_calculate_tx_gas_usage_basic() {
     // DeployAccount.
 
     let deploy_account_n_class_updates = 1;
-    let deploy_account_gas_usage = calculate_tx_gas_usage(&[], 0, 0, None, deploy_account_n_class_updates);
+    let deploy_account_gas_usage =
+        calculate_tx_gas_usage(&[], 0, 0, None, deploy_account_n_class_updates);
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
-    let onchain_data_segment_length = get_onchain_data_segment_length(0, 0, deploy_account_n_class_updates);
+    let onchain_data_segment_length =
+        get_onchain_data_segment_length(0, 0, deploy_account_n_class_updates);
     let manual_sharp_gas_usage =
         onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
