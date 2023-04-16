@@ -1,5 +1,5 @@
 use cairo_vm::types::relocatable::Relocatable;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::{self as cairo_vm_errors};
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -109,26 +109,59 @@ pub enum EntryPointExecutionError {
     /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
+    #[error("{trace}")]
+    VirtualMachineExecutionErrorWithTrace {
+        trace: String,
+        #[source]
+        source: VirtualMachineExecutionError,
+    },
 }
 
-impl EntryPointExecutionError {
+impl VirtualMachineExecutionError {
     /// Unwrap inner VM exception and return it as a string. If unsuccessful, returns the debug
     /// string of self.
     pub fn try_to_vm_trace(&self) -> String {
         match self {
-            EntryPointExecutionError::VirtualMachineExecutionError(
-                VirtualMachineExecutionError::CairoRunError(
-                    cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(vm_exception),
-                ),
+            VirtualMachineExecutionError::CairoRunError(
+                cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(vm_exception),
             ) => {
-                let mut trace_string = format!("Error at pc=0:{}:\n", vm_exception.pc);
+                let call_stack_prefix = "Error at pc=";
+                let mut trace_string = format!("{}0:{}:\n", call_stack_prefix, vm_exception.pc);
+                let inner_exc_string = &vm_exception.inner_exc.to_string();
 
-                // If inner error is a hint error, show generic text.
                 match &vm_exception.inner_exc {
-                    VirtualMachineError::Hint(_, _) => {
-                        trace_string += "Got an exception while executing a hint."
+                    // TODO(Dori, 1/1/2024): Once destructuring a box is supported, remove inner
+                    //   match by matching `Hint(_, box HintError::CustomHint(_))`. See issue at
+                    //   https://github.com/rust-lang/rust/issues/29641.
+                    cairo_vm_errors::vm_errors::VirtualMachineError::Hint(_, boxed_hint_error) => {
+                        match &**boxed_hint_error {
+                            HintError::CustomHint(custom_hint_error) => {
+                                let custom_hint_string = custom_hint_error.to_string();
+                                // Filter out inner errors that will be added to execution trace
+                                // anyway.
+                                if custom_hint_string.starts_with("Error in the called contract") {
+                                    trace_string += "Got an exception while executing a hint.";
+                                } else {
+                                    trace_string += (String::from("Custom Hint Error: ")
+                                        + custom_hint_string.as_str())
+                                    .as_str();
+                                }
+                            }
+                            _ => trace_string += inner_exc_string.as_str(),
+                        }
                     }
-                    other_inner_error => trace_string += format!("{}", &other_inner_error).as_str(),
+                    _ => {
+                        // Innermost VM errors in call stacks do not need to duplicate the current
+                        // frame's trace; it is handled above. If the error string does not start
+                        // with the call stack prefix, the string representation of `self` should be
+                        // returned, to utilize the VM's formatter.
+                        let outer_string = self.to_string();
+                        if outer_string.starts_with(call_stack_prefix) {
+                            trace_string += inner_exc_string.as_str();
+                        } else {
+                            trace_string += outer_string.as_str();
+                        }
+                    }
                 }
 
                 match &vm_exception.traceback {
@@ -142,7 +175,7 @@ impl EntryPointExecutionError {
                     }
                 }
             }
-            _ => format!("{:?}", self),
+            _ => self.to_string(),
         }
     }
 }
