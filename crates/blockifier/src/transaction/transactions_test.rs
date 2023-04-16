@@ -37,7 +37,7 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::errors::{FeeTransferError, TransactionExecutionError};
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::transactions::ExecutableTransaction;
 
@@ -362,10 +362,7 @@ fn test_negative_invoke_tx_flows() {
     let expected_actual_fee = actual_fee();
     assert_matches!(
         execution_error,
-        TransactionExecutionError::FeeTransferError(FeeTransferError::MaxFeeExceeded {
-            max_fee,
-            actual_fee,
-        })
+        TransactionExecutionError::FeeTransferError{ max_fee, actual_fee }
         if (max_fee, actual_fee) == (invalid_max_fee, expected_actual_fee)
     );
 

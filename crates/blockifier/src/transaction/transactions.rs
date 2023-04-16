@@ -18,10 +18,7 @@ use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
-use crate::transaction::errors::{
-    ContractConstructorExecutionError, DeclareTransactionError, ExecuteTransactionError,
-    TransactionExecutionError,
-};
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
@@ -109,7 +106,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
                     // From V2 up, cannot redeclare (i.e., make sure the leaf is uninitialized).
                     // Changing class leaf in the commitment is possible only through syscall.
                     DeclareTransaction::V2(_) => {
-                        Err(DeclareTransactionError::ClassAlreadyDeclared { class_hash })?
+                        Err(TransactionExecutionError::DeclareTransactionError { class_hash })
                     }
                 }
             }
@@ -139,7 +136,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             self.constructor_calldata.clone(),
         );
         let call_info = deployment_result
-            .map_err(ContractConstructorExecutionError::ContractConstructorExecutionFailed)?;
+            .map_err(TransactionExecutionError::ContractConstructorExecutionFailed)?;
         verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
 
         Ok(Some(call_info))
@@ -166,7 +163,7 @@ impl<S: State> Executable<S> for InvokeTransactionV1 {
         };
         let mut execution_context = ExecutionContext::default();
 
-        let call_info = execute_call
+        execute_call
             .execute(
                 state,
                 execution_resources,
@@ -174,8 +171,8 @@ impl<S: State> Executable<S> for InvokeTransactionV1 {
                 block_context,
                 account_tx_context,
             )
-            .map_err(ExecuteTransactionError::ExecutionError)?;
-        Ok(Some(call_info))
+            .map(Some)
+            .map_err(TransactionExecutionError::ExecutionError)
     }
 }
 
@@ -199,7 +196,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         };
         let mut execution_context = ExecutionContext::default();
 
-        let call_info = execute_call
+        execute_call
             .execute(
                 state,
                 execution_resources,
@@ -207,7 +204,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
                 block_context,
                 account_tx_context,
             )
-            .map_err(ExecuteTransactionError::ExecutionError)?;
-        Ok(Some(call_info))
+            .map(Some)
+            .map_err(TransactionExecutionError::ExecutionError)
     }
 }

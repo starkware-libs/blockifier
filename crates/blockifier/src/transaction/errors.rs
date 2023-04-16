@@ -7,49 +7,19 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
-pub enum FeeTransferError {
-    #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
-    MaxFeeExceeded { max_fee: Fee, actual_fee: Fee },
-}
-
-#[derive(Debug, Error)]
-pub enum DeclareTransactionError {
-    #[error("Class with hash {class_hash:?} is already declared.")]
-    ClassAlreadyDeclared { class_hash: ClassHash },
-}
-
-#[derive(Debug, Error)]
-pub enum ContractConstructorExecutionError {
-    #[error("Contract constructor execution has failed.")]
-    ContractConstructorExecutionFailed(#[from] EntryPointExecutionError),
-}
-
-#[derive(Debug, Error)]
-pub enum ValidateTransactionError {
-    #[error("Transaction validation has failed.")]
-    ValidateExecutionFailed(#[from] EntryPointExecutionError),
-}
-
-#[derive(Debug, Error)]
-pub enum ExecuteTransactionError {
-    #[error("Transaction execution has failed.")]
-    ExecutionError(#[from] EntryPointExecutionError),
-}
-
-#[derive(Debug, Error)]
 pub enum TransactionExecutionError {
     #[error("Cairo resource names must be contained in fee weights dict.")]
     CairoResourcesNotContainedInFeeWeights,
-    #[error(transparent)]
-    ContractConstructorExecutionFailed(#[from] ContractConstructorExecutionError),
-    #[error(transparent)]
-    DeclareTransactionError(#[from] DeclareTransactionError),
+    #[error("Contract constructor execution has failed.")]
+    ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
+    #[error("Class with hash {class_hash:?} is already declared.")]
+    DeclareTransactionError { class_hash: ClassHash },
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
-    #[error(transparent)]
-    ExecutionError(#[from] ExecuteTransactionError),
-    #[error(transparent)]
-    FeeTransferError(#[from] FeeTransferError),
+    #[error("Transaction execution has failed.")]
+    ExecutionError(#[source] EntryPointExecutionError),
+    #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
+    FeeTransferError { max_fee: Fee, actual_fee: Fee },
     #[error(
         "Invalid transaction nonce of contract at address {address:?}. Expected: \
          {expected_nonce:?}; got: {actual_nonce:?}."
@@ -70,6 +40,6 @@ pub enum TransactionExecutionError {
     UnexpectedHoles { object: String, order: usize },
     #[error("Unknown chain ID '{chain_id:?}'.")]
     UnknownChainId { chain_id: String },
-    #[error(transparent)]
-    ValidateTransactionError(#[from] ValidateTransactionError),
+    #[error("Transaction validation has failed.")]
+    ValidateTransactionError(#[source] EntryPointExecutionError),
 }

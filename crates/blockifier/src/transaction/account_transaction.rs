@@ -19,9 +19,7 @@ use crate::execution::entry_point::{
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
-use crate::transaction::errors::{
-    FeeTransferError, TransactionExecutionError, ValidateTransactionError,
-};
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
@@ -180,7 +178,7 @@ impl AccountTransaction {
                 block_context,
                 account_tx_context,
             )
-            .map_err(ValidateTransactionError::ValidateExecutionFailed)?;
+            .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
@@ -221,7 +219,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<CallInfo> {
         let max_fee = account_tx_context.max_fee;
         if actual_fee > max_fee {
-            return Err(FeeTransferError::MaxFeeExceeded { max_fee, actual_fee })?;
+            return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
         }
 
         // The least significant 128 bits of the amount transferred.
