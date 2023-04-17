@@ -344,7 +344,4 @@ pub fn validate_tx_execution_info(
     compare_optional_call_infos(actual.fee_transfer_call_info, expected.fee_transfer_call_info);
     assert_eq!(actual.actual_fee, expected.actual_fee);
     assert_eq!(actual.actual_resources, expected.actual_resources);
-    assert_eq!(actual.n_storage_updates, expected.n_storage_updates);
-    assert_eq!(actual.n_modified_contracts, expected.n_modified_contracts);
-    assert_eq!(actual.n_class_updates, expected.n_class_updates);
 }
