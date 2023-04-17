@@ -36,7 +36,7 @@ use crate::transaction::objects::{AccountTransactionContext, TransactionExecutio
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
-pub const OTHER_TEST_CONTRACT_ADDRESS: &str = "0x300";
+pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
@@ -44,10 +44,10 @@ pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 
 // Class hashes.
 pub const TEST_CLASS_HASH: &str = "0x110";
-pub const OTHER_TEST_CLASS_HASH: &str = "0x120";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
+pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -56,8 +56,6 @@ pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
-pub const OTHER_TEST_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/other_test_contract_compiled.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
@@ -163,12 +161,19 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
     }
 }
 
-pub fn create_test_state_util(test_contract_path: &str) -> CachedState<DictStateReader> {
+pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
+    CallEntryPoint {
+        storage_address: ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
+        ..trivial_external_entry_point()
+    }
+}
+
+pub fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([
-        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class(test_contract_path)),
+        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class(TEST_CONTRACT_PATH)),
         (
-            ClassHash(stark_felt!(OTHER_TEST_CLASS_HASH)),
-            get_contract_class(OTHER_TEST_CONTRACT_PATH),
+            ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
+            get_contract_class(SECURITY_TEST_CONTRACT_PATH),
         ),
     ]);
 
@@ -183,8 +188,8 @@ pub fn create_test_state_util(test_contract_path: &str) -> CachedState<DictState
             ClassHash(stark_felt!(TEST_CLASS_HASH)),
         ),
         (
-            ContractAddress(patricia_key!(OTHER_TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(OTHER_TEST_CLASS_HASH)),
+            ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
+            ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
         ),
     ]);
 
@@ -193,14 +198,6 @@ pub fn create_test_state_util(test_contract_path: &str) -> CachedState<DictState
         address_to_class_hash,
         ..Default::default()
     })
-}
-
-pub fn create_test_state() -> CachedState<DictStateReader> {
-    create_test_state_util(TEST_CONTRACT_PATH)
-}
-
-pub fn create_security_test_state() -> CachedState<DictStateReader> {
-    create_test_state_util(SECURITY_TEST_CONTRACT_PATH)
 }
 
 pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
