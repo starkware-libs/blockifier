@@ -1,0 +1,27 @@
+[package]
+name = "benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "benchmark"
+path = "src/benchmark.rs"
+
+[dependencies]
+anyhow.workspace = true
+blockifier = { path = "../blockifier" }
+clap.workspace = true
+# cairo-vm.workspace = true
+# hex.workspace = true
+# indexmap.workspace = true
+# log.workspace = true
+# num-bigint.workspace = true
+# ouroboros.workspace = true
+papyrus_gateway = { path = "../../../papyrus/crates/papyrus_gateway" }
+papyrus_storage = { path = "../../../papyrus/crates/papyrus_storage" }
+# # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
+serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+starknet_api = { workspace = true, features = ["testing"] }
+
+thiserror.workspace = true
