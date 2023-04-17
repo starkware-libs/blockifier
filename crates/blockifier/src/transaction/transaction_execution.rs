@@ -50,18 +50,12 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             l1_handler_payload_size,
         )?;
 
-        let (n_storage_updates, n_modified_contracts, n_class_updates) =
-            state.count_actual_state_changes();
-
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
             execute_call_info,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
             actual_resources,
-            n_storage_updates,
-            n_modified_contracts,
-            n_class_updates,
         })
     }
 }

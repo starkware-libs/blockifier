@@ -33,9 +33,6 @@ pub struct TransactionExecutionInfo {
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
-    pub n_storage_updates: usize,
-    pub n_modified_contracts: usize,
-    pub n_class_updates: usize,
 }
 
 /// A mapping from a transaction execution resource to its actual usage.

@@ -318,9 +318,6 @@ fn test_invoke_tx() {
             ("range_check_builtin".to_string(), 101),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 4082),
         ])),
-        n_storage_updates: 0,
-        n_modified_contracts: 0,
-        n_class_updates: 0,
     };
 
     // Test execution info result.
@@ -450,9 +447,6 @@ fn test_declare_tx() {
             ("range_check_builtin".to_string(), 63),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 2688),
         ])),
-        n_storage_updates: 0,
-        n_modified_contracts: 0,
-        n_class_updates: 0,
     };
 
     // Test execution info result.
@@ -559,9 +553,6 @@ fn test_deploy_account_tx() {
             ("range_check_builtin".to_string(), 83),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 3584),
         ])),
-        n_storage_updates: 0,
-        n_modified_contracts: 1,
-        n_class_updates: 1,
     };
 
     // Test execution info result.
