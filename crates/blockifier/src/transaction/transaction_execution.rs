@@ -1,6 +1,7 @@
 use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
 
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -69,6 +70,30 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         match self {
             Self::AccountTransaction(account_tx) => account_tx.execute_raw(state, block_context),
             Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context),
+        }
+    }
+}
+
+impl Transaction {
+    pub fn from_api(
+        tx: starknet_api::transaction::Transaction,
+        contract_class: Option<ContractClass>,
+    ) -> Self {
+        match tx {
+            starknet_api::transaction::Transaction::L1Handler(l1_handler) => {
+                Self::L1HandlerTransaction(l1_handler)
+            }
+            starknet_api::transaction::Transaction::Declare(declare) => Self::AccountTransaction(
+                AccountTransaction::Declare(declare, contract_class.unwrap()),
+            ),
+            starknet_api::transaction::Transaction::Deploy(_) => panic!("No supported!"),
+            starknet_api::transaction::Transaction::DeployAccount(deploy_account) => {
+                Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account))
+            }
+            starknet_api::transaction::Transaction::Invoke(
+                starknet_api::transaction::InvokeTransaction::V1(tx),
+            ) => Self::AccountTransaction(AccountTransaction::Invoke(tx)),
+            _ => panic!("unsupported"),
         }
     }
 }

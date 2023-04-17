@@ -1,26 +1,42 @@
-use blockifier::abi::abi_utils::selector_from_name;
-use blockifier::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
-use blockifier::retdata;
-use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::StateReader;
-use blockifier::test_utils::{
-    get_deprecated_contract_class, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
-};
 use indexmap::IndexMap;
+use papyrus_storage::db::DbConfig;
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
+use papyrus_storage::{open_storage, StorageReader, StorageWriter};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
+use tempfile::tempdir;
 
-use crate::papyrus_state::PapyrusStateReader;
+use crate::abi::abi_utils::selector_from_name;
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use crate::retdata;
+use crate::state::cached_state::CachedState;
+use crate::state::papyrus_state::PapyrusStateReader;
+use crate::state::state_api::StateReader;
+use crate::test_utils::{
+    get_deprecated_contract_class, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
+};
 
+pub fn get_test_config() -> DbConfig {
+    let dir = tempdir().unwrap();
+    DbConfig {
+        path: dir.path().to_path_buf(),
+        min_size: 1 << 20,    // 1MB
+        max_size: 1 << 35,    // 32GB
+        growth_step: 1 << 26, // 64MB
+    }
+}
+pub fn get_test_storage() -> (StorageReader, StorageWriter) {
+    let config = get_test_config();
+    open_storage(config).unwrap()
+}
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
-    let (storage_reader, mut storage_writer) = papyrus_storage::test_utils::get_test_storage();
+    let (storage_reader, mut storage_writer) = get_test_storage();
 
     // Initialize Storage: add test contract and class.
     let deployed_contracts = IndexMap::from([(

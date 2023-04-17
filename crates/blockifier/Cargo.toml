@@ -19,15 +19,18 @@ num-bigint.workspace = true
 num-integer.workspace = true
 num-traits.workspace = true
 once_cell.workspace = true
+papyrus_storage.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true,features = ["arbitrary_precision"] }
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+tempfile.workspace = true
 sha3.workspace = true
-starknet_api = { workspace = true, features = [ "testing", ] }
+starknet_api = { workspace = true, features = ["testing"] }
 strum.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+papyrus_storage = { workspace = true, features = ["testing"] }
 pretty_assertions.workspace = true
 test-case.workspace = true

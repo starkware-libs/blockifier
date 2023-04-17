@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
-use blockifier::execution::contract_class::ContractClass;
-use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{StateReader, StateResult};
 use papyrus_storage::db::TransactionKind;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateNumber, StorageKey};
+
+use crate::execution::contract_class::ContractClass;
+use crate::state::errors::StateError;
+use crate::state::state_api::{StateReader, StateResult};
 
 #[cfg(test)]
 #[path = "papyrus_state_test.rs"]

@@ -43,7 +43,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         match execution_result {
             Ok(value) => {
                 transactional_state.commit();
-                log::debug!("Transaction execution complete and committed.");
+                log::info!("Transaction execution complete and committed.");
                 Ok(value)
             }
             Err(error) => {
