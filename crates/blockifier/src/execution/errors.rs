@@ -122,9 +122,9 @@ impl VirtualMachineExecutionError {
     /// string of self.
     pub fn try_to_vm_trace(&self) -> String {
         match self {
-            VirtualMachineExecutionError::CairoRunError(
-                cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(vm_exception),
-            ) => {
+            Self::CairoRunError(cairo_vm_errors::cairo_run_errors::CairoRunError::VmException(
+                vm_exception,
+            )) => {
                 let mut trace_string = format!("Error at pc=0:{}:\n", vm_exception.pc);
 
                 // If inner error is a hint error, show generic text.
