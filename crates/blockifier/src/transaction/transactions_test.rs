@@ -22,13 +22,14 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
+use crate::fee::fee_utils::calculate_tx_fee;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     get_contract_class, validate_tx_execution_info, DictStateReader, ACCOUNT_CONTRACT_PATH,
-    ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
     TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_ACCOUNT_BALANCE_KEY, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY, TEST_ERC20_SEQUENCER_BALANCE_KEY,
@@ -82,10 +83,6 @@ fn create_account_tx_test_state(
         storage_view,
         ..Default::default()
     })
-}
-
-fn actual_fee() -> Fee {
-    Fee(2)
 }
 
 fn expected_validate_call_info(
@@ -179,13 +176,11 @@ fn validate_final_balances(
     block_context: &BlockContext,
     expected_sequencer_balance: StarkFelt,
     erc20_account_balance_key: StorageKey,
+    expected_account_balance: u64,
 ) {
-    // We currently assume the total fee charged for the transaction is equal to the initial balance
-    // of the account.
-    let expected_account_balance = stark_felt!(0);
     let account_balance =
         state.get_storage_at(block_context.fee_token_address, erc20_account_balance_key).unwrap();
-    assert_eq!(account_balance, expected_account_balance);
+    assert_eq!(account_balance, stark_felt!(expected_account_balance));
 
     assert_eq!(
         state
@@ -207,13 +202,13 @@ fn invoke_tx() -> InvokeTransactionV1 {
     crate::test_utils::invoke_tx(
         execute_calldata,
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        Fee(2),
+        Fee(u128::from(BALANCE)),
         None,
     )
 }
 
 fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
-    let account_balance = actual_fee().0 as u64;
+    let account_balance = BALANCE;
     create_account_tx_test_state(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_ACCOUNT_CONTRACT_ADDRESS,
@@ -224,7 +219,7 @@ fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader
 }
 
 fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
-    let account_balance = actual_fee().0 as u64;
+    let account_balance = BALANCE;
     create_account_tx_test_state(
         TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
@@ -237,7 +232,7 @@ fn create_state_with_falliable_validation_account() -> CachedState<DictStateRead
 #[test]
 fn test_invoke_tx() {
     let state = &mut create_state_with_trivial_validation_account();
-    let block_context = &BlockContext::create_for_testing();
+    let block_context = &BlockContext::create_for_account_testing();
     let invoke_tx = invoke_tx();
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
@@ -296,7 +291,8 @@ fn test_invoke_tx() {
     });
 
     // Build expected fee transfer call info.
-    let expected_actual_fee = actual_fee();
+    let expected_actual_fee =
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         expected_account_address,
@@ -336,18 +332,20 @@ fn test_invoke_tx() {
 
     // Test final balances.
     let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
+    let expected_account_balance = BALANCE - expected_actual_fee.0 as u64;
     validate_final_balances(
         state,
         block_context,
         expected_sequencer_balance,
         *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        expected_account_balance,
     );
 }
 
 #[test]
 fn test_negative_invoke_tx_flows() {
     let state = &mut create_state_with_trivial_validation_account();
-    let block_context = &BlockContext::create_for_testing();
+    let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx = invoke_tx();
 
     // Insufficient fee.
@@ -359,11 +357,10 @@ fn test_negative_invoke_tx_flows() {
     let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
 
     // Test error.
-    let expected_actual_fee = actual_fee();
     assert_matches!(
         execution_error,
-        TransactionExecutionError::FeeTransferError{ max_fee, actual_fee }
-        if (max_fee, actual_fee) == (invalid_max_fee, expected_actual_fee)
+        TransactionExecutionError::FeeTransferError{ max_fee, .. }
+        if max_fee == invalid_max_fee
     );
 
     // Invalid nonce.
@@ -388,14 +385,14 @@ fn declare_tx() -> DeclareTransactionV0V1 {
     crate::test_utils::declare_tx(
         TEST_EMPTY_CONTRACT_CLASS_HASH,
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        Fee(2),
+        Fee(u128::from(BALANCE)),
     )
 }
 
 #[test]
 fn test_declare_tx() {
     let state = &mut create_state_with_trivial_validation_account();
-    let block_context = &BlockContext::create_for_testing();
+    let block_context = &BlockContext::create_for_account_testing();
     let declare_tx = declare_tx();
 
     // Extract declare transaction fields for testing, as it is consumed when creating an account
@@ -426,7 +423,8 @@ fn test_declare_tx() {
     );
 
     // Build expected fee transfer call info.
-    let expected_actual_fee = actual_fee();
+    let expected_actual_fee =
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         expected_account_address,
@@ -466,11 +464,13 @@ fn test_declare_tx() {
 
     // Test final balances.
     let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
+    let expected_account_balance = BALANCE - expected_actual_fee.0 as u64;
     validate_final_balances(
         state,
         block_context,
         expected_sequencer_balance,
         *TEST_ERC20_ACCOUNT_BALANCE_KEY,
+        expected_account_balance,
     );
 
     // Verify class declaration.
@@ -479,13 +479,13 @@ fn test_declare_tx() {
 }
 
 fn deploy_account_tx() -> DeployAccountTransaction {
-    crate::test_utils::deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, Fee(2))
+    crate::test_utils::deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, Fee(u128::from(BALANCE)))
 }
 
 #[test]
 fn test_deploy_account_tx() {
     let state = &mut create_state_with_trivial_validation_account();
-    let block_context = &BlockContext::create_for_testing();
+    let block_context = &BlockContext::create_for_account_testing();
     let deploy_account_tx = deploy_account_tx();
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
@@ -497,13 +497,12 @@ fn test_deploy_account_tx() {
 
     // Update the balance of the about to be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
-    let expected_actual_fee = actual_fee();
     let deployed_account_balance_key =
         get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]).unwrap();
     state.set_storage_at(
         block_context.fee_token_address,
         deployed_account_balance_key,
-        stark_felt!(expected_actual_fee.0 as u64),
+        stark_felt!(BALANCE),
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
@@ -533,6 +532,8 @@ fn test_deploy_account_tx() {
     });
 
     // Build expected fee transfer call info.
+    let expected_actual_fee =
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         deployed_account_address,
@@ -572,11 +573,13 @@ fn test_deploy_account_tx() {
 
     // Test final balances.
     let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
+    let expected_account_balance = BALANCE - expected_actual_fee.0 as u64;
     validate_final_balances(
         state,
         block_context,
         expected_sequencer_balance,
         deployed_account_balance_key,
+        expected_account_balance,
     );
 
     // Verify deployment.
@@ -606,7 +609,7 @@ fn test_validate_invoke_function() {
         crate::test_utils::invoke_tx(
             execute_calldata,
             ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
-            Fee(2),
+            Fee(0),
             Some(signature),
         )
     }

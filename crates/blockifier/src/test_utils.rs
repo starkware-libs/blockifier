@@ -75,6 +75,9 @@ pub static TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|
         .unwrap()
 });
 
+// The amount of test-token allocated to the account in this test.
+pub const BALANCE: u64 = 1000000 * 100000000000; // 1000000 * min_gas_price.
+
 pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
@@ -234,6 +237,20 @@ impl BlockContext {
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
         }
+    }
+
+    pub fn create_for_account_testing() -> BlockContext {
+        let cairo_resource_fee_weights = HashMap::from([
+            (String::from("n_steps"), 1_f64),
+            (String::from("pedersen_builtin"), 1_f64),
+            (String::from("range_check_builtin"), 1_f64),
+            (String::from("ecdsa_builtin"), 1_f64),
+            (String::from("bitwise_builtin"), 1_f64),
+            (String::from("poseidon_builtin"), 1_f64),
+            (String::from("output_builtin"), 1_f64),
+            (String::from("ec_op_builtin"), 1_f64),
+        ]);
+        BlockContext { cairo_resource_fee_weights, ..BlockContext::create_for_testing() }
     }
 }
 
