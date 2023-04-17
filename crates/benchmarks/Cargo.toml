@@ -17,6 +17,7 @@ clap.workspace = true
 # log.workspace = true
 # num-bigint.workspace = true
 # ouroboros.workspace = true
+starknet_client = { path = "../../../papyrus/crates/starknet_client" }
 papyrus_gateway = { path = "../../../papyrus/crates/papyrus_gateway" }
 papyrus_storage = { path = "../../../papyrus/crates/papyrus_storage" }
 # # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
