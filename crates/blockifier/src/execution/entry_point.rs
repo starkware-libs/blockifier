@@ -56,6 +56,24 @@ pub struct ExecutionContext {
     pub n_emitted_events: usize,
     // Used for tracking L2-to-L1 messages order during the current execution.
     pub n_sent_messages_to_l1: usize,
+    // Used to track error stack for call chain.
+    pub error_stack: Vec<(ContractAddress, String)>,
+}
+
+impl ExecutionContext {
+    /// Combines individual errors into a single stack trace string, with contract addresses printed
+    /// alongside their respective trace.
+    pub fn error_trace(&self) -> String {
+        let mut frame_errors: Vec<String> = vec![];
+        for (contract_address, trace_string) in self.error_stack.iter().rev() {
+            frame_errors.push(format!(
+                "Error in the called contract ({}):\n{}",
+                contract_address.0.key(),
+                trace_string
+            ));
+        }
+        frame_errors.join("\n\n")
+    }
 }
 
 impl CallEntryPoint {
@@ -68,6 +86,7 @@ impl CallEntryPoint {
         account_tx_context: &AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
+        let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
@@ -89,6 +108,20 @@ impl CallEntryPoint {
             block_context,
             account_tx_context,
         )
+        .map_err(|error| match error {
+            // On VM error, pack the stack trace into the propagated error.
+            EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is right now,
+                //  each intermediate VM error is wrapped in a VirtualMachineExecutionErrorWithTrace
+                //  error with the stringified trace of all errors below it.
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                    trace: execution_context.error_trace(),
+                    source: error,
+                }
+            }
+            other_error => other_error,
+        })
     }
 
     pub fn resolve_entry_point_pc(
