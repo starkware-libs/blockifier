@@ -80,6 +80,7 @@ pub fn py_block_context(
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.getattr("starknet_os_config")?;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
+    let starknet_version: String = py_attr(block_info, "starknet_version")?;
     let block_context = BlockContext {
         chain_id: to_chain_id_enum(py_attr(starknet_os_config, "chain_id")?)?,
         block_number,
@@ -96,6 +97,7 @@ pub fn py_block_context(
         gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
         validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
+        is_0_10: starknet_version == "0.10.3",
     };
 
     Ok(block_context)
