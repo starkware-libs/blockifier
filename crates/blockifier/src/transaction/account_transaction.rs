@@ -168,6 +168,7 @@ impl AccountTransaction {
             class_hash: None,
             storage_address: account_tx_context.sender_address,
             caller_address: ContractAddress::default(),
+            code_address: Some(account_tx_context.sender_address),
             call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();
@@ -241,6 +242,7 @@ impl AccountTransaction {
             ],
             storage_address: block_context.fee_token_address,
             caller_address: account_tx_context.sender_address,
+            code_address: Some(block_context.fee_token_address),
             call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();

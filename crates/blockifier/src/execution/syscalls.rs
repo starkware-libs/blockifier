@@ -240,6 +240,7 @@ pub fn call_contract(
         calldata: request.calldata,
         storage_address: request.contract_address,
         caller_address: syscall_handler.storage_address,
+        code_address: Some(request.contract_address),
         call_type: CallType::Call,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
@@ -282,6 +283,7 @@ pub fn library_call(
         call_to_external,
         request.function_selector,
         request.calldata,
+        None,
     )?;
 
     Ok(LibraryCallResponse { segment: retdata_segment })
@@ -302,6 +304,7 @@ pub fn library_call_l1_handler(
         call_to_external,
         request.function_selector,
         request.calldata,
+        None,
     )?;
 
     Ok(LibraryCallResponse { segment: retdata_segment })
@@ -326,6 +329,7 @@ pub fn delegate_call(
         call_to_external,
         request.function_selector,
         request.calldata,
+        Some(request.contract_address),
     )?;
 
     Ok(DelegateCallResponse { segment: retdata_segment })
@@ -347,6 +351,7 @@ pub fn delegate_l1_handler(
         call_to_external,
         request.function_selector,
         request.calldata,
+        Some(request.contract_address),
     )?;
 
     Ok(DelegateCallResponse { segment: retdata_segment })

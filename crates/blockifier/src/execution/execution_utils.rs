@@ -455,6 +455,7 @@ pub fn execute_library_call(
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
+    code_address: Option<ContractAddress>,
 ) -> SyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
@@ -466,6 +467,7 @@ pub fn execute_library_call(
         // The call context remains the same in a library call.
         storage_address: syscall_handler.storage_address,
         caller_address: syscall_handler.caller_address,
+        code_address,
         call_type: CallType::Delegate,
     };
 

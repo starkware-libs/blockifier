@@ -159,6 +159,7 @@ impl<S: State> Executable<S> for InvokeTransactionV1 {
             class_hash: None,
             storage_address: self.sender_address,
             caller_address: ContractAddress::default(),
+            code_address: Some(self.sender_address),
             call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();
@@ -192,6 +193,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             class_hash: None,
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
+            code_address: Some(self.contract_address),
             call_type: CallType::Call,
         };
         let mut execution_context = ExecutionContext::default();

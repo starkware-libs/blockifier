@@ -41,6 +41,8 @@ pub struct CallEntryPoint {
     pub calldata: Calldata,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
+    // There is no code address in a library call.
+    pub code_address: Option<ContractAddress>,
     pub call_type: CallType,
 }
 
@@ -263,6 +265,7 @@ pub fn execute_constructor_entry_point(
         calldata,
         storage_address,
         caller_address,
+        code_address: Some(storage_address),
         call_type: CallType::Call,
     };
 
@@ -297,6 +300,7 @@ pub fn handle_empty_constructor(
             calldata: Calldata::default(),
             storage_address,
             caller_address,
+            code_address: Some(storage_address),
             call_type: CallType::Call,
         },
         ..Default::default()

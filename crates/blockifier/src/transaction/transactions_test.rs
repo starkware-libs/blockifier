@@ -111,6 +111,7 @@ fn expected_validate_call_info(
             calldata,
             storage_address,
             caller_address: ContractAddress::default(),
+            code_address: Some(storage_address),
             call_type: CallType::Call,
         },
         // The account contract we use for testing has trivial `validate` functions.
@@ -143,6 +144,7 @@ fn expected_fee_transfer_call_info(
         ],
         storage_address: block_context.fee_token_address,
         caller_address: account_address,
+        code_address: Some(block_context.fee_token_address),
         call_type: CallType::Call,
     };
     let expected_fee_sender_address = *account_address.0.key();
@@ -255,13 +257,15 @@ fn test_invoke_tx() {
 
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2)];
+    let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
-        storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+        storage_address,
         caller_address: expected_account_address,
+        code_address: Some(storage_address),
         call_type: CallType::Call,
     };
     let expected_execute_call = CallEntryPoint {
@@ -520,6 +524,7 @@ fn test_deploy_account_tx() {
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,
+            code_address: Some(deployed_account_address),
             ..Default::default()
         },
         ..Default::default()
