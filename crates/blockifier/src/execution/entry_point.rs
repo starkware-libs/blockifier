@@ -36,6 +36,9 @@ pub enum CallType {
 pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
+    // Optional, since there is no address to the code implementation in a library call.
+    // TODO: BACKWARD-COMPATIBILITY.
+    pub code_address: Option<ContractAddress>,
     pub entry_point_type: EntryPointType,
     pub entry_point_selector: EntryPointSelector,
     pub calldata: Calldata,
@@ -258,6 +261,7 @@ pub fn execute_constructor_entry_point(
 
     let constructor_call = CallEntryPoint {
         class_hash: None,
+        code_address: Some(storage_address),
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,
@@ -292,6 +296,7 @@ pub fn handle_empty_constructor(
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPoint {
             class_hash: Some(class_hash),
+            code_address: Some(storage_address),
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),

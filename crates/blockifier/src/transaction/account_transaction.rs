@@ -161,12 +161,14 @@ impl AccountTransaction {
             return Ok(None);
         }
 
+        let storage_address = account_tx_context.sender_address;
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.validate_entry_point_selector(),
             calldata: self.validate_entrypoint_calldata(),
             class_hash: None,
-            storage_address: account_tx_context.sender_address,
+            code_address: Some(storage_address),
+            storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };
@@ -230,8 +232,10 @@ impl AccountTransaction {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0);
 
+        let storage_address = block_context.fee_token_address;
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
+            code_address: Some(storage_address),
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
@@ -239,7 +243,7 @@ impl AccountTransaction {
                 lsb_amount,
                 msb_amount
             ],
-            storage_address: block_context.fee_token_address,
+            storage_address,
             caller_address: account_tx_context.sender_address,
             call_type: CallType::Call,
         };
