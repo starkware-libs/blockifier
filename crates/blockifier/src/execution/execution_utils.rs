@@ -452,6 +452,7 @@ pub fn execute_library_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     vm: &mut VirtualMachine,
     class_hash: ClassHash,
+    code_address: Option<ContractAddress>,
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
@@ -460,6 +461,7 @@ pub fn execute_library_call(
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
     let entry_point = CallEntryPoint {
         class_hash: Some(class_hash),
+        code_address,
         entry_point_type,
         entry_point_selector,
         calldata,
