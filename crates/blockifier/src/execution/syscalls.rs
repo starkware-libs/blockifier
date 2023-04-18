@@ -233,12 +233,14 @@ pub fn call_contract(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<CallContractResponse> {
+    let storage_address = request.contract_address;
     let entry_point = CallEntryPoint {
         class_hash: None,
+        code_address: Some(storage_address),
         entry_point_type: EntryPointType::External,
         entry_point_selector: request.function_selector,
         calldata: request.calldata,
-        storage_address: request.contract_address,
+        storage_address,
         caller_address: syscall_handler.storage_address,
         call_type: CallType::Call,
     };
@@ -279,6 +281,7 @@ pub fn library_call(
         syscall_handler,
         vm,
         request.class_hash,
+        None,
         call_to_external,
         request.function_selector,
         request.calldata,
@@ -299,6 +302,7 @@ pub fn library_call_l1_handler(
         syscall_handler,
         vm,
         request.class_hash,
+        None,
         call_to_external,
         request.function_selector,
         request.calldata,
@@ -323,6 +327,7 @@ pub fn delegate_call(
         syscall_handler,
         vm,
         class_hash,
+        Some(request.contract_address),
         call_to_external,
         request.function_selector,
         request.calldata,
@@ -344,6 +349,7 @@ pub fn delegate_l1_handler(
         syscall_handler,
         vm,
         class_hash,
+        Some(request.contract_address),
         call_to_external,
         request.function_selector,
         request.calldata,

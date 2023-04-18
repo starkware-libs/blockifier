@@ -91,6 +91,7 @@ fn test_nested_library_call() {
         entry_point_selector: inner_entry_point_selector,
         calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        code_address: None,
         call_type: CallType::Delegate,
         ..trivial_external_entry_point()
     };
@@ -104,6 +105,7 @@ fn test_nested_library_call() {
             stark_felt!(value + 1)        // Calldata: value.
         ],
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        code_address: None,
         call_type: CallType::Delegate,
         ..trivial_external_entry_point()
     };
