@@ -343,11 +343,17 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             tx_type,
             state,
             None,
+            block_context.is_0_10,
         )?;
 
         // Charge fee.
-        let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, block_context, &account_tx_context, &actual_resources, actual_fee)?;
+        let (actual_fee, fee_transfer_call_info) = Self::charge_fee(
+            state,
+            block_context,
+            &account_tx_context,
+            &actual_resources,
+            actual_fee,
+        )?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,

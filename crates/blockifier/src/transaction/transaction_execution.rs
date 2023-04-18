@@ -49,6 +49,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,
+            block_context.is_0_10,
         )?;
 
         Ok(TransactionExecutionInfo {
