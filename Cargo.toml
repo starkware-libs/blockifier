@@ -6,8 +6,8 @@ resolver = "2"
 members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.dependencies]
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17" }
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "bc52e17" }
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "d545372f"}
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "d545372f" }
 derive_more = { version = "0.99.17" }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }

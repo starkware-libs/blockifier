@@ -13,7 +13,8 @@ use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Ret
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_security_test_state, create_test_state, trivial_external_entry_point, DictStateReader,
+    create_test_state, trivial_external_entry_point, trivial_external_entry_point_security_test,
+    DictStateReader,
 };
 
 #[test]
@@ -179,7 +180,7 @@ fn run_security_test(
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_security_test()
     };
     let error = match entry_point_call.execute_directly(state) {
         Err(error) => error.to_string(),
@@ -194,7 +195,7 @@ fn run_security_test(
 
 #[test]
 fn test_vm_execution_security_failures() {
-    let mut state = create_security_test_state();
+    let mut state = create_test_state();
 
     run_security_test(
         "Expected relocatable",
@@ -271,7 +272,7 @@ fn test_vm_execution_security_failures() {
 
 #[test]
 fn test_builtin_execution_security_failures() {
-    let mut state = create_security_test_state();
+    let mut state = create_test_state();
 
     run_security_test(
         "Inconsistent auto-deduction for builtin pedersen",
@@ -323,7 +324,7 @@ fn test_builtin_execution_security_failures() {
 
 #[test]
 fn test_syscall_execution_security_failures() {
-    let mut state = create_security_test_state();
+    let mut state = create_test_state();
 
     for perform_inner_call_to_foo in 0..2 {
         let calldata = calldata![stark_felt!(perform_inner_call_to_foo)];
@@ -378,7 +379,7 @@ fn test_syscall_execution_security_failures() {
 
 #[test]
 fn test_post_run_validation_security_failure() {
-    let mut state = create_security_test_state();
+    let mut state = create_test_state();
 
     run_security_test(
         "Missing memory cells for builtin range_check",
