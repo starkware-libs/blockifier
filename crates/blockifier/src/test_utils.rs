@@ -153,12 +153,14 @@ pub fn get_test_contract_class() -> ContractClass {
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
+    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     CallEntryPoint {
         class_hash: None,
+        code_address: Some(contract_address),
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(stark_felt!(0)),
         calldata: calldata![],
-        storage_address: ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+        storage_address: contract_address,
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
     }

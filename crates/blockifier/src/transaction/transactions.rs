@@ -152,12 +152,14 @@ impl<S: State> Executable<S> for InvokeTransactionV1 {
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let storage_address = self.sender_address;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
             calldata: Calldata(Arc::clone(&self.calldata.0)),
             class_hash: None,
-            storage_address: self.sender_address,
+            code_address: Some(storage_address),
+            storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };
@@ -185,12 +187,14 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         account_tx_context: &AccountTransactionContext,
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let storage_address = self.contract_address;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::L1Handler,
             entry_point_selector: self.entry_point_selector,
             calldata: Calldata(Arc::clone(&self.calldata.0)),
             class_hash: None,
-            storage_address: self.contract_address,
+            code_address: Some(storage_address),
+            storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };

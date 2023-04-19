@@ -109,7 +109,7 @@ impl From<CallInfo> for PyCallInfo {
                 .map(|storage_key| PyFelt(*storage_key.0.key()))
                 .collect(),
             call_type: call.call_type as u8,
-            code_address: None,
+            code_address: call.code_address.map(PyFelt::from),
         }
     }
 }
