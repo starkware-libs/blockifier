@@ -221,7 +221,8 @@ Error in the called contract ({}):
 Error at pc=0:58:
 An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:62)",
+Unknown location (pc=0:62)
+",
         pad_address_to_64(TEST_CONTRACT_ADDRESS),
         pad_address_to_64(TEST_CONTRACT_ADDRESS_2),
         pad_address_to_64(SECURITY_TEST_CONTRACT_ADDRESS)

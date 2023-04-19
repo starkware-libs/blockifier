@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-
 use crate::abi::constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
@@ -65,18 +63,9 @@ pub fn calculate_tx_resources<S: StateReader>(
         n_class_updates,
     );
 
-    // TODO(Noa, 30/04/23): Consider adding builtin suffix in the VM or remove the suffix from the
-    // flow.
-    let mut builtin_instance_counter: HashMap<String, usize> = HashMap::new();
-    for (name, value) in resources_manager.vm_resources.builtin_instance_counter {
-        builtin_instance_counter.insert(name + BUILTIN_NAME_SUFFIX, value);
-    }
-    let cairo_usage =
-        VmExecutionResources { builtin_instance_counter, ..resources_manager.vm_resources };
-
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let total_cairo_usage =
-        &cairo_usage + &get_additional_os_resources(resources_manager.syscall_counter, tx_type)?;
+    let total_cairo_usage = &resources_manager.vm_resources
+        + &get_additional_os_resources(resources_manager.syscall_counter, tx_type)?;
     let total_cairo_usage = total_cairo_usage.filter_unused_builtins();
     let mut tx_resources = HashMap::from([
         (constants::GAS_USAGE.to_string(), l1_gas_usage),
