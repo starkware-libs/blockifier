@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
-    deserialize_array_of_bigint_hex, deserialize_felt_hex, Attribute, HintParams, Identifier,
-    ReferenceManager,
+    deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -71,7 +70,7 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&contract_class.program, "all", proof_mode)?;
+    let mut runner = CairoRunner::new(&contract_class.program, "starknet", proof_mode)?;
 
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
@@ -189,8 +188,16 @@ pub fn run_entry_point(
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
+    let program_segment_size = None;
     let args: Vec<&CairoArg> = args.iter().collect();
-    runner.run_from_entrypoint(entry_point_pc, &args, verify_secure, vm, hint_processor)?;
+    runner.run_from_entrypoint(
+        entry_point_pc,
+        &args,
+        verify_secure,
+        program_segment_size,
+        vm,
+        hint_processor,
+    )?;
 
     Ok(())
 }
@@ -328,46 +335,29 @@ pub fn felt_range_from_ptr(
 // TODO(Elin,01/05/2023): aim to use LC's implementation once it's in a separate crate.
 pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program, ProgramError> {
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
+    let builtins = serde_json::from_value(program.builtins)?;
+    let data = deserialize_array_of_bigint_hex(program.data)?;
+    let hints = serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?;
+    let main = None;
+    let error_message_attributes = serde_json::from_value::<Vec<Attribute>>(program.attributes)?
+        .into_iter()
+        .filter(|attr| attr.name == "error_message")
+        .collect();
+    let instruction_locations = None;
+    let reference_manager = serde_json::from_value::<ReferenceManager>(program.reference_manager)?;
 
-    let start = match identifiers.get("__main__.__start__") {
-        Some(identifier) => identifier.pc,
-        None => None,
-    };
-    let end = match identifiers.get("__main__.__end__") {
-        Some(identifier) => identifier.pc,
-        None => None,
-    };
-
-    Ok(Program {
-        builtins: serde_json::from_value(program.builtins)?,
-        prime: deserialize_felt_hex(program.prime)?.to_string(),
-        data: deserialize_array_of_bigint_hex(program.data)?,
-        constants: {
-            let mut constants = HashMap::new();
-            for (key, value) in identifiers.iter() {
-                if value.type_.as_deref() == Some("const") {
-                    let value = value
-                        .value
-                        .clone()
-                        .ok_or_else(|| ProgramError::ConstWithoutValue(key.to_owned()))?;
-                    constants.insert(key.to_owned(), value);
-                }
-            }
-
-            constants
-        },
-        main: None,
-        start,
-        end,
-        hints: serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?,
-        reference_manager: serde_json::from_value::<ReferenceManager>(program.reference_manager)?,
+    let program = Program::new(
+        builtins,
+        data,
+        main,
+        hints,
+        reference_manager,
         identifiers,
-        error_message_attributes: serde_json::from_value::<Vec<Attribute>>(program.attributes)?
-            .into_iter()
-            .filter(|attr| attr.name == "error_message")
-            .collect(),
-        instruction_locations: None,
-    })
+        error_message_attributes,
+        instruction_locations,
+    )?;
+
+    Ok(program)
 }
 
 #[derive(Debug)]

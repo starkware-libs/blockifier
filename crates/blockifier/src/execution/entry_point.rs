@@ -72,7 +72,7 @@ impl ExecutionContext {
                 trace_string
             ));
         }
-        frame_errors.join("\n\n")
+        frame_errors.join("\n")
     }
 }
 
