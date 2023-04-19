@@ -289,8 +289,8 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cairo-felt"
-version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=bc52e17#bc52e1712f604c4039c8dc12a9eb2ae507a5a64b"
+version = "0.3.0-rc1"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=d545372f#d545372f8cb4bda8bfe869cfabe51919dde8bd00"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -300,14 +300,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cairo-take_until_unbalanced"
+version = "0.24.2-rc1"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=d545372f#d545372f8cb4bda8bfe869cfabe51919dde8bd00"
+dependencies = [
+ "nom",
+]
+
+[[package]]
 name = "cairo-vm"
-version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=bc52e17#bc52e1712f604c4039c8dc12a9eb2ae507a5a64b"
+version = "0.3.0-rc1"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=d545372f#d545372f8cb4bda8bfe869cfabe51919dde8bd00"
 dependencies = [
  "anyhow",
  "bincode",
  "bitvec 1.0.1",
  "cairo-felt",
+ "cairo-take_until_unbalanced",
  "generic-array",
  "hashbrown 0.13.2",
  "hex",
@@ -318,14 +327,13 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
- "parse-hyperlinks",
  "rand_core",
  "serde",
  "serde_bytes",
  "serde_json",
  "sha2 0.10.6",
  "sha3 0.10.6",
- "starknet-crypto 0.2.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
+ "starknet-crypto 0.4.3",
  "thiserror",
  "thiserror-no-std",
 ]
@@ -1541,14 +1549,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse-hyperlinks"
-version = "0.23.4"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=bc52e17#bc52e1712f604c4039c8dc12a9eb2ae507a5a64b"
-dependencies = [
- "nom",
-]
-
-[[package]]
 name = "paste"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2247,20 +2247,20 @@ dependencies = [
  "num-traits",
  "rfc6979 0.1.0",
  "sha2 0.9.9",
- "starknet-crypto-codegen 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "starknet-curve 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "starknet-ff 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "starknet-crypto-codegen 0.1.0",
+ "starknet-curve 0.1.0",
+ "starknet-ff 0.2.0",
  "thiserror",
  "zeroize",
 ]
 
 [[package]]
 name = "starknet-crypto"
-version = "0.2.0"
-source = "git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal#13023c5bbd0426ce064bc31e21bc70b517818b85"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8802a516a2556b2ddb9630898d2c8387d928a3e603799b8b2a7dc4018b852c8f"
 dependencies = [
  "crypto-bigint 0.4.9",
- "hashbrown 0.13.2",
  "hex",
  "hmac 0.12.1",
  "num-bigint",
@@ -2268,10 +2268,9 @@ dependencies = [
  "num-traits",
  "rfc6979 0.3.1",
  "sha2 0.10.6",
- "starknet-crypto-codegen 0.1.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
- "starknet-curve 0.1.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
- "starknet-ff 0.2.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
- "thiserror-no-std",
+ "starknet-crypto-codegen 0.3.0",
+ "starknet-curve 0.2.1",
+ "starknet-ff 0.3.1",
  "zeroize",
 ]
 
@@ -2281,18 +2280,19 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6569d70430f0f6edc41f6820d00acf63356e6308046ca01e57eeac22ad258c47"
 dependencies = [
- "starknet-curve 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "starknet-ff 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "starknet-curve 0.1.0",
+ "starknet-ff 0.2.0",
  "syn 1.0.109",
 ]
 
 [[package]]
 name = "starknet-crypto-codegen"
-version = "0.1.0"
-source = "git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal#13023c5bbd0426ce064bc31e21bc70b517818b85"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bff08f74f3ac785ac34ac05c68c5bd4df280107ab35df69dbcbde35183d89eba"
 dependencies = [
- "starknet-curve 0.1.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
- "starknet-ff 0.2.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
+ "starknet-curve 0.2.1",
+ "starknet-ff 0.3.1",
  "syn 1.0.109",
 ]
 
@@ -2302,15 +2302,16 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84be6079d3060fdbd8b5335574fef3d3783fa2f7ee6474d08ae0c1e4b0a29ba4"
 dependencies = [
- "starknet-ff 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "starknet-ff 0.2.0",
 ]
 
 [[package]]
 name = "starknet-curve"
-version = "0.1.0"
-source = "git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal#13023c5bbd0426ce064bc31e21bc70b517818b85"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe0dbde7ef14d54c2117bc6d2efb68c2383005f1cd749b277c11df874d07b7af"
 dependencies = [
- "starknet-ff 0.2.0 (git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal)",
+ "starknet-ff 0.3.1",
 ]
 
 [[package]]
@@ -2331,15 +2332,14 @@ dependencies = [
 
 [[package]]
 name = "starknet-ff"
-version = "0.2.0"
-source = "git+https://github.com/tdelabro/starknet-rs.git?branch=feature/manual-no-std-bigdecimal#13023c5bbd0426ce064bc31e21bc70b517818b85"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78d484109da192f3a8cd58f674861c2d5e4b3e1765a466362c6f350ef213dfd1"
 dependencies = [
  "ark-ff",
  "crypto-bigint 0.4.9",
  "getrandom",
  "hex",
- "serde",
- "thiserror-no-std",
 ]
 
 [[package]]
@@ -2353,7 +2353,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
- "starknet-crypto 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "starknet-crypto 0.2.0",
  "thiserror",
  "web3",
 ]
