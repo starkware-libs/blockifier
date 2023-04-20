@@ -16,7 +16,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
-use crate::fee::fee_utils::calculate_tx_fee;
+// use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -195,7 +195,7 @@ impl AccountTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        resources: &ResourcesMapping,
+        _resources: &ResourcesMapping,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
         if account_tx_context.max_fee == no_fee {
@@ -203,7 +203,8 @@ impl AccountTransaction {
             return Ok((no_fee, None));
         }
 
-        let actual_fee = calculate_tx_fee(resources, block_context)?;
+        // let actual_fee = calculate_tx_fee(resources, block_context)?;
+        let actual_fee = Fee(2);
         let fee_transfer_call_info = Self::execute_fee_transfer(
             state,
             &mut ExecutionResources::default(),

@@ -95,6 +95,17 @@ fn main() -> anyhow::Result<()> {
         let papyrus_reader = PapyrusStateReader::new(state_reader, block.header.block_number);
         let mut state = CachedState::new(papyrus_reader);
 
+        let cairo_resource_fee_weights = HashMap::from([
+            (String::from("n_steps"), 0.01),
+            (String::from("pedersen_builtin"), 1_f64),
+            (String::from("range_check_builtin"), 1_f64),
+            (String::from("ecdsa_builtin"), 1_f64),
+            (String::from("bitwise_builtin"), 1_f64),
+            (String::from("poseidon_builtin"), 1_f64),
+            (String::from("output_builtin"), 1_f64),
+            (String::from("ec_op_builtin"), 1_f64),
+        ]);
+
         let block_context = BlockContext {
             chain_id: ChainId("PRIVATE_SN_POTC_GOERLI".to_string()),
             block_number: block.header.block_number,
@@ -111,7 +122,7 @@ fn main() -> anyhow::Result<()> {
                 ))
                 .unwrap(),
             ),
-            cairo_resource_fee_weights: HashMap::from_iter([("n_steps".to_string(), 0.01)]),
+            cairo_resource_fee_weights,
             gas_price: 1,
             invoke_tx_max_n_steps: 1000000,
             validate_max_n_steps: 1000000,
