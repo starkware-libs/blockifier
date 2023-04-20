@@ -1,12 +1,12 @@
-use once_cell::sync::Lazy;
 use serde_json::json;
 
 use crate::fee::os_usage::OsResources;
 
-pub static OS_RESOURCES: Lazy<OsResources> = Lazy::new(|| {
+#[ctor::ctor]
+pub static OS_RESOURCES: OsResources = {
     serde_json::from_value(os_resources())
         .expect("os_resources json does not exist or cannot be deserialized.")
-});
+};
 
 fn os_resources() -> serde_json::Value {
     json!({

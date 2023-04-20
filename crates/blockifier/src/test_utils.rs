@@ -4,7 +4,6 @@ use std::iter::zip;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use once_cell::sync::Lazy;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
@@ -66,17 +65,17 @@ pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 
 // Storage keys.
-pub static TEST_ERC20_SEQUENCER_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
+pub fn test_erc20_sequencer_balance_key() -> StorageKey {
     get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap()
-});
-pub static TEST_ERC20_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
+}
+pub fn test_erc20_account_balance_key() -> StorageKey {
     get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
         .unwrap()
-});
-pub static TEST_ERC20_FAULTY_ACCOUNT_BALANCE_KEY: Lazy<StorageKey> = Lazy::new(|| {
+}
+pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
     get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)])
         .unwrap()
-});
+}
 
 // The amount of test-token allocated to the account in this test.
 pub const BALANCE: u64 = 1000000 * 100000000000; // 1000000 * min_gas_price.
