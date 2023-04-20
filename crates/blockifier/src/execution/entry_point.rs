@@ -37,6 +37,7 @@ pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
     // Optional, since there is no address to the code implementation in a library call.
+    // and for outermost calls (triggered by the transaction itself).
     // TODO: BACKWARD-COMPATIBILITY.
     pub code_address: Option<ContractAddress>,
     pub entry_point_type: EntryPointType,
@@ -278,6 +279,7 @@ pub fn execute_constructor_entry_point(
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
     class_hash: ClassHash,
+    code_address: Option<ContractAddress>,
     storage_address: ContractAddress,
     caller_address: ContractAddress,
     calldata: Calldata,
@@ -289,12 +291,18 @@ pub fn execute_constructor_entry_point(
 
     if constructor_entry_points.is_empty() {
         // Contract has no constructor.
-        return handle_empty_constructor(class_hash, calldata, storage_address, caller_address);
+        return handle_empty_constructor(
+            class_hash,
+            code_address,
+            calldata,
+            storage_address,
+            caller_address,
+        );
     }
 
     let constructor_call = CallEntryPoint {
         class_hash: None,
-        code_address: Some(storage_address),
+        code_address,
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,
@@ -314,6 +322,7 @@ pub fn execute_constructor_entry_point(
 
 pub fn handle_empty_constructor(
     class_hash: ClassHash,
+    code_address: Option<ContractAddress>,
     calldata: Calldata,
     storage_address: ContractAddress,
     caller_address: ContractAddress,
@@ -329,7 +338,7 @@ pub fn handle_empty_constructor(
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPoint {
             class_hash: Some(class_hash),
-            code_address: Some(storage_address),
+            code_address,
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),
