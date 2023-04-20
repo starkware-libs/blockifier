@@ -421,6 +421,7 @@ pub fn execute_deployment(
     deployed_contract_address: ContractAddress,
     deployer_address: ContractAddress,
     constructor_calldata: Calldata,
+    is_deploy_account_tx: bool,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
@@ -435,6 +436,7 @@ pub fn execute_deployment(
         deployed_contract_address,
         deployer_address,
         constructor_calldata,
+        is_deploy_account_tx,
     )
 }
 

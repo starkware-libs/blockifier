@@ -281,6 +281,7 @@ pub fn execute_constructor_entry_point(
     storage_address: ContractAddress,
     caller_address: ContractAddress,
     calldata: Calldata,
+    is_deploy_account_tx: bool,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
     let contract_class = state.get_contract_class(&class_hash)?;
@@ -291,10 +292,13 @@ pub fn execute_constructor_entry_point(
         // Contract has no constructor.
         return handle_empty_constructor(class_hash, calldata, storage_address, caller_address);
     }
-
+    let code_address = match is_deploy_account_tx {
+        true => None,
+        false => Some(storage_address),
+    };
     let constructor_call = CallEntryPoint {
         class_hash: None,
-        code_address: Some(storage_address),
+        code_address,
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_entry_points[0].selector,
         calldata,

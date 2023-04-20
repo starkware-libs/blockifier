@@ -433,6 +433,7 @@ pub fn deploy(
         deployed_contract_address,
         deployer_address,
         request.constructor_calldata,
+        false,
     )?;
     syscall_handler.inner_calls.push(call_info);
 
