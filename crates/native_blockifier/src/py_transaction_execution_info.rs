@@ -9,6 +9,7 @@ use starknet_api::hash::StarkFelt;
 use crate::py_utils::{to_py_vec, PyFelt};
 
 #[pyclass]
+#[derive(Clone)]
 pub struct PyTransactionExecutionInfo {
     #[pyo3(get)]
     pub validate_call_info: Option<PyCallInfo>,
