@@ -124,6 +124,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let mut execution_context = ExecutionContext::default();
+        let is_deploy_account_tx = true;
         let deployment_result = execute_deployment(
             state,
             execution_resources,
@@ -134,6 +135,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             self.contract_address,
             ContractAddress::default(),
             self.constructor_calldata.clone(),
+            is_deploy_account_tx,
         );
         let call_info = deployment_result
             .map_err(TransactionExecutionError::ContractConstructorExecutionFailed)?;
@@ -158,7 +160,7 @@ impl<S: State> Executable<S> for InvokeTransactionV1 {
             entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
             calldata: Calldata(Arc::clone(&self.calldata.0)),
             class_hash: None,
-            code_address: Some(storage_address),
+            code_address: None,
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
@@ -193,7 +195,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             entry_point_selector: self.entry_point_selector,
             calldata: Calldata(Arc::clone(&self.calldata.0)),
             class_hash: None,
-            code_address: Some(storage_address),
+            code_address: None,
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
