@@ -35,7 +35,7 @@ pub fn verify_no_calls_to_other_contracts(
 /// most-recent (recent w.r.t. application on the given state).
 /// I.e., L1 gas usage and Cairo VM execution resources.
 pub fn calculate_tx_resources<S: StateReader>(
-    resources_manager: ExecutionResources,
+    execution_resources: ExecutionResources,
     validate_call_info: Option<&CallInfo>,
     execute_call_info: Option<&CallInfo>,
     tx_type: TransactionType,
@@ -64,17 +64,17 @@ pub fn calculate_tx_resources<S: StateReader>(
     );
 
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let total_cairo_usage = &resources_manager.vm_resources
-        + &get_additional_os_resources(resources_manager.syscall_counter, tx_type)?;
-    let total_cairo_usage = total_cairo_usage.filter_unused_builtins();
+    let total_vm_usage = &execution_resources.vm_resources
+        + &get_additional_os_resources(execution_resources.syscall_counter, tx_type)?;
+    let total_vm_usage = total_vm_usage.filter_unused_builtins();
     let mut tx_resources = HashMap::from([
         (constants::GAS_USAGE.to_string(), l1_gas_usage),
         (
             constants::N_STEPS_RESOURCE.to_string(),
-            total_cairo_usage.n_steps + total_cairo_usage.n_memory_holes,
+            total_vm_usage.n_steps + total_vm_usage.n_memory_holes,
         ),
     ]);
-    tx_resources.extend(total_cairo_usage.builtin_instance_counter);
+    tx_resources.extend(total_vm_usage.builtin_instance_counter);
 
     Ok(ResourcesMapping(tx_resources))
 }

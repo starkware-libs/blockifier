@@ -254,7 +254,7 @@ impl BlockContext {
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
-            cairo_resource_fee_weights: HashMap::default(),
+            vm_resource_fee_cost: HashMap::default(),
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
@@ -262,7 +262,7 @@ impl BlockContext {
     }
 
     pub fn create_for_account_testing() -> BlockContext {
-        let cairo_resource_fee_weights = HashMap::from([
+        let vm_resource_fee_cost = HashMap::from([
             (String::from("n_steps"), 1_f64),
             (String::from("pedersen_builtin"), 1_f64),
             (String::from("range_check_builtin"), 1_f64),
@@ -272,7 +272,7 @@ impl BlockContext {
             (String::from("output_builtin"), 1_f64),
             (String::from("ec_op_builtin"), 1_f64),
         ]);
-        BlockContext { cairo_resource_fee_weights, ..BlockContext::create_for_testing() }
+        BlockContext { vm_resource_fee_cost, ..BlockContext::create_for_testing() }
     }
 }
 

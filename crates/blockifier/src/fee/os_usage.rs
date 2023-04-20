@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::Deserialize;
 
 use crate::execution::syscall_handling::SyscallCounter;
@@ -17,10 +17,10 @@ pub mod test;
 pub struct OsResources {
     // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
     // steps).
-    execute_syscalls: HashMap<SyscallSelector, ExecutionResources>,
+    execute_syscalls: HashMap<SyscallSelector, VmExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
-    execute_txs_inner: HashMap<TransactionType, ExecutionResources>,
+    execute_txs_inner: HashMap<TransactionType, VmExecutionResources>,
 }
 
 /// Calculates the additional resources needed for the OS to run the given syscalls;
@@ -28,14 +28,14 @@ pub struct OsResources {
 pub fn get_additional_os_resources(
     syscall_counter: SyscallCounter,
     tx_type: TransactionType,
-) -> Result<ExecutionResources, TransactionExecutionError> {
-    let mut os_additional_resources = ExecutionResources::default();
+) -> Result<VmExecutionResources, TransactionExecutionError> {
+    let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
             OS_RESOURCES.execute_syscalls.get(&syscall_selector).unwrap_or_else(|| {
                 panic!("OS resources of syscall '{:?}' are unknown.", syscall_selector)
             });
-        os_additional_resources += &(syscall_resources * count);
+        os_additional_vm_resources += &(syscall_resources * count);
     }
 
     // Calculates the additional resources needed for the OS to run the given transaction;
@@ -46,5 +46,5 @@ pub fn get_additional_os_resources(
         .execute_txs_inner
         .get(&tx_type)
         .expect("OS_RESOURCES must contain all transaction types.");
-    Ok(&os_additional_resources + os_resources)
+    Ok(&os_additional_vm_resources + os_resources)
 }
