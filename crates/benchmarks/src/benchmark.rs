@@ -8,10 +8,10 @@ use benchmarks::ContractMap;
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::papyrus_state::PapyrusStateReader;
+// use blockifier::state::papyrus_state::PapyrusStateReader;
 // use blockifier::state::state_api::State;
 use blockifier::test_utils::{
-    get_contract_class, ACCOUNT_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    get_contract_class, DictStateReader, ACCOUNT_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -19,7 +19,7 @@ use clap::Parser;
 // use indexmap::IndexMap;
 use papyrus_storage::db::DbConfig;
 // use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
-use papyrus_storage::state::StateStorageReader;
+// use papyrus_storage::state::StateStorageReader;
 use papyrus_storage::{open_storage, StorageReader, StorageWriter};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, PatriciaKey};
@@ -59,11 +59,11 @@ fn main() -> anyhow::Result<()> {
     let contracts_contents = fs::read_to_string(contracts_path).unwrap();
     let mut contracts: ContractMap = serde_json::from_str(&contracts_contents).unwrap();
 
-    let (storage_reader, mut _storage_writer) = get_test_storage();
-    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    // let (storage_reader, mut _storage_writer) = get_test_storage();
+    // let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
 
-    let mut class_cache =
-        HashMap::from([(test_account_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH))]);
+    // let mut class_cache =
+    //     HashMap::from([(test_account_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH))]);
 
     let mut n_txs = 0;
     let mut blocks = vec![];
@@ -78,17 +78,29 @@ fn main() -> anyhow::Result<()> {
         let block = starknet_api::block::Block::try_from(block).unwrap();
         blocks.push(block);
     }
+    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let class_hash_to_class =
+        HashMap::from([(test_account_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH))]);
+    // Deploy the erc20 contract.
+    let address_to_class_hash = HashMap::from([(
+        ContractAddress(PatriciaKey::try_from(stark_felt!("0x1")).unwrap()),
+        test_account_class_hash,
+    )]);
+
+    let dict_state_reader =
+        DictStateReader { address_to_class_hash, class_hash_to_class, ..Default::default() };
+    let mut state = CachedState::new(dict_state_reader);
+
     let start = Instant::now();
     for (_i, block) in blocks.into_iter().enumerate() {
         println!("Work Block: {}", block.header.block_number);
 
         // let mut declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
         // Default::default();
-        let storage_tx = storage_reader.begin_ro_txn()?;
-        let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader =
-            PapyrusStateReader::new(state_reader, block.header.block_number, class_cache);
-        let mut state = CachedState::new(papyrus_reader);
+        // let storage_tx = storage_reader.begin_ro_txn()?;
+        // let state_reader = storage_tx.get_state_reader()?;
+        // let papyrus_reader =
+        //     PapyrusStateReader::new(state_reader, block.header.block_number, class_cache);
 
         let cairo_resource_fee_weights = HashMap::from([
             (String::from("n_steps"), 0.01),
@@ -145,7 +157,7 @@ fn main() -> anyhow::Result<()> {
         //     .append_state_diff(block.header.block_number, state_diff, IndexMap::default())?
         //     .commit()?;
 
-        class_cache = state.state.class_cache;
+        // class_cache = state.state.class_cache;
     }
 
     println!("n_txs: {n_txs}, elapsed:{}", start.elapsed().as_secs_f32());
