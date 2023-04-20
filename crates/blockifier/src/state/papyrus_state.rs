@@ -1,14 +1,17 @@
-use std::sync::Arc;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 use papyrus_storage::db::TransactionKind;
 use starknet_api::block::BlockNumber;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::state::{StateNumber, StorageKey};
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult};
+use crate::test_utils::TEST_ACCOUNT_CONTRACT_CLASS_HASH;
 
 #[cfg(test)]
 #[path = "papyrus_state_test.rs"]
@@ -20,11 +23,16 @@ pub struct PapyrusStateReader<'env, Mode: TransactionKind> {
     pub reader: RawPapyrusStateReader<'env, Mode>,
     // Invariant: Read-Only.
     latest_block: BlockNumber,
+    pub class_cache: HashMap<ClassHash, ContractClass>,
 }
 
 impl<'env, Mode: TransactionKind> PapyrusStateReader<'env, Mode> {
-    pub fn new(reader: RawPapyrusStateReader<'env, Mode>, latest_block: BlockNumber) -> Self {
-        Self { reader, latest_block }
+    pub fn new(
+        reader: RawPapyrusStateReader<'env, Mode>,
+        latest_block: BlockNumber,
+        class_cache: HashMap<ClassHash, ContractClass>,
+    ) -> Self {
+        Self { reader, latest_block, class_cache }
     }
 
     pub fn latest_block(&self) -> &BlockNumber {
@@ -57,7 +65,15 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
         let state_number = StateNumber(*self.latest_block());
         match self.reader.get_class_hash_at(state_number, &contract_address) {
             Ok(Some(class_hash)) => Ok(class_hash),
-            Ok(None) => Ok(ClassHash::default()),
+            Ok(None) => {
+                if contract_address
+                    == ContractAddress(PatriciaKey::try_from(stark_felt!("0x1")).unwrap())
+                {
+                    Ok(ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH)))
+                } else {
+                    Ok(ClassHash::default())
+                }
+            }
             Err(err) => Err(StateError::StateReadError(err.to_string())),
         }
     }
@@ -65,14 +81,20 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
     fn get_contract_class(
         &mut self,
         class_hash: &starknet_api::core::ClassHash,
-    ) -> StateResult<Arc<ContractClass>> {
+    ) -> StateResult<ContractClass> {
         let state_number = StateNumber(*self.latest_block());
-        match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
-            Ok(Some(starknet_api_contract_class)) => {
-                Ok(Arc::from(ContractClass::try_from(starknet_api_contract_class)?))
+        match self.class_cache.entry(*class_hash) {
+            Entry::Occupied(contract_class) => Ok(contract_class.get().clone()),
+            Entry::Vacant(entry) => {
+                match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
+                    Ok(Some(starknet_api_contract_class)) => {
+                        let contract_class = ContractClass::try_from(starknet_api_contract_class)?;
+                        Ok(entry.insert(contract_class).clone())
+                    }
+                    Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
+                    Err(err) => Err(StateError::StateReadError(err.to_string())),
+                }
             }
-            Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
         }
     }
 }

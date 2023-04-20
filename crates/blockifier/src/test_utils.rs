@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::iter::zip;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -108,10 +107,10 @@ impl StateReader for DictStateReader {
         Ok(nonce)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
+    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
-            Some(contract_class) => Ok(Arc::from(contract_class)),
+            Some(contract_class) => Ok(contract_class),
             None => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
