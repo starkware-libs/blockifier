@@ -12,7 +12,6 @@ use blockifier::test_utils::{
 };
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
-use clap::Parser;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
@@ -20,12 +19,11 @@ use starknet_client::Block;
 
 /// Command line args parser.
 /// Exits with 0/1 if the input is formatted correctly/incorrectly.
-#[derive(Parser, Debug)]
-#[clap(version, verbatim_doc_comment)]
-struct Args {
-    /// The crate to benchmark file.
-    path: PathBuf,
-}
+// #[derive(Debug)]
+// struct Args {
+//     /// The crate to benchmark file.
+//     path: PathBuf,
+// }
 
 fn main() -> anyhow::Result<()> {
     // let args = Args::parse();
@@ -48,7 +46,7 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     });
 
-    for i in 0..565 {
+    for i in 0..300 {
         println!("Block: {i}");
         let block_path = PathBuf::from(format!("/home/gc/workspace/starkware/tmp/{i}.json"));
         let block_contents = fs::read_to_string(block_path).unwrap();
