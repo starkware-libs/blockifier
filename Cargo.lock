@@ -407,7 +407,7 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 [[package]]
 name = "cairo-felt"
 version = "0.3.0-rc1"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#14cee591ddba720917ba199c718165c635e5db06"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=a8d06a2f3a51114204a396e92fefb5318e663314#a8d06a2f3a51114204a396e92fefb5318e663314"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -419,7 +419,7 @@ dependencies = [
 [[package]]
 name = "cairo-take_until_unbalanced"
 version = "0.24.2-rc1"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#14cee591ddba720917ba199c718165c635e5db06"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=a8d06a2f3a51114204a396e92fefb5318e663314#a8d06a2f3a51114204a396e92fefb5318e663314"
 dependencies = [
  "nom",
 ]
@@ -427,7 +427,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.3.0-rc1"
-source = "git+https://github.com/lambdaclass/cairo-rs.git#14cee591ddba720917ba199c718165c635e5db06"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=a8d06a2f3a51114204a396e92fefb5318e663314#a8d06a2f3a51114204a396e92fefb5318e663314"
 dependencies = [
  "anyhow",
  "bincode",
