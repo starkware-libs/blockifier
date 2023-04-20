@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -15,20 +17,30 @@ use crate::execution::execution_utils::sn_api_to_cairo_vm_program;
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
-pub struct ContractClass {
+pub struct ContractClassInner {
     #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
+}
+#[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
+pub struct ContractClass(Arc<ContractClassInner>);
+
+impl Deref for ContractClass {
+    type Target = ContractClassInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl TryFrom<DeprecatedContractClass> for ContractClass {
     type Error = ProgramError;
 
     fn try_from(class: DeprecatedContractClass) -> Result<Self, Self::Error> {
-        Ok(Self {
+        Ok(ContractClass(Arc::new(ContractClassInner {
             program: sn_api_to_cairo_vm_program(class.program)?,
             entry_points_by_type: class.entry_points_by_type,
-        })
+        })))
     }
 }
 

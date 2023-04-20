@@ -230,7 +230,8 @@ pub fn build_tx_executor(
         block_number: BlockNumber,
     ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a, RO>>> {
         let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+        let papyrus_reader =
+            PapyrusStateReader::new(state_reader, block_number, Default::default());
         Ok(CachedState::new(papyrus_reader))
     }
 
