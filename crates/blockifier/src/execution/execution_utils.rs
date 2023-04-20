@@ -421,10 +421,12 @@ pub fn execute_deployment(
     deployed_contract_address: ContractAddress,
     deployer_address: ContractAddress,
     constructor_calldata: Calldata,
+    is_deploy_account_tx: bool,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
     state.set_class_hash_at(deployed_contract_address, class_hash)?;
+    let code_address = if is_deploy_account_tx { None } else { Some(deployed_contract_address) };
     execute_constructor_entry_point(
         state,
         execution_resources,
@@ -432,6 +434,7 @@ pub fn execute_deployment(
         block_context,
         account_tx_context,
         class_hash,
+        code_address,
         deployed_contract_address,
         deployer_address,
         constructor_calldata,

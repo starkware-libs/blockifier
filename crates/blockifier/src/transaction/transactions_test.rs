@@ -108,7 +108,7 @@ fn expected_validate_call_info(
     Some(CallInfo {
         call: CallEntryPoint {
             class_hash: Some(class_hash),
-            code_address: Some(storage_address),
+            code_address: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(entry_point_selector_name),
             calldata,
@@ -138,7 +138,7 @@ fn expected_fee_transfer_call_info(
     let storage_address = block_context.fee_token_address;
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
-        code_address: Some(storage_address),
+        code_address: None,
         entry_point_type: EntryPointType::External,
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
@@ -539,7 +539,7 @@ fn test_deploy_account_tx() {
     let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
             class_hash: Some(expected_account_class_hash),
-            code_address: Some(deployed_account_address),
+            code_address: None,
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,

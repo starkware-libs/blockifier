@@ -423,6 +423,7 @@ pub fn deploy(
         deployer_address_for_calculation,
     )?;
 
+    let is_deploy_account_tx = false;
     let call_info = execute_deployment(
         syscall_handler.state,
         syscall_handler.execution_resources,
@@ -433,6 +434,7 @@ pub fn deploy(
         deployed_contract_address,
         deployer_address,
         request.constructor_calldata,
+        is_deploy_account_tx,
     )?;
     syscall_handler.inner_calls.push(call_info);
 

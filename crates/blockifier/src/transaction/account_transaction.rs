@@ -167,7 +167,7 @@ impl AccountTransaction {
             entry_point_selector: self.validate_entry_point_selector(),
             calldata: self.validate_entrypoint_calldata(),
             class_hash: None,
-            code_address: Some(storage_address),
+            code_address: None,
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
@@ -235,7 +235,7 @@ impl AccountTransaction {
         let storage_address = block_context.fee_token_address;
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
-            code_address: Some(storage_address),
+            code_address: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
