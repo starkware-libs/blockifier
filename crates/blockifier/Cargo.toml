@@ -11,6 +11,7 @@ testing = []
 [dependencies]
 cairo-felt.workspace = true
 cairo-vm.workspace = true
+cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", rev = "b16a151" }
 derive_more.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
