@@ -36,4 +36,4 @@ test-case = "2.2.2"
 thiserror = "1.0.37"
 
 [patch."https://github.com/starkware-libs/starknet-api"]
-starknet_api = { git = "https://github.com/dojoengine/starknet-api", rev = "149097d5b7f5b821161491150a35d5fea612b7d3" }
+starknet_api = { git = "https://github.com/dojoengine/starknet-api", rev = "bc9dc6c24fdcef25771e9547885064116b7b7643" }
