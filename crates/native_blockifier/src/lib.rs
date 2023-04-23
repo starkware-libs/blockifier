@@ -10,8 +10,8 @@ pub mod storage;
 use errors::add_py_exceptions;
 use py_transaction::PyTransactionExecutor;
 use py_transaction_execution_info::{
-    PyCallInfo, PyExecutionResources, PyOrderedEvent, PyOrderedL2ToL1Message,
-    PyTransactionExecutionInfo,
+    PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
+    PyVmExecutionResources,
 };
 use pyo3::prelude::*;
 use storage::Storage;
@@ -26,7 +26,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     pyo3_log::init();
 
     py_module.add_class::<PyCallInfo>()?;
-    py_module.add_class::<PyExecutionResources>()?;
+    py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<PyOrderedEvent>()?;
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;

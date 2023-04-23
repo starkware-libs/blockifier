@@ -8,8 +8,8 @@ use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
-    #[error("Cairo resource names must be contained in fee weights dict.")]
-    CairoResourcesNotContainedInFeeWeights,
+    #[error("Cairo resource names must be contained in fee cost dict.")]
+    CairoResourcesNotContainedInFeeCosts,
     #[error("Contract constructor execution has failed.")]
     ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]

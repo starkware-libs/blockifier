@@ -62,7 +62,7 @@ pub struct PyCallInfo {
     #[pyo3(get)]
     pub retdata: Vec<PyFelt>,
     #[pyo3(get)]
-    pub execution_resources: PyExecutionResources,
+    pub execution_resources: PyVmExecutionResources,
     #[pyo3(get)]
     pub events: Vec<PyOrderedEvent>,
     #[pyo3(get)]
@@ -98,7 +98,7 @@ impl From<CallInfo> for PyCallInfo {
             gas_consumed: PyFelt(StarkFelt::default()),
             failure_flag: PyFelt(StarkFelt::default()),
             retdata: to_py_vec(execution.retdata.0, PyFelt),
-            execution_resources: PyExecutionResources::from(call_info.vm_resources),
+            execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
             events: to_py_vec(execution.events, PyOrderedEvent::from),
             l2_to_l1_messages: to_py_vec(execution.l2_to_l1_messages, PyOrderedL2ToL1Message::from),
             internal_calls: to_py_vec(call_info.inner_calls, PyCallInfo::from),
@@ -157,7 +157,7 @@ impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
 
 #[pyclass]
 #[derive(Clone, Default)]
-pub struct PyExecutionResources {
+pub struct PyVmExecutionResources {
     #[pyo3(get)]
     pub n_steps: usize,
     #[pyo3(get)]
@@ -166,7 +166,7 @@ pub struct PyExecutionResources {
     pub n_memory_holes: usize,
 }
 
-impl From<VmExecutionResources> for PyExecutionResources {
+impl From<VmExecutionResources> for PyVmExecutionResources {
     fn from(vm_resources: VmExecutionResources) -> Self {
         Self {
             n_steps: vm_resources.n_steps,
