@@ -6,8 +6,10 @@ resolver = "2"
 members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.dependencies]
-cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git" , rev = "d545372f"}
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "d545372f" }
+assert_matches = { version = "1.5.0" }
+cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "6e32e71c" }
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "6e32e71c" }
+ctor = "0.2.0"
 derive_more = { version = "0.99.17" }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
@@ -18,15 +20,13 @@ num-integer = { version = "0.1.45" }
 num-traits = { version = "0.2" }
 ouroboros = { version = "0.15.6" }
 papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "48a58ff" }
+phf = { version = "0.11", features = ["macros"] }
+pretty_assertions = { version = "1.2.1" }
 serde = { version = "1.0.130" }
 serde_json = { version = "1.0.81" }
-sha3 = { version = "0.10.6" }                                                              # Should match the commit `papyrus_storage` is using.
+sha3 = { version = "0.10.6" }
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "0029ffe" }
 strum = { version = "0.24.1" }
 strum_macros = { version = "0.24.3" }
-thiserror = { version = "1.0.37" }
-assert_matches = { version = "1.5.0" }
-pretty_assertions = { version = "1.2.1" }
 test-case = { version = "2.2.2" }
-phf = { version = "0.11", features = ["macros"] }
-ctor = "0.2.0"
+thiserror = { version = "1.0.37" }
