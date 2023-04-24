@@ -9,7 +9,6 @@ members = ["crates/blockifier", "crates/native_blockifier"]
 assert_matches = { version = "1.5.0" }
 cairo-felt = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "6e32e71c" }
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "6e32e71c" }
-ctor = "0.2.0"
 derive_more = { version = "0.99.17" }
 hex = { version = "0.4.3" }
 indexmap = { version = "1.9.2" }
@@ -30,3 +29,4 @@ strum = { version = "0.24.1" }
 strum_macros = { version = "0.24.3" }
 test-case = { version = "2.2.2" }
 thiserror = { version = "1.0.37" }
+lazy_static = "1.4.0"

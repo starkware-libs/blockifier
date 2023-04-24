@@ -1,12 +1,14 @@
+use lazy_static::lazy_static;
 use serde_json::json;
 
 use crate::fee::os_usage::OsResources;
 
-#[ctor::ctor]
-pub static OS_RESOURCES: OsResources = {
-    serde_json::from_value(os_resources())
-        .expect("os_resources json does not exist or cannot be deserialized.")
-};
+lazy_static! {
+    pub static ref OS_RESOURCES: OsResources = {
+        serde_json::from_value(os_resources())
+            .expect("os_resources json does not exist or cannot be deserialized.")
+    };
+}
 
 fn os_resources() -> serde_json::Value {
     json!({
