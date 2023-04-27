@@ -4,7 +4,7 @@ use starknet_api::core::{calculate_contract_address, ClassHash, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1, Fee,
-    InvokeTransactionV1,
+    InvokeTransaction, InvokeTransactionV1,
 };
 use starknet_api::{calldata, stark_felt};
 
@@ -92,8 +92,10 @@ fn test_account_flow_test() {
         stark_felt!(1)                     // Constructor calldata: value.
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
-    let account_tx =
-        AccountTransaction::Invoke(InvokeTransactionV1 { nonce: Nonce(stark_felt!(2)), ..tx });
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: Nonce(stark_felt!(2)),
+        ..tx
+    }));
     account_tx.execute(state, block_context).unwrap();
 
     // Calculate the newly deployed contract address
@@ -114,7 +116,9 @@ fn test_account_flow_test() {
         stark_felt!(2)             // Calldata: num.
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
-    let account_tx =
-        AccountTransaction::Invoke(InvokeTransactionV1 { nonce: Nonce(stark_felt!(3)), ..tx });
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: Nonce(stark_felt!(3)),
+        ..tx
+    }));
     account_tx.execute(state, block_context).unwrap();
 }
