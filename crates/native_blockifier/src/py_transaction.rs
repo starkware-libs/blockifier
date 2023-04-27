@@ -22,8 +22,8 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1,
-    DeployAccountTransaction, Fee, InvokeTransactionV1, L1HandlerTransaction, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    DeployAccountTransaction, Fee, InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1,
+    L1HandlerTransaction, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
@@ -143,17 +143,35 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
     })
 }
 
-pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactionV1> {
+pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
     let account_data_context = py_account_data_context(tx)?;
 
-    Ok(InvokeTransactionV1 {
-        transaction_hash: account_data_context.transaction_hash,
-        max_fee: account_data_context.max_fee,
-        signature: account_data_context.signature,
-        nonce: account_data_context.nonce,
-        sender_address: account_data_context.sender_address,
-        calldata: py_calldata(tx, "calldata")?,
-    })
+    let version = usize::try_from(account_data_context.version.0)?;
+    match version {
+        0 => Ok(InvokeTransaction::V0(InvokeTransactionV0 {
+            transaction_hash: account_data_context.transaction_hash,
+            max_fee: account_data_context.max_fee,
+            signature: account_data_context.signature,
+            nonce: account_data_context.nonce,
+            sender_address: account_data_context.sender_address,
+            entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
+            calldata: py_calldata(tx, "calldata")?,
+        })),
+        1 => Ok(InvokeTransaction::V1(InvokeTransactionV1 {
+            transaction_hash: account_data_context.transaction_hash,
+            max_fee: account_data_context.max_fee,
+            signature: account_data_context.signature,
+            nonce: account_data_context.nonce,
+            sender_address: account_data_context.sender_address,
+            calldata: py_calldata(tx, "calldata")?,
+        })),
+        _ => Err(NativeBlockifierError::from(
+            NativeBlockifierInputError::UnsupportedTransactionVersion {
+                tx_type: TransactionType::InvokeFunction,
+                version,
+            },
+        )),
+    }
 }
 
 pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction> {

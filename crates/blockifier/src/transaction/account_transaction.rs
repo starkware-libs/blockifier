@@ -6,7 +6,7 @@ use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransactionV1,
+    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransaction,
     TransactionVersion,
 };
 
@@ -42,7 +42,7 @@ mod test;
 pub enum AccountTransaction {
     Declare(DeclareTransaction, ContractClass),
     DeployAccount(DeployAccountTransaction),
-    Invoke(InvokeTransactionV1),
+    Invoke(InvokeTransaction),
 }
 
 impl AccountTransaction {
@@ -76,7 +76,7 @@ impl AccountTransaction {
                 Calldata(validate_calldata.into())
             }
             // Calldata for validation is the same calldata as for the execution itself.
-            Self::Invoke(tx) => Calldata(tx.calldata.0.clone()),
+            Self::Invoke(tx) => tx.calldata(),
         }
     }
 
@@ -103,20 +103,24 @@ impl AccountTransaction {
                 sender_address: tx.contract_address,
             },
             Self::Invoke(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash,
-                max_fee: tx.max_fee,
-                version: TransactionVersion(StarkFelt::from(1)),
-                signature: tx.signature.clone(),
-                nonce: tx.nonce,
-                sender_address: tx.sender_address,
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: match tx {
+                    InvokeTransaction::V0(_) => TransactionVersion(StarkFelt::from(0)),
+                    InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1)),
+                },
+                signature: tx.signature(),
+                nonce: tx.nonce(),
+                sender_address: tx.sender_address(),
             },
         }
     }
 
     fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
         let allowed_versions: Vec<TransactionVersion> = match self {
-            Self::Declare(_, _) => {
-                // Support old versions in order to allow bootstrapping of a new system.
+            Self::Declare(_, _) | Self::Invoke(_) => {
+                // Support old versions in order to allow bootstrapping of a new system, and
+                // validation of old transactions.
                 vec![TransactionVersion(StarkFelt::from(0)), TransactionVersion(StarkFelt::from(1))]
             }
             _ => vec![TransactionVersion(StarkFelt::from(1))],
