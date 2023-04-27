@@ -63,7 +63,7 @@ pub fn initialize_execution_context<'a>(
     block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
-    let contract_class = state.get_contract_class(&class_hash)?;
+    let contract_class = state.get_compiled_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;

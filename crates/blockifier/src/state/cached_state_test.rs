@@ -138,14 +138,14 @@ fn get_contract_class() {
     let existing_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let mut state = create_test_state();
     assert_eq!(
-        state.get_contract_class(&existing_class_hash).unwrap(),
+        state.get_compiled_class(&existing_class_hash).unwrap(),
         Arc::from(get_test_contract_class())
     );
 
     // Negative flow.
     let missing_class_hash = ClassHash(stark_felt!("0x101"));
     assert_matches!(
-        state.get_contract_class(&missing_class_hash).unwrap_err(),
+        state.get_compiled_class(&missing_class_hash).unwrap_err(),
         StateError::UndeclaredClassHash(undeclared) if undeclared == missing_class_hash
     );
 }

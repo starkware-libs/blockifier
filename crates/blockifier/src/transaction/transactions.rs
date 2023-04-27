@@ -86,12 +86,12 @@ impl<S: State> Executable<S> for DeclareTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.class_hash();
 
-        match state.get_contract_class(&class_hash) {
+        match state.get_compiled_class(&class_hash) {
             Err(StateError::UndeclaredClassHash(_)) => {
                 // Class is undeclared; declare it.
                 state.set_contract_class(
                     &class_hash,
-                    contract_class.expect("Declare transaction must have a contract_class"),
+                    contract_class.expect("Declare transaction must have a contract class"),
                 )?;
 
                 Ok(None)

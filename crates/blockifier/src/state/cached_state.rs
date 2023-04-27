@@ -96,15 +96,18 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*class_hash)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.state.get_contract_class(class_hash)?;
-            self.class_hash_to_class.insert(*class_hash, contract_class);
+    fn get_compiled_class(
+        &mut self,
+        compiled_class_hash: &ClassHash,
+    ) -> StateResult<Arc<ContractClass>> {
+        if !self.class_hash_to_class.contains_key(compiled_class_hash) {
+            let contract_class = self.state.get_compiled_class(compiled_class_hash)?;
+            self.class_hash_to_class.insert(*compiled_class_hash, contract_class);
         }
 
         let contract_class = self
             .class_hash_to_class
-            .get(class_hash)
+            .get(compiled_class_hash)
             .expect("The class hash must appear in the cache.");
         Ok(contract_class.clone())
     }
@@ -318,8 +321,11 @@ impl<'a, S: State> StateReader for MutRefState<'a, S> {
         self.0.get_class_hash_at(contract_address)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
-        self.0.get_contract_class(class_hash)
+    fn get_compiled_class(
+        &mut self,
+        compiled_class_hash: &ClassHash,
+    ) -> StateResult<Arc<ContractClass>> {
+        self.0.get_compiled_class(compiled_class_hash)
     }
 }
 

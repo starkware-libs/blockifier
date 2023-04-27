@@ -107,11 +107,14 @@ impl StateReader for DictStateReader {
         Ok(nonce)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
-        let contract_class = self.class_hash_to_class.get(class_hash).cloned();
+    fn get_compiled_class(
+        &mut self,
+        compiled_class_hash: &ClassHash,
+    ) -> StateResult<Arc<ContractClass>> {
+        let contract_class = self.class_hash_to_class.get(compiled_class_hash).cloned();
         match contract_class {
             Some(contract_class) => Ok(Arc::from(contract_class)),
-            None => Err(StateError::UndeclaredClassHash(*class_hash)),
+            None => Err(StateError::UndeclaredClassHash(*compiled_class_hash)),
         }
     }
 
@@ -124,7 +127,7 @@ impl StateReader for DictStateReader {
 
 pub fn pad_address_to_64(address: &str) -> String {
     let trimmed_address = address.strip_prefix("0x").unwrap_or(address);
-    String::from("0x") + format!("{:0>64}", trimmed_address).as_str()
+    String::from("0x") + format!("{trimmed_address:0>64}").as_str()
 }
 
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
