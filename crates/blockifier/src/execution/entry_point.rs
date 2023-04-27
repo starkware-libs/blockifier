@@ -36,7 +36,7 @@ pub enum CallType {
 pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
-    // Optional, since there is no address to the code implementation in a library call.
+    // Optional, since there is no address to the code implementation in a library call
     // and for outermost calls (triggered by the transaction itself).
     // TODO: BACKWARD-COMPATIBILITY.
     pub code_address: Option<ContractAddress>,
@@ -285,7 +285,7 @@ pub fn execute_constructor_entry_point(
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_contract_class(&class_hash)?;
+    let contract_class = state.get_compiled_class(&class_hash)?;
     let constructor_entry_points =
         &contract_class.entry_points_by_type[&EntryPointType::Constructor];
 

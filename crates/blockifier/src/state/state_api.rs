@@ -32,7 +32,10 @@ pub trait StateReader {
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash>;
 
     /// Returns the contract class of the given class hash.
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>>;
+    fn get_compiled_class(
+        &mut self,
+        compiled_class_hash: &ClassHash,
+    ) -> StateResult<Arc<ContractClass>>;
 }
 
 /// A class defining the API for writing to StarkNet global state.
