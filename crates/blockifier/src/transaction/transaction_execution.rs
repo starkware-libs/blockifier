@@ -43,8 +43,8 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let l1_handler_payload_size = Some(self.calldata.0.len() - 1);
         let actual_resources = calculate_tx_resources(
             execution_resources,
-            execute_call_info.as_ref(),
             validate_call_info,
+            execute_call_info.as_ref(),
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,

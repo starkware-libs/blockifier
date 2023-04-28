@@ -336,8 +336,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         //  Handle fee.
         let actual_resources = calculate_tx_resources(
             execution_resources,
-            execute_call_info.as_ref(),
             validate_call_info.as_ref(),
+            execute_call_info.as_ref(),
             tx_type,
             state,
             None,
