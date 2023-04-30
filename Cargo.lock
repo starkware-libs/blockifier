@@ -1597,7 +1597,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus?rev=48a58ff#48a58ffee548f1cfd922ec6ba421b71f361ea387"
+source = "git+https://github.com/starkware-libs/papyrus?rev=b679961#b6799619d7236b527272e8a81b79ed050ea8762d"
 dependencies = [
  "byteorder",
  "flate2",
@@ -2524,7 +2524,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=0029ffe#0029ffeac77b3ca9f235f5161a91dde987af3221"
+source = "git+https://github.com/starkware-libs/starknet-api?rev=2bea163#2bea163405a40a26e2a0cf7bed1eb3c138bf4095"
 dependencies = [
  "derive_more",
  "hex",
@@ -2640,7 +2640,7 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus?rev=48a58ff#48a58ffee548f1cfd922ec6ba421b71f361ea387"
+source = "git+https://github.com/starkware-libs/papyrus?rev=b679961#b6799619d7236b527272e8a81b79ed050ea8762d"
 dependencies = [
  "indexmap",
  "rand",

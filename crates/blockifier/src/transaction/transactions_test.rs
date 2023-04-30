@@ -12,7 +12,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeclareTransactionV0V1, DeployAccountTransaction, EventContent,
-    EventData, EventKey, Fee, InvokeTransactionV1, TransactionSignature,
+    EventData, EventKey, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -245,7 +245,7 @@ fn test_invoke_tx() {
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata.0));
     let sender_address = invoke_tx.sender_address;
 
-    let account_tx = AccountTransaction::Invoke(invoke_tx);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
     let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
@@ -354,10 +354,10 @@ fn test_negative_invoke_tx_flows() {
 
     // Insufficient fee.
     let invalid_max_fee = Fee(1);
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransactionV1 {
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
-    });
+    }));
     let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
 
     // Test error.
@@ -370,8 +370,10 @@ fn test_negative_invoke_tx_flows() {
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
     let invalid_nonce = Nonce(stark_felt!(1));
-    let invalid_tx =
-        AccountTransaction::Invoke(InvokeTransactionV1 { nonce: invalid_nonce, ..valid_invoke_tx });
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: invalid_nonce,
+        ..valid_invoke_tx
+    }));
     let execution_error = invalid_tx
         .execute(&mut create_state_with_trivial_validation_account(), block_context)
         .unwrap_err();
@@ -648,7 +650,7 @@ fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(signature),
             );
-            AccountTransaction::Invoke(invoke_tx)
+            AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx))
         }
         TransactionType::L1Handler => unimplemented!(),
     }
