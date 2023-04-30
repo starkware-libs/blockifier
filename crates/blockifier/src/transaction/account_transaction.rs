@@ -335,16 +335,13 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                 )?;
             }
         };
-
+        let call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&CallInfo>>();
         //  Handle fee.
-        let actual_resources = calculate_tx_resources(
-            execution_resources,
-            validate_call_info.as_ref(),
-            execute_call_info.as_ref(),
-            tx_type,
-            state,
-            None,
-        )?;
+        let actual_resources =
+            calculate_tx_resources(execution_resources, &call_infos, tx_type, state, None)?;
 
         // Charge fee.
         let (actual_fee, fee_transfer_call_info) =
