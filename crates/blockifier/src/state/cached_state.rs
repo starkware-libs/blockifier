@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
@@ -28,12 +28,16 @@ pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
-    class_hash_to_class: ContractClassMapping,
+    class_hash_to_compiled_class: ContractClassMapping,
 }
 
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
-        Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+        Self {
+            state,
+            cache: StateCache::default(),
+            class_hash_to_compiled_class: HashMap::default(),
+        }
     }
 
     /// Returns the number of storage changes done through this state.
@@ -97,16 +101,29 @@ impl<S: StateReader> StateReader for CachedState<S> {
     }
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
+        if !self.class_hash_to_compiled_class.contains_key(class_hash) {
             let contract_class = self.state.get_contract_class(class_hash)?;
-            self.class_hash_to_class.insert(*class_hash, contract_class);
+            self.class_hash_to_compiled_class.insert(*class_hash, contract_class);
         }
 
         let contract_class = self
-            .class_hash_to_class
+            .class_hash_to_compiled_class
             .get(class_hash)
             .expect("The class hash must appear in the cache.");
         Ok(contract_class.clone())
+    }
+
+    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        if self.cache.get_compiled_class_hash(class_hash).is_none() {
+            let compiled_class_hash = self.state.get_compiled_class_hash(class_hash)?;
+            self.cache.set_compiled_class_hash_initial_value(class_hash, compiled_class_hash);
+        }
+
+        let compiled_class_hash = self
+            .cache
+            .get_compiled_class_hash(class_hash)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
+        Ok(*compiled_class_hash)
     }
 }
 
@@ -153,7 +170,7 @@ impl<S: StateReader> State for CachedState<S> {
         class_hash: &ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        self.class_hash_to_class.insert(*class_hash, Arc::from(contract_class));
+        self.class_hash_to_compiled_class.insert(*class_hash, Arc::from(contract_class));
         Ok(())
     }
 
@@ -176,6 +193,15 @@ impl<S: StateReader> State for CachedState<S> {
             nonces: IndexMap::from_iter(nonces),
             replaced_classes: IndexMap::new(),
         }
+    }
+
+    fn set_compiled_class_hash(
+        &mut self,
+        class_hash: ClassHash,
+        compiled_class_hash: CompiledClassHash,
+    ) -> StateResult<()> {
+        self.cache.set_compiled_class_hash_write(class_hash, compiled_class_hash);
+        Ok(())
     }
 }
 
@@ -210,11 +236,13 @@ struct StateCache {
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
     class_hash_writes: HashMap<ContractAddress, ClassHash>,
     storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+    compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
 }
 
 impl StateCache {
@@ -281,6 +309,28 @@ impl StateCache {
         self.class_hash_writes.insert(contract_address, class_hash);
     }
 
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> Option<&CompiledClassHash> {
+        self.compiled_class_hash_writes
+            .get(&class_hash)
+            .or_else(|| self.compiled_class_hash_initial_values.get(&class_hash))
+    }
+
+    fn set_compiled_class_hash_initial_value(
+        &mut self,
+        class_hash: ClassHash,
+        compiled_class_hash: CompiledClassHash,
+    ) {
+        self.compiled_class_hash_initial_values.insert(class_hash, compiled_class_hash);
+    }
+
+    fn set_compiled_class_hash_write(
+        &mut self,
+        class_hash: ClassHash,
+        compiled_class_hash: CompiledClassHash,
+    ) {
+        self.compiled_class_hash_writes.insert(class_hash, compiled_class_hash);
+    }
+
     fn get_storage_updates(&self) -> HashMap<ContractStorageKey, StarkFelt> {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
@@ -321,6 +371,10 @@ impl<'a, S: State> StateReader for MutRefState<'a, S> {
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<Arc<ContractClass>> {
         self.0.get_contract_class(class_hash)
     }
+
+    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        self.0.get_compiled_class_hash(class_hash)
+    }
 }
 
 impl<'a, S: State> State for MutRefState<'a, S> {
@@ -356,6 +410,14 @@ impl<'a, S: State> State for MutRefState<'a, S> {
     fn to_state_diff(&self) -> StateDiff {
         self.0.to_state_diff()
     }
+
+    fn set_compiled_class_hash(
+        &mut self,
+        class_hash: ClassHash,
+        compiled_class_hash: CompiledClassHash,
+    ) -> StateResult<()> {
+        self.0.set_compiled_class_hash(class_hash, compiled_class_hash)
+    }
 }
 
 /// Adds the ability to perform a transactional execution.
@@ -368,7 +430,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.nonce_writes.extend(child_cache.nonce_writes);
         parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
         parent_cache.storage_writes.extend(child_cache.storage_writes);
-        self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
+        self.state.0.class_hash_to_compiled_class.extend(self.class_hash_to_compiled_class);
     }
 
     /// Drops `self`.

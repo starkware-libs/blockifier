@@ -21,7 +21,7 @@ fn set_initial_state_values(
 ) {
     assert!(state.cache == StateCache::default(), "Cache already initialized.");
 
-    state.class_hash_to_class = class_hash_to_class;
+    state.class_hash_to_compiled_class = class_hash_to_class;
     state.cache.class_hash_initial_values.extend(class_hash_initial_values);
     state.cache.nonce_initial_values.extend(nonce_initial_values);
     state.cache.storage_initial_values.extend(storage_initial_values);

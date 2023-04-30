@@ -74,4 +74,11 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
             Err(err) => Err(StateError::StateReadError(err.to_string())),
         }
     }
+
+    fn get_compiled_class_hash(
+        &mut self,
+        _class_hash: ClassHash,
+    ) -> StateResult<starknet_api::core::CompiledClassHash> {
+        todo!()
+    }
 }
