@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
