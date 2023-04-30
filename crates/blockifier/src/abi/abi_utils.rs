@@ -1,4 +1,4 @@
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use num_integer::Integer;
 use sha3::{Digest, Keccak256};
 use starknet_api::core::{EntryPointSelector, L2_ADDRESS_UPPER_BOUND};

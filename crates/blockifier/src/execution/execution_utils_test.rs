@@ -1,6 +1,6 @@
 use std::iter::zip;
 
-use cairo_felt::Felt252;
+use cairo_vm::felt::Felt252;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use pretty_assertions::assert_eq;
