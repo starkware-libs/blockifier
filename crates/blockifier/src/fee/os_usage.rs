@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::Deserialize;
 
-use crate::execution::syscall_handling::SyscallCounter;
-use crate::execution::syscalls::SyscallSelector;
+use crate::execution::deprecated_syscall_hint_processor::SyscallCounter;
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
@@ -17,7 +17,7 @@ pub mod test;
 pub struct OsResources {
     // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
     // steps).
-    execute_syscalls: HashMap<SyscallSelector, VmExecutionResources>,
+    execute_syscalls: HashMap<DeprecatedSyscallSelector, VmExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
     execute_txs_inner: HashMap<TransactionType, VmExecutionResources>,
