@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
-    PatriciaKey,
+    calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
+    EntryPointSelector, Nonce, PatriciaKey,
 };
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
@@ -89,6 +89,7 @@ pub struct DictStateReader {
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
+    pub class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
 }
 
 impl StateReader for DictStateReader {
@@ -119,6 +120,15 @@ impl StateReader for DictStateReader {
         let class_hash =
             self.address_to_class_hash.get(&contract_address).copied().unwrap_or_default();
         Ok(class_hash)
+    }
+
+    fn get_compiled_class_hash(
+        &mut self,
+        class_hash: ClassHash,
+    ) -> StateResult<starknet_api::core::CompiledClassHash> {
+        let compiled_class_hash =
+            self.class_hash_to_compiled_class_hash.get(&class_hash).copied().unwrap_or_default();
+        Ok(compiled_class_hash)
     }
 }
 
