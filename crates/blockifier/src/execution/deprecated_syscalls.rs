@@ -49,6 +49,7 @@ pub enum DeprecatedSyscallSelector {
     GetTxSignature,
     LibraryCall,
     LibraryCallL1Handler,
+    ReplaceClass,
     SendMessageToL1,
     StorageRead,
     StorageWrite,
@@ -76,6 +77,7 @@ impl TryFrom<StarkFelt> for DeprecatedSyscallSelector {
             b"GetTxSignature" => Ok(Self::GetTxSignature),
             b"LibraryCall" => Ok(Self::LibraryCall),
             b"LibraryCallL1Handler" => Ok(Self::LibraryCallL1Handler),
+            b"ReplaceClass" => Ok(Self::ReplaceClass),
             b"SendMessageToL1" => Ok(Self::SendMessageToL1),
             b"StorageRead" => Ok(Self::StorageRead),
             b"StorageWrite" => Ok(Self::StorageWrite),
@@ -443,6 +445,37 @@ pub fn deploy(
     Ok(DeployResponse { contract_address: deployed_contract_address })
 }
 
+// ReplaceClass syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ReplaceClassRequest {
+    pub class_hash: ClassHash,
+}
+
+impl SyscallRequest for ReplaceClassRequest {
+    const SIZE: usize = 1;
+
+    fn read(vm: &VirtualMachine, ptr: Relocatable) -> DeprecatedSyscallResult<ReplaceClassRequest> {
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+
+        Ok(ReplaceClassRequest { class_hash })
+    }
+}
+
+pub type ReplaceClassResponse = EmptyResponse;
+
+pub fn replace_class(
+    request: ReplaceClassRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
+) -> DeprecatedSyscallResult<ReplaceClassResponse> {
+    // Ensure the class is declared (by reading it).
+    let _contract_class = syscall_handler.state.get_contract_class(&request.class_hash)?;
+    syscall_handler.state.set_class_hash_at(syscall_handler.storage_address, request.class_hash)?;
+
+    Ok(ReplaceClassResponse {})
+}
+
 // EmitEvent syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -468,7 +501,7 @@ pub fn emit_event(
     request: EmitEventRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
-) -> DeprecatedSyscallResult<EmptyResponse> {
+) -> DeprecatedSyscallResult<EmitEventResponse> {
     let mut execution_context = &mut syscall_handler.execution_context;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
@@ -506,7 +539,7 @@ pub fn send_message_to_l1(
     request: SendMessageToL1Request,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
-) -> DeprecatedSyscallResult<EmptyResponse> {
+) -> DeprecatedSyscallResult<SendMessageToL1Response> {
     let mut execution_context = &mut syscall_handler.execution_context;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
         order: execution_context.n_sent_messages_to_l1,
