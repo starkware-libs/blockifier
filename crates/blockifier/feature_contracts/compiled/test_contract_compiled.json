@@ -222,6 +222,17 @@
                 {
                     "name": "class_hash",
                     "type": "felt"
+                }
+            ],
+            "name": "test_replace_class",
+            "outputs": [],
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "name": "class_hash",
+                    "type": "felt"
                 },
                 {
                     "name": "contract_address_salt",
@@ -297,65 +308,69 @@
     "entry_points_by_type": {
         "CONSTRUCTOR": [
             {
-                "offset": 290,
+                "offset": 297,
                 "selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
             }
         ],
         "EXTERNAL": [
             {
-                "offset": 376,
+                "offset": 383,
                 "selector": "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95"
             },
             {
-                "offset": 325,
+                "offset": 645,
+                "selector": "0xe7510edcf6e9f1b70f7bd1f488767b50f0363422f3c563160ab77adf62467b"
+            },
+            {
+                "offset": 332,
                 "selector": "0xe7def693d16806ca2a2f398d8de5951344663ba77f340ed7a958da731872fc"
             },
             {
-                "offset": 477,
+                "offset": 484,
                 "selector": "0x120c24672855cfe872cb35256ea85172417f2aada7a22c15908906dc5f3c69d"
             },
             {
-                "offset": 400,
+                "offset": 407,
                 "selector": "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309"
             },
             {
-                "offset": 651,
+                "offset": 680,
                 "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f"
             },
             {
-                "offset": 770,
+                "offset": 799,
                 "selector": "0x1b1a0649752af1b28b3dc29a1556eee781e4a4c3a1f7f53f90fa834de098c4d"
             },
             {
-                "offset": 608,
+                "offset": 615,
                 "selector": "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"
             },
             {
-                "offset": 498,
+                "offset": 505,
                 "selector": "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50"
             },
             {
-                "offset": 702,
+                "offset": 731,
                 "selector": "0x36fa6de2810d05c3e1a0ebe23f60b9c2f4629bbead09e5a9704e1c5632630d5"
             },
             {
-                "offset": 737,
+                "offset": 766,
                 "selector": "0x38215592552d97419658d30db8f189b242ec2056641de3dff8a7217745ec205"
             },
             {
-                "offset": 309,
+                "offset": 316,
                 "selector": "0x382a967a31be13f23e23a5345f7a89b0362cc157d6fbe7564e6396a83cf4b4f"
             },
             {
-                "offset": 352,
+                "offset": 359,
                 "selector": "0x39a1491f76903a16feed0a6433bec78de4c73194944e1118e226820ad479701"
             },
             {
-                "offset": 570,
+                "offset": 577,
                 "selector": "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331"
             },
             {
-                "offset": 435,
+                "offset": 442,
                 "selector": "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97"
             }
         ],
@@ -435,6 +450,13 @@
             "0x3",
             "0x208b7fff7fff7ffe",
             "0x480680017fff8000",
+            "0x5265706c616365436c617373",
+            "0x400280007ffc7fff",
+            "0x400380017ffc7ffd",
+            "0x482680017ffc8000",
+            "0x2",
+            "0x208b7fff7fff7ffe",
+            "0x480680017fff8000",
             "0x3ffffffffffffffffffffffffffffff",
             "0x480280017ffc8000",
             "0x48307fff80007ffe",
@@ -490,7 +512,7 @@
             "0x40780017fff7fff",
             "0x2",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff90",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff89",
             "0x400780017fff8000",
             "0x0",
             "0x400780017fff8001",
@@ -506,7 +528,7 @@
             "0x1104800180018000",
             "0x2b",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff80",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff79",
             "0x40137ffd7fff8000",
             "0x480280017ffb8000",
             "0x40297ffd7fff8001",
@@ -519,9 +541,9 @@
             "0x480280007ffc8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff6d",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff66",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff71",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff6a",
             "0x40137ffd7fff8000",
             "0x480280017ffc8000",
             "0x402580017fff8001",
@@ -544,7 +566,7 @@
             "0x480280007ffd8000",
             "0x480280017ffd8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff54",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff4d",
             "0x208b7fff7fff7ffe",
             "0x20780017fff7ffc",
             "0x5",
@@ -618,7 +640,7 @@
             "0x391a88f3badec8650b4d8356e18655269ee975e58e0060aa076396ce0b1dccb",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff0a",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff03",
             "0x480a7ffc7fff8000",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
@@ -635,7 +657,7 @@
             "0x480a7ffa7fff8000",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff29",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff22",
             "0x48127ffe7fff8000",
             "0x48127ff57fff8000",
             "0x48127ff57fff8000",
@@ -650,7 +672,7 @@
             "0x48127ffe7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff22",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff1b",
             "0x48127ff67fff8000",
             "0x48127ff67fff8000",
             "0x208b7fff7fff7ffe",
@@ -658,7 +680,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff1a",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff13",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
             "0x2",
@@ -791,10 +813,10 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe95",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe8e",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe8a",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe83",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -866,7 +888,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe2a",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe23",
             "0x208b7fff7fff7ffe",
             "0x480280027ffb8000",
             "0x480280027ffd8000",
@@ -908,7 +930,7 @@
             "0x482480017ffb8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdef",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffde8",
             "0x482480017fff8000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffc",
             "0x40137fff7fff8000",
@@ -919,14 +941,14 @@
             "0x5",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdf5",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdee",
             "0x48127ffd7fff8000",
             "0x480a7ff97fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdee",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffde7",
             "0x48127ffd7fff8000",
             "0x480680017fff8000",
             "0x0",
@@ -976,7 +998,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdb0",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffda9",
             "0x208b7fff7fff7ffe",
             "0x480280027ffb8000",
             "0x480280027ffd8000",
@@ -1003,6 +1025,28 @@
             "0x48127ff97fff8000",
             "0x48127ff97fff8000",
             "0x208b7fff7fff7ffe",
+            "0x480a7ffc7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdbf",
+            "0x208b7fff7fff7ffe",
+            "0x482680017ffd8000",
+            "0x1",
+            "0x402a7ffd7ffc7fff",
+            "0x480280007ffb8000",
+            "0x480280007ffd8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff7",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x48127ffe7fff8000",
+            "0x480280017ffb8000",
+            "0x480280027ffb8000",
+            "0x480280037ffb8000",
+            "0x480680017fff8000",
+            "0x0",
+            "0x48127ffa7fff8000",
+            "0x208b7fff7fff7ffe",
             "0x480a7ff87fff8000",
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
@@ -1010,7 +1054,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffda6",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffd89",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -1061,11 +1105,11 @@
             "0x480680017fff8000",
             "0x27",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe5e",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe48",
             "0x480680017fff8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe4c",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe36",
             "0x400680017fff7fff",
             "0x27",
             "0x48127ffc7fff8000",
@@ -1096,7 +1140,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffe00",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffdea",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -1246,7 +1290,25 @@
                     }
                 }
             ],
-            "64": [
+            "68": [
+                {
+                    "accessible_scopes": [
+                        "starkware.starknet.common.syscalls",
+                        "starkware.starknet.common.syscalls.replace_class"
+                    ],
+                    "code": "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 8,
+                            "offset": 1
+                        },
+                        "reference_ids": {
+                            "starkware.starknet.common.syscalls.replace_class.syscall_ptr": 5
+                        }
+                    }
+                }
+            ],
+            "71": [
                 {
                     "accessible_scopes": [
                         "starkware.cairo.common.math",
@@ -1255,18 +1317,18 @@
                     "code": "from starkware.cairo.common.math_utils import as_int\n\n# Correctness check.\nvalue = as_int(ids.value, PRIME) % PRIME\nassert value < ids.UPPER_BOUND, f'{value} is outside of the range [0, 2**250).'\n\n# Calculation for the assertion.\nids.high, ids.low = divmod(ids.value, ids.SHIFT)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 8,
+                            "group": 9,
                             "offset": 0
                         },
                         "reference_ids": {
-                            "starkware.cairo.common.math.assert_250_bit.high": 7,
-                            "starkware.cairo.common.math.assert_250_bit.low": 6,
-                            "starkware.cairo.common.math.assert_250_bit.value": 5
+                            "starkware.cairo.common.math.assert_250_bit.high": 8,
+                            "starkware.cairo.common.math.assert_250_bit.low": 7,
+                            "starkware.cairo.common.math.assert_250_bit.value": 6
                         }
                     }
                 }
             ],
-            "79": [
+            "86": [
                 {
                     "accessible_scopes": [
                         "starkware.starknet.common.storage",
@@ -1275,17 +1337,17 @@
                     "code": "# Verify the assumptions on the relationship between 2**250, ADDR_BOUND and PRIME.\nADDR_BOUND = ids.ADDR_BOUND % PRIME\nassert (2**250 < ADDR_BOUND <= 2**251) and (2 * 2**250 < PRIME) and (\n        ADDR_BOUND * 2 > PRIME), \\\n    'normalize_address() cannot be used with the current constants.'\nids.is_small = 1 if ids.addr < ADDR_BOUND else 0",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 9,
+                            "group": 10,
                             "offset": 1
                         },
                         "reference_ids": {
-                            "starkware.starknet.common.storage.normalize_address.addr": 8,
-                            "starkware.starknet.common.storage.normalize_address.is_small": 9
+                            "starkware.starknet.common.storage.normalize_address.addr": 9,
+                            "starkware.starknet.common.storage.normalize_address.is_small": 10
                         }
                     }
                 }
             ],
-            "97": [
+            "104": [
                 {
                     "accessible_scopes": [
                         "starkware.starknet.common.storage",
@@ -1294,17 +1356,17 @@
                     "code": "ids.is_250 = 1 if ids.addr < 2**250 else 0",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 9,
+                            "group": 10,
                             "offset": 2
                         },
                         "reference_ids": {
-                            "starkware.starknet.common.storage.normalize_address.addr": 8,
-                            "starkware.starknet.common.storage.normalize_address.is_250": 10
+                            "starkware.starknet.common.storage.normalize_address.addr": 9,
+                            "starkware.starknet.common.storage.normalize_address.is_250": 11
                         }
                     }
                 }
             ],
-            "298": [
+            "305": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1315,14 +1377,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 26,
+                            "group": 27,
                             "offset": 13
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "312": [
+            "319": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1333,14 +1395,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 28,
+                            "group": 29,
                             "offset": 2
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "331": [
+            "338": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1351,14 +1413,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 30,
+                            "group": 31,
                             "offset": 4
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "343": [
+            "350": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1369,14 +1431,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 32,
+                            "group": 33,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "384": [
+            "391": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1387,14 +1449,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 35,
+                            "group": 36,
                             "offset": 8
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "396": [
+            "403": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1404,17 +1466,17 @@
                     "code": "from starkware.python.math_utils import isqrt\nvalue = ids.value % PRIME\nassert value < 2 ** 250, f\"value={value} is outside of the range [0, 2**250).\"\nassert 2 ** 250 < PRIME\nids.root = isqrt(value)",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 36,
+                            "group": 37,
                             "offset": 1
                         },
                         "reference_ids": {
-                            "__main__.sqrt.root": 12,
-                            "__main__.sqrt.value": 11
+                            "__main__.sqrt.root": 13,
+                            "__main__.sqrt.value": 12
                         }
                     }
                 }
             ],
-            "407": [
+            "414": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1425,14 +1487,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 37,
+                            "group": 38,
                             "offset": 7
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "426": [
+            "433": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1443,14 +1505,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 39,
+                            "group": 40,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "464": [
+            "471": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1461,14 +1523,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 42,
+                            "group": 43,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "561": [
+            "568": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1479,14 +1541,32 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 47,
+                            "group": 48,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "642": [
+            "652": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__wrappers__",
+                        "__wrappers__.test_replace_class"
+                    ],
+                    "code": "memory[ap] = segments.add()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 53,
+                            "offset": 11
+                        },
+                        "reference_ids": {}
+                    }
+                }
+            ],
+            "671": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1497,14 +1577,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 52,
+                            "group": 55,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "708": [
+            "737": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1515,14 +1595,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 55,
+                            "group": 58,
                             "offset": 126
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "728": [
+            "757": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1533,14 +1613,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 58,
+                            "group": 61,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "773": [
+            "802": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1551,7 +1631,7 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 62,
+                            "group": 65,
                             "offset": 2
                         },
                         "reference_ids": {}
@@ -1576,7 +1656,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 368,
+                "pc": 375,
                 "type": "function"
             },
             "__main__.bitwise_and.Args": {
@@ -1621,7 +1701,7 @@
                 "decorators": [
                     "constructor"
                 ],
-                "pc": 284,
+                "pc": 291,
                 "type": "function"
             },
             "__main__.constructor.Args": {
@@ -1666,7 +1746,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 769,
+                "pc": 798,
                 "type": "function"
             },
             "__main__.foo.Args": {
@@ -1726,7 +1806,7 @@
             },
             "__main__.number_map.addr": {
                 "decorators": [],
-                "pc": 243,
+                "pc": 250,
                 "type": "function"
             },
             "__main__.number_map.addr.Args": {
@@ -1773,7 +1853,7 @@
             },
             "__main__.number_map.read": {
                 "decorators": [],
-                "pc": 257,
+                "pc": 264,
                 "type": "function"
             },
             "__main__.number_map.read.Args": {
@@ -1824,7 +1904,7 @@
             },
             "__main__.number_map.write": {
                 "decorators": [],
-                "pc": 271,
+                "pc": 278,
                 "type": "function"
             },
             "__main__.number_map.write.Args": {
@@ -1869,11 +1949,15 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.replace_class": {
+                "destination": "starkware.starknet.common.syscalls.replace_class",
+                "type": "alias"
+            },
             "__main__.return_result": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 341,
+                "pc": 348,
                 "type": "function"
             },
             "__main__.return_result.Args": {
@@ -1905,7 +1989,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 394,
+                "pc": 401,
                 "type": "function"
             },
             "__main__.sqrt.Args": {
@@ -1944,10 +2028,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 36,
+                            "group": 37,
                             "offset": 1
                         },
-                        "pc": 396,
+                        "pc": 403,
                         "value": "[cast(fp, felt*)]"
                     }
                 ],
@@ -1959,10 +2043,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 36,
+                            "group": 37,
                             "offset": 0
                         },
-                        "pc": 394,
+                        "pc": 401,
                         "value": "[cast(fp + (-3), felt*)]"
                     }
                 ],
@@ -1981,7 +2065,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 600,
+                "pc": 607,
                 "type": "function"
             },
             "__main__.test_call_contract.Args": {
@@ -2030,7 +2114,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 718,
+                "pc": 747,
                 "type": "function"
             },
             "__main__.test_contract_address.Args": {
@@ -2087,7 +2171,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 633,
+                "pc": 662,
                 "type": "function"
             },
             "__main__.test_deploy.Args": {
@@ -2141,7 +2225,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 490,
+                "pc": 497,
                 "type": "function"
             },
             "__main__.test_library_call.Args": {
@@ -2190,7 +2274,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 453,
+                "pc": 460,
                 "type": "function"
             },
             "__main__.test_long_retdata.Args": {
@@ -2217,7 +2301,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 523,
+                "pc": 530,
                 "type": "function"
             },
             "__main__.test_nested_library_call.Args": {
@@ -2266,11 +2350,48 @@
                 "type": "const",
                 "value": 1
             },
+            "__main__.test_replace_class": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 640,
+                "type": "function"
+            },
+            "__main__.test_replace_class.Args": {
+                "full_name": "__main__.test_replace_class.Args",
+                "members": {
+                    "class_hash": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_replace_class.ImplicitArgs": {
+                "full_name": "__main__.test_replace_class.ImplicitArgs",
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.test_replace_class.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.test_replace_class.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.test_storage_read_write": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 417,
+                "pc": 424,
                 "type": "function"
             },
             "__main__.test_storage_read_write.Args": {
@@ -2311,7 +2432,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 683,
+                "pc": 712,
                 "type": "function"
             },
             "__main__.test_storage_var.Args": {
@@ -2351,7 +2472,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 322,
+                "pc": 329,
                 "type": "function"
             },
             "__main__.with_arg.Args": {
@@ -2383,7 +2504,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 308,
+                "pc": 315,
                 "type": "function"
             },
             "__main__.without_arg.Args": {
@@ -2410,7 +2531,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 376,
+                "pc": 383,
                 "type": "function"
             },
             "__wrappers__.bitwise_and.Args": {
@@ -2445,7 +2566,7 @@
                 "decorators": [
                     "constructor"
                 ],
-                "pc": 290,
+                "pc": 297,
                 "type": "function"
             },
             "__wrappers__.constructor.Args": {
@@ -2480,7 +2601,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 770,
+                "pc": 799,
                 "type": "function"
             },
             "__wrappers__.foo.Args": {
@@ -2515,7 +2636,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 352,
+                "pc": 359,
                 "type": "function"
             },
             "__wrappers__.return_result.Args": {
@@ -2544,7 +2665,7 @@
             },
             "__wrappers__.return_result_encode_return": {
                 "decorators": [],
-                "pc": 343,
+                "pc": 350,
                 "type": "function"
             },
             "__wrappers__.return_result_encode_return.Args": {
@@ -2584,7 +2705,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 400,
+                "pc": 407,
                 "type": "function"
             },
             "__wrappers__.sqrt.Args": {
@@ -2620,7 +2741,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 608,
+                "pc": 615,
                 "type": "function"
             },
             "__wrappers__.test_call_contract.Args": {
@@ -2655,7 +2776,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 737,
+                "pc": 766,
                 "type": "function"
             },
             "__wrappers__.test_contract_address.Args": {
@@ -2684,7 +2805,7 @@
             },
             "__wrappers__.test_contract_address_encode_return": {
                 "decorators": [],
-                "pc": 728,
+                "pc": 757,
                 "type": "function"
             },
             "__wrappers__.test_contract_address_encode_return.Args": {
@@ -2724,7 +2845,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 651,
+                "pc": 680,
                 "type": "function"
             },
             "__wrappers__.test_deploy.Args": {
@@ -2753,7 +2874,7 @@
             },
             "__wrappers__.test_deploy_encode_return": {
                 "decorators": [],
-                "pc": 642,
+                "pc": 671,
                 "type": "function"
             },
             "__wrappers__.test_deploy_encode_return.Args": {
@@ -2794,7 +2915,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 498,
+                "pc": 505,
                 "type": "function"
             },
             "__wrappers__.test_library_call.Args": {
@@ -2829,7 +2950,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 477,
+                "pc": 484,
                 "type": "function"
             },
             "__wrappers__.test_long_retdata.Args": {
@@ -2858,7 +2979,7 @@
             },
             "__wrappers__.test_long_retdata_encode_return": {
                 "decorators": [],
-                "pc": 464,
+                "pc": 471,
                 "type": "function"
             },
             "__wrappers__.test_long_retdata_encode_return.Args": {
@@ -2898,7 +3019,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 570,
+                "pc": 577,
                 "type": "function"
             },
             "__wrappers__.test_nested_library_call.Args": {
@@ -2927,7 +3048,7 @@
             },
             "__wrappers__.test_nested_library_call_encode_return": {
                 "decorators": [],
-                "pc": 561,
+                "pc": 568,
                 "type": "function"
             },
             "__wrappers__.test_nested_library_call_encode_return.Args": {
@@ -2963,11 +3084,46 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.test_replace_class": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 645,
+                "type": "function"
+            },
+            "__wrappers__.test_replace_class.Args": {
+                "full_name": "__wrappers__.test_replace_class.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_replace_class.ImplicitArgs": {
+                "full_name": "__wrappers__.test_replace_class.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.test_replace_class.Return": {
+                "cairo_type": "(syscall_ptr: felt*, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.test_replace_class.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.test_replace_class.__wrapped_func": {
+                "destination": "__main__.test_replace_class",
+                "type": "alias"
+            },
+            "__wrappers__.test_replace_class_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.test_storage_read_write": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 435,
+                "pc": 442,
                 "type": "function"
             },
             "__wrappers__.test_storage_read_write.Args": {
@@ -2996,7 +3152,7 @@
             },
             "__wrappers__.test_storage_read_write_encode_return": {
                 "decorators": [],
-                "pc": 426,
+                "pc": 433,
                 "type": "function"
             },
             "__wrappers__.test_storage_read_write_encode_return.Args": {
@@ -3036,7 +3192,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 702,
+                "pc": 731,
                 "type": "function"
             },
             "__wrappers__.test_storage_var.Args": {
@@ -3071,7 +3227,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 325,
+                "pc": 332,
                 "type": "function"
             },
             "__wrappers__.with_arg.Args": {
@@ -3106,7 +3262,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 309,
+                "pc": 316,
                 "type": "function"
             },
             "__wrappers__.without_arg.Args": {
@@ -3377,7 +3533,7 @@
             },
             "starkware.cairo.common.hash_state.hash_felts": {
                 "decorators": [],
-                "pc": 201,
+                "pc": 208,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_felts.Args": {
@@ -3416,7 +3572,7 @@
             },
             "starkware.cairo.common.hash_state.hash_felts_no_padding": {
                 "decorators": [],
-                "pc": 176,
+                "pc": 183,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_felts_no_padding.Args": {
@@ -3477,12 +3633,12 @@
                 "value": 1
             },
             "starkware.cairo.common.hash_state.hash_felts_no_padding.hash_loop": {
-                "pc": 189,
+                "pc": 196,
                 "type": "label"
             },
             "starkware.cairo.common.hash_state.hash_finalize": {
                 "decorators": [],
-                "pc": 170,
+                "pc": 177,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_finalize.Args": {
@@ -3517,7 +3673,7 @@
             },
             "starkware.cairo.common.hash_state.hash_init": {
                 "decorators": [],
-                "pc": 117,
+                "pc": 124,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_init.Args": {
@@ -3542,7 +3698,7 @@
             },
             "starkware.cairo.common.hash_state.hash_update": {
                 "decorators": [],
-                "pc": 127,
+                "pc": 134,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_update.Args": {
@@ -3585,7 +3741,7 @@
             },
             "starkware.cairo.common.hash_state.hash_update_single": {
                 "decorators": [],
-                "pc": 143,
+                "pc": 150,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_update_single.Args": {
@@ -3624,7 +3780,7 @@
             },
             "starkware.cairo.common.hash_state.hash_update_with_hashchain": {
                 "decorators": [],
-                "pc": 159,
+                "pc": 166,
                 "type": "function"
             },
             "starkware.cairo.common.hash_state.hash_update_with_hashchain.Args": {
@@ -3716,7 +3872,7 @@
                 "decorators": [
                     "known_ap_change"
                 ],
-                "pc": 64,
+                "pc": 71,
                 "type": "function"
             },
             "starkware.cairo.common.math.assert_250_bit.Args": {
@@ -3767,10 +3923,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 8,
+                            "group": 9,
                             "offset": 0
                         },
-                        "pc": 64,
+                        "pc": 71,
                         "value": "[cast([fp + (-4)] + 1, felt*)]"
                     }
                 ],
@@ -3782,10 +3938,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 8,
+                            "group": 9,
                             "offset": 0
                         },
-                        "pc": 64,
+                        "pc": 71,
                         "value": "[cast([fp + (-4)], felt*)]"
                     }
                 ],
@@ -3797,10 +3953,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 8,
+                            "group": 9,
                             "offset": 0
                         },
-                        "pc": 64,
+                        "pc": 71,
                         "value": "[cast(fp + (-3), felt*)]"
                     }
                 ],
@@ -3901,7 +4057,7 @@
                 "decorators": [
                     "known_ap_change"
                 ],
-                "pc": 77,
+                "pc": 84,
                 "type": "function"
             },
             "starkware.starknet.common.storage.normalize_address.Args": {
@@ -3940,10 +4096,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 9,
+                            "group": 10,
                             "offset": 0
                         },
-                        "pc": 77,
+                        "pc": 84,
                         "value": "[cast(fp + (-3), felt*)]"
                     }
                 ],
@@ -3955,10 +4111,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 9,
+                            "group": 10,
                             "offset": 2
                         },
-                        "pc": 97,
+                        "pc": 104,
                         "value": "[cast(ap + (-1), felt*)]"
                     }
                 ],
@@ -3970,10 +4126,10 @@
                 "references": [
                     {
                         "ap_tracking_data": {
-                            "group": 9,
+                            "group": 10,
                             "offset": 1
                         },
-                        "pc": 79,
+                        "pc": 86,
                         "value": "[cast(ap + (-1), felt*)]"
                     }
                 ],
@@ -4860,6 +5016,64 @@
                 ],
                 "type": "reference"
             },
+            "starkware.starknet.common.syscalls.replace_class": {
+                "decorators": [],
+                "pc": 64,
+                "type": "function"
+            },
+            "starkware.starknet.common.syscalls.replace_class.Args": {
+                "full_name": "starkware.starknet.common.syscalls.replace_class.Args",
+                "members": {
+                    "class_hash": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "starkware.starknet.common.syscalls.replace_class.ImplicitArgs": {
+                "full_name": "starkware.starknet.common.syscalls.replace_class.ImplicitArgs",
+                "members": {
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "starkware.starknet.common.syscalls.replace_class.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "starkware.starknet.common.syscalls.replace_class.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "starkware.starknet.common.syscalls.replace_class.syscall_ptr": {
+                "cairo_type": "felt*",
+                "full_name": "starkware.starknet.common.syscalls.replace_class.syscall_ptr",
+                "references": [
+                    {
+                        "ap_tracking_data": {
+                            "group": 8,
+                            "offset": 0
+                        },
+                        "pc": 64,
+                        "value": "[cast(fp + (-4), felt**)]"
+                    },
+                    {
+                        "ap_tracking_data": {
+                            "group": 8,
+                            "offset": 1
+                        },
+                        "pc": 68,
+                        "value": "cast([fp + (-4)] + 2, felt*)"
+                    }
+                ],
+                "type": "reference"
+            },
             "starkware.starknet.common.syscalls.storage_read": {
                 "decorators": [],
                 "pc": 48,
@@ -4990,7 +5204,7 @@
             },
             "starkware.starknet.core.os.contract_address.contract_address.get_contract_address": {
                 "decorators": [],
-                "pc": 212,
+                "pc": 219,
                 "type": "function"
             },
             "starkware.starknet.core.os.contract_address.contract_address.get_contract_address.Args": {
@@ -5118,62 +5332,70 @@
                         "offset": 0
                     },
                     "pc": 64,
+                    "value": "[cast(fp + (-4), felt**)]"
+                },
+                {
+                    "ap_tracking_data": {
+                        "group": 9,
+                        "offset": 0
+                    },
+                    "pc": 71,
                     "value": "[cast(fp + (-3), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 8,
+                        "group": 9,
                         "offset": 0
                     },
-                    "pc": 64,
+                    "pc": 71,
                     "value": "[cast([fp + (-4)], felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 8,
+                        "group": 9,
                         "offset": 0
                     },
-                    "pc": 64,
+                    "pc": 71,
                     "value": "[cast([fp + (-4)] + 1, felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 9,
+                        "group": 10,
                         "offset": 0
                     },
-                    "pc": 77,
+                    "pc": 84,
                     "value": "[cast(fp + (-3), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 9,
+                        "group": 10,
                         "offset": 1
                     },
-                    "pc": 79,
+                    "pc": 86,
                     "value": "[cast(ap + (-1), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 9,
+                        "group": 10,
                         "offset": 2
                     },
-                    "pc": 97,
+                    "pc": 104,
                     "value": "[cast(ap + (-1), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 36,
+                        "group": 37,
                         "offset": 0
                     },
-                    "pc": 394,
+                    "pc": 401,
                     "value": "[cast(fp + (-3), felt*)]"
                 },
                 {
                     "ap_tracking_data": {
-                        "group": 36,
+                        "group": 37,
                         "offset": 1
                     },
-                    "pc": 396,
+                    "pc": 403,
                     "value": "[cast(fp, felt*)]"
                 }
             ]
