@@ -28,8 +28,9 @@ use crate::execution::entry_point::{
     EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
 };
 use crate::execution::errors::{
-    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
+    EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
+use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -427,6 +428,12 @@ pub fn execute_deployment(
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
+    let current_class_hash = state.get_class_hash_at(deployed_contract_address)?;
+    if current_class_hash != ClassHash::default() {
+        return Err(EntryPointExecutionError::from(StateError::UnavailableContractAddress(
+            deployed_contract_address,
+        )));
+    }
     state.set_class_hash_at(deployed_contract_address, class_hash)?;
     let code_address = if is_deploy_account_tx { None } else { Some(deployed_contract_address) };
     execute_constructor_entry_point(

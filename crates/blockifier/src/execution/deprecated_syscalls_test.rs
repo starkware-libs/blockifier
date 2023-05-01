@@ -18,8 +18,8 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, pad_address_to_64, trivial_external_entry_point,
-    DictStateReader, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_ADDRESS_2, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    DictStateReader, SECURITY_TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
@@ -185,6 +185,35 @@ fn test_call_contract() {
 }
 
 #[test]
+fn test_replace_class() {
+    // Negative flow.
+    let mut state = create_deploy_test_state();
+    // Replace with undeclared class hash.
+    let calldata = calldata![stark_felt!(SECURITY_TEST_CLASS_HASH)];
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test_replace_class"),
+        ..trivial_external_entry_point()
+    };
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    assert!(error.contains("is not declared"));
+
+    // Positive flow.
+    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let old_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let new_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
+    let calldata = calldata![new_class_hash.0];
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test_replace_class"),
+        ..trivial_external_entry_point()
+    };
+    entry_point_call.execute_directly(&mut state).unwrap();
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
+}
+
+#[test]
 fn test_stack_trace() {
     let mut state = create_test_state();
     // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
@@ -209,15 +238,15 @@ fn test_stack_trace() {
 Error at pc=0:19:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:622)
-Unknown location (pc=0:605)
+Unknown location (pc=0:629)
+Unknown location (pc=0:612)
 
 Error in the called contract ({}):
 Error at pc=0:19:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:622)
-Unknown location (pc=0:605)
+Unknown location (pc=0:629)
+Unknown location (pc=0:612)
 
 Error in the called contract ({}):
 Error at pc=0:58:
