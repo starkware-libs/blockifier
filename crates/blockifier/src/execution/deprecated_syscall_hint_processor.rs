@@ -19,30 +19,30 @@ use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
+use crate::execution::deprecated_syscalls::{
+    call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
+    get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
+    get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
+    storage_read, storage_write, DeprecatedSyscallResult, DeprecatedSyscallSelector,
+    StorageReadResponse, StorageWriteResponse, SyscallRequest, SyscallResponse,
+};
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources, OrderedEvent,
     OrderedL2ToL1Message,
 };
-use crate::execution::errors::SyscallExecutionError;
+use crate::execution::errors::DeprecatedSyscallExecutionError;
 use crate::execution::execution_utils::{
     felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
-use crate::execution::syscalls::{
-    call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
-    get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
-    get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
-    storage_read, storage_write, StorageReadResponse, StorageWriteResponse, SyscallRequest,
-    SyscallResponse, SyscallResult, SyscallSelector,
-};
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
-pub type SyscallCounter = HashMap<SyscallSelector, usize>;
+pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
-pub struct SyscallHintProcessor<'a> {
+pub struct DeprecatedSyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
     pub execution_resources: &'a mut ExecutionResources,
@@ -74,7 +74,7 @@ pub struct SyscallHintProcessor<'a> {
     tx_info_start_ptr: Option<Relocatable>,
 }
 
-impl<'a> SyscallHintProcessor<'a> {
+impl<'a> DeprecatedSyscallHintProcessor<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'a mut dyn State,
@@ -86,7 +86,7 @@ impl<'a> SyscallHintProcessor<'a> {
         storage_address: ContractAddress,
         caller_address: ContractAddress,
     ) -> Self {
-        SyscallHintProcessor {
+        DeprecatedSyscallHintProcessor {
             state,
             execution_resources,
             execution_context,
@@ -107,9 +107,9 @@ impl<'a> SyscallHintProcessor<'a> {
         }
     }
 
-    pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> SyscallResult<()> {
+    pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> DeprecatedSyscallResult<()> {
         if actual_ptr != self.syscall_ptr {
-            return Err(SyscallExecutionError::BadSyscallPointer {
+            return Err(DeprecatedSyscallExecutionError::BadSyscallPointer {
                 expected_ptr: self.syscall_ptr,
                 actual_ptr,
             });
@@ -129,36 +129,48 @@ impl<'a> SyscallHintProcessor<'a> {
         let initial_syscall_ptr = get_ptr_from_var_name("syscall_ptr", vm, ids_data, ap_tracking)?;
         self.verify_syscall_ptr(initial_syscall_ptr)?;
 
-        let selector = SyscallSelector::try_from(self.read_next_syscall_selector(vm)?)?;
+        let selector = DeprecatedSyscallSelector::try_from(self.read_next_syscall_selector(vm)?)?;
         self.increment_syscall_count(&selector);
 
         match selector {
-            SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
-            SyscallSelector::DelegateCall => self.execute_syscall(vm, delegate_call),
-            SyscallSelector::DelegateL1Handler => self.execute_syscall(vm, delegate_l1_handler),
-            SyscallSelector::Deploy => self.execute_syscall(vm, deploy),
-            SyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
-            SyscallSelector::GetBlockNumber => self.execute_syscall(vm, get_block_number),
-            SyscallSelector::GetBlockTimestamp => self.execute_syscall(vm, get_block_timestamp),
-            SyscallSelector::GetCallerAddress => self.execute_syscall(vm, get_caller_address),
-            SyscallSelector::GetContractAddress => self.execute_syscall(vm, get_contract_address),
-            SyscallSelector::GetSequencerAddress => self.execute_syscall(vm, get_sequencer_address),
-            SyscallSelector::GetTxInfo => self.execute_syscall(vm, get_tx_info),
-            SyscallSelector::GetTxSignature => self.execute_syscall(vm, get_tx_signature),
-            SyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
-            SyscallSelector::LibraryCallL1Handler => {
+            DeprecatedSyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
+            DeprecatedSyscallSelector::DelegateCall => self.execute_syscall(vm, delegate_call),
+            DeprecatedSyscallSelector::DelegateL1Handler => {
+                self.execute_syscall(vm, delegate_l1_handler)
+            }
+            DeprecatedSyscallSelector::Deploy => self.execute_syscall(vm, deploy),
+            DeprecatedSyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
+            DeprecatedSyscallSelector::GetBlockNumber => self.execute_syscall(vm, get_block_number),
+            DeprecatedSyscallSelector::GetBlockTimestamp => {
+                self.execute_syscall(vm, get_block_timestamp)
+            }
+            DeprecatedSyscallSelector::GetCallerAddress => {
+                self.execute_syscall(vm, get_caller_address)
+            }
+            DeprecatedSyscallSelector::GetContractAddress => {
+                self.execute_syscall(vm, get_contract_address)
+            }
+            DeprecatedSyscallSelector::GetSequencerAddress => {
+                self.execute_syscall(vm, get_sequencer_address)
+            }
+            DeprecatedSyscallSelector::GetTxInfo => self.execute_syscall(vm, get_tx_info),
+            DeprecatedSyscallSelector::GetTxSignature => self.execute_syscall(vm, get_tx_signature),
+            DeprecatedSyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
+            DeprecatedSyscallSelector::LibraryCallL1Handler => {
                 self.execute_syscall(vm, library_call_l1_handler)
             }
-            SyscallSelector::SendMessageToL1 => self.execute_syscall(vm, send_message_to_l1),
-            SyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
-            SyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
+            DeprecatedSyscallSelector::SendMessageToL1 => {
+                self.execute_syscall(vm, send_message_to_l1)
+            }
+            DeprecatedSyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
+            DeprecatedSyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
         }
     }
 
     pub fn get_or_allocate_tx_signature_segment(
         &mut self,
         vm: &mut VirtualMachine,
-    ) -> SyscallResult<Relocatable> {
+    ) -> DeprecatedSyscallResult<Relocatable> {
         match self.tx_signature_start_ptr {
             Some(tx_signature_start_ptr) => Ok(tx_signature_start_ptr),
             None => {
@@ -172,7 +184,7 @@ impl<'a> SyscallHintProcessor<'a> {
     pub fn get_or_allocate_tx_info_start_ptr(
         &mut self,
         vm: &mut VirtualMachine,
-    ) -> SyscallResult<Relocatable> {
+    ) -> DeprecatedSyscallResult<Relocatable> {
         match self.tx_info_start_ptr {
             Some(tx_info_start_ptr) => Ok(tx_info_start_ptr),
             None => {
@@ -194,8 +206,8 @@ impl<'a> SyscallHintProcessor<'a> {
         ExecuteCallback: FnOnce(
             Request,
             &mut VirtualMachine,
-            &mut SyscallHintProcessor<'_>,
-        ) -> SyscallResult<Response>,
+            &mut DeprecatedSyscallHintProcessor<'_>,
+        ) -> DeprecatedSyscallResult<Response>,
     {
         let request = Request::read(vm, self.syscall_ptr)?;
         self.syscall_ptr += Request::SIZE;
@@ -207,14 +219,17 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(())
     }
 
-    fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
+    fn read_next_syscall_selector(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> DeprecatedSyscallResult<StarkFelt> {
         let selector = felt_from_ptr(vm, self.syscall_ptr)?;
         self.syscall_ptr = (self.syscall_ptr + 1)?;
 
         Ok(selector)
     }
 
-    fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
+    fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
         let syscall_count = self.execution_resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
@@ -222,7 +237,7 @@ impl<'a> SyscallHintProcessor<'a> {
     fn allocate_tx_signature_segment(
         &mut self,
         vm: &mut VirtualMachine,
-    ) -> SyscallResult<Relocatable> {
+    ) -> DeprecatedSyscallResult<Relocatable> {
         let signature = &self.account_tx_context.signature.0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
@@ -231,7 +246,10 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(signature_segment_start_ptr)
     }
 
-    fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
+    fn allocate_tx_info_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> DeprecatedSyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
         let tx_signature_length = self.account_tx_context.signature.0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
@@ -252,7 +270,7 @@ impl<'a> SyscallHintProcessor<'a> {
     pub fn get_contract_storage_at(
         &mut self,
         key: StorageKey,
-    ) -> SyscallResult<StorageReadResponse> {
+    ) -> DeprecatedSyscallResult<StorageReadResponse> {
         self.accessed_keys.insert(key);
         let value = self.state.get_storage_at(self.storage_address, key)?;
         self.read_values.push(value);
@@ -264,7 +282,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         key: StorageKey,
         value: StarkFelt,
-    ) -> SyscallResult<StorageWriteResponse> {
+    ) -> DeprecatedSyscallResult<StorageWriteResponse> {
         self.accessed_keys.insert(key);
         self.state.set_storage_at(self.storage_address, key, value);
 
@@ -272,7 +290,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 }
 
-impl HintProcessor for SyscallHintProcessor<'_> {
+impl HintProcessor for DeprecatedSyscallHintProcessor<'_> {
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
@@ -289,13 +307,13 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     }
 }
 
-pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
+pub fn felt_to_bool(felt: StarkFelt) -> DeprecatedSyscallResult<bool> {
     if felt == StarkFelt::from(0) {
         Ok(false)
     } else if felt == StarkFelt::from(1) {
         Ok(true)
     } else {
-        Err(SyscallExecutionError::InvalidSyscallInput {
+        Err(DeprecatedSyscallExecutionError::InvalidSyscallInput {
             input: felt,
             info: String::from(
                 "The deploy_from_zero field in the deploy system call must be 0 or 1.",
@@ -304,25 +322,32 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
     }
 }
 
-pub fn write_felt(vm: &mut VirtualMachine, ptr: Relocatable, felt: StarkFelt) -> SyscallResult<()> {
+pub fn write_felt(
+    vm: &mut VirtualMachine,
+    ptr: Relocatable,
+    felt: StarkFelt,
+) -> DeprecatedSyscallResult<()> {
     Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
 }
 
-pub fn read_felt_array(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Vec<StarkFelt>> {
+pub fn read_felt_array(
+    vm: &VirtualMachine,
+    ptr: Relocatable,
+) -> DeprecatedSyscallResult<Vec<StarkFelt>> {
     let array_size = felt_from_ptr(vm, ptr)?;
     let array_data_ptr = vm.get_relocatable((ptr + 1)?)?;
 
     Ok(felt_range_from_ptr(vm, array_data_ptr, usize::try_from(array_size)?)?)
 }
 
-pub fn read_calldata(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Calldata> {
+pub fn read_calldata(vm: &VirtualMachine, ptr: Relocatable) -> DeprecatedSyscallResult<Calldata> {
     Ok(Calldata(read_felt_array(vm, ptr)?.into()))
 }
 
 pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: Relocatable,
-) -> SyscallResult<(EntryPointSelector, Calldata)> {
+) -> DeprecatedSyscallResult<(EntryPointSelector, Calldata)> {
     let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
     let calldata = read_calldata(vm, (ptr + 1)?)?;
 
@@ -332,8 +357,8 @@ pub fn read_call_params(
 pub fn execute_inner_call(
     call: CallEntryPoint,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<ReadOnlySegment> {
+    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
+) -> DeprecatedSyscallResult<ReadOnlySegment> {
     let call_info = call.execute(
         syscall_handler.state,
         syscall_handler.execution_resources,

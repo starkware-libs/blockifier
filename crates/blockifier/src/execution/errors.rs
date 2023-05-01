@@ -62,7 +62,7 @@ impl From<RunnerError> for PostExecutionError {
 }
 
 #[derive(Debug, Error)]
-pub enum SyscallExecutionError {
+pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
@@ -70,7 +70,7 @@ pub enum SyscallExecutionError {
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
-    InvalidSyscallSelector(StarkFelt),
+    InvalidDeprecatedSyscallSelector(StarkFelt),
     #[error(transparent)]
     MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
     #[error(transparent)]
@@ -85,8 +85,8 @@ pub enum SyscallExecutionError {
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
 // cairo-rs API.
-impl From<SyscallExecutionError> for HintError {
-    fn from(error: SyscallExecutionError) -> Self {
+impl From<DeprecatedSyscallExecutionError> for HintError {
+    fn from(error: DeprecatedSyscallExecutionError) -> Self {
         HintError::CustomHint(error.to_string())
     }
 }

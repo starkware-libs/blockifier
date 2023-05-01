@@ -19,6 +19,10 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
+use crate::execution::deprecated_syscall_hint_processor::{
+    execute_inner_call, DeprecatedSyscallHintProcessor,
+};
+use crate::execution::deprecated_syscalls::DeprecatedSyscallResult;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo, CallType,
     EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
@@ -26,8 +30,6 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::execution::syscall_handling::{execute_inner_call, SyscallHintProcessor};
-use crate::execution::syscalls::SyscallResult;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
@@ -40,7 +42,7 @@ pub mod test;
 pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
-    pub syscall_handler: SyscallHintProcessor<'a>,
+    pub syscall_handler: DeprecatedSyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point_pc: usize,
 }
@@ -80,7 +82,7 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate syscall handler.
     let initial_syscall_ptr = vm.add_memory_segment();
-    let syscall_handler = SyscallHintProcessor::new(
+    let syscall_handler = DeprecatedSyscallHintProcessor::new(
         state,
         execution_resources,
         execution_context,
@@ -183,7 +185,7 @@ pub fn execute_entry_point_call(
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
-    hint_processor: &mut SyscallHintProcessor<'_>,
+    hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
@@ -205,7 +207,7 @@ pub fn run_entry_point(
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
-    syscall_handler: SyscallHintProcessor<'_>,
+    syscall_handler: DeprecatedSyscallHintProcessor<'_>,
     call: CallEntryPoint,
     previous_vm_resources: VmExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
@@ -253,7 +255,7 @@ pub fn finalize_execution(
 pub fn validate_run(
     vm: &mut VirtualMachine,
     runner: &CairoRunner,
-    syscall_handler: &SyscallHintProcessor<'_>,
+    syscall_handler: &DeprecatedSyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
 ) -> Result<(), PostExecutionError> {
@@ -442,14 +444,14 @@ pub fn execute_deployment(
 }
 
 pub fn execute_library_call(
-    syscall_handler: &mut SyscallHintProcessor<'_>,
+    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
     vm: &mut VirtualMachine,
     class_hash: ClassHash,
     code_address: Option<ContractAddress>,
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
-) -> SyscallResult<ReadOnlySegment> {
+) -> DeprecatedSyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
     let entry_point = CallEntryPoint {
