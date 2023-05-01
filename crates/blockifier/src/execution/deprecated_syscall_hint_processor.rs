@@ -22,9 +22,10 @@ use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecut
 use crate::execution::deprecated_syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
-    get_tx_info, get_tx_signature, library_call, library_call_l1_handler, send_message_to_l1,
-    storage_read, storage_write, DeprecatedSyscallResult, DeprecatedSyscallSelector,
-    StorageReadResponse, StorageWriteResponse, SyscallRequest, SyscallResponse,
+    get_tx_info, get_tx_signature, library_call, library_call_l1_handler, replace_class,
+    send_message_to_l1, storage_read, storage_write, DeprecatedSyscallResult,
+    DeprecatedSyscallSelector, StorageReadResponse, StorageWriteResponse, SyscallRequest,
+    SyscallResponse,
 };
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources, OrderedEvent,
@@ -159,6 +160,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             DeprecatedSyscallSelector::LibraryCallL1Handler => {
                 self.execute_syscall(vm, library_call_l1_handler)
             }
+            DeprecatedSyscallSelector::ReplaceClass => self.execute_syscall(vm, replace_class),
             DeprecatedSyscallSelector::SendMessageToL1 => {
                 self.execute_syscall(vm, send_message_to_l1)
             }

@@ -94,6 +94,11 @@ fn os_resources() -> serde_json::Value {
                 "n_memory_holes": 0,
                 "n_steps": 645
             },
+            "ReplaceClass": {
+                "builtin_instance_counter": {},
+                "n_memory_holes": 0,
+                "n_steps": 73
+            },
             "SendMessageToL1": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,

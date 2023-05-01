@@ -22,6 +22,7 @@ use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
+use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
@@ -523,7 +524,7 @@ fn test_deploy_account_tx() {
         stark_felt!(BALANCE),
     );
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx.clone());
     let actual_execution_info = account_tx.execute(state, block_context).unwrap();
 
     // Build expected validate call info.
@@ -601,6 +602,19 @@ fn test_deploy_account_tx() {
     // Verify deployment.
     let class_hash_from_state = state.get_class_hash_at(deployed_account_address).unwrap();
     assert_eq!(class_hash_from_state, class_hash);
+
+    // Negative flow.
+    // Deploy to an existing address.
+    let copied_deploy_account_tx =
+        DeployAccountTransaction { nonce: Nonce(stark_felt!(1)), ..deploy_account_tx };
+    let account_tx = AccountTransaction::DeployAccount(copied_deploy_account_tx);
+    let error = account_tx.execute(state, block_context).unwrap_err();
+    assert_matches!(
+        error,
+        TransactionExecutionError::ContractConstructorExecutionFailed(
+            EntryPointExecutionError::StateError(StateError::UnavailableContractAddress(_))
+        )
+    );
 }
 
 fn create_account_tx_for_validate_test(

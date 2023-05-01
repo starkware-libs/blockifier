@@ -152,11 +152,6 @@ impl<S: StateReader> State for CachedState<S> {
             return Err(StateError::OutOfRangeContractAddress);
         }
 
-        let current_class_hash = self.get_class_hash_at(contract_address)?;
-        if current_class_hash != ClassHash::default() {
-            return Err(StateError::UnavailableContractAddress(contract_address));
-        }
-
         self.cache.set_class_hash_write(contract_address, class_hash);
         Ok(())
     }

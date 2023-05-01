@@ -15,6 +15,7 @@ pub static SYSCALL_HINTS: phf::Set<&'static str> = phf_set! {
     "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.library_call_l1_handler(segments=segments, syscall_ptr=ids.syscall_ptr)",
+    "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.send_message_to_l1(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
     "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)",

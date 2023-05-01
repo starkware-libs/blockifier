@@ -169,22 +169,6 @@ fn set_and_get_contract_hash() {
 }
 
 #[test]
-fn cannot_set_class_hash_to_deployed_address() {
-    let contract_address = ContractAddress(patricia_key!("0x1"));
-    let deployed_class_hash = ClassHash(stark_felt!("0x10"));
-    let mut state = CachedState::new(DictStateReader {
-        address_to_class_hash: HashMap::from([(contract_address, deployed_class_hash)]),
-        ..Default::default()
-    });
-
-    let new_class_hash = ClassHash(stark_felt!("0x100"));
-    assert_matches!(
-        state.set_class_hash_at(contract_address, new_class_hash).unwrap_err(),
-        StateError::UnavailableContractAddress(..)
-    );
-}
-
-#[test]
 fn cannot_set_class_hash_to_uninitialized_contract() {
     let mut state = CachedState::new(DictStateReader::default());
 
