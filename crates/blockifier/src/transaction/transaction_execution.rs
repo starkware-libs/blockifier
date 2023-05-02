@@ -38,13 +38,13 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let execute_call_info =
             self.run_execute(state, &mut execution_resources, block_context, &tx_context, None)?;
 
-        let validate_call_info = None;
+        let call_infos =
+            if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(self.calldata.0.len() - 1);
         let actual_resources = calculate_tx_resources(
             execution_resources,
-            validate_call_info,
-            execute_call_info.as_ref(),
+            &call_infos,
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,

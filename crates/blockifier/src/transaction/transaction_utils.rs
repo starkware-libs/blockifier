@@ -36,8 +36,7 @@ pub fn verify_no_calls_to_other_contracts(
 /// I.e., L1 gas usage and Cairo VM execution resources.
 pub fn calculate_tx_resources<S: StateReader>(
     execution_resources: ExecutionResources,
-    validate_call_info: Option<&CallInfo>,
-    execute_call_info: Option<&CallInfo>,
+    call_infos: &[&CallInfo],
     tx_type: TransactionType,
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
@@ -45,13 +44,8 @@ pub fn calculate_tx_resources<S: StateReader>(
     let (n_storage_changes, n_modified_contracts, n_class_updates) =
         state.count_actual_state_changes();
 
-    let non_optional_call_infos: Vec<&CallInfo> = vec![execute_call_info, validate_call_info]
-        .iter()
-        .flat_map(|&optional_call_info| optional_call_info)
-        .collect();
-
     let mut l2_to_l1_payloads_length = vec![];
-    for call_info in non_optional_call_infos {
+    for call_info in call_infos {
         l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
     }
 
