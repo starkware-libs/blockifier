@@ -8,6 +8,7 @@ from starkware.starknet.common.syscalls import (
     library_call,
     deploy,
     call_contract,
+    replace_class,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -130,6 +131,12 @@ func test_call_contract{syscall_ptr: felt*}(
         calldata=calldata,
     );
     return (retdata_size=retdata_size, retdata=retdata);
+}
+
+@external
+func test_replace_class{syscall_ptr: felt*}(class_hash: felt) -> () {
+    replace_class(class_hash=class_hash);
+    return ();
 }
 
 @external
