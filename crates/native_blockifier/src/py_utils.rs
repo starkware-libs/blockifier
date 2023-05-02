@@ -8,7 +8,7 @@ use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::EthAddress;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::NativeBlockifierResult;
 
 pub const CHAIN_NAMES: &[&str; 4] =
     &["SN_MAIN", "SN_GOERLI", "SN_GOERLI2", "PRIVATE_SN_POTC_GOERLI"];
@@ -63,9 +63,7 @@ pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
             return Ok(ChainId(expected_name));
         }
     }
-    Err(NativeBlockifierError::from(TransactionExecutionError::UnknownChainId {
-        chain_id: value.to_string(),
-    }))
+    Err(TransactionExecutionError::UnknownChainId { chain_id: value.to_string() }.into())
 }
 
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].

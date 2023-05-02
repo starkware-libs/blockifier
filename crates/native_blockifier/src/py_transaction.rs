@@ -118,12 +118,11 @@ pub fn py_declare(tx: &PyAny) -> NativeBlockifierResult<DeclareTransaction> {
     match version {
         0 => Ok(DeclareTransaction::V0(declare_tx)),
         1 => Ok(DeclareTransaction::V1(declare_tx)),
-        _ => Err(NativeBlockifierError::from(
-            NativeBlockifierInputError::UnsupportedTransactionVersion {
-                tx_type: TransactionType::Declare,
-                version,
-            },
-        )),
+        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+            tx_type: TransactionType::Declare,
+            version,
+        }
+        .into()),
     }
 }
 
@@ -165,12 +164,11 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
             sender_address: account_data_context.sender_address,
             calldata: py_calldata(tx, "calldata")?,
         })),
-        _ => Err(NativeBlockifierError::from(
-            NativeBlockifierInputError::UnsupportedTransactionVersion {
-                tx_type: TransactionType::InvokeFunction,
-                version,
-            },
-        )),
+        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+            tx_type: TransactionType::InvokeFunction,
+            version,
+        }
+        .into()),
     }
 }
 
@@ -327,7 +325,7 @@ impl PyTransactionExecutor {
             }
 
             if let Some(error) = unexpected_callback_error {
-                Err(NativeBlockifierError::from(error))
+                Err(error.into())
             } else {
                 tx_execution_result
             }
