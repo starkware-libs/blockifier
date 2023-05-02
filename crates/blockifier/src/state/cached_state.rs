@@ -228,6 +228,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 // Invariant: keys cannot be deleted from fields (only used internally by the cached state).
 #[derive(Debug, Default, PartialEq)]
 struct StateCache {
+    // Committed changes:
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,

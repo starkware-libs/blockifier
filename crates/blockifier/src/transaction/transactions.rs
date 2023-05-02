@@ -84,27 +84,33 @@ impl<S: State> Executable<S> for DeclareTransaction {
         contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.class_hash();
+        let contract_class =
+            contract_class.expect("Declare transaction must have a contract_class");
 
-        match state.get_contract_class(&class_hash) {
-            Err(StateError::UndeclaredClassHash(_)) => {
-                // Class is undeclared; declare it.
-                state.set_contract_class(
-                    &class_hash,
-                    contract_class.expect("Declare transaction must have a contract_class"),
-                )?;
-
+        match self {
+            // No class commitment, so no need to check if the class is already declared.
+            DeclareTransaction::V0(_) => {
+                state.set_contract_class(&class_hash, contract_class)?;
                 Ok(None)
             }
-            Err(error) => Err(error).map_err(TransactionExecutionError::from),
-            Ok(_) => {
-                // Class is already declared.
-                match self {
-                    // No class commitment, so this check is meaningless.
-                    DeclareTransaction::V0(_) => Ok(None),
-                    DeclareTransaction::V1(_) => Ok(None),
-                    // From V2 up, cannot redeclare (i.e., make sure the leaf is uninitialized).
-                    // Changing class leaf in the commitment is possible only through syscall.
-                    DeclareTransaction::V2(_) => {
+            DeclareTransaction::V1(_) => {
+                state.set_contract_class(&class_hash, contract_class)?;
+                Ok(None)
+            }
+            DeclareTransaction::V2(tx) => {
+                match state.get_contract_class(&class_hash) {
+                    Err(StateError::UndeclaredClassHash(_)) => {
+                        // Class is undeclared; declare it.
+                        state.set_contract_class(&class_hash, contract_class)?;
+                        state.set_compiled_class_hash(class_hash, tx.compiled_class_hash)?;
+                        Ok(None)
+                    }
+                    Err(error) => Err(error).map_err(TransactionExecutionError::from),
+                    Ok(_) => {
+                        // Class is already declared.
+                        // From V2 up, cannot redeclare (i.e., make sure the leaf is
+                        // uninitialized). Changing class leaf in
+                        // the commitment is possible only through syscall.
                         Err(TransactionExecutionError::DeclareTransactionError { class_hash })
                     }
                 }
