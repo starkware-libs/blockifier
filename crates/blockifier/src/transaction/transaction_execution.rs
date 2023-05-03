@@ -1,6 +1,9 @@
-use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
+use starknet_api::transaction::{
+    Fee, L1HandlerTransaction, Transaction as StarknetApiTransaction, TransactionSignature,
+};
 
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -18,6 +21,27 @@ use crate::transaction::transactions::{Executable, ExecutableTransaction};
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
     L1HandlerTransaction(L1HandlerTransaction),
+}
+
+impl Transaction {
+    pub fn from_api(tx: StarknetApiTransaction, contract_class: Option<ContractClass>) -> Self {
+        match tx {
+            StarknetApiTransaction::L1Handler(l1_handler) => Self::L1HandlerTransaction(l1_handler),
+            StarknetApiTransaction::Declare(declare) => {
+                Self::AccountTransaction(AccountTransaction::Declare(
+                    declare,
+                    contract_class.expect("Declare should be created with a ContractClass"),
+                ))
+            }
+            StarknetApiTransaction::DeployAccount(deploy_account) => {
+                Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account))
+            }
+            StarknetApiTransaction::Invoke(tx) => {
+                Self::AccountTransaction(AccountTransaction::Invoke(tx))
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
