@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use indexmap::IndexMap;
+use papyrus_storage::state::data::ThinStateDiff;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::state::{StateDiff, StorageKey};
@@ -19,6 +20,8 @@ pub struct PyStateDiff {
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
     #[pyo3(get)]
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
+    #[pyo3(get)]
+    pub class_hash_to_compiled_class_hash: HashMap<PyFelt, PyFelt>,
 }
 
 impl TryFrom<PyStateDiff> for StateDiff {
@@ -64,8 +67,8 @@ impl TryFrom<PyStateDiff> for StateDiff {
     }
 }
 
-impl From<StateDiff> for PyStateDiff {
-    fn from(state_diff: StateDiff) -> Self {
+impl From<ThinStateDiff> for PyStateDiff {
+    fn from(state_diff: ThinStateDiff) -> Self {
         let mut address_to_class_hash = HashMap::<PyFelt, PyFelt>::new();
         for (address, class_hash) in state_diff.deployed_contracts {
             address_to_class_hash.insert(PyFelt::from(address), PyFelt(class_hash.0));
@@ -83,8 +86,18 @@ impl From<StateDiff> for PyStateDiff {
             }
             storage_updates.insert(PyFelt::from(address), updates_at);
         }
+        let mut class_hash_to_compiled_class_hash = HashMap::<PyFelt, PyFelt>::new();
+        for (class_hash, compiled_class_hash) in state_diff.declared_classes {
+            class_hash_to_compiled_class_hash
+                .insert(PyFelt(class_hash.0), PyFelt(compiled_class_hash.0));
+        }
 
-        Self { address_to_class_hash, address_to_nonce, storage_updates }
+        Self {
+            address_to_class_hash,
+            address_to_nonce,
+            storage_updates,
+            class_hash_to_compiled_class_hash,
+        }
     }
 }
 

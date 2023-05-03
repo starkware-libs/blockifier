@@ -315,6 +315,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "papyrus_storage",
  "phf",
  "pretty_assertions",
  "serde",
