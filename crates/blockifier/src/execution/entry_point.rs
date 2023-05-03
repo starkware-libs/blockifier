@@ -133,7 +133,7 @@ impl CallEntryPoint {
         contract_class: &ContractClass,
     ) -> Result<usize, PreExecutionError> {
         let entry_points_of_same_type =
-            &contract_class.entry_points_by_type[&self.entry_point_type];
+            &contract_class.0.entry_points_by_type[&self.entry_point_type];
         let filtered_entry_points: Vec<&EntryPoint> = entry_points_of_same_type
             .iter()
             .filter(|ep| ep.selector == self.entry_point_selector)
@@ -287,7 +287,7 @@ pub fn execute_constructor_entry_point(
     // Ensure the class is declared (by reading it).
     let contract_class = state.get_contract_class(&class_hash)?;
     let constructor_entry_points =
-        &contract_class.entry_points_by_type[&EntryPointType::Constructor];
+        &contract_class.0.entry_points_by_type[&EntryPointType::Constructor];
 
     if constructor_entry_points.is_empty() {
         // Contract has no constructor.
