@@ -11,8 +11,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeclareTransactionV0V1, DeployAccountTransaction, EventContent,
-    EventData, EventKey, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
+    Calldata, DeclareTransactionV0V1, DeployAccountTransaction, EventContent, EventData, EventKey,
+    Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -42,7 +42,7 @@ use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::ExecutableTransaction;
+use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
@@ -414,8 +414,10 @@ fn test_declare_tx() {
     let class_hash = declare_tx.class_hash;
 
     let contract_class = get_contract_class(TEST_EMPTY_CONTRACT_PATH);
-    let account_tx =
-        AccountTransaction::Declare(DeclareTransaction::V1(declare_tx), contract_class.clone());
+    let account_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+        contract_class: contract_class.clone(),
+    });
 
     // Check state before transaction application.
     assert_matches!(
@@ -640,7 +642,10 @@ fn create_account_tx_for_validate_test(
                 Some(signature),
             );
 
-            AccountTransaction::Declare(DeclareTransaction::V1(declare_tx), contract_class)
+            AccountTransaction::Declare(DeclareTransaction {
+                tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+                contract_class,
+            })
         }
         TransactionType::DeployAccount => {
             let deploy_account_tx = crate::test_utils::deploy_account_tx(

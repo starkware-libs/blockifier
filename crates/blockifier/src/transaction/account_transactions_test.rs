@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use starknet_api::core::{calculate_contract_address, ClassHash, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1, Fee,
-    InvokeTransaction, InvokeTransactionV1,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
+    InvokeTransactionV1,
 };
 use starknet_api::{calldata, stark_felt};
 
@@ -18,7 +18,7 @@ use crate::test_utils::{
     TEST_CLASS_HASH, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::transactions::ExecutableTransaction;
+use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
 
 fn create_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_account_testing();
@@ -68,13 +68,13 @@ fn test_account_flow_test() {
     // Declare a contract.
     let contract_class = get_contract_class(TEST_CONTRACT_PATH);
     let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee, None);
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::V1(DeclareTransactionV0V1 {
+    let account_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
             nonce: Nonce(stark_felt!(1)),
             ..declare_tx
         }),
         contract_class,
-    );
+    });
     account_tx.execute(state, block_context).unwrap();
 
     // Deploy a contract using syscall deploy.
