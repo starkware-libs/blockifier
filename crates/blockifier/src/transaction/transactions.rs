@@ -3,7 +3,8 @@ use std::sync::Arc;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
+    Calldata, DeclareTransaction as StarknetApiDeclareTransaction, DeployAccountTransaction,
+    InvokeTransaction, L1HandlerTransaction,
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -69,9 +70,13 @@ pub trait Executable<S: State> {
         execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        // Only used for declare transaction.
-        contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
+}
+
+#[derive(Debug)]
+pub struct DeclareTransaction {
+    pub starknet_api_tx: StarknetApiDeclareTransaction,
+    pub contract_class: ContractClass,
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {
@@ -81,30 +86,26 @@ impl<S: State> Executable<S> for DeclareTransaction {
         _execution_resources: &mut ExecutionResources,
         _block_context: &BlockContext,
         _account_tx_context: &AccountTransactionContext,
-        contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let class_hash = self.class_hash();
+        let class_hash = self.starknet_api_tx.class_hash();
 
         match state.get_contract_class(&class_hash) {
             Err(StateError::UndeclaredClassHash(_)) => {
                 // Class is undeclared; declare it.
-                state.set_contract_class(
-                    &class_hash,
-                    contract_class.expect("Declare transaction must have a contract_class"),
-                )?;
+                state.set_contract_class(&class_hash, self.contract_class.clone())?;
 
                 Ok(None)
             }
             Err(error) => Err(error).map_err(TransactionExecutionError::from),
             Ok(_) => {
                 // Class is already declared.
-                match self {
+                match self.starknet_api_tx {
                     // No class commitment, so this check is meaningless.
-                    DeclareTransaction::V0(_) => Ok(None),
-                    DeclareTransaction::V1(_) => Ok(None),
+                    StarknetApiDeclareTransaction::V0(_) => Ok(None),
+                    StarknetApiDeclareTransaction::V1(_) => Ok(None),
                     // From V2 up, cannot redeclare (i.e., make sure the leaf is uninitialized).
                     // Changing class leaf in the commitment is possible only through syscall.
-                    DeclareTransaction::V2(_) => {
+                    StarknetApiDeclareTransaction::V2(_) => {
                         Err(TransactionExecutionError::DeclareTransactionError { class_hash })
                     }
                 }
@@ -120,7 +121,6 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let mut execution_context = ExecutionContext::default();
         let is_deploy_account_tx = true;
@@ -151,7 +151,6 @@ impl<S: State> Executable<S> for InvokeTransaction {
         execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match self {
             InvokeTransaction::V0(tx) => tx.entry_point_selector,
@@ -190,7 +189,6 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         execution_resources: &mut ExecutionResources,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        _contract_class: Option<ContractClass>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let storage_address = self.contract_address;
         let execute_call = CallEntryPoint {

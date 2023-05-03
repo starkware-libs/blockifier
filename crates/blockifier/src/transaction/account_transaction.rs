@@ -1,18 +1,15 @@
-use std::mem;
-
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, DeclareTransaction, DeployAccountTransaction, Fee, InvokeTransaction,
-    TransactionVersion,
+    Calldata, DeclareTransaction as StarknetApiDeclareTransaction, DeployAccountTransaction, Fee,
+    InvokeTransaction, TransactionVersion,
 };
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
@@ -29,7 +26,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
     calculate_tx_resources, verify_no_calls_to_other_contracts,
 };
-use crate::transaction::transactions::{Executable, ExecutableTransaction};
+use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
 
 #[cfg(test)]
 #[path = "account_transactions_test.rs"]
@@ -40,7 +37,7 @@ mod test;
 // TODO(Gilad, 15/4/2023): Remove clippy ignore, box large variants.
 #[allow(clippy::large_enum_variant)]
 pub enum AccountTransaction {
-    Declare(DeclareTransaction, ContractClass),
+    Declare(DeclareTransaction),
     DeployAccount(DeployAccountTransaction),
     Invoke(InvokeTransaction),
 }
@@ -48,7 +45,7 @@ pub enum AccountTransaction {
 impl AccountTransaction {
     fn tx_type(&self) -> TransactionType {
         match self {
-            AccountTransaction::Declare(_, _) => TransactionType::Declare,
+            AccountTransaction::Declare(_) => TransactionType::Declare,
             AccountTransaction::DeployAccount(_) => TransactionType::DeployAccount,
             AccountTransaction::Invoke(_) => TransactionType::InvokeFunction,
         }
@@ -56,7 +53,7 @@ impl AccountTransaction {
 
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
-            Self::Declare(_, _) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
+            Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
             Self::DeployAccount(_) => constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
             Self::Invoke(_) => constants::VALIDATE_ENTRY_POINT_NAME,
         };
@@ -67,7 +64,7 @@ impl AccountTransaction {
     // `get_tx_info()`.
     fn validate_entrypoint_calldata(&self) -> Calldata {
         match self {
-            Self::Declare(tx, _contract_class) => calldata![tx.class_hash().0],
+            Self::Declare(tx) => calldata![tx.starknet_api_tx.class_hash().0],
             Self::DeployAccount(tx) => {
                 let validate_calldata = concat(vec![
                     vec![tx.class_hash.0, tx.contract_address_salt.0],
@@ -82,17 +79,17 @@ impl AccountTransaction {
 
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
-            Self::Declare(tx, _contract_class) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
-                version: match tx {
-                    DeclareTransaction::V0(_) => TransactionVersion(StarkFelt::from(0)),
-                    DeclareTransaction::V1(_) => TransactionVersion(StarkFelt::from(1)),
-                    DeclareTransaction::V2(_) => TransactionVersion(StarkFelt::from(2)),
+            Self::Declare(tx) => AccountTransactionContext {
+                transaction_hash: tx.starknet_api_tx.transaction_hash(),
+                max_fee: tx.starknet_api_tx.max_fee(),
+                version: match tx.starknet_api_tx {
+                    StarknetApiDeclareTransaction::V0(_) => TransactionVersion(StarkFelt::from(0)),
+                    StarknetApiDeclareTransaction::V1(_) => TransactionVersion(StarkFelt::from(1)),
+                    StarknetApiDeclareTransaction::V2(_) => TransactionVersion(StarkFelt::from(2)),
                 },
-                signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.sender_address(),
+                signature: tx.starknet_api_tx.signature(),
+                nonce: tx.starknet_api_tx.nonce(),
+                sender_address: tx.starknet_api_tx.sender_address(),
             },
             Self::DeployAccount(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash,
@@ -119,7 +116,7 @@ impl AccountTransaction {
     fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
         let allowed_versions: Vec<TransactionVersion> = match self {
             // Support `Declare` of version 0 in order to allow bootstrapping of a new system.
-            Self::Declare(_, _) | Self::Invoke(_) => {
+            Self::Declare(_) | Self::Invoke(_) => {
                 vec![TransactionVersion(StarkFelt::from(0)), TransactionVersion(StarkFelt::from(1))]
             }
             _ => vec![TransactionVersion(StarkFelt::from(1))],
@@ -264,7 +261,7 @@ impl AccountTransaction {
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
     fn execute_raw(
-        mut self,
+        self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
@@ -278,9 +275,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let tx_type = self.tx_type();
         let mut execution_resources = ExecutionResources::default();
         match self {
-            Self::Declare(ref tx, ref mut contract_class) => {
-                let contract_class = Some(mem::take(contract_class));
-
+            Self::Declare(ref tx) => {
                 // Validate.
                 validate_call_info = self.validate_tx(
                     state,
@@ -295,7 +290,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     &mut execution_resources,
                     block_context,
                     &account_tx_context,
-                    contract_class,
                 )?;
             }
             Self::DeployAccount(ref tx) => {
@@ -305,7 +299,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     &mut execution_resources,
                     block_context,
                     &account_tx_context,
-                    None,
                 )?;
 
                 // Validate.
@@ -331,7 +324,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     &mut execution_resources,
                     block_context,
                     &account_tx_context,
-                    None,
                 )?;
             }
         };
