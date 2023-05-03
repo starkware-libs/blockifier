@@ -2,9 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
+use papyrus_storage::state::data::ThinStateDiff;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::{StateDiff, StorageKey};
+use starknet_api::state::StorageKey;
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
@@ -173,7 +174,7 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
-    fn to_state_diff(&self) -> StateDiff {
+    fn to_state_diff(&self) -> ThinStateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
         let state_cache = &self.cache;
@@ -181,14 +182,15 @@ impl<S: StateReader> State for CachedState<S> {
         // Contract instance attributes.
         let deployed_contracts = state_cache.get_class_hash_updates();
         let storage_diffs = state_cache.get_storage_updates();
+        let declared_classes = state_cache.compiled_class_hash_writes.clone();
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
-        StateDiff {
+        ThinStateDiff {
             deployed_contracts: IndexMap::from_iter(deployed_contracts),
             storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
-            declared_classes: IndexMap::new(),
-            deprecated_declared_classes: IndexMap::new(),
+            declared_classes: IndexMap::from_iter(declared_classes),
+            deprecated_declared_classes: vec![],
             nonces: IndexMap::from_iter(nonces),
             replaced_classes: IndexMap::new(),
         }
@@ -397,7 +399,7 @@ impl<'a, S: State> State for MutRefState<'a, S> {
         self.0.set_contract_class(class_hash, contract_class)
     }
 
-    fn to_state_diff(&self) -> StateDiff {
+    fn to_state_diff(&self) -> ThinStateDiff {
         self.0.to_state_diff()
     }
 
@@ -420,6 +422,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.nonce_writes.extend(child_cache.nonce_writes);
         parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
         parent_cache.storage_writes.extend(child_cache.storage_writes);
+        parent_cache.compiled_class_hash_writes.extend(child_cache.compiled_class_hash_writes);
         self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
     }
 

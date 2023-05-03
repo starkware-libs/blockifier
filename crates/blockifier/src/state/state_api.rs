@@ -1,6 +1,7 @@
+use papyrus_storage::state::data::ThinStateDiff;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::{StateDiff, StorageKey};
+use starknet_api::state::StorageKey;
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
@@ -75,5 +76,5 @@ pub trait State: StateReader {
         compiled_class_hash: CompiledClassHash,
     ) -> StateResult<()>;
 
-    fn to_state_diff(&self) -> StateDiff;
+    fn to_state_diff(&self) -> ThinStateDiff;
 }

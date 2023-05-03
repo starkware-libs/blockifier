@@ -4,7 +4,7 @@ use blockifier::transaction::errors::TransactionExecutionError;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use starknet_api::core::{ChainId, ContractAddress};
+use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::EthAddress;
 
@@ -35,6 +35,18 @@ impl From<EthAddress> for PyFelt {
         let mut bytes = [0; 32];
         bytes[12..32].copy_from_slice(&address_as_bytes);
         PyFelt(StarkFelt::new(bytes).expect("Convert Ethereum address to StarkFelt"))
+    }
+}
+
+impl From<ClassHash> for PyFelt {
+    fn from(class_hash: ClassHash) -> Self {
+        Self(class_hash.0)
+    }
+}
+
+impl From<CompiledClassHash> for PyFelt {
+    fn from(compiled_class_hash: CompiledClassHash) -> Self {
+        Self(compiled_class_hash.0)
     }
 }
 
