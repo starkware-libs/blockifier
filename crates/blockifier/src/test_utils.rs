@@ -21,7 +21,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     ExecutionResources, Retdata,
@@ -87,6 +87,7 @@ pub struct DictStateReader {
     pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
+    // TODO: Add mapping from class hash to V1 Casm contracts.
     pub class_hash_to_class: HashMap<ClassHash, ContractClassV0>,
     pub class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
 }
@@ -110,10 +111,11 @@ impl StateReader for DictStateReader {
     fn get_compiled_contract_class(
         &mut self,
         class_hash: &ClassHash,
-    ) -> StateResult<ContractClassV0> {
+    ) -> StateResult<ContractClass> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
-            Some(contract_class) => Ok(contract_class),
+            // TODO: Add V1 support.
+            Some(contract_class) => Ok(ContractClass::V0(contract_class)),
             None => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
@@ -159,7 +161,7 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
     serde_json::from_value(raw_contract_class).unwrap()
 }
 
-pub fn get_test_contract_class() -> ContractClassV0 {
+pub fn get_test_contract_class_v0() -> ContractClassV0 {
     get_contract_class_v0(TEST_CONTRACT_PATH)
 }
 

@@ -10,6 +10,7 @@ use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{
@@ -73,7 +74,7 @@ fn test_account_flow_test() {
             nonce: Nonce(stark_felt!(1)),
             ..declare_tx
         }),
-        contract_class,
+        contract_class: ContractClass::V0(contract_class),
     });
     account_tx.execute(state, block_context).unwrap();
 

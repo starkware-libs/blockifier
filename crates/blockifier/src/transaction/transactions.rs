@@ -8,7 +8,7 @@ use starknet_api::transaction::{
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
 };
@@ -75,7 +75,7 @@ pub trait Executable<S: State> {
 #[derive(Debug)]
 pub struct DeclareTransaction {
     pub tx: starknet_api::transaction::DeclareTransaction,
-    pub contract_class: ContractClassV0,
+    pub contract_class: ContractClass,
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {

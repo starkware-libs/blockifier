@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::ContractClassV0;
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -14,7 +14,6 @@ use blockifier::transaction::transactions::{DeclareTransaction, ExecutableTransa
 use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
-use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
@@ -26,7 +25,7 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
-use crate::papyrus_state::PapyrusStateReader;
+use crate::papyrus_state::PapyrusReader;
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
@@ -196,7 +195,7 @@ pub fn py_tx(
             let contract_class: ContractClassV0 = serde_json::from_str(raw_contract_class)?;
             let declare_tx = AccountTransaction::Declare(DeclareTransaction {
                 tx: py_declare(tx)?,
-                contract_class,
+                contract_class: ContractClass::V0(contract_class),
             });
             Ok(Transaction::AccountTransaction(declare_tx))
         }
@@ -231,7 +230,7 @@ pub struct PyTransactionExecutor {
     pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
     #[borrows(storage_tx)]
     #[covariant]
-    pub state: CachedState<PapyrusStateReader<'this>>,
+    pub state: CachedState<PapyrusReader<'this>>,
 }
 
 pub fn build_tx_executor(
@@ -248,9 +247,8 @@ pub fn build_tx_executor(
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
-    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
-        let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+    ) -> NativeBlockifierResult<CachedState<PapyrusReader<'a>>> {
+        let papyrus_reader = PapyrusReader::new(storage_tx, block_number);
         Ok(CachedState::new(papyrus_reader))
     }
 
