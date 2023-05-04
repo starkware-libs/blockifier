@@ -16,7 +16,6 @@ use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
-use pyo3::types::IntoPyDict;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
@@ -292,51 +291,56 @@ impl PyTransactionExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-        // This is functools.partial(bouncer.add_weights, tx_time_created=tx_written.time_created).
+        // This is functools.partial(bouncer.add, tw_written=tx_written).
         enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<PyTransactionExecutionInfo> {
+    ) -> NativeBlockifierResult<Py<PyTransactionExecutionInfo>> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
-        let tx_execution_info = self.with_mut(|executor| {
+        self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
             let tx_execution_result = tx
                 .execute_raw(&mut transactional_state, executor.block_context)
                 .map_err(NativeBlockifierError::from);
-
-            let mut unexpected_callback_error = None;
-            // Commit the transaction if and only if it can be added into the batch.
-            match &tx_execution_result {
-                Ok(tx_execution_info) => {
-                    let tx_weights = &tx_execution_info.actual_resources.0;
-
-                    Python::with_gil(|py| {
-                        let kwargs = [("tx_weights".to_string(), tx_weights)].into_py_dict(py);
-                        match enough_room_for_tx.call((), Some(kwargs)) {
-                            Ok(_) => transactional_state.commit(),
-                            Err(error) => {
-                                transactional_state.abort();
-                                let error_str = error.to_string();
-                                if !(error_str.contains("BatchFull")
-                                    | error_str.contains("TransactionBiggerThanBatch"))
-                                {
-                                    unexpected_callback_error = Some(error);
-                                }
-                            }
-                        }
-                    });
+            let py_tx_execution_info = match tx_execution_result {
+                Ok(tx_execution_info) => Python::with_gil(|py| {
+                    // Allocate this instance on the Python heap.
+                    // This is necessary in order to pass a reference to it to the callback
+                    // (otherwise, if it were allocated on Rust's heap/stack, giving Python a
+                    // reference to the objects will not work).
+                    Py::new(py, PyTransactionExecutionInfo::from(tx_execution_info))
+                        .expect("Should be able to allocate on Python heap")
+                }),
+                Err(error) => {
+                    transactional_state.abort();
+                    return Err(error);
                 }
-                Err(_tx_execution_failed) => transactional_state.abort(),
-            }
+            };
 
-            if let Some(error) = unexpected_callback_error {
-                Err(error.into())
-            } else {
-                tx_execution_result
-            }
-        })?;
+            let has_enough_room_for_tx = Python::with_gil(|py| {
+                // Can be done because `py_tx_execution_info` is a `Py<PyTransactionExecutionInfo>`,
+                // hence is allocated on the Python heap.
+                let args = (py_tx_execution_info.borrow(py),);
+                enough_room_for_tx.call1(args) // Callback to Python code.
+            });
 
-        Ok(PyTransactionExecutionInfo::from(tx_execution_info))
+            match has_enough_room_for_tx {
+                Ok(_) => {
+                    transactional_state.commit();
+                    Ok(py_tx_execution_info)
+                }
+                // Unexpected error, abort and let caller know.
+                Err(error) if unexpected_callback_error(&error) => {
+                    transactional_state.abort();
+                    Err(error.into())
+                }
+                // Not enough room in batch, abort and let caller verify on its own.
+                Err(_not_enough_weight_error) => {
+                    transactional_state.abort();
+                    Ok(py_tx_execution_info)
+                }
+            }
+        })
     }
 
     /// Returns the state diff resulting in executing transactions.
@@ -347,4 +351,8 @@ impl PyTransactionExecutor {
 
         state_diff
     }
+}
+fn unexpected_callback_error(error: &PyErr) -> bool {
+    let error_string = error.to_string();
+    !(error_string.contains("BatchFull") || error_string.contains("TransactionBiggerThanBatch"))
 }
