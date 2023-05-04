@@ -73,7 +73,7 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&contract_class.program, "starknet", proof_mode)?;
+    let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
 
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
