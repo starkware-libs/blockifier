@@ -7,6 +7,7 @@ members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.dependencies]
 assert_matches = { version = "1.5.0" }
+cairo-lang-starknet = "1.0.0-rc0"
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-rs.git", rev = "eaea41fe" }
 ctor = "0.2.0"
 derive_more = { version = "0.99.17" }

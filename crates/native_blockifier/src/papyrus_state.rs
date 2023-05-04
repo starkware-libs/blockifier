@@ -1,4 +1,4 @@
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use papyrus_storage::db::TransactionKind;
@@ -61,12 +61,14 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
         let state_number = StateNumber(*self.latest_block());
+        // TODO: when V1 contract reader is available, try if first, and if it can't find the class,
+        // try looking for a V0 class with that hash, using the logic below.
         match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
             Ok(Some(starknet_api_contract_class)) => {
-                Ok(ContractClass::try_from(starknet_api_contract_class)?)
+                Ok(ContractClass::V0(ContractClassV0::try_from(starknet_api_contract_class)?))
             }
-            Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
             Err(err) => Err(StateError::StateReadError(err.to_string())),
+            Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
 

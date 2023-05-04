@@ -10,10 +10,11 @@ use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, get_contract_class, invoke_tx, DictStateReader,
+    declare_tx, deploy_account_tx, get_contract_class_v0, invoke_tx, DictStateReader,
     ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_CLASS_HASH, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
@@ -27,8 +28,8 @@ fn create_state() -> CachedState<DictStateReader> {
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class(ACCOUNT_CONTRACT_PATH)),
-        (test_erc20_class_hash, get_contract_class(ERC20_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class_v0(ACCOUNT_CONTRACT_PATH)),
+        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH)),
     ]);
     // Deploy the erc20 contract.
     let test_erc20_address = block_context.fee_token_address;
@@ -66,14 +67,14 @@ fn test_account_flow_test() {
     account_tx.execute(state, block_context).unwrap();
 
     // Declare a contract.
-    let contract_class = get_contract_class(TEST_CONTRACT_PATH);
+    let contract_class = get_contract_class_v0(TEST_CONTRACT_PATH);
     let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::V1(DeclareTransactionV0V1 {
             nonce: Nonce(stark_felt!(1)),
             ..declare_tx
         }),
-        contract_class,
+        ContractClass::V0(contract_class),
     );
     account_tx.execute(state, block_context).unwrap();
 

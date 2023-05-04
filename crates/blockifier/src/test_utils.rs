@@ -21,7 +21,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     ExecutionResources, Retdata,
@@ -87,7 +87,7 @@ pub struct DictStateReader {
     pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
-    pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
+    pub class_hash_to_class: HashMap<ClassHash, ContractClassV0>,
     pub class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
 }
 
@@ -110,7 +110,8 @@ impl StateReader for DictStateReader {
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
-            Some(contract_class) => Ok(contract_class),
+            // TODO: Add V1 support.
+            Some(contract_class) => Ok(ContractClass::V0(contract_class)),
             None => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
@@ -136,7 +137,7 @@ pub fn pad_address_to_64(address: &str) -> String {
     String::from("0x") + format!("{:0>64}", trimmed_address).as_str()
 }
 
-pub fn get_contract_class(contract_path: &str) -> ContractClass {
+pub fn get_contract_class_v0(contract_path: &str) -> ContractClassV0 {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
     let raw_contract_class = fs::read_to_string(path).unwrap();
     serde_json::from_str(&raw_contract_class).unwrap()
@@ -156,8 +157,8 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
     serde_json::from_value(raw_contract_class).unwrap()
 }
 
-pub fn get_test_contract_class() -> ContractClass {
-    get_contract_class(TEST_CONTRACT_PATH)
+pub fn get_test_contract_class_v0() -> ContractClassV0 {
+    get_contract_class_v0(TEST_CONTRACT_PATH)
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
@@ -183,10 +184,10 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
 
 pub fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([
-        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class(TEST_CONTRACT_PATH)),
+        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class_v0(TEST_CONTRACT_PATH)),
         (
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
-            get_contract_class(SECURITY_TEST_CONTRACT_PATH),
+            get_contract_class_v0(SECURITY_TEST_CONTRACT_PATH),
         ),
     ]);
 
@@ -228,8 +229,8 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     )
     .unwrap();
     let class_hash_to_class = HashMap::from([
-        (class_hash, get_contract_class(TEST_CONTRACT_PATH)),
-        (empty_contract_class_hash, get_contract_class(TEST_EMPTY_CONTRACT_PATH)),
+        (class_hash, get_contract_class_v0(TEST_CONTRACT_PATH)),
+        (empty_contract_class_hash, get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH)),
     ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);

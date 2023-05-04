@@ -1,5 +1,3 @@
-use std::mem;
-
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -279,7 +277,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut execution_resources = ExecutionResources::default();
         match self {
             Self::Declare(ref tx, ref mut contract_class) => {
-                let contract_class = Some(mem::take(contract_class));
+                let contract_class = Some(contract_class.clone());
 
                 // Validate.
                 validate_call_info = self.validate_tx(
