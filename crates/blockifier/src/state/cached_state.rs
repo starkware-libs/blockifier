@@ -6,7 +6,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::utils::subtract_mappings;
@@ -15,7 +15,9 @@ use crate::utils::subtract_mappings;
 #[path = "cached_state_test.rs"]
 mod test;
 
-type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+// TODO: add V1 mapping
+type ContractClassV0Mapping = HashMap<ClassHash, ContractClassV0>;
+
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Caches read and write requests.
@@ -27,7 +29,7 @@ pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
-    class_hash_to_class: ContractClassMapping,
+    class_hash_to_class: ContractClassV0Mapping,
 }
 
 impl<S: StateReader> CachedState<S> {
@@ -97,15 +99,19 @@ impl<S: StateReader> StateReader for CachedState<S> {
 
     fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
         if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.state.get_contract_class(class_hash)?;
-            self.class_hash_to_class.insert(*class_hash, contract_class);
+            match self.state.get_contract_class(class_hash)? {
+                ContractClass::V1(_) => todo!(),
+                ContractClass::V0(contract_class) => {
+                    self.class_hash_to_class.insert(*class_hash, contract_class);
+                }
+            }
         }
 
         let contract_class = self
             .class_hash_to_class
             .get(class_hash)
             .expect("The class hash must appear in the cache.");
-        Ok(contract_class.clone())
+        Ok(ContractClass::V0(contract_class.clone()))
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
@@ -155,11 +161,15 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
+    // TODO: V1 case for setters handled in separate PR
     fn set_contract_class(
         &mut self,
         class_hash: &ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
+        let ContractClass::V0(contract_class) = contract_class else {
+            todo!("V1 contract class not implemented yet.");
+        };
         self.class_hash_to_class.insert(*class_hash, contract_class);
         Ok(())
     }
@@ -393,6 +403,7 @@ impl<'a, S: State> State for MutRefState<'a, S> {
     fn set_contract_class(
         &mut self,
         class_hash: &ClassHash,
+        // TODO: handle full ContractClass, including V1.
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.0.set_contract_class(class_hash, contract_class)

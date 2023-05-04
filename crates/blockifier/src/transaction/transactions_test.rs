@@ -19,6 +19,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
@@ -29,7 +30,7 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    get_contract_class, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
+    get_contract_class_v0, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader,
     ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
@@ -62,9 +63,9 @@ fn create_account_tx_test_state(
     let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class(account_path)),
-        (test_contract_class_hash, get_contract_class(TEST_CONTRACT_PATH)),
-        (test_erc20_class_hash, get_contract_class(ERC20_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class_v0(account_path)),
+        (test_contract_class_hash, get_contract_class_v0(TEST_CONTRACT_PATH)),
+        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH)),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     // A random address that is unlikely to equal the result of the calculation of a contract
@@ -413,7 +414,7 @@ fn test_declare_tx() {
     let sender_address = declare_tx.sender_address;
     let class_hash = declare_tx.class_hash;
 
-    let contract_class = get_contract_class(TEST_EMPTY_CONTRACT_PATH);
+    let contract_class = ContractClass::V0(get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH));
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         contract_class: contract_class.clone(),
@@ -634,7 +635,8 @@ fn create_account_tx_for_validate_test(
 
     match tx_type {
         TransactionType::Declare => {
-            let contract_class = get_contract_class(TEST_FAULTY_ACCOUNT_CONTRACT_PATH);
+            let contract_class =
+                ContractClass::V0(get_contract_class_v0(TEST_FAULTY_ACCOUNT_CONTRACT_PATH));
             let declare_tx = crate::test_utils::declare_tx(
                 TEST_ACCOUNT_CONTRACT_CLASS_HASH,
                 ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
