@@ -3,7 +3,7 @@ use starknet_api::transaction::{
 };
 
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::ExecutionResources;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -30,8 +30,9 @@ impl Transaction {
             StarknetApiTransaction::Declare(declare) => {
                 Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction {
                     tx: declare,
-                    contract_class: contract_class
-                        .expect("Declare should be created with a ContractClass"),
+                    contract_class: ContractClass::V0(
+                        contract_class.expect("Declare should be created with a ContractClass"),
+                    ),
                 }))
             }
             StarknetApiTransaction::DeployAccount(deploy_account) => {

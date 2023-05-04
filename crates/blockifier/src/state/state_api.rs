@@ -2,7 +2,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
 
@@ -31,10 +31,8 @@ pub trait StateReader {
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash>;
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClassV0>;
+    fn get_compiled_contract_class(&mut self, class_hash: &ClassHash)
+    -> StateResult<ContractClass>;
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
@@ -69,7 +67,7 @@ pub trait State: StateReader {
     fn set_contract_class(
         &mut self,
         class_hash: &ClassHash,
-        contract_class: ContractClassV0,
+        contract_class: ContractClass,
     ) -> StateResult<()>;
 
     /// Sets the given compiled class hash under the given class hash.
