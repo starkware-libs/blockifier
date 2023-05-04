@@ -16,7 +16,7 @@ use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::papyrus_state::PapyrusStateReader;
+use crate::papyrus_state::{PapyrusContractReader, PapyrusReader, PapyrusStateReader};
 
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
@@ -38,11 +38,14 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
         .commit()?;
 
     let storage_tx = storage_reader.begin_ro_txn()?;
-    let state_reader = storage_tx.get_state_reader()?;
+    let contracts_reader = PapyrusContractReader::new(&storage_tx);
 
+    let state_reader = storage_tx.get_state_reader()?;
     // BlockNumber is 1 due to the initialization step above.
     let block_number = BlockNumber(1);
-    let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+    let papyrus_state_reader = PapyrusStateReader::new(state_reader, block_number);
+    let papyrus_reader = PapyrusReader::new(papyrus_state_reader, contracts_reader);
+
     let mut state = CachedState::new(papyrus_reader);
 
     // Call entrypoint that want to write to storage, which updates the cached state's write cache.

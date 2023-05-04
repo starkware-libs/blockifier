@@ -19,6 +19,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
@@ -56,15 +57,13 @@ pub fn felt_to_stark_felt(felt: &Felt252) -> StarkFelt {
 
 pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
-    class_hash: ClassHash,
+    contract_class: ContractClassV0,
     state: &'a mut dyn State,
     execution_resources: &'a mut ExecutionResources,
     execution_context: &'a mut ExecutionContext,
     block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
-    let contract_class = state.get_compiled_contract_class(&class_hash)?;
-
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
 
@@ -131,7 +130,7 @@ pub fn prepare_call_arguments(
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
-    class_hash: ClassHash,
+    contract_class: ContractClassV0,
     state: &mut dyn State,
     execution_resources: &mut ExecutionResources,
     execution_context: &mut ExecutionContext,
@@ -146,7 +145,7 @@ pub fn execute_entry_point_call(
         entry_point_pc,
     } = initialize_execution_context(
         &call,
-        class_hash,
+        contract_class,
         state,
         execution_resources,
         execution_context,

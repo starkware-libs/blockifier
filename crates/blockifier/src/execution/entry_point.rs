@@ -10,7 +10,7 @@ use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payloa
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -103,9 +103,12 @@ impl CallEntryPoint {
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
 
+        let ContractClass::V0(contract_class) = state.get_compiled_contract_class(&class_hash)? else {
+            todo!("V1 contract class not implemented yet.");
+        };
         execute_entry_point_call(
             self,
-            class_hash,
+            contract_class,
             state,
             execution_resources,
             execution_context,
@@ -130,7 +133,7 @@ impl CallEntryPoint {
 
     pub fn resolve_entry_point_pc(
         &self,
-        contract_class: &ContractClass,
+        contract_class: &ContractClassV0,
     ) -> Result<usize, PreExecutionError> {
         let entry_points_of_same_type =
             &contract_class.0.entry_points_by_type[&self.entry_point_type];
@@ -285,7 +288,9 @@ pub fn execute_constructor_entry_point(
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_compiled_contract_class(&class_hash)?;
+    let ContractClass::V0(contract_class) = state.get_compiled_contract_class(&class_hash)? else {
+        todo!("V1 contract classes not implemented yet.")
+    };
     let constructor_entry_points =
         &contract_class.0.entry_points_by_type[&EntryPointType::Constructor];
 
