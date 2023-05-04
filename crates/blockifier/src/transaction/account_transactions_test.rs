@@ -10,12 +10,14 @@ use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, get_contract_class_v0, invoke_tx, DictStateReader,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_CLASS_HASH, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    declare_tx, deploy_account_tx, get_contract_class_for_testing, get_contract_class_v0,
+    invoke_tx, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_PATH,
+    TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -27,8 +29,8 @@ fn create_state() -> CachedState<DictStateReader> {
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class_v0(ACCOUNT_CONTRACT_PATH)),
-        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class_for_testing(ACCOUNT_CONTRACT_PATH)),
+        (test_erc20_class_hash, get_contract_class_for_testing(ERC20_CONTRACT_PATH)),
     ]);
     // Deploy the erc20 contract.
     let test_erc20_address = block_context.fee_token_address;
@@ -73,7 +75,7 @@ fn test_account_flow_test() {
             nonce: Nonce(stark_felt!(1)),
             ..declare_tx
         }),
-        contract_class,
+        contract_class: ContractClass::V0(contract_class),
     });
     account_tx.execute(state, block_context).unwrap();
 
