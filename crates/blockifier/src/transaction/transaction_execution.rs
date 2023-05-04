@@ -24,6 +24,8 @@ pub enum Transaction {
 }
 
 impl Transaction {
+    // TODO(Gilad, 01/05/2023): This is only relevant for benchmarking.
+    // When that module is added move it there.
     pub fn from_api(tx: StarknetApiTransaction, contract_class: Option<ContractClass>) -> Self {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => Self::L1HandlerTransaction(l1_handler),
@@ -31,7 +33,7 @@ impl Transaction {
                 Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction {
                     tx: declare,
                     contract_class: contract_class
-                        .expect("Declare should be created with a ContractClass"),
+                        .expect("Declare should be created with a contract class"),
                 }))
             }
             StarknetApiTransaction::DeployAccount(deploy_account) => {

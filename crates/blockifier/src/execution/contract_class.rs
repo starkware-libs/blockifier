@@ -189,6 +189,12 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
 // V0 utilities.
 
+impl From<ContractClassV0Inner> for ContractClassV0 {
+    fn from(class: ContractClassV0Inner) -> Self {
+        Self(Arc::new(class))
+    }
+}
+
 /// Converts the program type from SN API into a Cairo VM-compatible type.
 pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
