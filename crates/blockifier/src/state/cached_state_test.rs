@@ -9,8 +9,8 @@ use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
 use crate::test_utils::{
-    create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
+    create_test_state, get_contract_class_for_testing, DictStateReader, TEST_CLASS_HASH,
+    TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 fn set_initial_state_values(
@@ -134,14 +134,13 @@ fn get_and_increment_nonce() {
 }
 
 #[test]
-fn get_contract_class() {
+fn get_contract_class_v0() {
     // Positive flow.
     let existing_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let mut state = create_test_state();
-    assert_eq!(
-        state.get_compiled_contract_class(&existing_class_hash).unwrap(),
-        get_test_contract_class()
-    );
+
+    let contract_class = state.get_compiled_contract_class(&existing_class_hash).unwrap();
+    assert_eq!(contract_class, get_contract_class_for_testing(TEST_CONTRACT_PATH));
 
     // Negative flow.
     let missing_class_hash = ClassHash(stark_felt!("0x101"));
@@ -186,7 +185,8 @@ fn cached_state_state_diff_conversion() {
     // This will not appear in the diff, since this mapping is immutable for the current version we
     // are aligned with.
     let test_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class())]);
+    let class_hash_to_class =
+        HashMap::from([(test_class_hash, get_contract_class_for_testing(TEST_CONTRACT_PATH))]);
 
     let nonce_initial_values = HashMap::new();
 

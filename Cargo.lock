@@ -2199,6 +2199,7 @@ name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
  "blockifier",
+ "cairo-lang-starknet",
  "cairo-vm",
  "hex",
  "indexmap",

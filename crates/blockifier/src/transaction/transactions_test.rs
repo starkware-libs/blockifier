@@ -30,13 +30,13 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    get_contract_class_v0, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+    get_contract_class_for_testing, get_contract_class_v0, test_erc20_account_balance_key,
+    test_erc20_faulty_account_balance_key, test_erc20_sequencer_balance_key,
+    validate_tx_execution_info, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
+    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -63,9 +63,9 @@ fn create_account_tx_test_state(
     let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class_v0(account_path).into()),
-        (test_contract_class_hash, get_contract_class_v0(TEST_CONTRACT_PATH).into()),
-        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH).into()),
+        (test_account_class_hash, get_contract_class_for_testing(account_path)),
+        (test_contract_class_hash, get_contract_class_for_testing(TEST_CONTRACT_PATH)),
+        (test_erc20_class_hash, get_contract_class_for_testing(ERC20_CONTRACT_PATH)),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     // A random address that is unlikely to equal the result of the calculation of a contract
@@ -635,7 +635,8 @@ fn create_account_tx_for_validate_test(
 
     match tx_type {
         TransactionType::Declare => {
-            let contract_class = get_contract_class_v0(TEST_FAULTY_ACCOUNT_CONTRACT_PATH).into();
+            let contract_class =
+                ContractClass::V0(get_contract_class_v0(TEST_FAULTY_ACCOUNT_CONTRACT_PATH));
             let declare_tx = crate::test_utils::declare_tx(
                 TEST_ACCOUNT_CONTRACT_CLASS_HASH,
                 ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),

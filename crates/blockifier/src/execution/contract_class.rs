@@ -32,6 +32,7 @@ pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
 }
+
 impl ContractClass {
     pub fn constructor_selector(&self) -> Option<EntryPointSelector> {
         match self {
@@ -214,6 +215,12 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 }
 
 // V0 utilities.
+
+impl From<ContractClassV0Inner> for ContractClassV0 {
+    fn from(class: ContractClassV0Inner) -> Self {
+        Self(Arc::new(class))
+    }
+}
 
 /// Converts the program type from SN API into a Cairo VM-compatible type.
 pub fn deserialize_program<'de, D: Deserializer<'de>>(

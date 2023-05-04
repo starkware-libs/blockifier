@@ -41,7 +41,7 @@ impl Transaction {
                 Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction {
                     tx: declare,
                     contract_class: contract_class
-                        .expect("Declare should be created with a ContractClass"),
+                        .expect("Declare should be created with a contract class"),
                 }))
             }
             StarknetApiTransaction::DeployAccount(deploy_account) => {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use blockifier::state::cached_state::CachedState;
-use blockifier::test_utils::{get_contract_class_v0, DictStateReader};
+use blockifier::test_utils::{get_contract_class_for_testing, DictStateReader};
 use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
@@ -16,7 +16,7 @@ pub const TOKEN_FOR_TESTING_CONTRACT_PATH: &str =
 pub fn create_py_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([(
         ClassHash(stark_felt!(TOKEN_FOR_TESTING_CLASS_HASH)),
-        get_contract_class_v0(TOKEN_FOR_TESTING_CONTRACT_PATH).into(),
+        get_contract_class_for_testing(TOKEN_FOR_TESTING_CONTRACT_PATH),
     )]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
 }
