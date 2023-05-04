@@ -13,7 +13,7 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
-use crate::transaction::transactions::{Executable, ExecutableTransaction};
+use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
 
 #[derive(Debug)]
 // TODO(Gilad, 15/4/2023): Remove clippy ignore, box large variants.
@@ -28,10 +28,11 @@ impl Transaction {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => Self::L1HandlerTransaction(l1_handler),
             StarknetApiTransaction::Declare(declare) => {
-                Self::AccountTransaction(AccountTransaction::Declare(
-                    declare,
-                    contract_class.expect("Declare should be created with a ContractClass"),
-                ))
+                Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction {
+                    tx: declare,
+                    contract_class: contract_class
+                        .expect("Declare should be created with a ContractClass"),
+                }))
             }
             StarknetApiTransaction::DeployAccount(deploy_account) => {
                 Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account))
@@ -60,7 +61,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         };
         let mut execution_resources = ExecutionResources::default();
         let execute_call_info =
-            self.run_execute(state, &mut execution_resources, block_context, &tx_context, None)?;
+            self.run_execute(state, &mut execution_resources, block_context, &tx_context)?;
 
         let call_infos =
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
