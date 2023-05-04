@@ -14,6 +14,7 @@ use crate::utils::subtract_mappings;
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
+type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Holds uncommitted changes induced on StarkNet contracts.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -27,7 +28,6 @@ pub struct CommitmentStateDiff {
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
 }
 
-type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Caches read and write requests.
@@ -120,7 +120,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
             .class_hash_to_class
             .get(class_hash)
             .expect("The class hash must appear in the cache.");
-        Ok(contract_class.clone())
+        Ok(contract_class).cloned()
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {

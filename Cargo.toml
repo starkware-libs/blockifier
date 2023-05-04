@@ -8,9 +8,9 @@ members = ["crates/blockifier", "crates/native_blockifier"]
 [workspace.dependencies]
 assert_matches = "1.5.0"
 cairo-felt = "0.3.0-rc1"
-cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", rev="a0ead7c0b8e297d281c7213151cd43ac11de5042" }
-cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", rev="a0ead7c0b8e297d281c7213151cd43ac11de5042"}
-cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", rev="a0ead7c0b8e297d281c7213151cd43ac11de5042"}
+cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", rev = "a0ead7c0b8e297d281c7213151cd43ac11de5042" }
+cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", rev = "a0ead7c0b8e297d281c7213151cd43ac11de5042" }
+cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", rev = "a0ead7c0b8e297d281c7213151cd43ac11de5042" }
 cairo-vm = "0.3.0-rc1"
 ctor = "0.2.0"
 derive_more = "0.99.17"
@@ -22,13 +22,17 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 ouroboros = "0.15.6"
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "da70d83" }
+
+# DONT MERGE!
+# This is a branch on top of an unreleased papyrus_storage branch, there shouldn't get into our `main`.
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "f5c81af" }
+
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 serde = "1.0.130"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "2bea163" }
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "2c88adf" }
 strum = "0.24.1"
 strum_macros = "0.24.3"
 test-case = "2.2.2"
