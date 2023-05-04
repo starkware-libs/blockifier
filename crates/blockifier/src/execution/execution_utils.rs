@@ -19,6 +19,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscall_hint_processor::{
     execute_inner_call, DeprecatedSyscallHintProcessor,
 };
@@ -67,34 +68,44 @@ pub fn initialize_execution_context<'a>(
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let contract_class = state.get_contract_class(&class_hash)?;
+    match contract_class {
+        ContractClass::V1(_) => todo!(),
+        ContractClass::V0(contract_class) => {
+            // Resolve initial PC from EP indicator.
+            let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
 
-    // Resolve initial PC from EP indicator.
-    let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;
+            // Instantiate Cairo runner.
+            let proof_mode = false;
+            let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
 
-    // Instantiate Cairo runner.
-    let proof_mode = false;
-    let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
+            let trace_enabled = true;
+            let mut vm = VirtualMachine::new(trace_enabled);
 
-    let trace_enabled = true;
-    let mut vm = VirtualMachine::new(trace_enabled);
+            runner.initialize_builtins(&mut vm)?;
+            runner.initialize_segments(&mut vm, None);
 
-    runner.initialize_builtins(&mut vm)?;
-    runner.initialize_segments(&mut vm, None);
+            // Instantiate syscall handler.
+            let initial_syscall_ptr = vm.add_memory_segment();
+            let syscall_handler = DeprecatedSyscallHintProcessor::new(
+                state,
+                execution_resources,
+                execution_context,
+                block_context,
+                account_tx_context,
+                initial_syscall_ptr,
+                call.storage_address,
+                call.caller_address,
+            );
 
-    // Instantiate syscall handler.
-    let initial_syscall_ptr = vm.add_memory_segment();
-    let syscall_handler = DeprecatedSyscallHintProcessor::new(
-        state,
-        execution_resources,
-        execution_context,
-        block_context,
-        account_tx_context,
-        initial_syscall_ptr,
-        call.storage_address,
-        call.caller_address,
-    );
-
-    Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
+            Ok(VmExecutionContext {
+                runner,
+                vm,
+                syscall_handler,
+                initial_syscall_ptr,
+                entry_point_pc,
+            })
+        }
+    }
 }
 
 pub fn prepare_call_arguments(

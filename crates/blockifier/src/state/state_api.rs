@@ -2,7 +2,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::errors::StateError;
 
 pub type StateResult<T> = Result<T, StateError>;
@@ -65,7 +65,8 @@ pub trait State: StateReader {
     fn set_contract_class(
         &mut self,
         class_hash: &ClassHash,
-        contract_class: ContractClass,
+        // TODO: V1 handled in separate PR.
+        contract_class: ContractClassV0,
     ) -> StateResult<()>;
 
     /// Sets the given compiled class hash under the given class hash.

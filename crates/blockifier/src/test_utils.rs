@@ -21,7 +21,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     ExecutionResources, Retdata,
@@ -156,8 +156,11 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
     serde_json::from_value(raw_contract_class).unwrap()
 }
 
-pub fn get_test_contract_class() -> ContractClass {
-    get_contract_class(TEST_CONTRACT_PATH)
+pub fn get_test_contract_class_v0() -> ContractClassV0 {
+    match get_contract_class(TEST_CONTRACT_PATH) {
+        ContractClass::V1(_) => panic!("Should use a v0 contract here."),
+        ContractClass::V0(contract_class) => contract_class,
+    }
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {

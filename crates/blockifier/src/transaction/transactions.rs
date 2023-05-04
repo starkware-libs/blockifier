@@ -88,10 +88,12 @@ impl<S: State> Executable<S> for DeclareTransaction {
         match state.get_contract_class(&class_hash) {
             Err(StateError::UndeclaredClassHash(_)) => {
                 // Class is undeclared; declare it.
-                state.set_contract_class(
-                    &class_hash,
-                    contract_class.expect("Declare transaction must have a contract_class"),
-                )?;
+                match contract_class.expect("Declare transaction must have a contract_class") {
+                    ContractClass::V0(contract_class) => {
+                        state.set_contract_class(&class_hash, contract_class)?
+                    }
+                    ContractClass::V1(_) => todo!(),
+                }
 
                 Ok(None)
             }

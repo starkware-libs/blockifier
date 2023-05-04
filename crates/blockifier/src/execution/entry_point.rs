@@ -7,10 +7,11 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
+use super::contract_class::ContractClassV0;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::ContractClass::V0;
 use crate::execution::deprecated_syscall_hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -130,7 +131,7 @@ impl CallEntryPoint {
 
     pub fn resolve_entry_point_pc(
         &self,
-        contract_class: &ContractClass,
+        contract_class: &ContractClassV0,
     ) -> Result<usize, PreExecutionError> {
         let entry_points_of_same_type =
             &contract_class.0.entry_points_by_type[&self.entry_point_type];
@@ -285,7 +286,9 @@ pub fn execute_constructor_entry_point(
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_contract_class(&class_hash)?;
+    let V0(contract_class) = state.get_contract_class(&class_hash)? else {
+        todo!("V1 contract classes not implemented yet.")
+    };
     let constructor_entry_points =
         &contract_class.0.entry_points_by_type[&EntryPointType::Constructor];
 
