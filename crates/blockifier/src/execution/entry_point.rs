@@ -221,6 +221,20 @@ pub struct CallInfo {
 }
 
 impl CallInfo {
+    /// Returns the set of class hashes that were executed during this call execution.
+    pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
+        let mut class_hashes = HashSet::<ClassHash>::from([self
+            .call
+            .class_hash
+            .expect("Class hash must be set after execution.")]);
+
+        for call in self.into_iter() {
+            class_hashes.extend(call.get_executed_class_hashes());
+        }
+
+        class_hashes
+    }
+
     /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
     pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
