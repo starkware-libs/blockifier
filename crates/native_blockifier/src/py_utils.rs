@@ -4,7 +4,7 @@ use blockifier::transaction::errors::TransactionExecutionError;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use starknet_api::core::{ChainId, ContractAddress};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::EthAddress;
 
@@ -19,6 +19,12 @@ pub struct PyFelt(#[pyo3(from_py_with = "pyint_to_stark_felt")] pub StarkFelt);
 impl IntoPy<PyObject> for PyFelt {
     fn into_py(self, py: Python<'_>) -> PyObject {
         BigUint::from_bytes_be(self.0.bytes()).into_py(py)
+    }
+}
+
+impl From<ClassHash> for PyFelt {
+    fn from(class_hash: ClassHash) -> Self {
+        Self(class_hash.0)
     }
 }
 
