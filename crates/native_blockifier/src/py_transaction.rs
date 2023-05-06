@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -29,7 +30,7 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlo
 use crate::papyrus_state::PapyrusStateReader;
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
-use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
+use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
 use crate::storage::Storage;
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
@@ -286,6 +287,9 @@ impl PyTransactionExecutor {
         build_result
     }
 
+    /// Executes the given transaction on the state maintained by the executor.
+    /// Returns the execution trace, together with the compiled class hashes of executed classes
+    /// (used for counting purposes).
     #[args(tx, raw_contract_class, enough_room_for_tx)]
     pub fn execute(
         &mut self,
@@ -293,24 +297,28 @@ impl PyTransactionExecutor {
         raw_contract_class: Option<&str>,
         // This is functools.partial(bouncer.add, tw_written=tx_written).
         enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<Py<PyTransactionExecutionInfo>> {
+    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, HashSet<PyFelt>)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
+        let mut executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
             let tx_execution_result = tx
                 .execute_raw(&mut transactional_state, executor.block_context)
                 .map_err(NativeBlockifierError::from);
             let py_tx_execution_info = match tx_execution_result {
-                Ok(tx_execution_info) => Python::with_gil(|py| {
-                    // Allocate this instance on the Python heap.
-                    // This is necessary in order to pass a reference to it to the callback
-                    // (otherwise, if it were allocated on Rust's heap/stack, giving Python a
-                    // reference to the objects will not work).
-                    Py::new(py, PyTransactionExecutionInfo::from(tx_execution_info))
-                        .expect("Should be able to allocate on Python heap")
-                }),
+                Ok(tx_execution_info) => {
+                    executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                    Python::with_gil(|py| {
+                        // Allocate this instance on the Python heap.
+                        // This is necessary in order to pass a reference to it to the callback
+                        // (otherwise, if it were allocated on Rust's heap/stack, giving Python a
+                        // reference to the objects will not work).
+                        Py::new(py, PyTransactionExecutionInfo::from(tx_execution_info))
+                            .expect("Should be able to allocate on Python heap")
+                    })
+                }
                 Err(error) => {
                     transactional_state.abort();
                     return Err(error);
@@ -327,7 +335,11 @@ impl PyTransactionExecutor {
             match has_enough_room_for_tx {
                 Ok(_) => {
                     transactional_state.commit();
-                    Ok(py_tx_execution_info)
+                    let py_executed_compiled_class_hashes = into_py_executed_compiled_class_hashes(
+                        executor.state,
+                        executed_class_hashes,
+                    );
+                    Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
                 }
                 // Unexpected error, abort and let caller know.
                 Err(error) if unexpected_callback_error(&error) => {
@@ -337,7 +349,11 @@ impl PyTransactionExecutor {
                 // Not enough room in batch, abort and let caller verify on its own.
                 Err(_not_enough_weight_error) => {
                     transactional_state.abort();
-                    Ok(py_tx_execution_info)
+                    let py_executed_compiled_class_hashes = into_py_executed_compiled_class_hashes(
+                        executor.state,
+                        executed_class_hashes,
+                    );
+                    Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
                 }
             }
         })
@@ -352,7 +368,24 @@ impl PyTransactionExecutor {
         state_diff
     }
 }
+
 fn unexpected_callback_error(error: &PyErr) -> bool {
     let error_string = error.to_string();
     !(error_string.contains("BatchFull") || error_string.contains("TransactionBiggerThanBatch"))
+}
+
+/// Maps Sierra class hashes to their corresponding compiled class hash.
+pub fn into_py_executed_compiled_class_hashes(
+    _state: &mut CachedState<PapyrusStateReader<'_>>,
+    executed_class_hashes: HashSet<ClassHash>,
+) -> HashSet<PyFelt> {
+    let executed_compiled_class_hashes = HashSet::<ClassHash>::new();
+
+    for _class_hash in executed_class_hashes {
+        // TODO: understand if this is a Sierra hash; if so, add the corresponding compiled class
+        // hash to set.
+        todo!();
+    }
+
+    executed_compiled_class_hashes.iter().map(|class_hash| PyFelt::from(*class_hash)).collect()
 }

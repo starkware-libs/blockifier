@@ -269,13 +269,18 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             }
         };
 
-        //  Handle fee.
-        let call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
+        // Handle fee.
+        let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let actual_resources =
-            calculate_tx_resources(context.resources, &call_infos, tx_type, state, None)?;
+        let actual_resources = calculate_tx_resources(
+            context.resources,
+            &non_optional_call_infos,
+            tx_type,
+            state,
+            None,
+        )?;
 
         // Charge fee.
         // Recreate the context to empty the execution resources.

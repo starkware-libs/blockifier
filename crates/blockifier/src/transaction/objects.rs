@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use starknet_api::core::{ContractAddress, Nonce};
+use itertools::concat;
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::entry_point::CallInfo;
@@ -33,6 +34,27 @@ pub struct TransactionExecutionInfo {
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
+}
+
+impl TransactionExecutionInfo {
+    pub fn non_optional_call_infos(&self) -> Vec<&CallInfo> {
+        let call_infos = vec![
+            self.validate_call_info.as_ref(),
+            self.execute_call_info.as_ref(),
+            self.fee_transfer_call_info.as_ref(),
+        ];
+
+        call_infos.into_iter().flatten().collect()
+    }
+
+    /// Returns the set of class hashes that were executed during this transaction execution.
+    pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
+        concat(
+            self.non_optional_call_infos()
+                .into_iter()
+                .map(|call_info| call_info.get_executed_class_hashes()),
+        )
+    }
 }
 
 /// A mapping from a transaction execution resource to its actual usage.
