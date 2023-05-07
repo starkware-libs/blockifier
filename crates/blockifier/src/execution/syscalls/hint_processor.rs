@@ -27,7 +27,8 @@ use super::{
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
     get_tx_info, get_tx_signature, library_call, library_call_l1_handler, replace_class,
     send_message_to_l1, storage_read, storage_write, StorageReadResponse, StorageWriteResponse,
-    SyscallRequest, SyscallResponse, SyscallResult, SyscallSelector,
+    SyscallRequest, SyscallRequestWrapper, SyscallResponse, SyscallResponseWrapper, SyscallResult,
+    SyscallSelector,
 };
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
@@ -37,7 +38,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, read_felt_array, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::state::errors::StateError;
@@ -66,6 +67,8 @@ pub enum SyscallExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
+    #[error("Syscall error.")]
+    SyscallError { error_data: Vec<StarkFelt> },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
@@ -234,17 +237,23 @@ impl<'a> SyscallHintProcessor<'a> {
             &mut SyscallHintProcessor<'_>,
         ) -> SyscallResult<Response>,
     {
-        let request = Request::read(vm, &mut self.syscall_ptr)?;
+        let SyscallRequestWrapper { gas_counter, request } =
+            SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
-        let response = execute_callback(request, vm, self)?;
+        let response = match execute_callback(request, vm, self) {
+            Ok(response) => SyscallResponseWrapper::Success { gas_counter, response },
+            Err(SyscallExecutionError::SyscallError { error_data: data }) => {
+                SyscallResponseWrapper::Failure { gas_counter, error_data: data }
+            }
+            Err(err) => return Err(err.into()),
+        };
         response.write(vm, &mut self.syscall_ptr)?;
 
         Ok(())
     }
 
     fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
-        let selector = felt_from_ptr(vm, self.syscall_ptr)?;
-        self.syscall_ptr = (self.syscall_ptr + 1)?;
+        let selector = felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
@@ -339,27 +348,16 @@ pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
     }
 }
 
-pub fn write_felt(vm: &mut VirtualMachine, ptr: Relocatable, felt: StarkFelt) -> SyscallResult<()> {
-    Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
-}
-
-pub fn read_felt_array(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Vec<StarkFelt>> {
-    let array_size = felt_from_ptr(vm, ptr)?;
-    let array_data_ptr = vm.get_relocatable((ptr + 1)?)?;
-
-    Ok(felt_range_from_ptr(vm, array_data_ptr, usize::try_from(array_size)?)?)
-}
-
-pub fn read_calldata(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<Calldata> {
-    Ok(Calldata(read_felt_array(vm, ptr)?.into()))
+pub fn read_calldata(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Calldata> {
+    Ok(Calldata(read_felt_array::<SyscallExecutionError>(vm, ptr)?.into()))
 }
 
 pub fn read_call_params(
     vm: &VirtualMachine,
-    ptr: Relocatable,
+    ptr: &mut Relocatable,
 ) -> SyscallResult<(EntryPointSelector, Calldata)> {
     let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
-    let calldata = read_calldata(vm, (ptr + 1)?)?;
+    let calldata = read_calldata(vm, ptr)?;
 
     Ok((function_selector, calldata))
 }

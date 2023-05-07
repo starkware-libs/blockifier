@@ -38,7 +38,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, read_felt_array, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::state::errors::StateError;
@@ -259,8 +259,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<StarkFelt> {
-        let selector = felt_from_ptr(vm, self.syscall_ptr)?;
-        self.syscall_ptr = (self.syscall_ptr + 1)?;
+        let selector = felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
@@ -358,34 +357,19 @@ pub fn felt_to_bool(felt: StarkFelt) -> DeprecatedSyscallResult<bool> {
     }
 }
 
-pub fn write_felt(
-    vm: &mut VirtualMachine,
-    ptr: Relocatable,
-    felt: StarkFelt,
-) -> DeprecatedSyscallResult<()> {
-    Ok(vm.insert_value(ptr, stark_felt_to_felt(felt))?)
-}
-
-pub fn read_felt_array(
+pub fn read_calldata(
     vm: &VirtualMachine,
-    ptr: Relocatable,
-) -> DeprecatedSyscallResult<Vec<StarkFelt>> {
-    let array_size = felt_from_ptr(vm, ptr)?;
-    let array_data_ptr = vm.get_relocatable((ptr + 1)?)?;
-
-    Ok(felt_range_from_ptr(vm, array_data_ptr, usize::try_from(array_size)?)?)
-}
-
-pub fn read_calldata(vm: &VirtualMachine, ptr: Relocatable) -> DeprecatedSyscallResult<Calldata> {
-    Ok(Calldata(read_felt_array(vm, ptr)?.into()))
+    ptr: &mut Relocatable,
+) -> DeprecatedSyscallResult<Calldata> {
+    Ok(Calldata(read_felt_array::<DeprecatedSyscallExecutionError>(vm, ptr)?.into()))
 }
 
 pub fn read_call_params(
     vm: &VirtualMachine,
-    ptr: Relocatable,
+    ptr: &mut Relocatable,
 ) -> DeprecatedSyscallResult<(EntryPointSelector, Calldata)> {
     let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
-    let calldata = read_calldata(vm, (ptr + 1)?)?;
+    let calldata = read_calldata(vm, ptr)?;
 
     Ok((function_selector, calldata))
 }

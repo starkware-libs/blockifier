@@ -17,6 +17,7 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
+use starknet_api::StarknetApiError;
 
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
@@ -316,9 +317,11 @@ fn read_execution_retdata(
 
 pub fn felt_from_ptr(
     vm: &VirtualMachine,
-    ptr: Relocatable,
+    ptr: &mut Relocatable,
 ) -> Result<StarkFelt, VirtualMachineError> {
-    Ok(felt_to_stark_felt(vm.get_integer(ptr)?.as_ref()))
+    let felt = felt_to_stark_felt(vm.get_integer(*ptr)?.as_ref());
+    *ptr += 1;
+    Ok(felt)
 }
 
 pub fn felt_range_from_ptr(
@@ -445,4 +448,36 @@ pub fn execute_deployment(
         deployer_address,
         constructor_calldata,
     )
+}
+
+pub fn write_felt(
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+    felt: StarkFelt,
+) -> Result<(), MemoryError> {
+    write_maybe_relocatable(vm, ptr, stark_felt_to_felt(felt))
+}
+
+pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+    value: T,
+) -> Result<(), MemoryError> {
+    vm.insert_value(*ptr, value)?;
+    *ptr += 1;
+    Ok(())
+}
+
+pub fn read_felt_array<TErr>(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<Vec<StarkFelt>, TErr>
+where
+    TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError>,
+{
+    let array_size = felt_from_ptr(vm, ptr)?;
+    let array_data_start_ptr = vm.get_relocatable(*ptr)?;
+    *ptr += 1;
+
+    Ok(felt_range_from_ptr(vm, array_data_start_ptr, usize::try_from(array_size)?)?)
 }
