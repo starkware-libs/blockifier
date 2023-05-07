@@ -13,7 +13,7 @@ on:
       - reopened
       - synchronize
     paths:
-     - 'crates/blockifier/feature_contracts/**'
+     - 'crates/blockifier/feature_contracts/cairo0/**'
 
 jobs:
   verify_cairo_file_dependencies:

@@ -62,9 +62,9 @@ fn create_account_tx_test_state(
     let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class_v0(account_path)),
-        (test_contract_class_hash, get_contract_class_v0(TEST_CONTRACT_PATH)),
-        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class_v0(account_path).into()),
+        (test_contract_class_hash, get_contract_class_v0(TEST_CONTRACT_PATH).into()),
+        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH).into()),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     // A random address that is unlikely to equal the result of the calculation of a contract
