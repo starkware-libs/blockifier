@@ -11,15 +11,18 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::memory_errors::MemoryError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
+use starknet_api::StarknetApiError;
+use thiserror::Error;
 
-use crate::block_context::BlockContext;
-use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-use crate::execution::deprecated_syscalls::{
+use super::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
     get_tx_info, get_tx_signature, library_call, library_call_l1_handler, replace_class,
@@ -27,19 +30,52 @@ use crate::execution::deprecated_syscalls::{
     DeprecatedSyscallSelector, StorageReadResponse, StorageWriteResponse, SyscallRequest,
     SyscallResponse,
 };
+use crate::block_context::BlockContext;
+use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, ExecutionContext, ExecutionResources, OrderedEvent,
+    CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources, OrderedEvent,
     OrderedL2ToL1Message,
 };
-use crate::execution::errors::DeprecatedSyscallExecutionError;
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
+use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
 
 pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
+
+#[derive(Debug, Error)]
+pub enum DeprecatedSyscallExecutionError {
+    #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
+    BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
+    #[error(transparent)]
+    InnerCallExecutionError(#[from] EntryPointExecutionError),
+    #[error("Invalid syscall input: {input:?}; {info}")]
+    InvalidSyscallInput { input: StarkFelt, info: String },
+    #[error("Invalid syscall selector: {0:?}.")]
+    InvalidDeprecatedSyscallSelector(StarkFelt),
+    #[error(transparent)]
+    MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
+    #[error(transparent)]
+    MemoryError(#[from] MemoryError),
+    #[error(transparent)]
+    StarknetApiError(#[from] StarknetApiError),
+    #[error(transparent)]
+    StateError(#[from] StateError),
+    #[error(transparent)]
+    VirtualMachineError(#[from] VirtualMachineError),
+}
+
+// Needed for custom hint implementations (in our case, syscall hints) which must comply with the
+// cairo-rs API.
+impl From<DeprecatedSyscallExecutionError> for HintError {
+    fn from(error: DeprecatedSyscallExecutionError) -> Self {
+        HintError::CustomHint(error.to_string())
+    }
+}
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -375,4 +411,30 @@ pub fn execute_inner_call(
 
     syscall_handler.inner_calls.push(call_info);
     Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: retdata.len() })
+}
+
+pub fn execute_library_call(
+    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
+    vm: &mut VirtualMachine,
+    class_hash: ClassHash,
+    code_address: Option<ContractAddress>,
+    call_to_external: bool,
+    entry_point_selector: EntryPointSelector,
+    calldata: Calldata,
+) -> DeprecatedSyscallResult<ReadOnlySegment> {
+    let entry_point_type =
+        if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
+    let entry_point = CallEntryPoint {
+        class_hash: Some(class_hash),
+        code_address,
+        entry_point_type,
+        entry_point_selector,
+        calldata,
+        // The call context remains the same in a library call.
+        storage_address: syscall_handler.storage_address,
+        caller_address: syscall_handler.caller_address,
+        call_type: CallType::Delegate,
+    };
+
+    execute_inner_call(entry_point, vm, syscall_handler)
 }
