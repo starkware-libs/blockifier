@@ -86,7 +86,7 @@ impl<'env> StateReader for PapyrusReader<'env> {
             .map_err(|err| StateError::StateReadError(err.to_string()))?;
 
         if let Some(casm_contract_class) = v1_contract_class {
-            return Ok(ContractClass::V1(casm_contract_class));
+            return Ok(ContractClass::V1(casm_contract_class.try_into()?));
         }
 
         let state_number = StateNumber(*self.state.latest_block());

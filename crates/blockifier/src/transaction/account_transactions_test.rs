@@ -28,8 +28,8 @@ fn create_state() -> CachedState<DictStateReader> {
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, get_contract_class_v0(ACCOUNT_CONTRACT_PATH)),
-        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH)),
+        (test_account_class_hash, get_contract_class_v0(ACCOUNT_CONTRACT_PATH).into()),
+        (test_erc20_class_hash, get_contract_class_v0(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contract.
     let test_erc20_address = block_context.fee_token_address;

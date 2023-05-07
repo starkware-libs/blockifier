@@ -3,6 +3,7 @@ use std::fs;
 use std::iter::zip;
 use std::path::PathBuf;
 
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
@@ -21,7 +22,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     ExecutionResources, Retdata,
@@ -52,14 +53,17 @@ pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
 pub const ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_without_validations_compiled.json";
-pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
+    "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
+pub const TEST_CONTRACT_PATH: &str =
+    "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
+pub const TEST_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/test_contract.casm.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/security_tests_contract_compiled.json";
+    "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/empty_contract_compiled.json";
+    "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_faulty_compiled.json";
+    "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 
@@ -88,7 +92,7 @@ pub struct DictStateReader {
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     // TODO: Add mapping from class hash to V1 Casm contracts.
-    pub class_hash_to_class: HashMap<ClassHash, ContractClassV0>,
+    pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
     pub class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
 }
 
@@ -115,7 +119,7 @@ impl StateReader for DictStateReader {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
             // TODO: Add V1 support.
-            Some(contract_class) => Ok(ContractClass::V0(contract_class)),
+            Some(contract_class) => Ok(contract_class),
             None => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
@@ -139,6 +143,13 @@ impl StateReader for DictStateReader {
 pub fn pad_address_to_64(address: &str) -> String {
     let trimmed_address = address.strip_prefix("0x").unwrap_or(address);
     String::from("0x") + format!("{:0>64}", trimmed_address).as_str()
+}
+
+pub fn get_contract_class_v1(contract_path: &str) -> ContractClassV1 {
+    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
+    let raw_contract_class = fs::read_to_string(path).unwrap();
+    let casm_contract_class: CasmContractClass = serde_json::from_str(&raw_contract_class).unwrap();
+    casm_contract_class.try_into().unwrap()
 }
 
 pub fn get_contract_class_v0(contract_path: &str) -> ContractClassV0 {
@@ -188,10 +199,10 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
 
 pub fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([
-        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class_v0(TEST_CONTRACT_PATH)),
+        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class_v0(TEST_CONTRACT_PATH).into()),
         (
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
-            get_contract_class_v0(SECURITY_TEST_CONTRACT_PATH),
+            get_contract_class_v0(SECURITY_TEST_CONTRACT_PATH).into(),
         ),
     ]);
 
@@ -218,6 +229,31 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
+pub fn create_test_cairo1_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = HashMap::from([(
+        ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        get_contract_class_v1(TEST_CONTRACT_CAIRO1_PATH).into(),
+    )]);
+
+    // Two instances of a test contract and one instance of another (different) test contract.
+    let address_to_class_hash = HashMap::from([
+        (
+            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        ),
+        (
+            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        ),
+    ]);
+
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
+}
+
 pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let empty_contract_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
@@ -233,8 +269,8 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     )
     .unwrap();
     let class_hash_to_class = HashMap::from([
-        (class_hash, get_contract_class_v0(TEST_CONTRACT_PATH)),
-        (empty_contract_class_hash, get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH)),
+        (class_hash, get_contract_class_v0(TEST_CONTRACT_PATH).into()),
+        (empty_contract_class_hash, get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH).into()),
     ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
