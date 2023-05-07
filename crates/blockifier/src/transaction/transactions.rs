@@ -88,23 +88,25 @@ impl<S: State> Executable<S> for DeclareTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.tx.class_hash();
 
-        match state.get_contract_class(&class_hash) {
-            Err(StateError::UndeclaredClassHash(_)) => {
-                // Class is undeclared; declare it.
+        match &self.tx {
+            // No class commitment, so no need to check if the class is already declared.
+            starknet_api::transaction::DeclareTransaction::V0(_)
+            | starknet_api::transaction::DeclareTransaction::V1(_) => {
                 state.set_contract_class(&class_hash, self.contract_class.clone())?;
-
                 Ok(None)
             }
-            Err(error) => Err(error).map_err(TransactionExecutionError::from),
-            Ok(_) => {
-                // Class is already declared.
-                match self.tx {
-                    // No class commitment, so this check is meaningless.
-                    starknet_api::transaction::DeclareTransaction::V0(_) => Ok(None),
-                    starknet_api::transaction::DeclareTransaction::V1(_) => Ok(None),
-                    // From V2 up, cannot redeclare (i.e., make sure the leaf is uninitialized).
-                    // Changing class leaf in the commitment is possible only through syscall.
-                    starknet_api::transaction::DeclareTransaction::V2(_) => {
+            starknet_api::transaction::DeclareTransaction::V2(tx) => {
+                match state.get_contract_class(&class_hash) {
+                    Err(StateError::UndeclaredClassHash(_)) => {
+                        // Class is undeclared; declare it.
+                        state.set_contract_class(&class_hash, self.contract_class.clone())?;
+                        state.set_compiled_class_hash(class_hash, tx.compiled_class_hash)?;
+                        Ok(None)
+                    }
+                    Err(error) => Err(error).map_err(TransactionExecutionError::from),
+                    Ok(_) => {
+                        // Class is already declared, cannot redeclare
+                        // (i.e., make sure the leaf is uninitialized).
                         Err(TransactionExecutionError::DeclareTransactionError { class_hash })
                     }
                 }
