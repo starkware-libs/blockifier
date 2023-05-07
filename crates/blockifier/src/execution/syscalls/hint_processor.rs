@@ -27,7 +27,8 @@ use super::{
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
     get_tx_info, get_tx_signature, library_call, library_call_l1_handler, replace_class,
     send_message_to_l1, storage_read, storage_write, StorageReadResponse, StorageWriteResponse,
-    SyscallRequest, SyscallResponse, SyscallResult, SyscallSelector,
+    SyscallRequest, SyscallRequestWrapper, SyscallResponse, SyscallResponseWrapper, SyscallResult,
+    SyscallSelector,
 };
 use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
@@ -66,6 +67,8 @@ pub enum SyscallExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
+    #[error("Syscall error.")]
+    SyscallError { data: Vec<StarkFelt> },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
@@ -234,9 +237,16 @@ impl<'a> SyscallHintProcessor<'a> {
             &mut SyscallHintProcessor<'_>,
         ) -> SyscallResult<Response>,
     {
-        let request = Request::read(vm, &mut self.syscall_ptr)?;
+        let SyscallRequestWrapper { gas_counter, request } =
+            SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
-        let response = execute_callback(request, vm, self)?;
+        let response = match execute_callback(request, vm, self) {
+            Ok(response) => SyscallResponseWrapper::Success { gas_counter, response },
+            Err(SyscallExecutionError::SyscallError { data }) => {
+                SyscallResponseWrapper::Failure { gas_counter, data }
+            }
+            Err(err) => return Err(err.into()),
+        };
         response.write(vm, &mut self.syscall_ptr)?;
 
         Ok(())

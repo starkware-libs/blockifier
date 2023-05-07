@@ -40,6 +40,61 @@ pub trait SyscallResponse {
     fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
+// Syscall header structs.
+pub struct SyscallRequestWrapper<T: SyscallRequest> {
+    pub gas_counter: StarkFelt,
+    pub request: T,
+}
+impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self> {
+        let gas_counter = felt_from_ptr(vm, *ptr)?;
+        *ptr += 1;
+        let request = T::read(vm, ptr)?;
+        Ok(Self { gas_counter, request })
+    }
+}
+
+pub enum SyscallResponseWrapper<T: SyscallResponse> {
+    Success { gas_counter: StarkFelt, response: T },
+    Failure { gas_counter: StarkFelt, data: Vec<StarkFelt> },
+}
+impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        match self {
+            Self::Success { gas_counter, response } => {
+                write_felt(vm, *ptr, gas_counter)?;
+                *ptr += 1;
+                // 0 to indicate success.
+                write_felt(vm, *ptr, 0.into())?;
+                *ptr += 1;
+                response.write(vm, ptr)
+            }
+            Self::Failure { gas_counter, data: error_data } => {
+                write_felt(vm, *ptr, gas_counter)?;
+                *ptr += 1;
+                // 1 to indicate failure.
+                write_felt(vm, *ptr, 0.into())?;
+                *ptr += 1;
+
+                // Write the error data to a new memory segment.
+                let revert_reason_start = vm.add_memory_segment();
+                let mut revert_reason_end = revert_reason_start;
+                for value in error_data {
+                    write_felt(vm, revert_reason_end, value)?;
+                    revert_reason_end = (revert_reason_end + 1)?;
+                }
+
+                // Write the start and end pointers of the error data.
+                vm.insert_value(*ptr, revert_reason_start)?;
+                *ptr += 1;
+                vm.insert_value(*ptr, revert_reason_end)?;
+                *ptr += 1;
+                Ok(())
+            }
+        }
+    }
+}
+
 // Common structs.
 
 #[derive(Debug, Eq, PartialEq)]
