@@ -14,9 +14,10 @@ use starknet_api::transaction::{
 
 use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
-    read_felt_array, write_felt, SyscallExecutionError, SyscallHintProcessor,
+    SyscallExecutionError, SyscallHintProcessor,
 };
 use super::deprecated_syscalls::DeprecatedSyscallSelector;
+use super::execution_utils::{read_felt_array, write_felt};
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -38,6 +39,55 @@ pub trait SyscallRequest: Sized {
 
 pub trait SyscallResponse {
     fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult;
+}
+
+// Syscall header structs.
+pub struct SyscallRequestWrapper<T: SyscallRequest> {
+    pub gas_counter: StarkFelt,
+    pub request: T,
+}
+impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self> {
+        let gas_counter = felt_from_ptr(vm, ptr)?;
+        let request = T::read(vm, ptr)?;
+        Ok(Self { gas_counter, request })
+    }
+}
+
+pub enum SyscallResponseWrapper<T: SyscallResponse> {
+    Success { gas_counter: StarkFelt, response: T },
+    Failure { gas_counter: StarkFelt, error_data: Vec<StarkFelt> },
+}
+impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        match self {
+            Self::Success { gas_counter, response } => {
+                write_felt(vm, ptr, gas_counter)?;
+                // 0 to indicate success.
+                write_felt(vm, ptr, 0.into())?;
+                response.write(vm, ptr)
+            }
+            Self::Failure { gas_counter, error_data } => {
+                write_felt(vm, ptr, gas_counter)?;
+                // 1 to indicate failure.
+                write_felt(vm, ptr, 1.into())?;
+
+                // Write the error data to a new memory segment.
+                let revert_reason_start = vm.add_memory_segment();
+                let mut revert_reason_end = revert_reason_start;
+                for value in error_data {
+                    write_felt(vm, &mut revert_reason_end, value)?;
+                }
+
+                // Write the start and end pointers of the error data.
+                vm.insert_value(*ptr, revert_reason_start)?;
+                *ptr += 1;
+                vm.insert_value(*ptr, revert_reason_end)?;
+                *ptr += 1;
+                Ok(())
+            }
+        }
+    }
 }
 
 // Common structs.
@@ -85,9 +135,8 @@ pub struct CallContractRequest {
 
 impl SyscallRequest for CallContractRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, *ptr)?)?;
-        let (function_selector, calldata) = read_call_params(vm, (*ptr + 1)?)?;
-        *ptr += 2 + ARRAY_METADATA_SIZE;
+        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
     }
@@ -177,11 +226,10 @@ pub struct DeployRequest {
 
 impl SyscallRequest for DeployRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, *ptr)?);
-        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, (*ptr + 1)?)?);
-        let constructor_calldata = read_calldata(vm, (*ptr + 2)?)?;
-        let deploy_from_zero = felt_from_ptr(vm, (*ptr + (2 + ARRAY_METADATA_SIZE))?)?;
-        *ptr += 3 + ARRAY_METADATA_SIZE;
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, ptr)?);
+        let constructor_calldata = read_calldata(vm, ptr)?;
+        let deploy_from_zero = felt_from_ptr(vm, ptr)?;
 
         Ok(DeployRequest {
             class_hash,
@@ -202,10 +250,10 @@ impl SyscallResponse for DeployResponse {
     // `constructor_retdata`.
     // Nonempty constructor retdata is currently not supported.
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, *ptr, *self.contract_address.0.key())?;
+        write_felt(vm, ptr, *self.contract_address.0.key())?;
+        vm.insert_value(*ptr, 0)?;
         vm.insert_value((*ptr + 1)?, 0)?;
-        vm.insert_value((*ptr + 2)?, 0)?;
-        *ptr += 1 + ARRAY_METADATA_SIZE;
+        *ptr += ARRAY_METADATA_SIZE;
         Ok(())
     }
 }
@@ -255,9 +303,9 @@ pub struct EmitEventRequest {
 impl SyscallRequest for EmitEventRequest {
     // The Cairo struct contains: `keys_len`, `keys`, `data_len`, `data`·
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
-        let keys = read_felt_array(vm, *ptr)?.into_iter().map(EventKey).collect();
-        let data = EventData(read_felt_array(vm, (*ptr + ARRAY_METADATA_SIZE)?)?);
-        *ptr += 2 * ARRAY_METADATA_SIZE;
+        let keys =
+            read_felt_array::<SyscallExecutionError>(vm, ptr)?.into_iter().map(EventKey).collect();
+        let data = EventData(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
 
         Ok(EmitEventRequest { content: EventContent { keys, data } })
     }
@@ -353,8 +401,7 @@ pub struct GetContractAddressResponse {
 
 impl SyscallResponse for GetContractAddressResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, *ptr, *self.address.0.key())?;
-        *ptr += 1;
+        write_felt(vm, ptr, *self.address.0.key())?;
         Ok(())
     }
 }
@@ -433,9 +480,8 @@ pub struct LibraryCallRequest {
 
 impl SyscallRequest for LibraryCallRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, *ptr)?);
-        let (function_selector, calldata) = read_call_params(vm, (*ptr + 1)?)?;
-        *ptr += 2 + ARRAY_METADATA_SIZE;
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
     }
@@ -492,8 +538,7 @@ pub struct ReplaceClassRequest {
 
 impl SyscallRequest for ReplaceClassRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<ReplaceClassRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, *ptr)?);
-        *ptr += 1;
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
 
         Ok(ReplaceClassRequest { class_hash })
     }
@@ -523,9 +568,8 @@ pub struct SendMessageToL1Request {
 impl SyscallRequest for SendMessageToL1Request {
     // The Cairo struct contains: `to_address`, `payload_size`, `payload`.
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(felt_from_ptr(vm, *ptr)?)?;
-        let payload = L2ToL1Payload(read_felt_array(vm, (*ptr + 1)?)?);
-        *ptr += 1 + ARRAY_METADATA_SIZE;
+        let to_address = EthAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let payload = L2ToL1Payload(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
     }
@@ -558,8 +602,7 @@ pub struct StorageReadRequest {
 
 impl SyscallRequest for StorageReadRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address = StorageKey::try_from(felt_from_ptr(vm, *ptr)?)?;
-        *ptr += 1;
+        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address })
     }
 }
@@ -571,8 +614,7 @@ pub struct StorageReadResponse {
 
 impl SyscallResponse for StorageReadResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, *ptr, self.value)?;
-        *ptr += 1;
+        write_felt(vm, ptr, self.value)?;
         Ok(())
     }
 }
@@ -595,9 +637,8 @@ pub struct StorageWriteRequest {
 
 impl SyscallRequest for StorageWriteRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address = StorageKey::try_from(felt_from_ptr(vm, *ptr)?)?;
-        let value = felt_from_ptr(vm, (*ptr + 1)?)?;
-        *ptr += 2;
+        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
+        let value = felt_from_ptr(vm, ptr)?;
         Ok(StorageWriteRequest { address, value })
     }
 }
