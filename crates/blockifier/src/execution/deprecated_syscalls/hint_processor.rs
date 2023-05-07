@@ -247,12 +247,10 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             &mut DeprecatedSyscallHintProcessor<'_>,
         ) -> DeprecatedSyscallResult<Response>,
     {
-        let request = Request::read(vm, self.syscall_ptr)?;
-        self.syscall_ptr += Request::SIZE;
+        let request = Request::read(vm, &mut self.syscall_ptr)?;
 
         let response = execute_callback(request, vm, self)?;
-        response.write(vm, self.syscall_ptr)?;
-        self.syscall_ptr += Response::SIZE;
+        response.write(vm, &mut self.syscall_ptr)?;
 
         Ok(())
     }
