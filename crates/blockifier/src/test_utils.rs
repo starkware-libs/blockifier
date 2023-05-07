@@ -3,6 +3,7 @@ use std::fs;
 use std::iter::zip;
 use std::path::PathBuf;
 
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
@@ -52,14 +53,17 @@ pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
 pub const ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_without_validations_compiled.json";
-pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
+    "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
+pub const TEST_CONTRACT_PATH: &str =
+    "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
+pub const TEST_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/test_contract.casm.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/security_tests_contract_compiled.json";
+    "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/empty_contract_compiled.json";
+    "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
-    "./feature_contracts/compiled/account_faulty_compiled.json";
+    "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 
@@ -139,6 +143,13 @@ pub fn pad_address_to_64(address: &str) -> String {
     String::from("0x") + format!("{:0>64}", trimmed_address).as_str()
 }
 
+pub fn get_cairo1_contract_class(contract_path: &str) -> ContractClass {
+    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
+    let raw_contract_class = fs::read_to_string(path).unwrap();
+    let casm_contract_class: CasmContractClass = serde_json::from_str(&raw_contract_class).unwrap();
+    casm_contract_class.try_into().unwrap()
+}
+
 pub fn get_contract_class(contract_path: &str) -> ContractClass {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
     let raw_contract_class = fs::read_to_string(path).unwrap();
@@ -206,6 +217,31 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
         (
             ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
+        ),
+    ]);
+
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
+}
+
+pub fn create_test_cairo1_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = HashMap::from([(
+        ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        get_cairo1_contract_class(TEST_CONTRACT_CAIRO1_PATH),
+    )]);
+
+    // Two instances of a test contract and one instance of another (different) test contract.
+    let address_to_class_hash = HashMap::from([
+        (
+            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        ),
+        (
+            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
         ),
     ]);
 
