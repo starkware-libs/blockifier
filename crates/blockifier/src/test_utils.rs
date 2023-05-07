@@ -54,6 +54,8 @@ pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str = "./feature_contracts/compiled/test_contract_compiled.json";
+pub const TEST_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/compiled/test_contract_cairo1.casm.json";
 pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
@@ -203,6 +205,31 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
         (
             ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
+        ),
+    ]);
+
+    CachedState::new(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
+}
+
+pub fn create_test_cairo1_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = HashMap::from([(
+        ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        get_contract_class(TEST_CONTRACT_CAIRO1_PATH),
+    )]);
+
+    // Two instances of a test contract and one instance of another (different) test contract.
+    let address_to_class_hash = HashMap::from([
+        (
+            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+        ),
+        (
+            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
         ),
     ]);
 
