@@ -33,15 +33,11 @@ type SyscallSelector = DeprecatedSyscallSelector;
 const ARRAY_METADATA_SIZE: usize = 2;
 
 pub trait SyscallRequest: Sized {
-    const SIZE: usize;
-
-    fn read(_vm: &VirtualMachine, _ptr: Relocatable) -> SyscallResult<Self>;
+    fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>;
 }
 
 pub trait SyscallResponse {
-    const SIZE: usize;
-
-    fn write(self, _vm: &mut VirtualMachine, _ptr: Relocatable) -> WriteResponseResult;
+    fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult;
 }
 
 // Common structs.
@@ -50,9 +46,7 @@ pub trait SyscallResponse {
 pub struct EmptyRequest;
 
 impl SyscallRequest for EmptyRequest {
-    const SIZE: usize = 0;
-
-    fn read(_vm: &VirtualMachine, _ptr: Relocatable) -> SyscallResult<EmptyRequest> {
+    fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<EmptyRequest> {
         Ok(EmptyRequest)
     }
 }
@@ -61,9 +55,7 @@ impl SyscallRequest for EmptyRequest {
 pub struct EmptyResponse;
 
 impl SyscallResponse for EmptyResponse {
-    const SIZE: usize = 0;
-
-    fn write(self, _vm: &mut VirtualMachine, _ptr: Relocatable) -> WriteResponseResult {
+    fn write(self, _vm: &mut VirtualMachine, _ptr: &mut Relocatable) -> WriteResponseResult {
         Ok(())
     }
 }
@@ -74,11 +66,11 @@ pub struct SingleSegmentResponse {
 }
 
 impl SyscallResponse for SingleSegmentResponse {
-    const SIZE: usize = ARRAY_METADATA_SIZE;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        vm.insert_value(ptr, self.segment.length)?;
-        Ok(vm.insert_value((ptr + 1)?, self.segment.start_ptr)?)
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        vm.insert_value(*ptr, self.segment.length)?;
+        vm.insert_value((*ptr + 1)?, self.segment.start_ptr)?;
+        *ptr += ARRAY_METADATA_SIZE;
+        Ok(())
     }
 }
 
@@ -92,11 +84,10 @@ pub struct CallContractRequest {
 }
 
 impl SyscallRequest for CallContractRequest {
-    const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, ptr)?)?;
-        let (function_selector, calldata) = read_call_params(vm, (ptr + 1)?)?;
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
+        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, *ptr)?)?;
+        let (function_selector, calldata) = read_call_params(vm, (*ptr + 1)?)?;
+        *ptr += 2 + ARRAY_METADATA_SIZE;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
     }
@@ -185,13 +176,12 @@ pub struct DeployRequest {
 }
 
 impl SyscallRequest for DeployRequest {
-    const SIZE: usize = 3 + ARRAY_METADATA_SIZE;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<DeployRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
-        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, (ptr + 1)?)?);
-        let constructor_calldata = read_calldata(vm, (ptr + 2)?)?;
-        let deploy_from_zero = felt_from_ptr(vm, (ptr + (2 + ARRAY_METADATA_SIZE))?)?;
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
+        let class_hash = ClassHash(felt_from_ptr(vm, *ptr)?);
+        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, (*ptr + 1)?)?);
+        let constructor_calldata = read_calldata(vm, (*ptr + 2)?)?;
+        let deploy_from_zero = felt_from_ptr(vm, (*ptr + (2 + ARRAY_METADATA_SIZE))?)?;
+        *ptr += 3 + ARRAY_METADATA_SIZE;
 
         Ok(DeployRequest {
             class_hash,
@@ -211,12 +201,12 @@ impl SyscallResponse for DeployResponse {
     // The Cairo struct contains: `contract_address`, `constructor_retdata_size`,
     // `constructor_retdata`.
     // Nonempty constructor retdata is currently not supported.
-    const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.contract_address.0.key())?;
-        vm.insert_value((ptr + 1)?, 0)?;
-        Ok(vm.insert_value((ptr + 2)?, 0)?)
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, *ptr, *self.contract_address.0.key())?;
+        vm.insert_value((*ptr + 1)?, 0)?;
+        vm.insert_value((*ptr + 2)?, 0)?;
+        *ptr += 1 + ARRAY_METADATA_SIZE;
+        Ok(())
     }
 }
 
@@ -264,11 +254,10 @@ pub struct EmitEventRequest {
 
 impl SyscallRequest for EmitEventRequest {
     // The Cairo struct contains: `keys_len`, `keys`, `data_len`, `data`·
-    const SIZE: usize = 2 * ARRAY_METADATA_SIZE;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<EmitEventRequest> {
-        let keys = read_felt_array(vm, ptr)?.into_iter().map(EventKey).collect();
-        let data = EventData(read_felt_array(vm, (ptr + ARRAY_METADATA_SIZE)?)?);
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<EmitEventRequest> {
+        let keys = read_felt_array(vm, *ptr)?.into_iter().map(EventKey).collect();
+        let data = EventData(read_felt_array(vm, (*ptr + ARRAY_METADATA_SIZE)?)?);
+        *ptr += 2 * ARRAY_METADATA_SIZE;
 
         Ok(EmitEventRequest { content: EventContent { keys, data } })
     }
@@ -300,10 +289,10 @@ pub struct GetBlockNumberResponse {
 }
 
 impl SyscallResponse for GetBlockNumberResponse {
-    const SIZE: usize = 1;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, Felt252::from(self.block_number.0))?)
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        vm.insert_value(*ptr, Felt252::from(self.block_number.0))?;
+        *ptr += 1;
+        Ok(())
     }
 }
 
@@ -325,10 +314,10 @@ pub struct GetBlockTimestampResponse {
 }
 
 impl SyscallResponse for GetBlockTimestampResponse {
-    const SIZE: usize = 1;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, Felt252::from(self.block_timestamp.0))?)
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        vm.insert_value(*ptr, Felt252::from(self.block_timestamp.0))?;
+        *ptr += 1;
+        Ok(())
     }
 }
 
@@ -363,10 +352,10 @@ pub struct GetContractAddressResponse {
 }
 
 impl SyscallResponse for GetContractAddressResponse {
-    const SIZE: usize = 1;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.address.0.key())
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, *ptr, *self.address.0.key())?;
+        *ptr += 1;
+        Ok(())
     }
 }
 
@@ -401,10 +390,10 @@ pub struct GetTxInfoResponse {
 }
 
 impl SyscallResponse for GetTxInfoResponse {
-    const SIZE: usize = 1;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        Ok(vm.insert_value(ptr, self.tx_info_start_ptr)?)
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        vm.insert_value(*ptr, self.tx_info_start_ptr)?;
+        *ptr += 1;
+        Ok(())
     }
 }
 pub fn get_tx_info(
@@ -443,11 +432,10 @@ pub struct LibraryCallRequest {
 }
 
 impl SyscallRequest for LibraryCallRequest {
-    const SIZE: usize = 2 + ARRAY_METADATA_SIZE;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
-        let (function_selector, calldata) = read_call_params(vm, (ptr + 1)?)?;
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<LibraryCallRequest> {
+        let class_hash = ClassHash(felt_from_ptr(vm, *ptr)?);
+        let (function_selector, calldata) = read_call_params(vm, (*ptr + 1)?)?;
+        *ptr += 2 + ARRAY_METADATA_SIZE;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
     }
@@ -503,10 +491,9 @@ pub struct ReplaceClassRequest {
 }
 
 impl SyscallRequest for ReplaceClassRequest {
-    const SIZE: usize = 1;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<ReplaceClassRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<ReplaceClassRequest> {
+        let class_hash = ClassHash(felt_from_ptr(vm, *ptr)?);
+        *ptr += 1;
 
         Ok(ReplaceClassRequest { class_hash })
     }
@@ -535,11 +522,10 @@ pub struct SendMessageToL1Request {
 
 impl SyscallRequest for SendMessageToL1Request {
     // The Cairo struct contains: `to_address`, `payload_size`, `payload`.
-    const SIZE: usize = 1 + ARRAY_METADATA_SIZE;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(felt_from_ptr(vm, ptr)?)?;
-        let payload = L2ToL1Payload(read_felt_array(vm, (ptr + 1)?)?);
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SendMessageToL1Request> {
+        let to_address = EthAddress::try_from(felt_from_ptr(vm, *ptr)?)?;
+        let payload = L2ToL1Payload(read_felt_array(vm, (*ptr + 1)?)?);
+        *ptr += 1 + ARRAY_METADATA_SIZE;
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
     }
@@ -571,10 +557,9 @@ pub struct StorageReadRequest {
 }
 
 impl SyscallRequest for StorageReadRequest {
-    const SIZE: usize = 1;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
+        let address = StorageKey::try_from(felt_from_ptr(vm, *ptr)?)?;
+        *ptr += 1;
         Ok(StorageReadRequest { address })
     }
 }
@@ -585,10 +570,10 @@ pub struct StorageReadResponse {
 }
 
 impl SyscallResponse for StorageReadResponse {
-    const SIZE: usize = 1;
-
-    fn write(self, vm: &mut VirtualMachine, ptr: Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, self.value)
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, *ptr, self.value)?;
+        *ptr += 1;
+        Ok(())
     }
 }
 
@@ -609,11 +594,10 @@ pub struct StorageWriteRequest {
 }
 
 impl SyscallRequest for StorageWriteRequest {
-    const SIZE: usize = 2;
-
-    fn read(vm: &VirtualMachine, ptr: Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
-        let value = felt_from_ptr(vm, (ptr + 1)?)?;
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
+        let address = StorageKey::try_from(felt_from_ptr(vm, *ptr)?)?;
+        let value = felt_from_ptr(vm, (*ptr + 1)?)?;
+        *ptr += 2;
         Ok(StorageWriteRequest { address, value })
     }
 }
