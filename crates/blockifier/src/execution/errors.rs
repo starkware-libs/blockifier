@@ -1,14 +1,10 @@
-use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
-use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::state::errors::StateError;
@@ -58,36 +54,6 @@ pub enum PostExecutionError {
 impl From<RunnerError> for PostExecutionError {
     fn from(error: RunnerError) -> Self {
         Self::SecurityValidationError(error.to_string())
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum DeprecatedSyscallExecutionError {
-    #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
-    BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
-    #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
-    #[error("Invalid syscall input: {input:?}; {info}")]
-    InvalidSyscallInput { input: StarkFelt, info: String },
-    #[error("Invalid syscall selector: {0:?}.")]
-    InvalidDeprecatedSyscallSelector(StarkFelt),
-    #[error(transparent)]
-    MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
-    #[error(transparent)]
-    MemoryError(#[from] MemoryError),
-    #[error(transparent)]
-    StarknetApiError(#[from] StarknetApiError),
-    #[error(transparent)]
-    StateError(#[from] StateError),
-    #[error(transparent)]
-    VirtualMachineError(#[from] VirtualMachineError),
-}
-
-// Needed for custom hint implementations (in our case, syscall hints) which must comply with the
-// cairo-rs API.
-impl From<DeprecatedSyscallExecutionError> for HintError {
-    fn from(error: DeprecatedSyscallExecutionError) -> Self {
-        HintError::CustomHint(error.to_string())
     }
 }
 

@@ -14,21 +14,19 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
-use crate::execution::deprecated_syscall_hint_processor::{
-    execute_inner_call, felt_to_bool, read_call_params, read_calldata, read_felt_array, write_felt,
-    DeprecatedSyscallHintProcessor,
+use self::hint_processor::{
+    execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
+    read_felt_array, write_felt, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
-use crate::execution::errors::DeprecatedSyscallExecutionError;
-use crate::execution::execution_utils::{
-    execute_deployment, execute_library_call, felt_from_ptr, ReadOnlySegment,
-};
+use crate::execution::execution_utils::{execute_deployment, felt_from_ptr, ReadOnlySegment};
 
 #[cfg(test)]
 #[path = "deprecated_syscalls_test.rs"]
 pub mod deprecated_syscalls_test;
+pub mod hint_processor;
 
 pub type DeprecatedSyscallResult<T> = Result<T, DeprecatedSyscallExecutionError>;
 pub type WriteResponseResult = DeprecatedSyscallResult<()>;

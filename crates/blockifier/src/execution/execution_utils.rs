@@ -13,18 +13,15 @@ use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::deprecated_contract_class::{EntryPointType, Program as DeprecatedProgram};
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
 use crate::block_context::BlockContext;
-use crate::execution::deprecated_syscall_hint_processor::{
-    execute_inner_call, DeprecatedSyscallHintProcessor,
-};
-use crate::execution::deprecated_syscalls::DeprecatedSyscallResult;
+use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
-    execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo, CallType,
+    execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
     EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
 };
 use crate::execution::errors::{
@@ -448,30 +445,4 @@ pub fn execute_deployment(
         deployer_address,
         constructor_calldata,
     )
-}
-
-pub fn execute_library_call(
-    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
-    vm: &mut VirtualMachine,
-    class_hash: ClassHash,
-    code_address: Option<ContractAddress>,
-    call_to_external: bool,
-    entry_point_selector: EntryPointSelector,
-    calldata: Calldata,
-) -> DeprecatedSyscallResult<ReadOnlySegment> {
-    let entry_point_type =
-        if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
-    let entry_point = CallEntryPoint {
-        class_hash: Some(class_hash),
-        code_address,
-        entry_point_type,
-        entry_point_selector,
-        calldata,
-        // The call context remains the same in a library call.
-        storage_address: syscall_handler.storage_address,
-        caller_address: syscall_handler.caller_address,
-        call_type: CallType::Delegate,
-    };
-
-    execute_inner_call(entry_point, vm, syscall_handler)
 }
