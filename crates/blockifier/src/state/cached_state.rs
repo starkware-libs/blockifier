@@ -4,11 +4,12 @@ use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::{StateDiff, StorageKey};
+use starknet_api::state::StorageKey;
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
+use crate::state::state_diff::CommitmentStateDiff;
 use crate::utils::subtract_mappings;
 
 #[cfg(test)]
@@ -44,7 +45,7 @@ impl<S: StateReader> CachedState<S> {
         let mut modified_contracts: HashSet<ContractAddress> =
             storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
 
-        // Class hash Update (deployed contracts).
+        // Class hash Update (deployed contracts + replace_class syscall).
         let class_hash_updates = &self.cache.get_class_hash_updates();
         modified_contracts.extend(class_hash_updates.keys());
 
@@ -173,24 +174,24 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
-    fn to_state_diff(&self) -> StateDiff {
+    fn to_state_diff(&self) -> CommitmentStateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
         let state_cache = &self.cache;
 
         // Contract instance attributes.
-        let deployed_contracts = state_cache.get_class_hash_updates();
+        let class_hash_updates = state_cache.get_class_hash_updates();
         let storage_diffs = state_cache.get_storage_updates();
         let nonces =
             subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
 
-        StateDiff {
-            deployed_contracts: IndexMap::from_iter(deployed_contracts),
-            storage_diffs: StorageDiff::from(StorageView(storage_diffs)),
-            declared_classes: IndexMap::new(),
-            deprecated_declared_classes: IndexMap::new(),
-            nonces: IndexMap::from_iter(nonces),
-            replaced_classes: IndexMap::new(),
+        let declared_classes = state_cache.compiled_class_hash_writes.clone();
+
+        CommitmentStateDiff {
+            address_to_class_hash: IndexMap::from_iter(class_hash_updates),
+            storage_updates: StorageDiff::from(StorageView(storage_diffs)),
+            class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
+            address_to_nonce: IndexMap::from_iter(nonces),
         }
     }
 }
@@ -397,7 +398,7 @@ impl<'a, S: State> State for MutRefState<'a, S> {
         self.0.set_contract_class(class_hash, contract_class)
     }
 
-    fn to_state_diff(&self) -> StateDiff {
+    fn to_state_diff(&self) -> CommitmentStateDiff {
         self.0.to_state_diff()
     }
 
@@ -420,6 +421,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.nonce_writes.extend(child_cache.nonce_writes);
         parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
         parent_cache.storage_writes.extend(child_cache.storage_writes);
+        parent_cache.compiled_class_hash_writes.extend(child_cache.compiled_class_hash_writes);
         self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
     }
 

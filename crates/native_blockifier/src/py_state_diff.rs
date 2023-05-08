@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::state::state_diff::CommitmentStateDiff;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -19,6 +20,8 @@ pub struct PyStateDiff {
     pub address_to_nonce: HashMap<PyFelt, PyFelt>,
     #[pyo3(get)]
     pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
+    #[pyo3(get)]
+    pub class_hash_to_compiled_class_hash: HashMap<PyFelt, PyFelt>,
 }
 
 impl TryFrom<PyStateDiff> for StateDiff {
@@ -64,27 +67,50 @@ impl TryFrom<PyStateDiff> for StateDiff {
     }
 }
 
-impl From<StateDiff> for PyStateDiff {
-    fn from(state_diff: StateDiff) -> Self {
-        let mut address_to_class_hash = HashMap::<PyFelt, PyFelt>::new();
-        for (address, class_hash) in state_diff.deployed_contracts {
-            address_to_class_hash.insert(PyFelt::from(address), PyFelt(class_hash.0));
-        }
-        let mut address_to_nonce = HashMap::<PyFelt, PyFelt>::new();
-        for (address, nonce) in state_diff.nonces {
-            address_to_nonce.insert(PyFelt::from(address), PyFelt(nonce.0));
-        }
+impl From<CommitmentStateDiff> for PyStateDiff {
+    fn from(state_diff: CommitmentStateDiff) -> Self {
+        // State commitment.
+        let address_to_class_hash = state_diff
+            .address_to_class_hash
+            .iter()
+            .map(|(address, class_hash)| (PyFelt::from(*address), PyFelt::from(*class_hash)))
+            .collect();
 
-        let mut storage_updates = HashMap::<PyFelt, HashMap<PyFelt, PyFelt>>::new();
-        for (address, storage_diff) in state_diff.storage_diffs {
-            let mut updates_at = HashMap::<PyFelt, PyFelt>::new();
-            for (key, value) in storage_diff {
-                updates_at.insert(PyFelt(*key.0.key()), PyFelt(value));
-            }
-            storage_updates.insert(PyFelt::from(address), updates_at);
-        }
+        let address_to_nonce = state_diff
+            .address_to_nonce
+            .iter()
+            .map(|(address, nonce)| (PyFelt::from(*address), PyFelt(nonce.0)))
+            .collect();
 
-        Self { address_to_class_hash, address_to_nonce, storage_updates }
+        let storage_updates = state_diff
+            .storage_updates
+            .iter()
+            .map(|(address, storage_diff)| {
+                (
+                    PyFelt::from(*address),
+                    storage_diff
+                        .iter()
+                        .map(|(key, value)| (PyFelt(*key.0.key()), PyFelt(*value)))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        // Declared classes commitment
+        let class_hash_to_compiled_class_hash = state_diff
+            .class_hash_to_compiled_class_hash
+            .iter()
+            .map(|(class_hash, compiled_class_hash)| {
+                (PyFelt::from(*class_hash), PyFelt::from(*compiled_class_hash))
+            })
+            .collect();
+
+        Self {
+            address_to_class_hash,
+            address_to_nonce,
+            storage_updates,
+            class_hash_to_compiled_class_hash,
+        }
     }
 }
 
