@@ -95,9 +95,12 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*class_hash)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> StateResult<ContractClass> {
         if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.state.get_contract_class(class_hash)?;
+            let contract_class = self.state.get_compiled_contract_class(class_hash)?;
             self.class_hash_to_class.insert(*class_hash, contract_class);
         }
 
@@ -359,8 +362,11 @@ impl<'a, S: State> StateReader for MutRefState<'a, S> {
         self.0.get_class_hash_at(contract_address)
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
-        self.0.get_contract_class(class_hash)
+    fn get_compiled_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> StateResult<ContractClass> {
+        self.0.get_compiled_contract_class(class_hash)
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {

@@ -285,7 +285,7 @@ pub fn execute_constructor_entry_point(
     calldata: Calldata,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_contract_class(&class_hash)?;
+    let contract_class = state.get_compiled_contract_class(&class_hash)?;
     let constructor_entry_points =
         &contract_class.0.entry_points_by_type[&EntryPointType::Constructor];
 
