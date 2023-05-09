@@ -421,7 +421,7 @@ fn test_declare_tx() {
 
     // Check state before transaction application.
     assert_matches!(
-        state.get_contract_class(&class_hash).unwrap_err(),
+        state.get_compiled_contract_class(&class_hash).unwrap_err(),
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
@@ -486,7 +486,7 @@ fn test_declare_tx() {
     );
 
     // Verify class declaration.
-    let contract_class_from_state = state.get_contract_class(&class_hash).unwrap();
+    let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
     assert_eq!(contract_class_from_state, contract_class);
 }
 

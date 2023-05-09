@@ -96,7 +96,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
                 Ok(None)
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
-                match state.get_contract_class(&class_hash) {
+                match state.get_compiled_contract_class(&class_hash) {
                     Err(StateError::UndeclaredClassHash(_)) => {
                         // Class is undeclared; declare it.
                         state.set_contract_class(&class_hash, self.contract_class.clone())?;

@@ -59,7 +59,10 @@ impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode>
         }
     }
 
-    fn get_contract_class(&mut self, class_hash: &ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> StateResult<ContractClass> {
         let state_number = StateNumber(*self.latest_block());
         match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
             Ok(Some(starknet_api_contract_class)) => {
