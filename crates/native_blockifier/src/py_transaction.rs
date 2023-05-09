@@ -231,7 +231,7 @@ pub struct PyTransactionExecutor {
     pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
     #[borrows(storage_tx)]
     #[covariant]
-    pub state: CachedState<PapyrusStateReader<'this, RO>>,
+    pub state: CachedState<PapyrusStateReader<'this>>,
 }
 
 pub fn build_tx_executor(
@@ -248,7 +248,7 @@ pub fn build_tx_executor(
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
-    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a, RO>>> {
+    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
         let state_reader = storage_tx.get_state_reader()?;
         let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
         Ok(CachedState::new(papyrus_reader))

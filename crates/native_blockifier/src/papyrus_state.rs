@@ -1,7 +1,7 @@
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use papyrus_storage::db::TransactionKind;
+use papyrus_storage::db::RO;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
@@ -11,16 +11,16 @@ use starknet_api::state::{StateNumber, StorageKey};
 #[path = "papyrus_state_test.rs"]
 mod test;
 
-type RawPapyrusStateReader<'env, Mode> = papyrus_storage::state::StateReader<'env, Mode>;
+type RawPapyrusStateReader<'env> = papyrus_storage::state::StateReader<'env, RO>;
 
-pub struct PapyrusStateReader<'env, Mode: TransactionKind> {
-    pub reader: RawPapyrusStateReader<'env, Mode>,
+pub struct PapyrusStateReader<'env> {
+    pub reader: RawPapyrusStateReader<'env>,
     // Invariant: Read-Only.
     latest_block: BlockNumber,
 }
 
-impl<'env, Mode: TransactionKind> PapyrusStateReader<'env, Mode> {
-    pub fn new(reader: RawPapyrusStateReader<'env, Mode>, latest_block: BlockNumber) -> Self {
+impl<'env> PapyrusStateReader<'env> {
+    pub fn new(reader: RawPapyrusStateReader<'env>, latest_block: BlockNumber) -> Self {
         Self { reader, latest_block }
     }
 
@@ -29,7 +29,7 @@ impl<'env, Mode: TransactionKind> PapyrusStateReader<'env, Mode> {
     }
 }
 
-impl<'env, Mode: TransactionKind> StateReader for PapyrusStateReader<'env, Mode> {
+impl<'env> StateReader for PapyrusStateReader<'env> {
     fn get_storage_at(
         &mut self,
         contract_address: ContractAddress,
