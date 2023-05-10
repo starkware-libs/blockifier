@@ -26,6 +26,7 @@ pyo3 = { version = "0.17.3", features = [
     "num-bigint",
     "hashbrown",
 ] }
+pyo3-asyncio = { version = "0.17", features = ["tokio-runtime"] }
 pyo3-log = "0.8.1"
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
@@ -33,3 +34,4 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 starknet_api = { workspace = true, features = ["testing"] }
 
 thiserror.workspace = true
+tokio.workspace = true

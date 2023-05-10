@@ -321,7 +321,12 @@ impl PyTransactionExecutor {
                 // Can be done because `py_tx_execution_info` is a `Py<PyTransactionExecutionInfo>`,
                 // hence is allocated on the Python heap.
                 let args = (py_tx_execution_info.borrow(py),);
-                enough_room_for_tx.call1(args) // Callback to Python code.
+                let coroutine = enough_room_for_tx.call1(args)?; // Callback to Python code.
+                let future = pyo3_asyncio::tokio::into_future(coroutine)?;
+                pyo3_asyncio::tokio::run_until_complete(coroutine, async move {
+                    // await the future
+                    future.await
+                })
             });
 
             match has_enough_room_for_tx {
