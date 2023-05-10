@@ -92,7 +92,7 @@ impl From<CallInfo> for PyCallInfo {
         Self {
             caller_address: PyFelt::from(call.caller_address),
             contract_address: PyFelt::from(call.storage_address),
-            class_hash: call.class_hash.map(|class_hash| PyFelt(class_hash.0)),
+            class_hash: call.class_hash.map(PyFelt::from),
             entry_point_selector: PyFelt(call.entry_point_selector.0),
             entry_point_type: call.entry_point_type as usize,
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
