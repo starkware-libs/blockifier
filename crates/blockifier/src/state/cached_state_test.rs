@@ -10,6 +10,7 @@ use starknet_api::{patricia_key, stark_felt};
 use super::*;
 use crate::test_utils::{
     create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 fn set_initial_state_values(
@@ -244,6 +245,11 @@ fn cached_state_state_diff_conversion() {
         storage_initial_values,
     );
 
+    // Declare a new class.
+    let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    let compiled_class_hash = CompiledClassHash(stark_felt!(1));
+    state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
+
     // Write the initial value using key contract_address1.
     state.set_storage_at(contract_address1, key_y, storage_val1);
 
@@ -256,13 +262,11 @@ fn cached_state_state_diff_conversion() {
 
     // Only changes to contract_address2 should be shown, since contract_address_0 wasn't changed
     // and contract_address_1 was changed but ended up with the original values.
-    let expected_state_diff = StateDiff {
-        deployed_contracts: IndexMap::from_iter([(contract_address2, new_class_hash)]),
-        storage_diffs: IndexMap::from_iter([(contract_address2, indexmap! {key_y => new_value})]),
-        declared_classes: IndexMap::new(),
-        deprecated_declared_classes: IndexMap::new(),
-        nonces: IndexMap::from_iter([(contract_address2, Nonce(StarkFelt::from(1_u64)))]),
-        replaced_classes: IndexMap::new(),
+    let expected_state_diff = CommitmentStateDiff {
+        address_to_class_hash: IndexMap::from_iter([(contract_address2, new_class_hash)]),
+        storage_updates: IndexMap::from_iter([(contract_address2, indexmap! {key_y => new_value})]),
+        class_hash_to_compiled_class_hash: IndexMap::from_iter([(class_hash, compiled_class_hash)]),
+        address_to_nonce: IndexMap::from_iter([(contract_address2, Nonce(StarkFelt::from(1_u64)))]),
     };
 
     assert_eq!(expected_state_diff, state.to_state_diff());
