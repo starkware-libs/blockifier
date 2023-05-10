@@ -3882,7 +3882,11 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/dojoengine/starknet-api?rev=149097d5b7f5b821161491150a35d5fea612b7d3#149097d5b7f5b821161491150a35d5fea612b7d3"
+=======
+source = "git+https://github.com/dojoengine/starknet-api?branch=dev#d7bee4b677c3a0963e856554d8947c8319cbbfb8"
+>>>>>>> 9312ed5 (Update starknet-api patch)
 dependencies = [
  "cairo-lang-starknet 1.0.0-alpha.7",
  "derive_more",
