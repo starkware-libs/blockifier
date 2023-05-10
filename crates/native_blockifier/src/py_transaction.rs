@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -193,7 +193,7 @@ pub fn py_tx(
         "DECLARE" => {
             let raw_contract_class: &str = raw_contract_class
                 .expect("A contract class must be passed in a Declare transaction.");
-            let contract_class: ContractClass = serde_json::from_str(raw_contract_class)?;
+            let contract_class: ContractClassV0 = serde_json::from_str(raw_contract_class)?;
             let declare_tx = AccountTransaction::Declare(DeclareTransaction {
                 tx: py_declare(tx)?,
                 contract_class,
