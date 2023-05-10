@@ -15,14 +15,14 @@ use crate::test_utils::{
 
 fn set_initial_state_values(
     state: &mut CachedState<DictStateReader>,
-    class_hash_to_class: ContractClassV0Mapping,
+    class_hash_to_class: ContractClassMapping,
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
 ) {
     assert!(state.cache == StateCache::default(), "Cache already initialized.");
 
-    state.class_hash_to_classv0 = class_hash_to_class;
+    state.class_hash_to_class = class_hash_to_class;
     state.cache.class_hash_initial_values.extend(class_hash_initial_values);
     state.cache.nonce_initial_values.extend(nonce_initial_values);
     state.cache.storage_initial_values.extend(storage_initial_values);
@@ -187,7 +187,8 @@ fn cached_state_state_diff_conversion() {
     // This will not appear in the diff, since this mapping is immutable for the current version we
     // are aligned with.
     let test_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class_v0())]);
+    let class_hash_to_class =
+        HashMap::from([(test_class_hash, ContractClass::V0(get_test_contract_class_v0()))]);
 
     let nonce_initial_values = HashMap::new();
 

@@ -6,7 +6,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::utils::subtract_mappings;
@@ -14,8 +14,8 @@ use crate::utils::subtract_mappings;
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
 mod test;
-// TODO: add V1 mapping
-type ContractClassV0Mapping = HashMap<ClassHash, ContractClassV0>;
+
+type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 
 /// Holds uncommitted changes induced on StarkNet contracts.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -40,12 +40,12 @@ pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
-    class_hash_to_classv0: ContractClassV0Mapping,
+    class_hash_to_class: ContractClassMapping,
 }
 
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
-        Self { state, cache: StateCache::default(), class_hash_to_classv0: HashMap::default() }
+        Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
 
     /// Returns the number of storage changes done through this state.
@@ -112,20 +112,16 @@ impl<S: StateReader> StateReader for CachedState<S> {
         &mut self,
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
-        if !self.class_hash_to_classv0.contains_key(class_hash) {
-            match self.state.get_compiled_contract_class(class_hash)? {
-                ContractClass::V1(_) => todo!("V1 contract class mapping not implemented yet."),
-                ContractClass::V0(contract_class) => {
-                    self.class_hash_to_classv0.insert(*class_hash, contract_class);
-                }
-            }
+        if !self.class_hash_to_class.contains_key(class_hash) {
+            let contract_class = self.state.get_compiled_contract_class(class_hash)?;
+            self.class_hash_to_class.insert(*class_hash, contract_class);
         }
 
         let contract_class = self
-            .class_hash_to_classv0
+            .class_hash_to_class
             .get(class_hash)
             .expect("The class hash must appear in the cache.");
-        Ok(ContractClass::V0(contract_class.clone()))
+        Ok(contract_class.clone())
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
@@ -175,16 +171,12 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
-    // TODO: V1 case for setters handled in separate PR
     fn set_contract_class(
         &mut self,
         class_hash: &ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        let ContractClass::V0(contract_class) = contract_class else {
-            todo!("V1 contract class not implemented yet.");
-        };
-        self.class_hash_to_classv0.insert(*class_hash, contract_class);
+        self.class_hash_to_class.insert(*class_hash, contract_class);
         Ok(())
     }
 
@@ -446,7 +438,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
         parent_cache.storage_writes.extend(child_cache.storage_writes);
         parent_cache.compiled_class_hash_writes.extend(child_cache.compiled_class_hash_writes);
-        self.state.0.class_hash_to_classv0.extend(self.class_hash_to_classv0);
+        self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
     }
 
     /// Drops `self`.
