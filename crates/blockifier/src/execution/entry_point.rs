@@ -7,10 +7,11 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
+use super::contract_class::ContractClassV0;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -299,6 +300,9 @@ pub fn execute_constructor_entry_point(
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
     let contract_class = state.get_compiled_contract_class(&class_hash)?;
+    let ContractClass::V0(contract_class) = contract_class else {
+        return Err(PreExecutionError::Cairo1Unsupported.into());
+    };
     let constructor_entry_points =
         &contract_class.0.entry_points_by_type[&EntryPointType::Constructor];
 
