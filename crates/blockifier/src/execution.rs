@@ -1,5 +1,6 @@
 pub mod common_hints;
 pub mod contract_class;
+pub mod deprecated_execution;
 pub mod deprecated_syscalls;
 pub mod entry_point;
 pub mod errors;
