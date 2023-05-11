@@ -9,7 +9,7 @@ use crate::transaction::errors::TransactionExecutionError;
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
 /// Contains the account information of the transaction (outermost call).
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AccountTransactionContext {
     pub transaction_hash: TransactionHash,
     pub max_fee: Fee,
