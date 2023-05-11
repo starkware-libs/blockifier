@@ -4,6 +4,7 @@ pub mod deprecated_syscalls;
 pub mod entry_point;
 pub mod errors;
 pub mod exec_v0;
+pub mod exec_v1;
 pub mod execution_utils;
 pub mod hint_code;
 pub mod syscalls;
