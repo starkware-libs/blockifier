@@ -3,7 +3,7 @@ use starknet_api::transaction::{
 };
 
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionContext;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -24,7 +24,7 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub fn from_api(tx: StarknetApiTransaction, contract_class: Option<ContractClassV0>) -> Self {
+    pub fn from_api(tx: StarknetApiTransaction, contract_class: Option<ContractClass>) -> Self {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => Self::L1HandlerTransaction(l1_handler),
             StarknetApiTransaction::Declare(declare) => {
