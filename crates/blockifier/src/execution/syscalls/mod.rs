@@ -1,4 +1,4 @@
-use cairo_vm::felt::Felt252;
+use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -16,14 +16,14 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     SyscallExecutionError, SyscallHintProcessor,
 };
-use super::deprecated_syscalls::DeprecatedSyscallSelector;
-use super::execution_utils::{
-    read_felt_array, stark_felt_to_felt, write_felt, write_maybe_relocatable,
-};
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
-use crate::execution::execution_utils::{execute_deployment, felt_from_ptr, ReadOnlySegment};
+use crate::execution::execution_utils::{
+    execute_deployment, felt_from_ptr, read_felt_array, stark_felt_to_felt, write_felt,
+    write_maybe_relocatable, ReadOnlySegment,
+};
 
 pub mod hint_processor;
 

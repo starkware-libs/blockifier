@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
+use cairo_felt::Felt252;
 use cairo_lang_casm;
+use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
-use cairo_vm::felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
-    ApTracking, FlowTrackingData, HintParams, ReferenceManager,
+    ApTracking, BuiltinName, FlowTrackingData, HintParams, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -18,8 +20,7 @@ use starknet_api::deprecated_contract_class::{
     Program as DeprecatedProgram,
 };
 
-use super::execution_utils::felt_to_stark_felt;
-use crate::execution::execution_utils::sn_api_to_cairo_vm_program;
+use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
 
 /// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
@@ -52,6 +53,13 @@ impl From<ContractClassV1> for ContractClass {
 // V0.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct ContractClassV0(pub Arc<ContractClassV0Inner>);
+impl Deref for ContractClassV0 {
+    type Target = ContractClassV0Inner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 impl ContractClassV0 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
@@ -78,6 +86,13 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 // V1.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
+impl Deref for ContractClassV1 {
+    type Target = ContractClassV1Inner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 impl ContractClassV1 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
@@ -88,6 +103,7 @@ impl ContractClassV1 {
 pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
+    pub hints: HashMap<String, Hint>,
 }
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct EntryPointV1 {
@@ -105,20 +121,41 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             .into_iter()
             .map(|x| MaybeRelocatable::from(Felt252::from(x.value)))
             .collect();
-        let hints = class
+        let hints: HashMap<usize, Vec<HintParams>> = class
             .hints
-            .into_iter()
-            .map(|(i, hints)| (i, hints.iter().map(hint_to_hint_params).collect()))
+            .iter()
+            .map(|(i, hints)| (*i, hints.iter().map(hint_to_hint_params).collect()))
             .collect();
 
-        let builtins = vec![];
+        // Collect a sting to hint map so that the hint processor can fetch the correct [Hint]
+        // for each instruction.
+        let string_to_hint: HashMap<String, Hint> = class
+            .hints
+            .into_iter()
+            .flat_map(|(_, hints)| {
+                hints.iter().map(|hint| (hint.to_string(), hint.clone())).collect::<Vec<_>>()
+            })
+            .collect();
+
+        // Initialize program with all builtins.
+        let builtins = vec![
+            BuiltinName::output,
+            BuiltinName::pedersen,
+            BuiltinName::range_check,
+            BuiltinName::ecdsa,
+            BuiltinName::bitwise,
+            BuiltinName::ec_op,
+            BuiltinName::poseidon,
+        ];
         let main = Some(0);
         let reference_manager = ReferenceManager { references: Vec::new() };
         let identifiers = HashMap::new();
         let error_message_attributes = vec![];
         let instruction_locations = None;
+
         let program = Program::new(
             builtins,
+            Felt252::prime().to_str_radix(16),
             data,
             main,
             hints,
@@ -142,7 +179,11 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             convert_entrypoints_v1(class.entry_points_by_type.l1_handler)?,
         );
 
-        Ok(Self(Arc::new(ContractClassV1Inner { program, entry_points_by_type })))
+        Ok(Self(Arc::new(ContractClassV1Inner {
+            program,
+            entry_points_by_type,
+            hints: string_to_hint,
+        })))
     }
 }
 

@@ -323,8 +323,8 @@ fn test_invoke_tx() {
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::GAS_USAGE.to_string(), 1224),
-            ("pedersen_builtin".to_string(), 16),
-            ("range_check_builtin".to_string(), 101),
+            ("pedersen".to_string(), 16),
+            ("range_check".to_string(), 101),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 4082),
         ])),
     };
@@ -462,8 +462,8 @@ fn test_declare_tx() {
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::GAS_USAGE.to_string(), 1224),
-            ("pedersen_builtin".to_string(), 15),
-            ("range_check_builtin".to_string(), 63),
+            ("pedersen".to_string(), 15),
+            ("range_check".to_string(), 63),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 2688),
         ])),
     };
@@ -578,8 +578,8 @@ fn test_deploy_account_tx() {
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::GAS_USAGE.to_string(), 3060),
-            ("pedersen_builtin".to_string(), 23),
-            ("range_check_builtin".to_string(), 83),
+            ("pedersen".to_string(), 23),
+            ("range_check".to_string(), 83),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 3584),
         ])),
     };

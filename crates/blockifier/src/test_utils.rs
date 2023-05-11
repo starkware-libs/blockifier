@@ -309,13 +309,13 @@ impl BlockContext {
     pub fn create_for_account_testing() -> BlockContext {
         let vm_resource_fee_cost = HashMap::from([
             (String::from("n_steps"), 1_f64),
-            (String::from("pedersen_builtin"), 1_f64),
-            (String::from("range_check_builtin"), 1_f64),
-            (String::from("ecdsa_builtin"), 1_f64),
-            (String::from("bitwise_builtin"), 1_f64),
-            (String::from("poseidon_builtin"), 1_f64),
-            (String::from("output_builtin"), 1_f64),
-            (String::from("ec_op_builtin"), 1_f64),
+            (String::from("pedersen"), 1_f64),
+            (String::from("range_check"), 1_f64),
+            (String::from("ecdsa"), 1_f64),
+            (String::from("bitwise"), 1_f64),
+            (String::from("poseidon"), 1_f64),
+            (String::from("output"), 1_f64),
+            (String::from("ec_op"), 1_f64),
         ]);
         BlockContext { vm_resource_fee_cost, ..BlockContext::create_for_testing() }
     }

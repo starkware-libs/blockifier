@@ -4,22 +4,29 @@ use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::EntryPointSelector;
-use starknet_api::hash::StarkHash;
 
-use super::contract_class::ContractClassV1;
-use super::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
-use super::entry_point::{
+use crate::execution::contract_class::ContractClassV1;
+use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
 };
-use super::errors::{PostExecutionError, PreExecutionError, VirtualMachineExecutionError};
-use super::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments, VmExecutionContext,
+use crate::execution::errors::{
+    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
+use crate::execution::execution_utils::{
+    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
+};
+use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
 
-// TODO(spapini): Try to refactor this into a StarknetRunner struct.
+// TODO(spapini): Try to refactor this file into a StarknetRunner struct.
+
+pub struct VmExecutionContext<'a> {
+    pub runner: CairoRunner,
+    pub vm: VirtualMachine,
+    pub syscall_handler: SyscallHintProcessor<'a>,
+    pub initial_syscall_ptr: Relocatable,
+    pub entry_point_pc: usize,
+}
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
@@ -34,7 +41,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point_pc,
-    } = initialize_execution_context(&call, contract_class, state, context)?;
+    } = initialize_execution_context(&call, &contract_class, state, context)?;
 
     let (implicit_args, args) = prepare_call_arguments(
         &call,
@@ -63,12 +70,12 @@ pub fn execute_entry_point_call(
 
 pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
-    contract_class: ContractClassV1,
+    contract_class: &'a ContractClassV1,
     state: &'a mut dyn State,
     context: &'a mut ExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     // Resolve initial PC from EP indicator.
-    let entry_point_pc = resolve_entry_point_pc(call, &contract_class)?;
+    let entry_point_pc = resolve_entry_point_pc(call, contract_class)?;
 
     // Instantiate Cairo runner.
     let proof_mode = false;
@@ -82,12 +89,13 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate syscall handler.
     let initial_syscall_ptr = vm.add_memory_segment();
-    let syscall_handler = DeprecatedSyscallHintProcessor::new(
+    let syscall_handler = SyscallHintProcessor::new(
         state,
         context,
         initial_syscall_ptr,
         call.storage_address,
         call.caller_address,
+        &contract_class.hints,
     );
 
     Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
@@ -103,36 +111,14 @@ pub fn resolve_entry_point_pc(
         .filter(|ep| ep.selector == call.entry_point_selector)
         .collect();
 
-    // Returns the default entrypoint if the given selector is missing.
-    if filtered_entry_points.is_empty() {
-        match entry_points_of_same_type.get(0) {
-            Some(entry_point) => {
-                if entry_point.selector
-                    == EntryPointSelector(StarkHash::from(DEFAULT_ENTRY_POINT_SELECTOR))
-                {
-                    return Ok(entry_point.offset.0);
-                } else {
-                    return Err(PreExecutionError::EntryPointNotFound(call.entry_point_selector));
-                }
-            }
-            None => {
-                return Err(PreExecutionError::NoEntryPointOfTypeFound(call.entry_point_type));
-            }
-        }
-    }
-
-    if filtered_entry_points.len() > 1 {
-        return Err(PreExecutionError::DuplicatedEntryPointSelector {
+    match &filtered_entry_points[..] {
+        [] => Err(PreExecutionError::EntryPointNotFound(call.entry_point_selector)),
+        [entry_point] => Ok(entry_point.offset.0),
+        _ => Err(PreExecutionError::DuplicatedEntryPointSelector {
             selector: call.entry_point_selector,
             typ: call.entry_point_type,
-        });
+        }),
     }
-
-    // Filtered entry points contain exactly one element.
-    let entry_point = filtered_entry_points
-        .get(0)
-        .expect("The number of entry points with the given selector is exactly one.");
-    Ok(entry_point.offset.0)
 }
 
 pub fn prepare_call_arguments(
@@ -172,7 +158,7 @@ pub fn prepare_call_arguments(
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
-    hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
+    hint_processor: &mut SyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
@@ -194,7 +180,7 @@ pub fn run_entry_point(
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
-    syscall_handler: DeprecatedSyscallHintProcessor<'_>,
+    syscall_handler: SyscallHintProcessor<'_>,
     call: CallEntryPoint,
     previous_vm_resources: VmExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
@@ -242,7 +228,7 @@ pub fn finalize_execution(
 pub fn validate_run(
     vm: &mut VirtualMachine,
     runner: &CairoRunner,
-    syscall_handler: &DeprecatedSyscallHintProcessor<'_>,
+    syscall_handler: &SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
 ) -> Result<(), PostExecutionError> {
