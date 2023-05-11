@@ -114,11 +114,10 @@ impl StateReader for DictStateReader {
     fn get_compiled_contract_class(
         &mut self,
         class_hash: &ClassHash,
-    ) -> StateResult<ContractClassV0> {
+    ) -> StateResult<ContractClass> {
         let contract_class = self.class_hash_to_class.get(class_hash).cloned();
         match contract_class {
-            // TODO: Add V1 support.
-            Some(ContractClass::V0(contract_class)) => Ok(contract_class),
+            Some(contract_class) => Ok(contract_class),
             _ => Err(StateError::UndeclaredClassHash(*class_hash)),
         }
     }
@@ -171,8 +170,8 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
     serde_json::from_value(raw_contract_class).unwrap()
 }
 
-pub fn get_test_contract_class() -> ContractClassV0 {
-    get_contract_class_v0(TEST_CONTRACT_PATH)
+pub fn get_test_contract_class() -> ContractClass {
+    get_contract_class_v0(TEST_CONTRACT_PATH).into()
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {

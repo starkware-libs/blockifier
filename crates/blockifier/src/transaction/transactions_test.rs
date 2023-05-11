@@ -19,6 +19,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
@@ -413,7 +414,7 @@ fn test_declare_tx() {
     let sender_address = declare_tx.sender_address;
     let class_hash = declare_tx.class_hash;
 
-    let contract_class = get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH);
+    let contract_class = ContractClass::V0(get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH));
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         contract_class: contract_class.clone(),
@@ -634,7 +635,7 @@ fn create_account_tx_for_validate_test(
 
     match tx_type {
         TransactionType::Declare => {
-            let contract_class = get_contract_class_v0(TEST_FAULTY_ACCOUNT_CONTRACT_PATH);
+            let contract_class = get_contract_class_v0(TEST_FAULTY_ACCOUNT_CONTRACT_PATH).into();
             let declare_tx = crate::test_utils::declare_tx(
                 TEST_ACCOUNT_CONTRACT_CLASS_HASH,
                 ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
