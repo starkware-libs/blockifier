@@ -13,11 +13,17 @@ use super::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
 };
 use super::errors::{PostExecutionError, PreExecutionError, VirtualMachineExecutionError};
-use super::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments, VmExecutionContext,
-};
+use super::execution_utils::{read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments};
 use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
 use crate::state::state_api::State;
+
+pub struct VmExecutionContext<'a> {
+    pub runner: CairoRunner,
+    pub vm: VirtualMachine,
+    pub syscall_handler: DeprecatedSyscallHintProcessor<'a>,
+    pub initial_syscall_ptr: Relocatable,
+    pub entry_point_pc: usize,
+}
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(

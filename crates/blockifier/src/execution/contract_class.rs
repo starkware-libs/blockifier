@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use cairo_lang_casm;
+use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
 use cairo_vm::felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
-    ApTracking, FlowTrackingData, HintParams, ReferenceManager,
+    ApTracking, BuiltinName, FlowTrackingData, HintParams, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -52,6 +54,13 @@ impl From<ContractClassV1> for ContractClass {
 // by serde, since it is not required for execution.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
 pub struct ContractClassV0(pub Arc<ContractClassV0Inner>);
+impl Deref for ContractClassV0 {
+    type Target = ContractClassV0Inner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 impl ContractClassV0 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
@@ -77,6 +86,13 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 // V1.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
+impl Deref for ContractClassV1 {
+    type Target = ContractClassV1Inner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 impl ContractClassV1 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
@@ -86,6 +102,7 @@ impl ContractClassV1 {
 pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
+    pub hints: HashMap<String, Hint>,
 }
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct EntryPointV1 {
@@ -115,14 +132,32 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             .into_iter()
             .map(|x| MaybeRelocatable::from(Felt252::from(x.value)))
             .collect();
-        let hints = class
+        let hints: HashMap<_, _> = class
+            .hints
+            .iter()
+            .map(|(i, hints)| (*i, hints.iter().map(hint_to_hint_params).collect()))
+            .collect();
+        let string_to_hint: HashMap<_, _> = class
             .hints
             .into_iter()
-            .map(|(i, hints)| (i, hints.iter().map(hint_to_hint_params).collect()))
+            .flat_map(|(_, hints)| {
+                hints.iter().map(|hint| (hint.to_string(), hint.clone())).collect::<Vec<_>>()
+            })
             .collect();
 
+        // Initialize program with all builtins.
+        let builtins = vec![
+            BuiltinName::output,
+            BuiltinName::pedersen,
+            BuiltinName::range_check,
+            BuiltinName::ecdsa,
+            BuiltinName::bitwise,
+            BuiltinName::ec_op,
+            BuiltinName::poseidon,
+        ];
+
         let program = Program::new(
-            vec![], // The builtins will be set on each call.
+            builtins,
             data,
             Some(0),
             hints,
@@ -146,7 +181,11 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             convert_entrypoints_v1(class.entry_points_by_type.l1_handler)?,
         );
 
-        Ok(Self(Arc::new(ContractClassV1Inner { program, entry_points_by_type })))
+        Ok(Self(Arc::new(ContractClassV1Inner {
+            program,
+            entry_points_by_type,
+            hints: string_to_hint,
+        })))
     }
 }
 

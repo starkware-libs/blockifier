@@ -9,7 +9,7 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner};
+use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
@@ -19,7 +19,6 @@ use starknet_api::StarknetApiError;
 
 use super::contract_class::ContractClass;
 use super::{exec_v0, exec_v1};
-use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallInfo, EntryPointExecutionResult,
     ExecutionContext, Retdata,
@@ -33,14 +32,6 @@ pub type Args = Vec<CairoArg>;
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
 pub mod test;
-
-pub struct VmExecutionContext<'a> {
-    pub runner: CairoRunner,
-    pub vm: VirtualMachine,
-    pub syscall_handler: DeprecatedSyscallHintProcessor<'a>,
-    pub initial_syscall_ptr: Relocatable,
-    pub entry_point_pc: usize,
-}
 
 pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt252 {
     Felt252::from_bytes_be(stark_felt.bytes())

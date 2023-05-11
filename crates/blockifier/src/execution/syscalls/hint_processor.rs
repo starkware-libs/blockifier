@@ -1,10 +1,8 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
+use cairo_lang_casm::hints::Hint;
 use cairo_vm::felt::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
-    BuiltinHintProcessor, HintProcessorData,
-};
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -30,7 +28,7 @@ use super::{
     SyscallRequest, SyscallRequestWrapper, SyscallResponse, SyscallResponseWrapper, SyscallResult,
     SyscallSelector,
 };
-use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
+use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -38,7 +36,6 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     felt_from_ptr, read_felt_array, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
-use crate::execution::hint_code;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -100,8 +97,7 @@ pub struct SyscallHintProcessor<'a> {
     pub accessed_keys: HashSet<StorageKey>,
 
     // Additional fields.
-    // Invariant: must only contain allowed hints.
-    builtin_hint_processor: BuiltinHintProcessor,
+    hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
@@ -114,6 +110,7 @@ impl<'a> SyscallHintProcessor<'a> {
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
+        hints: &'a HashMap<String, Hint>,
     ) -> Self {
         SyscallHintProcessor {
             state,
@@ -127,7 +124,7 @@ impl<'a> SyscallHintProcessor<'a> {
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
             accessed_keys: HashSet::new(),
-            builtin_hint_processor: extended_builtin_hint_processor(),
+            hints,
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
         }
@@ -307,17 +304,29 @@ impl<'a> SyscallHintProcessor<'a> {
 impl HintProcessor for SyscallHintProcessor<'_> {
     fn execute_hint(
         &mut self,
-        vm: &mut VirtualMachine,
-        exec_scopes: &mut ExecutionScopes,
+        _vm: &mut VirtualMachine,
+        _exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        constants: &HashMap<String, Felt252>,
+        _constants: &HashMap<String, Felt252>,
     ) -> HintExecutionResult {
-        let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
-        if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {
-            return self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+        let hint = hint_data.downcast_ref::<Hint>().ok_or(HintError::WrongHintData)?;
+        match hint {
+            Hint::Core(_) => Err(HintError::CustomHint("Core hints not supported yet".into())),
+            Hint::Starknet(_) => {
+                Err(HintError::CustomHint("Starknet hints not supported yet".into()))
+            }
         }
+    }
 
-        self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)
+    /// Trait function to store hint in the hint processor by string.
+    fn compile_hint(
+        &self,
+        hint_code: &str,
+        _ap_tracking_data: &ApTracking,
+        _reference_ids: &HashMap<String, usize>,
+        _references: &HashMap<usize, HintReference>,
+    ) -> Result<Box<dyn Any>, VirtualMachineError> {
+        Ok(Box::new(self.hints[hint_code].clone()))
     }
 }
 
