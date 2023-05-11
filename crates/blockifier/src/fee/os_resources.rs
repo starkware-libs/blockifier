@@ -13,29 +13,29 @@ fn os_resources() -> serde_json::Value {
         "execute_syscalls": {
             "CallContract": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check": 19
                 },
                 "n_memory_holes": 0,
                 "n_steps": 677
             },
             "DelegateCall": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check": 19
                 },
                 "n_memory_holes": 0,
                 "n_steps": 699
             },
             "DelegateL1Handler": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 15
+                    "range_check": 15
                 },
                 "n_memory_holes": 0,
                 "n_steps": 678
             },
             "Deploy": {
                 "builtin_instance_counter": {
-                    "pedersen_builtin": 7,
-                    "range_check_builtin": 18
+                    "pedersen": 7,
+                    "range_check": 18
                 },
                 "n_memory_holes": 0,
                 "n_steps": 920
@@ -82,14 +82,14 @@ fn os_resources() -> serde_json::Value {
             },
             "LibraryCall": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check": 19
                 },
                 "n_memory_holes": 0,
                 "n_steps": 666
             },
             "LibraryCallL1Handler": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 15
+                    "range_check": 15
                 },
                 "n_memory_holes": 0,
                 "n_steps": 645
@@ -118,32 +118,32 @@ fn os_resources() -> serde_json::Value {
         "execute_txs_inner": {
             "Declare": {
                 "builtin_instance_counter": {
-                    "pedersen_builtin": 15,
-                    "range_check_builtin": 63
+                    "pedersen": 15,
+                    "range_check": 63
                 },
                 "n_memory_holes": 0,
                 "n_steps": 2676
             },
             "DeployAccount": {
                 "builtin_instance_counter": {
-                    "pedersen_builtin": 23,
-                    "range_check_builtin": 83
+                    "pedersen": 23,
+                    "range_check": 83
                 },
                 "n_memory_holes": 0,
                 "n_steps": 3571
             },
             "InvokeFunction": {
                 "builtin_instance_counter": {
-                    "pedersen_builtin": 16,
-                    "range_check_builtin": 80,
+                    "pedersen": 16,
+                    "range_check": 80,
                 },
                 "n_memory_holes": 0,
                 "n_steps": 3323
             },
             "L1Handler": {
                 "builtin_instance_counter": {
-                    "pedersen_builtin": 11,
-                    "range_check_builtin": 17
+                    "pedersen": 11,
+                    "range_check": 17
                 },
                 "n_memory_holes": 0,
                 "n_steps": 1054
