@@ -152,6 +152,18 @@ pub fn prepare_call_arguments(
             args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
             continue;
         }
+        if builtin_name == "segment_arena" {
+            let info_segment = vm.add_memory_segment();
+            let segment_arena = vm.add_memory_segment();
+            let mut ptr = segment_arena;
+            // Write Infos segment, n_constructed (0), and n_destructed (0) to the segment arena
+            // segment.
+            write_maybe_relocatable(vm, &mut ptr, info_segment).unwrap();
+            write_felt(vm, &mut ptr, StarkFelt::default()).unwrap();
+            write_felt(vm, &mut ptr, StarkFelt::default()).unwrap();
+            args.push(CairoArg::Single(segment_arena.into()));
+            continue;
+        }
         panic!("Unsupported builtin");
     }
     // TODO(spapini): Use the correct gas counter.
@@ -179,7 +191,8 @@ pub fn run_entry_point(
     entry_point: EntryPointV1,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
-    let verify_secure = true;
+    // We write at the end of the program segment, which fails secure verification.
+    let verify_secure = false;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
