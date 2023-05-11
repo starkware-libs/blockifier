@@ -1,3 +1,4 @@
+use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
@@ -17,8 +18,12 @@ pub enum PreExecutionError {
     EntryPointNotFound(EntryPointSelector),
     #[error("Entry point {selector:?} of type {typ:?} is not unique.")]
     DuplicatedEntryPointSelector { selector: EntryPointSelector, typ: EntryPointType },
+    #[error("Invalid builtin {0:?}.")]
+    InvalidBuiltin(String),
     #[error("No entry points of type {0:?} found in contract.")]
     NoEntryPointOfTypeFound(EntryPointType),
+    #[error(transparent)]
+    MathError(#[from] MathError),
     #[error(transparent)]
     MemoryError(#[from] MemoryError),
     #[error(transparent)]
