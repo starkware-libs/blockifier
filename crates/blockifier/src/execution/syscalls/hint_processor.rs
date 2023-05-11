@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt252;
 use cairo_lang_casm::hints::Hint;
+use cairo_lang_runner::casm_run::execute_core_hint_base;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -304,14 +305,14 @@ impl<'a> SyscallHintProcessor<'a> {
 impl HintProcessor for SyscallHintProcessor<'_> {
     fn execute_hint(
         &mut self,
-        _vm: &mut VirtualMachine,
-        _exec_scopes: &mut ExecutionScopes,
+        vm: &mut VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
         _constants: &HashMap<String, Felt252>,
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<Hint>().ok_or(HintError::WrongHintData)?;
         match hint {
-            Hint::Core(_) => Err(HintError::CustomHint("Core hints not supported yet".into())),
+            Hint::Core(hint) => execute_core_hint_base(vm, exec_scopes, hint),
             Hint::Starknet(_) => {
                 Err(HintError::CustomHint("Starknet hints not supported yet".into()))
             }
