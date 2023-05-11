@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cairo_vm::felt::Felt252;
+use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
@@ -111,6 +111,7 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
 
     let program = Program::new(
         builtins,
+        Felt252::prime().to_str_radix(16),
         data,
         main,
         hints,

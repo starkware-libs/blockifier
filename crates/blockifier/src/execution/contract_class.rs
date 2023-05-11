@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
-use cairo_vm::felt::Felt252;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, BuiltinName, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -155,6 +155,7 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
         let program = Program::new(
             builtins,
+            Felt252::prime().to_str_radix(16),
             data,
             main,
             hints,
