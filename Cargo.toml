@@ -8,9 +8,9 @@ members = ["crates/blockifier", "crates/native_blockifier"]
 [workspace.dependencies]
 assert_matches = "1.5.0"
 cairo-felt = "0.3.0-rc1"
-cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", rev="04606debbffff7839689a1d1e826aed80286ef50" }
-cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", rev="04606debbffff7839689a1d1e826aed80286ef50"}
-cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", rev="04606debbffff7839689a1d1e826aed80286ef50"}
+cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", rev="a0ead7c0b8e297d281c7213151cd43ac11de5042" }
+cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", rev="a0ead7c0b8e297d281c7213151cd43ac11de5042"}
+cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", rev="a0ead7c0b8e297d281c7213151cd43ac11de5042"}
 cairo-vm = "0.3.0-rc1"
 ctor = "0.2.0"
 derive_more = "0.99.17"
