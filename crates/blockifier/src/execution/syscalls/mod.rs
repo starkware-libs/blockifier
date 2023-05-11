@@ -273,10 +273,7 @@ pub fn deploy(
     let is_deploy_account_tx = false;
     let call_info = execute_deployment(
         syscall_handler.state,
-        syscall_handler.execution_resources,
-        syscall_handler.execution_context,
-        syscall_handler.block_context,
-        syscall_handler.account_tx_context,
+        syscall_handler.ctx,
         request.class_hash,
         deployed_contract_address,
         deployer_address,
@@ -313,7 +310,7 @@ pub fn emit_event(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmitEventResponse> {
-    let mut execution_context = &mut syscall_handler.execution_context;
+    let mut execution_context = &mut syscall_handler.ctx;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
@@ -343,7 +340,7 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetBlockNumberResponse> {
-    Ok(GetBlockNumberResponse { block_number: syscall_handler.block_context.block_number })
+    Ok(GetBlockNumberResponse { block_number: syscall_handler.ctx.block_context.block_number })
 }
 
 // GetBlockTimestamp syscall.
@@ -367,7 +364,9 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetBlockTimestampResponse> {
-    Ok(GetBlockTimestampResponse { block_timestamp: syscall_handler.block_context.block_timestamp })
+    Ok(GetBlockTimestampResponse {
+        block_timestamp: syscall_handler.ctx.block_context.block_timestamp,
+    })
 }
 
 // GetCallerAddress syscall.
@@ -417,7 +416,7 @@ pub fn get_sequencer_address(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetSequencerAddressResponse> {
-    Ok(GetSequencerAddressResponse { address: syscall_handler.block_context.sequencer_address })
+    Ok(GetSequencerAddressResponse { address: syscall_handler.ctx.block_context.sequencer_address })
 }
 
 // GetTxInfo syscall.
@@ -456,7 +455,7 @@ pub fn get_tx_signature(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<GetTxSignatureResponse> {
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.account_tx_context.signature.0.len();
+    let length = syscall_handler.ctx.account_tx_context.signature.0.len();
 
     Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }
@@ -574,7 +573,7 @@ pub fn send_message_to_l1(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<SendMessageToL1Response> {
-    let mut execution_context = &mut syscall_handler.execution_context;
+    let mut execution_context = &mut syscall_handler.ctx;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
         order: execution_context.n_sent_messages_to_l1,
         message: request.message,

@@ -9,18 +9,14 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClassV0;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{
-    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
-};
+use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_utils::verify_no_calls_to_other_contracts;
 
 #[cfg(test)]
@@ -66,9 +62,7 @@ pub trait Executable<S: State> {
     fn run_execute(
         &self,
         state: &mut S,
-        execution_resources: &mut ExecutionResources,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        ctx: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
@@ -82,9 +76,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        _execution_resources: &mut ExecutionResources,
-        _block_context: &BlockContext,
-        _account_tx_context: &AccountTransactionContext,
+        _ctx: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.tx.class_hash();
 
@@ -119,18 +111,12 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        execution_resources: &mut ExecutionResources,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        ctx: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let mut execution_context = ExecutionContext::default();
         let is_deploy_account_tx = true;
         let deployment_result = execute_deployment(
             state,
-            execution_resources,
-            &mut execution_context,
-            block_context,
-            account_tx_context,
+            ctx,
             self.class_hash,
             self.contract_address,
             ContractAddress::default(),
@@ -149,9 +135,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        execution_resources: &mut ExecutionResources,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        ctx: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match self {
             InvokeTransaction::V0(tx) => tx.entry_point_selector,
@@ -168,16 +152,9 @@ impl<S: State> Executable<S> for InvokeTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };
-        let mut execution_context = ExecutionContext::default();
 
         execute_call
-            .execute(
-                state,
-                execution_resources,
-                &mut execution_context,
-                block_context,
-                account_tx_context,
-            )
+            .execute(state, ctx)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
     }
@@ -187,9 +164,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        execution_resources: &mut ExecutionResources,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        ctx: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let storage_address = self.contract_address;
         let execute_call = CallEntryPoint {
@@ -202,16 +177,9 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };
-        let mut execution_context = ExecutionContext::default();
 
         execute_call
-            .execute(
-                state,
-                execution_resources,
-                &mut execution_context,
-                block_context,
-                account_tx_context,
-            )
+            .execute(state, ctx)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
     }

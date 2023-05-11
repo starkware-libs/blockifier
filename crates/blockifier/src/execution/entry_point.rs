@@ -54,7 +54,7 @@ pub struct ExecutionResources {
     pub syscall_counter: SyscallCounter,
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ExecutionContext {
     // Used for tracking events order during the current execution.
     pub n_emitted_events: usize,
@@ -62,6 +62,21 @@ pub struct ExecutionContext {
     pub n_sent_messages_to_l1: usize,
     // Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
+    pub block_context: BlockContext,
+    pub execution_resources: ExecutionResources,
+    pub account_tx_context: AccountTransactionContext,
+}
+impl ExecutionContext {
+    pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
+        Self {
+            n_emitted_events: 0,
+            n_sent_messages_to_l1: 0,
+            error_stack: vec![],
+            block_context,
+            execution_resources: ExecutionResources::default(),
+            account_tx_context,
+        }
+    }
 }
 
 impl ExecutionContext {
@@ -84,10 +99,7 @@ impl CallEntryPoint {
     pub fn execute(
         mut self,
         state: &mut dyn State,
-        execution_resources: &mut ExecutionResources,
-        execution_context: &mut ExecutionContext,
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        ctx: &mut ExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
         let storage_address = self.storage_address;
@@ -103,24 +115,15 @@ impl CallEntryPoint {
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
 
-        execute_entry_point_call(
-            self,
-            class_hash,
-            state,
-            execution_resources,
-            execution_context,
-            block_context,
-            account_tx_context,
-        )
-        .map_err(|error| match error {
+        execute_entry_point_call(self, class_hash, state, ctx).map_err(|error| match error {
             // On VM error, pack the stack trace into the propagated error.
             EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                execution_context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                ctx.error_stack.push((storage_address, error.try_to_vm_trace()));
                 // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is right now,
                 //  each intermediate VM error is wrapped in a VirtualMachineExecutionErrorWithTrace
                 //  error with the stringified trace of all errors below it.
                 EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                    trace: execution_context.error_trace(),
+                    trace: ctx.error_trace(),
                     source: error,
                 }
             }
@@ -288,10 +291,7 @@ impl<'a> IntoIterator for &'a CallInfo {
 #[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    execution_context: &mut ExecutionContext,
-    block_context: &BlockContext,
-    account_tx_context: &AccountTransactionContext,
+    ctx: &mut ExecutionContext,
     class_hash: ClassHash,
     code_address: Option<ContractAddress>,
     storage_address: ContractAddress,
@@ -325,13 +325,7 @@ pub fn execute_constructor_entry_point(
         call_type: CallType::Call,
     };
 
-    constructor_call.execute(
-        state,
-        execution_resources,
-        execution_context,
-        block_context,
-        account_tx_context,
-    )
+    constructor_call.execute(state, ctx)
 }
 
 pub fn handle_empty_constructor(
