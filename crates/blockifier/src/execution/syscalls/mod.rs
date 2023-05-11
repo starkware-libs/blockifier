@@ -586,17 +586,20 @@ pub fn send_message_to_l1(
     Ok(SendMessageToL1Response {})
 }
 
+// TODO(spapini): Do something with address domain in read and write.
 // StorageRead syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {
+    pub address_domain: StarkFelt,
     pub address: StorageKey,
 }
 
 impl SyscallRequest for StorageReadRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
+        let address_domain = felt_from_ptr(vm, ptr)?;
         let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
-        Ok(StorageReadRequest { address })
+        Ok(StorageReadRequest { address_domain, address })
     }
 }
 
@@ -624,15 +627,17 @@ pub fn storage_read(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
+    pub address_domain: StarkFelt,
     pub address: StorageKey,
     pub value: StarkFelt,
 }
 
 impl SyscallRequest for StorageWriteRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
+        let address_domain = felt_from_ptr(vm, ptr)?;
         let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
         let value = felt_from_ptr(vm, ptr)?;
-        Ok(StorageWriteRequest { address, value })
+        Ok(StorageWriteRequest { address_domain, address, value })
     }
 }
 
