@@ -11,7 +11,6 @@ use super::contract_class::ContractClassV0;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -115,21 +114,25 @@ impl CallEntryPoint {
         };
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
+        let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        execute_entry_point_call(self, class_hash, state, context).map_err(|error| match error {
-            // On VM error, pack the stack trace into the propagated error.
-            EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                context.error_stack.push((storage_address, error.try_to_vm_trace()));
-                // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is right now,
-                //  each intermediate VM error is wrapped in a VirtualMachineExecutionErrorWithTrace
-                //  error with the stringified trace of all errors below it.
-                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                    trace: context.error_trace(),
-                    source: error,
+        execute_entry_point_call(self, contract_class, state, context).map_err(
+            |error| match error {
+                // On VM error, pack the stack trace into the propagated error.
+                EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                    context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                    // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is right
+                    // now,  each intermediate VM error is wrapped in a
+                    // VirtualMachineExecutionErrorWithTrace  error with the
+                    // stringified trace of all errors below it.
+                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                        trace: context.error_trace(),
+                        source: error,
+                    }
                 }
-            }
-            other_error => other_error,
-        })
+                other_error => other_error,
+            },
+        )
     }
 
     pub fn resolve_entry_point_pc(
@@ -300,13 +303,7 @@ pub fn execute_constructor_entry_point(
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
     let contract_class = state.get_compiled_contract_class(&class_hash)?;
-    let ContractClass::V0(contract_class) = contract_class else {
-        return Err(PreExecutionError::Cairo1Unsupported.into());
-    };
-    let constructor_entry_points =
-        &contract_class.0.entry_points_by_type[&EntryPointType::Constructor];
-
-    if constructor_entry_points.is_empty() {
+    let Some(constructor_selector) = contract_class.constructor_selector() else {
         // Contract has no constructor.
         return handle_empty_constructor(
             class_hash,
@@ -315,13 +312,13 @@ pub fn execute_constructor_entry_point(
             storage_address,
             caller_address,
         );
-    }
+    };
 
     let constructor_call = CallEntryPoint {
         class_hash: None,
         code_address,
         entry_point_type: EntryPointType::Constructor,
-        entry_point_selector: constructor_entry_points[0].selector,
+        entry_point_selector: constructor_selector,
         calldata,
         storage_address,
         caller_address,

@@ -30,6 +30,14 @@ pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
 }
+impl ContractClass {
+    pub fn constructor_selector(&self) -> Option<EntryPointSelector> {
+        match self {
+            ContractClass::V0(class) => class.constructor_selector(),
+            ContractClass::V1(class) => class.constructor_selector(),
+        }
+    }
+}
 impl From<ContractClassV0> for ContractClass {
     fn from(class: ContractClassV0) -> Self {
         Self::V0(class)
@@ -44,7 +52,13 @@ impl From<ContractClassV1> for ContractClass {
 // V0.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct ContractClassV0(pub Arc<ContractClassV0Inner>);
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+impl ContractClassV0 {
+    fn constructor_selector(&self) -> Option<EntryPointSelector> {
+        Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
+    }
+}
+
+#[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
 pub struct ContractClassV0Inner {
     #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
@@ -64,6 +78,12 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 // V1.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
+impl ContractClassV1 {
+    fn constructor_selector(&self) -> Option<EntryPointSelector> {
+        Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ContractClassV1Inner {
     pub program: Program,
