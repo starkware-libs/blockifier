@@ -193,7 +193,8 @@ pub fn py_tx(
         "DECLARE" => {
             let raw_contract_class: &str = raw_contract_class
                 .expect("A contract class must be passed in a Declare transaction.");
-            let contract_class: ContractClassV0 = serde_json::from_str(raw_contract_class)?;
+            let contract_class =
+                serde_json::from_str::<ContractClassV0>(raw_contract_class)?.into();
             let declare_tx = AccountTransaction::Declare(DeclareTransaction {
                 tx: py_declare(tx)?,
                 contract_class,
