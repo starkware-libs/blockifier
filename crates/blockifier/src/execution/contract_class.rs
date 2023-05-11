@@ -111,6 +111,11 @@ pub struct EntryPointV1 {
     pub offset: EntryPointOffset,
     pub builtins: Vec<String>,
 }
+impl EntryPointV1 {
+    pub fn pc(&self) -> usize {
+        self.offset.0
+    }
+}
 
 impl TryFrom<CasmContractClass> for ContractClassV1 {
     type Error = ProgramError;

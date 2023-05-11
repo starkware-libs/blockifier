@@ -4,7 +4,10 @@ use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 
+use super::contract_class::EntryPointV1;
 use crate::execution::contract_class::ContractClassV1;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
@@ -13,7 +16,8 @@ use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
+    read_execution_retdata, stark_felt_to_felt, write_felt, write_maybe_relocatable, Args,
+    ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -25,7 +29,7 @@ pub struct VmExecutionContext<'a> {
     pub vm: VirtualMachine,
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
-    pub entry_point_pc: usize,
+    pub entry_point: EntryPointV1,
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -40,32 +44,43 @@ pub fn execute_entry_point_call(
         mut vm,
         mut syscall_handler,
         initial_syscall_ptr,
-        entry_point_pc,
+        entry_point,
     } = initialize_execution_context(&call, &contract_class, state, context)?;
-
-    let (implicit_args, args) = prepare_call_arguments(
+    let args = prepare_call_arguments(
         &call,
         &mut vm,
         initial_syscall_ptr,
         &mut syscall_handler.read_only_segments,
+        &entry_point,
     )?;
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
     let previous_vm_resources = syscall_handler.context.resources.vm_resources.clone();
 
-    // Execute.
-    run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
+    prepare_builtin_costs(&mut vm, &contract_class);
 
-    Ok(finalize_execution(
-        vm,
-        runner,
-        syscall_handler,
-        call,
-        previous_vm_resources,
-        implicit_args,
-        n_total_args,
-    )?)
+    // Execute.
+    run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point, args)?;
+
+    Ok(finalize_execution(vm, runner, syscall_handler, call, previous_vm_resources, n_total_args)?)
+}
+
+fn prepare_builtin_costs(vm: &mut VirtualMachine, contract_class: &ContractClassV1) {
+    // Create the builtin cost segment, with dummy values.
+    let mut builtin_cost_segment = vm.add_memory_segment();
+    let builtin_cost_segment_start = builtin_cost_segment;
+    // TODO(spapini): put real costs here.
+    for _i in 0..20 {
+        write_felt(vm, &mut builtin_cost_segment, 0.into()).unwrap();
+    }
+    // Put a pointer to the builtin cost segment at the end of the program (after the
+    // additional `ret` statement).
+    let mut ptr = (vm.get_pc() + contract_class.program.data.len()).unwrap();
+    // Push a "ret" opcode.
+    write_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe")).unwrap();
+    // Push a pointer to the builtin cost segment.
+    write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start).unwrap();
 }
 
 pub fn initialize_execution_context<'a>(
@@ -74,8 +89,7 @@ pub fn initialize_execution_context<'a>(
     state: &'a mut dyn State,
     context: &'a mut ExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
-    // Resolve initial PC from EP indicator.
-    let entry_point_pc = resolve_entry_point_pc(call, contract_class)?;
+    let entry_point = get_entry_point(call, contract_class)?;
 
     // Instantiate Cairo runner.
     let proof_mode = false;
@@ -98,13 +112,13 @@ pub fn initialize_execution_context<'a>(
         &contract_class.hints,
     );
 
-    Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
+    Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point })
 }
 
-pub fn resolve_entry_point_pc(
+pub fn get_entry_point(
     call: &CallEntryPoint,
     contract_class: &ContractClassV1,
-) -> Result<usize, PreExecutionError> {
+) -> Result<EntryPointV1, PreExecutionError> {
     let entry_points_of_same_type = &contract_class.0.entry_points_by_type[&call.entry_point_type];
     let filtered_entry_points: Vec<_> = entry_points_of_same_type
         .iter()
@@ -113,7 +127,7 @@ pub fn resolve_entry_point_pc(
 
     match &filtered_entry_points[..] {
         [] => Err(PreExecutionError::EntryPointNotFound(call.entry_point_selector)),
-        [entry_point] => Ok(entry_point.offset.0),
+        [entry_point] => Ok((*entry_point).clone()),
         _ => Err(PreExecutionError::DuplicatedEntryPointSelector {
             selector: call.entry_point_selector,
             typ: call.entry_point_type,
@@ -126,47 +140,50 @@ pub fn prepare_call_arguments(
     vm: &mut VirtualMachine,
     initial_syscall_ptr: Relocatable,
     read_only_segments: &mut ReadOnlySegments,
-) -> Result<(Vec<MaybeRelocatable>, Args), PreExecutionError> {
+    entrypoint: &EntryPointV1,
+) -> Result<Args, PreExecutionError> {
     let mut args: Args = vec![];
 
-    // Prepare called EP details.
-    let entry_point_selector =
-        MaybeRelocatable::from(stark_felt_to_felt(call.entry_point_selector.0));
-    args.push(CairoArg::from(entry_point_selector));
-
-    // Prepare implicit arguments.
-    let mut implicit_args = vec![];
-    implicit_args.push(MaybeRelocatable::from(initial_syscall_ptr));
-    implicit_args.extend(
-        vm.get_builtin_runners().iter().flat_map(|builtin_runner| builtin_runner.initial_stack()),
-    );
-    args.push(CairoArg::from(implicit_args.clone()));
+    // Push builtins.
+    for builtin_name in &entrypoint.builtins {
+        if let Some(builtin) =
+            vm.get_builtin_runners().iter().find(|builtin| builtin.name() == builtin_name)
+        {
+            args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
+            continue;
+        }
+        panic!("Unsupported builtin");
+    }
+    // TODO(spapini): Use the correct gas counter.
+    // Push gas counter.
+    args.push(CairoArg::Single(10000000000.into()));
+    // Push syscall ptr.
+    args.push(CairoArg::Single(initial_syscall_ptr.into()));
 
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
-    let calldata_length = MaybeRelocatable::from(calldata.len());
-    args.push(CairoArg::from(calldata_length));
 
-    let calldata_start_ptr = MaybeRelocatable::from(read_only_segments.allocate(vm, &calldata)?);
-    args.push(CairoArg::from(calldata_start_ptr));
+    let calldata_start_ptr = read_only_segments.allocate(vm, &calldata)?;
+    args.push(CairoArg::Single(calldata_start_ptr.into()));
+    args.push(CairoArg::Single((calldata_start_ptr + calldata.len()).unwrap().into()));
 
-    Ok((implicit_args, args))
+    Ok(args)
 }
 /// Runs the runner from the given PC.
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
     hint_processor: &mut SyscallHintProcessor<'_>,
-    entry_point_pc: usize,
+    entry_point: EntryPointV1,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
-        entry_point_pc,
+        entry_point.pc(),
         &args,
         verify_secure,
         program_segment_size,
@@ -183,7 +200,6 @@ pub fn finalize_execution(
     syscall_handler: SyscallHintProcessor<'_>,
     call: CallEntryPoint,
     previous_vm_resources: VmExecutionResources,
-    implicit_args: Vec<MaybeRelocatable>,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
     // Close memory holes in segments (OS code touches those memory cells, we simulate it).
@@ -198,8 +214,8 @@ pub fn finalize_execution(
     // Validate run.
     let [retdata_size, retdata_ptr]: [MaybeRelocatable; 2] =
         vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
-    let implicit_args_end_ptr = (vm.get_ap() - 2)?;
-    validate_run(&mut vm, &runner, &syscall_handler, implicit_args, implicit_args_end_ptr)?;
+    // let implicit_args_end_ptr = (vm.get_ap() - 2)?;
+    // validate_run(&mut vm, &runner, &syscall_handler, implicit_args, implicit_args_end_ptr)?;
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
