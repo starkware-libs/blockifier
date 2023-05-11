@@ -112,6 +112,7 @@ impl<'a> SyscallHintProcessor<'a> {
         storage_address: ContractAddress,
         caller_address: ContractAddress,
         hints: &'a HashMap<String, Hint>,
+        read_only_segments: ReadOnlySegments,
     ) -> Self {
         SyscallHintProcessor {
             state,
@@ -121,7 +122,7 @@ impl<'a> SyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
-            read_only_segments: ReadOnlySegments::default(),
+            read_only_segments,
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
             accessed_keys: HashSet::new(),
