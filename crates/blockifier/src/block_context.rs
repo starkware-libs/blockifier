@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BlockContext {
     pub chain_id: ChainId,
     pub block_number: BlockNumber,

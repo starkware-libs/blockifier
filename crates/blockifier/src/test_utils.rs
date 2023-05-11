@@ -24,7 +24,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
-    ExecutionResources, Retdata,
+    Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractStorageKey};
 use crate::state::errors::StateError;
@@ -247,13 +247,11 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 impl CallEntryPoint {
     // Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-        self.execute(
-            state,
-            &mut ExecutionResources::default(),
-            &mut ExecutionContext::default(),
-            &BlockContext::create_for_testing(),
-            &AccountTransactionContext::default(),
-        )
+        let mut context = ExecutionContext::new(
+            BlockContext::create_for_testing(),
+            AccountTransactionContext::default(),
+        );
+        self.execute(state, &mut context)
     }
 }
 

@@ -19,18 +19,16 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 
-use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
-    EntryPointExecutionResult, ExecutionContext, ExecutionResources, Retdata,
+    EntryPointExecutionResult, ExecutionContext, Retdata,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
 
 pub type Args = Vec<CairoArg>;
 
@@ -59,10 +57,7 @@ pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     class_hash: ClassHash,
     state: &'a mut dyn State,
-    execution_resources: &'a mut ExecutionResources,
-    execution_context: &'a mut ExecutionContext,
-    block_context: &'a BlockContext,
-    account_tx_context: &'a AccountTransactionContext,
+    context: &'a mut ExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
@@ -83,10 +78,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = DeprecatedSyscallHintProcessor::new(
         state,
-        execution_resources,
-        execution_context,
-        block_context,
-        account_tx_context,
+        context,
         initial_syscall_ptr,
         call.storage_address,
         call.caller_address,
@@ -134,10 +126,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     class_hash: ClassHash,
     state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    execution_context: &mut ExecutionContext,
-    block_context: &BlockContext,
-    account_tx_context: &AccountTransactionContext,
+    context: &mut ExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
         mut runner,
@@ -145,15 +134,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point_pc,
-    } = initialize_execution_context(
-        &call,
-        class_hash,
-        state,
-        execution_resources,
-        execution_context,
-        block_context,
-        account_tx_context,
-    )?;
+    } = initialize_execution_context(&call, class_hash, state, context)?;
 
     let (implicit_args, args) = prepare_call_arguments(
         &call,
@@ -164,7 +145,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.execution_resources.vm_resources.clone();
+    let previous_vm_resources = syscall_handler.context.resources.vm_resources.clone();
 
     // Execute.
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
@@ -233,10 +214,10 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.execution_resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.context.resources.vm_resources += &vm_resources_without_inner_calls;
 
     let full_call_vm_resources =
-        &syscall_handler.execution_resources.vm_resources - &previous_vm_resources;
+        &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {
@@ -413,13 +394,9 @@ impl ReadOnlySegments {
 
 /// Instantiates the given class and assigns it an address.
 /// Returns the call info of the deployed class' constructor execution.
-#[allow(clippy::too_many_arguments)]
 pub fn execute_deployment(
     state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    execution_context: &mut ExecutionContext,
-    block_context: &BlockContext,
-    account_tx_context: &AccountTransactionContext,
+    context: &mut ExecutionContext,
     class_hash: ClassHash,
     deployed_contract_address: ContractAddress,
     deployer_address: ContractAddress,
@@ -438,10 +415,7 @@ pub fn execute_deployment(
     let code_address = if is_deploy_account_tx { None } else { Some(deployed_contract_address) };
     execute_constructor_entry_point(
         state,
-        execution_resources,
-        execution_context,
-        block_context,
-        account_tx_context,
+        context,
         class_hash,
         code_address,
         deployed_contract_address,
