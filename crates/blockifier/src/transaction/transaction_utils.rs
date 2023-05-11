@@ -10,7 +10,7 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 
-pub const BUILTIN_NAME_SUFFIX: &str = "_builtin";
+pub const BUILTIN_NAME_SUFFIX: &str = "";
 
 const FEE_TRANSFER_N_STORAGE_CHANGES: u8 = 2; // Sender and sequencer balance update.
 // Exclude the sequencer balance update, since it's charged once throughout the batch.

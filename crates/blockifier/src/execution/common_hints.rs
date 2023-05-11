@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::Shl;
 use std::rc::Rc;
 
-use cairo_vm::felt::{Felt252, PRIME_STR};
+use cairo_felt::{Felt252, PRIME_STR};
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintFunc,
 };

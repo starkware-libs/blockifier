@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
+use cairo_felt::Felt252;
 use cairo_lang_casm::hints::Hint;
-use cairo_vm::felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;

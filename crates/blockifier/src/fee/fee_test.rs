@@ -10,11 +10,11 @@ use crate::transaction::objects::ResourcesMapping;
 fn get_vm_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
         (String::from("n_steps"), 1800),
-        (String::from("pedersen_builtin"), 10),
-        (String::from("range_check_builtin"), 24),
-        (String::from("ecdsa_builtin"), 1),
-        (String::from("bitwise_builtin"), 1),
-        (String::from("poseidon_builtin"), 1),
+        (String::from("pedersen"), 10),
+        (String::from("range_check"), 24),
+        (String::from("ecdsa"), 1),
+        (String::from("bitwise"), 1),
+        (String::from("poseidon"), 1),
     ]))
 }
 

@@ -29,6 +29,8 @@ pub fn calculate_l1_gas_by_vm_usage(
 ) -> TransactionExecutionResult<f64> {
     let vm_resource_fee_costs = &block_context.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
+    println!("vm_resource_names: {:?}", vm_resource_names);
+    println!("vm_resource_fee_costs: {:?}", vm_resource_fee_costs);
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionExecutionError::CairoResourcesNotContainedInFeeCosts);
     };
