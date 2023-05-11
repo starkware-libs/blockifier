@@ -7,7 +7,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkHash;
 
-use super::contract_class::ContractClassV0;
+use super::contract_class::ContractClassV1;
 use super::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use super::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
@@ -25,7 +25,7 @@ use crate::transaction::objects::AccountTransactionContext;
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
-    contract_class: ContractClassV0,
+    contract_class: ContractClassV1,
     state: &mut dyn State,
     execution_resources: &mut ExecutionResources,
     execution_context: &mut ExecutionContext,
@@ -75,7 +75,7 @@ pub fn execute_entry_point_call(
 
 pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
-    contract_class: ContractClassV0,
+    contract_class: ContractClassV1,
     state: &'a mut dyn State,
     execution_resources: &'a mut ExecutionResources,
     execution_context: &'a mut ExecutionContext,
@@ -113,7 +113,7 @@ pub fn initialize_execution_context<'a>(
 
 pub fn resolve_entry_point_pc(
     call: &CallEntryPoint,
-    contract_class: &ContractClassV0,
+    contract_class: &ContractClassV1,
 ) -> Result<usize, PreExecutionError> {
     let entry_points_of_same_type = &contract_class.0.entry_points_by_type[&call.entry_point_type];
     let filtered_entry_points: Vec<_> = entry_points_of_same_type

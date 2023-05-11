@@ -2,14 +2,13 @@ use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
-use starknet_api::deprecated_contract_class::{EntryPoint, EntryPointType};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::deprecated_contract_class::EntryPointType;
+use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
-use super::contract_class::ContractClassV0;
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
+use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -127,51 +126,6 @@ impl CallEntryPoint {
             }
             other_error => other_error,
         })
-    }
-
-    pub fn resolve_entry_point_pc(
-        &self,
-        contract_class: &ContractClassV0,
-    ) -> Result<usize, PreExecutionError> {
-        let entry_points_of_same_type =
-            &contract_class.0.entry_points_by_type[&self.entry_point_type];
-        let filtered_entry_points: Vec<&EntryPoint> = entry_points_of_same_type
-            .iter()
-            .filter(|ep| ep.selector == self.entry_point_selector)
-            .collect();
-
-        // Returns the default entrypoint if the given selector is missing.
-        if filtered_entry_points.is_empty() {
-            match entry_points_of_same_type.get(0) {
-                Some(entry_point) => {
-                    if entry_point.selector
-                        == EntryPointSelector(StarkHash::from(DEFAULT_ENTRY_POINT_SELECTOR))
-                    {
-                        return Ok(entry_point.offset.0);
-                    } else {
-                        return Err(PreExecutionError::EntryPointNotFound(
-                            self.entry_point_selector,
-                        ));
-                    }
-                }
-                None => {
-                    return Err(PreExecutionError::NoEntryPointOfTypeFound(self.entry_point_type));
-                }
-            }
-        }
-
-        if filtered_entry_points.len() > 1 {
-            return Err(PreExecutionError::DuplicatedEntryPointSelector {
-                selector: self.entry_point_selector,
-                typ: self.entry_point_type,
-            });
-        }
-
-        // Filtered entry points contain exactly one element.
-        let entry_point = filtered_entry_points
-            .get(0)
-            .expect("The number of entry points with the given selector is exactly one.");
-        Ok(entry_point.offset.0)
     }
 }
 

@@ -18,14 +18,14 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 
 use super::contract_class::ContractClass;
-use super::exec_v0;
+use super::{exec_v0, exec_v1};
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallInfo, EntryPointExecutionResult,
     ExecutionContext, ExecutionResources, Retdata,
 };
-use crate::execution::errors::{PostExecutionError, PreExecutionError};
+use crate::execution::errors::PostExecutionError;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
@@ -63,18 +63,26 @@ pub fn execute_entry_point_call(
     block_context: &BlockContext,
     account_tx_context: &AccountTransactionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let ContractClass::V0(contract_class) = contract_class else {
-        return Err(PreExecutionError::Cairo1Unsupported.into());
-    };
-    exec_v0::execute_entry_point_call(
-        call,
-        contract_class,
-        state,
-        execution_resources,
-        execution_context,
-        block_context,
-        account_tx_context,
-    )
+    match contract_class {
+        ContractClass::V0(contract_class) => exec_v0::execute_entry_point_call(
+            call,
+            contract_class,
+            state,
+            execution_resources,
+            execution_context,
+            block_context,
+            account_tx_context,
+        ),
+        ContractClass::V1(contract_class) => exec_v1::execute_entry_point_call(
+            call,
+            contract_class,
+            state,
+            execution_resources,
+            execution_context,
+            block_context,
+            account_tx_context,
+        ),
+    }
 }
 
 pub fn read_execution_retdata(
