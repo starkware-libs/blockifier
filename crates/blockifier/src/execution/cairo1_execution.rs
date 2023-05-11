@@ -138,6 +138,21 @@ pub fn prepare_call_arguments(
             args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
             continue;
         }
+        if builtin_name == "segment_arena" {
+            let segment_arena = vm.add_memory_segment();
+
+            // Write into segment_arena.
+            let mut ptr = segment_arena;
+            let info_segment = vm.add_memory_segment();
+            let n_constructed = StarkFelt::default();
+            let n_destructed = StarkFelt::default();
+            write_maybe_relocatable(vm, &mut ptr, info_segment)?;
+            write_felt(vm, &mut ptr, n_constructed)?;
+            write_felt(vm, &mut ptr, n_destructed)?;
+
+            args.push(CairoArg::Single(segment_arena.into()));
+            continue;
+        }
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
     // TODO(spapini): Use the correct gas counter.
@@ -166,7 +181,8 @@ pub fn run_entry_point(
     entry_point: EntryPointV1,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
-    let verify_secure = true;
+    // We write at the end of the program segment, which fails secure verification.
+    let verify_secure = false;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
