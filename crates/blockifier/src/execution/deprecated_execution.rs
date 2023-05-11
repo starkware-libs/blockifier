@@ -7,17 +7,27 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkHash;
 
-use super::contract_class::ContractClassV0;
-use super::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
-use super::entry_point::{
+use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
+use crate::execution::contract_class::ContractClassV0;
+use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
+use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
 };
-use super::errors::{PostExecutionError, PreExecutionError, VirtualMachineExecutionError};
-use super::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments, VmExecutionContext,
+use crate::execution::errors::{
+    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
+use crate::execution::execution_utils::{
+    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
+};
 use crate::state::state_api::State;
+
+pub struct VmExecutionContext<'a> {
+    pub runner: CairoRunner,
+    pub vm: VirtualMachine,
+    pub syscall_handler: DeprecatedSyscallHintProcessor<'a>,
+    pub initial_syscall_ptr: Relocatable,
+    pub entry_point_pc: usize,
+}
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
