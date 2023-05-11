@@ -10,7 +10,7 @@ use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payloa
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -130,7 +130,7 @@ impl CallEntryPoint {
 
     pub fn resolve_entry_point_pc(
         &self,
-        contract_class: &ContractClass,
+        contract_class: &ContractClassV0,
     ) -> Result<usize, PreExecutionError> {
         let entry_points_of_same_type =
             &contract_class.0.entry_points_by_type[&self.entry_point_type];
