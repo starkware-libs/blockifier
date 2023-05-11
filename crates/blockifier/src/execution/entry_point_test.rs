@@ -13,8 +13,8 @@ use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Ret
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_test_state, trivial_external_entry_point, trivial_external_entry_point_security_test,
-    DictStateReader,
+    create_test_cairo1_state, create_test_state, trivial_external_entry_point,
+    trivial_external_entry_point_security_test, DictStateReader,
 };
 
 #[test]
@@ -479,4 +479,15 @@ fn test_storage_related_members() {
         actual_call_info.accessed_storage_keys,
         HashSet::from([StorageKey(patricia_key!(key))])
     );
+}
+
+#[test]
+fn test_cairo1_entry_point() {
+    let mut _state = create_test_cairo1_state();
+    let calldata = calldata![stark_felt!(23), stark_felt!(45), stark_felt!(67)];
+    let _entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test"),
+        ..trivial_external_entry_point()
+    };
 }

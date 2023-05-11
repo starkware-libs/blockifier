@@ -16,7 +16,7 @@ pub const TOKEN_FOR_TESTING_CONTRACT_PATH: &str =
 pub fn create_py_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([(
         ClassHash(stark_felt!(TOKEN_FOR_TESTING_CLASS_HASH)),
-        get_contract_class_v0(TOKEN_FOR_TESTING_CONTRACT_PATH),
+        get_contract_class_v0(TOKEN_FOR_TESTING_CONTRACT_PATH).into(),
     )]);
     CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
 }

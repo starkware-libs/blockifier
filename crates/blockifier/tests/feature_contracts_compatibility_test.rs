@@ -1,7 +1,7 @@
 use std::fs;
 use std::process::Command;
 
-const FEATURE_CONTRACTS_DIR: &str = "feature_contracts";
+const FEATURE_CONTRACTS_DIR: &str = "feature_contracts/cairo0";
 const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
 
 // Checks that:
