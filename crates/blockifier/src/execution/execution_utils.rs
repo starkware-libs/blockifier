@@ -19,6 +19,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 
+use super::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallExecution, CallInfo,
@@ -60,6 +61,9 @@ pub fn initialize_execution_context<'a>(
     context: &'a mut ExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let contract_class = state.get_compiled_contract_class(&class_hash)?;
+    let ContractClass::V0(contract_class) = contract_class else {
+        return Err(PreExecutionError::Cairo1Unsupported);
+    };
 
     // Resolve initial PC from EP indicator.
     let entry_point_pc = call.resolve_entry_point_pc(&contract_class)?;

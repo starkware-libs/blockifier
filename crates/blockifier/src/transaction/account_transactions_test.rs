@@ -66,7 +66,7 @@ fn test_account_flow_test() {
     account_tx.execute(state, block_context).unwrap();
 
     // Declare a contract.
-    let contract_class = get_contract_class_v0(TEST_CONTRACT_PATH);
+    let contract_class = get_contract_class_v0(TEST_CONTRACT_PATH).into();
     let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
