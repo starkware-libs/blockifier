@@ -7,19 +7,29 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::hash::StarkHash;
 
-use super::contract_class::ContractClassV1;
-use super::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
-use super::entry_point::{
+use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
+use crate::execution::contract_class::ContractClassV1;
+use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
 };
-use super::errors::{PostExecutionError, PreExecutionError, VirtualMachineExecutionError};
-use super::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments, VmExecutionContext,
+use crate::execution::errors::{
+    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
+use crate::execution::execution_utils::{
+    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
+};
+use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
 
-// TODO(spapini): Try to refactor this into a StarknetRunner struct.
+// TODO(spapini): Try to refactor this file into a StarknetRunner struct.
+
+pub struct VmExecutionContext<'a> {
+    pub runner: CairoRunner,
+    pub vm: VirtualMachine,
+    pub syscall_handler: SyscallHintProcessor<'a>,
+    pub initial_syscall_ptr: Relocatable,
+    pub entry_point_pc: usize,
+}
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
@@ -34,7 +44,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point_pc,
-    } = initialize_execution_context(&call, contract_class, state, context)?;
+    } = initialize_execution_context(&call, &contract_class, state, context)?;
 
     let (implicit_args, args) = prepare_call_arguments(
         &call,
@@ -63,12 +73,12 @@ pub fn execute_entry_point_call(
 
 pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
-    contract_class: ContractClassV1,
+    contract_class: &'a ContractClassV1,
     state: &'a mut dyn State,
     context: &'a mut ExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     // Resolve initial PC from EP indicator.
-    let entry_point_pc = resolve_entry_point_pc(call, &contract_class)?;
+    let entry_point_pc = resolve_entry_point_pc(call, contract_class)?;
 
     // Instantiate Cairo runner.
     let proof_mode = false;
@@ -82,12 +92,13 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate syscall handler.
     let initial_syscall_ptr = vm.add_memory_segment();
-    let syscall_handler = DeprecatedSyscallHintProcessor::new(
+    let syscall_handler = SyscallHintProcessor::new(
         state,
         context,
         initial_syscall_ptr,
         call.storage_address,
         call.caller_address,
+        &contract_class.hints,
     );
 
     Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
@@ -172,7 +183,7 @@ pub fn prepare_call_arguments(
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
-    hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
+    hint_processor: &mut SyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
@@ -194,7 +205,7 @@ pub fn run_entry_point(
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
-    syscall_handler: DeprecatedSyscallHintProcessor<'_>,
+    syscall_handler: SyscallHintProcessor<'_>,
     call: CallEntryPoint,
     previous_vm_resources: VmExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
@@ -242,7 +253,7 @@ pub fn finalize_execution(
 pub fn validate_run(
     vm: &mut VirtualMachine,
     runner: &CairoRunner,
-    syscall_handler: &DeprecatedSyscallHintProcessor<'_>,
+    syscall_handler: &SyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
 ) -> Result<(), PostExecutionError> {
