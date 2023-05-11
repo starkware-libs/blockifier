@@ -10,6 +10,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
@@ -483,11 +484,16 @@ fn test_storage_related_members() {
 
 #[test]
 fn test_cairo1_entry_point() {
-    let mut _state = create_test_cairo1_state();
+    let mut state = create_test_cairo1_state();
     let calldata = calldata![stark_felt!(23), stark_felt!(45), stark_felt!(67)];
-    let _entry_point_call = CallEntryPoint {
+    let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test"),
         ..trivial_external_entry_point()
     };
+
+    assert!(matches!(
+        entry_point_call.execute_directly(&mut state),
+        Err(EntryPointExecutionError::PreExecutionError(PreExecutionError::Cairo1Unsupported))
+    ));
 }
