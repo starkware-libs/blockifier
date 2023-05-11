@@ -30,11 +30,9 @@ use super::{
     SyscallRequest, SyscallRequestWrapper, SyscallResponse, SyscallResponseWrapper, SyscallResult,
     SyscallSelector,
 };
-use crate::block_context::BlockContext;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, ExecutionContext, ExecutionResources, OrderedEvent,
-    OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, CallType, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
@@ -43,7 +41,6 @@ use crate::execution::execution_utils::{
 use crate::execution::hint_code;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
@@ -84,10 +81,7 @@ impl From<SyscallExecutionError> for HintError {
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
-    pub execution_resources: &'a mut ExecutionResources,
-    pub execution_context: &'a mut ExecutionContext,
-    pub block_context: &'a BlockContext,
-    pub account_tx_context: &'a AccountTransactionContext,
+    pub context: &'a mut ExecutionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
 
@@ -114,23 +108,16 @@ pub struct SyscallHintProcessor<'a> {
 }
 
 impl<'a> SyscallHintProcessor<'a> {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'a mut dyn State,
-        execution_resources: &'a mut ExecutionResources,
-        execution_context: &'a mut ExecutionContext,
-        block_context: &'a BlockContext,
-        account_tx_context: &'a AccountTransactionContext,
+        context: &'a mut ExecutionContext,
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
     ) -> Self {
         SyscallHintProcessor {
             state,
-            execution_resources,
-            execution_context,
-            block_context,
-            account_tx_context,
+            context,
             storage_address,
             caller_address,
             inner_calls: vec![],
@@ -259,7 +246,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
-        let syscall_count = self.execution_resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.context.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -267,7 +254,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        let signature = &self.account_tx_context.signature.0;
+        let signature = &self.context.account_tx_context.signature.0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -277,16 +264,17 @@ impl<'a> SyscallHintProcessor<'a> {
 
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
-        let tx_signature_length = self.account_tx_context.signature.0.len();
+        let account_transaction_context = &self.context.account_tx_context;
+        let tx_signature_length = account_transaction_context.signature.0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(self.account_tx_context.version.0).into(),
-            stark_felt_to_felt(*self.account_tx_context.sender_address.0.key()).into(),
-            Felt252::from(self.account_tx_context.max_fee.0).into(),
+            stark_felt_to_felt(account_transaction_context.version.0).into(),
+            stark_felt_to_felt(*account_transaction_context.sender_address.0.key()).into(),
+            Felt252::from(account_transaction_context.max_fee.0).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(self.account_tx_context.transaction_hash.0).into(),
-            Felt252::from_bytes_be(self.block_context.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(self.account_tx_context.nonce.0).into(),
+            stark_felt_to_felt(account_transaction_context.transaction_hash.0).into(),
+            Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(account_transaction_context.nonce.0).into(),
         ];
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
@@ -367,13 +355,7 @@ pub fn execute_inner_call(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(
-        syscall_handler.state,
-        syscall_handler.execution_resources,
-        syscall_handler.execution_context,
-        syscall_handler.block_context,
-        syscall_handler.account_tx_context,
-    )?;
+    let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
         retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();

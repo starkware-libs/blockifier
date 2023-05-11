@@ -345,16 +345,16 @@ impl StateCache {
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
 /// Used to pass ownership to a `CachedState`.
-pub struct MutRefState<'a, S: State>(&'a mut S);
+pub struct MutRefState<'a, S: State + ?Sized>(&'a mut S);
 
-impl<'a, S: State> MutRefState<'a, S> {
+impl<'a, S: State + ?Sized> MutRefState<'a, S> {
     pub fn new(state: &'a mut S) -> Self {
         Self(state)
     }
 }
 
 /// Proxies inner object to expose `State` functionality.
-impl<'a, S: State> StateReader for MutRefState<'a, S> {
+impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
     fn get_storage_at(
         &mut self,
         contract_address: ContractAddress,
@@ -383,7 +383,7 @@ impl<'a, S: State> StateReader for MutRefState<'a, S> {
     }
 }
 
-impl<'a, S: State> State for MutRefState<'a, S> {
+impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
     fn set_storage_at(
         &mut self,
         contract_address: ContractAddress,

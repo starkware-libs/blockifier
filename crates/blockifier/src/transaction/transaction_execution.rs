@@ -4,7 +4,7 @@ use starknet_api::transaction::{
 
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClassV0;
-use crate::execution::entry_point::ExecutionResources;
+use crate::execution::entry_point::ExecutionContext;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
@@ -59,16 +59,15 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: self.nonce,
             sender_address: self.contract_address,
         };
-        let mut execution_resources = ExecutionResources::default();
-        let execute_call_info =
-            self.run_execute(state, &mut execution_resources, block_context, &tx_context)?;
+        let mut context = ExecutionContext::new(block_context.clone(), tx_context);
+        let execute_call_info = self.run_execute(state, &mut context)?;
 
         let call_infos =
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(self.calldata.0.len() - 1);
         let actual_resources = calculate_tx_resources(
-            execution_resources,
+            context.resources,
             &call_infos,
             TransactionType::L1Handler,
             state,
