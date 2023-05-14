@@ -224,6 +224,7 @@ impl<'a> SyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
         let signature = &self.account_tx_context.signature.0;
+        // log::debug!("(GetTxSignature/GetTxInfo syscall) signature is {signature:?}.");
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;

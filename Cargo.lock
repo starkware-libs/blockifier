@@ -353,8 +353,8 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cairo-felt"
-version = "0.3.0-rc1"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=eaea41fe#eaea41febc0163388b4eafa2a9b14571d1b3cf9c"
+version = "0.4.0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=ae87c315#ae87c315396e7456fb847f9f739254c4801101d2"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -365,16 +365,16 @@ dependencies = [
 
 [[package]]
 name = "cairo-take_until_unbalanced"
-version = "0.24.2-rc1"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=eaea41fe#eaea41febc0163388b4eafa2a9b14571d1b3cf9c"
+version = "0.25.0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=ae87c315#ae87c315396e7456fb847f9f739254c4801101d2"
 dependencies = [
  "nom",
 ]
 
 [[package]]
 name = "cairo-vm"
-version = "0.3.0-rc1"
-source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=eaea41fe#eaea41febc0163388b4eafa2a9b14571d1b3cf9c"
+version = "0.4.0"
+source = "git+https://github.com/lambdaclass/cairo-rs.git?rev=ae87c315#ae87c315396e7456fb847f9f739254c4801101d2"
 dependencies = [
  "anyhow",
  "bincode",
@@ -399,7 +399,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "sha3 0.10.7",
- "starknet-crypto 0.4.3",
+ "starknet-crypto 0.5.1",
  "thiserror",
  "thiserror-no-std",
 ]
@@ -496,22 +496,13 @@ dependencies = [
 
 [[package]]
 name = "crypto-bigint"
-version = "0.4.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef2b4b23cddf68b89b8f8069890e8c270d54e2d5fe1b143820234805e4cb17ef"
-dependencies = [
- "generic-array",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "crypto-bigint"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf4c2f4e1afd912bc40bfd6fed5d9dc1f288e0ba01bfcc835cc5bc3eb13efe15"
 dependencies = [
+ "generic-array",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -2059,13 +2050,12 @@ dependencies = [
 
 [[package]]
 name = "rfc6979"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7743f17af12fa0b03b803ba12cd6a8d9483a587e89c69445e3909655c0b9fabb"
+checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
- "crypto-bigint 0.4.9",
  "hmac 0.12.1",
- "zeroize",
+ "subtle",
 ]
 
 [[package]]
@@ -2426,20 +2416,20 @@ dependencies = [
 
 [[package]]
 name = "starknet-crypto"
-version = "0.4.3"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8802a516a2556b2ddb9630898d2c8387d928a3e603799b8b2a7dc4018b852c8f"
+checksum = "693e6362f150f9276e429a910481fb7f3bcb8d6aa643743f587cfece0b374874"
 dependencies = [
- "crypto-bigint 0.4.9",
+ "crypto-bigint 0.5.2",
  "hex",
  "hmac 0.12.1",
  "num-bigint",
  "num-integer",
  "num-traits",
- "rfc6979 0.3.1",
+ "rfc6979 0.4.0",
  "sha2 0.10.6",
  "starknet-crypto-codegen 0.3.1",
- "starknet-curve 0.2.1",
+ "starknet-curve 0.3.0",
  "starknet-ff 0.3.2",
  "zeroize",
 ]
@@ -2473,15 +2463,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84be6079d3060fdbd8b5335574fef3d3783fa2f7ee6474d08ae0c1e4b0a29ba4"
 dependencies = [
  "starknet-ff 0.2.0",
-]
-
-[[package]]
-name = "starknet-curve"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe0dbde7ef14d54c2117bc6d2efb68c2383005f1cd749b277c11df874d07b7af"
-dependencies = [
- "starknet-ff 0.3.2",
 ]
 
 [[package]]

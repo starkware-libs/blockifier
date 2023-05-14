@@ -63,6 +63,7 @@ pub fn initialize_execution_context<'a>(
     block_context: &'a BlockContext,
     account_tx_context: &'a AccountTransactionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
+    log::debug!("Running entry point in class hash : {class_hash:?}.");
     let contract_class = state.get_contract_class(&class_hash)?;
 
     // Resolve initial PC from EP indicator.
@@ -117,6 +118,7 @@ pub fn prepare_call_arguments(
 
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;
+    log::debug!("Preparing call data for entry point: {calldata:?}.");
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
     let calldata_length = MaybeRelocatable::from(calldata.len());
@@ -166,6 +168,7 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.execution_resources.vm_resources.clone();
 
     // Execute.
+    log::debug!("Executing entry point with args: {args:?}.");
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
 
     Ok(finalize_execution(
@@ -307,7 +310,7 @@ fn read_execution_retdata(
         MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())
             .map_err(PostExecutionError::RetdataSizeTooBig)?,
         relocatable => {
-            return Err(VirtualMachineError::ExpectedIntAtRange(Some(relocatable)).into());
+            return Err(VirtualMachineError::ExpectedIntAtRange(Some(relocatable).into()).into());
         }
     };
 
@@ -339,7 +342,8 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
     let data = deserialize_array_of_bigint_hex(program.data)?;
     let hints = serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?;
     let main = None;
-    let error_message_attributes = serde_json::from_value::<Vec<Attribute>>(program.attributes)?
+    let error_message_attributes = serde_json::from_value::<Vec<Attribute>>(program.attributes)
+        .unwrap_or(Vec::new())
         .into_iter()
         .filter(|attr| attr.name == "error_message")
         .collect();

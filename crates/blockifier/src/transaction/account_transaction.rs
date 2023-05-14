@@ -227,6 +227,7 @@ impl AccountTransaction {
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
         let max_fee = account_tx_context.max_fee;
+        // log::debug!("actual_fee = {actual_fee:?}, max_fee = {max_fee:?}.");
         if actual_fee > max_fee {
             return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
         }

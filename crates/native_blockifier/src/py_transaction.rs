@@ -64,12 +64,14 @@ fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
 }
 
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
+    let nonce: Option<BigUint> = py_attr(tx, "nonce")?;
+    let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
         max_fee: Fee(py_attr(tx, "max_fee")?),
         version: TransactionVersion(py_felt_attr(tx, "version")?),
         signature: TransactionSignature(py_felt_sequence_attr(tx, "signature")?),
-        nonce: Nonce(py_felt_attr(tx, "nonce")?),
+        nonce,
         sender_address: ContractAddress::try_from(py_felt_attr(tx, "sender_address")?)?,
     })
 }
@@ -81,14 +83,15 @@ pub fn py_block_context(
     let starknet_os_config = general_config.getattr("starknet_os_config")?;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
     let starknet_version: String = py_attr(block_info, "starknet_version")?;
+    let sequencer_address: Option<BigUint> = py_attr(block_info, "sequencer_address")?;
+    let sequencer_address = ContractAddress::try_from(biguint_to_felt(
+        sequencer_address.expect("sequencer_address is None in block_info"),
+    )?)?;
     let block_context = BlockContext {
         chain_id: to_chain_id_enum(py_attr(starknet_os_config, "chain_id")?)?,
         block_number,
         block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(py_felt_attr(
-            general_config,
-            "sequencer_address",
-        )?)?,
+        sequencer_address,
         fee_token_address: ContractAddress::try_from(py_felt_attr(
             starknet_os_config,
             "fee_token_address",
@@ -297,6 +300,7 @@ impl PyTransactionExecutor {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let actual_fee = Fee(py_attr(tx, "actual_fee")?);
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        // log::debug!("Received Transaction: {tx:?}");
 
         let tx_execution_info = self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));

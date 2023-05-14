@@ -374,8 +374,11 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
         parent_cache.storage_writes.extend(child_cache.storage_writes);
         self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
+        log::debug!("Transaction Committed.");
     }
 
     /// Drops `self`.
-    pub fn abort(self) {}
+    pub fn abort(self) {
+        log::debug!("Transaction Aborted.");
+    }
 }
