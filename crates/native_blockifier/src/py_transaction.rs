@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -14,18 +13,21 @@ use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::{
     DeclareTransaction, ExecutableTransaction, L1HandlerTransaction,
 };
+use blockifier::utils::{get_contract_class_v0, get_contract_class_v1};
 use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{
+    ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
+};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
-    InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
+    DeployAccountTransaction, Fee, InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
@@ -112,18 +114,43 @@ pub fn py_declare(
     let class_hash = ClassHash(py_felt_attr(tx, "class_hash")?);
 
     let version = usize::try_from(account_data_context.version.0)?;
-    let declare_tx = DeclareTransactionV0V1 {
-        transaction_hash: account_data_context.transaction_hash,
-        max_fee: account_data_context.max_fee,
-        signature: account_data_context.signature,
-        nonce: account_data_context.nonce,
-        class_hash,
-        sender_address: account_data_context.sender_address,
-    };
 
     match version {
-        0 => Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx)),
-        1 => Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx)),
+        0 => {
+            let declare_tx = DeclareTransactionV0V1 {
+                transaction_hash: account_data_context.transaction_hash,
+                max_fee: account_data_context.max_fee,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                sender_address: account_data_context.sender_address,
+            };
+            Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx))
+        }
+        1 => {
+            let declare_tx = DeclareTransactionV0V1 {
+                transaction_hash: account_data_context.transaction_hash,
+                max_fee: account_data_context.max_fee,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                sender_address: account_data_context.sender_address,
+            };
+            Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
+        }
+        2 => {
+            let compiled_class_hash = CompiledClassHash(py_felt_attr(tx, "compiled_class_hash")?);
+            let declare_tx = DeclareTransactionV2 {
+                transaction_hash: account_data_context.transaction_hash,
+                max_fee: account_data_context.max_fee,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                sender_address: account_data_context.sender_address,
+                compiled_class_hash,
+            };
+            Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
+        }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::Declare,
             version,
@@ -199,13 +226,20 @@ pub fn py_tx(
 ) -> NativeBlockifierResult<Transaction> {
     match tx_type {
         "DECLARE" => {
+            let tx = py_declare(tx)?;
             let raw_contract_class: &str = raw_contract_class
                 .expect("A contract class must be passed in a Declare transaction.");
-            let contract_class = ContractClass::V0(serde_json::from_str(raw_contract_class)?);
-            let declare_tx = AccountTransaction::Declare(DeclareTransaction {
-                tx: py_declare(tx)?,
-                contract_class,
-            });
+            let contract_class = match tx {
+                starknet_api::transaction::DeclareTransaction::V0(_)
+                | starknet_api::transaction::DeclareTransaction::V1(_) => {
+                    get_contract_class_v0(raw_contract_class)?.into()
+                }
+                starknet_api::transaction::DeclareTransaction::V2(_) => {
+                    get_contract_class_v1(raw_contract_class)?.into()
+                }
+            };
+
+            let declare_tx = AccountTransaction::Declare(DeclareTransaction { tx, contract_class });
             Ok(Transaction::AccountTransaction(declare_tx))
         }
         "DEPLOY_ACCOUNT" => {
