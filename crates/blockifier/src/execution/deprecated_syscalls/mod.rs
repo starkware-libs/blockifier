@@ -16,14 +16,13 @@ use strum_macros::EnumIter;
 
 use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
-    DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
+    read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, read_felt_array, write_felt, write_maybe_relocatable,
-    ReadOnlySegment,
+    execute_deployment, felt_from_ptr, write_felt, write_maybe_relocatable, ReadOnlySegment,
 };
 
 #[cfg(test)]

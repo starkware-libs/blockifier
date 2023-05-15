@@ -7,6 +7,7 @@ use cairo_lang_casm::operand::{BinOpOperand, DerefOrImmediate, Operation, Regist
 use cairo_lang_runner::casm_run::execute_core_hint_base;
 use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -27,7 +28,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_ptr, read_felt_array, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
@@ -422,4 +423,20 @@ pub fn execute_library_call(
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)
+}
+
+pub fn read_felt_array<TErr>(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<Vec<StarkFelt>, TErr>
+where
+    TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError> + From<MathError>,
+{
+    let array_data_start_ptr = vm.get_relocatable(*ptr)?;
+    *ptr += 1;
+    let array_data_end_ptr = vm.get_relocatable(*ptr)?;
+    *ptr += 1;
+    let array_size = (array_data_end_ptr - array_data_start_ptr)?;
+
+    Ok(felt_range_from_ptr(vm, array_data_start_ptr, array_size)?)
 }
