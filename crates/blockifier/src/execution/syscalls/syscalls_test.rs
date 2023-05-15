@@ -1,12 +1,16 @@
+use std::collections::{HashMap, HashSet};
+
+use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pretty_assertions::assert_eq;
-use starknet_api::core::ClassHash;
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{ClassHash, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{create_test_cairo1_state, trivial_external_entry_point, TEST_CLASS_HASH};
@@ -54,4 +58,103 @@ fn test_library_call() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(1), stark_felt!(91)])
     );
+}
+
+#[test]
+fn test_nested_library_call() {
+    let mut state = create_test_cairo1_state();
+    let (key, value) = (255, 44);
+    let outer_entry_point_selector = selector_from_name("test_library_call");
+    let inner_entry_point_selector = selector_from_name("test_storage_read_write");
+    let main_entry_point_calldata = calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        outer_entry_point_selector.0, // Library call function selector.
+        inner_entry_point_selector.0, // Storage function selector.
+        stark_felt!(key),             // Calldata: address.
+        stark_felt!(value)            // Calldata: value.
+    ];
+
+    // Create expected call info tree.
+    let main_entry_point = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_nested_library_call"),
+        calldata: main_entry_point_calldata,
+        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        ..trivial_external_entry_point()
+    };
+    let nested_storage_entry_point = CallEntryPoint {
+        entry_point_selector: inner_entry_point_selector,
+        calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
+        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        code_address: None,
+        call_type: CallType::Delegate,
+        ..trivial_external_entry_point()
+    };
+    let library_entry_point = CallEntryPoint {
+        entry_point_selector: outer_entry_point_selector,
+        calldata: calldata![
+            stark_felt!(TEST_CLASS_HASH), // Class hash.
+            inner_entry_point_selector.0, // Storage function selector.
+            stark_felt!(2),               // Calldata: address.
+            stark_felt!(key + 1),         // Calldata: address.
+            stark_felt!(value + 1)        // Calldata: value.
+        ],
+        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        code_address: None,
+        call_type: CallType::Delegate,
+        ..trivial_external_entry_point()
+    };
+    let storage_entry_point = CallEntryPoint {
+        calldata: calldata![stark_felt!(key), stark_felt!(value)],
+        ..nested_storage_entry_point
+    };
+    let storage_entry_point_vm_resources = VmExecutionResources {
+        n_steps: 149,
+        n_memory_holes: 2,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
+    };
+    let nested_storage_call_info = CallInfo {
+        call: nested_storage_entry_point,
+        execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
+        vm_resources: storage_entry_point_vm_resources.clone(),
+        storage_read_values: vec![stark_felt!(0), stark_felt!(value + 1)],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
+        ..Default::default()
+    };
+    let mut library_call_vm_resources = VmExecutionResources {
+        n_steps: 478,
+        n_memory_holes: 2,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 12)]),
+    };
+    library_call_vm_resources += &storage_entry_point_vm_resources;
+    let library_call_info = CallInfo {
+        call: library_entry_point,
+        execution: CallExecution::from_retdata(retdata![stark_felt!(1), stark_felt!(value + 1)]),
+        vm_resources: library_call_vm_resources.clone(),
+        inner_calls: vec![nested_storage_call_info],
+        ..Default::default()
+    };
+    let storage_call_info = CallInfo {
+        call: storage_entry_point,
+        execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
+        vm_resources: storage_entry_point_vm_resources.clone(),
+        storage_read_values: vec![stark_felt!(0), stark_felt!(value)],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        ..Default::default()
+    };
+
+    let mut main_call_vm_resources = VmExecutionResources {
+        n_steps: 370,
+        n_memory_holes: 4,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 10)]),
+    };
+    main_call_vm_resources += &library_call_vm_resources;
+    let expected_call_info = CallInfo {
+        call: main_entry_point.clone(),
+        execution: CallExecution::from_retdata(retdata![]),
+        vm_resources: main_call_vm_resources,
+        inner_calls: vec![library_call_info, storage_call_info],
+        ..Default::default()
+    };
+
+    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
 }

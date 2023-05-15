@@ -5,6 +5,7 @@ mod TestContract {
     use starknet::ClassHash;
     use array::ArrayTrait;
     use clone::Clone;
+    use traits::Into;
 
     struct Storage {
         my_storage_var: felt252
@@ -21,11 +22,36 @@ mod TestContract {
     fn test_library_call(
         class_hash: ClassHash, function_selector: felt252, calldata: Array<felt252>
     ) -> Array<felt252> {
-        starknet::library_call_syscall(
-            class_hash,
-            function_selector,
-            calldata.span(),
-        ).unwrap_syscall().snapshot.clone()
+        starknet::library_call_syscall(class_hash, function_selector, calldata.span(), )
+            .unwrap_syscall()
+            .snapshot
+            .clone()
+    }
+
+    #[external]
+    fn test_nested_library_call(
+        class_hash: ClassHash,
+        lib_selector: felt252,
+        nested_selector: felt252,
+        a: felt252,
+        b: felt252
+    ) {
+        let mut nested_library_calldata = ArrayTrait::new();
+        nested_library_calldata.append(class_hash.into());
+        nested_library_calldata.append(nested_selector);
+        nested_library_calldata.append(2);
+        nested_library_calldata.append(a + 1);
+        nested_library_calldata.append(b + 1);
+        let res = starknet::library_call_syscall(
+            class_hash, lib_selector, nested_library_calldata.span(), 
+        )
+            .unwrap_syscall();
+
+        let mut calldata = ArrayTrait::new();
+        calldata.append(a);
+        calldata.append(b);
+        starknet::library_call_syscall(class_hash, nested_selector, calldata.span())
+            .unwrap_syscall();
     }
 
     /// An external method that requires the `segment_arena` builtin.
