@@ -68,13 +68,16 @@ fn test_account_flow_test() {
     // Declare a contract.
     let contract_class = get_contract_class_v0(TEST_CONTRACT_PATH).into();
     let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee, None);
-    let account_tx = AccountTransaction::Declare(DeclareTransaction {
-        tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-            nonce: Nonce(stark_felt!(1)),
-            ..declare_tx
-        }),
-        contract_class,
-    });
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+                nonce: Nonce(stark_felt!(1)),
+                ..declare_tx
+            }),
+            contract_class,
+        )
+        .unwrap(),
+    );
     account_tx.execute(state, block_context).unwrap();
 
     // Deploy a contract using syscall deploy.
