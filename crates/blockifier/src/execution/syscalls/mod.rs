@@ -14,15 +14,15 @@ use starknet_api::transaction::{
 
 use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
-    SyscallExecutionError, SyscallHintProcessor,
+    read_felt_array, SyscallExecutionError, SyscallHintProcessor,
 };
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, read_felt_array, stark_felt_to_felt, write_felt,
-    write_maybe_relocatable, ReadOnlySegment,
+    execute_deployment, felt_from_ptr, stark_felt_to_felt, write_felt, write_maybe_relocatable,
+    ReadOnlySegment,
 };
 
 pub mod hint_processor;
@@ -118,8 +118,8 @@ pub struct SingleSegmentResponse {
 
 impl SyscallResponse for SingleSegmentResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_maybe_relocatable(vm, ptr, self.segment.length)?;
         write_maybe_relocatable(vm, ptr, self.segment.start_ptr)?;
+        write_maybe_relocatable(vm, ptr, (self.segment.start_ptr + self.segment.length)?)?;
         Ok(())
     }
 }

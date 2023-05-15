@@ -36,7 +36,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_ptr, read_felt_array, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::state::errors::StateError;
@@ -401,4 +401,18 @@ pub fn execute_library_call(
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)
+}
+
+pub fn read_felt_array<TErr>(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<Vec<StarkFelt>, TErr>
+where
+    TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError>,
+{
+    let array_size = felt_from_ptr(vm, ptr)?;
+    let array_data_start_ptr = vm.get_relocatable(*ptr)?;
+    *ptr += 1;
+
+    Ok(felt_range_from_ptr(vm, array_data_start_ptr, usize::try_from(array_size)?)?)
 }
