@@ -2,6 +2,9 @@
 mod TestContract {
     use dict::Felt252DictTrait;
     use starknet::StorageAddress;
+    use starknet::ClassHash;
+    use array::ArrayTrait;
+    use clone::Clone;
 
     struct Storage {
         my_storage_var: felt252
@@ -12,6 +15,17 @@ mod TestContract {
         let address_domain = 0;
         starknet::syscalls::storage_write_syscall(address_name, address, value).unwrap_syscall();
         starknet::syscalls::storage_read_syscall(address_name, address).unwrap_syscall()
+    }
+
+    #[external]
+    fn test_library_call(
+        class_hash: ClassHash, function_selector: felt252, calldata: Array<felt252>
+    ) -> Array<felt252> {
+        starknet::library_call_syscall(
+            class_hash,
+            function_selector,
+            calldata.span(),
+        ).unwrap_syscall().snapshot.clone()
     }
 
     /// An external method that requires the `segment_arena` builtin.
