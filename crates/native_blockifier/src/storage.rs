@@ -96,10 +96,12 @@ impl Storage {
 
     #[args(block_id, previous_block_id, py_block_info, py_state_diff, declared_class_hash_to_class)]
     /// Appends state diff and block header into Papyrus storage.
+    // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
+    // sequential ID (throughout sequencing).
     pub fn append_block(
         &mut self,
         block_id: u64,
-        previous_block_id: Option<u64>,
+        previous_block_id: Option<PyFelt>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, String>,
@@ -131,9 +133,10 @@ impl Storage {
         );
         let append_txn = append_txn?;
 
+        let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));
         let block_header = BlockHeader {
             block_hash: BlockHash(StarkHash::from(block_id)),
-            parent_hash: BlockHash(StarkHash::from(previous_block_id.unwrap_or(GENESIS_BLOCK_ID))),
+            parent_hash: BlockHash(previous_block_id.0),
             block_number,
             gas_price: GasPrice(py_block_info.gas_price),
             state_root: GlobalRoot::default(),
