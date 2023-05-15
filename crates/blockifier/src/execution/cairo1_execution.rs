@@ -235,8 +235,9 @@ pub fn finalize_execution(
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     // Get retdata.
-    let [retdata_start, retdata_end]: [MaybeRelocatable; 2] =
-        vm.get_return_values(2)?.try_into().expect("Return values must be of size 2.");
+    // TODO(spapini): Do something with `success`.
+    let [_success, retdata_start, retdata_end]: [MaybeRelocatable; 3] =
+        vm.get_return_values(3)?.try_into().expect("Return values must be of size 2.");
     let retdata_size = retdata_end.sub(&retdata_start)?;
 
     // Take into account the VM execution resources of the current call, without inner calls.
