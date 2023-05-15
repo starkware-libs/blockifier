@@ -2553,6 +2553,7 @@ name = "native_blockifier"
 version = "0.1.0"
 dependencies = [
  "blockifier",
+ "cairo-lang-starknet 1.0.0-rc0 (git+https://github.com/starkware-libs/cairo?rev=a0ead7c0b8e297d281c7213151cd43ac11de5042)",
  "cairo-vm",
  "hex",
  "indexmap",
