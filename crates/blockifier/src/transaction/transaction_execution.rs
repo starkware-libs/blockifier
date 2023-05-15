@@ -28,27 +28,26 @@ impl Transaction {
         tx: StarknetApiTransaction,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
-    ) -> Self {
+    ) -> TransactionExecutionResult<Self> {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => {
-                Self::L1HandlerTransaction(L1HandlerTransaction {
+                Ok(Self::L1HandlerTransaction(L1HandlerTransaction {
                     tx: l1_handler,
                     paid_fee_on_l1: paid_fee_on_l1
                         .expect("L1Handler should be created with the fee paid on L1"),
-                })
-            }
-            StarknetApiTransaction::Declare(declare) => {
-                Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction {
-                    tx: declare,
-                    contract_class: contract_class
-                        .expect("Declare should be created with a ContractClass"),
                 }))
             }
+            StarknetApiTransaction::Declare(declare) => {
+                Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
+                    declare,
+                    contract_class.expect("Declare should be created with a ContractClass"),
+                )?)))
+            }
             StarknetApiTransaction::DeployAccount(deploy_account) => {
-                Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account))
+                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
             }
             StarknetApiTransaction::Invoke(invoke) => {
-                Self::AccountTransaction(AccountTransaction::Invoke(invoke))
+                Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke)))
             }
             _ => unimplemented!(),
         }
