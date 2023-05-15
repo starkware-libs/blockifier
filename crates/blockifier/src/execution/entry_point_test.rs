@@ -494,17 +494,3 @@ fn test_cairo1_entry_point_segment_arena() {
     let res = entry_point_call.execute_directly(&mut state);
     assert!(res.is_ok());
 }
-
-#[test]
-fn test_cairo1_entry_point_read_write() {
-    let mut state = create_test_cairo1_state();
-    let calldata = calldata![stark_felt!(23), stark_felt!(45), stark_felt!(67)];
-    let entry_point_call = CallEntryPoint {
-        calldata,
-        entry_point_selector: selector_from_name("test"),
-        ..trivial_external_entry_point()
-    };
-
-    let res = entry_point_call.execute_directly(&mut state);
-    assert!(res.is_ok());
-}

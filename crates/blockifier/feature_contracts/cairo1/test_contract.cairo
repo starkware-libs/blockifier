@@ -1,40 +1,17 @@
-#[abi]
-trait IAnotherContract {
-    fn foo(a: u128) -> u128;
-}
-
-
 #[contract]
 mod TestContract {
-    use super::IAnotherContractDispatcherTrait;
-    use super::IAnotherContractDispatcher;
-    use super::IAnotherContractLibraryDispatcher;
     use dict::Felt252DictTrait;
+    use starknet::StorageAddress;
 
     struct Storage {
         my_storage_var: felt252
     }
 
-    fn internal_func() -> felt252 {
-        1
-    }
-
     #[external]
-    fn test(ref arg: felt252, arg1: felt252, arg2: felt252) -> felt252 {
-        let mut x = my_storage_var::read();
-        x += 1;
-        my_storage_var::write(x);
-        x + internal_func()
-    }
-
-    #[external]
-    fn call_foo(another_contract_address: starknet::ContractAddress, a: u128) -> u128 {
-        IAnotherContractDispatcher { contract_address: another_contract_address }.foo(a)
-    }
-
-    #[external]
-    fn libcall_foo(a: u128) -> u128 {
-        IAnotherContractLibraryDispatcher { class_hash: starknet::class_hash_const::<0>() }.foo(a)
+    fn test_storage_read_write(address: StorageAddress, value: felt252) -> felt252 {
+        let address_domain = 0;
+        starknet::syscalls::storage_write_syscall(address_name, address, value).unwrap_syscall();
+        starknet::syscalls::storage_read_syscall(address_name, address).unwrap_syscall()
     }
 
     /// An external method that requires the `segment_arena` builtin.
