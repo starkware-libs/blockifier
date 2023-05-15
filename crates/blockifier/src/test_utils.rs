@@ -3,7 +3,6 @@ use std::fs;
 use std::iter::zip;
 use std::path::PathBuf;
 
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
@@ -143,17 +142,19 @@ pub fn pad_address_to_64(address: &str) -> String {
     String::from("0x") + format!("{:0>64}", trimmed_address).as_str()
 }
 
-pub fn get_contract_class_v1(contract_path: &str) -> ContractClassV1 {
+pub fn get_raw_contract_class(contract_path: &str) -> String {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
-    let raw_contract_class = fs::read_to_string(path).unwrap();
-    let casm_contract_class: CasmContractClass = serde_json::from_str(&raw_contract_class).unwrap();
-    casm_contract_class.try_into().unwrap()
+    fs::read_to_string(path).unwrap()
+}
+
+pub fn get_contract_class_v1(contract_path: &str) -> ContractClassV1 {
+    let raw_contract_class = get_raw_contract_class(contract_path);
+    crate::utils::get_contract_class_v1(&raw_contract_class).unwrap()
 }
 
 pub fn get_contract_class_v0(contract_path: &str) -> ContractClassV0 {
-    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
-    let raw_contract_class = fs::read_to_string(path).unwrap();
-    serde_json::from_str(&raw_contract_class).unwrap()
+    let raw_contract_class = get_raw_contract_class(contract_path);
+    crate::utils::get_contract_class_v0(&raw_contract_class).unwrap()
 }
 
 pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
