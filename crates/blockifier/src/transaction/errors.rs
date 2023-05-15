@@ -10,6 +10,11 @@ use crate::state::errors::StateError;
 pub enum TransactionExecutionError {
     #[error("Cairo resource names must be contained in fee cost dict.")]
     CairoResourcesNotContainedInFeeCosts,
+    #[error(
+        "Declare transaction version {declare_version:?} must have a contract class of Cairo \
+         version {cairo_version:?}."
+    )]
+    ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
     #[error("Contract constructor execution has failed.")]
     ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]
