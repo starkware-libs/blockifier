@@ -63,12 +63,14 @@ fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
 }
 
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
+    let nonce: Option<BigUint> = py_attr(tx, "nonce")?;
+    let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
         max_fee: Fee(py_attr(tx, "max_fee")?),
         version: TransactionVersion(py_felt_attr(tx, "version")?),
         signature: TransactionSignature(py_felt_sequence_attr(tx, "signature")?),
-        nonce: Nonce(py_felt_attr(tx, "nonce")?),
+        nonce,
         sender_address: ContractAddress::try_from(py_felt_attr(tx, "sender_address")?)?,
     })
 }
