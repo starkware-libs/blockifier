@@ -7,10 +7,10 @@ use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockHeader, BlockNumber, BlockTimestamp, GasPrice};
-use starknet_api::core::{ClassHash, ContractAddress, GlobalRoot};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, GlobalRoot};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
-use starknet_api::state::StateDiff;
+use starknet_api::state::{ContractClass, StateDiff};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
@@ -102,7 +102,8 @@ impl Storage {
         previous_block_id: Option<u64>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
-        declared_class_hash_to_class: HashMap<PyFelt, String>,
+        declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
+        deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
     ) -> NativeBlockifierResult<()> {
         log::debug!(
             "Appending state diff with {block_id:?} for block_number: {}.",
@@ -113,14 +114,26 @@ impl Storage {
         // Deserialize contract classes.
         let mut deprecated_declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
             IndexMap::new();
-        for (class_hash, raw_class) in declared_class_hash_to_class {
-            let deprecated_contract_class = serde_json::from_str(&raw_class)?;
+        for (class_hash, raw_class) in deprecated_declared_class_hash_to_class {
+            let deprecated_contract_class: DeprecatedContractClass =
+                serde_json::from_str(&raw_class)?;
             deprecated_declared_classes.insert(ClassHash(class_hash.0), deprecated_contract_class);
+        }
+        let mut declared_classes: IndexMap<ClassHash, (CompiledClassHash, ContractClass)> =
+            IndexMap::new();
+        for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
+            let contract_class: starknet_api::state::ContractClass =
+                serde_json::from_str(&raw_class)?;
+            declared_classes.insert(
+                ClassHash(class_hash.0),
+                (CompiledClassHash(compiled_class_hash.0), contract_class),
+            );
         }
 
         // Construct state diff; manually add declared classes.
         let mut state_diff = StateDiff::try_from(py_state_diff)?;
         state_diff.deprecated_declared_classes = deprecated_declared_classes;
+        state_diff.declared_classes = declared_classes;
 
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
