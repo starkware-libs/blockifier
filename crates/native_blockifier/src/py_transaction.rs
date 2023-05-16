@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -252,7 +253,9 @@ pub fn build_tx_executor(
         block_number: BlockNumber,
     ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
         let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+        let contract_class_cache = HashMap::new();
+        let papyrus_reader =
+            PapyrusStateReader::new(state_reader, block_number, contract_class_cache);
         Ok(CachedState::new(papyrus_reader))
     }
 

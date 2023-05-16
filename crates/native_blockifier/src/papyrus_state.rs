@@ -1,3 +1,6 @@
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
@@ -11,17 +14,23 @@ use starknet_api::state::{StateNumber, StorageKey};
 #[path = "papyrus_state_test.rs"]
 mod test;
 
+pub type ClassCache = HashMap<ClassHash, ContractClass>;
 type RawPapyrusStateReader<'env> = papyrus_storage::state::StateReader<'env, RO>;
 
 pub struct PapyrusStateReader<'env> {
     pub reader: RawPapyrusStateReader<'env>,
+    pub contract_class_cache: ClassCache,
     // Invariant: Read-Only.
     latest_block: BlockNumber,
 }
 
 impl<'env> PapyrusStateReader<'env> {
-    pub fn new(reader: RawPapyrusStateReader<'env>, latest_block: BlockNumber) -> Self {
-        Self { reader, latest_block }
+    pub fn new(
+        reader: RawPapyrusStateReader<'env>,
+        latest_block: BlockNumber,
+        contract_class_cache: ClassCache,
+    ) -> Self {
+        Self { reader, latest_block, contract_class_cache }
     }
 
     pub fn latest_block(&self) -> &BlockNumber {
@@ -64,12 +73,19 @@ impl<'env> StateReader for PapyrusStateReader<'env> {
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
         let state_number = StateNumber(*self.latest_block());
-        match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
-            Ok(Some(starknet_api_contract_class)) => {
-                Ok(ContractClassV0::try_from(starknet_api_contract_class)?.into())
+        match self.contract_class_cache.entry(*class_hash) {
+            Entry::Occupied(contract_class) => Ok(contract_class.get().clone()),
+            Entry::Vacant(entry) => {
+                match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
+                    Ok(Some(starknet_api_contract_class)) => {
+                        let contract_class =
+                            ContractClassV0::try_from(starknet_api_contract_class)?.into();
+                        Ok(entry.insert(contract_class).clone())
+                    }
+                    Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
+                    Err(err) => Err(StateError::StateReadError(err.to_string())),
+                }
             }
-            Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
         }
     }
 
