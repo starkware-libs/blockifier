@@ -4,6 +4,7 @@ use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_api::hash::StarkFelt;
 
 use crate::execution::contract_class::ContractClassV1;
 use crate::execution::entry_point::{
@@ -217,6 +218,9 @@ pub fn finalize_execution(
             retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
+            // TODO(Noa,01/06/2023): Fill with actual values.
+            gas_consumed: StarkFelt::default(),
+            failure_flag: false,
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
