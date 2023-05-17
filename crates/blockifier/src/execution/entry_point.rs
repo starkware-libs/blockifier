@@ -167,6 +167,7 @@ pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    pub failed: bool,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]

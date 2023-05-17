@@ -413,12 +413,20 @@ pub fn execute_inner_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<ReadOnlySegment> {
     let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
-    let retdata = &call_info.execution.retdata.0;
+    let raw_retdata = &call_info.execution.retdata.0;
+
+    if call_info.execution.failed {
+        // TODO(spapini): Append an error word according to starknet spec if needed.
+        // Something like "EXECUTION_ERROR".
+        return Err(SyscallExecutionError::SyscallError { error_data: raw_retdata.clone() });
+    }
+
     let retdata: Vec<MaybeRelocatable> =
-        retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        raw_retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
     let retdata_segment_start_ptr = syscall_handler.read_only_segments.allocate(vm, &retdata)?;
 
     syscall_handler.inner_calls.push(call_info);
+
     Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: retdata.len() })
 }
 

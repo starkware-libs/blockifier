@@ -486,7 +486,7 @@ fn test_storage_related_members() {
 #[test]
 fn test_cairo1_entry_point_segment_arena() {
     let mut state = create_test_cairo1_state();
-    let calldata = calldata![stark_felt!(23_u8), stark_felt!(45_u8), stark_felt!(67_u8)];
+    let calldata = calldata![];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("segment_arena_builtin"),
