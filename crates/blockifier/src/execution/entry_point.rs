@@ -175,6 +175,7 @@ pub struct CallInfo {
     pub execution: CallExecution,
     pub vm_resources: VmExecutionResources,
     pub inner_calls: Vec<CallInfo>,
+    pub failed: bool,
 
     // Additional information gathered during execution.
     pub storage_read_values: Vec<StarkFelt>,
