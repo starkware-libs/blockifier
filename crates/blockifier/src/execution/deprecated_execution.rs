@@ -239,6 +239,7 @@ pub fn finalize_execution(
             retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
+            failed: false,
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,

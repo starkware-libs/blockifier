@@ -6,8 +6,10 @@ use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
+use starknet_api::hash::StarkFelt;
 use thiserror::Error;
 
+use super::execution_utils::felts_as_str;
 use crate::state::errors::StateError;
 
 // TODO(AlonH, 21/12/2022): Implement Display for all types that appear in errors.
@@ -54,6 +56,8 @@ pub enum PostExecutionError {
     SecurityValidationError(String),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
+    #[error("Malformed return data.")]
+    MalformedReturnData,
 }
 
 impl From<RunnerError> for PostExecutionError {
@@ -114,6 +118,8 @@ impl VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
+    #[error("Execution failed. Failure reason: {:?}.", felts_as_str(.error_data))]
+    ExecutionFailed { error_data: Vec<StarkFelt> },
     #[error("Invalid input: {input_descriptor}; {info}")]
     InvalidExecutionInput { input_descriptor: String, info: String },
     #[error(transparent)]
