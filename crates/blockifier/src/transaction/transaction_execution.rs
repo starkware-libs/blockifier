@@ -5,9 +5,11 @@ use starknet_api::transaction::{
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionContext;
+use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
@@ -71,6 +73,11 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             state,
             l1_handler_payload_size,
         )?;
+        let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
+        let paid_fee = self.paid_fee_on_l1;
+        if actual_fee > paid_fee {
+            return Err(TransactionExecutionError::InsufficientL1Fee { paid_fee, actual_fee });
+        }
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,

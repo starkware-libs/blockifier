@@ -183,6 +183,7 @@ pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction>
         contract_address: ContractAddress::try_from(py_felt_attr(tx, "contract_address")?)?,
         entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
         calldata: py_calldata(tx, "calldata")?,
+        paid_fee_on_l1: Fee(py_attr::<Option<u128>>(tx, "paid_fee_on_l1")?.unwrap_or_default()),
     })
 }
 
