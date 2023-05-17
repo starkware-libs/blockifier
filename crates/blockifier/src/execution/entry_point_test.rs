@@ -1,5 +1,9 @@
 use std::collections::HashSet;
 
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
@@ -10,6 +14,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
@@ -492,8 +497,21 @@ fn test_cairo1_entry_point() {
     };
 
     let res = entry_point_call.execute_directly(&mut state);
+    println!("res: {:?}", res);
 
-    println!("{:?}", res);
-    // TODO(spapini): Pass correct call params.
-    assert!(res.is_err());
+    let Err(EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+        source: VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
+            VmException {
+                inner_exc: VirtualMachineError::Hint(_, hint_err),
+                ..
+            }
+        )),
+        ..
+    }) = res else {
+        panic!("Expected a hint error");
+    };
+    let HintError::CustomHint(err_str) = hint_err.as_ref() else {
+        panic!("Expected a custom hint error");
+    };
+    assert_eq!(err_str, "Starknet hints not supported yet");
 }

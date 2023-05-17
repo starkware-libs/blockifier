@@ -20,6 +20,7 @@ use starknet_api::deprecated_contract_class::{
     Program as DeprecatedProgram,
 };
 
+use super::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
 
 /// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
@@ -97,6 +98,26 @@ impl ContractClassV1 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
     }
+
+    pub fn get_entry_point(
+        &self,
+        call: &super::entry_point::CallEntryPoint,
+    ) -> Result<EntryPointV1, PreExecutionError> {
+        let entry_points_of_same_type = &self.0.entry_points_by_type[&call.entry_point_type];
+        let filtered_entry_points: Vec<_> = entry_points_of_same_type
+            .iter()
+            .filter(|ep| ep.selector == call.entry_point_selector)
+            .collect();
+
+        match &filtered_entry_points[..] {
+            [] => Err(PreExecutionError::EntryPointNotFound(call.entry_point_selector)),
+            [entry_point] => Ok((*entry_point).clone()),
+            _ => Err(PreExecutionError::DuplicatedEntryPointSelector {
+                selector: call.entry_point_selector,
+                typ: call.entry_point_type,
+            }),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -110,6 +131,11 @@ pub struct EntryPointV1 {
     pub selector: EntryPointSelector,
     pub offset: EntryPointOffset,
     pub builtins: Vec<String>,
+}
+impl EntryPointV1 {
+    pub fn pc(&self) -> usize {
+        self.offset.0
+    }
 }
 
 impl TryFrom<CasmContractClass> for ContractClassV1 {
