@@ -30,6 +30,7 @@ pub struct VmExecutionContext<'a> {
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point: EntryPointV1,
+    pub program_segment_size: usize,
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -45,6 +46,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point,
+        program_segment_size,
     } = initialize_execution_context(&call, &contract_class, state, context)?;
 
     let args = prepare_call_arguments(
@@ -60,7 +62,14 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.context.resources.vm_resources.clone();
 
     // Execute.
-    run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point, args)?;
+    run_entry_point(
+        &mut vm,
+        &mut runner,
+        &mut syscall_handler,
+        entry_point,
+        args,
+        program_segment_size,
+    )?;
 
     Ok(finalize_execution(vm, runner, syscall_handler, call, previous_vm_resources, n_total_args)?)
 }
@@ -82,7 +91,9 @@ pub fn initialize_execution_context<'a>(
 
     runner.initialize_builtins(&mut vm)?;
     runner.initialize_segments(&mut vm, None);
-    prepare_builtin_costs(&mut vm, contract_class)?;
+    let mut read_only_segments = ReadOnlySegments::default();
+    let program_segment_size =
+        prepare_builtin_costs(&mut vm, contract_class, &mut read_only_segments)?;
 
     // Instantiate syscall handler.
     let initial_syscall_ptr = vm.add_memory_segment();
@@ -93,23 +104,33 @@ pub fn initialize_execution_context<'a>(
         call.storage_address,
         call.caller_address,
         &contract_class.hints,
+        read_only_segments,
     );
 
-    Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point })
+    Ok(VmExecutionContext {
+        runner,
+        vm,
+        syscall_handler,
+        initial_syscall_ptr,
+        entry_point,
+        program_segment_size,
+    })
 }
 
 fn prepare_builtin_costs(
     vm: &mut VirtualMachine,
     contract_class: &ContractClassV1,
-) -> Result<(), PreExecutionError> {
+    read_only_segments: &mut ReadOnlySegments,
+) -> Result<usize, PreExecutionError> {
     // Create the builtin cost segment, with dummy values.
-    let mut builtin_cost_segment = vm.add_memory_segment();
-    let builtin_cost_segment_start = builtin_cost_segment;
+    let mut data = vec![];
 
     // TODO(spapini): Put real costs here.
     for _i in 0..20 {
-        write_felt(vm, &mut builtin_cost_segment, 0.into())?;
+        data.push(0.into());
     }
+    let builtin_cost_segment_start = read_only_segments.allocate(vm, &data)?;
+
     // Put a pointer to the builtin cost segment at the end of the program (after the
     // additional `ret` statement).
     let mut ptr = (vm.get_pc() + contract_class.program.data.len())?;
@@ -118,7 +139,7 @@ fn prepare_builtin_costs(
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
-    Ok(())
+    Ok(contract_class.program.data.len() + 2)
 }
 
 pub fn prepare_call_arguments(
@@ -136,6 +157,21 @@ pub fn prepare_call_arguments(
             vm.get_builtin_runners().iter().find(|builtin| builtin.name() == builtin_name)
         {
             args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
+            continue;
+        }
+        if builtin_name == "segment_arena" {
+            let segment_arena = vm.add_memory_segment();
+
+            // Write into segment_arena.
+            let mut ptr = segment_arena;
+            let info_segment = vm.add_memory_segment();
+            let n_constructed = StarkFelt::default();
+            let n_destructed = StarkFelt::default();
+            write_maybe_relocatable(vm, &mut ptr, info_segment)?;
+            write_felt(vm, &mut ptr, n_constructed)?;
+            write_felt(vm, &mut ptr, n_destructed)?;
+
+            args.push(CairoArg::Single(segment_arena.into()));
             continue;
         }
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
@@ -165,15 +201,15 @@ pub fn run_entry_point(
     hint_processor: &mut SyscallHintProcessor<'_>,
     entry_point: EntryPointV1,
     args: Args,
+    program_segment_size: usize,
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
-    let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
         verify_secure,
-        program_segment_size,
+        Some(program_segment_size),
         vm,
         hint_processor,
     )?;
