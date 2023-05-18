@@ -272,29 +272,44 @@ pub fn emit_event(
     Ok(EmitEventResponse {})
 }
 
-// GetTxInfo syscall.
+// GetExecutionInfo syscall.
 
-type GetTxInfoRequest = EmptyRequest;
+type GetExecutionInfoRequest = EmptyRequest;
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GetTxInfoResponse {
+pub struct GetExecutionInfoResponse {
+    pub block_info_start_ptr: Relocatable,
     pub tx_info_start_ptr: Relocatable,
+    pub caller_address: ContractAddress,
+    pub storage_address: ContractAddress,
+    pub entry_point_selector: EntryPointSelector,
 }
 
-impl SyscallResponse for GetTxInfoResponse {
+impl SyscallResponse for GetExecutionInfoResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_maybe_relocatable(vm, ptr, self.block_info_start_ptr)?;
         write_maybe_relocatable(vm, ptr, self.tx_info_start_ptr)?;
+        write_felt(vm, ptr, *self.caller_address.0.key())?;
+        write_felt(vm, ptr, *self.storage_address.0.key())?;
+        write_felt(vm, ptr, self.entry_point_selector.0)?;
         Ok(())
     }
 }
-pub fn get_tx_info(
-    _request: GetTxInfoRequest,
+pub fn get_execution_info(
+    _request: GetExecutionInfoRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetTxInfoResponse> {
+) -> SyscallResult<GetExecutionInfoResponse> {
+    let block_info_start_ptr = syscall_handler.get_or_allocate_block_info_segment(vm)?;
     let tx_info_start_ptr = syscall_handler.get_or_allocate_tx_info_start_ptr(vm)?;
 
-    Ok(GetTxInfoResponse { tx_info_start_ptr })
+    Ok(GetExecutionInfoResponse {
+        block_info_start_ptr,
+        tx_info_start_ptr,
+        caller_address: syscall_handler.caller_address(),
+        storage_address: syscall_handler.storage_address(),
+        entry_point_selector: syscall_handler.entry_point_selector(),
+    })
 }
 
 // LibraryCall syscall.

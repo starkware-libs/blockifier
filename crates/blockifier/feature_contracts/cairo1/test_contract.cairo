@@ -1,12 +1,16 @@
 #[contract]
 mod TestContract {
+    use box::BoxTrait;
     use dict::Felt252DictTrait;
     use starknet::ClassHash;
     use starknet::ContractAddress;
     use starknet::StorageAddress;
     use array::ArrayTrait;
+    use array::SpanTrait;
     use clone::Clone;
     use traits::Into;
+
+    const UNEXPECTED_ERROR: felt252 = 'UNEXPECTED ERROR';
 
     struct Storage {
         my_storage_var: felt252
@@ -27,6 +31,46 @@ mod TestContract {
         starknet::syscalls::call_contract_syscall(
             contract_address, entry_point_selector, calldata.span()
         ).unwrap_syscall().snapshot.span()
+    }
+
+    #[external]
+    fn test_get_execution_info(
+        // Expected block info.
+        block_number: felt252,
+        block_timestamp: felt252,
+        sequencer_address: felt252,
+        // Expected transaction info.
+        version: felt252,
+        account_address: felt252,
+        max_fee: felt252,
+        chain_id: felt252,
+        nonce: felt252,
+        // Expected call info.
+        caller_address: felt252,
+        contract_address: felt252,
+        entry_point_selector: felt252,
+    ) {
+        let execution_info = starknet::get_execution_info().unbox();
+        let block_info = execution_info.block_info.unbox();
+        assert(block_info.block_number.into() == block_number, UNEXPECTED_ERROR);
+        assert(block_info.block_timestamp.into() == block_timestamp, UNEXPECTED_ERROR);
+        assert(block_info.sequencer_address.into() == sequencer_address, UNEXPECTED_ERROR);
+
+        let tx_info = execution_info.tx_info.unbox();
+        assert(tx_info.version == version, UNEXPECTED_ERROR);
+        assert(tx_info.account_contract_address.into() == account_address, UNEXPECTED_ERROR);
+        assert(tx_info.max_fee.into() == max_fee, UNEXPECTED_ERROR);
+        assert(tx_info.signature.len() == 1_u32, UNEXPECTED_ERROR);
+        let transaction_hash = *tx_info.signature.at(0_u32);
+        assert(tx_info.transaction_hash == transaction_hash, UNEXPECTED_ERROR);
+        assert(tx_info.chain_id == chain_id, UNEXPECTED_ERROR);
+        assert(tx_info.nonce == nonce, UNEXPECTED_ERROR);
+
+        assert(execution_info.caller_address.into() == caller_address, UNEXPECTED_ERROR);
+        assert(execution_info.contract_address.into() == contract_address, UNEXPECTED_ERROR);
+        assert(
+            execution_info.entry_point_selector == entry_point_selector, UNEXPECTED_ERROR
+        );
     }
 
     #[external]
