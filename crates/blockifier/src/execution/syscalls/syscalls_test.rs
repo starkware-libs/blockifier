@@ -2,15 +2,18 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, EventContent, EventData, EventKey};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
+};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -63,6 +66,35 @@ fn test_call_contract() {
 }
 
 #[test]
+fn test_emit_event() {
+    let mut state = create_test_cairo1_state();
+
+    let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
+    let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+    let calldata = Calldata(
+        concat(vec![
+            vec![stark_felt!(keys.len() as u64)],
+            keys.clone(),
+            vec![stark_felt!(data.len() as u64)],
+            data.clone(),
+        ])
+        .into(),
+    );
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_emit_event"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    let event =
+        EventContent { keys: keys.into_iter().map(EventKey).collect(), data: EventData(data) };
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { events: vec![OrderedEvent { order: 0, event }], ..Default::default() }
+    );
+}
+
+#[test]
 fn test_library_call() {
     let mut state = create_test_cairo1_state();
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
@@ -71,7 +103,7 @@ fn test_library_call() {
         inner_entry_point_selector.0, // Function selector.
         stark_felt!(2_u8),            // Calldata length.
         stark_felt!(1234_u16),        // Calldata: address.
-        stark_felt!(91_u16)           // Calldata: value.
+        stark_felt!(91_u8)            // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
