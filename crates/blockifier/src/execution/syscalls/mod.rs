@@ -155,7 +155,7 @@ pub fn call_contract(
         entry_point_selector: request.function_selector,
         calldata: request.calldata,
         storage_address,
-        caller_address: syscall_handler.storage_address,
+        caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
@@ -211,7 +211,7 @@ pub fn deploy(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<DeployResponse> {
-    let deployer_address = syscall_handler.storage_address;
+    let deployer_address = syscall_handler.storage_address();
     let deployer_address_for_calculation = match request.deploy_from_zero {
         true => ContractAddress::default(),
         false => deployer_address,
@@ -381,7 +381,9 @@ pub fn replace_class(
 ) -> SyscallResult<ReplaceClassResponse> {
     // Ensure the class is declared (by reading it).
     syscall_handler.state.get_compiled_contract_class(&request.class_hash)?;
-    syscall_handler.state.set_class_hash_at(syscall_handler.storage_address, request.class_hash)?;
+    syscall_handler
+        .state
+        .set_class_hash_at(syscall_handler.storage_address(), request.class_hash)?;
 
     Ok(ReplaceClassResponse {})
 }

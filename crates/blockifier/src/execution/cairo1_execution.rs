@@ -47,10 +47,10 @@ pub fn execute_entry_point_call(
         initial_syscall_ptr,
         entry_point,
         program_segment_size,
-    } = initialize_execution_context(&call, &contract_class, state, context)?;
+    } = initialize_execution_context(call, &contract_class, state, context)?;
 
     let args = prepare_call_arguments(
-        &call,
+        &syscall_handler.call,
         &mut vm,
         initial_syscall_ptr,
         &mut syscall_handler.read_only_segments,
@@ -71,16 +71,16 @@ pub fn execute_entry_point_call(
         program_segment_size,
     )?;
 
-    Ok(finalize_execution(vm, runner, syscall_handler, call, previous_vm_resources, n_total_args)?)
+    Ok(finalize_execution(vm, runner, syscall_handler, previous_vm_resources, n_total_args)?)
 }
 
 pub fn initialize_execution_context<'a>(
-    call: &CallEntryPoint,
+    call: CallEntryPoint,
     contract_class: &'a ContractClassV1,
     state: &'a mut dyn State,
     context: &'a mut ExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
-    let entry_point = contract_class.get_entry_point(call)?;
+    let entry_point = contract_class.get_entry_point(&call)?;
 
     // Instantiate Cairo runner.
     let proof_mode = false;
@@ -101,8 +101,7 @@ pub fn initialize_execution_context<'a>(
         state,
         context,
         initial_syscall_ptr,
-        call.storage_address,
-        call.caller_address,
+        call,
         &contract_class.hints,
         read_only_segments,
     );
@@ -221,7 +220,6 @@ pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
     syscall_handler: SyscallHintProcessor<'_>,
-    call: CallEntryPoint,
     previous_vm_resources: VmExecutionResources,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -252,7 +250,7 @@ pub fn finalize_execution(
     let full_call_vm_resources =
         &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
-        call,
+        call: syscall_handler.call,
         execution: CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
             events: syscall_handler.events,
