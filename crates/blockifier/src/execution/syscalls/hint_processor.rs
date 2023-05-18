@@ -81,8 +81,7 @@ pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
     pub context: &'a mut ExecutionContext,
-    pub storage_address: ContractAddress,
-    pub caller_address: ContractAddress,
+    pub call: CallEntryPoint,
 
     // Execution results.
     /// Inner calls invoked by the current execution.
@@ -110,16 +109,14 @@ impl<'a> SyscallHintProcessor<'a> {
         state: &'a mut dyn State,
         context: &'a mut ExecutionContext,
         initial_syscall_ptr: Relocatable,
-        storage_address: ContractAddress,
-        caller_address: ContractAddress,
+        call: CallEntryPoint,
         hints: &'a HashMap<String, Hint>,
         read_only_segments: ReadOnlySegments,
     ) -> Self {
         SyscallHintProcessor {
             state,
             context,
-            storage_address,
-            caller_address,
+            call,
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
@@ -131,6 +128,18 @@ impl<'a> SyscallHintProcessor<'a> {
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
         }
+    }
+
+    pub fn storage_address(&self) -> ContractAddress {
+        self.call.storage_address
+    }
+
+    pub fn caller_address(&self) -> ContractAddress {
+        self.call.caller_address
+    }
+
+    pub fn entry_point_selector(&self) -> EntryPointSelector {
+        self.call.entry_point_selector
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> SyscallResult<()> {
@@ -285,7 +294,7 @@ impl<'a> SyscallHintProcessor<'a> {
         key: StorageKey,
     ) -> SyscallResult<StorageReadResponse> {
         self.accessed_keys.insert(key);
-        let value = self.state.get_storage_at(self.storage_address, key)?;
+        let value = self.state.get_storage_at(self.storage_address(), key)?;
         self.read_values.push(value);
 
         Ok(StorageReadResponse { value })
@@ -297,7 +306,7 @@ impl<'a> SyscallHintProcessor<'a> {
         value: StarkFelt,
     ) -> SyscallResult<StorageWriteResponse> {
         self.accessed_keys.insert(key);
-        self.state.set_storage_at(self.storage_address, key, value);
+        self.state.set_storage_at(self.storage_address(), key, value);
 
         Ok(StorageWriteResponse {})
     }
@@ -412,8 +421,8 @@ pub fn execute_library_call(
         entry_point_selector,
         calldata,
         // The call context remains the same in a library call.
-        storage_address: syscall_handler.storage_address,
-        caller_address: syscall_handler.caller_address,
+        storage_address: syscall_handler.storage_address(),
+        caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
     };
 

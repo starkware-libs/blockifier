@@ -26,6 +26,7 @@ use crate::test_utils::{
 #[test]
 fn test_storage_read_write() {
     let mut state = create_test_cairo1_state();
+
     let key = stark_felt!(1234_u16);
     let value = stark_felt!(18_u8);
     let calldata = calldata![key, value];
@@ -48,6 +49,7 @@ fn test_storage_read_write() {
 #[test]
 fn test_call_contract() {
     let mut state = create_test_cairo1_state();
+
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
@@ -100,6 +102,7 @@ fn test_emit_event() {
 #[test]
 fn test_library_call() {
     let mut state = create_test_cairo1_state();
+
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
@@ -114,6 +117,7 @@ fn test_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         ..trivial_external_entry_point()
     };
+
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(91_u16)])
@@ -123,6 +127,7 @@ fn test_library_call() {
 #[test]
 fn test_nested_library_call() {
     let mut state = create_test_cairo1_state();
+
     let (key, value) = (255_u64, 44_u64);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
@@ -236,6 +241,7 @@ fn test_send_message_to_l1() {
 
     let to_address = EthAddress::try_from(to_address).unwrap();
     let message = MessageToL1 { to_address, payload: L2ToL1Payload(payload) };
+
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
