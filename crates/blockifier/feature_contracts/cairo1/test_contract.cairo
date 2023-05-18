@@ -30,6 +30,11 @@ mod TestContract {
     }
 
     #[external]
+    fn test_emit_event(keys: Array::<felt252>, data: Array::<felt252>) {
+        starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+    }
+
+    #[external]
     #[raw_output]
     fn test_library_call(
         class_hash: ClassHash, function_selector: felt252, calldata: Array<felt252>

@@ -6,11 +6,13 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, EventContent, EventData, EventKey};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
+};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -59,6 +61,33 @@ fn test_call_contract() {
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(48)])
+    );
+}
+
+#[test]
+fn test_emit_event() {
+    let mut state = create_test_cairo1_state();
+
+    let entry_point_selector = selector_from_name("test_emit_event");
+    let event = EventContent {
+        keys: vec![EventKey(stark_felt!(2019)), EventKey(stark_felt!(2020))],
+        data: EventData(vec![stark_felt!(2021), stark_felt!(2022), stark_felt!(2023)]),
+    };
+    let calldata = calldata![
+        stark_felt!(2),    // Keys length.
+        stark_felt!(2019), // Keys.
+        stark_felt!(2020),
+        stark_felt!(3),    // Data length.
+        stark_felt!(2021), // Data.
+        stark_felt!(2022), // Data.
+        stark_felt!(2023)  // Data.
+    ];
+    let entry_point_call =
+        CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { events: vec![OrderedEvent { order: 0, event }], ..Default::default() }
     );
 }
 
