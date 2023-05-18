@@ -241,6 +241,21 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.verify_tx_version(account_tx_context.version)?;
         Self::handle_nonce(&account_tx_context, state)?;
 
+        // Check fee balance.
+        let (balance_low, balance_high) =
+            state.get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
+        // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
+        //   should be updated.
+        if balance_high == StarkFelt::from(0_u8)
+            && balance_low < StarkFelt::from(account_tx_context.max_fee.0)
+        {
+            return Err(TransactionExecutionError::MaxFeeExceedsBalance {
+                max_fee: account_tx_context.max_fee,
+                balance_low,
+                balance_high,
+            });
+        }
+
         // Handle transaction-type specific execution.
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
