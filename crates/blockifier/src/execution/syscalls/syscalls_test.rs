@@ -97,6 +97,34 @@ fn test_emit_event() {
     );
 }
 
+fn test_get_execution_info() {
+    let mut state = create_test_cairo1_state();
+
+    let calldata = calldata![
+        // Expected block info.
+        stark_felt!(1800_u16), // Block number.
+        stark_felt!(1801_u16), // Block timestamp.
+        stark_felt!(1802_u16), // Sequencer address.
+        // Expected transaction info.
+        stark_felt!(1803_u16), // Transaction version.
+        stark_felt!(1804_u16), // Account address.
+        stark_felt!(1805_u16), // Max fee.
+        stark_felt!(1806_u16), // Chain ID.
+        stark_felt!(1807_u16), // Nonce.
+        // Expected call info.
+        stark_felt!(1808_u16), // Caller address.
+        stark_felt!(1809_u16), // Storage address.
+        stark_felt!(1810_u16)  // Entry point selector.
+    ];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_execution_info"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    entry_point_call.execute_directly(&mut state).unwrap();
+}
+
 #[test]
 fn test_library_call() {
     let mut state = create_test_cairo1_state();
