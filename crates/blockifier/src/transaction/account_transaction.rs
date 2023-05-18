@@ -119,16 +119,16 @@ impl AccountTransaction {
         let allowed_versions: Vec<TransactionVersion> = match self {
             // Support `Declare` of version 0 in order to allow bootstrapping of a new system.
             Self::Invoke(_) => {
-                vec![TransactionVersion(StarkFelt::from(0)), TransactionVersion(StarkFelt::from(1))]
+                vec![TransactionVersion(StarkFelt::from(0_u8)), TransactionVersion(StarkFelt::from(1_u8))]
             }
             Self::Declare(_) => {
                 vec![
-                    TransactionVersion(StarkFelt::from(0)),
-                    TransactionVersion(StarkFelt::from(1)),
-                    TransactionVersion(StarkFelt::from(2)),
+                    TransactionVersion(StarkFelt::from(0_u8)),
+                    TransactionVersion(StarkFelt::from(1_u8)),
+                    TransactionVersion(StarkFelt::from(2_u8)),
                 ]
             }
-            _ => vec![TransactionVersion(StarkFelt::from(1))],
+            _ => vec![TransactionVersion(StarkFelt::from(1_u8))],
         };
         if allowed_versions.contains(&version) {
             Ok(())
