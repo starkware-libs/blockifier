@@ -13,7 +13,7 @@ use crate::test_utils::{
 };
 
 #[test]
-fn test_contract_address() {
+fn test_calculate_contract_address() {
     let mut state = create_test_state();
 
     fn run_test(
