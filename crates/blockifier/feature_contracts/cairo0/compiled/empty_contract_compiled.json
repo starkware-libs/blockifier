@@ -10,7 +10,7 @@
         "builtins": [
             "range_check"
         ],
-        "compiler_version": "0.11.0.2",
+        "compiler_version": "0.11.1.1",
         "data": [],
         "debug_info": null,
         "hints": {},
