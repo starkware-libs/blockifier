@@ -2,15 +2,18 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, EthAddress, L2ToL1Payload};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedL2ToL1Message, Retdata,
+};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -182,4 +185,30 @@ fn test_nested_library_call() {
     };
 
     assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+}
+
+#[test]
+fn test_send_message_to_l1() {
+    let mut state = create_test_cairo1_state();
+
+    let to_address = stark_felt!(1234);
+    let payload = vec![stark_felt!(2019), stark_felt!(2020), stark_felt!(2021)];
+    let calldata = Calldata(
+        concat(vec![vec![to_address, stark_felt!(payload.len() as u64)], payload.clone()]).into(),
+    );
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_send_message_to_l1"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    let to_address = EthAddress::try_from(to_address).unwrap();
+    let message = MessageToL1 { to_address, payload: L2ToL1Payload(payload) };
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution {
+            l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
+            ..Default::default()
+        }
+    );
 }

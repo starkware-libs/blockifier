@@ -66,6 +66,11 @@ mod TestContract {
             .unwrap_syscall()
     }
 
+    #[external]
+    fn test_send_message_to_l1(to_address: felt252, payload: Array::<felt252>) {
+        starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
+
     /// An external method that requires the `segment_arena` builtin.
     #[external]
     fn segment_arena_builtin() {
