@@ -58,7 +58,11 @@ fn verify_feature_contracts_compatibility(fix: bool) {
             .unwrap_or_else(|_| panic!("Cannot read {existing_compiled_path}."));
 
         if String::from_utf8(expected_compiled_output).unwrap() != existing_compiled_contents {
-            panic!("{path_str} does not compile to {existing_compiled_path}")
+            panic!(
+                "{path_str} does not compile to {existing_compiled_path}.\nRun \
+                 `FIX_FEATURE_TEST=1 cargo  test -- --ignored` to fix the expected test according \
+                 to locally installed `starknet-compile-deprecated`.\n"
+            );
         }
     }
 }
@@ -66,5 +70,6 @@ fn verify_feature_contracts_compatibility(fix: bool) {
 #[test]
 #[ignore]
 fn verify_feature_contracts() {
-    verify_feature_contracts_compatibility(false)
+    let fix_features = std::env::var("FIX_FEATURE_TEST").is_ok();
+    verify_feature_contracts_compatibility(fix_features)
 }
