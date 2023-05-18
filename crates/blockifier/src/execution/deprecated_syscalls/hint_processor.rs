@@ -189,6 +189,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             }
             DeprecatedSyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
             DeprecatedSyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
+            _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {selector:?}."))),
         }
     }
 

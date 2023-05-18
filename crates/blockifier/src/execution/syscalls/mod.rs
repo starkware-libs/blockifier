@@ -272,29 +272,29 @@ pub fn emit_event(
     Ok(EmitEventResponse {})
 }
 
-// GetTxInfo syscall.
+// GetExecutionInfo syscall.
 
-type GetTxInfoRequest = EmptyRequest;
+type GetExecutionInfoRequest = EmptyRequest;
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GetTxInfoResponse {
-    pub tx_info_start_ptr: Relocatable,
+pub struct GetExecutionInfoResponse {
+    pub execution_info_ptr: Relocatable,
 }
 
-impl SyscallResponse for GetTxInfoResponse {
+impl SyscallResponse for GetExecutionInfoResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_maybe_relocatable(vm, ptr, self.tx_info_start_ptr)?;
+        write_maybe_relocatable(vm, ptr, self.execution_info_ptr)?;
         Ok(())
     }
 }
-pub fn get_tx_info(
-    _request: GetTxInfoRequest,
+pub fn get_execution_info(
+    _request: GetExecutionInfoRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetTxInfoResponse> {
-    let tx_info_start_ptr = syscall_handler.get_or_allocate_tx_info_start_ptr(vm)?;
+) -> SyscallResult<GetExecutionInfoResponse> {
+    let execution_info_ptr = syscall_handler.get_or_allocate_execution_info_segment(vm)?;
 
-    Ok(GetTxInfoResponse { tx_info_start_ptr })
+    Ok(GetExecutionInfoResponse { execution_info_ptr })
 }
 
 // LibraryCall syscall.
