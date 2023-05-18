@@ -31,7 +31,7 @@ use crate::execution::execution_utils::{
     felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
-    call_contract, deploy, emit_event, get_tx_info, library_call, library_call_l1_handler,
+    call_contract, deploy, emit_event, get_execution_info, library_call, library_call_l1_handler,
     replace_class, send_message_to_l1, storage_read, storage_write, StorageReadResponse,
     StorageWriteResponse, SyscallRequest, SyscallRequestWrapper, SyscallResponse,
     SyscallResponseWrapper, SyscallResult, SyscallSelector,
@@ -100,8 +100,7 @@ pub struct SyscallHintProcessor<'a> {
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
-    tx_signature_start_ptr: Option<Relocatable>,
-    tx_info_start_ptr: Option<Relocatable>,
+    execution_info_ptr: Option<Relocatable>,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -125,8 +124,7 @@ impl<'a> SyscallHintProcessor<'a> {
             read_values: vec![],
             accessed_keys: HashSet::new(),
             hints,
-            tx_signature_start_ptr: None,
-            tx_info_start_ptr: None,
+            execution_info_ptr: None,
         }
     }
 
@@ -175,7 +173,7 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
             SyscallSelector::Deploy => self.execute_syscall(vm, deploy),
             SyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
-            SyscallSelector::GetTxInfo => self.execute_syscall(vm, get_tx_info),
+            SyscallSelector::GetExecutionInfo => self.execute_syscall(vm, get_execution_info),
             SyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
             SyscallSelector::LibraryCallL1Handler => {
                 self.execute_syscall(vm, library_call_l1_handler)
@@ -188,30 +186,16 @@ impl<'a> SyscallHintProcessor<'a> {
         }
     }
 
-    pub fn get_or_allocate_tx_signature_segment(
+    pub fn get_or_allocate_execution_info_segment(
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        match self.tx_signature_start_ptr {
-            Some(tx_signature_start_ptr) => Ok(tx_signature_start_ptr),
+        match self.execution_info_ptr {
+            Some(execution_info_ptr) => Ok(execution_info_ptr),
             None => {
-                let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
-                self.tx_signature_start_ptr = Some(tx_signature_start_ptr);
-                Ok(tx_signature_start_ptr)
-            }
-        }
-    }
-
-    pub fn get_or_allocate_tx_info_start_ptr(
-        &mut self,
-        vm: &mut VirtualMachine,
-    ) -> SyscallResult<Relocatable> {
-        match self.tx_info_start_ptr {
-            Some(tx_info_start_ptr) => Ok(tx_info_start_ptr),
-            None => {
-                let tx_info_start_ptr = self.allocate_tx_info_segment(vm)?;
-                self.tx_info_start_ptr = Some(tx_info_start_ptr);
-                Ok(tx_info_start_ptr)
+                let execution_info_ptr = self.allocate_execution_info_segment(vm)?;
+                self.execution_info_ptr = Some(execution_info_ptr);
+                Ok(execution_info_ptr)
             }
         }
     }
@@ -258,6 +242,41 @@ impl<'a> SyscallHintProcessor<'a> {
         *syscall_count += 1;
     }
 
+    fn allocate_execution_info_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        let block_info_ptr = self.allocate_block_info_segment(vm)?;
+        let tx_info_ptr = self.allocate_tx_info_segment(vm)?;
+
+        let additional_info: Vec<MaybeRelocatable> = vec![
+            block_info_ptr.into(),
+            tx_info_ptr.into(),
+            stark_felt_to_felt(*self.caller_address().0.key()).into(),
+            stark_felt_to_felt(*self.storage_address().0.key()).into(),
+            stark_felt_to_felt(self.entry_point_selector().0).into(),
+        ];
+        let execution_info_segment_start_ptr =
+            self.read_only_segments.allocate(vm, &additional_info)?;
+
+        Ok(execution_info_segment_start_ptr)
+    }
+
+    fn allocate_block_info_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        let block_context = &self.context.block_context;
+        let block_info: Vec<MaybeRelocatable> = vec![
+            Felt252::from(block_context.block_number.0).into(),
+            Felt252::from(block_context.block_timestamp.0).into(),
+            stark_felt_to_felt(*block_context.sequencer_address.0.key()).into(),
+        ];
+        let block_info_segment_start_ptr = self.read_only_segments.allocate(vm, &block_info)?;
+
+        Ok(block_info_segment_start_ptr)
+    }
+
     fn allocate_tx_signature_segment(
         &mut self,
         vm: &mut VirtualMachine,
@@ -271,7 +290,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
-        let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
+        let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
         let account_tx_context = &self.context.account_tx_context;
         let tx_signature_length = account_tx_context.signature.0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![

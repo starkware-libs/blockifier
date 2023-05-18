@@ -65,6 +65,11 @@ fn os_resources() -> serde_json::Value {
                 "n_memory_holes": 0,
                 "n_steps": 36
             },
+            "GetExecutionInfo": {
+                "builtin_instance_counter": {},
+                "n_memory_holes": 0,
+                "n_steps": 29
+            },
             "GetSequencerAddress": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
