@@ -22,7 +22,7 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 ouroboros = "0.15.6"
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "6545673" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "8b15ee4" }
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 serde = "1.0.130"
