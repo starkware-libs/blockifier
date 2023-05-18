@@ -27,20 +27,20 @@ fn test_call_info_iteration() {
     //           |
     //       left_leaf (2)
     let left_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(2)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![stark_felt!(2_u8)], ..Default::default() },
         ..Default::default()
     };
     let right_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(3)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![stark_felt!(3_u8)], ..Default::default() },
         ..Default::default()
     };
     let inner_node = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(1)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![stark_felt!(1_u8)], ..Default::default() },
         inner_calls: vec![left_leaf],
         ..Default::default()
     };
     let root = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(0)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![stark_felt!(0_u8)], ..Default::default() },
         inner_calls: vec![inner_node, right_leaf],
         ..Default::default()
     };
@@ -66,7 +66,7 @@ fn test_entry_point_without_arg() {
 #[test]
 fn test_entry_point_with_arg() {
     let mut state = create_test_state();
-    let calldata = calldata![stark_felt!(25)];
+    let calldata = calldata![stark_felt!(25_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("with_arg"),
@@ -90,11 +90,11 @@ fn test_long_retdata() {
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![
-            stark_felt!(0),
-            stark_felt!(1),
-            stark_felt!(2),
-            stark_felt!(3),
-            stark_felt!(4)
+            stark_felt!(0_u8),
+            stark_felt!(1_u8),
+            stark_felt!(2_u8),
+            stark_felt!(3_u8),
+            stark_felt!(4_u8)
         ])
     );
 }
@@ -102,7 +102,7 @@ fn test_long_retdata() {
 #[test]
 fn test_entry_point_with_builtin() {
     let mut state = create_test_state();
-    let calldata = calldata![stark_felt!(47), stark_felt!(31)];
+    let calldata = calldata![stark_felt!(47_u8), stark_felt!(31_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("bitwise_and"),
@@ -117,7 +117,7 @@ fn test_entry_point_with_builtin() {
 #[test]
 fn test_entry_point_with_hint() {
     let mut state = create_test_state();
-    let calldata = calldata![stark_felt!(81)];
+    let calldata = calldata![stark_felt!(81_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("sqrt"),
@@ -132,7 +132,7 @@ fn test_entry_point_with_hint() {
 #[test]
 fn test_entry_point_with_return_value() {
     let mut state = create_test_state();
-    let calldata = calldata![stark_felt!(23)];
+    let calldata = calldata![stark_felt!(23_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("return_result"),
@@ -140,14 +140,14 @@ fn test_entry_point_with_return_value() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(23)])
+        CallExecution::from_retdata(retdata![stark_felt!(23_u8)])
     );
 }
 
 #[test]
 fn test_entry_point_not_found_in_contract() {
     let mut state = create_test_state();
-    let entry_point_selector = EntryPointSelector(stark_felt!(2));
+    let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
     let entry_point_call =
         CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
@@ -327,7 +327,7 @@ fn test_syscall_execution_security_failures() {
     let mut state = create_test_state();
 
     for perform_inner_call_to_foo in 0..2 {
-        let calldata = calldata![stark_felt!(perform_inner_call_to_foo)];
+        let calldata = calldata![stark_felt!(perform_inner_call_to_foo as u8)];
         run_security_test(
             "Custom Hint Error: Out of range",
             "test_read_bad_address",
@@ -437,7 +437,7 @@ fn test_post_run_validation_security_failure() {
         &mut state,
     );
 
-    let calldata = calldata![stark_felt!(1), stark_felt!(1)];
+    let calldata = calldata![stark_felt!(1_u8), stark_felt!(1_u8)];
     run_security_test(
         "Validation failed: Read-only segments",
         "test_out_of_bounds_write_to_calldata_segment",
@@ -458,15 +458,15 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point()
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0), stark_felt!(39)]);
+    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), stark_felt!(39_u8)]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
-        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1)]).unwrap()])
+        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1_u8)]).unwrap()])
     );
 
     // Test raw storage read and write.
-    let key = stark_felt!(1234);
-    let value = stark_felt!(18);
+    let key = stark_felt!(1234_u16);
+    let value = stark_felt!(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -474,7 +474,7 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point()
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0), value]);
+    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), value]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
         HashSet::from([StorageKey(patricia_key!(key))])
@@ -484,7 +484,7 @@ fn test_storage_related_members() {
 #[test]
 fn test_cairo1_entry_point_segment_arena() {
     let mut state = create_test_cairo1_state();
-    let calldata = calldata![stark_felt!(23), stark_felt!(45), stark_felt!(67)];
+    let calldata = calldata![stark_felt!(23_u8), stark_felt!(45_u8), stark_felt!(67_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("segment_arena_builtin"),

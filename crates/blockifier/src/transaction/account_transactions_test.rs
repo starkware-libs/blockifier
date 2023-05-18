@@ -70,7 +70,7 @@ fn test_account_flow_test() {
     let declare_tx = declare_tx(TEST_CLASS_HASH, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-            nonce: Nonce(stark_felt!(1)),
+            nonce: Nonce(stark_felt!(1_u8)),
             ..declare_tx
         }),
         contract_class,
@@ -84,16 +84,16 @@ fn test_account_flow_test() {
     let execute_calldata = calldata![
         *deployed_account_address.0.key(), // Contract address.
         entry_point_selector.0,            // EP selector.
-        stark_felt!(5),                    // Calldata length.
+        stark_felt!(5_u8),                 // Calldata length.
         class_hash.0,                      // Calldata: class_hash.
         salt.0,                            // Contract_address_salt.
-        stark_felt!(2),                    // Constructor calldata length.
-        stark_felt!(1),                    // Constructor calldata: address.
-        stark_felt!(1)                     // Constructor calldata: value.
+        stark_felt!(2_u8),                 // Constructor calldata length.
+        stark_felt!(1_u8),                 // Constructor calldata: address.
+        stark_felt!(1_u8)                  // Constructor calldata: value.
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(2)),
+        nonce: Nonce(stark_felt!(2_u8)),
         ..tx
     }));
     account_tx.execute(state, block_context).unwrap();
@@ -102,7 +102,7 @@ fn test_account_flow_test() {
     let contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash,
-        &calldata![stark_felt!(1), stark_felt!(1)],
+        &calldata![stark_felt!(1_u8), stark_felt!(1_u8)],
         deployed_account_address,
     )
     .unwrap();
@@ -112,12 +112,12 @@ fn test_account_flow_test() {
     let execute_calldata = calldata![
         *contract_address.0.key(), // Contract address.
         entry_point_selector.0,    // EP selector.
-        stark_felt!(1),            // Calldata length.
-        stark_felt!(2)             // Calldata: num.
+        stark_felt!(1_u8),         // Calldata length.
+        stark_felt!(2_u8)          // Calldata: num.
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(3)),
+        nonce: Nonce(stark_felt!(3_u8)),
         ..tx
     }));
     account_tx.execute(state, block_context).unwrap();
