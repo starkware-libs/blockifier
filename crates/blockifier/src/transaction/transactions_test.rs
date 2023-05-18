@@ -32,7 +32,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     get_contract_class_v0, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -209,7 +209,7 @@ fn invoke_tx() -> InvokeTransactionV1 {
     crate::test_utils::invoke_tx(
         execute_calldata,
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        Fee(u128::from(BALANCE)),
+        Fee(u128::from(MAX_FEE)),
         None,
     )
 }
@@ -397,7 +397,7 @@ fn declare_tx(
     crate::test_utils::declare_tx(
         class_hash,
         ContractAddress(patricia_key!(sender_address)),
-        Fee(u128::from(BALANCE)),
+        Fee(u128::from(MAX_FEE)),
         signature,
     )
 }
@@ -498,7 +498,7 @@ fn deploy_account_tx(
 ) -> DeployAccountTransaction {
     crate::test_utils::deploy_account_tx(
         account_class_hash,
-        Fee(u128::from(BALANCE)),
+        Fee(u128::from(MAX_FEE)),
         constructor_calldata,
         signature,
     )
