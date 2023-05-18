@@ -80,8 +80,11 @@ pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
         .unwrap()
 }
 
+// The max_fee used for txs in this test.
+pub const MAX_FEE: u64 = 1000000 * 100000000000; // 1000000 * min_gas_price.
+
 // The amount of test-token allocated to the account in this test.
-pub const BALANCE: u64 = 1000000 * 100000000000; // 1000000 * min_gas_price.
+pub const BALANCE: u64 = 10 * MAX_FEE;
 
 pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
