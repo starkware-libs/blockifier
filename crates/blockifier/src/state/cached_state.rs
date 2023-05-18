@@ -6,6 +6,8 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
+use crate::abi::abi_utils::get_storage_var_address;
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -61,6 +63,18 @@ impl<S: StateReader> CachedState<S> {
         modified_contracts.extend(class_hash_updates.keys());
 
         (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
+    }
+
+    /// Returns the storage value representing the balance (in fee token) at the given address.
+    pub fn get_balance(
+        &mut self,
+        address: &ContractAddress,
+        block_context: &BlockContext,
+    ) -> Result<StarkFelt, StateError> {
+        self.get_storage_at(
+            block_context.fee_token_address,
+            get_storage_var_address("ERC20_balances", &[*address.0.key()])?,
+        )
     }
 }
 
