@@ -10,7 +10,7 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
@@ -21,9 +21,8 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransaction, DeclareTransactionV0V1,
-    DeployAccountTransaction, Fee, InvokeTransactionV1, L1HandlerTransaction, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
+    InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion, DeclareTransaction,
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
@@ -156,8 +155,10 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
     })
 }
 
-pub fn py_l1_handler(tx: &PyAny) -> NativeBlockifierResult<L1HandlerTransaction> {
-    Ok(L1HandlerTransaction {
+pub fn py_l1_handler(
+    tx: &PyAny,
+) -> NativeBlockifierResult<starknet_api::transaction::L1HandlerTransaction> {
+    Ok(starknet_api::transaction::L1HandlerTransaction {
         transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
         version: TransactionVersion(StarkFelt::from(L1_HANDLER_VERSION)),
         nonce: Nonce(py_felt_attr(tx, "nonce")?),
@@ -189,8 +190,12 @@ pub fn py_tx(
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
         "L1_HANDLER" => {
+            let paid_fee_on_l1 = Fee(py_attr(tx, "paid_fee_on_l1")?);
             let l1_handler_tx = py_l1_handler(tx)?;
-            Ok(Transaction::L1HandlerTransaction(l1_handler_tx))
+            Ok(Transaction::L1HandlerTransaction(L1HandlerTransaction {
+                tx: l1_handler_tx,
+                paid_fee_on_l1,
+            }))
         }
         _ => unimplemented!(),
     }

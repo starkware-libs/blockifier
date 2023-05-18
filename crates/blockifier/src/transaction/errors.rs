@@ -20,6 +20,8 @@ pub enum TransactionExecutionError {
     ExecutionError(#[source] EntryPointExecutionError),
     #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
     FeeTransferError { max_fee: Fee, actual_fee: Fee },
+    #[error("Actual fee ({actual_fee:?}) exceeded paid fee on L1 ({paid_fee:?}).")]
+    InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
     #[error(
         "Invalid transaction nonce of contract at address {address:?}. Expected: \
          {expected_nonce:?}; got: {actual_nonce:?}."

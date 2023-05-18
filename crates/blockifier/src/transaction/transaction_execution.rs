@@ -1,16 +1,18 @@
-use starknet_api::transaction::{Fee, L1HandlerTransaction, TransactionSignature};
+use starknet_api::transaction::{Fee, TransactionSignature};
 
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::ExecutionResources;
+use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
-use crate::transaction::transactions::{Executable, ExecutableTransaction};
+use crate::transaction::transactions::{Executable, ExecutableTransaction, L1HandlerTransaction};
 
 #[derive(Debug)]
 // TODO(Gilad, 15/4/2023): Remove clippy ignore, box large variants.
@@ -26,13 +28,14 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        let tx = &self.tx;
         let tx_context = AccountTransactionContext {
-            transaction_hash: self.transaction_hash,
+            transaction_hash: tx.transaction_hash,
             max_fee: Fee::default(),
-            version: self.version,
+            version: tx.version,
             signature: TransactionSignature::default(),
-            nonce: self.nonce,
-            sender_address: self.contract_address,
+            nonce: tx.nonce,
+            sender_address: tx.contract_address,
         };
         let mut execution_resources = ExecutionResources::default();
         let execute_call_info =
@@ -40,7 +43,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
 
         let validate_call_info = None;
         // The calldata includes the "from" field, which is not a part of the payload.
-        let l1_handler_payload_size = Some(self.calldata.0.len() - 1);
+        let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
         let actual_resources = calculate_tx_resources(
             execution_resources,
             execute_call_info.as_ref(),
@@ -49,6 +52,13 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             state,
             l1_handler_payload_size,
         )?;
+        let actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
+        let paid_fee = self.paid_fee_on_l1;
+        // For now, assert only that any amount of fee was paid.
+        // The error message still indicates the required fee.
+        if paid_fee == Fee(0) {
+            return Err(TransactionExecutionError::InsufficientL1Fee { paid_fee, actual_fee });
+        }
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
