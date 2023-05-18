@@ -31,12 +31,10 @@ use crate::execution::execution_utils::{
     felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
-    call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
-    get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
-    get_tx_info, get_tx_signature, library_call, library_call_l1_handler, replace_class,
-    send_message_to_l1, storage_read, storage_write, StorageReadResponse, StorageWriteResponse,
-    SyscallRequest, SyscallRequestWrapper, SyscallResponse, SyscallResponseWrapper, SyscallResult,
-    SyscallSelector,
+    call_contract, deploy, emit_event, get_tx_info, library_call, library_call_l1_handler,
+    replace_class, send_message_to_l1, storage_read, storage_write, StorageReadResponse,
+    StorageWriteResponse, SyscallRequest, SyscallRequestWrapper, SyscallResponse,
+    SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
@@ -166,17 +164,9 @@ impl<'a> SyscallHintProcessor<'a> {
 
         match selector {
             SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
-            SyscallSelector::DelegateCall => self.execute_syscall(vm, delegate_call),
-            SyscallSelector::DelegateL1Handler => self.execute_syscall(vm, delegate_l1_handler),
             SyscallSelector::Deploy => self.execute_syscall(vm, deploy),
             SyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
-            SyscallSelector::GetBlockNumber => self.execute_syscall(vm, get_block_number),
-            SyscallSelector::GetBlockTimestamp => self.execute_syscall(vm, get_block_timestamp),
-            SyscallSelector::GetCallerAddress => self.execute_syscall(vm, get_caller_address),
-            SyscallSelector::GetContractAddress => self.execute_syscall(vm, get_contract_address),
-            SyscallSelector::GetSequencerAddress => self.execute_syscall(vm, get_sequencer_address),
             SyscallSelector::GetTxInfo => self.execute_syscall(vm, get_tx_info),
-            SyscallSelector::GetTxSignature => self.execute_syscall(vm, get_tx_signature),
             SyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
             SyscallSelector::LibraryCallL1Handler => {
                 self.execute_syscall(vm, library_call_l1_handler)
@@ -185,6 +175,7 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::SendMessageToL1 => self.execute_syscall(vm, send_message_to_l1),
             SyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
             SyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
+            _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {selector:?}."))),
         }
     }
 
