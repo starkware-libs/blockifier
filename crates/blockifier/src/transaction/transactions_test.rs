@@ -136,7 +136,7 @@ fn expected_fee_transfer_call_info(
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0 as u64);
     // The most significant 128 bits of the expected amount transferred.
-    let msb_expected_amount = stark_felt!(0);
+    let msb_expected_amount = stark_felt!(0_u8);
     let storage_address = block_context.fee_token_address;
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
@@ -202,8 +202,8 @@ fn invoke_tx() -> InvokeTransactionV1 {
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
         entry_point_selector.0,             // EP selector.
-        stark_felt!(1),                     // Calldata length.
-        stark_felt!(2)                      // Calldata: num.
+        stark_felt!(1_u8),                  // Calldata length.
+        stark_felt!(2_u8)                   // Calldata: num.
     ];
 
     crate::test_utils::invoke_tx(
@@ -261,7 +261,7 @@ fn test_invoke_tx() {
     );
 
     // Build expected execute call info.
-    let expected_return_result_calldata = vec![stark_felt!(2)];
+    let expected_return_result_calldata = vec![stark_felt!(2_u8)];
     let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
@@ -334,7 +334,7 @@ fn test_invoke_tx() {
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
     let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
@@ -371,7 +371,7 @@ fn test_negative_invoke_tx_flows() {
 
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
-    let invalid_nonce = Nonce(stark_felt!(1));
+    let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
         nonce: invalid_nonce,
         ..valid_invoke_tx
@@ -473,7 +473,7 @@ fn test_declare_tx() {
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
     let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
@@ -589,7 +589,7 @@ fn test_deploy_account_tx() {
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1)));
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
     let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
@@ -609,7 +609,7 @@ fn test_deploy_account_tx() {
     // Negative flow.
     // Deploy to an existing address.
     let deploy_account_tx =
-        DeployAccountTransaction { nonce: Nonce(stark_felt!(1)), ..deploy_account_tx };
+        DeployAccountTransaction { nonce: Nonce(stark_felt!(1_u8)), ..deploy_account_tx };
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let error = account_tx.execute(state, block_context).unwrap_err();
     assert_matches!(
@@ -662,7 +662,7 @@ fn create_account_tx_for_validate_test(
             let execute_calldata = calldata![
                 stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
                 entry_point_selector.0,                            // EP selector.
-                stark_felt!(0)                                     // Calldata length.
+                stark_felt!(0_u8)                                  // Calldata length.
             ];
             let invoke_tx = crate::test_utils::invoke_tx(
                 execute_calldata,

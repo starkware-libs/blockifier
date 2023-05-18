@@ -97,8 +97,8 @@ impl AccountTransaction {
                 transaction_hash: tx.transaction_hash(),
                 max_fee: tx.max_fee(),
                 version: match tx {
-                    InvokeTransaction::V0(_) => TransactionVersion(StarkFelt::from(0)),
-                    InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1)),
+                    InvokeTransaction::V0(_) => TransactionVersion(StarkFelt::from(0_u8)),
+                    InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1_u8)),
                 },
                 signature: tx.signature(),
                 nonce: tx.nonce(),
@@ -111,9 +111,12 @@ impl AccountTransaction {
         let allowed_versions: Vec<TransactionVersion> = match self {
             // Support `Declare` of version 0 in order to allow bootstrapping of a new system.
             Self::Declare(_) | Self::Invoke(_) => {
-                vec![TransactionVersion(StarkFelt::from(0)), TransactionVersion(StarkFelt::from(1))]
+                vec![
+                    TransactionVersion(StarkFelt::from(0_u8)),
+                    TransactionVersion(StarkFelt::from(1_u8)),
+                ]
             }
-            _ => vec![TransactionVersion(StarkFelt::from(1))],
+            _ => vec![TransactionVersion(StarkFelt::from(1_u8))],
         };
         if allowed_versions.contains(&version) {
             Ok(())
@@ -126,7 +129,7 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version == TransactionVersion(StarkFelt::from(0)) {
+        if account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(());
         }
 
@@ -149,7 +152,7 @@ impl AccountTransaction {
         state: &mut dyn State,
         context: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0)) {
+        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
         }
 
@@ -206,7 +209,7 @@ impl AccountTransaction {
         // The least significant 128 bits of the amount transferred.
         let lsb_amount = StarkFelt::from(actual_fee.0 as u64);
         // The most significant 128 bits of the amount transferred.
-        let msb_amount = StarkFelt::from(0);
+        let msb_amount = StarkFelt::from(0_u8);
 
         let storage_address = context.block_context.fee_token_address;
         let fee_transfer_call = CallEntryPoint {

@@ -230,7 +230,7 @@ fn cached_state_state_diff_conversion() {
 
     // Declare a new class.
     let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
-    let compiled_class_hash = CompiledClassHash(stark_felt!(1));
+    let compiled_class_hash = CompiledClassHash(stark_felt!(1_u8));
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Write the initial value using key contract_address1.

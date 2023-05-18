@@ -351,9 +351,9 @@ impl HintProcessor for SyscallHintProcessor<'_> {
 }
 
 pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
-    if felt == StarkFelt::from(0) {
+    if felt == StarkFelt::from(0_u8) {
         Ok(false)
-    } else if felt == StarkFelt::from(1) {
+    } else if felt == StarkFelt::from(1_u8) {
         Ok(true)
     } else {
         Err(SyscallExecutionError::InvalidSyscallInput {

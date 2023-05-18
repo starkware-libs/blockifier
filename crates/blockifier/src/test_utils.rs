@@ -180,7 +180,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(stark_felt!(0)),
+        entry_point_selector: EntryPointSelector(stark_felt!(0_u8)),
         calldata: calldata![],
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
@@ -260,8 +260,8 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
         ContractAddressSalt::default(),
         class_hash,
         &calldata![
-            stark_felt!(3), // Calldata: address.
-            stark_felt!(3)  // Calldata: value.
+            stark_felt!(3_u8), // Calldata: address.
+            stark_felt!(3_u8)  // Calldata: value.
         ],
         ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
     )
@@ -348,7 +348,7 @@ pub fn deploy_account_tx(
 
     DeployAccountTransaction {
         max_fee,
-        version: TransactionVersion(stark_felt!(1)),
+        version: TransactionVersion(stark_felt!(1_u8)),
         signature: signature.unwrap_or_default(),
         class_hash,
         contract_address,

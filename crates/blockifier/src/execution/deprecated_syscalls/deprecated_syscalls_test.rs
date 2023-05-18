@@ -24,8 +24,8 @@ use crate::test_utils::{
 #[test]
 fn test_storage_read_write() {
     let mut state = create_test_state();
-    let key = stark_felt!(1234);
-    let value = stark_felt!(18);
+    let key = stark_felt!(1234_u16);
+    let value = stark_felt!(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -50,9 +50,9 @@ fn test_library_call() {
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         inner_entry_point_selector.0, // Function selector.
-        stark_felt!(2),               // Calldata length.
-        stark_felt!(1234),            // Calldata: address.
-        stark_felt!(91)               // Calldata: value.
+        stark_felt!(2_u8),            // Calldata length.
+        stark_felt!(1234_u16),        // Calldata: address.
+        stark_felt!(91_u16)           // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
@@ -62,21 +62,21 @@ fn test_library_call() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(91)])
+        CallExecution::from_retdata(retdata![stark_felt!(91_u16)])
     );
 }
 
 #[test]
 fn test_nested_library_call() {
     let mut state = create_test_state();
-    let (key, value) = (255, 44);
+    let (key, value) = (255_u64, 44_u64);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let main_entry_point_calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         outer_entry_point_selector.0, // Library call function selector.
         inner_entry_point_selector.0, // Storage function selector.
-        stark_felt!(2),               // Calldata length.
+        stark_felt!(2_u8),            // Calldata length.
         stark_felt!(key),             // Calldata: address.
         stark_felt!(value)            // Calldata: value.
     ];
@@ -101,7 +101,7 @@ fn test_nested_library_call() {
         calldata: calldata![
             stark_felt!(TEST_CLASS_HASH), // Class hash.
             inner_entry_point_selector.0, // Storage function selector.
-            stark_felt!(2),               // Calldata length.
+            stark_felt!(2_u8),            // Calldata length.
             stark_felt!(key + 1),         // Calldata: address.
             stark_felt!(value + 1)        // Calldata: value.
         ],
@@ -120,7 +120,7 @@ fn test_nested_library_call() {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         vm_resources: storage_entry_point_vm_resources.clone(),
-        storage_read_values: vec![stark_felt!(0), stark_felt!(value + 1)],
+        storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
@@ -141,7 +141,7 @@ fn test_nested_library_call() {
         call: storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
         vm_resources: storage_entry_point_vm_resources.clone(),
-        storage_read_values: vec![stark_felt!(0), stark_felt!(value)],
+        storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
@@ -151,7 +151,7 @@ fn test_nested_library_call() {
     main_call_vm_resources += &(&library_call_vm_resources * 2);
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
-        execution: CallExecution::from_retdata(retdata![stark_felt!(0)]),
+        execution: CallExecution::from_retdata(retdata![stark_felt!(0_u8)]),
         vm_resources: main_call_vm_resources,
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
@@ -168,9 +168,9 @@ fn test_call_contract() {
     let calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
         inner_entry_point_selector.0,       // Function selector.
-        stark_felt!(2),                     // Calldata length.
-        stark_felt!(405),                   // Calldata: address.
-        stark_felt!(48)                     // Calldata: value.
+        stark_felt!(2_u8),                  // Calldata length.
+        stark_felt!(405_u16),               // Calldata: address.
+        stark_felt!(48_u8)                  // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
@@ -179,7 +179,7 @@ fn test_call_contract() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(48)])
+        CallExecution::from_retdata(retdata![stark_felt!(48_u8)])
     );
 }
 
@@ -220,11 +220,11 @@ fn test_stack_trace() {
     let calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS_2), // Contract address.
         outer_entry_point_selector.0,         // Calling test_call_contract again.
-        stark_felt!(3),                       /* Calldata length for inner
+        stark_felt!(3_u8),                    /* Calldata length for inner
                                                * test_call_contract. */
         stark_felt!(SECURITY_TEST_CONTRACT_ADDRESS), // Contract address.
         inner_entry_point_selector.0,                // Function selector.
-        stark_felt!(0)                               // Innermost calldata length.
+        stark_felt!(0_u8)                            // Innermost calldata length.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
@@ -266,8 +266,8 @@ Unknown location (pc=0:62)",
     calldata![
     stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
     ContractAddressSalt::default().0, // Contract_address_salt.
-    stark_felt!(0), // Calldata length.
-    stark_felt!(0) // deploy_from_zero.
+    stark_felt!(0_u8), // Calldata length.
+    stark_felt!(0_u8) // deploy_from_zero.
     ],
     calldata![],
     None ;
@@ -277,14 +277,14 @@ Unknown location (pc=0:62)",
     calldata![
         stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2), // Calldata length.
-        stark_felt!(2), // Calldata: address.
-        stark_felt!(1), // Calldata: value.
-        stark_felt!(0) // deploy_from_zero.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(2_u8), // Calldata: address.
+        stark_felt!(1_u8), // Calldata: value.
+        stark_felt!(0_u8) // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(2), // Calldata: address.
-        stark_felt!(1) // Calldata: value.
+        stark_felt!(2_u8), // Calldata: address.
+        stark_felt!(1_u8) // Calldata: value.
     ],
     Some(
     "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
@@ -294,14 +294,14 @@ Unknown location (pc=0:62)",
     calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2), // Calldata length.
-        stark_felt!(1), // Calldata: address.
-        stark_felt!(1), // Calldata: value.
-        stark_felt!(0) // deploy_from_zero.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(1_u8), // Calldata: address.
+        stark_felt!(1_u8), // Calldata: value.
+        stark_felt!(0_u8) // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(1), // Calldata: address.
-        stark_felt!(1) // Calldata: value.
+        stark_felt!(1_u8), // Calldata: address.
+        stark_felt!(1_u8) // Calldata: value.
     ],
     None;
     "With constructor: Positive flow")]
@@ -310,14 +310,14 @@ Unknown location (pc=0:62)",
     calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2), // Calldata length.
-        stark_felt!(3), // Calldata: address.
-        stark_felt!(3), // Calldata: value.
-        stark_felt!(0) // deploy_from_zero.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(3_u8), // Calldata: address.
+        stark_felt!(3_u8), // Calldata: value.
+        stark_felt!(0_u8) // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(3), // Calldata: address.
-        stark_felt!(3) // Calldata: value.
+        stark_felt!(3_u8), // Calldata: address.
+        stark_felt!(3_u8) // Calldata: value.
     ],
     Some("is unavailable for deployment.");
     "With constructor: Negative flow: deploy to the same address")]
@@ -326,18 +326,18 @@ Unknown location (pc=0:62)",
     calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2), // Calldata length.
-        stark_felt!(1), // Calldata: address.
-        stark_felt!(1), // Calldata: value.
-        stark_felt!(2) // deploy_from_zero.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(1_u8), // Calldata: address.
+        stark_felt!(1_u8), // Calldata: value.
+        stark_felt!(2_u8) // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(1), // Calldata: address.
-        stark_felt!(1) // Calldata: value.
+        stark_felt!(1_u8), // Calldata: address.
+        stark_felt!(1_u8) // Calldata: value.
     ],
     Some(&format!(
         "Invalid syscall input: {:?}; {:}",
-        stark_felt!(2),
+        stark_felt!(2_u8),
         "The deploy_from_zero field in the deploy system call must be 0 or 1.",
     ));
     "With constructor: Negative flow: illegal value for deploy_from_zero")]
