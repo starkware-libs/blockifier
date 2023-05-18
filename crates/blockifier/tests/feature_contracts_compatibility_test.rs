@@ -1,15 +1,31 @@
-use std::fs;
 use std::process::Command;
+use std::{fs, io};
+
+use thiserror::Error;
 
 const FEATURE_CONTRACTS_DIR: &str = "feature_contracts/cairo0";
 const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
+
+type FeatureTestResult = Result<(), FeatureTestError>;
+
+#[derive(Debug, Error)]
+pub enum FeatureTestError {
+    #[error(transparent)]
+    CantReadContract(#[from] io::Error),
+    #[error(
+        "{path_str} does not compile to {existing_compiled_path}.\nRun `FIX_FEATURE_TEST=1 cargo \
+         test -- --ignored` to fix the expected test according to locally installed \
+         `starknet-compile-deprecated`.\n"
+    )]
+    ComparisonError { path_str: String, existing_compiled_path: String },
+}
 
 // Checks that:
 // 1. `TEST_CONTRACTS` dir exists and contains only `.cairo` files and the subdirectory
 // `COMPILED_CONTRACTS_SUBDIR`.
 // 2. for each `X.cairo` file in `TEST_CONTRACTS` there exists an `X_compiled.json` file in
 // `COMPILED_CONTRACTS_SUBDIR` which equals `starknet-compile X.cairo -- -no_debug_info`.
-fn verify_feature_contracts_compatibility(fix: bool) {
+fn verify_feature_contracts_compatibility(fix: bool) -> FeatureTestResult {
     for file in fs::read_dir(FEATURE_CONTRACTS_DIR).unwrap() {
         let path = file.unwrap().path();
 
@@ -54,17 +70,21 @@ fn verify_feature_contracts_compatibility(fix: bool) {
         if fix {
             fs::write(&existing_compiled_path, &expected_compiled_output).unwrap();
         }
-        let existing_compiled_contents = fs::read_to_string(&existing_compiled_path)
-            .unwrap_or_else(|_| panic!("Cannot read {existing_compiled_path}."));
+        let existing_compiled_contents = fs::read_to_string(&existing_compiled_path)?;
 
         if String::from_utf8(expected_compiled_output).unwrap() != existing_compiled_contents {
-            panic!("{path_str} does not compile to {existing_compiled_path}")
+            Err(FeatureTestError::ComparisonError {
+                path_str: path_str.to_string(),
+                existing_compiled_path,
+            })?;
         }
     }
+    Ok(())
 }
 
 #[test]
 #[ignore]
-fn verify_feature_contracts() {
-    verify_feature_contracts_compatibility(false)
+fn verify_feature_contracts() -> FeatureTestResult {
+    let fix_features = std::env::var("FIX_FEATURE_TEST").is_ok();
+    verify_feature_contracts_compatibility(fix_features).map_err(|e| panic!("{e}"))
 }
