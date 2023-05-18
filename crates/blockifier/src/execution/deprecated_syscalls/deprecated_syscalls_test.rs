@@ -258,7 +258,7 @@ Unknown location (pc=0:62)",
         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source: _ } => {
             assert_eq!(trace, expected_trace)
         }
-        other_error => panic!("Unexpected error type: {:?}", other_error),
+        other_error => panic!("Unexpected error type: {other_error:?}"),
     }
 }
 

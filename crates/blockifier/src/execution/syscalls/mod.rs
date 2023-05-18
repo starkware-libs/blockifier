@@ -1,7 +1,5 @@
-use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -165,55 +163,6 @@ pub fn call_contract(
     Ok(CallContractResponse { segment: retdata_segment })
 }
 
-// DelegateCall syscall.
-
-type DelegateCallRequest = CallContractRequest;
-type DelegateCallResponse = CallContractResponse;
-
-pub fn delegate_call(
-    request: DelegateCallRequest,
-    vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<DelegateCallResponse> {
-    let call_to_external = true;
-    let storage_address = request.contract_address;
-    let class_hash = syscall_handler.state.get_class_hash_at(storage_address)?;
-    let retdata_segment = execute_library_call(
-        syscall_handler,
-        vm,
-        class_hash,
-        Some(storage_address),
-        call_to_external,
-        request.function_selector,
-        request.calldata,
-    )?;
-
-    Ok(DelegateCallResponse { segment: retdata_segment })
-}
-
-// DelegateCallL1Handler syscall.
-
-pub fn delegate_l1_handler(
-    request: DelegateCallRequest,
-    vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<DelegateCallResponse> {
-    let call_to_external = false;
-    let storage_address = request.contract_address;
-    let class_hash = syscall_handler.state.get_class_hash_at(storage_address)?;
-    let retdata_segment = execute_library_call(
-        syscall_handler,
-        vm,
-        class_hash,
-        Some(storage_address),
-        call_to_external,
-        request.function_selector,
-        request.calldata,
-    )?;
-
-    Ok(DelegateCallResponse { segment: retdata_segment })
-}
-
 // Deploy syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -323,108 +272,6 @@ pub fn emit_event(
     Ok(EmitEventResponse {})
 }
 
-// GetBlockNumber syscall.
-
-type GetBlockNumberRequest = EmptyRequest;
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct GetBlockNumberResponse {
-    pub block_number: BlockNumber,
-}
-
-impl SyscallResponse for GetBlockNumberResponse {
-    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_maybe_relocatable(vm, ptr, Felt252::from(self.block_number.0))?;
-        Ok(())
-    }
-}
-
-pub fn get_block_number(
-    _request: GetBlockNumberRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetBlockNumberResponse> {
-    Ok(GetBlockNumberResponse { block_number: syscall_handler.context.block_context.block_number })
-}
-
-// GetBlockTimestamp syscall.
-
-type GetBlockTimestampRequest = EmptyRequest;
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct GetBlockTimestampResponse {
-    pub block_timestamp: BlockTimestamp,
-}
-
-impl SyscallResponse for GetBlockTimestampResponse {
-    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_maybe_relocatable(vm, ptr, Felt252::from(self.block_timestamp.0))?;
-        Ok(())
-    }
-}
-
-pub fn get_block_timestamp(
-    _request: GetBlockTimestampRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetBlockTimestampResponse> {
-    Ok(GetBlockTimestampResponse {
-        block_timestamp: syscall_handler.context.block_context.block_timestamp,
-    })
-}
-
-// GetCallerAddress syscall.
-
-type GetCallerAddressRequest = EmptyRequest;
-type GetCallerAddressResponse = GetContractAddressResponse;
-
-pub fn get_caller_address(
-    _request: GetCallerAddressRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetCallerAddressResponse> {
-    Ok(GetCallerAddressResponse { address: syscall_handler.caller_address })
-}
-
-// GetContractAddress syscall.
-
-type GetContractAddressRequest = EmptyRequest;
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct GetContractAddressResponse {
-    pub address: ContractAddress,
-}
-
-impl SyscallResponse for GetContractAddressResponse {
-    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.address.0.key())?;
-        Ok(())
-    }
-}
-
-pub fn get_contract_address(
-    _request: GetContractAddressRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetContractAddressResponse> {
-    Ok(GetContractAddressResponse { address: syscall_handler.storage_address })
-}
-
-// GetSequencerAddress syscall.
-
-type GetSequencerAddressRequest = EmptyRequest;
-type GetSequencerAddressResponse = GetContractAddressResponse;
-
-pub fn get_sequencer_address(
-    _request: GetSequencerAddressRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetSequencerAddressResponse> {
-    Ok(GetSequencerAddressResponse {
-        address: syscall_handler.context.block_context.sequencer_address,
-    })
-}
-
 // GetTxInfo syscall.
 
 type GetTxInfoRequest = EmptyRequest;
@@ -448,22 +295,6 @@ pub fn get_tx_info(
     let tx_info_start_ptr = syscall_handler.get_or_allocate_tx_info_start_ptr(vm)?;
 
     Ok(GetTxInfoResponse { tx_info_start_ptr })
-}
-
-// GetTxSignature syscall.
-
-type GetTxSignatureRequest = EmptyRequest;
-type GetTxSignatureResponse = SingleSegmentResponse;
-
-pub fn get_tx_signature(
-    _request: GetTxSignatureRequest,
-    vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-) -> SyscallResult<GetTxSignatureResponse> {
-    let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.context.account_tx_context.signature.0.len();
-
-    Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }
 
 // LibraryCall syscall.

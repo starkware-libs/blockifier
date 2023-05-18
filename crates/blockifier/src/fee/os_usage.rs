@@ -33,7 +33,7 @@ pub fn get_additional_os_resources(
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
             OS_RESOURCES.execute_syscalls.get(&syscall_selector).unwrap_or_else(|| {
-                panic!("OS resources of syscall '{:?}' are unknown.", syscall_selector)
+                panic!("OS resources of syscall '{syscall_selector:?}' are unknown.")
             });
         os_additional_vm_resources += &(syscall_resources * count);
     }

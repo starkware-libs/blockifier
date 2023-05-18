@@ -140,7 +140,7 @@ impl StateReader for DictStateReader {
 
 pub fn pad_address_to_64(address: &str) -> String {
     let trimmed_address = address.strip_prefix("0x").unwrap_or(address);
-    String::from("0x") + format!("{:0>64}", trimmed_address).as_str()
+    String::from("0x") + format!("{trimmed_address:0>64}").as_str()
 }
 
 pub fn get_contract_class_v1(contract_path: &str) -> ContractClassV1 {
