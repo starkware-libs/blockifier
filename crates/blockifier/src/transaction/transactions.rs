@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::transaction::{
-    Calldata, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
-};
+use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -160,17 +158,24 @@ impl<S: State> Executable<S> for InvokeTransaction {
     }
 }
 
+#[derive(Debug)]
+pub struct L1HandlerTransaction {
+    pub tx: starknet_api::transaction::L1HandlerTransaction,
+    pub paid_fee_on_l1: Fee,
+}
+
 impl<S: State> Executable<S> for L1HandlerTransaction {
     fn run_execute(
         &self,
         state: &mut S,
         context: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let storage_address = self.contract_address;
+        let tx = &self.tx;
+        let storage_address = tx.contract_address;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::L1Handler,
-            entry_point_selector: self.entry_point_selector,
-            calldata: Calldata(Arc::clone(&self.calldata.0)),
+            entry_point_selector: tx.entry_point_selector,
+            calldata: Calldata(Arc::clone(&tx.calldata.0)),
             class_hash: None,
             code_address: None,
             storage_address,
