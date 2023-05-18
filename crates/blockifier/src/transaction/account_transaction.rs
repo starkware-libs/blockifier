@@ -46,6 +46,14 @@ impl AccountTransaction {
         }
     }
 
+    pub fn max_fee(&self) -> Fee {
+        match self {
+            AccountTransaction::Declare(declare) => declare.tx.max_fee(),
+            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee,
+            AccountTransaction::Invoke(invoke) => invoke.max_fee(),
+        }
+    }
+
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
             Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
@@ -187,10 +195,25 @@ impl AccountTransaction {
         state: &mut TransactionalState<'_, S>,
         context: &mut ExecutionContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        // Handle nonce.
         Self::handle_nonce(&context.account_tx_context, state)?;
 
-        // TODO(Dori, 22/5/2023): Validate fee balance.
+        // Check fee balance.
+        let (balance_low, balance_high) =
+            state.get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
+        // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
+        //   should be updated.
+        if balance_high == StarkFelt::from(0_u8)
+            && balance_low < StarkFelt::from(account_tx_context.max_fee.0)
+        {
+            return Err(TransactionExecutionError::MaxFeeExceedsBalance {
+                max_fee: account_tx_context.max_fee,
+                balance_low,
+                balance_high,
+            });
+        }
 
+        // Validate transaction (if applicable).
         match &self {
             Self::Declare(_) | Self::Invoke(_) => self.validate_tx(state, context),
             Self::DeployAccount(_) => Ok(None),
