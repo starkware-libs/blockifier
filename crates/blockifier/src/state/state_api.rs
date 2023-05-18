@@ -2,6 +2,8 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
+use crate::abi::abi_utils::get_storage_var_address;
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
@@ -36,6 +38,18 @@ pub trait StateReader {
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
+
+    /// Returns the storage value representing the balance (in fee token) at the given address.
+    fn get_balance(
+        &mut self,
+        contract_address: &ContractAddress,
+        block_context: &BlockContext,
+    ) -> Result<StarkFelt, StateError> {
+        self.get_storage_at(
+            block_context.fee_token_address,
+            get_storage_var_address("ERC20_balances", &[*contract_address.0.key()])?,
+        )
+    }
 }
 
 /// A class defining the API for writing to StarkNet global state.

@@ -1,4 +1,5 @@
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -32,6 +33,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
+    #[error("Max fee ({max_fee:?}) exceeds balance ({balance:?}).")]
+    MaxFeeExceedsBalance { max_fee: Fee, balance: StarkFelt },
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
