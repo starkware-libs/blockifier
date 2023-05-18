@@ -156,6 +156,14 @@ pub fn get_contract_class_v0(contract_path: &str) -> ContractClassV0 {
     serde_json::from_str(&raw_contract_class).unwrap()
 }
 
+pub fn get_contract_class(contract_path: &str, is_cairo1: bool) -> ContractClass {
+    if is_cairo1 {
+        ContractClass::from(get_contract_class_v1(contract_path))
+    } else {
+        ContractClass::from(get_contract_class_v0(contract_path))
+    }
+}
+
 pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
     let contract = fs::read_to_string(path).unwrap();
@@ -195,12 +203,15 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     }
 }
 
-pub fn create_test_state() -> CachedState<DictStateReader> {
+fn create_test_state_by_version(is_cairo1: bool) -> CachedState<DictStateReader> {
     let class_hash_to_class = HashMap::from([
-        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class_v0(TEST_CONTRACT_PATH).into()),
+        (
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+            get_contract_class(TEST_CONTRACT_PATH, is_cairo1),
+        ),
         (
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
-            get_contract_class_v0(SECURITY_TEST_CONTRACT_PATH).into(),
+            get_contract_class(SECURITY_TEST_CONTRACT_PATH, is_cairo1),
         ),
     ]);
 
@@ -227,32 +238,17 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
-pub fn create_test_cairo1_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = HashMap::from([(
-        ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        get_contract_class_v1(TEST_CONTRACT_CAIRO1_PATH).into(),
-    )]);
-
-    // Two instances of a test contract and one instance of another (different) test contract.
-    let address_to_class_hash = HashMap::from([
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-    ]);
-
-    CachedState::new(DictStateReader {
-        class_hash_to_class,
-        address_to_class_hash,
-        ..Default::default()
-    })
+pub fn create_deprecated_test_state() -> CachedState<DictStateReader> {
+    let is_cairo1 = false;
+    create_test_state_by_version(is_cairo1)
 }
 
-pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+pub fn create_test_state() -> CachedState<DictStateReader> {
+    let is_cairo1 = true;
+    create_test_state_by_version(is_cairo1)
+}
+
+fn create_deploy_test_state_by_version(is_cairo1: bool) -> CachedState<DictStateReader> {
     let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let empty_contract_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
@@ -267,8 +263,8 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     )
     .unwrap();
     let class_hash_to_class = HashMap::from([
-        (class_hash, get_contract_class_v0(TEST_CONTRACT_PATH).into()),
-        (empty_contract_class_hash, get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH).into()),
+        (class_hash, get_contract_class(TEST_CONTRACT_PATH, is_cairo1)),
+        (empty_contract_class_hash, get_contract_class(TEST_EMPTY_CONTRACT_PATH, is_cairo1)),
     ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
@@ -278,6 +274,16 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
         address_to_class_hash,
         ..Default::default()
     })
+}
+
+pub fn create_deprecated_deploy_test_state() -> CachedState<DictStateReader> {
+    let is_cairo1 = false;
+    create_deploy_test_state_by_version(is_cairo1)
+}
+
+pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+    let is_cairo1 = true;
+    create_deploy_test_state_by_version(is_cairo1)
 }
 
 impl CallEntryPoint {

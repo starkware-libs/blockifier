@@ -14,12 +14,12 @@ use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Cal
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    create_test_cairo1_state, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_test_state, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
 };
 
 #[test]
 fn test_storage_read_write() {
-    let mut state = create_test_cairo1_state();
+    let mut state = create_test_state();
     let key = stark_felt!(1234);
     let value = stark_felt!(18);
     let calldata = calldata![key, value];
@@ -41,7 +41,7 @@ fn test_storage_read_write() {
 
 #[test]
 fn test_call_contract() {
-    let mut state = create_test_cairo1_state();
+    let mut state = create_test_state();
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
@@ -64,7 +64,7 @@ fn test_call_contract() {
 
 #[test]
 fn test_library_call() {
-    let mut state = create_test_cairo1_state();
+    let mut state = create_test_state();
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
@@ -87,7 +87,7 @@ fn test_library_call() {
 
 #[test]
 fn test_nested_library_call() {
-    let mut state = create_test_cairo1_state();
+    let mut state = create_test_state();
     let (key, value) = (255, 44);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
