@@ -369,6 +369,21 @@ fn test_negative_invoke_tx_flows() {
         if max_fee == invalid_max_fee
     );
 
+    // Max fee greater than balance on account.
+    let invalid_max_fee = Fee(BALANCE as u128 + 1);
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        max_fee: invalid_max_fee,
+        ..valid_invoke_tx.clone()
+    }));
+    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
+        if max_fee == invalid_max_fee
+    );
+
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
