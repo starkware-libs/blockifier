@@ -301,7 +301,7 @@ impl PyTransactionExecutor {
     /// Executes the given transaction on the state maintained by the executor.
     /// Returns the execution trace, together with the compiled class hashes of executed classes
     /// (used for counting purposes).
-    #[args(tx, raw_contract_class, enough_room_for_tx)]
+    #[args(tx, raw_contract_class, paid_fee_on_l1, enough_room_for_tx)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
