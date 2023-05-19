@@ -4,7 +4,7 @@ use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -20,7 +20,8 @@ use crate::execution::entry_point::{
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    create_test_cairo1_state, trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
@@ -251,6 +252,35 @@ fn test_nested_library_call() {
     };
 
     assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+}
+
+#[test]
+fn test_replace_class() {
+    // Negative flow.
+    let mut state = create_deploy_test_state();
+    // Replace with undeclared class hash.
+    let calldata = calldata![stark_felt!(1234_u16)];
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test_replace_class"),
+        ..trivial_external_entry_point()
+    };
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    dbg!(error.clone());
+    assert!(error.contains("is not declared"));
+
+    // Positive flow.
+    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let old_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let new_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
+    let entry_point_call = CallEntryPoint {
+        calldata: calldata![new_class_hash.0],
+        entry_point_selector: selector_from_name("test_replace_class"),
+        ..trivial_external_entry_point()
+    };
+    entry_point_call.execute_directly(&mut state).unwrap();
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
 
 #[test]
