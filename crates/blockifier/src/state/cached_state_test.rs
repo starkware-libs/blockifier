@@ -9,7 +9,7 @@ use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
 use crate::test_utils::{
-    create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
+    deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
@@ -137,7 +137,7 @@ fn get_and_increment_nonce() {
 fn get_contract_class() {
     // Positive flow.
     let existing_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     assert_eq!(
         state.get_compiled_contract_class(&existing_class_hash).unwrap(),
         get_test_contract_class()
