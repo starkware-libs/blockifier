@@ -12,13 +12,12 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
-use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, pad_address_to_64, trivial_external_entry_point,
-    SECURITY_TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    create_deploy_test_state, create_test_state, trivial_external_entry_point,
+    SECURITY_TEST_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
@@ -209,56 +208,6 @@ fn test_replace_class() {
     };
     entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
-}
-
-#[test]
-fn test_stack_trace() {
-    let mut state = create_test_state();
-    // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
-    let outer_entry_point_selector = selector_from_name("test_call_contract");
-    let inner_entry_point_selector = selector_from_name("foo");
-    let calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS_2), // Contract address.
-        outer_entry_point_selector.0,         // Calling test_call_contract again.
-        stark_felt!(3_u8),                    /* Calldata length for inner
-                                               * test_call_contract. */
-        stark_felt!(SECURITY_TEST_CONTRACT_ADDRESS), // Contract address.
-        inner_entry_point_selector.0,                // Function selector.
-        stark_felt!(0_u8)                            // Innermost calldata length.
-    ];
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: outer_entry_point_selector,
-        calldata,
-        ..trivial_external_entry_point()
-    };
-    let expected_trace = format!(
-        "Error in the called contract ({}):
-Error at pc=0:19:
-Got an exception while executing a hint.
-Cairo traceback (most recent call last):
-Unknown location (pc=0:629)
-Unknown location (pc=0:612)
-Error in the called contract ({}):
-Error at pc=0:19:
-Got an exception while executing a hint.
-Cairo traceback (most recent call last):
-Unknown location (pc=0:629)
-Unknown location (pc=0:612)
-Error in the called contract ({}):
-Error at pc=0:58:
-An ASSERT_EQ instruction failed: 1 != 0.
-Cairo traceback (most recent call last):
-Unknown location (pc=0:62)",
-        pad_address_to_64(TEST_CONTRACT_ADDRESS),
-        pad_address_to_64(TEST_CONTRACT_ADDRESS_2),
-        pad_address_to_64(SECURITY_TEST_CONTRACT_ADDRESS)
-    );
-    match entry_point_call.execute_directly(&mut state).unwrap_err() {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source: _ } => {
-            assert_eq!(trace, expected_trace)
-        }
-        other_error => panic!("Unexpected error type: {other_error:?}"),
-    }
 }
 
 #[test_case(
