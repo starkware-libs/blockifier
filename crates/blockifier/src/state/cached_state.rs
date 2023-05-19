@@ -27,7 +27,7 @@ pub struct CommitmentStateDiff {
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
 }
 
-type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Caches read and write requests.

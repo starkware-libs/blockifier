@@ -8,13 +8,13 @@ use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_test_state, trivial_external_entry_point, DictStateReader, TEST_CLASS_HASH,
+    deprecated_create_test_state, trivial_external_entry_point, DictStateReader, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS,
 };
 
 #[test]
 fn test_calculate_contract_address() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
 
     fn run_test(
         salt: ContractAddressSalt,
