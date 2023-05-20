@@ -55,7 +55,7 @@ fn create_account_tx_test_state(
     account_address: &str,
     account_path: &str,
     erc20_account_balance_key: StorageKey,
-    initial_account_balance: u64,
+    initial_account_balance: u128,
 ) -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
@@ -134,7 +134,7 @@ fn expected_fee_transfer_call_info(
     let expected_fee_token_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
-    let lsb_expected_amount = stark_felt!(actual_fee.0 as u64);
+    let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
     let storage_address = block_context.fee_token_address;
@@ -183,7 +183,7 @@ fn validate_final_balances(
     block_context: &BlockContext,
     expected_sequencer_balance: StarkFelt,
     erc20_account_balance_key: StorageKey,
-    expected_account_balance: u64,
+    expected_account_balance: u128,
 ) {
     let account_balance =
         state.get_storage_at(block_context.fee_token_address, erc20_account_balance_key).unwrap();
@@ -337,8 +337,8 @@ fn test_invoke_tx() {
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
-    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
-    let expected_account_balance = BALANCE - expected_actual_fee.0 as u64;
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
+    let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
         block_context,
@@ -476,8 +476,8 @@ fn test_declare_tx() {
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
-    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
-    let expected_account_balance = BALANCE - expected_actual_fee.0 as u64;
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
+    let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
         block_context,
@@ -592,8 +592,8 @@ fn test_deploy_account_tx() {
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
-    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0 as u64);
-    let expected_account_balance = BALANCE - expected_actual_fee.0 as u64;
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
+    let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
         block_context,

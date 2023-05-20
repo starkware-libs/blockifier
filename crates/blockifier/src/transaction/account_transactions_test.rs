@@ -59,7 +59,7 @@ fn test_account_flow_test() {
     state.set_storage_at(
         block_context.fee_token_address,
         deployed_account_balance_key,
-        stark_felt!(Fee(u128::from(BALANCE)).0 as u64),
+        stark_felt!(Fee(u128::from(BALANCE)).0),
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);

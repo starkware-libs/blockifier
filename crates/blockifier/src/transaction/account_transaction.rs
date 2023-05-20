@@ -207,7 +207,7 @@ impl AccountTransaction {
         }
 
         // The least significant 128 bits of the amount transferred.
-        let lsb_amount = StarkFelt::from(actual_fee.0 as u64);
+        let lsb_amount = StarkFelt::from(actual_fee.0);
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
 
