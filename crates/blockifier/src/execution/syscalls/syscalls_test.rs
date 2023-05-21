@@ -4,13 +4,14 @@ use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
+    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
+use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{
@@ -307,4 +308,99 @@ fn test_send_message_to_l1() {
             ..Default::default()
         }
     );
+}
+
+#[test_case(
+    ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+    calldata![
+    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+    ContractAddressSalt::default().0, // Contract_address_salt.
+    stark_felt!(0_u8), // Calldata length.
+    stark_felt!(0_u8) // deploy_from_zero.
+    ],
+    calldata![],
+    None ;
+    "No constructor: Positive flow")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(2_u8), // Calldata: address.
+        stark_felt!(1_u8), // Calldata: value.
+        stark_felt!(0_u8) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(2_u8), // Calldata: address.
+        stark_felt!(1_u8) // Calldata: value.
+    ],
+    Some(
+    "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
+    "No constructor: Negative flow: nonempty calldata")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(1_u8), // Calldata: address.
+        stark_felt!(1_u8), // Calldata: value.
+        stark_felt!(0_u8) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(1_u8), // Calldata: address.
+        stark_felt!(1_u8) // Calldata: value.
+    ],
+    None;
+    "With constructor: Positive flow")]
+#[test_case(
+    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2_u8), // Calldata length.
+        stark_felt!(3_u8), // Calldata: address.
+        stark_felt!(3_u8), // Calldata: value.
+        stark_felt!(0_u8) // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(3_u8), // Calldata: address.
+        stark_felt!(3_u8) // Calldata: value.
+    ],
+    Some("is unavailable for deployment.");
+    "With constructor: Negative flow: deploy to the same address")]
+fn test_deploy(
+    class_hash: ClassHash,
+    calldata: Calldata,
+    constructor_calldata: Calldata,
+    expected_error: Option<&str>,
+) {
+    let mut state = create_deploy_test_state();
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_deploy"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    if let Some(expected_error) = expected_error {
+        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        assert!(error.contains(expected_error));
+        return;
+    }
+
+    // No errors expected.
+    let contract_address = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash,
+        &constructor_calldata,
+        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+    )
+    .unwrap();
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0].call.storage_address,
+        contract_address
+    );
+    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
+    // TODO(Noa, 01/06/2023): Check "public_key" variable has changed.
 }
