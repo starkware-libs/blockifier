@@ -130,57 +130,6 @@ impl<'env> PapyrusStateReader<'env> {
     }
 }
 
-impl<'env> StateReader for PapyrusStateReader<'env> {
-    fn get_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<StarkFelt> {
-        let state_number = StateNumber(*self.latest_block());
-        self.reader
-            .get_storage_at(state_number, &contract_address, &key)
-            .map_err(|err| StateError::StateReadError(err.to_string()))
-    }
-
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let state_number = StateNumber(*self.latest_block());
-        match self.reader.get_nonce_at(state_number, &contract_address) {
-            Ok(Some(nonce)) => Ok(nonce),
-            Ok(None) => Ok(Nonce::default()),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
-        }
-    }
-
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        let state_number = StateNumber(*self.latest_block());
-        match self.reader.get_class_hash_at(state_number, &contract_address) {
-            Ok(Some(class_hash)) => Ok(class_hash),
-            Ok(None) => Ok(ClassHash::default()),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
-        }
-    }
-
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
-        let state_number = StateNumber(*self.latest_block());
-        match self.reader.get_deprecated_class_definition_at(state_number, class_hash) {
-            Ok(Some(starknet_api_contract_class)) => {
-                Ok(ContractClassV0::try_from(starknet_api_contract_class)?.into())
-            }
-            Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
-        }
-    }
-
-    fn get_compiled_class_hash(
-        &mut self,
-        _class_hash: ClassHash,
-    ) -> StateResult<CompiledClassHash> {
-        todo!()
-    }
-}
 pub struct PapyrusExecutableClassReader<'env> {
     txn: &'env papyrus_storage::StorageTxn<'env, RO>,
 }

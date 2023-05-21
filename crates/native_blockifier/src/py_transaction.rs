@@ -31,7 +31,7 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
-use crate::papyrus_state::PapyrusStateReader;
+use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
@@ -294,7 +294,7 @@ pub struct PyTransactionExecutor {
     pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
     #[borrows(storage_tx)]
     #[covariant]
-    pub state: CachedState<PapyrusStateReader<'this>>,
+    pub state: CachedState<crate::papyrus_state::PapyrusReader<'this>>,
 }
 
 pub fn build_tx_executor(
@@ -311,9 +311,11 @@ pub fn build_tx_executor(
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
-    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
+    ) -> NativeBlockifierResult<CachedState<PapyrusReader<'a>>> {
         let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+        let state_reader = PapyrusStateReader::new(state_reader, block_number);
+        let papyrus_reader = PapyrusReader::new(storage_tx, state_reader);
+
         Ok(CachedState::new(papyrus_reader))
     }
 
@@ -438,7 +440,7 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 
 /// Maps Sierra class hashes to their corresponding compiled class hash.
 pub fn into_py_executed_compiled_class_hashes(
-    _state: &mut CachedState<PapyrusStateReader<'_>>,
+    _state: &mut CachedState<PapyrusReader<'_>>,
     executed_class_hashes: HashSet<ClassHash>,
 ) -> HashSet<PyFelt> {
     let executed_compiled_class_hashes = HashSet::<ClassHash>::new();
