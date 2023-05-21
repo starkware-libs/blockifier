@@ -1,7 +1,10 @@
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use papyrus_storage::compiled_class::CasmStorageReader;
 use papyrus_storage::db::RO;
+use papyrus_storage::StorageResult;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
@@ -12,6 +15,25 @@ use starknet_api::state::{StateNumber, StorageKey};
 mod test;
 
 type RawPapyrusStateReader<'env> = papyrus_storage::state::StateReader<'env, RO>;
+
+pub struct PapyrusReader<'env> {
+    state: PapyrusStateReader<'env>,
+    _contracts: PapyrusExecutableClassReader<'env>,
+}
+
+impl<'env> PapyrusReader<'env> {
+    pub fn new(
+        storage_tx: &'env papyrus_storage::StorageTxn<'env, RO>,
+        state_reader: PapyrusStateReader<'env>,
+    ) -> Self {
+        let _contracts = PapyrusExecutableClassReader::new(storage_tx);
+        Self { state: state_reader, _contracts }
+    }
+
+    pub fn state_reader(&mut self) -> &RawPapyrusStateReader<'env> {
+        &self.state.reader
+    }
+}
 
 pub struct PapyrusStateReader<'env> {
     pub reader: RawPapyrusStateReader<'env>,
@@ -78,5 +100,18 @@ impl<'env> StateReader for PapyrusStateReader<'env> {
         _class_hash: ClassHash,
     ) -> StateResult<CompiledClassHash> {
         todo!()
+    }
+}
+pub struct PapyrusExecutableClassReader<'env> {
+    _txn: &'env papyrus_storage::StorageTxn<'env, RO>,
+}
+
+impl<'env> PapyrusExecutableClassReader<'env> {
+    pub fn new(_txn: &'env papyrus_storage::StorageTxn<'env, RO>) -> Self {
+        Self { _txn }
+    }
+
+    fn _get_casm(&self, class_hash: ClassHash) -> StorageResult<Option<CasmContractClass>> {
+        self._txn.get_casm(class_hash)
     }
 }
