@@ -45,7 +45,7 @@ fn create_state() -> CachedState<DictStateReader> {
 fn test_account_flow_test() {
     let state = &mut create_state();
     let block_context = &BlockContext::create_for_account_testing();
-    let max_fee = Fee(u128::from(MAX_FEE));
+    let max_fee = Fee(MAX_FEE);
 
     // Deploy an account contract.
     let deploy_account_tx =
@@ -59,7 +59,7 @@ fn test_account_flow_test() {
     state.set_storage_at(
         block_context.fee_token_address,
         deployed_account_balance_key,
-        stark_felt!(Fee(u128::from(BALANCE)).0 as u64),
+        stark_felt!(BALANCE),
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
