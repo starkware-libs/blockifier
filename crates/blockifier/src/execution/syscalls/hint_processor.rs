@@ -28,7 +28,8 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
+    ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_execution_info, library_call, library_call_l1_handler,
@@ -421,11 +422,21 @@ pub fn execute_inner_call(
         return Err(SyscallExecutionError::SyscallError { error_data: raw_retdata.clone() });
     }
 
+    let retdata_segment = create_retdata_segment(raw_retdata, vm, syscall_handler)?;
+
+    syscall_handler.inner_calls.push(call_info);
+
+    Ok(retdata_segment)
+}
+
+pub fn create_retdata_segment(
+    raw_retdata: &[StarkFelt],
+    vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<ReadOnlySegment> {
     let retdata: Vec<MaybeRelocatable> =
         raw_retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
     let retdata_segment_start_ptr = syscall_handler.read_only_segments.allocate(vm, &retdata)?;
-
-    syscall_handler.inner_calls.push(call_info);
 
     Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: retdata.len() })
 }
@@ -470,4 +481,15 @@ where
     let array_size = (array_data_end_ptr - array_data_start_ptr)?;
 
     Ok(felt_range_from_ptr(vm, array_data_start_ptr, array_size)?)
+}
+
+pub fn write_retdata_segment(
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+    segment: ReadOnlySegment,
+) -> SyscallResult<()> {
+    write_maybe_relocatable(vm, ptr, segment.start_ptr)?;
+    write_maybe_relocatable(vm, ptr, (segment.start_ptr + segment.length)?)?;
+
+    Ok(())
 }
