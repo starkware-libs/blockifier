@@ -34,9 +34,9 @@ use crate::test_utils::{
     test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader,
     ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -77,10 +77,13 @@ fn create_account_tx_test_state(
         (test_account_address, test_account_class_hash),
         (test_erc20_address, test_erc20_class_hash),
     ]);
-    let storage_view = HashMap::from([(
-        (test_erc20_address, erc20_account_balance_key),
-        stark_felt!(initial_account_balance),
-    )]);
+    let minter_var_address = get_storage_var_address("permitted_minter", &[])
+        .expect("Failed to get permitted_minter storage address.");
+    let storage_view = HashMap::from([
+        ((test_erc20_address, erc20_account_balance_key), stark_felt!(initial_account_balance)),
+        // Give the account mint permission.
+        ((test_erc20_address, minter_var_address), *test_account_address.0.key()),
+    ]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
@@ -346,6 +349,42 @@ fn test_invoke_tx() {
         test_erc20_account_balance_key(),
         expected_account_balance,
     );
+}
+
+#[test]
+fn test_state_get_fee_token_balance() {
+    let state = &mut create_state_with_trivial_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
+    let recipient = stark_felt!(10_u8);
+
+    // Mint some tokens.
+    let entry_point_selector = selector_from_name("permissionedMint");
+    let execute_calldata = calldata![
+        stark_felt!(TEST_ERC20_CONTRACT_ADDRESS), // Contract address.
+        entry_point_selector.0,                   // EP selector.
+        stark_felt!(3_u8),                        // Calldata length.
+        recipient,
+        mint_low,
+        mint_high
+    ];
+    let mint_tx = crate::test_utils::invoke_tx(
+        execute_calldata,
+        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        Fee(MAX_FEE),
+        None,
+    );
+    AccountTransaction::Invoke(InvokeTransaction::V1(mint_tx))
+        .execute(state, block_context)
+        .unwrap();
+
+    // Get balance from state, and validate.
+    let (low, high) = state
+        .get_fee_token_balance(block_context, &ContractAddress(patricia_key!(recipient)))
+        .unwrap();
+
+    assert_eq!(low, mint_low);
+    assert_eq!(high, mint_high);
 }
 
 #[test]

@@ -1,7 +1,10 @@
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_crypto::FieldElement;
 
+use crate::abi::abi_utils::get_storage_var_address;
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
@@ -36,6 +39,26 @@ pub trait StateReader {
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
+
+    /// Returns the storage value representing the balance (in fee token) at the given address.
+    // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, change the
+    //    return type to that.
+    fn get_fee_token_balance(
+        &mut self,
+        block_context: &BlockContext,
+        contract_address: &ContractAddress,
+    ) -> Result<(StarkFelt, StarkFelt), StateError> {
+        let low_key = get_storage_var_address("ERC20_balances", &[*contract_address.0.key()])?;
+        // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, there may
+        //   be a better way to add 1 to the key.
+        let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
+            FieldElement::from(*low_key.0.key()) + FieldElement::ONE,
+        ))?);
+        let low = self.get_storage_at(block_context.fee_token_address, low_key)?;
+        let high = self.get_storage_at(block_context.fee_token_address, high_key)?;
+
+        Ok((low, high))
+    }
 }
 
 /// A class defining the API for writing to StarkNet global state.
