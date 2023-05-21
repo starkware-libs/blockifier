@@ -387,17 +387,16 @@ fn test_state_get_fee_token_balance() {
     assert_eq!(high, mint_high);
 }
 
-fn assert_max_fee_exceeds_balance(
+fn assert_failure_if_max_fee_exceeds_balance(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
     let sent_max_fee = invalid_tx.max_fee();
-    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
 
     // Test error.
     assert_matches!(
-        execution_error,
+        invalid_tx.execute(state, block_context).unwrap_err(),
         TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
         if max_fee == sent_max_fee
     );
@@ -414,14 +413,14 @@ fn test_max_fee_exceeds_balance() {
         max_fee: invalid_max_fee,
         ..invoke_tx()
     }));
-    assert_max_fee_exceeds_balance(state, block_context, invalid_tx);
+    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
         max_fee: invalid_max_fee,
         ..deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None)
     });
-    assert_max_fee_exceeds_balance(state, block_context, invalid_tx);
+    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Declare.
     let invalid_tx = AccountTransaction::Declare(DeclareTransaction {
@@ -431,7 +430,7 @@ fn test_max_fee_exceeds_balance() {
         }),
         contract_class: ContractClass::V0(get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH)),
     });
-    assert_max_fee_exceeds_balance(state, block_context, invalid_tx);
+    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
 
 #[test]
