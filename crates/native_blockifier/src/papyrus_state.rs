@@ -37,6 +37,35 @@ impl<'env> PapyrusReader<'env> {
 
 // Currently unused - will soon replace the same `impl` for `PapyrusStateReader`.
 impl<'env> StateReader for PapyrusReader<'env> {
+    fn get_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        let state_number = StateNumber(*self.state.latest_block());
+        self.state_reader()
+            .get_storage_at(state_number, &contract_address, &key)
+            .map_err(|err| StateError::StateReadError(err.to_string()))
+    }
+
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        let state_number = StateNumber(*self.state.latest_block());
+        match self.state_reader().get_nonce_at(state_number, &contract_address) {
+            Ok(Some(nonce)) => Ok(nonce),
+            Ok(None) => Ok(Nonce::default()),
+            Err(err) => Err(StateError::StateReadError(err.to_string())),
+        }
+    }
+
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        let state_number = StateNumber(*self.state.latest_block());
+        match self.state_reader().get_class_hash_at(state_number, &contract_address) {
+            Ok(Some(class_hash)) => Ok(class_hash),
+            Ok(None) => Ok(ClassHash::default()),
+            Err(err) => Err(StateError::StateReadError(err.to_string())),
+        }
+    }
+
     /// Returns a V1 contract if found, or a V0 contract if a V1 contract is not
     /// found, or an `Error` otherwise.
     fn get_compiled_contract_class(
@@ -45,11 +74,11 @@ impl<'env> StateReader for PapyrusReader<'env> {
     ) -> StateResult<ContractClass> {
         let state_number = StateNumber(*self.state.latest_block());
 
-        let contract_class_definition_block_number = self
+        let class_declaration_block_number = self
             .state_reader()
             .get_class_definition_block_number(class_hash)
             .map_err(|err| StateError::StateReadError(err.to_string()))?;
-        if matches!(contract_class_definition_block_number,
+        if matches!(class_declaration_block_number,
                     Some(block_number) if block_number < state_number.0)
         {
             let casm_contract_class = self
@@ -81,22 +110,6 @@ impl<'env> StateReader for PapyrusReader<'env> {
         &mut self,
         _class_hash: ClassHash,
     ) -> StateResult<CompiledClassHash> {
-        todo!()
-    }
-
-    fn get_storage_at(
-        &mut self,
-        _contract_address: ContractAddress,
-        _key: StorageKey,
-    ) -> StateResult<StarkFelt> {
-        todo!()
-    }
-
-    fn get_nonce_at(&mut self, _contract_address: ContractAddress) -> StateResult<Nonce> {
-        todo!()
-    }
-
-    fn get_class_hash_at(&mut self, _contract_address: ContractAddress) -> StateResult<ClassHash> {
         todo!()
     }
 }
