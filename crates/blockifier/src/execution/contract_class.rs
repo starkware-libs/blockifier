@@ -32,6 +32,7 @@ pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
 }
+
 impl ContractClass {
     pub fn constructor_selector(&self) -> Option<EntryPointSelector> {
         match self {
@@ -40,11 +41,13 @@ impl ContractClass {
         }
     }
 }
+
 impl From<ContractClassV0> for ContractClass {
     fn from(class: ContractClassV0) -> Self {
         Self::V0(class)
     }
 }
+
 impl From<ContractClassV1> for ContractClass {
     fn from(class: ContractClassV1) -> Self {
         Self::V1(class)
@@ -61,6 +64,7 @@ impl Deref for ContractClassV0 {
         &self.0
     }
 }
+
 impl ContractClassV0 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
@@ -73,6 +77,7 @@ pub struct ContractClassV0Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
 }
+
 impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
     type Error = ProgramError;
 
@@ -94,6 +99,7 @@ impl Deref for ContractClassV1 {
         &self.0
     }
 }
+
 impl ContractClassV1 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
@@ -126,12 +132,14 @@ pub struct ContractClassV1Inner {
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
 }
+
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct EntryPointV1 {
     pub selector: EntryPointSelector,
     pub offset: EntryPointOffset,
     pub builtins: Vec<String>,
 }
+
 impl EntryPointV1 {
     pub fn pc(&self) -> usize {
         self.offset.0
