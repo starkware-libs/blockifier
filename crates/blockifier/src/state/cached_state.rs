@@ -15,6 +15,8 @@ use crate::utils::subtract_mappings;
 #[path = "cached_state_test.rs"]
 mod test;
 
+pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
+pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 /// Holds uncommitted changes induced on StarkNet contracts.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CommitmentStateDiff {
@@ -26,9 +28,6 @@ pub struct CommitmentStateDiff {
     // Global attributes.
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
 }
-
-pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
-pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Caches read and write requests.
 ///
