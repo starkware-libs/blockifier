@@ -370,8 +370,8 @@ fn test_state_get_fee_token_balance() {
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
         recipient,
-        mint_high,
-        mint_low
+        mint_low,
+        mint_high
     ];
     let mint_tx = crate::test_utils::invoke_tx(
         execute_calldata,
@@ -384,12 +384,12 @@ fn test_state_get_fee_token_balance() {
         .unwrap();
 
     // Get balance from state, and validate.
-    let (high, low) = state
+    let (low, high) = state
         .get_fee_token_balance(&ContractAddress(patricia_key!(recipient)), block_context)
         .unwrap();
 
-    assert_eq!(high, mint_high);
     assert_eq!(low, mint_low);
+    assert_eq!(high, mint_high);
 }
 
 #[test]

@@ -45,12 +45,12 @@ pub trait StateReader {
     //    return type to that.
     fn get_fee_token_balance(
         &mut self,
-        address: &ContractAddress,
+        contract_address: &ContractAddress,
         block_context: &BlockContext,
     ) -> Result<(StarkFelt, StarkFelt), StateError> {
-        let base_key = get_storage_var_address("ERC20_balances", &[*address.0.key()])?;
-        let high = self.get_storage_at(block_context.fee_token_address, base_key)?;
-        let low = self.get_storage_at(
+        let base_key = get_storage_var_address("ERC20_balances", &[*contract_address.0.key()])?;
+        let low = self.get_storage_at(block_context.fee_token_address, base_key)?;
+        let high = self.get_storage_at(
             block_context.fee_token_address,
             // TODO(Dori, 1/7/2023): When a standard representation for large integers is set,
             //   there may be a better way to add 1 to the key.
@@ -58,7 +58,7 @@ pub trait StateReader {
                 FieldElement::from(*base_key.0.key()) + FieldElement::ONE,
             ))?),
         )?;
-        Ok((high, low))
+        Ok((low, high))
     }
 }
 
