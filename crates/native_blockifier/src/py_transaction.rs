@@ -222,7 +222,6 @@ pub fn py_tx(
     tx_type: &str,
     tx: &PyAny,
     raw_contract_class: Option<&str>,
-    paid_fee_on_l1: Option<u128>,
 ) -> NativeBlockifierResult<Transaction> {
     match tx_type {
         "DECLARE" => {
@@ -251,7 +250,7 @@ pub fn py_tx(
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
         "L1_HANDLER" => {
-            let paid_fee_on_l1 = Fee(paid_fee_on_l1.unwrap_or_default());
+            let paid_fee_on_l1 = Fee(py_attr(tx, "paid_fee_on_l1")?);
             let l1_handler_tx = py_l1_handler(tx)?;
             Ok(Transaction::L1HandlerTransaction(L1HandlerTransaction {
                 tx: l1_handler_tx,
@@ -335,17 +334,16 @@ impl PyTransactionExecutor {
     /// Executes the given transaction on the state maintained by the executor.
     /// Returns the execution trace, together with the compiled class hashes of executed classes
     /// (used for counting purposes).
-    #[args(tx, raw_contract_class, paid_fee_on_l1, enough_room_for_tx)]
+    #[args(tx, raw_contract_class, enough_room_for_tx)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-        paid_fee_on_l1: Option<u128>,
         // This is functools.partial(bouncer.add, tw_written=tx_written).
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, HashSet<PyFelt>)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class, paid_fee_on_l1)?;
+        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
         let mut executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
