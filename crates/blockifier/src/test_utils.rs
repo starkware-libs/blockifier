@@ -27,7 +27,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, ExecutionContext,
     Retdata,
 };
-use crate::state::cached_state::{CachedState, ContractStorageKey};
+use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
@@ -62,6 +62,8 @@ pub const SECURITY_TEST_CONTRACT_PATH: &str =
     "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_PATH: &str =
     "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
+pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
@@ -198,14 +200,35 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     }
 }
 
-pub fn create_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = HashMap::from([
+fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
+    HashMap::from([
         (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class_v0(TEST_CONTRACT_PATH).into()),
         (
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
             get_contract_class_v0(SECURITY_TEST_CONTRACT_PATH).into(),
         ),
-    ]);
+        (
+            ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+            get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH).into(),
+        ),
+    ])
+}
+
+fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
+    HashMap::from([
+        (
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+            get_contract_class_v1(TEST_CONTRACT_CAIRO1_PATH).into(),
+        ),
+        (
+            ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+            get_contract_class_v1(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
+        ),
+    ])
+}
+
+pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v0_class_mapping();
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
@@ -230,11 +253,8 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
-pub fn create_test_cairo1_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = HashMap::from([(
-        ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        get_contract_class_v1(TEST_CONTRACT_CAIRO1_PATH).into(),
-    )]);
+pub fn create_test_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v1_class_mapping();
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
@@ -255,9 +275,10 @@ pub fn create_test_cairo1_state() -> CachedState<DictStateReader> {
     })
 }
 
-pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+fn create_deploy_test_state_from_classes(
+    class_hash_to_class: ContractClassMapping,
+) -> CachedState<DictStateReader> {
     let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let empty_contract_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let another_contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
@@ -269,10 +290,6 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
         ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
     )
     .unwrap();
-    let class_hash_to_class = HashMap::from([
-        (class_hash, get_contract_class_v0(TEST_CONTRACT_PATH).into()),
-        (empty_contract_class_hash, get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH).into()),
-    ]);
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
 
@@ -281,6 +298,16 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
         address_to_class_hash,
         ..Default::default()
     })
+}
+
+pub fn deprecated_create_deploy_test_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v0_class_mapping();
+    create_deploy_test_state_from_classes(class_hash_to_class)
+}
+
+pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v1_class_mapping();
+    create_deploy_test_state_from_classes(class_hash_to_class)
 }
 
 impl CallEntryPoint {

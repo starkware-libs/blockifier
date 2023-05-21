@@ -15,14 +15,14 @@ use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Cal
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, trivial_external_entry_point,
-    SECURITY_TEST_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    deprecated_create_deploy_test_state, deprecated_create_test_state,
+    trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
 fn test_storage_read_write() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let key = stark_felt!(1234_u16);
     let value = stark_felt!(18_u8);
     let calldata = calldata![key, value];
@@ -44,7 +44,7 @@ fn test_storage_read_write() {
 
 #[test]
 fn test_library_call() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
@@ -67,7 +67,7 @@ fn test_library_call() {
 
 #[test]
 fn test_nested_library_call() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let (key, value) = (255_u64, 44_u64);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
@@ -161,7 +161,7 @@ fn test_nested_library_call() {
 
 #[test]
 fn test_call_contract() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
@@ -185,9 +185,9 @@ fn test_call_contract() {
 #[test]
 fn test_replace_class() {
     // Negative flow.
-    let mut state = create_deploy_test_state();
+    let mut state = deprecated_create_deploy_test_state();
     // Replace with undeclared class hash.
-    let calldata = calldata![stark_felt!(SECURITY_TEST_CLASS_HASH)];
+    let calldata = calldata![stark_felt!(1234_u16)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_replace_class"),
@@ -296,7 +296,7 @@ fn test_deploy(
     constructor_calldata: Calldata,
     expected_error: Option<&str>,
 ) {
-    let mut state = create_deploy_test_state();
+    let mut state = deprecated_create_deploy_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,

@@ -14,9 +14,9 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_test_cairo1_state, create_test_state, pad_address_to_64, trivial_external_entry_point,
-    trivial_external_entry_point_security_test, DictStateReader, SECURITY_TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
+    create_test_state, deprecated_create_test_state, pad_address_to_64,
+    trivial_external_entry_point, trivial_external_entry_point_security_test, DictStateReader,
+    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
 };
 
 #[test]
@@ -54,7 +54,7 @@ fn test_call_info_iteration() {
 
 #[test]
 fn test_entry_point_without_arg() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("without_arg"),
         ..trivial_external_entry_point()
@@ -67,7 +67,7 @@ fn test_entry_point_without_arg() {
 
 #[test]
 fn test_entry_point_with_arg() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let calldata = calldata![stark_felt!(25_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -82,7 +82,7 @@ fn test_entry_point_with_arg() {
 
 #[test]
 fn test_long_retdata() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let calldata = calldata![];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -103,7 +103,7 @@ fn test_long_retdata() {
 
 #[test]
 fn test_entry_point_with_builtin() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let calldata = calldata![stark_felt!(47_u8), stark_felt!(31_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -118,7 +118,7 @@ fn test_entry_point_with_builtin() {
 
 #[test]
 fn test_entry_point_with_hint() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let calldata = calldata![stark_felt!(81_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -133,7 +133,7 @@ fn test_entry_point_with_hint() {
 
 #[test]
 fn test_entry_point_with_return_value() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let calldata = calldata![stark_felt!(23_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -148,7 +148,7 @@ fn test_entry_point_with_return_value() {
 
 #[test]
 fn test_entry_point_not_found_in_contract() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
     let entry_point_call =
         CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
@@ -161,7 +161,7 @@ fn test_entry_point_not_found_in_contract() {
 
 #[test]
 fn test_storage_var() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_storage_var"),
         ..trivial_external_entry_point()
@@ -197,7 +197,7 @@ fn run_security_test(
 
 #[test]
 fn test_vm_execution_security_failures() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
 
     run_security_test(
         "Expected relocatable",
@@ -274,7 +274,7 @@ fn test_vm_execution_security_failures() {
 
 #[test]
 fn test_builtin_execution_security_failures() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
 
     run_security_test(
         "Inconsistent auto-deduction for builtin pedersen",
@@ -326,7 +326,7 @@ fn test_builtin_execution_security_failures() {
 
 #[test]
 fn test_syscall_execution_security_failures() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
 
     for perform_inner_call_to_foo in 0..2 {
         let calldata = calldata![stark_felt!(perform_inner_call_to_foo as u8)];
@@ -381,7 +381,7 @@ fn test_syscall_execution_security_failures() {
 
 #[test]
 fn test_post_run_validation_security_failure() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
 
     run_security_test(
         "Missing memory cells for builtin range_check",
@@ -452,7 +452,7 @@ fn test_post_run_validation_security_failure() {
 // Note read values also contain the reads performed right before a write operation.
 #[test]
 fn test_storage_related_members() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
 
     // Test storage variable.
     let entry_point_call = CallEntryPoint {
@@ -485,7 +485,7 @@ fn test_storage_related_members() {
 
 #[test]
 fn test_cairo1_entry_point_segment_arena() {
-    let mut state = create_test_cairo1_state();
+    let mut state = create_test_state();
     let calldata = calldata![stark_felt!(23_u8), stark_felt!(45_u8), stark_felt!(67_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -499,7 +499,7 @@ fn test_cairo1_entry_point_segment_arena() {
 
 #[test]
 fn test_stack_trace() {
-    let mut state = create_test_state();
+    let mut state = deprecated_create_test_state();
     // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("foo");
