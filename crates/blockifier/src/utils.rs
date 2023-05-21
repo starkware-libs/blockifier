@@ -1,10 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_vm::types::errors::program_errors::ProgramError;
-
-use crate::execution::contract_class::{ContractClassV0, ContractClassV0Inner, ContractClassV1};
 
 #[cfg(test)]
 #[path = "utils_test.rs"]
@@ -19,16 +13,4 @@ where
     V: Clone + PartialEq,
 {
     lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
-}
-
-pub fn get_contract_class_v0(raw_contract_class: &str) -> Result<ContractClassV0, ProgramError> {
-    let contract_class: ContractClassV0Inner = serde_json::from_str(raw_contract_class)?;
-    Ok(ContractClassV0(Arc::new(contract_class)))
-}
-
-pub fn get_contract_class_v1(raw_contract_class: &str) -> Result<ContractClassV1, ProgramError> {
-    let casm_contract_class: CasmContractClass = serde_json::from_str(raw_contract_class)?;
-    let contract_class: ContractClassV1 = casm_contract_class.try_into()?;
-
-    Ok(contract_class)
 }
