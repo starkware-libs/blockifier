@@ -116,6 +116,11 @@ mod TestContract {
     }
 
     #[external]
+    fn test_replace_class(class_hash: ClassHash) {
+        starknet::syscalls::replace_class_syscall(class_hash).unwrap_syscall();
+    }
+
+    #[external]
     fn test_send_message_to_l1(to_address: felt252, payload: Array::<felt252>) {
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
     }
