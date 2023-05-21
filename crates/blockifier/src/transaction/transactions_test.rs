@@ -77,17 +77,12 @@ fn create_account_tx_test_state(
         (test_account_address, test_account_class_hash),
         (test_erc20_address, test_erc20_class_hash),
     ]);
+    let minter_var_address = get_storage_var_address("permitted_minter", &[])
+        .expect("Failed to get permitted_minter storage address.");
     let storage_view = HashMap::from([
         ((test_erc20_address, erc20_account_balance_key), stark_felt!(initial_account_balance)),
         // Give the account mint permission.
-        (
-            (
-                test_erc20_address,
-                get_storage_var_address("permitted_minter", &[])
-                    .expect("Failed to get permitted_minter storage address."),
-            ),
-            *test_account_address.0.key(),
-        ),
+        ((test_erc20_address, minter_var_address), *test_account_address.0.key()),
     ]);
     CachedState::new(DictStateReader {
         address_to_class_hash,
@@ -370,8 +365,8 @@ fn test_state_get_fee_token_balance() {
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
         recipient,
-        mint_high,
-        mint_low
+        mint_low,
+        mint_high
     ];
     let mint_tx = crate::test_utils::invoke_tx(
         execute_calldata,
@@ -384,12 +379,12 @@ fn test_state_get_fee_token_balance() {
         .unwrap();
 
     // Get balance from state, and validate.
-    let (high, low) = state
-        .get_fee_token_balance(&ContractAddress(patricia_key!(recipient)), block_context)
+    let (low, high) = state
+        .get_fee_token_balance(block_context, &ContractAddress(patricia_key!(recipient)))
         .unwrap();
 
-    assert_eq!(high, mint_high);
     assert_eq!(low, mint_low);
+    assert_eq!(high, mint_high);
 }
 
 #[test]

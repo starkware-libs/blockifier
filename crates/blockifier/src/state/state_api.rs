@@ -45,20 +45,19 @@ pub trait StateReader {
     //    return type to that.
     fn get_fee_token_balance(
         &mut self,
-        address: &ContractAddress,
         block_context: &BlockContext,
+        contract_address: &ContractAddress,
     ) -> Result<(StarkFelt, StarkFelt), StateError> {
-        let base_key = get_storage_var_address("ERC20_balances", &[*address.0.key()])?;
-        let high = self.get_storage_at(block_context.fee_token_address, base_key)?;
-        let low = self.get_storage_at(
-            block_context.fee_token_address,
-            // TODO(Dori, 1/7/2023): When a standard representation for large integers is set,
-            //   there may be a better way to add 1 to the key.
-            StorageKey(PatriciaKey::try_from(StarkFelt::from(
-                FieldElement::from(*base_key.0.key()) + FieldElement::ONE,
-            ))?),
-        )?;
-        Ok((high, low))
+        let low_key = get_storage_var_address("ERC20_balances", &[*contract_address.0.key()])?;
+        // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, there may
+        //   be a better way to add 1 to the key.
+        let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
+            FieldElement::from(*low_key.0.key()) + FieldElement::ONE,
+        ))?);
+        let low = self.get_storage_at(block_context.fee_token_address, low_key)?;
+        let high = self.get_storage_at(block_context.fee_token_address, high_key)?;
+
+        Ok((low, high))
     }
 }
 
