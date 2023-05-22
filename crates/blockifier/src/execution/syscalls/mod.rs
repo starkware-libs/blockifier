@@ -1,3 +1,4 @@
+use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{
@@ -20,8 +21,8 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, stark_felt_to_felt, write_felt, write_maybe_relocatable,
-    ReadOnlySegment,
+    execute_deployment, felt_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_felt,
+    write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 
 pub mod hint_processor;
@@ -45,7 +46,7 @@ pub trait SyscallResponse {
 
 // Syscall header structs.
 pub struct SyscallRequestWrapper<T: SyscallRequest> {
-    pub gas_counter: StarkFelt,
+    pub gas_counter: Felt252,
     pub request: T,
 }
 impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
@@ -57,8 +58,8 @@ impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
 }
 
 pub enum SyscallResponseWrapper<T: SyscallResponse> {
-    Success { gas_counter: StarkFelt, response: T },
-    Failure { gas_counter: StarkFelt, error_data: Vec<StarkFelt> },
+    Success { gas_counter: Felt252, response: T },
+    Failure { gas_counter: Felt252, error_data: Vec<StarkFelt> },
 }
 impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -66,13 +67,13 @@ impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
             Self::Success { gas_counter, response } => {
                 write_felt(vm, ptr, gas_counter)?;
                 // 0 to indicate success.
-                write_felt(vm, ptr, StarkFelt::from(0_u8))?;
+                write_stark_felt(vm, ptr, StarkFelt::from(0_u8))?;
                 response.write(vm, ptr)
             }
             Self::Failure { gas_counter, error_data } => {
                 write_felt(vm, ptr, gas_counter)?;
                 // 1 to indicate failure.
-                write_felt(vm, ptr, StarkFelt::from(1_u8))?;
+                write_stark_felt(vm, ptr, StarkFelt::from(1_u8))?;
 
                 // Write the error data to a new memory segment.
                 let revert_reason_start = vm.add_memory_segment();
@@ -132,7 +133,7 @@ pub struct CallContractRequest {
 
 impl SyscallRequest for CallContractRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let contract_address = ContractAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
@@ -174,10 +175,10 @@ pub struct DeployRequest {
 
 impl SyscallRequest for DeployRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
-        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
+        let contract_address_salt = ContractAddressSalt(stark_felt_from_ptr(vm, ptr)?);
         let constructor_calldata = read_calldata(vm, ptr)?;
-        let deploy_from_zero = felt_from_ptr(vm, ptr)?;
+        let deploy_from_zero = stark_felt_from_ptr(vm, ptr)?;
 
         Ok(DeployRequest {
             class_hash,
@@ -196,7 +197,7 @@ pub struct DeployResponse {
 
 impl SyscallResponse for DeployResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.contract_address.0.key())?;
+        write_stark_felt(vm, ptr, *self.contract_address.0.key())?;
         write_segment(vm, ptr, self.constructor_retdata)
     }
 }
@@ -307,7 +308,7 @@ pub struct LibraryCallRequest {
 
 impl SyscallRequest for LibraryCallRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
@@ -365,7 +366,7 @@ pub struct ReplaceClassRequest {
 
 impl SyscallRequest for ReplaceClassRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<ReplaceClassRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
 
         Ok(ReplaceClassRequest { class_hash })
     }
@@ -397,7 +398,7 @@ pub struct SendMessageToL1Request {
 impl SyscallRequest for SendMessageToL1Request {
     // The Cairo struct contains: `to_address`, `payload_size`, `payload`.
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let to_address = EthAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let payload = L2ToL1Payload(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
@@ -433,11 +434,11 @@ pub struct StorageReadRequest {
 
 impl SyscallRequest for StorageReadRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address_domain = felt_from_ptr(vm, ptr)?;
+        let address_domain = stark_felt_from_ptr(vm, ptr)?;
         if address_domain != StarkFelt::from(0_u8) {
             return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
         }
-        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
+        let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address_domain, address })
     }
 }
@@ -449,7 +450,7 @@ pub struct StorageReadResponse {
 
 impl SyscallResponse for StorageReadResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, self.value)?;
+        write_stark_felt(vm, ptr, self.value)?;
         Ok(())
     }
 }
@@ -473,12 +474,12 @@ pub struct StorageWriteRequest {
 
 impl SyscallRequest for StorageWriteRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address_domain = felt_from_ptr(vm, ptr)?;
+        let address_domain = stark_felt_from_ptr(vm, ptr)?;
         if address_domain != StarkFelt::from(0_u8) {
             return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
         }
-        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
-        let value = felt_from_ptr(vm, ptr)?;
+        let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
+        let value = stark_felt_from_ptr(vm, ptr)?;
         Ok(StorageWriteRequest { address_domain, address, value })
     }
 }
