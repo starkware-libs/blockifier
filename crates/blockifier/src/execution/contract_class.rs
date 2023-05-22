@@ -69,6 +69,11 @@ impl ContractClassV0 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
     }
+
+    pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV0, ProgramError> {
+        let contract_class: ContractClassV0Inner = serde_json::from_str(raw_contract_class)?;
+        Ok(ContractClassV0(Arc::new(contract_class)))
+    }
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
@@ -123,6 +128,13 @@ impl ContractClassV1 {
                 typ: call.entry_point_type,
             }),
         }
+    }
+
+    pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV1, ProgramError> {
+        let casm_contract_class: CasmContractClass = serde_json::from_str(raw_contract_class)?;
+        let contract_class: ContractClassV1 = casm_contract_class.try_into()?;
+
+        Ok(contract_class)
     }
 }
 
