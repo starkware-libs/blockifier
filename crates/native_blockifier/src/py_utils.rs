@@ -28,6 +28,12 @@ impl From<u64> for PyFelt {
     }
 }
 
+impl From<u8> for PyFelt {
+    fn from(value: u8) -> Self {
+        Self(StarkFelt::from(value))
+    }
+}
+
 impl From<ContractAddress> for PyFelt {
     fn from(address: ContractAddress) -> Self {
         Self(*address.0.key())
