@@ -48,7 +48,7 @@ impl AccountTransaction {
 
     pub fn max_fee(&self) -> Fee {
         match self {
-            AccountTransaction::Declare(declare) => declare.tx.max_fee(),
+            AccountTransaction::Declare(declare) => declare.tx().max_fee(),
             AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee,
             AccountTransaction::Invoke(invoke) => invoke.max_fee(),
         }
