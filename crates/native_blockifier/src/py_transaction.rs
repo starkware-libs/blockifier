@@ -254,7 +254,8 @@ pub fn py_tx(
                 }
             };
 
-            let declare_tx = AccountTransaction::Declare(DeclareTransaction { tx, contract_class });
+            let declare_tx =
+                AccountTransaction::Declare(DeclareTransaction::new(tx, contract_class)?);
             Ok(Transaction::AccountTransaction(declare_tx))
         }
         "DEPLOY_ACCOUNT" => {
