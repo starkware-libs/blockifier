@@ -4,7 +4,6 @@ use blockifier::execution::entry_point::{CallInfo, OrderedEvent, OrderedL2ToL1Me
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
-use starknet_api::hash::StarkFelt;
 
 use crate::py_utils::{to_py_vec, PyFelt};
 
@@ -49,7 +48,7 @@ pub struct PyCallInfo {
     #[pyo3(get)]
     pub entry_point_selector: PyFelt,
     #[pyo3(get)]
-    pub entry_point_type: usize,
+    pub entry_point_type: u8,
     #[pyo3(get)]
     pub calldata: Vec<PyFelt>,
     #[pyo3(get)]
@@ -94,10 +93,10 @@ impl From<CallInfo> for PyCallInfo {
             contract_address: PyFelt::from(call.storage_address),
             class_hash: call.class_hash.map(PyFelt::from),
             entry_point_selector: PyFelt(call.entry_point_selector.0),
-            entry_point_type: call.entry_point_type as usize,
+            entry_point_type: call.entry_point_type as u8,
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
-            gas_consumed: PyFelt(StarkFelt::default()),
-            failure_flag: PyFelt(StarkFelt::default()),
+            gas_consumed: PyFelt(execution.gas_consumed),
+            failure_flag: PyFelt::from(execution.failed as u8),
             retdata: to_py_vec(execution.retdata.0, PyFelt),
             execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
             events: to_py_vec(execution.events, PyOrderedEvent::from),
