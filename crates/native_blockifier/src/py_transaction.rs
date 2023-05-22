@@ -16,6 +16,7 @@ use blockifier::transaction::transactions::{
 use blockifier::utils::{get_contract_class_v0, get_contract_class_v1};
 use num_bigint::BigUint;
 use ouroboros;
+use papyrus_execution::blockifier_state::{PapyrusReader, PapyrusStateReader};
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
@@ -31,7 +32,6 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
-use crate::papyrus_state::PapyrusStateReader;
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
@@ -291,9 +291,12 @@ pub struct PyTransactionExecutor {
     #[borrows(storage_reader)]
     #[covariant]
     pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
-    #[borrows(storage_tx)]
+    #[borrows(storage_reader)]
     #[covariant]
-    pub state: CachedState<PapyrusStateReader<'this>>,
+    pub casm_reader_tx: papyrus_storage::StorageTxn<'this, RO>,
+    #[borrows(storage_tx, casm_reader_tx)]
+    #[covariant]
+    pub state: CachedState<PapyrusReader<'this>>,
 }
 
 pub fn build_tx_executor(
@@ -307,12 +310,20 @@ pub fn build_tx_executor(
         Ok(storage_reader.begin_ro_txn()?)
     }
 
+    fn casm_reader_tx_builder(
+        storage_reader: &papyrus_storage::StorageReader,
+    ) -> NativeBlockifierResult<papyrus_storage::StorageTxn<'_, RO>> {
+        Ok(storage_reader.begin_ro_txn()?)
+    }
+
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
+        casm_reader_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
-    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
+    ) -> NativeBlockifierResult<CachedState<PapyrusReader<'a>>> {
         let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+        let fixed_block_state_reader = PapyrusStateReader::new(state_reader, block_number);
+        let papyrus_reader = PapyrusReader::new(casm_reader_tx, fixed_block_state_reader);
         Ok(CachedState::new(papyrus_reader))
     }
 
@@ -322,7 +333,10 @@ pub fn build_tx_executor(
         block_context,
         storage_reader,
         storage_tx_builder,
-        state_builder: |storage_tx| state_builder(storage_tx, block_number),
+        casm_reader_tx_builder,
+        state_builder: |storage_tx, casm_reader_tx| {
+            state_builder(storage_tx, casm_reader_tx, block_number)
+        },
     };
     py_tx_executor_builder.try_build()
 }
@@ -437,7 +451,7 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 
 /// Maps Sierra class hashes to their corresponding compiled class hash.
 pub fn into_py_executed_compiled_class_hashes(
-    _state: &mut CachedState<PapyrusStateReader<'_>>,
+    _state: &mut CachedState<PapyrusReader<'_>>,
     executed_class_hashes: HashSet<ClassHash>,
 ) -> HashSet<PyFelt> {
     let executed_compiled_class_hashes = HashSet::<ClassHash>::new();

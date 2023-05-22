@@ -13,7 +13,8 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", features = ["testing"] }
+# TODO: use path once we move to a mono-repo.
+blockifier = { git = "https://github.com/starkware-libs/blockifier", branch = "main-v0.12.0" }
 cairo-lang-starknet.workspace = true
 cairo-vm.workspace = true
 hex.workspace = true
@@ -21,7 +22,8 @@ indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 ouroboros.workspace = true
-papyrus_storage = { workspace = true, features = ["testing"] }
+papyrus_execution.workspace = true
+papyrus_storage = { workspace = true }
 pyo3 = { version = "0.17.3", features = [
     "extension-module",
     "num-bigint",
@@ -34,3 +36,7 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 starknet_api = { workspace = true, features = ["testing"] }
 
 thiserror.workspace = true
+
+[dev-dependencies]
+papyrus_storage = { workspace = true, features = ["testing"] }
+#blockifier = { path = "../blockifier", features = ["testing"] }

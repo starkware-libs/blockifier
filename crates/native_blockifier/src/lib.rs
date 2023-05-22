@@ -1,11 +1,13 @@
 pub mod errors;
-pub mod papyrus_state;
 pub mod py_state_diff;
 pub mod py_test_utils;
 pub mod py_transaction;
 pub mod py_transaction_execution_info;
 pub mod py_utils;
 pub mod storage;
+#[cfg(test)]
+#[path = "papyrus_state_test.rs"]
+mod test;
 
 use errors::add_py_exceptions;
 use py_transaction::PyTransactionExecutor;
