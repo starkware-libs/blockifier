@@ -28,7 +28,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_from_ptr, felt_range_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
+    felt_range_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
@@ -233,7 +233,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
-        let selector = felt_from_ptr(vm, &mut self.syscall_ptr)?;
+        let selector = stark_felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
@@ -402,7 +402,7 @@ pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
 ) -> SyscallResult<(EntryPointSelector, Calldata)> {
-    let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
+    let function_selector = EntryPointSelector(stark_felt_from_ptr(vm, ptr)?);
     let calldata = read_calldata(vm, ptr)?;
 
     Ok((function_selector, calldata))
