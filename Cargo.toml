@@ -21,6 +21,7 @@ log = "0.4"
 num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
+once_cell = "1.17.1"
 ouroboros = "0.15.6"
 papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "6545673" }
 phf = { version = "0.11", features = ["macros"] }
