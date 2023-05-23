@@ -94,7 +94,14 @@ impl Storage {
         Ok(())
     }
 
-    #[args(block_id, previous_block_id, py_block_info, py_state_diff, declared_class_hash_to_class)]
+    #[args(
+        block_id,
+        previous_block_id,
+        py_block_info,
+        py_state_diff,
+        declared_class_hash_to_class,
+        deprecated_declared_class_hash_to_class
+    )]
     /// Appends state diff and block header into Papyrus storage.
     // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
     // sequential ID (throughout sequencing).
