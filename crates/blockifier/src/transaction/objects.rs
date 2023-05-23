@@ -21,7 +21,7 @@ pub struct AccountTransactionContext {
 }
 
 /// Contains the information gathered by the execution of a transaction.
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default)]
 pub struct TransactionExecutionInfo {
     /// Transaction validation call info; [None] for `L1Handler`.
     pub validate_call_info: Option<CallInfo>,
