@@ -2202,7 +2202,6 @@ dependencies = [
  "blockifier",
  "cairo-lang-starknet",
  "cairo-vm",
- "hex",
  "indexmap",
  "log",
  "num-bigint",
