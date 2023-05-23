@@ -270,9 +270,14 @@ pub fn finalize_execution(
             retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
+<<<<<<< HEAD
             failed,
             // TODO(Noa,01/06/2023): Fill with actual values.
             gas_consumed: StarkFelt::default(),
+||||||| cabb03d
+=======
+            failed,
+>>>>>>> origin/main-v0.12.0
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
