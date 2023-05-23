@@ -330,6 +330,7 @@ fn test_invoke_tx() {
             ("range_check".to_string(), 101),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 4082),
         ])),
+        revert_error: None,
     };
 
     // Test execution info result.
@@ -551,6 +552,7 @@ fn test_declare_tx() {
             ("range_check".to_string(), 63),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 2688),
         ])),
+        revert_error: None,
     };
 
     // Test execution info result.
@@ -667,6 +669,7 @@ fn test_deploy_account_tx() {
             ("range_check".to_string(), 83),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 3584),
         ])),
+        revert_error: None,
     };
 
     // Test execution info result.

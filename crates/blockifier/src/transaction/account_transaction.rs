@@ -332,6 +332,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             fee_transfer_call_info,
             actual_fee,
             actual_resources,
+            revert_error: None,
         };
         Ok(tx_execution_info)
     }

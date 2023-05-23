@@ -34,6 +34,10 @@ pub struct TransactionExecutionInfo {
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
+    /// Error string for reverted transactions; [None] if transaction execution was successful.
+    // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
+    //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
+    pub revert_error: Option<String>,
 }
 
 impl TransactionExecutionInfo {
