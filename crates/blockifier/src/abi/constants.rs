@@ -28,3 +28,12 @@ pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: usize =
 // Transaction resource names.
 pub const GAS_USAGE: &str = "l1_gas_usage";
 pub const N_STEPS_RESOURCE: &str = "n_steps";
+
+// Gas Cost.
+// See documentation in core/os/constants.cairo.
+pub const STEP: u64 = 100;
+// Compiler gas costs.
+pub const SYSCALL_BASE: u64 = 100 * STEP;
+pub const ENTRY_POINT_INITIAL_BUDGET: u64 = 100 * STEP;
+// OS gas costs.
+pub const ENTRY_POINT: u64 = ENTRY_POINT_INITIAL_BUDGET + 500 * STEP;
