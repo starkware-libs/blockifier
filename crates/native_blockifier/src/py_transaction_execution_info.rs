@@ -20,6 +20,8 @@ pub struct PyTransactionExecutionInfo {
     pub actual_fee: u128,
     #[pyo3(get)]
     pub actual_resources: HashMap<String, usize>,
+    #[pyo3(get)]
+    pub revert_error: Option<String>,
 }
 
 impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
@@ -31,6 +33,7 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
             actual_fee: info.actual_fee.0,
             actual_resources: info.actual_resources.0,
+            revert_error: info.revert_error,
         }
     }
 }
