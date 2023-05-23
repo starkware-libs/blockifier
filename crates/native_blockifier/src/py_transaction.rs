@@ -430,7 +430,6 @@ pub fn into_py_executed_compiled_class_hashes(
     for _class_hash in executed_class_hashes {
         // TODO: understand if this is a Sierra hash; if so, add the corresponding compiled class
         // hash to set.
-        todo!();
     }
 
     executed_compiled_class_hashes.iter().map(|class_hash| PyFelt::from(*class_hash)).collect()
