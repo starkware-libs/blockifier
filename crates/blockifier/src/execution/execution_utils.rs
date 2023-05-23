@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_felt::Felt252;
+use cairo_lang_runner::short_string::as_cairo_short_string;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
@@ -219,4 +220,14 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     vm.insert_value(*ptr, value)?;
     *ptr += 1;
     Ok(())
+}
+
+pub fn felts_as_str(felts: &[StarkFelt]) -> String {
+    felts
+        .iter()
+        .map(|felt| {
+            as_cairo_short_string(&stark_felt_to_felt(*felt)).unwrap_or_else(|| felt.to_string())
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
