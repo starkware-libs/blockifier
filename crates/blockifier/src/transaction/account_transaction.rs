@@ -187,6 +187,10 @@ impl AccountTransaction {
         Ok(Some(validate_call_info))
     }
 
+    fn enforce_fee(&self) -> bool {
+        self.max_fee() != Fee(0)
+    }
+
     /// Handles nonce, checks balance covers max fee, and (when applicable) runs the validation
     /// phase.
     /// Returns the `CallInfo` of the validation phase, if applicable.
@@ -199,20 +203,22 @@ impl AccountTransaction {
         Self::handle_nonce(&context.account_tx_context, state)?;
 
         // Check fee balance.
-        let (balance_low, balance_high) = state.get_fee_token_balance(
-            &context.block_context,
-            &context.account_tx_context.sender_address,
-        )?;
-        // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
-        //   should be updated.
-        if balance_high == StarkFelt::from(0_u8)
-            && balance_low < StarkFelt::from(context.account_tx_context.max_fee.0)
-        {
-            return Err(TransactionExecutionError::MaxFeeExceedsBalance {
-                max_fee: context.account_tx_context.max_fee,
-                balance_low,
-                balance_high,
-            });
+        if self.enforce_fee() {
+            let (balance_low, balance_high) = state.get_fee_token_balance(
+                &context.block_context,
+                &context.account_tx_context.sender_address,
+            )?;
+            // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
+            //   should be updated.
+            if balance_high == StarkFelt::from(0_u8)
+                && balance_low < StarkFelt::from(context.account_tx_context.max_fee.0)
+            {
+                return Err(TransactionExecutionError::MaxFeeExceedsBalance {
+                    max_fee: context.account_tx_context.max_fee,
+                    balance_low,
+                    balance_high,
+                });
+            }
         }
 
         // Validate transaction (if applicable).

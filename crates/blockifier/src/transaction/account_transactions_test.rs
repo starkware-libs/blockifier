@@ -43,6 +43,24 @@ fn create_state() -> CachedState<DictStateReader> {
 }
 
 #[test]
+fn test_fee_enforcement() {
+    let state = &mut create_state();
+    let block_context = &BlockContext::create_for_account_testing();
+
+    for max_fee_value in 0..2 {
+        let max_fee = Fee(max_fee_value);
+
+        let deploy_account_tx =
+            deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee, None, None);
+
+        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+        let enforce_fee = account_tx.enforce_fee();
+        let result = account_tx.execute(state, block_context);
+        assert_eq!(result.is_err(), enforce_fee);
+    }
+}
+
+#[test]
 fn test_account_flow_test() {
     let state = &mut create_state();
     let block_context = &BlockContext::create_for_account_testing();
