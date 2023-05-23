@@ -9,6 +9,9 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
 pub const TOKEN_FOR_TESTING_CLASS_HASH: &str = "0x30";
+pub const TOKEN_FOR_TESTING_ADDRESS: &str =
+    "0x362075710386a46fab02ac1eae27c1c50f8d7df88633672bb65403f1547911d";
+pub const TOKEN_FOR_TESTING_INITIAL_BALANCE: u128 = 1_000_000_000_000_000_000;
 // This package is run within the StarkWare repository build directory.
 pub const TOKEN_FOR_TESTING_CONTRACT_PATH: &str =
     "./src/starkware/starknet/core/test_contract/starknet_compiled_contracts_lib/starkware/\

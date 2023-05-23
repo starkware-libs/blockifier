@@ -2,9 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
+use blockifier::abi::abi_utils::get_erc20_balance_var_addresses;
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -21,18 +22,23 @@ use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
-    ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
+    ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
 };
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
     DeployAccountTransaction, Fee, InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1,
     TransactionHash, TransactionSignature, TransactionVersion,
 };
+use starknet_api::{patricia_key, stark_felt};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::papyrus_state::PapyrusStateReader;
 use crate::py_state_diff::PyStateDiff;
+use crate::py_test_utils::{
+    TOKEN_FOR_TESTING_ADDRESS, TOKEN_FOR_TESTING_CLASS_HASH, TOKEN_FOR_TESTING_CONTRACT_PATH,
+    TOKEN_FOR_TESTING_INITIAL_BALANCE,
+};
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
 use crate::storage::Storage;
@@ -347,6 +353,46 @@ impl PyTransactionExecutor {
         log::debug!("Initialized Transaction Executor.");
 
         build_result
+    }
+
+    /// Creates a transaction executor with the token-account contract declared, deployed and
+    /// funded.
+    #[staticmethod]
+    #[args(general_config, block_info, papyrus_storage)]
+    fn create_for_testing(
+        general_config: &PyAny,
+        block_info: &PyAny,
+        papyrus_storage: &Storage,
+    ) -> NativeBlockifierResult<Self> {
+        let mut py_executor = Self::create(general_config, block_info, papyrus_storage)?;
+        py_executor.with_mut(|executor| {
+            let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
+
+            let test_account_address = ContractAddress(patricia_key!(TOKEN_FOR_TESTING_ADDRESS));
+            let test_account_class_hash = ClassHash(stark_felt!(TOKEN_FOR_TESTING_CLASS_HASH));
+            let test_account_class: ContractClass =
+                ContractClassV0::from_file(TOKEN_FOR_TESTING_CONTRACT_PATH).into();
+
+            transactional_state
+                .set_contract_class(&test_account_class_hash, test_account_class)
+                .map_err(NativeBlockifierError::from)?;
+            transactional_state
+                .set_class_hash_at(test_account_address, test_account_class_hash)
+                .map_err(NativeBlockifierError::from)?;
+
+            // Set initial balance.
+            let (low_key, high_key) = get_erc20_balance_var_addresses(&test_account_address)?;
+            transactional_state.set_storage_at(test_account_address, high_key, stark_felt!(0_u8));
+            transactional_state.set_storage_at(
+                test_account_address,
+                low_key,
+                stark_felt!(TOKEN_FOR_TESTING_INITIAL_BALANCE),
+            );
+
+            transactional_state.commit();
+            Ok::<(), NativeBlockifierError>(())
+        })?;
+        Ok(py_executor)
     }
 
     /// Executes the given transaction on the state maintained by the executor.
