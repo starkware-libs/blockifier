@@ -191,7 +191,11 @@ impl CallInfo {
             .class_hash
             .expect("Class hash must be set after execution.")]);
 
-        for call in self.into_iter() {
+        // The first call in the iterator is self (it follows a pre-order traversal),
+        // which is added separately as the base case for the recursion.
+        let inner_calls = self.into_iter().skip(1);
+
+        for call in inner_calls {
             class_hashes.extend(call.get_executed_class_hashes());
         }
 
