@@ -407,6 +407,7 @@ dependencies = [
  "cairo-vm",
  "ctor 0.2.0",
  "derive_more",
+ "hex",
  "indexmap",
  "itertools",
  "log",

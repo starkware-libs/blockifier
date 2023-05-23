@@ -22,6 +22,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::abi::constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
@@ -75,6 +76,9 @@ impl From<SyscallExecutionError> for HintError {
         HintError::CustomHint(error.to_string())
     }
 }
+
+/// Error codes returned by Cairo 1.0 code.
+pub const OUT_OF_GAS: &str = "Out of gas";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -171,18 +175,34 @@ impl<'a> SyscallHintProcessor<'a> {
         self.increment_syscall_count(&selector);
 
         match selector {
-            SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
-            SyscallSelector::Deploy => self.execute_syscall(vm, deploy),
-            SyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
-            SyscallSelector::GetExecutionInfo => self.execute_syscall(vm, get_execution_info),
-            SyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
-            SyscallSelector::LibraryCallL1Handler => {
-                self.execute_syscall(vm, library_call_l1_handler)
+            SyscallSelector::CallContract => {
+                self.execute_syscall(vm, call_contract, constants::CALL_CONTRACT_GAS_COST)
             }
-            SyscallSelector::ReplaceClass => self.execute_syscall(vm, replace_class),
-            SyscallSelector::SendMessageToL1 => self.execute_syscall(vm, send_message_to_l1),
-            SyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
-            SyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
+            SyscallSelector::Deploy => self.execute_syscall(vm, deploy, constants::DEPLOY_GAS_COST),
+            SyscallSelector::EmitEvent => {
+                self.execute_syscall(vm, emit_event, constants::EMIT_EVENT_GAS_COST)
+            }
+            SyscallSelector::GetExecutionInfo => {
+                self.execute_syscall(vm, get_execution_info, constants::GET_EXECUTION_INFO_GAS_COST)
+            }
+            SyscallSelector::LibraryCall => {
+                self.execute_syscall(vm, library_call, constants::LIBRARY_CALL_GAS_COST)
+            }
+            SyscallSelector::LibraryCallL1Handler => {
+                self.execute_syscall(vm, library_call_l1_handler, constants::LIBRARY_CALL_GAS_COST)
+            }
+            SyscallSelector::ReplaceClass => {
+                self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
+            }
+            SyscallSelector::SendMessageToL1 => {
+                self.execute_syscall(vm, send_message_to_l1, constants::SEND_MESSAGE_TO_L1_GAS_COST)
+            }
+            SyscallSelector::StorageRead => {
+                self.execute_syscall(vm, storage_read, constants::STORAGE_READ_GAS_COST)
+            }
+            SyscallSelector::StorageWrite => {
+                self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
+            }
             _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {selector:?}."))),
         }
     }
@@ -205,6 +225,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
         execute_callback: ExecuteCallback,
+        base_gas_cost: u64,
     ) -> HintExecutionResult
     where
         Request: SyscallRequest + std::fmt::Debug,
@@ -218,13 +239,25 @@ impl<'a> SyscallHintProcessor<'a> {
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
-        let original_response = execute_callback(request, vm, self);
-        let response = match original_response {
-            Ok(response) => SyscallResponseWrapper::Success { gas_counter, response },
-            Err(SyscallExecutionError::SyscallError { error_data: data }) => {
-                SyscallResponseWrapper::Failure { gas_counter, error_data: data }
+        let response: SyscallResponseWrapper<Response> = if gas_counter < base_gas_cost.into() {
+            //  Out of gas failure.
+            let out_of_gas_error =
+                StarkFelt::try_from((format!("0x{}", hex::encode(OUT_OF_GAS))).as_str())
+                    .map_err(SyscallExecutionError::from)?;
+            SyscallResponseWrapper::Failure { gas_counter, error_data: vec![out_of_gas_error] }
+        } else {
+            // Execute.
+            let remaining_gas = gas_counter - Felt252::from(base_gas_cost);
+            let original_response = execute_callback(request, vm, self);
+            match original_response {
+                Ok(response) => {
+                    SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
+                }
+                Err(SyscallExecutionError::SyscallError { error_data: data }) => {
+                    SyscallResponseWrapper::Failure { gas_counter: remaining_gas, error_data: data }
+                }
+                Err(err) => return Err(err.into()),
             }
-            Err(err) => return Err(err.into()),
         };
 
         response.write(vm, &mut self.syscall_ptr)?;
