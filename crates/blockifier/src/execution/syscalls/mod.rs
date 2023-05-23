@@ -16,6 +16,7 @@ use self::hint_processor::{
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
     SyscallHintProcessor,
 };
+use crate::abi::constants;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
@@ -38,6 +39,10 @@ type SyscallSelector = DeprecatedSyscallSelector;
 
 pub trait SyscallRequest: Sized {
     fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>;
+
+    /// Returns the required gas for the given syscall minus the base amount that was pre-charged
+    /// (by the compiler): 100 * STEP_GAS_COST.
+    fn total_gas_cost() -> Felt252;
 }
 
 pub trait SyscallResponse {
@@ -54,6 +59,10 @@ impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
         let gas_counter = felt_from_ptr(vm, ptr)?;
         let request = T::read(vm, ptr)?;
         Ok(Self { gas_counter, request })
+    }
+
+    fn total_gas_cost() -> Felt252 {
+        T::total_gas_cost()
     }
 }
 
@@ -100,6 +109,10 @@ impl SyscallRequest for EmptyRequest {
     fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<EmptyRequest> {
         Ok(EmptyRequest)
     }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(10 * constants::STEP_GAS_COST)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -131,12 +144,17 @@ pub struct CallContractRequest {
     pub calldata: Calldata,
 }
 
+const CALL_CONTRACT_GAS_COST: u64 = 10 * constants::STEP_GAS_COST + constants::ENTRY_POINT_GAS_COST;
 impl SyscallRequest for CallContractRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
         let contract_address = ContractAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
+    }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(CALL_CONTRACT_GAS_COST)
     }
 }
 
@@ -186,6 +204,10 @@ impl SyscallRequest for DeployRequest {
             constructor_calldata,
             deploy_from_zero: felt_to_bool(deploy_from_zero)?,
         })
+    }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(200 * constants::STEP_GAS_COST + constants::ENTRY_POINT_GAS_COST)
     }
 }
 
@@ -254,6 +276,10 @@ impl SyscallRequest for EmitEventRequest {
 
         Ok(EmitEventRequest { content: EventContent { keys, data } })
     }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(10 * constants::STEP_GAS_COST)
+    }
 }
 
 type EmitEventResponse = EmptyResponse;
@@ -313,6 +339,10 @@ impl SyscallRequest for LibraryCallRequest {
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
     }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(CALL_CONTRACT_GAS_COST)
+    }
 }
 
 type LibraryCallResponse = CallContractResponse;
@@ -370,6 +400,10 @@ impl SyscallRequest for ReplaceClassRequest {
 
         Ok(ReplaceClassRequest { class_hash })
     }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(50 * constants::STEP_GAS_COST)
+    }
 }
 
 pub type ReplaceClassResponse = EmptyResponse;
@@ -402,6 +436,10 @@ impl SyscallRequest for SendMessageToL1Request {
         let payload = L2ToL1Payload(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
+    }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(50 * constants::STEP_GAS_COST)
     }
 }
 
@@ -440,6 +478,10 @@ impl SyscallRequest for StorageReadRequest {
         }
         let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address_domain, address })
+    }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(50 * constants::STEP_GAS_COST)
     }
 }
 
@@ -481,6 +523,10 @@ impl SyscallRequest for StorageWriteRequest {
         let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let value = stark_felt_from_ptr(vm, ptr)?;
         Ok(StorageWriteRequest { address_domain, address, value })
+    }
+
+    fn total_gas_cost() -> Felt252 {
+        Felt252::from(50 * constants::STEP_GAS_COST)
     }
 }
 

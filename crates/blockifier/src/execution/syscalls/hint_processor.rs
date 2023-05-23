@@ -76,6 +76,9 @@ impl From<SyscallExecutionError> for HintError {
     }
 }
 
+/// Error codes returned by Cairo 1.0 code.
+pub const OUT_OF_GAS: &str = "Out of gas";
+
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
@@ -218,13 +221,27 @@ impl<'a> SyscallHintProcessor<'a> {
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
-        let original_response = execute_callback(request, vm, self);
-        let response = match original_response {
-            Ok(response) => SyscallResponseWrapper::Success { gas_counter, response },
-            Err(SyscallExecutionError::SyscallError { error_data: data }) => {
-                SyscallResponseWrapper::Failure { gas_counter, error_data: data }
+        let required_gas = SyscallRequestWrapper::<Request>::total_gas_cost();
+
+        let response: SyscallResponseWrapper<Response> = if gas_counter < required_gas {
+            //  Out of gas failure.
+            let out_of_gas_error =
+                StarkFelt::try_from((format!("0x{}", hex::encode(OUT_OF_GAS))).as_str())
+                    .map_err(SyscallExecutionError::from)?;
+            SyscallResponseWrapper::Failure { gas_counter, error_data: vec![out_of_gas_error] }
+        } else {
+            // Execute.
+            let remaining_gas = gas_counter - required_gas;
+            let original_response = execute_callback(request, vm, self);
+            match original_response {
+                Ok(response) => {
+                    SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
+                }
+                Err(SyscallExecutionError::SyscallError { error_data: data }) => {
+                    SyscallResponseWrapper::Failure { gas_counter: remaining_gas, error_data: data }
+                }
+                Err(err) => return Err(err.into()),
             }
-            Err(err) => return Err(err.into()),
         };
 
         response.write(vm, &mut self.syscall_ptr)?;
