@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -98,13 +98,29 @@ pub fn py_block_context(
             starknet_os_config,
             "fee_token_address",
         )?)?,
-        vm_resource_fee_cost: py_attr(general_config, "cairo_resource_fee_weights")?,
+        vm_resource_fee_cost: process_cairo_resource_fee_weights(general_config)?,
         gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
         validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
     };
 
     Ok(block_context)
+}
+
+fn process_cairo_resource_fee_weights(
+    general_config: &PyAny,
+) -> Result<HashMap<String, f64>, NativeBlockifierError> {
+    let cairo_resource_fee_weights: HashMap<String, f64> =
+        py_attr(general_config, "cairo_resource_fee_weights")?;
+
+    // Remove the suffix "_builtin" from the keys, if exists.
+    // FIXME: This should be fixed in python though...
+    let cairo_resource_fee_weights = cairo_resource_fee_weights
+        .into_iter()
+        .map(|(k, v)| (k.trim_end_matches("_builtin").to_string(), v))
+        .collect();
+
+    Ok(cairo_resource_fee_weights)
 }
 
 pub fn py_declare(
