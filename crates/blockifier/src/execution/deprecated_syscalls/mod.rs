@@ -1,5 +1,6 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use serde::Deserialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -18,6 +19,7 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
+use crate::abi::constants;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -55,6 +57,42 @@ pub enum DeprecatedSyscallSelector {
     SendMessageToL1,
     StorageRead,
     StorageWrite,
+}
+
+impl DeprecatedSyscallSelector {
+    /// Returns the required gas for the given syscall minus the base amount that was pre-charged
+    /// (by the compiler): 100 * STEP_GAS_COST.
+    pub fn base_gas_cost(&self) -> Result<Felt252, HintError> {
+        let call_contract_gas_cost =
+            Felt252::from(10 * constants::STEP_GAS_COST + constants::ENTRY_POINT_GAS_COST);
+        match self {
+            DeprecatedSyscallSelector::CallContract => Ok(call_contract_gas_cost),
+            DeprecatedSyscallSelector::Deploy => {
+                Ok(Felt252::from(200 * constants::STEP_GAS_COST + constants::ENTRY_POINT_GAS_COST))
+            }
+            DeprecatedSyscallSelector::EmitEvent => {
+                Ok(Felt252::from(10 * constants::STEP_GAS_COST))
+            }
+            DeprecatedSyscallSelector::GetExecutionInfo => {
+                Ok(Felt252::from(10 * constants::STEP_GAS_COST))
+            }
+            DeprecatedSyscallSelector::LibraryCall => Ok(call_contract_gas_cost),
+            DeprecatedSyscallSelector::LibraryCallL1Handler => Ok(call_contract_gas_cost),
+            DeprecatedSyscallSelector::ReplaceClass => {
+                Ok(Felt252::from(50 * constants::STEP_GAS_COST))
+            }
+            DeprecatedSyscallSelector::SendMessageToL1 => {
+                Ok(Felt252::from(50 * constants::STEP_GAS_COST))
+            }
+            DeprecatedSyscallSelector::StorageRead => {
+                Ok(Felt252::from(50 * constants::STEP_GAS_COST))
+            }
+            DeprecatedSyscallSelector::StorageWrite => {
+                Ok(Felt252::from(50 * constants::STEP_GAS_COST))
+            }
+            _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {self:?}."))),
+        }
+    }
 }
 
 impl TryFrom<StarkFelt> for DeprecatedSyscallSelector {
