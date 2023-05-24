@@ -59,7 +59,7 @@ impl AccountTransaction {
     // `get_tx_info()`.
     fn validate_entrypoint_calldata(&self) -> Calldata {
         match self {
-            Self::Declare(tx) => calldata![tx.tx.class_hash().0],
+            Self::Declare(tx) => calldata![tx.tx().class_hash().0],
             Self::DeployAccount(tx) => {
                 let validate_calldata = concat(vec![
                     vec![tx.class_hash.0, tx.contract_address_salt.0],
@@ -75,7 +75,7 @@ impl AccountTransaction {
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
             Self::Declare(tx) => {
-                let tx = &tx.tx;
+                let tx = &tx.tx();
                 AccountTransactionContext {
                     transaction_hash: tx.transaction_hash(),
                     max_fee: tx.max_fee(),
