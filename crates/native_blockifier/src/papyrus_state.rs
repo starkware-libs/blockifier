@@ -18,7 +18,7 @@ type RawPapyrusStateReader<'env> = papyrus_storage::state::StateReader<'env, RO>
 
 pub struct PapyrusReader<'env> {
     state: PapyrusStateReader<'env>,
-    _contracts: PapyrusExecutableClassReader<'env>,
+    _contract_classes: PapyrusExecutableClassReader<'env>,
 }
 
 impl<'env> PapyrusReader<'env> {
@@ -26,8 +26,8 @@ impl<'env> PapyrusReader<'env> {
         storage_tx: &'env papyrus_storage::StorageTxn<'env, RO>,
         state_reader: PapyrusStateReader<'env>,
     ) -> Self {
-        let _contracts = PapyrusExecutableClassReader::new(storage_tx);
-        Self { state: state_reader, _contracts }
+        let _contract_classes = PapyrusExecutableClassReader::new(storage_tx);
+        Self { state: state_reader, _contract_classes }
     }
 
     pub fn state_reader(&mut self) -> &RawPapyrusStateReader<'env> {
