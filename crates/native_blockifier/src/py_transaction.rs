@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
+use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::State;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -13,7 +14,6 @@ use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::{
     DeclareTransaction, ExecutableTransaction, L1HandlerTransaction,
 };
-use blockifier::utils::{get_contract_class_v0, get_contract_class_v1};
 use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
@@ -247,10 +247,10 @@ pub fn py_tx(
             let contract_class = match tx {
                 starknet_api::transaction::DeclareTransaction::V0(_)
                 | starknet_api::transaction::DeclareTransaction::V1(_) => {
-                    get_contract_class_v0(raw_contract_class)?.into()
+                    ContractClassV0::try_from_json_string(raw_contract_class)?.into()
                 }
                 starknet_api::transaction::DeclareTransaction::V2(_) => {
-                    get_contract_class_v1(raw_contract_class)?.into()
+                    ContractClassV1::try_from_json_string(raw_contract_class)?.into()
                 }
             };
 

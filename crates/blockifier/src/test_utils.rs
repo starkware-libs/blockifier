@@ -152,16 +152,6 @@ pub fn get_raw_contract_class(contract_path: &str) -> String {
     fs::read_to_string(path).unwrap()
 }
 
-pub fn get_contract_class_v1(contract_path: &str) -> ContractClassV1 {
-    let raw_contract_class = get_raw_contract_class(contract_path);
-    crate::utils::get_contract_class_v1(&raw_contract_class).unwrap()
-}
-
-pub fn get_contract_class_v0(contract_path: &str) -> ContractClassV0 {
-    let raw_contract_class = get_raw_contract_class(contract_path);
-    crate::utils::get_contract_class_v0(&raw_contract_class).unwrap()
-}
-
 pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
     let contract = fs::read_to_string(path).unwrap();
@@ -177,7 +167,7 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
 }
 
 pub fn get_test_contract_class() -> ContractClass {
-    get_contract_class_v0(TEST_CONTRACT_PATH).into()
+    ContractClassV0::from_file(TEST_CONTRACT_PATH).into()
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
@@ -203,14 +193,17 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
 
 fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
     HashMap::from([
-        (ClassHash(stark_felt!(TEST_CLASS_HASH)), get_contract_class_v0(TEST_CONTRACT_PATH).into()),
+        (
+            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+            ContractClassV0::from_file(TEST_CONTRACT_PATH).into(),
+        ),
         (
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
-            get_contract_class_v0(SECURITY_TEST_CONTRACT_PATH).into(),
+            ContractClassV0::from_file(SECURITY_TEST_CONTRACT_PATH).into(),
         ),
         (
             ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
-            get_contract_class_v0(TEST_EMPTY_CONTRACT_PATH).into(),
+            ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH).into(),
         ),
     ])
 }
@@ -219,11 +212,11 @@ fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
     HashMap::from([
         (
             ClassHash(stark_felt!(TEST_CLASS_HASH)),
-            get_contract_class_v1(TEST_CONTRACT_CAIRO1_PATH).into(),
+            ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
         ),
         (
             ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
-            get_contract_class_v1(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
+            ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
         ),
     ])
 }
@@ -452,4 +445,18 @@ pub fn validate_tx_execution_info(
     compare_optional_call_infos(actual.fee_transfer_call_info, expected.fee_transfer_call_info);
     assert_eq!(actual.actual_fee, expected.actual_fee);
     assert_eq!(actual.actual_resources, expected.actual_resources);
+}
+
+impl ContractClassV0 {
+    pub fn from_file(contract_path: &str) -> ContractClassV0 {
+        let raw_contract_class = get_raw_contract_class(contract_path);
+        Self::try_from_json_string(&raw_contract_class).unwrap()
+    }
+}
+
+impl ContractClassV1 {
+    pub fn from_file(contract_path: &str) -> ContractClassV1 {
+        let raw_contract_class = get_raw_contract_class(contract_path);
+        Self::try_from_json_string(&raw_contract_class).unwrap()
+    }
 }
