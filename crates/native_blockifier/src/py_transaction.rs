@@ -35,7 +35,7 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlo
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
-use crate::storage::Storage;
+use crate::storage::{Something, Storage};
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
@@ -460,6 +460,8 @@ pub fn into_py_executed_compiled_class_hashes(
         // TODO: understand if this is a Sierra hash; if so, add the corresponding compiled class
         // hash to set.
     }
+
+    let _a = Something;
 
     executed_compiled_class_hashes.iter().map(|class_hash| PyFelt::from(*class_hash)).collect()
 }

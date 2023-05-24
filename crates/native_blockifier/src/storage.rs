@@ -189,3 +189,5 @@ impl Storage {
         self.writer.as_mut().expect("Storage should be initialized.")
     }
 }
+
+pub struct Something;
