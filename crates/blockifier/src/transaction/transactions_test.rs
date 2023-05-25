@@ -43,11 +43,12 @@ use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction, declare_tx_default};
-use crate::transaction::transactions::{
+use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::transaction::transaction_utils::{
     create_state_with_trivial_validation_account,
     create_account_tx_test_state,
     declare_tx,
+    declare_tx_default,
 };
 
 // Corresponding constants to the ones in faulty_account.
@@ -427,7 +428,6 @@ fn test_negative_invoke_tx_flows() {
         (valid_invoke_tx.sender_address, Nonce::default(), invalid_nonce)
     );
 }
-
 
 #[test]
 fn test_declare_tx() {
