@@ -224,7 +224,7 @@ impl<'a> SyscallHintProcessor<'a> {
             Err(SyscallExecutionError::SyscallError { error_data: data }) => {
                 SyscallResponseWrapper::Failure { gas_counter, error_data: data }
             }
-            Err(err) => return Err(err.into()),
+            Err(error) => return Err(error.into()),
         };
 
         response.write(vm, &mut self.syscall_ptr)?;

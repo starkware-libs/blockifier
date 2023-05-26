@@ -1,3 +1,4 @@
+use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::transaction_types::TransactionType;
 use cairo_vm::types::errors::program_errors::ProgramError;
@@ -61,6 +62,7 @@ native_blockifier_errors!(
     (Pyo3Error, PyErr, PyPyo3Error),
     (SerdeError, serde_json::Error, PySerdeError),
     (StarknetApiError, StarknetApiError, PyStarknetApiError),
+    (StateError, StateError, PyStateError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
     (StorageError, papyrus_storage::StorageError, PyStorageError)
 );
