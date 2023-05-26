@@ -1,32 +1,29 @@
 use std::collections::HashMap;
 
-use crate::abi::constants;
-use crate::execution::entry_point::{CallInfo, ExecutionResources};
-use crate::fee::gas_usage::calculate_tx_gas_usage;
-use crate::fee::os_usage::get_additional_os_resources;
-use crate::state::cached_state::TransactionalState;
-use crate::state::state_api::StateReader;
-use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
-use crate::transaction::transaction_types::TransactionType;
-use starknet_api::core::ContractAddress;
-use crate::block_context::BlockContext;
-use crate::state::cached_state::CachedState;
-use starknet_api::transaction::Fee;
-
-use starknet_api::core::{ClassHash, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
+use starknet_api::transaction::Fee;
 use starknet_api::{patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
+use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClassV0;
+use crate::execution::entry_point::{CallInfo, ExecutionResources};
+use crate::fee::gas_usage::calculate_tx_gas_usage;
+use crate::fee::os_usage::get_additional_os_resources;
+use crate::state::cached_state::{CachedState, TransactionalState};
+use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    test_erc20_account_balance_key, DictStateReader,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
-    TEST_ERC20_CONTRACT_CLASS_HASH, MAX_FEE, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    test_erc20_account_balance_key, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
+    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_ERC20_CONTRACT_CLASS_HASH,
 };
+use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::transaction_types::TransactionType;
 
 const FEE_TRANSFER_N_STORAGE_CHANGES: u8 = 2; // Sender and sequencer balance update.
 // Exclude the sequencer balance update, since it's charged once throughout the batch.
@@ -131,7 +128,6 @@ pub fn create_account_tx_test_state(
     })
 }
 
-
 pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
@@ -143,9 +139,7 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
     )
 }
 
-use starknet_api::transaction::{
-    DeclareTransactionV0V1, TransactionSignature,
-};
+use starknet_api::transaction::{DeclareTransactionV0V1, TransactionSignature};
 
 pub fn declare_tx(
     class_hash: &str,
