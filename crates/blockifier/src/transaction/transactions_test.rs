@@ -440,12 +440,10 @@ fn test_declare_tx() {
 
     let contract_class = ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH));
 
-    let dtx = DeclareTransaction {
+    let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         contract_class: contract_class.clone(),
-    };
-    
-    let account_tx = AccountTransaction::Declare(dtx);
+    });
 
     // Check state before transaction application.
     assert_matches!(
