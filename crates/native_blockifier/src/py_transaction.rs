@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
-use blockifier::state::state_api::State;
+use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -280,6 +280,17 @@ pub fn py_tx(
 }
 
 #[pyclass]
+#[derive(Clone)]
+pub struct PyContractClassSizes {
+    #[pyo3(get)]
+    pub bytecode_length: usize,
+    #[pyo3(get)]
+    // For a Cairo 1.0 contract class, builtins are an attribute of an entry point,
+    // and not of the entire class.
+    pub n_builtins: Option<usize>,
+}
+
+#[pyclass]
 // To access a field you must use `self.borrow_{field_name}()`.
 // Alternately, you can borrow the whole object using `self.with[_mut]()`.
 #[ouroboros::self_referencing]
@@ -359,7 +370,10 @@ impl PyTransactionExecutor {
         raw_contract_class: Option<&str>,
         // This is functools.partial(bouncer.add, tw_written=tx_written).
         enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, HashSet<PyFelt>)> {
+    ) -> NativeBlockifierResult<(
+        Py<PyTransactionExecutionInfo>,
+        HashMap<PyFelt, PyContractClassSizes>,
+    )> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
@@ -397,10 +411,10 @@ impl PyTransactionExecutor {
             match has_enough_room_for_tx {
                 Ok(_) => {
                     transactional_state.commit();
-                    let py_executed_compiled_class_hashes = into_py_executed_compiled_class_hashes(
+                    let py_executed_compiled_class_hashes = into_py_contract_class_sizes_mapping(
                         executor.state,
                         executed_class_hashes,
-                    );
+                    )?;
                     Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
                 }
                 // Unexpected error, abort and let caller know.
@@ -411,10 +425,10 @@ impl PyTransactionExecutor {
                 // Not enough room in batch, abort and let caller verify on its own.
                 Err(_not_enough_weight_error) => {
                     transactional_state.abort();
-                    let py_executed_compiled_class_hashes = into_py_executed_compiled_class_hashes(
+                    let py_executed_compiled_class_hashes = into_py_contract_class_sizes_mapping(
                         executor.state,
                         executed_class_hashes,
-                    );
+                    )?;
                     Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
                 }
             }
@@ -437,16 +451,31 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 }
 
 /// Maps Sierra class hashes to their corresponding compiled class hash.
-pub fn into_py_executed_compiled_class_hashes(
-    _state: &mut CachedState<PapyrusStateReader<'_>>,
+pub fn into_py_contract_class_sizes_mapping(
+    state: &mut CachedState<PapyrusStateReader<'_>>,
     executed_class_hashes: HashSet<ClassHash>,
-) -> HashSet<PyFelt> {
-    let executed_compiled_class_hashes = HashSet::<ClassHash>::new();
+) -> NativeBlockifierResult<HashMap<PyFelt, PyContractClassSizes>> {
+    let mut executed_compiled_class_sizes = HashMap::<PyFelt, PyContractClassSizes>::new();
 
-    for _class_hash in executed_class_hashes {
-        // TODO: understand if this is a Sierra hash; if so, add the corresponding compiled class
-        // hash to set.
+    for class_hash in executed_class_hashes {
+        // If this is a Sierra hash, add the corresponding compiled class hash to set.
+        match state.get_compiled_contract_class(&class_hash) {
+            Ok(class) => {
+                let sizes = match class {
+                    ContractClass::V0(class) => PyContractClassSizes {
+                        bytecode_length: class.program.data.len(),
+                        n_builtins: Some(class.program.builtins.len()),
+                    },
+                    ContractClass::V1(class) => PyContractClassSizes {
+                        bytecode_length: class.program.data.len(),
+                        n_builtins: None,
+                    },
+                };
+                executed_compiled_class_sizes.insert(PyFelt::from(class_hash), sizes)
+            }
+            Err(error) => return Err(error.into()),
+        };
     }
 
-    executed_compiled_class_hashes.iter().map(|class_hash| PyFelt::from(*class_hash)).collect()
+    Ok(executed_compiled_class_sizes)
 }
