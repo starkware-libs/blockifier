@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
-use blockifier::state::state_api::State;
+use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -400,7 +400,7 @@ impl PyTransactionExecutor {
                     let py_executed_compiled_class_hashes = into_py_executed_compiled_class_hashes(
                         executor.state,
                         executed_class_hashes,
-                    );
+                    )?;
                     Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
                 }
                 // Unexpected error, abort and let caller know.
@@ -414,7 +414,7 @@ impl PyTransactionExecutor {
                     let py_executed_compiled_class_hashes = into_py_executed_compiled_class_hashes(
                         executor.state,
                         executed_class_hashes,
-                    );
+                    )?;
                     Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
                 }
             }
@@ -438,15 +438,24 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 
 /// Maps Sierra class hashes to their corresponding compiled class hash.
 pub fn into_py_executed_compiled_class_hashes(
-    _state: &mut CachedState<PapyrusStateReader<'_>>,
+    state: &mut CachedState<PapyrusStateReader<'_>>,
     executed_class_hashes: HashSet<ClassHash>,
-) -> HashSet<PyFelt> {
-    let executed_compiled_class_hashes = HashSet::<ClassHash>::new();
+) -> NativeBlockifierResult<HashSet<PyFelt>> {
+    let mut executed_compiled_class_hashes = HashSet::<PyFelt>::new();
 
-    for _class_hash in executed_class_hashes {
-        // TODO: understand if this is a Sierra hash; if so, add the corresponding compiled class
-        // hash to set.
+    for class_hash in executed_class_hashes {
+        // If this is a Sierra hash, add the corresponding compiled class hash to set.
+        match state.get_compiled_contract_class(&class_hash) {
+            Ok(ContractClass::V0(_)) => {
+                executed_compiled_class_hashes.insert(PyFelt::from(class_hash))
+            }
+            Ok(ContractClass::V1(_)) => {
+                let compiled_class_hash = state.get_compiled_class_hash(class_hash)?;
+                executed_compiled_class_hashes.insert(PyFelt::from(compiled_class_hash))
+            }
+            Err(error) => return Err(error.into()),
+        };
     }
 
-    executed_compiled_class_hashes.iter().map(|class_hash| PyFelt::from(*class_hash)).collect()
+    Ok(executed_compiled_class_hashes)
 }
