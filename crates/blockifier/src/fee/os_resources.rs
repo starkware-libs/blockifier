@@ -16,21 +16,21 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 19
                 },
                 "n_memory_holes": 0,
-                "n_steps": 677
+                "n_steps": 690
             },
             "DelegateCall": {
                 "builtin_instance_counter": {
                     "range_check": 19
                 },
                 "n_memory_holes": 0,
-                "n_steps": 699
+                "n_steps": 712
             },
             "DelegateL1Handler": {
                 "builtin_instance_counter": {
                     "range_check": 15
                 },
                 "n_memory_holes": 0,
-                "n_steps": 678
+                "n_steps": 691
             },
             "Deploy": {
                 "builtin_instance_counter": {
@@ -38,7 +38,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 18
                 },
                 "n_memory_holes": 0,
-                "n_steps": 920
+                "n_steps": 936
             },
             "EmitEvent": {
                 "builtin_instance_counter": {},
@@ -90,14 +90,14 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 19
                 },
                 "n_memory_holes": 0,
-                "n_steps": 666
+                "n_steps": 679
             },
             "LibraryCallL1Handler": {
                 "builtin_instance_counter": {
                     "range_check": 15
                 },
                 "n_memory_holes": 0,
-                "n_steps": 645
+                "n_steps": 658
             },
             "ReplaceClass": {
                 "builtin_instance_counter": {},
@@ -127,7 +127,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 63
                 },
                 "n_memory_holes": 0,
-                "n_steps": 2676
+                "n_steps": 2703
             },
             "DeployAccount": {
                 "builtin_instance_counter": {
@@ -135,7 +135,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 83
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3571
+                "n_steps": 3612
             },
             "InvokeFunction": {
                 "builtin_instance_counter": {
@@ -143,7 +143,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 80,
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3323
+                "n_steps": 3363
             },
             "L1Handler": {
                 "builtin_instance_counter": {
@@ -151,7 +151,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check": 17
                 },
                 "n_memory_holes": 0,
-                "n_steps": 1054
+                "n_steps": 1068
             }
         }
     })

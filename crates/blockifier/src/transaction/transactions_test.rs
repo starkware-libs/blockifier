@@ -328,7 +328,7 @@ fn test_invoke_tx() {
             (abi_constants::GAS_USAGE.to_string(), 1224),
             ("pedersen".to_string(), 16),
             ("range_check".to_string(), 101),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 4082),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 4135),
         ])),
     };
 
@@ -503,7 +503,7 @@ fn test_declare_tx() {
             (abi_constants::GAS_USAGE.to_string(), 1224),
             ("pedersen".to_string(), 15),
             ("range_check".to_string(), 63),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 2688),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
         ])),
     };
 
@@ -619,7 +619,7 @@ fn test_deploy_account_tx() {
             (abi_constants::GAS_USAGE.to_string(), 3060),
             ("pedersen".to_string(), 23),
             ("range_check".to_string(), 83),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 3584),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
         ])),
     };
 
