@@ -5,10 +5,10 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EthAddress, EventContent, Fee, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, N_STEPS_RESOURCE};
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -64,9 +64,36 @@ pub struct ExecutionContext {
     pub n_sent_messages_to_l1: usize,
     /// Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
+    /// If not None, used to track number of allowed Cairo steps for the current execution.
+    pub max_steps: Option<usize>,
 }
 impl ExecutionContext {
+    fn n_steps_bound(
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> Option<usize> {
+        if account_tx_context.max_fee == Fee(0) {
+            None
+        } else {
+            // At most 4 million steps.
+            let global_max_steps = 4_000_000_usize;
+            let gas_per_step = block_context
+                .vm_resource_fee_cost
+                .get(N_STEPS_RESOURCE)
+                .expect(format!("{} must be in vm_resource_fee_cost.", N_STEPS_RESOURCE).as_str());
+            let max_gas = account_tx_context.max_fee.0 / block_context.gas_price;
+            let max_steps = (max_gas as f64 / gas_per_step).floor();
+            Some(if max_steps > global_max_steps as f64 {
+                global_max_steps
+            } else {
+                // Conversion is safe since we already checked that max_steps is upper bounded.
+                max_steps as usize
+            })
+        }
+    }
+
     pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
+        let max_steps = Self::n_steps_bound(&block_context, &account_tx_context);
         Self {
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
@@ -74,6 +101,7 @@ impl ExecutionContext {
             block_context,
             resources: ExecutionResources::default(),
             account_tx_context,
+            max_steps,
         }
     }
 }
