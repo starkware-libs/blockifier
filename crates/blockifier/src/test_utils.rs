@@ -19,6 +19,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
+use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -315,6 +316,10 @@ impl CallEntryPoint {
 }
 
 impl BlockContext {
+    fn vm_resource_fee_cost_for_testing() -> HashMap<String, f64> {
+        HashMap::from([(String::from(N_STEPS_RESOURCE), 1_f64)])
+    }
+
     pub fn create_for_testing() -> BlockContext {
         BlockContext {
             chain_id: ChainId("SN_GOERLI".to_string()),
@@ -322,7 +327,7 @@ impl BlockContext {
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
-            vm_resource_fee_cost: HashMap::default(),
+            vm_resource_fee_cost: Self::vm_resource_fee_cost_for_testing(),
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
@@ -330,8 +335,8 @@ impl BlockContext {
     }
 
     pub fn create_for_account_testing() -> BlockContext {
-        let vm_resource_fee_cost = HashMap::from([
-            (String::from("n_steps"), 1_f64),
+        let mut vm_resource_fee_cost = Self::vm_resource_fee_cost_for_testing();
+        vm_resource_fee_cost.extend([
             (String::from("pedersen"), 1_f64),
             (String::from("range_check"), 1_f64),
             (String::from("ecdsa"), 1_f64),
