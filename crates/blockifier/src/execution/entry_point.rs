@@ -5,10 +5,10 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EthAddress, EventContent, Fee, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, MAX_STEPS_PER_TX, N_STEPS_RESOURCE};
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -74,6 +74,27 @@ impl ExecutionContext {
             block_context,
             resources: ExecutionResources::default(),
             account_tx_context,
+        }
+    }
+
+    /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
+    /// If fee is disabled, returns None.
+    pub fn max_steps(&self) -> Option<usize> {
+        if self.account_tx_context.max_fee == Fee(0) {
+            None
+        } else {
+            let gas_per_step =
+                self.block_context.vm_resource_fee_cost.get(N_STEPS_RESOURCE).unwrap_or_else(
+                    || panic!("{} must be in vm_resource_fee_cost.", N_STEPS_RESOURCE),
+                );
+            let max_gas = self.account_tx_context.max_fee.0 / self.block_context.gas_price;
+            let max_steps = (max_gas as f64 / gas_per_step).floor();
+            Some(if max_steps > MAX_STEPS_PER_TX as f64 {
+                MAX_STEPS_PER_TX
+            } else {
+                // Conversion is safe since we already checked that max_steps is upper bounded.
+                max_steps as usize
+            })
         }
     }
 }
