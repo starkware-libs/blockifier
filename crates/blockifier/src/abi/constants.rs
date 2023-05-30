@@ -32,6 +32,7 @@ pub const N_STEPS_RESOURCE: &str = "n_steps";
 // Gas Cost.
 // See documentation in core/os/constants.cairo.
 pub const STEP_GAS_COST: u64 = 100;
+pub const INITIAL_GAS_COST: u64 = 10_u64.pow(8) * STEP_GAS_COST;
 // Compiler gas costs.
 pub const ENTRY_POINT_INITIAL_BUDGET: u64 = 100 * STEP_GAS_COST;
 // OS gas costs.

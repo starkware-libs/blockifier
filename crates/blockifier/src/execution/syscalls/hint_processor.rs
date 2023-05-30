@@ -446,7 +446,11 @@ pub fn execute_inner_call(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
+    let call_info = call.execute(
+        syscall_handler.state,
+        syscall_handler.context,
+        &constants::INITIAL_GAS_COST.into(),
+    )?;
     let raw_retdata = &call_info.execution.retdata.0;
 
     if call_info.execution.failed {

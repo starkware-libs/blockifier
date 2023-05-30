@@ -8,6 +8,7 @@ use starknet_api::transaction::{
 };
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -169,7 +170,7 @@ impl AccountTransaction {
         };
 
         let validate_call_info = validate_call
-            .execute(state, context)
+            .execute(state, context, &abi_constants::INITIAL_GAS_COST.into())
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
@@ -227,7 +228,7 @@ impl AccountTransaction {
             call_type: CallType::Call,
         };
 
-        Ok(fee_transfer_call.execute(state, context)?)
+        Ok(fee_transfer_call.execute(state, context, &abi_constants::INITIAL_GAS_COST.into())?)
     }
 }
 
