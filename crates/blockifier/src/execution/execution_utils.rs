@@ -12,7 +12,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
@@ -20,7 +20,7 @@ use starknet_api::transaction::Calldata;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallInfo, EntryPointExecutionResult,
-    ExecutionContext, Retdata,
+    ExecutionContext, Retdata, TransactionContext,
 };
 use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};
@@ -184,31 +184,29 @@ impl ReadOnlySegments {
 pub fn execute_deployment(
     state: &mut dyn State,
     context: &mut ExecutionContext,
-    class_hash: ClassHash,
-    deployed_contract_address: ContractAddress,
-    deployer_address: ContractAddress,
+    tx_context: TransactionContext,
     constructor_calldata: Calldata,
-    is_deploy_account_tx: bool,
+    remaining_gas: Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
+    let deployed_contract_address = tx_context.storage_address;
     let current_class_hash = state.get_class_hash_at(deployed_contract_address)?;
     if current_class_hash != ClassHash::default() {
         return Err(StateError::UnavailableContractAddress(deployed_contract_address).into());
     }
 
-    state.set_class_hash_at(deployed_contract_address, class_hash)?;
+    state.set_class_hash_at(deployed_contract_address, tx_context.class_hash)?;
 
-    let code_address = if is_deploy_account_tx { None } else { Some(deployed_contract_address) };
-    execute_constructor_entry_point(
+    let call_info = execute_constructor_entry_point(
         state,
         context,
-        class_hash,
-        code_address,
-        deployed_contract_address,
-        deployer_address,
+        tx_context,
         constructor_calldata,
-    )
+        remaining_gas,
+    )?;
+
+    Ok(call_info)
 }
 
 pub fn write_stark_felt(
