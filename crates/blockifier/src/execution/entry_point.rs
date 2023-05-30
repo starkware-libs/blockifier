@@ -49,6 +49,13 @@ pub struct CallEntryPoint {
     pub initial_gas: Felt252,
 }
 
+pub struct TransactionContext {
+    pub class_hash: ClassHash,
+    pub code_address: Option<ContractAddress>,
+    pub storage_address: ContractAddress,
+    pub caller_address: ContractAddress,
+}
+
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
@@ -286,47 +293,38 @@ impl<'a> IntoIterator for &'a CallInfo {
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
     context: &mut ExecutionContext,
-    class_hash: ClassHash,
-    code_address: Option<ContractAddress>,
-    storage_address: ContractAddress,
-    caller_address: ContractAddress,
+    tx_context: TransactionContext,
     calldata: Calldata,
+    remaining_gas: Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_compiled_contract_class(&class_hash)?;
+    let contract_class = state.get_compiled_contract_class(&tx_context.class_hash)?;
     let Some(constructor_selector) = contract_class.constructor_selector() else {
         // Contract has no constructor.
         return handle_empty_constructor(
-            class_hash,
-            code_address,
+            tx_context,
             calldata,
-            storage_address,
-            caller_address,
         );
     };
 
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     let constructor_call = CallEntryPoint {
         class_hash: None,
-        code_address,
+        code_address: tx_context.code_address,
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_selector,
         calldata,
-        storage_address,
-        caller_address,
+        storage_address: tx_context.storage_address,
+        caller_address: tx_context.caller_address,
         call_type: CallType::Call,
-        initial_gas,
+        initial_gas: remaining_gas,
     };
 
     constructor_call.execute(state, context)
 }
 
 pub fn handle_empty_constructor(
-    class_hash: ClassHash,
-    code_address: Option<ContractAddress>,
+    tx_context: TransactionContext,
     calldata: Calldata,
-    storage_address: ContractAddress,
-    caller_address: ContractAddress,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
     if !calldata.0.is_empty() {
@@ -338,13 +336,13 @@ pub fn handle_empty_constructor(
 
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPointInfo {
-            class_hash: Some(class_hash),
-            code_address,
+            class_hash: Some(tx_context.class_hash),
+            code_address: tx_context.code_address,
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),
-            storage_address,
-            caller_address,
+            storage_address: tx_context.storage_address,
+            caller_address: tx_context.caller_address,
             call_type: CallType::Call,
         },
         ..Default::default()
