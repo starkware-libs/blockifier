@@ -20,7 +20,7 @@ use self::hint_processor::{
 };
 use crate::abi::constants;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallType, ConstructorContext, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
@@ -288,15 +288,19 @@ pub fn deploy(
         deployer_address_for_calculation,
     )?;
 
-    let is_deploy_account_tx = false;
+    let initial_gas = constants::INITIAL_GAS_COST.into();
+    let constructor_context = ConstructorContext {
+        class_hash: request.class_hash,
+        code_address: Some(deployed_contract_address),
+        storage_address: deployed_contract_address,
+        caller_address: deployer_address,
+    };
     let call_info = execute_deployment(
         syscall_handler.state,
         syscall_handler.context,
-        request.class_hash,
-        deployed_contract_address,
-        deployer_address,
+        constructor_context,
         request.constructor_calldata,
-        is_deploy_account_tx,
+        initial_gas,
     )?;
     syscall_handler.inner_calls.push(call_info);
 

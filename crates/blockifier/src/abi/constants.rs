@@ -43,6 +43,9 @@ pub const INITIAL_GAS_COST: u64 = 10_u64.pow(8) * STEP_GAS_COST;
 pub const ENTRY_POINT_INITIAL_BUDGET: u64 = 100 * STEP_GAS_COST;
 // OS gas costs.
 pub const ENTRY_POINT_GAS_COST: u64 = ENTRY_POINT_INITIAL_BUDGET + 500 * STEP_GAS_COST;
+pub const FEE_TRANSFER_GAS_COST: u64 = ENTRY_POINT_GAS_COST + 100 * STEP_GAS_COST;
+pub const TRANSACTION_GAS_COST: u64 =
+    (2 * ENTRY_POINT_GAS_COST) + FEE_TRANSFER_GAS_COST + (100 * STEP_GAS_COST);
 // The required gas for each syscall minus the base amount that was pre-charged (by the compiler).
 pub const CALL_CONTRACT_GAS_COST: u64 = 10 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
 pub const DEPLOY_GAS_COST: u64 = 200 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;

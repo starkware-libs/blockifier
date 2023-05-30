@@ -42,6 +42,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
 
@@ -110,7 +111,7 @@ fn expected_validate_call_info(
         )]),
     };
 
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
+    let initial_gas = Transaction::initial_gas();
     Some(CallInfo {
         call: CallEntryPoint {
             class_hash: Some(class_hash),
@@ -587,7 +588,7 @@ fn test_deploy_account_tx() {
     );
 
     // Build expected execute call info.
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
+    let initial_gas = Transaction::initial_gas();
     let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
             class_hash: Some(expected_account_class_hash),
