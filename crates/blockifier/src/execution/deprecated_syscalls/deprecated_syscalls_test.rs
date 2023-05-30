@@ -111,7 +111,7 @@ fn test_nested_library_call() {
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        ..nested_storage_entry_point
+        ..nested_storage_entry_point.clone()
     };
     let storage_entry_point_vm_resources =
         VmExecutionResources { n_steps: 41, ..Default::default() };
