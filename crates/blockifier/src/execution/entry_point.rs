@@ -201,7 +201,6 @@ impl From<CallEntryPoint> for CallEntryPointInfo {
         }
     }
 }
-
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallInfo {
     pub call: CallEntryPointInfo,
