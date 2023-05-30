@@ -18,7 +18,7 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
-use crate::abi::constants;
+use crate::abi::constants as abi_constants;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -287,6 +287,7 @@ pub fn deploy(
     )?;
 
     let is_deploy_account_tx = false;
+    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
     let call_info = execute_deployment(
         syscall_handler.state,
         syscall_handler.context,
@@ -295,7 +296,7 @@ pub fn deploy(
         deployer_address,
         request.constructor_calldata,
         is_deploy_account_tx,
-        &constants::INITIAL_GAS_COST.into(),
+        &initial_gas,
     )?;
     syscall_handler.inner_calls.push(call_info);
 
