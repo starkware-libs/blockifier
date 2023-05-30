@@ -182,9 +182,8 @@ pub fn prepare_call_arguments(
         }
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
-    // TODO(spapini): Use the correct gas counter.
     // Push gas counter.
-    args.push(CairoArg::Single(10000000000.into()));
+    args.push(CairoArg::Single((&call.initial_gas).into()));
     // Push syscall ptr.
     args.push(CairoArg::Single(initial_syscall_ptr.into()));
 

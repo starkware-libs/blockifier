@@ -5,6 +5,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
@@ -194,6 +195,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             InvokeTransaction::V1(_) => selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         };
         let storage_address = self.sender_address();
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector,
@@ -203,6 +205,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
+            initial_gas,
         };
 
         execute_call
@@ -226,6 +229,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let tx = &self.tx;
         let storage_address = tx.contract_address;
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::L1Handler,
             entry_point_selector: tx.entry_point_selector,
@@ -235,6 +239,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
+            initial_gas,
         };
 
         execute_call
