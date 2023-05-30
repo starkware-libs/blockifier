@@ -183,9 +183,9 @@ pub fn prepare_call_arguments(
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
     // Push gas counter.
-    args.push(CairoArg::Single((&call.initial_gas).into()));
+    args.push(CairoArg::Single(MaybeRelocatable::from(&call.initial_gas)));
     // Push syscall ptr.
-    args.push(CairoArg::Single(initial_syscall_ptr.into()));
+    args.push(CairoArg::Single(MaybeRelocatable::from(initial_syscall_ptr)));
 
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;

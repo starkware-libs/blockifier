@@ -1,3 +1,4 @@
+use cairo_felt::Felt252;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -7,6 +8,7 @@ use starknet_api::transaction::{
     Calldata, DeployAccountTransaction, Fee, InvokeTransaction, TransactionVersion,
 };
 
+use super::transaction_utils::update_remaining_gas;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -159,13 +161,13 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         context: &mut ExecutionContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
         }
 
         let storage_address = context.account_tx_context.sender_address;
-        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.validate_entry_point_selector(),
@@ -175,7 +177,7 @@ impl AccountTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas,
+            initial_gas: remaining_gas.clone(),
         };
 
         let validate_call_info = validate_call
@@ -185,6 +187,7 @@ impl AccountTransaction {
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
         )?;
+        update_remaining_gas(remaining_gas, &validate_call_info);
 
         Ok(Some(validate_call_info))
     }
@@ -222,6 +225,7 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         let storage_address = context.block_context.fee_token_address;
+        // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
         let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
@@ -248,6 +252,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
@@ -261,24 +266,24 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         match &self {
             Self::Declare(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
+                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context)?;
+                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context)?;
+                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
+                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
+                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context)?;
+                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
             }
         };
 
