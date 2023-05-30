@@ -9,7 +9,9 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallEntryPointInfo, CallExecution, CallInfo, Retdata,
+};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
@@ -29,20 +31,20 @@ fn test_call_info_iteration() {
     //           |
     //       left_leaf (2)
     let left_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(2_u8)], ..Default::default() },
+        call: CallEntryPointInfo { calldata: calldata![stark_felt!(2_u8)], ..Default::default() },
         ..Default::default()
     };
     let right_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(3_u8)], ..Default::default() },
+        call: CallEntryPointInfo { calldata: calldata![stark_felt!(3_u8)], ..Default::default() },
         ..Default::default()
     };
     let inner_node = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(1_u8)], ..Default::default() },
+        call: CallEntryPointInfo { calldata: calldata![stark_felt!(1_u8)], ..Default::default() },
         inner_calls: vec![left_leaf],
         ..Default::default()
     };
     let root = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(0_u8)], ..Default::default() },
+        call: CallEntryPointInfo { calldata: calldata![stark_felt!(0_u8)], ..Default::default() },
         inner_calls: vec![inner_node, right_leaf],
         ..Default::default()
     };

@@ -21,7 +21,7 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
+    CallEntryPointInfo, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -111,7 +111,7 @@ fn expected_validate_call_info(
     };
 
     Some(CallInfo {
-        call: CallEntryPoint {
+        call: CallEntryPointInfo {
             class_hash: Some(class_hash),
             code_address: None,
             entry_point_type: EntryPointType::External,
@@ -141,7 +141,7 @@ fn expected_fee_transfer_call_info(
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
     let storage_address = block_context.fee_token_address;
-    let expected_fee_transfer_call = CallEntryPoint {
+    let expected_fee_transfer_call = CallEntryPointInfo {
         class_hash: Some(expected_fee_token_class_hash),
         code_address: None,
         entry_point_type: EntryPointType::External,
@@ -266,7 +266,7 @@ fn test_invoke_tx() {
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2_u8)];
     let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let expected_return_result_call = CallEntryPoint {
+    let expected_return_result_call = CallEntryPointInfo {
         entry_point_selector: selector_from_name("return_result"),
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: Some(storage_address),
@@ -276,7 +276,7 @@ fn test_invoke_tx() {
         caller_address: expected_account_address,
         call_type: CallType::Call,
     };
-    let expected_execute_call = CallEntryPoint {
+    let expected_execute_call = CallEntryPointInfo {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         ..expected_validate_call_info.as_ref().unwrap().call.clone()
     };
@@ -582,7 +582,7 @@ fn test_deploy_account_tx() {
 
     // Build expected execute call info.
     let expected_execute_call_info = Some(CallInfo {
-        call: CallEntryPoint {
+        call: CallEntryPointInfo {
             class_hash: Some(expected_account_class_hash),
             code_address: None,
             entry_point_type: EntryPointType::Constructor,

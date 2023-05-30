@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -8,7 +9,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -45,6 +46,7 @@ pub struct CallEntryPoint {
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
     pub call_type: CallType,
+    pub initial_gas: Felt252,
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
@@ -171,9 +173,39 @@ pub struct CallExecution {
     pub gas_consumed: StarkFelt,
 }
 
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct CallEntryPointInfo {
+    // The class hash is not given if it can be deduced from the storage address.
+    pub class_hash: Option<ClassHash>,
+    // Optional, since there is no address to the code implementation in a library call.
+    // and for outermost calls (triggered by the transaction itself).
+    // TODO: BACKWARD-COMPATIBILITY.
+    pub code_address: Option<ContractAddress>,
+    pub entry_point_type: EntryPointType,
+    pub entry_point_selector: EntryPointSelector,
+    pub calldata: Calldata,
+    pub storage_address: ContractAddress,
+    pub caller_address: ContractAddress,
+    pub call_type: CallType,
+}
+
+impl From<CallEntryPoint> for CallEntryPointInfo {
+    fn from(call: CallEntryPoint) -> Self {
+        Self {
+            class_hash: call.class_hash,
+            code_address: call.code_address,
+            entry_point_type: call.entry_point_type,
+            entry_point_selector: call.entry_point_selector,
+            calldata: call.calldata,
+            storage_address: call.storage_address,
+            caller_address: call.caller_address,
+            call_type: call.call_type,
+        }
+    }
+}
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallInfo {
-    pub call: CallEntryPoint,
+    pub call: CallEntryPointInfo,
     pub execution: CallExecution,
     pub vm_resources: VmExecutionResources,
     pub inner_calls: Vec<CallInfo>,
@@ -275,6 +307,7 @@ pub fn execute_constructor_entry_point(
         );
     };
 
+    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
     let constructor_call = CallEntryPoint {
         class_hash: None,
         code_address,
@@ -284,6 +317,7 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
         call_type: CallType::Call,
+        initial_gas,
     };
 
     constructor_call.execute(state, context)
@@ -305,11 +339,11 @@ pub fn handle_empty_constructor(
     }
 
     let empty_constructor_call_info = CallInfo {
-        call: CallEntryPoint {
+        call: CallEntryPointInfo {
             class_hash: Some(class_hash),
             code_address,
             entry_point_type: EntryPointType::Constructor,
-            entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),
             storage_address,
             caller_address,

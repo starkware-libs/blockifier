@@ -18,6 +18,7 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
+use crate::abi::constants as abi_constants;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -161,6 +162,7 @@ pub fn call_contract(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
@@ -170,6 +172,7 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address,
         call_type: CallType::Call,
+        initial_gas,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 

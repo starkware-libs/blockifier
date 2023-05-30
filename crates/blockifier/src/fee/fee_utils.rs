@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use starknet_api::transaction::Fee;
 
-use crate::abi::constants;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
@@ -14,7 +14,7 @@ pub mod test;
 pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
     let mut vm_resource_usage = resources.0.clone();
     let l1_gas_usage = vm_resource_usage
-        .remove(constants::GAS_USAGE)
+        .remove(abi_constants::GAS_USAGE)
         .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
 
     (l1_gas_usage, ResourcesMapping(vm_resource_usage))

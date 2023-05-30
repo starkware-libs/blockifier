@@ -184,9 +184,8 @@ pub fn prepare_call_arguments(
         }
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
-    // TODO(spapini): Use the correct gas counter.
     // Push gas counter.
-    args.push(CairoArg::Single(10000000000.into()));
+    args.push(CairoArg::Single((&call.initial_gas).into()));
     // Push syscall ptr.
     args.push(CairoArg::Single(initial_syscall_ptr.into()));
 
@@ -265,7 +264,7 @@ pub fn finalize_execution(
     let full_call_vm_resources =
         &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
-        call: syscall_handler.call,
+        call: syscall_handler.call.into(),
         execution: CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
             events: syscall_handler.events,

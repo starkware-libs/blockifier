@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::abi::constants;
+use crate::abi::constants as abi_constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
@@ -60,9 +60,9 @@ pub fn calculate_tx_resources<S: StateReader>(
         + &get_additional_os_resources(execution_resources.syscall_counter, tx_type)?;
     let total_vm_usage = total_vm_usage.filter_unused_builtins();
     let mut tx_resources = HashMap::from([
-        (constants::GAS_USAGE.to_string(), l1_gas_usage),
+        (abi_constants::GAS_USAGE.to_string(), l1_gas_usage),
         (
-            constants::N_STEPS_RESOURCE.to_string(),
+            abi_constants::N_STEPS_RESOURCE.to_string(),
             total_vm_usage.n_steps + total_vm_usage.n_memory_holes,
         ),
     ]);

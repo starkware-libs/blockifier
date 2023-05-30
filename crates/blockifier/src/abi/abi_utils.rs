@@ -6,7 +6,7 @@ use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::StarknetApiError;
 
-use crate::abi::constants;
+use crate::abi::constants as abi_constants;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 
 #[cfg(test)]
@@ -27,12 +27,12 @@ pub fn starknet_keccak(data: &[u8]) -> Felt252 {
 /// Returns an entry point selector, given its name.
 pub fn selector_from_name(entry_point_name: &str) -> EntryPointSelector {
     static DEFAULT_ENTRY_POINTS: [&str; 2] =
-        [constants::DEFAULT_ENTRY_POINT_NAME, constants::DEFAULT_L1_ENTRY_POINT_NAME];
+        [abi_constants::DEFAULT_ENTRY_POINT_NAME, abi_constants::DEFAULT_L1_ENTRY_POINT_NAME];
 
     // The default entry points selector is not being mapped in the usual way in order to save
     // computations in the OS, and to avoid encoding the default entry point names there.
     if DEFAULT_ENTRY_POINTS.contains(&entry_point_name) {
-        EntryPointSelector(StarkHash::from(constants::DEFAULT_ENTRY_POINT_SELECTOR))
+        EntryPointSelector(StarkHash::from(abi_constants::DEFAULT_ENTRY_POINT_SELECTOR))
     } else {
         EntryPointSelector(felt_to_stark_felt(&starknet_keccak(entry_point_name.as_bytes())))
     }

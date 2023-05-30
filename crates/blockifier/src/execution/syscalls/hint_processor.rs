@@ -22,7 +22,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::abi::constants;
+use crate::abi::constants as abi_constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
@@ -179,32 +179,40 @@ impl<'a> SyscallHintProcessor<'a> {
 
         match selector {
             SyscallSelector::CallContract => {
-                self.execute_syscall(vm, call_contract, constants::CALL_CONTRACT_GAS_COST)
+                self.execute_syscall(vm, call_contract, abi_constants::CALL_CONTRACT_GAS_COST)
             }
-            SyscallSelector::Deploy => self.execute_syscall(vm, deploy, constants::DEPLOY_GAS_COST),
+            SyscallSelector::Deploy => {
+                self.execute_syscall(vm, deploy, abi_constants::DEPLOY_GAS_COST)
+            }
             SyscallSelector::EmitEvent => {
-                self.execute_syscall(vm, emit_event, constants::EMIT_EVENT_GAS_COST)
+                self.execute_syscall(vm, emit_event, abi_constants::EMIT_EVENT_GAS_COST)
             }
-            SyscallSelector::GetExecutionInfo => {
-                self.execute_syscall(vm, get_execution_info, constants::GET_EXECUTION_INFO_GAS_COST)
-            }
+            SyscallSelector::GetExecutionInfo => self.execute_syscall(
+                vm,
+                get_execution_info,
+                abi_constants::GET_EXECUTION_INFO_GAS_COST,
+            ),
             SyscallSelector::LibraryCall => {
-                self.execute_syscall(vm, library_call, constants::LIBRARY_CALL_GAS_COST)
+                self.execute_syscall(vm, library_call, abi_constants::LIBRARY_CALL_GAS_COST)
             }
-            SyscallSelector::LibraryCallL1Handler => {
-                self.execute_syscall(vm, library_call_l1_handler, constants::LIBRARY_CALL_GAS_COST)
-            }
+            SyscallSelector::LibraryCallL1Handler => self.execute_syscall(
+                vm,
+                library_call_l1_handler,
+                abi_constants::LIBRARY_CALL_GAS_COST,
+            ),
             SyscallSelector::ReplaceClass => {
-                self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
+                self.execute_syscall(vm, replace_class, abi_constants::REPLACE_CLASS_GAS_COST)
             }
-            SyscallSelector::SendMessageToL1 => {
-                self.execute_syscall(vm, send_message_to_l1, constants::SEND_MESSAGE_TO_L1_GAS_COST)
-            }
+            SyscallSelector::SendMessageToL1 => self.execute_syscall(
+                vm,
+                send_message_to_l1,
+                abi_constants::SEND_MESSAGE_TO_L1_GAS_COST,
+            ),
             SyscallSelector::StorageRead => {
-                self.execute_syscall(vm, storage_read, constants::STORAGE_READ_GAS_COST)
+                self.execute_syscall(vm, storage_read, abi_constants::STORAGE_READ_GAS_COST)
             }
             SyscallSelector::StorageWrite => {
-                self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
+                self.execute_syscall(vm, storage_write, abi_constants::STORAGE_WRITE_GAS_COST)
             }
             _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {selector:?}."))),
         }
@@ -491,6 +499,7 @@ pub fn execute_library_call(
 ) -> SyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
+    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: Some(class_hash),
         code_address,
@@ -501,6 +510,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address(),
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
+        initial_gas,
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)

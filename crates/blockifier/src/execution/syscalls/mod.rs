@@ -16,6 +16,7 @@ use self::hint_processor::{
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
     SyscallHintProcessor,
 };
+use crate::abi::constants as abi_constannts;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
@@ -149,6 +150,7 @@ pub fn call_contract(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    let initial_gas = abi_constannts::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
@@ -158,6 +160,7 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
+        initial_gas,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 

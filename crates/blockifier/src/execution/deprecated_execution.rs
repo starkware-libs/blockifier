@@ -234,7 +234,7 @@ pub fn finalize_execution(
     let full_call_vm_resources =
         &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
-        call,
+        call: call.into(),
         execution: CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
             events: syscall_handler.events,
