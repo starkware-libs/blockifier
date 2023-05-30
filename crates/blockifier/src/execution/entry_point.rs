@@ -255,6 +255,8 @@ impl<'a> IntoIterator for &'a CallInfo {
     }
 }
 
+// TODO(Noa,01/06/2023): Consider refactoring to reduce the number of parameters.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
     context: &mut ExecutionContext,
@@ -263,6 +265,7 @@ pub fn execute_constructor_entry_point(
     storage_address: ContractAddress,
     caller_address: ContractAddress,
     calldata: Calldata,
+    remaining_gas: &Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
     let contract_class = state.get_compiled_contract_class(&class_hash)?;
@@ -287,9 +290,8 @@ pub fn execute_constructor_entry_point(
         caller_address,
         call_type: CallType::Call,
     };
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
 
-    constructor_call.execute(state, context, &initial_gas)
+    constructor_call.execute(state, context, remaining_gas)
 }
 
 pub fn handle_empty_constructor(

@@ -16,6 +16,7 @@ use self::hint_processor::{
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
     SyscallHintProcessor,
 };
+use crate::abi::constants;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
@@ -228,6 +229,7 @@ pub fn deploy(
         deployer_address,
         request.constructor_calldata,
         is_deploy_account_tx,
+        &constants::INITIAL_GAS_COST.into(),
     )?;
 
     let constructor_retdata =
