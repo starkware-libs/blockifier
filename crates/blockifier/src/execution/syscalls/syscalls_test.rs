@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -177,6 +178,7 @@ fn test_nested_library_call() {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        initial_gas: Felt252::from(9999906600_u64),
         ..trivial_external_entry_point()
     };
     let nested_storage_entry_point = CallEntryPoint {
@@ -185,6 +187,7 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
+        initial_gas: Felt252::from(9999718720_u64),
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
@@ -199,10 +202,12 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
+        initial_gas: Felt252::from(9999813200_u64),
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
+        initial_gas: Felt252::from(9999752200_u64),
         ..nested_storage_entry_point.clone()
     };
     let storage_entry_point_vm_resources = VmExecutionResources {

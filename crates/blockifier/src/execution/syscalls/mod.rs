@@ -148,9 +148,9 @@ pub fn call_contract(
     request: CallContractRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    remaining_gas: &mut Felt252,
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
@@ -160,9 +160,9 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
-        initial_gas,
+        initial_gas: remaining_gas.clone(),
     };
-    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
+    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)?;
 
     Ok(CallContractResponse { segment: retdata_segment })
 }
@@ -210,6 +210,7 @@ pub fn deploy(
     request: DeployRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    remaining_gas: &mut Felt252,
 ) -> SyscallResult<DeployResponse> {
     let deployer_address = syscall_handler.storage_address();
     let deployer_address_for_calculation = match request.deploy_from_zero {
@@ -240,6 +241,7 @@ pub fn deploy(
 
     let constructor_retdata =
         create_retdata_segment(vm, syscall_handler, &call_info.execution.retdata.0)?;
+    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
 
     syscall_handler.inner_calls.push(call_info);
 
@@ -270,6 +272,7 @@ pub fn emit_event(
     request: EmitEventRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
 ) -> SyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
     let ordered_event =
@@ -299,6 +302,7 @@ pub fn get_execution_info(
     _request: GetExecutionInfoRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetExecutionInfoResponse> {
     let execution_info_ptr = syscall_handler.get_or_allocate_execution_info_segment(vm)?;
 
@@ -329,16 +333,17 @@ pub fn library_call(
     request: LibraryCallRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    remaining_gas: &mut Felt252,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = true;
     let retdata_segment = execute_library_call(
         syscall_handler,
         vm,
         request.class_hash,
-        None,
         call_to_external,
         request.function_selector,
         request.calldata,
+        remaining_gas,
     )?;
 
     Ok(LibraryCallResponse { segment: retdata_segment })
@@ -350,16 +355,17 @@ pub fn library_call_l1_handler(
     request: LibraryCallRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    remaining_gas: &mut Felt252,
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
     let retdata_segment = execute_library_call(
         syscall_handler,
         vm,
         request.class_hash,
-        None,
         call_to_external,
         request.function_selector,
         request.calldata,
+        remaining_gas,
     )?;
 
     Ok(LibraryCallResponse { segment: retdata_segment })
@@ -386,6 +392,7 @@ pub fn replace_class(
     request: ReplaceClassRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
 ) -> SyscallResult<ReplaceClassResponse> {
     // Ensure the class is declared (by reading it), and of type V1.
     let class_hash = request.class_hash;
@@ -427,6 +434,7 @@ pub fn send_message_to_l1(
     request: SendMessageToL1Request,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
 ) -> SyscallResult<SendMessageToL1Response> {
     let execution_context = &mut syscall_handler.context;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
@@ -475,6 +483,7 @@ pub fn storage_read(
     request: StorageReadRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
 ) -> SyscallResult<StorageReadResponse> {
     syscall_handler.get_contract_storage_at(request.address)
 }
@@ -506,6 +515,7 @@ pub fn storage_write(
     request: StorageWriteRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
 ) -> SyscallResult<StorageWriteResponse> {
     syscall_handler.set_contract_storage_at(request.address, request.value)
 }
