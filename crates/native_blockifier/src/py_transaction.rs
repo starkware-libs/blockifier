@@ -366,8 +366,9 @@ impl PyTransactionExecutor {
         let mut executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
+            let mut initial_gas = Transaction::initial_gas();
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context)
+                .execute_raw(&mut transactional_state, executor.block_context, &mut initial_gas)
                 .map_err(NativeBlockifierError::from);
             let py_tx_execution_info = match tx_execution_result {
                 Ok(tx_execution_info) => {

@@ -1,3 +1,4 @@
+use cairo_felt::Felt252;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -11,6 +12,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
+use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
@@ -152,6 +154,7 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         context: &mut ExecutionContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
@@ -170,12 +173,13 @@ impl AccountTransaction {
         };
 
         let validate_call_info = validate_call
-            .execute(state, context, &abi_constants::INITIAL_GAS_COST.into())
+            .execute(state, context, remaining_gas)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
         )?;
+        *remaining_gas -= stark_felt_to_felt(validate_call_info.execution.gas_consumed);
 
         Ok(Some(validate_call_info))
     }
@@ -237,6 +241,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
@@ -250,24 +255,24 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         match &self {
             Self::Declare(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
+                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context)?;
+                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context)?;
+                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
+                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
+                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context)?;
+                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
             }
         };
 

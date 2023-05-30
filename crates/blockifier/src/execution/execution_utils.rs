@@ -186,6 +186,8 @@ impl ReadOnlySegments {
 
 /// Instantiates the given class and assigns it an address.
 /// Returns the call info of the deployed class' constructor execution.
+// TODO(Noa,01/06/2023): Consider refactoring to reduce the number of parameters.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_deployment(
     state: &mut dyn State,
     context: &mut ExecutionContext,
@@ -194,6 +196,7 @@ pub fn execute_deployment(
     deployer_address: ContractAddress,
     constructor_calldata: Calldata,
     is_deploy_account_tx: bool,
+    remaining_gas: &Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
@@ -205,7 +208,7 @@ pub fn execute_deployment(
     state.set_class_hash_at(deployed_contract_address, class_hash)?;
 
     let code_address = if is_deploy_account_tx { None } else { Some(deployed_contract_address) };
-    execute_constructor_entry_point(
+    let call_info = execute_constructor_entry_point(
         state,
         context,
         class_hash,
@@ -213,7 +216,10 @@ pub fn execute_deployment(
         deployed_contract_address,
         deployer_address,
         constructor_calldata,
-    )
+        remaining_gas,
+    )?;
+
+    Ok(call_info)
 }
 
 pub fn write_stark_felt(

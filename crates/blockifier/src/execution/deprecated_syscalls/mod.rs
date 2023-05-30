@@ -18,6 +18,7 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
+use crate::abi::constants;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -294,6 +295,7 @@ pub fn deploy(
         deployer_address,
         request.constructor_calldata,
         is_deploy_account_tx,
+        &constants::INITIAL_GAS_COST.into(),
     )?;
     syscall_handler.inner_calls.push(call_info);
 
