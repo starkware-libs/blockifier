@@ -237,6 +237,7 @@ impl<'a> SyscallHintProcessor<'a> {
             Request,
             &mut VirtualMachine,
             &mut SyscallHintProcessor<'_>,
+            &mut Felt252,
         ) -> SyscallResult<Response>,
     {
         let SyscallRequestWrapper { gas_counter, request } =
@@ -254,8 +255,8 @@ impl<'a> SyscallHintProcessor<'a> {
         }
 
         // Execute.
-        let remaining_gas = gas_counter - Felt252::from(base_gas_cost);
-        let original_response = execute_callback(request, vm, self);
+        let mut remaining_gas = gas_counter - Felt252::from(base_gas_cost);
+        let original_response = execute_callback(request, vm, self, &mut remaining_gas);
         let response = match original_response {
             Ok(response) => {
                 SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
@@ -451,6 +452,7 @@ pub fn execute_inner_call(
     call: CallEntryPoint,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
+    remaining_gas: &mut Felt252,
 ) -> SyscallResult<ReadOnlySegment> {
     let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
     let raw_retdata = &call_info.execution.retdata.0;
@@ -462,6 +464,7 @@ pub fn execute_inner_call(
     }
 
     let retdata_segment = create_retdata_segment(vm, syscall_handler, raw_retdata)?;
+    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
 
     syscall_handler.inner_calls.push(call_info);
 
@@ -484,17 +487,16 @@ pub fn execute_library_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     vm: &mut VirtualMachine,
     class_hash: ClassHash,
-    code_address: Option<ContractAddress>,
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
+    remaining_gas: &mut Felt252,
 ) -> SyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: Some(class_hash),
-        code_address,
+        code_address: None,
         entry_point_type,
         entry_point_selector,
         calldata,
@@ -502,10 +504,10 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address(),
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
-        initial_gas,
+        initial_gas: remaining_gas.clone(),
     };
 
-    execute_inner_call(entry_point, vm, syscall_handler)
+    execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
 }
 
 pub fn read_felt_array<TErr>(
