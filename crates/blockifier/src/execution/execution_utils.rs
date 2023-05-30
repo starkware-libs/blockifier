@@ -75,11 +75,18 @@ pub fn read_execution_retdata(
     Ok(Retdata(felt_range_from_ptr(&vm, Relocatable::try_from(&retdata_ptr)?, retdata_size)?))
 }
 
-pub fn felt_from_ptr(
+pub fn stark_felt_from_ptr(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
 ) -> Result<StarkFelt, VirtualMachineError> {
-    let felt = felt_to_stark_felt(vm.get_integer(*ptr)?.as_ref());
+    Ok(felt_to_stark_felt(&felt_from_ptr(vm, ptr)?))
+}
+
+pub fn felt_from_ptr(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<Felt252, VirtualMachineError> {
+    let felt = vm.get_integer(*ptr)?.into_owned();
     *ptr += 1;
     Ok(felt)
 }
@@ -204,12 +211,20 @@ pub fn execute_deployment(
     )
 }
 
-pub fn write_felt(
+pub fn write_stark_felt(
     vm: &mut VirtualMachine,
     ptr: &mut Relocatable,
     felt: StarkFelt,
 ) -> Result<(), MemoryError> {
-    write_maybe_relocatable(vm, ptr, stark_felt_to_felt(felt))
+    write_felt(vm, ptr, stark_felt_to_felt(felt))
+}
+
+pub fn write_felt(
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+    felt: Felt252,
+) -> Result<(), MemoryError> {
+    write_maybe_relocatable(vm, ptr, felt)
 }
 
 pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
