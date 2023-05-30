@@ -1,3 +1,4 @@
+use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{
@@ -40,6 +41,7 @@ pub fn execute_entry_point_call(
     contract_class: ContractClassV1,
     state: &mut dyn State,
     context: &mut ExecutionContext,
+    initial_gas: &Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
         mut runner,
@@ -56,6 +58,7 @@ pub fn execute_entry_point_call(
         initial_syscall_ptr,
         &mut syscall_handler.read_only_segments,
         &entry_point,
+        initial_gas,
     )?;
     let n_total_args = args.len();
 
@@ -156,6 +159,7 @@ pub fn prepare_call_arguments(
     initial_syscall_ptr: Relocatable,
     read_only_segments: &mut ReadOnlySegments,
     entrypoint: &EntryPointV1,
+    initial_gas: &Felt252,
 ) -> Result<Args, PreExecutionError> {
     let mut args: Args = vec![];
 
@@ -184,9 +188,8 @@ pub fn prepare_call_arguments(
         }
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
-    // TODO(spapini): Use the correct gas counter.
     // Push gas counter.
-    args.push(CairoArg::Single(10000000000.into()));
+    args.push(CairoArg::Single(initial_gas.into()));
     // Push syscall ptr.
     args.push(CairoArg::Single(initial_syscall_ptr.into()));
 

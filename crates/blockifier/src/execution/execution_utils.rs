@@ -48,14 +48,19 @@ pub fn execute_entry_point_call(
     contract_class: ContractClass,
     state: &mut dyn State,
     context: &mut ExecutionContext,
+    initial_gas: &Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     match contract_class {
         ContractClass::V0(contract_class) => {
             deprecated_execution::execute_entry_point_call(call, contract_class, state, context)
         }
-        ContractClass::V1(contract_class) => {
-            cairo1_execution::execute_entry_point_call(call, contract_class, state, context)
-        }
+        ContractClass::V1(contract_class) => cairo1_execution::execute_entry_point_call(
+            call,
+            contract_class,
+            state,
+            context,
+            initial_gas,
+        ),
     }
 }
 

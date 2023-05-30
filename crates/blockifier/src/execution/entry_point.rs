@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -8,7 +9,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -99,6 +100,7 @@ impl CallEntryPoint {
         mut self,
         state: &mut dyn State,
         context: &mut ExecutionContext,
+        initial_gas: &Felt252,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
         let storage_address = self.storage_address;
@@ -115,7 +117,7 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        execute_entry_point_call(self, contract_class, state, context).map_err(
+        execute_entry_point_call(self, contract_class, state, context, initial_gas).map_err(
             |error| match error {
                 // On VM error, pack the stack trace into the propagated error.
                 EntryPointExecutionError::VirtualMachineExecutionError(error) => {
@@ -285,8 +287,9 @@ pub fn execute_constructor_entry_point(
         caller_address,
         call_type: CallType::Call,
     };
+    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
 
-    constructor_call.execute(state, context)
+    constructor_call.execute(state, context, &initial_gas)
 }
 
 pub fn handle_empty_constructor(
@@ -309,7 +312,7 @@ pub fn handle_empty_constructor(
             class_hash: Some(class_hash),
             code_address,
             entry_point_type: EntryPointType::Constructor,
-            entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),
             storage_address,
             caller_address,

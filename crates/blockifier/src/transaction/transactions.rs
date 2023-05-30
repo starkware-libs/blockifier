@@ -5,6 +5,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
@@ -204,9 +205,10 @@ impl<S: State> Executable<S> for InvokeTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
 
         execute_call
-            .execute(state, context)
+            .execute(state, context, &initial_gas)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
     }
@@ -236,9 +238,10 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
         };
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
 
         execute_call
-            .execute(state, context)
+            .execute(state, context, &initial_gas)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
     }

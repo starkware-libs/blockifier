@@ -20,6 +20,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -311,7 +312,8 @@ impl CallEntryPoint {
             BlockContext::create_for_testing(),
             AccountTransactionContext::default(),
         );
-        self.execute(state, &mut context)
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
+        self.execute(state, &mut context, &initial_gas)
     }
 }
 
