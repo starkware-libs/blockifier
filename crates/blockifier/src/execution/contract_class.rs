@@ -78,11 +78,11 @@ impl ContractClassV0 {
     }
 
     fn n_builtins(&self) -> usize {
-        self.program.builtins.len()
+        self.program.builtins_len()
     }
 
     fn bytecode_length(&self) -> usize {
-        self.program.data.len()
+        self.program.data_len()
     }
 
     pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
@@ -234,7 +234,6 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
         let program = Program::new(
             builtins,
-            Felt252::prime().to_str_radix(16),
             data,
             main,
             hints,

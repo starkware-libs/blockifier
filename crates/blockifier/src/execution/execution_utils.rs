@@ -118,7 +118,6 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
 
     let program = Program::new(
         builtins,
-        Felt252::prime().to_str_radix(16),
         data,
         main,
         hints,

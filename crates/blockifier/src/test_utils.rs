@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
+    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
+};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
@@ -333,13 +337,13 @@ impl BlockContext {
     pub fn create_for_account_testing() -> BlockContext {
         let vm_resource_fee_cost = HashMap::from([
             (String::from(N_STEPS_RESOURCE), 1_f64),
-            (String::from("pedersen"), 1_f64),
-            (String::from("range_check"), 1_f64),
-            (String::from("ecdsa"), 1_f64),
-            (String::from("bitwise"), 1_f64),
-            (String::from("poseidon"), 1_f64),
-            (String::from("output"), 1_f64),
-            (String::from("ec_op"), 1_f64),
+            (String::from(HASH_BUILTIN_NAME), 1_f64),
+            (String::from(RANGE_CHECK_BUILTIN_NAME), 1_f64),
+            (String::from(SIGNATURE_BUILTIN_NAME), 1_f64),
+            (String::from(BITWISE_BUILTIN_NAME), 1_f64),
+            (String::from(POSEIDON_BUILTIN_NAME), 1_f64),
+            (String::from(OUTPUT_BUILTIN_NAME), 1_f64),
+            (String::from(EC_OP_BUILTIN_NAME), 1_f64),
         ]);
         BlockContext { vm_resource_fee_cost, ..BlockContext::create_for_testing() }
     }

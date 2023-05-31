@@ -141,13 +141,13 @@ fn prepare_builtin_costs(
 
     // Put a pointer to the builtin cost segment at the end of the program (after the
     // additional `ret` statement).
-    let mut ptr = (vm.get_pc() + contract_class.program.data.len())?;
+    let mut ptr = (vm.get_pc() + contract_class.program.data_len())?;
     // Push a `ret` opcode.
     write_stark_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe"))?;
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
-    Ok(contract_class.program.data.len() + 2)
+    Ok(contract_class.program.data_len() + 2)
 }
 
 pub fn prepare_call_arguments(

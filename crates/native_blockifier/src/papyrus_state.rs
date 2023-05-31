@@ -83,7 +83,7 @@ impl<'env> StateReader for PapyrusReader<'env> {
         if class_is_declared {
             let casm_contract_class = self
                 .contract_classes
-                .get_casm(*class_hash)
+                .get_casm(class_hash)
                 .map_err(|err| StateError::StateReadError(err.to_string()))?
                 .expect(
                     "Should be able to fetch a Casm class if its definition exists, database is \
@@ -190,7 +190,7 @@ impl<'env> PapyrusExecutableClassReader<'env> {
         Self { txn }
     }
 
-    fn get_casm(&self, class_hash: ClassHash) -> StorageResult<Option<CasmContractClass>> {
+    fn get_casm(&self, class_hash: &ClassHash) -> StorageResult<Option<CasmContractClass>> {
         self.txn.get_casm(class_hash)
     }
 }
