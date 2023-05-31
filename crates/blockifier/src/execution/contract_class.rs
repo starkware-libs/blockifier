@@ -73,11 +73,11 @@ impl ContractClassV0 {
     }
 
     fn n_builtins(&self) -> usize {
-        self.program.builtins.len()
+        self.program.builtins_len()
     }
 
     fn bytecode_length(&self) -> usize {
-        self.program.data.len()
+        self.program.data_len()
     }
 
     fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
@@ -139,7 +139,7 @@ impl ContractClassV1 {
     }
 
     fn bytecode_length(&self) -> usize {
-        self.program.data.len()
+        self.program.data_len()
     }
 
     pub fn get_entry_point(
@@ -251,7 +251,6 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
         let program = Program::new(
             builtins,
-            Felt252::prime().to_str_radix(16),
             data,
             main,
             hints,
@@ -311,6 +310,7 @@ fn hint_to_hint_params(hint: &cairo_lang_casm::hints::Hint) -> HintParams {
 fn convert_entrypoints_v1(
     external: Vec<CasmContractEntryPoint>,
 ) -> Result<Vec<EntryPointV1>, ProgramError> {
+    let builtin_suffix = "_builtin";
     external
         .into_iter()
         .map(|ep| -> Result<_, ProgramError> {
@@ -319,7 +319,18 @@ fn convert_entrypoints_v1(
                     &Felt252::try_from(ep.selector).unwrap(),
                 )),
                 offset: EntryPointOffset(ep.offset),
-                builtins: ep.builtins,
+                // Add the "_builtin" suffix to builtin names.
+                builtins: ep
+                    .builtins
+                    .iter()
+                    .map(|builtin_name| {
+                        if builtin_name.ends_with(builtin_suffix) {
+                            builtin_name.clone()
+                        } else {
+                            format!("{}{}", builtin_name, builtin_suffix)
+                        }
+                    })
+                    .collect(),
             })
         })
         .collect()
