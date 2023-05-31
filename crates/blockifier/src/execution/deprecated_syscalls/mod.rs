@@ -22,7 +22,8 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, write_felt, write_maybe_relocatable, ReadOnlySegment,
+    execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
+    ReadOnlySegment,
 };
 
 #[cfg(test)]
@@ -145,7 +146,7 @@ impl SyscallRequest for CallContractRequest {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> DeprecatedSyscallResult<CallContractRequest> {
-        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let contract_address = ContractAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
@@ -236,10 +237,10 @@ pub struct DeployRequest {
 
 impl SyscallRequest for DeployRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> DeprecatedSyscallResult<DeployRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
-        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
+        let contract_address_salt = ContractAddressSalt(stark_felt_from_ptr(vm, ptr)?);
         let constructor_calldata = read_calldata(vm, ptr)?;
-        let deploy_from_zero = felt_from_ptr(vm, ptr)?;
+        let deploy_from_zero = stark_felt_from_ptr(vm, ptr)?;
 
         Ok(DeployRequest {
             class_hash,
@@ -260,7 +261,7 @@ impl SyscallResponse for DeployResponse {
     // `constructor_retdata`.
     // Nonempty constructor retdata is currently not supported.
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.contract_address.0.key())?;
+        write_stark_felt(vm, ptr, *self.contract_address.0.key())?;
         write_maybe_relocatable(vm, ptr, 0)?;
         write_maybe_relocatable(vm, ptr, 0)?;
         Ok(())
@@ -329,7 +330,7 @@ pub fn emit_event(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<EmitEventResponse> {
-    let mut execution_context = &mut syscall_handler.context;
+    let execution_context = &mut syscall_handler.context;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
@@ -412,7 +413,7 @@ pub struct GetContractAddressResponse {
 
 impl SyscallResponse for GetContractAddressResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, *self.address.0.key())?;
+        write_stark_felt(vm, ptr, *self.address.0.key())?;
         Ok(())
     }
 }
@@ -495,7 +496,7 @@ impl SyscallRequest for LibraryCallRequest {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> DeprecatedSyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
@@ -556,7 +557,7 @@ impl SyscallRequest for ReplaceClassRequest {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> DeprecatedSyscallResult<ReplaceClassRequest> {
-        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
 
         Ok(ReplaceClassRequest { class_hash })
     }
@@ -589,7 +590,7 @@ impl SyscallRequest for SendMessageToL1Request {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> DeprecatedSyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(felt_from_ptr(vm, ptr)?)?;
+        let to_address = EthAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let payload = L2ToL1Payload(read_felt_array::<DeprecatedSyscallExecutionError>(vm, ptr)?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
@@ -603,7 +604,7 @@ pub fn send_message_to_l1(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<SendMessageToL1Response> {
-    let mut execution_context = &mut syscall_handler.context;
+    let execution_context = &mut syscall_handler.context;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
         order: execution_context.n_sent_messages_to_l1,
         message: request.message,
@@ -626,7 +627,7 @@ impl SyscallRequest for StorageReadRequest {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> DeprecatedSyscallResult<StorageReadRequest> {
-        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
+        let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address })
     }
 }
@@ -638,7 +639,7 @@ pub struct StorageReadResponse {
 
 impl SyscallResponse for StorageReadResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_felt(vm, ptr, self.value)?;
+        write_stark_felt(vm, ptr, self.value)?;
         Ok(())
     }
 }
@@ -664,8 +665,8 @@ impl SyscallRequest for StorageWriteRequest {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> DeprecatedSyscallResult<StorageWriteRequest> {
-        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
-        let value = felt_from_ptr(vm, ptr)?;
+        let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
+        let value = stark_felt_from_ptr(vm, ptr)?;
         Ok(StorageWriteRequest { address, value })
     }
 }
