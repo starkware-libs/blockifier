@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
@@ -16,7 +16,9 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use crate::abi::abi_utils::{
+    get_erc20_balance_var_addresses, get_storage_var_address, selector_from_name,
+};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -31,9 +33,9 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader, BALANCE,
-    MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    test_erc20_sequencer_balance_key, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
+    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
     TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
@@ -60,17 +62,24 @@ fn expected_validate_call_info(
     calldata: Calldata,
     storage_address: ContractAddress,
 ) -> Option<CallInfo> {
+    let n_steps = match entry_point_selector_name {
+        constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME => 13_usize,
+        constants::VALIDATE_DECLARE_ENTRY_POINT_NAME => 12_usize,
+        constants::VALIDATE_ENTRY_POINT_NAME => 21_usize,
+        selector => panic!("Selector {} is not a known validate selector.", selector),
+    };
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks =
         usize::from(entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME);
     let vm_resources = VmExecutionResources {
-        n_steps: 21,
-        n_memory_holes: 1,
+        n_steps,
+        n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(
             RANGE_CHECK_BUILTIN_NAME.to_string(),
             n_range_checks,
         )]),
-    };
+    }
+    .filter_unused_builtins();
 
     Some(CallInfo {
         call: CallEntryPoint {
@@ -131,6 +140,11 @@ fn expected_fee_transfer_call_info(
         },
     };
 
+    let (sender_balance_key_low, sender_balance_key_high) =
+        get_erc20_balance_var_addresses(&account_address).expect("Cannot get sender balance keys.");
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_erc20_balance_var_addresses(&block_context.sequencer_address)
+            .expect("Cannot get sequencer balance keys.");
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
@@ -139,6 +153,24 @@ fn expected_fee_transfer_call_info(
             ..Default::default()
         },
         vm_resources,
+        // We read sender balance, write (which starts with read) sender balance, then the same for
+        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
+        storage_read_values: vec![
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+        ],
+        accessed_storage_keys: HashSet::from_iter(vec![
+            sender_balance_key_low,
+            sender_balance_key_high,
+            sequencer_balance_key_low,
+            sequencer_balance_key_high,
+        ]),
         ..Default::default()
     })
 }
@@ -236,8 +268,8 @@ fn test_invoke_tx() {
         call: expected_execute_call,
         execution: CallExecution::from_retdata(Retdata(expected_return_result_retdata.0.clone())),
         vm_resources: VmExecutionResources {
-            n_steps: 39,
-            n_memory_holes: 1,
+            n_steps: 61,
+            n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
         inner_calls: vec![CallInfo {
@@ -245,7 +277,7 @@ fn test_invoke_tx() {
             execution: CallExecution::from_retdata(expected_return_result_retdata),
             vm_resources: VmExecutionResources {
                 n_steps: 22,
-                n_memory_holes: 1,
+                n_memory_holes: 0,
                 ..Default::default()
             },
             ..Default::default()
@@ -262,7 +294,7 @@ fn test_invoke_tx() {
         expected_actual_fee,
         VmExecutionResources {
             n_steps: 525,
-            n_memory_holes: 60,
+            n_memory_holes: 59,
             builtin_instance_counter: HashMap::from([
                 (HASH_BUILTIN_NAME.to_string(), 4),
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
@@ -284,7 +316,7 @@ fn test_invoke_tx() {
     };
 
     // Test execution info result.
-    validate_tx_execution_info(actual_execution_info, expected_execution_info);
+    assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
@@ -469,7 +501,7 @@ fn test_declare_tx() {
         expected_actual_fee,
         VmExecutionResources {
             n_steps: 525,
-            n_memory_holes: 60,
+            n_memory_holes: 59,
             builtin_instance_counter: HashMap::from([
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
                 (HASH_BUILTIN_NAME.to_string(), 4),
@@ -491,7 +523,7 @@ fn test_declare_tx() {
     };
 
     // Test execution info result.
-    validate_tx_execution_info(actual_execution_info, expected_execution_info);
+    assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
@@ -584,8 +616,8 @@ fn test_deploy_account_tx() {
         deployed_account_address,
         expected_actual_fee,
         VmExecutionResources {
-            n_steps: 525,
-            n_memory_holes: 58,
+            n_steps: 529,
+            n_memory_holes: 57,
             builtin_instance_counter: HashMap::from([
                 (HASH_BUILTIN_NAME.to_string(), 4),
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
@@ -607,7 +639,7 @@ fn test_deploy_account_tx() {
     };
 
     // Test execution info result.
-    validate_tx_execution_info(actual_execution_info, expected_execution_info);
+    assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();
