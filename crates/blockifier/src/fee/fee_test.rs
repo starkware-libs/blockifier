@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
 use assert_matches::assert_matches;
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
+    SIGNATURE_BUILTIN_NAME,
+};
 
 use crate::block_context::BlockContext;
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
@@ -10,11 +14,11 @@ use crate::transaction::objects::ResourcesMapping;
 fn get_vm_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
         (String::from("n_steps"), 1800),
-        (String::from("pedersen"), 10),
-        (String::from("range_check"), 24),
-        (String::from("ecdsa"), 1),
-        (String::from("bitwise"), 1),
-        (String::from("poseidon"), 1),
+        (String::from(HASH_BUILTIN_NAME), 10),
+        (String::from(RANGE_CHECK_BUILTIN_NAME), 24),
+        (String::from(SIGNATURE_BUILTIN_NAME), 1),
+        (String::from(BITWISE_BUILTIN_NAME), 1),
+        (String::from(POSEIDON_BUILTIN_NAME), 1),
     ]))
 }
 

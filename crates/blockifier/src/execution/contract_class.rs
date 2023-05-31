@@ -201,7 +201,6 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
         let program = Program::new(
             builtins,
-            Felt252::prime().to_str_radix(16),
             data,
             main,
             hints,

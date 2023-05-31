@@ -6646,21 +6646,21 @@
         "selector": "0x3c118a68e16e12e97ed25cb4901c12f4d3162818669cc44c391d8049924c14",
         "offset": 556,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0xe7510edcf6e9f1b70f7bd1f488767b50f0363422f3c563160ab77adf62467b",
         "offset": 1328,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x10d2fede95e3ec06a875a67219425c27c5bd734d57f1b221d729a2337b6b556",
         "offset": 1647,
         "builtins": [
-          "range_check",
+          "range_check_builtin",
           "segment_arena"
         ]
       },
@@ -6668,49 +6668,49 @@
         "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f",
         "offset": 1761,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c",
         "offset": 167,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x2913ee03e5e3308c41e308bd391ea4faac9b9cb5062c76a6b3ab4f65397e106",
         "offset": 365,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325",
         "offset": 1469,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50",
         "offset": 907,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x3a6a8bae4c51d5959683ae246347ffdd96aa5b2bfa68cc8c3a6a7c2ed0be331",
         "offset": 1105,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       },
       {
         "selector": "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97",
         "offset": 0,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       }
     ],
@@ -6719,7 +6719,7 @@
         "selector": "0x39edbbb129ad752107a94d40c3873cae369a46fd2fc578d075679aa67e85d12",
         "offset": 1982,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       }
     ],
@@ -6728,7 +6728,7 @@
         "selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
         "offset": 2136,
         "builtins": [
-          "range_check"
+          "range_check_builtin"
         ]
       }
     ]
