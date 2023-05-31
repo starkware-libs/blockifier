@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{Fee, Calldata, DeployAccountTransaction};
 use starknet_api::{patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
@@ -87,4 +87,17 @@ pub fn declare_tx(
 
 pub fn declare_tx_default() -> DeclareTransactionV0V1 {
     declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
+}
+
+pub fn deploy_account_tx(
+    account_class_hash: &str,
+    constructor_calldata: Option<Calldata>,
+    signature: Option<TransactionSignature>,
+) -> DeployAccountTransaction {
+    crate::test_utils::deploy_account_tx(
+        account_class_hash,
+        Fee(MAX_FEE),
+        constructor_calldata,
+        signature,
+    )
 }
