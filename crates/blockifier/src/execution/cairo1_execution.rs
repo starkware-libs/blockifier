@@ -17,7 +17,7 @@ use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, write_felt, write_maybe_relocatable, Args,
+    read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
     ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
@@ -143,7 +143,7 @@ fn prepare_builtin_costs(
     // additional `ret` statement).
     let mut ptr = (vm.get_pc() + contract_class.program.data.len())?;
     // Push a `ret` opcode.
-    write_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe"))?;
+    write_stark_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe"))?;
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
@@ -176,8 +176,8 @@ pub fn prepare_call_arguments(
             let n_constructed = StarkFelt::default();
             let n_destructed = StarkFelt::default();
             write_maybe_relocatable(vm, &mut ptr, info_segment)?;
-            write_felt(vm, &mut ptr, n_constructed)?;
-            write_felt(vm, &mut ptr, n_destructed)?;
+            write_stark_felt(vm, &mut ptr, n_constructed)?;
+            write_stark_felt(vm, &mut ptr, n_destructed)?;
 
             args.push(CairoArg::Single(ptr.into()));
             continue;
