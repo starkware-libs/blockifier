@@ -147,7 +147,7 @@ impl<'env> StateReader for PapyrusStateReader<'env> {
         match self.reader.get_nonce_at(state_number, &contract_address) {
             Ok(Some(nonce)) => Ok(nonce),
             Ok(None) => Ok(Nonce::default()),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
+            Err(error) => Err(StateError::StateReadError(error.to_string())),
         }
     }
 
@@ -156,7 +156,7 @@ impl<'env> StateReader for PapyrusStateReader<'env> {
         match self.reader.get_class_hash_at(state_number, &contract_address) {
             Ok(Some(class_hash)) => Ok(class_hash),
             Ok(None) => Ok(ClassHash::default()),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
+            Err(error) => Err(StateError::StateReadError(error.to_string())),
         }
     }
 
@@ -170,7 +170,7 @@ impl<'env> StateReader for PapyrusStateReader<'env> {
                 Ok(ContractClassV0::try_from(starknet_api_contract_class)?.into())
             }
             Ok(None) => Err(StateError::UndeclaredClassHash(*class_hash)),
-            Err(err) => Err(StateError::StateReadError(err.to_string())),
+            Err(error) => Err(StateError::StateReadError(error.to_string())),
         }
     }
 
