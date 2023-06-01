@@ -18,8 +18,8 @@ use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
-    ReadOnlySegments,
+    felt_to_stark_felt, read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable,
+    write_stark_felt, Args, ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -242,17 +242,36 @@ pub fn finalize_execution(
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
     // Get retdata.
-    let [failure_flag, retdata_start, retdata_end]: [MaybeRelocatable; 3] =
-        vm.get_return_values(3)?.try_into().expect("Return values must be of size 2.");
-    let failed = if failure_flag == 0.into() {
+    let return_result = vm.get_return_values(5)?;
+    // Corresponds to the Cairo 1.0 enum:
+    // enum PanicResult<Array::<felt>> { Ok: Array::<felt>, Err: Array::<felt>, }.
+    let [failure_flag, retdata_start, retdata_end]: &[MaybeRelocatable; 3] =
+        (&return_result[2..]).try_into().expect("Return values must be of size 2.");
+
+    let failed = if failure_flag == &0.into() {
         false
-    } else if failure_flag == 1.into() {
+    } else if failure_flag == &1.into() {
         true
     } else {
-        return Err(PostExecutionError::MalformedReturnData);
+        return Err(PostExecutionError::MalformedReturnData(
+            "Failure_flag field expected to be either 0 or 1.".to_string(),
+        ));
     };
-    let retdata_size = retdata_end.sub(&retdata_start)?;
+    let retdata_size = retdata_end.sub(retdata_start)?;
     // TODO(spapini): Validate implicits.
+
+    let gas = &return_result[0];
+    let MaybeRelocatable::Int(gas) =  gas
+    else {
+        return
+        Err(PostExecutionError::MalformedReturnData("Error extracting return data.".to_string()));
+    };
+    if gas < &0.into() || gas > &syscall_handler.call.initial_gas {
+        return Err(PostExecutionError::MalformedReturnData(format!(
+            "Unexpected remaining gas: {gas}"
+        )));
+    }
+    let gas_consumed = &syscall_handler.call.initial_gas - gas;
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
@@ -271,8 +290,7 @@ pub fn finalize_execution(
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
             failed,
-            // TODO(Noa,01/06/2023): Fill with actual values.
-            gas_consumed: StarkFelt::default(),
+            gas_consumed: felt_to_stark_felt(&gas_consumed),
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
