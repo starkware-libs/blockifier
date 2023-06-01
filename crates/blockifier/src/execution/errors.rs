@@ -56,8 +56,8 @@ pub enum PostExecutionError {
     SecurityValidationError(String),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
-    #[error("Malformed return data.")]
-    MalformedReturnData,
+    #[error("Malformed return data : {error_message}.")]
+    MalformedReturnData { error_message: String },
 }
 
 impl From<RunnerError> for PostExecutionError {
