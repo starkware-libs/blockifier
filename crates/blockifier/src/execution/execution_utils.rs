@@ -60,9 +60,9 @@ pub fn execute_entry_point_call(
 }
 
 pub fn read_execution_retdata(
-    vm: VirtualMachine,
+    vm: &VirtualMachine,
     retdata_size: MaybeRelocatable,
-    retdata_ptr: MaybeRelocatable,
+    retdata_ptr: &MaybeRelocatable,
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
         MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())
@@ -72,7 +72,7 @@ pub fn read_execution_retdata(
         }
     };
 
-    Ok(Retdata(felt_range_from_ptr(&vm, Relocatable::try_from(&retdata_ptr)?, retdata_size)?))
+    Ok(Retdata(felt_range_from_ptr(vm, Relocatable::try_from(retdata_ptr)?, retdata_size)?))
 }
 
 pub fn stark_felt_from_ptr(

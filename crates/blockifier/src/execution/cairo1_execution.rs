@@ -7,6 +7,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
+use super::entry_point::Retdata;
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
@@ -15,8 +16,8 @@ use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
-    ReadOnlySegments,
+    felt_to_stark_felt, read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable,
+    write_stark_felt, Args, ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -30,6 +31,12 @@ pub struct VmExecutionContext<'a> {
     pub initial_syscall_ptr: Relocatable,
     pub entry_point: EntryPointV1,
     pub program_segment_size: usize,
+}
+
+pub struct CallResult {
+    pub failed: bool,
+    pub retdata: Retdata,
+    pub gas_consumed: StarkFelt,
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -238,18 +245,7 @@ pub fn finalize_execution(
     vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
-    // Get retdata.
-    let [failure_flag, retdata_start, retdata_end]: [MaybeRelocatable; 3] =
-        vm.get_return_values(3)?.try_into().expect("Return values must be of size 2.");
-    let failed = if failure_flag == 0.into() {
-        false
-    } else if failure_flag == 1.into() {
-        true
-    } else {
-        return Err(PostExecutionError::MalformedReturnData);
-    };
-    let retdata_size = retdata_end.sub(&retdata_start)?;
-    // TODO(spapini): Validate implicits.
+    let call_result = get_call_result(&vm, &syscall_handler)?;
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
@@ -264,16 +260,59 @@ pub fn finalize_execution(
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {
-            retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
+            retdata: call_result.retdata,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
-            failed,
-            // TODO(Noa,01/06/2023): Fill with actual values.
-            gas_consumed: StarkFelt::default(),
+            failed: call_result.failed,
+            gas_consumed: call_result.gas_consumed,
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
+    })
+}
+
+fn get_call_result(
+    vm: &VirtualMachine,
+    syscall_handler: &SyscallHintProcessor<'_>,
+) -> Result<CallResult, PostExecutionError> {
+    let return_result = vm.get_return_values(5)?;
+    // Corresponds to the Cairo 1.0 enum:
+    // enum PanicResult<Array::<felt>> { Ok: Array::<felt>, Err: Array::<felt>, }.
+    let [failure_flag, retdata_start, retdata_end]: &[MaybeRelocatable; 3] =
+        (&return_result[2..]).try_into().expect("Return values must be of size 3.");
+
+    let failed = if *failure_flag == MaybeRelocatable::from(0) {
+        false
+    } else if *failure_flag == MaybeRelocatable::from(1) {
+        true
+    } else {
+        return Err(PostExecutionError::MalformedReturnData {
+            error_message: "Failure flag expected to be either 0 or 1.".to_string(),
+        });
+    };
+
+    let retdata_size = retdata_end.sub(retdata_start)?;
+    // TODO(spapini): Validate implicits.
+
+    let gas = &return_result[0];
+    let MaybeRelocatable::Int(gas) =  gas
+    else {
+        return
+        Err(PostExecutionError::MalformedReturnData
+            {error_message:"Error extracting return data.".to_string()});
+    };
+    if gas < &0.into() || gas > &syscall_handler.call.initial_gas {
+        return Err(PostExecutionError::MalformedReturnData {
+            error_message: format!("Unexpected remaining gas: {gas}."),
+        });
+    }
+    let gas_consumed = &syscall_handler.call.initial_gas - gas;
+
+    Ok(CallResult {
+        failed,
+        retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
+        gas_consumed: felt_to_stark_felt(&gas_consumed),
     })
 }
