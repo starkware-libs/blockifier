@@ -13,6 +13,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff, StateNumber};
 
 use crate::errors::NativeBlockifierResult;
+use crate::py_contract_class::PyContractClass;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
@@ -141,8 +142,8 @@ impl Storage {
         let mut declared_classes: IndexMap<ClassHash, (CompiledClassHash, ContractClass)> =
             IndexMap::new();
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
-            let contract_class: starknet_api::state::ContractClass =
-                serde_json::from_str(&raw_class)?;
+            let py_contract_class: PyContractClass = serde_json::from_str(&raw_class)?;
+            let contract_class = ContractClass::from(py_contract_class);
             declared_classes.insert(
                 ClassHash(class_hash.0),
                 (CompiledClassHash(compiled_class_hash.0), contract_class),

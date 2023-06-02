@@ -28,6 +28,7 @@ pyo3 = { version = "0.17.3", features = [
     "hashbrown",
 ] }
 pyo3-log = "0.8.1"
+serde = { workspace = true, features = ["derive"] }
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 # Should match the commit `papyrus_storage` is using.
