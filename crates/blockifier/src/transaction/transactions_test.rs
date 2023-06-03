@@ -104,7 +104,7 @@ fn expected_validate_call_info(
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME => 13_usize,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME => 12_usize,
         constants::VALIDATE_ENTRY_POINT_NAME => 21_usize,
-        selector => panic!("Selector {} is not a known validate selector.", selector),
+        selector => panic!("Selector {selector} is not a known validate selector."),
     };
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks =
