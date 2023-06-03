@@ -33,6 +33,10 @@ impl Storage {
     #[new]
     #[args(path, max_size)]
     pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
+        let a = 1;
+        if a != 1 {
+            panic!("ASdF");
+        }
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
             path,
