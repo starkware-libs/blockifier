@@ -12,6 +12,8 @@ use cairo_vm::serde::deserialize_program::{
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
+use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
 use starknet_api::core::EntryPointSelector;
@@ -21,6 +23,7 @@ use starknet_api::deprecated_contract_class::{
 };
 
 use super::errors::PreExecutionError;
+use crate::abi::constants;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
 
 /// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
@@ -55,7 +58,37 @@ impl Deref for ContractClassV0 {
 
 impl ContractClassV0 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
-        Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
+        Some(self.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
+    }
+
+    fn n_entry_points(&self) -> usize {
+        self.entry_points_by_type.values().map(|vec| vec.len()).sum()
+    }
+
+    fn n_builtins(&self) -> usize {
+        self.program.builtins.len()
+    }
+
+    fn bytecode_length(&self) -> usize {
+        self.program.data.len()
+    }
+
+    pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+        let hashed_data_size = (constants::CAIRO0_ENTRY_POINT_STRUCT_SIZE * self.n_entry_points())
+            + self.n_builtins()
+            + self.bytecode_length()
+            + 1; // Hinted class hash.
+        // The hashed data size is approximately the number of hashes (invoked in hash chains).
+        let n_steps = constants::N_STEPS_PER_PEDERSEN * hashed_data_size;
+
+        VmExecutionResources {
+            n_steps,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(
+                HASH_BUILTIN_NAME.to_string(),
+                hashed_data_size,
+            )]),
+        }
     }
 
     pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV0, ProgramError> {
