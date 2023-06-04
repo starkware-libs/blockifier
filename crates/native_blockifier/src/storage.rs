@@ -144,10 +144,21 @@ impl Storage {
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
             let py_contract_class: PyContractClass = serde_json::from_str(&raw_class)?;
             let contract_class = ContractClass::from(py_contract_class);
-            declared_classes.insert(
-                ClassHash(class_hash.0),
-                (CompiledClassHash(compiled_class_hash.0), contract_class),
-            );
+            let class_hash = ClassHash(class_hash.0);
+            let state_number = StateNumber(block_number);
+            let class_undeclared = self
+                .reader()
+                .begin_ro_txn()?
+                .get_state_reader()?
+                .get_class_definition_at(state_number, &class_hash)?
+                .is_none();
+
+            if class_undeclared {
+                declared_classes.insert(
+                    ClassHash(class_hash.0),
+                    (CompiledClassHash(compiled_class_hash.0), contract_class),
+                );
+            }
         }
 
         // Construct state diff; manually add declared classes.
