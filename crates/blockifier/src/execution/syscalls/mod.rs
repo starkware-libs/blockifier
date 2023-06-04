@@ -491,9 +491,5 @@ pub fn storage_write(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<StorageWriteResponse> {
-    // Read the value before the write operation in order to log it in the list of read·
-    // values. This is needed to correctly build the `DictAccess` entry corresponding to·
-    // `storage_write` syscall in the OS.
-    syscall_handler.get_contract_storage_at(request.address)?;
     syscall_handler.set_contract_storage_at(request.address, request.value)
 }
