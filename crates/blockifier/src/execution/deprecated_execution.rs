@@ -80,7 +80,7 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
+    let mut runner = CairoRunner::new(&contract_class.program, "starknet", proof_mode)?;
 
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
@@ -105,7 +105,7 @@ pub fn resolve_entry_point_pc(
     call: &CallEntryPoint,
     contract_class: &ContractClassV0,
 ) -> Result<usize, PreExecutionError> {
-    let entry_points_of_same_type = &contract_class.0.entry_points_by_type[&call.entry_point_type];
+    let entry_points_of_same_type = &contract_class.entry_points_by_type[&call.entry_point_type];
     let filtered_entry_points: Vec<_> = entry_points_of_same_type
         .iter()
         .filter(|ep| ep.selector == call.entry_point_selector)
