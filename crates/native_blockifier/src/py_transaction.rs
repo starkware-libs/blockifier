@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
-use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -33,7 +33,7 @@ use starknet_api::transaction::{
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::papyrus_state::PapyrusStateReader;
 use crate::py_state_diff::PyStateDiff;
-use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
+use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
 use crate::storage::Storage;
 
@@ -280,17 +280,6 @@ pub fn py_tx(
 }
 
 #[pyclass]
-#[derive(Clone)]
-pub struct PyContractClassSizes {
-    #[pyo3(get)]
-    pub bytecode_length: usize,
-    #[pyo3(get)]
-    // For a Cairo 1.0 contract class, builtins are an attribute of an entry point,
-    // and not of the entire class.
-    pub n_builtins: Option<usize>,
-}
-
-#[pyclass]
 // To access a field you must use `self.borrow_{field_name}()`.
 // Alternately, you can borrow the whole object using `self.with[_mut]()`.
 #[ouroboros::self_referencing]
@@ -372,7 +361,7 @@ impl PyTransactionExecutor {
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<(
         Py<PyTransactionExecutionInfo>,
-        HashMap<PyFelt, PyContractClassSizes>,
+        HashMap<PyFelt, PyVmExecutionResources>,
     )> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
@@ -411,7 +400,7 @@ impl PyTransactionExecutor {
             match has_enough_room_for_tx {
                 Ok(_) => {
                     transactional_state.commit();
-                    let py_executed_compiled_class_hashes = into_py_contract_class_sizes_mapping(
+                    let py_executed_compiled_class_hashes = py_class_hash_to_casm_hash_resources(
                         executor.state,
                         executed_class_hashes,
                     )?;
@@ -425,7 +414,7 @@ impl PyTransactionExecutor {
                 // Not enough room in batch, abort and let caller verify on its own.
                 Err(_not_enough_weight_error) => {
                     transactional_state.abort();
-                    let py_executed_compiled_class_hashes = into_py_contract_class_sizes_mapping(
+                    let py_executed_compiled_class_hashes = py_class_hash_to_casm_hash_resources(
                         executor.state,
                         executed_class_hashes,
                     )?;
@@ -450,28 +439,18 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
     !(error_string.contains("BatchFull") || error_string.contains("TransactionBiggerThanBatch"))
 }
 
-/// Maps Sierra class hashes to their corresponding compiled class hash.
-pub fn into_py_contract_class_sizes_mapping(
+pub fn py_class_hash_to_casm_hash_resources(
     state: &mut CachedState<PapyrusStateReader<'_>>,
     executed_class_hashes: HashSet<ClassHash>,
-) -> NativeBlockifierResult<HashMap<PyFelt, PyContractClassSizes>> {
-    let mut executed_compiled_class_sizes = HashMap::<PyFelt, PyContractClassSizes>::new();
+) -> NativeBlockifierResult<HashMap<PyFelt, PyVmExecutionResources>> {
+    let mut casm_hash_computation_resources = HashMap::<PyFelt, PyVmExecutionResources>::new();
 
     for class_hash in executed_class_hashes {
         let class = state.get_compiled_contract_class(&class_hash)?;
-
-        let sizes = match class {
-            ContractClass::V0(class) => PyContractClassSizes {
-                bytecode_length: class.program.data.len(),
-                n_builtins: Some(class.program.builtins.len()),
-            },
-            ContractClass::V1(class) => {
-                PyContractClassSizes { bytecode_length: class.program.data.len(), n_builtins: None }
-            }
-        };
-
-        executed_compiled_class_sizes.insert(PyFelt::from(class_hash), sizes);
+        let estimated_resources = class.estimate_casm_hash_computation_resources();
+        casm_hash_computation_resources
+            .insert(PyFelt::from(class_hash), PyVmExecutionResources::from(estimated_resources));
     }
 
-    Ok(executed_compiled_class_sizes)
+    Ok(casm_hash_computation_resources)
 }
