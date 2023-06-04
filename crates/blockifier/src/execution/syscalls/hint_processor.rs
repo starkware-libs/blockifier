@@ -46,6 +46,10 @@ pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
+    #[error("Cannot replace V1 class hash with V0 class hash: {class_hash}.")]
+    ForbiddenClassReplacement { class_hash: ClassHash },
+    #[error("Invalid address domain: {address_domain}.")]
+    InvalidAddressDomain { address_domain: StarkFelt },
     #[error(transparent)]
     InnerCallExecutionError(#[from] EntryPointExecutionError),
     #[error("Invalid syscall input: {input:?}; {info}")]
@@ -64,8 +68,6 @@ pub enum SyscallExecutionError {
     VirtualMachineError(#[from] VirtualMachineError),
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<StarkFelt> },
-    #[error("Invalid address domain: {address_domain}.")]
-    InvalidAddressDomain { address_domain: StarkFelt },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
