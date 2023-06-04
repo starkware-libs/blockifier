@@ -82,15 +82,18 @@ impl ExecutionContext {
     /// Combines individual errors into a single stack trace string, with contract addresses printed
     /// alongside their respective trace.
     pub fn error_trace(&self) -> String {
-        let mut frame_errors: Vec<String> = vec![];
-        for (contract_address, trace_string) in self.error_stack.iter().rev() {
-            frame_errors.push(format!(
-                "Error in the called contract ({}):\n{}",
-                contract_address.0.key(),
-                trace_string
-            ));
-        }
-        frame_errors.join("\n")
+        self.error_stack
+            .iter()
+            .rev()
+            .map(|(contract_address, trace_string)| {
+                format!(
+                    "Error in the called contract ({}):\n{}",
+                    contract_address.0.key(),
+                    trace_string
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
 
