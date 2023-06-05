@@ -11,7 +11,9 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallEntryPointInfo, CallExecution, CallInfo, CallType, Retdata,
+};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -111,12 +113,12 @@ fn test_nested_library_call() {
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        ..nested_storage_entry_point
+        ..nested_storage_entry_point.clone()
     };
     let storage_entry_point_vm_resources =
         VmExecutionResources { n_steps: 41, ..Default::default() };
     let nested_storage_call_info = CallInfo {
-        call: nested_storage_entry_point,
+        call: CallEntryPointInfo::from(nested_storage_entry_point),
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         vm_resources: storage_entry_point_vm_resources.clone(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
@@ -130,14 +132,14 @@ fn test_nested_library_call() {
     };
     library_call_vm_resources += &storage_entry_point_vm_resources;
     let library_call_info = CallInfo {
-        call: library_entry_point,
+        call: CallEntryPointInfo::from(library_entry_point),
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         vm_resources: library_call_vm_resources.clone(),
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
     let storage_call_info = CallInfo {
-        call: storage_entry_point,
+        call: CallEntryPointInfo::from(storage_entry_point),
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
         vm_resources: storage_entry_point_vm_resources.clone(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
@@ -149,7 +151,7 @@ fn test_nested_library_call() {
     let mut main_call_vm_resources = VmExecutionResources { n_steps: 45, ..Default::default() };
     main_call_vm_resources += &(&library_call_vm_resources * 2);
     let expected_call_info = CallInfo {
-        call: main_entry_point.clone(),
+        call: CallEntryPointInfo::from(main_entry_point.clone()),
         execution: CallExecution::from_retdata(retdata![stark_felt!(0_u8)]),
         vm_resources: main_call_vm_resources,
         inner_calls: vec![library_call_info, storage_call_info],

@@ -22,6 +22,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::abi::constants;
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::deprecated_syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
@@ -389,6 +390,8 @@ pub fn execute_library_call(
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
+    let initial_gas = constants::INITIAL_GAS_COST.into();
+
     let entry_point = CallEntryPoint {
         class_hash: Some(class_hash),
         code_address,
@@ -399,6 +402,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address,
         caller_address: syscall_handler.caller_address,
         call_type: CallType::Delegate,
+        initial_gas,
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)

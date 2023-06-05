@@ -11,7 +11,8 @@ use super::contract_class::EntryPointV1;
 use super::errors::EntryPointExecutionError;
 use crate::execution::contract_class::ContractClassV1;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
+    CallEntryPoint, CallEntryPointInfo, CallExecution, CallInfo, EntryPointExecutionResult,
+    ExecutionContext,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -265,7 +266,7 @@ pub fn finalize_execution(
     let full_call_vm_resources =
         &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
-        call: syscall_handler.call,
+        call: CallEntryPointInfo::from(syscall_handler.call),
         execution: CallExecution {
             retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
             events: syscall_handler.events,
