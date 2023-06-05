@@ -3,7 +3,7 @@ use std::fs;
 use std::iter::zip;
 use std::path::PathBuf;
 
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::{BlockNumber, BlockTimestamp, GasPrice};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
     EntryPointSelector, Nonce, PatriciaKey,
@@ -324,7 +324,7 @@ impl BlockContext {
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
             vm_resource_fee_cost: HashMap::default(),
-            gas_price: DEFAULT_GAS_PRICE,
+            gas_price: GasPrice(DEFAULT_GAS_PRICE),
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
         }

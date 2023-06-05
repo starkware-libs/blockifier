@@ -19,7 +19,7 @@ use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::{BlockNumber, BlockTimestamp, GasPrice};
 use starknet_api::core::{
     ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
 };
@@ -95,7 +95,7 @@ pub fn py_block_context(
         vm_resource_fee_cost: process_cairo_resource_fee_weights(
             &general_config.cairo_resource_fee_weights,
         )?,
-        gas_price: py_attr(block_info, "gas_price")?,
+        gas_price: GasPrice(py_attr(block_info, "gas_price")?),
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
     };
