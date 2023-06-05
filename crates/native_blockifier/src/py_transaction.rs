@@ -81,43 +81,50 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
 }
 
 pub fn py_block_context(
-    general_config: &PyAny,
+    general_config: PyGeneralConfig,
     block_info: &PyAny,
 ) -> NativeBlockifierResult<BlockContext> {
-    let starknet_os_config = general_config.getattr("starknet_os_config")?;
+    let starknet_os_config = &general_config.starknet_os_config;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
     let block_context = BlockContext {
-        chain_id: to_chain_id_enum(py_attr(starknet_os_config, "chain_id")?)?,
+        chain_id: to_chain_id_enum(&starknet_os_config.chain_id)?,
         block_number,
         block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(py_felt_attr(
-            general_config,
-            "sequencer_address",
-        )?)?,
-        fee_token_address: ContractAddress::try_from(py_felt_attr(
-            starknet_os_config,
-            "fee_token_address",
-        )?)?,
-        vm_resource_fee_cost: process_cairo_resource_fee_weights(general_config)?,
+        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
+        fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
+        vm_resource_fee_cost: process_cairo_resource_fee_weights(&general_config)?,
         gas_price: py_attr(block_info, "gas_price")?,
-        invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
-        validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
+        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
+        validate_max_n_steps: general_config.validate_max_n_steps,
     };
 
     Ok(block_context)
 }
 
+#[derive(FromPyObject)]
+pub struct PyGeneralConfig {
+    pub starknet_os_config: PyOsConfig,
+    pub sequencer_address: PyFelt,
+    pub cairo_resource_fee_weights: HashMap<String, f64>,
+    pub invoke_tx_max_n_steps: u32,
+    pub validate_max_n_steps: u32,
+}
+#[derive(FromPyObject)]
+pub struct PyOsConfig {
+    pub chain_id: BigUint,
+    pub fee_token_address: PyFelt,
+}
+
 fn process_cairo_resource_fee_weights(
-    general_config: &PyAny,
+    general_config: &PyGeneralConfig,
 ) -> Result<HashMap<String, f64>, NativeBlockifierError> {
-    let cairo_resource_fee_weights: HashMap<String, f64> =
-        py_attr(general_config, "cairo_resource_fee_weights")?;
+    let cairo_resource_fee_weights = &general_config.cairo_resource_fee_weights;
 
     // Remove the suffix "_builtin" from the keys, if exists.
     // FIXME: This should be fixed in python though...
     let cairo_resource_fee_weights = cairo_resource_fee_weights
-        .into_iter()
-        .map(|(k, v)| (k.trim_end_matches("_builtin").to_string(), v))
+        .iter()
+        .map(|(k, v)| (k.trim_end_matches("_builtin").to_string(), *v))
         .collect();
 
     Ok(cairo_resource_fee_weights)
@@ -344,7 +351,7 @@ impl PyTransactionExecutor {
     #[new]
     #[args(general_config, block_info, papyrus_storage)]
     pub fn create(
-        general_config: &PyAny,
+        general_config: PyGeneralConfig,
         block_info: &PyAny,
         papyrus_storage: &Storage,
     ) -> NativeBlockifierResult<Self> {

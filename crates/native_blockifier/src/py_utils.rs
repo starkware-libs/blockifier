@@ -80,7 +80,7 @@ where
     values.into_iter().map(converter).collect()
 }
 
-pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
+pub fn to_chain_id_enum(value: &BigUint) -> NativeBlockifierResult<ChainId> {
     let expected_name = String::from_utf8_lossy(&value.to_bytes_be()).to_string();
     for chain_name in CHAIN_NAMES {
         if expected_name == *chain_name {
