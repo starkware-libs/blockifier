@@ -272,6 +272,41 @@ pub fn emit_event(
     Ok(EmitEventResponse {})
 }
 
+// GetBlockHash syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockHashRequest {
+    pub block_number: StarkFelt,
+}
+
+impl SyscallRequest for GetBlockHashRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
+        let block_number = stark_felt_from_ptr(vm, ptr)?;
+        Ok(GetBlockHashRequest { block_number })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockHashResponse {
+    pub block_hash: StarkFelt,
+}
+
+impl SyscallResponse for GetBlockHashResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_stark_felt(vm, ptr, self.block_hash)?;
+        Ok(())
+    }
+}
+pub fn get_block_hash(
+    request: GetBlockHashRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetBlockHashResponse> {
+    let block_hash = syscall_handler.get_block_hash(request.block_number)?;
+
+    Ok(GetBlockHashResponse { block_hash })
+}
+
 // GetExecutionInfo syscall.
 
 type GetExecutionInfoRequest = EmptyRequest;

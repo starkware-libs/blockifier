@@ -102,6 +102,24 @@ fn test_emit_event() {
 }
 
 #[test]
+fn test_get_block_hash() {
+    let mut state = create_test_state();
+
+    let calldata = calldata![
+        stark_felt!(1800_u16) // Block number.
+    ];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    // TODO(spapini): Fix the "UNEXPECTED ERROR".
+    // TODO(Arni): Remove the "Unimplemented" error.
+    entry_point_call.execute_directly(&mut state).unwrap_err();
+}
+
+#[test]
 fn test_get_execution_info() {
     let mut state = create_test_state();
 

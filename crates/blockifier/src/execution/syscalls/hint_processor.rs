@@ -32,10 +32,10 @@ use crate::execution::execution_utils::{
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
-    call_contract, deploy, emit_event, get_execution_info, library_call, library_call_l1_handler,
-    replace_class, send_message_to_l1, storage_read, storage_write, StorageReadResponse,
-    StorageWriteResponse, SyscallRequest, SyscallRequestWrapper, SyscallResponse,
-    SyscallResponseWrapper, SyscallResult, SyscallSelector,
+    call_contract, deploy, emit_event, get_block_hash, get_execution_info, library_call,
+    library_call_l1_handler, replace_class, send_message_to_l1, storage_read, storage_write,
+    StorageReadResponse, StorageWriteResponse, SyscallRequest, SyscallRequestWrapper,
+    SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
@@ -66,6 +66,8 @@ pub enum SyscallExecutionError {
     SyscallError { error_data: Vec<StarkFelt> },
     #[error("Invalid address domain: {address_domain}.")]
     InvalidAddressDomain { address_domain: StarkFelt },
+    #[error("Syscall not implemented.")]
+    Unimplemented,
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
@@ -174,6 +176,7 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
             SyscallSelector::Deploy => self.execute_syscall(vm, deploy),
             SyscallSelector::EmitEvent => self.execute_syscall(vm, emit_event),
+            SyscallSelector::GetBlockHash => self.execute_syscall(vm, get_block_hash),
             SyscallSelector::GetExecutionInfo => self.execute_syscall(vm, get_execution_info),
             SyscallSelector::LibraryCall => self.execute_syscall(vm, library_call),
             SyscallSelector::LibraryCallL1Handler => {
@@ -307,6 +310,11 @@ impl<'a> SyscallHintProcessor<'a> {
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
         Ok(tx_info_start_ptr)
+    }
+
+    // TODO(Arni, 6/6/2023): Implement this logic.
+    pub fn get_block_hash(&mut self, _block_number: StarkFelt) -> SyscallResult<StarkFelt> {
+        Err(SyscallExecutionError::Unimplemented)
     }
 
     pub fn get_contract_storage_at(
