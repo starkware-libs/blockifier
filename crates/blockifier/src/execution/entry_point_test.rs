@@ -522,14 +522,14 @@ fn test_stack_trace() {
 Error at pc=0:19:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:629)
-Unknown location (pc=0:612)
+Unknown location (pc=0:658)
+Unknown location (pc=0:641)
 Error in the called contract ({}):
 Error at pc=0:19:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:629)
-Unknown location (pc=0:612)
+Unknown location (pc=0:658)
+Unknown location (pc=0:641)
 Error in the called contract ({}):
 Error at pc=0:58:
 An ASSERT_EQ instruction failed: 1 != 0.
