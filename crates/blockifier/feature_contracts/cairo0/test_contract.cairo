@@ -75,6 +75,13 @@ func test_storage_read_write{syscall_ptr: felt*}(address: felt, value: felt) -> 
 }
 
 @external
+func write_and_revert{syscall_ptr: felt*}(address: felt, value: felt) {
+    storage_write(address=address, value=value);
+    assert 0 = 1;
+    return ();
+}
+
+@external
 func test_long_retdata() -> (a: felt, b: felt, c: felt, d: felt, e: felt) {
     return (a=0, b=1, c=2, d=3, e=4);
 }

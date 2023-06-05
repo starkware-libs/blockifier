@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::entry_point::CallInfo;
@@ -18,6 +20,12 @@ pub struct AccountTransactionContext {
     pub signature: TransactionSignature,
     pub nonce: Nonce,
     pub sender_address: ContractAddress,
+}
+
+impl AccountTransactionContext {
+    pub fn is_v0(&self) -> bool {
+        self.version == TransactionVersion(stark_felt!(0_u8))
+    }
 }
 
 /// Contains the information gathered by the execution of a transaction.
