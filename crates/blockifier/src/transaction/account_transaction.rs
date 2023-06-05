@@ -15,7 +15,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext,
 };
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::state::cached_state::TransactionalState;
+use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
@@ -40,6 +40,25 @@ pub enum AccountTransaction {
     Declare(DeclareTransaction),
     DeployAccount(DeployAccountTransaction),
     Invoke(InvokeTransaction),
+}
+
+struct ValidateExecuteCallInfo {
+    validate_call_info: Option<CallInfo>,
+    execute_call_info: Option<CallInfo>,
+    revert_error: Option<String>,
+}
+
+impl ValidateExecuteCallInfo {
+    pub fn new_accepted(
+        validate_call_info: Option<CallInfo>,
+        execute_call_info: Option<CallInfo>,
+    ) -> Self {
+        Self { validate_call_info, execute_call_info, revert_error: None }
+    }
+
+    pub fn new_reverted(validate_call_info: Option<CallInfo>, revert_error: String) -> Self {
+        Self { validate_call_info, execute_call_info: None, revert_error: Some(revert_error) }
+    }
 }
 
 impl AccountTransaction {
@@ -173,7 +192,7 @@ impl AccountTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
+        if context.account_tx_context.is_v0() {
             return Ok(None);
         }
 
@@ -206,15 +225,12 @@ impl AccountTransaction {
         self.max_fee() != Fee(0)
     }
 
-    /// Handles nonce, checks balance covers max fee, and (when applicable) runs the validation
-    /// phase.
-    /// Returns the `CallInfo` of the validation phase, if applicable.
-    fn process_validation_state<S: StateReader>(
+    /// Handles nonce and checks that the account's balance covers max fee.
+    fn handle_nonce_and_check_fee_balance<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
-    ) -> TransactionExecutionResult<Option<CallInfo>> {
+    ) -> TransactionExecutionResult<()> {
         // Handle nonce.
         Self::handle_nonce(&context.account_tx_context, state)?;
 
@@ -237,11 +253,7 @@ impl AccountTransaction {
             }
         }
 
-        // Validate transaction (if applicable).
-        match &self {
-            Self::Declare(_) | Self::Invoke(_) => self.validate_tx(state, context, remaining_gas),
-            Self::DeployAccount(_) => Ok(None),
-        }
+        Ok(())
     }
 
     fn charge_fee(
@@ -310,6 +322,49 @@ impl AccountTransaction {
             Self::Invoke(tx) => tx.run_execute(state, context, remaining_gas),
         }
     }
+
+    /// Runs validation and execution.
+    // TODO(Dori, 15/6/2023): Construct an execute call info object for reverted transactions.
+    fn run_or_revert<S: StateReader>(
+        &self,
+        state: &mut TransactionalState<'_, S>,
+        context: &mut EntryPointExecutionContext,
+        remaining_gas: &mut Felt252,
+    ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
+        // Handle `DeployAccount` transactions separately, due to different order of things.
+        if matches!(self, Self::DeployAccount(_)) {
+            let execute_call_info = self.run_execute(state, context, remaining_gas)?;
+            let validate_call_info = self.validate_tx(state, context, remaining_gas)?;
+            return Ok(ValidateExecuteCallInfo::new_accepted(
+                validate_call_info,
+                execute_call_info,
+            ));
+        }
+
+        // V0 transactions do not have validation; we cannot deduct fee for execution.
+        if context.account_tx_context.is_v0() {
+            let validate_call_info = self.validate_tx(state, context, remaining_gas)?;
+            let execute_call_info = self.run_execute(state, context, remaining_gas)?;
+            return Ok(ValidateExecuteCallInfo::new_accepted(
+                validate_call_info,
+                execute_call_info,
+            ));
+        }
+
+        // Run the validation, and if execution later fails, only keep the validation diff.
+        let validate_call_info = self.validate_tx(state, context, remaining_gas)?;
+        let mut execution_state = CachedState::new(MutRefState::new(state));
+        match self.run_execute(&mut execution_state, context, remaining_gas) {
+            Ok(execute_call_info) => {
+                execution_state.commit();
+                Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
+            }
+            Err(_) => {
+                execution_state.abort();
+                Ok(ValidateExecuteCallInfo::new_reverted(validate_call_info, context.error_trace()))
+            }
+        }
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
@@ -324,17 +379,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
         let mut remaining_gas = Transaction::initial_gas();
 
-        // Pre-process the nonce / fee check / validation state changes.
-        let early_validate_call_info =
-            self.process_validation_state(state, &mut context, &mut remaining_gas)?;
+        // Nonce and fee check should be done before running user code.
+        self.handle_nonce_and_check_fee_balance(state, &mut context)?;
 
-        // Handle transaction-type specific execution.
-        // The validation phase in a `DeployAccount` transaction happens after execution.
-        let execute_call_info = self.run_execute(state, &mut context, &mut remaining_gas)?;
-        let validate_call_info = match &self {
-            Self::DeployAccount(_) => self.validate_tx(state, &mut context, &mut remaining_gas)?,
-            Self::Declare(_) | Self::Invoke(_) => early_validate_call_info,
-        };
+        // Run validation and execution.
+        let ValidateExecuteCallInfo { validate_call_info, execute_call_info, revert_error } =
+            self.run_or_revert(state, &mut context, &mut remaining_gas)?;
 
         // Handle fee.
         let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
@@ -362,7 +412,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             fee_transfer_call_info,
             actual_fee,
             actual_resources,
-            revert_error: None,
+            revert_error,
         };
         Ok(tx_execution_info)
     }
