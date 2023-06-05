@@ -33,3 +33,6 @@ pub const N_STEPS_RESOURCE: &str = "n_steps";
 // Casm hash calculation-related constants.
 pub const CAIRO0_ENTRY_POINT_STRUCT_SIZE: usize = 2;
 pub const N_STEPS_PER_PEDERSEN: usize = 8;
+
+// Operation-related constants.
+pub const BLOCK_NUMBER_TO_BLOCK_HASH_ADDRESS: u64 = 0x1;

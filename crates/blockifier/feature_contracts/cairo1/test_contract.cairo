@@ -45,6 +45,12 @@ mod TestContract {
     }
 
     #[external]
+    fn test_get_block_hash(block_number_as_felt: felt252) -> felt252 {
+        let block_number = Into::<_, u64>::into(block_number_as_felt);
+        starknet::syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
+    }
+
+    #[external]
     fn test_get_execution_info(
         // Expected block info.
         block_number: felt252,

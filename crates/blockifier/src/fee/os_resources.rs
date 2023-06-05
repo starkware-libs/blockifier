@@ -45,6 +45,11 @@ fn os_resources() -> serde_json::Value {
                 "n_memory_holes": 0,
                 "n_steps": 19
             },
+            "GetBlockHash": {
+                "builtin_instance_counter": {},
+                "n_memory_holes": 0,
+                "n_steps": 0
+            },
             "GetBlockNumber": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
