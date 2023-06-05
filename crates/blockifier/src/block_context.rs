@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::{BlockNumber, BlockTimestamp, GasPrice};
 use starknet_api::core::{ChainId, ContractAddress};
 
 #[derive(Clone, Debug)]
@@ -13,7 +13,7 @@ pub struct BlockContext {
     pub sequencer_address: ContractAddress,
     pub fee_token_address: ContractAddress,
     pub vm_resource_fee_cost: HashMap<String, f64>,
-    pub gas_price: u128, // In wei.
+    pub gas_price: GasPrice, // In wei.
 
     // Limits.
     pub invoke_tx_max_n_steps: u32,
