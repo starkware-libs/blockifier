@@ -5,10 +5,10 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EthAddress, EventContent, Fee, L2ToL1Payload};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
@@ -76,21 +76,40 @@ impl ExecutionContext {
             account_tx_context,
         }
     }
-}
 
-impl ExecutionContext {
+    /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
+    /// If fee is disabled, returns the global maximum.
+    pub fn max_steps(&self) -> usize {
+        if self.account_tx_context.max_fee == Fee(0) {
+            constants::MAX_STEPS_PER_TX
+        } else {
+            let gas_per_step = self
+                .block_context
+                .vm_resource_fee_cost
+                .get(constants::N_STEPS_RESOURCE)
+                .unwrap_or_else(|| {
+                    panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
+                });
+            let max_gas = self.account_tx_context.max_fee.0 / self.block_context.gas_price;
+            ((max_gas as f64 / gas_per_step).floor() as usize).min(constants::MAX_STEPS_PER_TX)
+        }
+    }
+
     /// Combines individual errors into a single stack trace string, with contract addresses printed
     /// alongside their respective trace.
     pub fn error_trace(&self) -> String {
-        let mut frame_errors: Vec<String> = vec![];
-        for (contract_address, trace_string) in self.error_stack.iter().rev() {
-            frame_errors.push(format!(
-                "Error in the called contract ({}):\n{}",
-                contract_address.0.key(),
-                trace_string
-            ));
-        }
-        frame_errors.join("\n")
+        self.error_stack
+            .iter()
+            .rev()
+            .map(|(contract_address, trace_string)| {
+                format!(
+                    "Error in the called contract ({}):\n{}",
+                    contract_address.0.key(),
+                    trace_string
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
 
@@ -309,7 +328,7 @@ pub fn handle_empty_constructor(
             class_hash: Some(class_hash),
             code_address,
             entry_point_type: EntryPointType::Constructor,
-            entry_point_selector: selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME),
+            entry_point_selector: selector_from_name(constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             calldata: Calldata::default(),
             storage_address,
             caller_address,
