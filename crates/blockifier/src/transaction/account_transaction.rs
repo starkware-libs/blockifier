@@ -70,6 +70,13 @@ impl AccountTransaction {
         }
     }
 
+    pub fn get_address_of_deploy(&self) -> Option<ContractAddress> {
+        match self {
+            AccountTransaction::DeployAccount(deploy_tx) => Some(deploy_tx.contract_address),
+            _ => None,
+        }
+    }
+
     pub fn max_fee(&self) -> Fee {
         match self {
             AccountTransaction::Declare(declare) => declare.tx().max_fee(),
