@@ -20,8 +20,13 @@ use crate::test_utils::{
     declare_tx, deploy_account_tx, invoke_tx, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
     ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::test_utils::{
+    create_account_tx_for_validate_test, create_state_with_falliable_validation_account, INVALID,
+};
+use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
 
 fn create_state() -> CachedState<DictStateReader> {
@@ -214,5 +219,29 @@ fn test_revert_invoke() {
                 StorageKey::try_from(storage_key).unwrap(),
             )
             .unwrap()
+    );
+}
+
+#[test]
+/// Tests that failing account deployment should not change state (no fee charge or nonce bump).
+fn test_fail_deploy_account() {
+    let mut state = create_state_with_falliable_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+
+    let deployed_account_address =
+        ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
+    let initial_balance =
+        state.get_fee_token_balance(block_context, &deployed_account_address).unwrap();
+
+    // Create and execute (failing) deploy account transaction.
+    let deploy_account_tx =
+        create_account_tx_for_validate_test(TransactionType::DeployAccount, INVALID, None);
+    deploy_account_tx.execute(&mut state, block_context).unwrap_err();
+
+    // Assert nonce and balance are unchanged.
+    assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
+    assert_eq!(
+        state.get_fee_token_balance(block_context, &deployed_account_address).unwrap(),
+        initial_balance
     );
 }
