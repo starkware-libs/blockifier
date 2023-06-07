@@ -16,6 +16,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants::BLOCK_HASH_CONTRACT_ADDRESS;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
@@ -118,6 +119,34 @@ fn test_emit_event() {
             events: vec![OrderedEvent { order: 0, event }],
             gas_consumed: stark_felt!(53940_u64),
             ..Default::default()
+        }
+    );
+}
+
+// TODO(Arni, 11/6/2023): Initialize the "contract" at BLOCK_HASH_CONTRACT_ADDRESS.
+#[test]
+fn test_get_block_hash() {
+    let mut state = create_test_state();
+
+    // Initialize block number -> block hash entry.
+    let block_number = stark_felt!(1800_u64);
+    let block_hash = stark_felt!(66_u64);
+    let key = StorageKey::try_from(block_number).unwrap();
+    state.set_storage_at(*BLOCK_HASH_CONTRACT_ADDRESS, key, block_hash);
+
+    // Create call.
+    let calldata = calldata![block_number];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution {
+            gas_consumed: stark_felt!(15750_u64),
+            ..CallExecution::from_retdata(retdata![block_hash])
         }
     );
 }

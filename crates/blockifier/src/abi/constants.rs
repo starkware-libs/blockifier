@@ -1,3 +1,7 @@
+use starknet_api::core::ContractAddress;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
+
 pub const CONSTRUCTOR_ENTRY_POINT_NAME: &str = "constructor";
 pub const DEFAULT_ENTRY_POINT_NAME: &str = "__default__";
 pub const DEFAULT_ENTRY_POINT_SELECTOR: u64 = 0;
@@ -50,9 +54,18 @@ pub const TRANSACTION_GAS_COST: u64 =
 pub const CALL_CONTRACT_GAS_COST: u64 = 10 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
 pub const DEPLOY_GAS_COST: u64 = 200 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
 pub const EMIT_EVENT_GAS_COST: u64 = 10 * STEP_GAS_COST;
+pub const GET_BLOCK_HASH_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const GET_EXECUTION_INFO_GAS_COST: u64 = 10 * STEP_GAS_COST;
 pub const LIBRARY_CALL_GAS_COST: u64 = CALL_CONTRACT_GAS_COST;
 pub const REPLACE_CLASS_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const SEND_MESSAGE_TO_L1_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_READ_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_WRITE_GAS_COST: u64 = 50 * STEP_GAS_COST;
+
+// OS reserved contract addresses.
+// This contract stores the block number -> block hash mapping.
+pub static BLOCK_HASH_CONTRACT_ADDRESS: once_cell::sync::Lazy<ContractAddress> =
+    once_cell::sync::Lazy::new(|| {
+        ContractAddress::try_from(stark_felt!(1_u64))
+            .unwrap_or_else(|_| panic!("Failed to convert 1_u64 to StarkFelt"))
+    });
