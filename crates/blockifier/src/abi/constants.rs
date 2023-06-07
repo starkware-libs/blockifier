@@ -33,3 +33,8 @@ pub const N_STEPS_RESOURCE: &str = "n_steps";
 // Casm hash calculation-related constants.
 pub const CAIRO0_ENTRY_POINT_STRUCT_SIZE: usize = 2;
 pub const N_STEPS_PER_PEDERSEN: usize = 8;
+
+// OS reserved contract addresses.
+
+// This contract stores the block number -> block hash mapping.
+pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 0x1;

@@ -16,6 +16,7 @@ use self::hint_processor::{
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
     SyscallHintProcessor,
 };
+use crate::abi::constants;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
@@ -270,6 +271,52 @@ pub fn emit_event(
     execution_context.n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
+}
+
+// GetBlockHash syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+
+// TODO(Arni, 8/6/2023): Consider replacing with block_number: u64.
+pub struct GetBlockHashRequest {
+    pub block_number: StarkFelt,
+}
+
+impl SyscallRequest for GetBlockHashRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
+        let block_number = stark_felt_from_ptr(vm, ptr)?;
+        Ok(GetBlockHashRequest { block_number })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockHashResponse {
+    pub block_hash: StarkFelt,
+}
+
+impl SyscallResponse for GetBlockHashResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_stark_felt(vm, ptr, self.block_hash)?;
+        Ok(())
+    }
+}
+
+// Returns the block hash of the block at given block_number.
+// Raises an error if latest - block_number < 10.
+// Returns the expected block hash if 10 <= latest - block_number < 1024.
+// Returns unexpected value, otherwise (Most likly - returns an uninitialized value = 0).
+// TODO(Arni, 11/6/2023): Implement according to the documentation above.
+pub fn get_block_hash(
+    request: GetBlockHashRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+) -> SyscallResult<GetBlockHashResponse> {
+    let key = StorageKey::try_from(request.block_number)?;
+    let contract_address =
+        ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
+    let block_hash = syscall_handler.state.get_storage_at(contract_address, key)?;
+
+    Ok(GetBlockHashResponse { block_hash })
 }
 
 // GetExecutionInfo syscall.

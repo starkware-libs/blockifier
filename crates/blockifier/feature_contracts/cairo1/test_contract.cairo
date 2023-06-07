@@ -9,6 +9,8 @@ mod TestContract {
     use array::SpanTrait;
     use clone::Clone;
     use traits::Into;
+    use traits::TryInto;
+    use option::OptionTrait;
 
     const UNEXPECTED_ERROR: felt252 = 'UNEXPECTED ERROR';
 
@@ -46,6 +48,13 @@ mod TestContract {
     #[starknet::external]
     fn test_emit_event(self: @Storage, keys: Array::<felt252>, data: Array::<felt252>) {
         starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+    }
+
+    #[starknet::external]
+    fn test_get_block_hash(self: @Storage, block_number_as_felt: felt252) -> felt252 {
+        starknet::syscalls::get_block_hash_syscall(
+            block_number_as_felt.try_into().unwrap()
+        ).unwrap_syscall()
     }
 
     #[starknet::external]
