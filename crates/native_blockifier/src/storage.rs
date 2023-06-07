@@ -134,6 +134,7 @@ impl Storage {
                 .get_state_reader()?
                 .get_deprecated_class_definition_at(state_number, &class_hash)?
                 .is_none();
+
             if class_undeclared {
                 let deprecated_contract_class: DeprecatedContractClass =
                     serde_json::from_str(&raw_class)?;
@@ -144,15 +145,21 @@ impl Storage {
             IndexMap::new();
         let mut append_txn = self.writer().begin_rw_txn()?;
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
-            let contract_class: CasmContractClass = serde_json::from_str(&raw_class)?;
             let class_hash = ClassHash(class_hash.0);
-            declared_classes.insert(
-                class_hash,
-                // Insert a default contract class since Sierra classes are not required for
-                // execution.
-                (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
-            );
-            append_txn = append_txn.append_casm(class_hash, &contract_class)?;
+            let state_number = StateNumber(block_number);
+            let class_undeclared = append_txn
+                .get_state_reader()?
+                .get_class_definition_at(state_number, &class_hash)?
+                .is_none();
+
+            if class_undeclared {
+                let contract_class: CasmContractClass = serde_json::from_str(&raw_class)?;
+                declared_classes.insert(
+                    class_hash,
+                    (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
+                );
+                append_txn = append_txn.append_casm(class_hash, &contract_class)?;
+            }
         }
 
         // Construct state diff; manually add declared classes.
