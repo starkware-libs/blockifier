@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_api::block::BlockHash;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -281,6 +282,54 @@ pub fn emit_event(
     execution_context.n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
+}
+
+// GetBlockHash syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+
+// TODO(Arni, 8/6/2023): Consider replacing `BlockNumber`.
+pub struct GetBlockHashRequest {
+    pub block_number: StarkFelt,
+}
+
+impl SyscallRequest for GetBlockHashRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
+        let block_number = stark_felt_from_ptr(vm, ptr)?;
+        Ok(GetBlockHashRequest { block_number })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GetBlockHashResponse {
+    pub block_hash: BlockHash,
+}
+
+impl SyscallResponse for GetBlockHashResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_stark_felt(vm, ptr, self.block_hash.0)?;
+        Ok(())
+    }
+}
+
+// Returns the block hash of a given block_number.
+// Returns the expected block hash if the given block was created at least 10 blocks before the
+// current block. Otherwise, returns an error.
+// TODO(Arni, 11/6/2023): Implement according to the documentation above.
+pub fn get_block_hash(
+    request: GetBlockHashRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
+) -> SyscallResult<GetBlockHashResponse> {
+    let key = StorageKey::try_from(request.block_number)?;
+    let block_hash_contract_address =
+        ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
+    Ok(GetBlockHashResponse {
+        block_hash: BlockHash(
+            syscall_handler.state.get_storage_at(block_hash_contract_address, key)?,
+        ),
+    })
 }
 
 // GetExecutionInfo syscall.
