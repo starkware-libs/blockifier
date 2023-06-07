@@ -19,12 +19,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
-<<<<<<< HEAD
-use crate::abi::constants::N_STEPS_RESOURCE;
-||||||| b32e16b
-=======
 use crate::abi::constants;
->>>>>>> origin/main-v0.12.0
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -339,7 +334,7 @@ impl BlockContext {
 
     pub fn create_for_account_testing() -> BlockContext {
         let vm_resource_fee_cost = HashMap::from([
-            (String::from(N_STEPS_RESOURCE), 1_f64),
+            (String::from(constants::N_STEPS_RESOURCE), 1_f64),
             (String::from("pedersen"), 1_f64),
             (String::from("range_check"), 1_f64),
             (String::from("ecdsa"), 1_f64),
