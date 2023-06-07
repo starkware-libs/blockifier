@@ -12,7 +12,7 @@ use cairo_vm::serde::deserialize_program::{
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
-use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
+use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
@@ -22,8 +22,8 @@ use starknet_api::deprecated_contract_class::{
     Program as DeprecatedProgram,
 };
 
-use super::errors::PreExecutionError;
 use crate::abi::constants;
+use crate::execution::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
 
 /// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
@@ -41,6 +41,13 @@ impl ContractClass {
         match self {
             ContractClass::V0(class) => class.constructor_selector(),
             ContractClass::V1(class) => class.constructor_selector(),
+        }
+    }
+
+    pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+        match self {
+            ContractClass::V0(class) => class.estimate_casm_hash_computation_resources(),
+            ContractClass::V1(class) => class.estimate_casm_hash_computation_resources(),
         }
     }
 }
@@ -73,7 +80,7 @@ impl ContractClassV0 {
         self.program.data.len()
     }
 
-    pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
         let hashed_data_size = (constants::CAIRO0_ENTRY_POINT_STRUCT_SIZE * self.n_entry_points())
             + self.n_builtins()
             + self.bytecode_length()
@@ -131,6 +138,10 @@ impl ContractClassV1 {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
     }
 
+    fn bytecode_length(&self) -> usize {
+        self.program.data.len()
+    }
+
     pub fn get_entry_point(
         &self,
         call: &super::entry_point::CallEntryPoint,
@@ -148,6 +159,24 @@ impl ContractClassV1 {
                 selector: call.entry_point_selector,
                 typ: call.entry_point_type,
             }),
+        }
+    }
+
+    /// Returns the estimated VM resources required for computing Casm hash.
+    /// This is an empiric measurement of several bytecode lengths, which constitutes as the
+    /// dominant factor in it.
+    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+        let bytecode_length = self.bytecode_length() as f64;
+        let n_steps = (503.0 + bytecode_length * 5.7) as usize;
+        let n_poseidon_builtins = (10.9 + bytecode_length * 0.5) as usize;
+
+        VmExecutionResources {
+            n_steps,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(
+                POSEIDON_BUILTIN_NAME.to_string(),
+                n_poseidon_builtins,
+            )]),
         }
     }
 

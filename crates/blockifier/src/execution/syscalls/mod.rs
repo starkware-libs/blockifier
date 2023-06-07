@@ -16,6 +16,8 @@ use self::hint_processor::{
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
     SyscallHintProcessor,
 };
+use crate::abi::constants;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
@@ -148,6 +150,7 @@ pub fn call_contract(
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    let initial_gas = constants::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
@@ -157,6 +160,7 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
+        initial_gas,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 
@@ -379,13 +383,21 @@ pub fn replace_class(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<ReplaceClassResponse> {
-    // Ensure the class is declared (by reading it).
-    syscall_handler.state.get_compiled_contract_class(&request.class_hash)?;
-    syscall_handler
-        .state
-        .set_class_hash_at(syscall_handler.storage_address(), request.class_hash)?;
+    // Ensure the class is declared (by reading it), and of type V1.
+    let class_hash = request.class_hash;
+    let class = syscall_handler.state.get_compiled_contract_class(&class_hash)?;
 
-    Ok(ReplaceClassResponse {})
+    match class {
+        ContractClass::V0(_) => {
+            Err(SyscallExecutionError::ForbiddenClassReplacement { class_hash })
+        }
+        ContractClass::V1(_) => {
+            syscall_handler
+                .state
+                .set_class_hash_at(syscall_handler.storage_address(), class_hash)?;
+            Ok(ReplaceClassResponse {})
+        }
+    }
 }
 
 // SendMessageToL1 syscall.

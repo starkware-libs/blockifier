@@ -14,15 +14,16 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
     OrderedL2ToL1Message, Retdata,
 };
 use crate::retdata;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
 };
 
 #[test]
@@ -202,7 +203,7 @@ fn test_nested_library_call() {
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        ..nested_storage_entry_point
+        ..nested_storage_entry_point.clone()
     };
     let storage_entry_point_vm_resources = VmExecutionResources {
         n_steps: 148,
@@ -258,17 +259,31 @@ fn test_nested_library_call() {
 
 #[test]
 fn test_replace_class() {
-    // Negative flow.
     let mut state = create_deploy_test_state();
+
+    // Negative flow.
+
     // Replace with undeclared class hash.
-    let calldata = calldata![stark_felt!(1234_u16)];
     let entry_point_call = CallEntryPoint {
-        calldata,
+        calldata: calldata![stark_felt!(1234_u16)],
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
+
+    // Replace with Cairo 0 class hash.
+    let v0_class_hash = ClassHash(stark_felt!(5678_u16));
+    let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH).into();
+    state.set_contract_class(&v0_class_hash, v0_contract_class).unwrap();
+
+    let entry_point_call = CallEntryPoint {
+        calldata: calldata![v0_class_hash.0],
+        entry_point_selector: selector_from_name("test_replace_class"),
+        ..trivial_external_entry_point()
+    };
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 
     // Positive flow.
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));

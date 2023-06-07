@@ -19,7 +19,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
-use crate::abi::constants::N_STEPS_RESOURCE;
+use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -172,6 +172,7 @@ pub fn get_test_contract_class() -> ContractClass {
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let initial_gas = constants::INITIAL_GAS_COST.into();
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -181,6 +182,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
+        initial_gas,
     }
 }
 
@@ -332,7 +334,7 @@ impl BlockContext {
 
     pub fn create_for_account_testing() -> BlockContext {
         let vm_resource_fee_cost = HashMap::from([
-            (String::from(N_STEPS_RESOURCE), 1_f64),
+            (String::from(constants::N_STEPS_RESOURCE), 1_f64),
             (String::from("pedersen"), 1_f64),
             (String::from("range_check"), 1_f64),
             (String::from("ecdsa"), 1_f64),
