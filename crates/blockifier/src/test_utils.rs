@@ -19,7 +19,12 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::get_storage_var_address;
+<<<<<<< HEAD
 use crate::abi::constants::N_STEPS_RESOURCE;
+||||||| b32e16b
+=======
+use crate::abi::constants;
+>>>>>>> origin/main-v0.12.0
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -172,6 +177,7 @@ pub fn get_test_contract_class() -> ContractClass {
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let initial_gas = constants::INITIAL_GAS_COST.into();
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -181,6 +187,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
+        initial_gas,
     }
 }
 

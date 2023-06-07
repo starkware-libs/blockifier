@@ -8,6 +8,7 @@ use starknet_api::transaction::{
 };
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -172,6 +173,7 @@ impl AccountTransaction {
         }
 
         let storage_address = context.account_tx_context.sender_address;
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.validate_entry_point_selector(),
@@ -181,6 +183,7 @@ impl AccountTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
+            initial_gas,
         };
 
         let validate_call_info = validate_call
@@ -268,6 +271,7 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         let storage_address = context.block_context.fee_token_address;
+        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,
@@ -281,6 +285,7 @@ impl AccountTransaction {
             storage_address,
             caller_address: context.account_tx_context.sender_address,
             call_type: CallType::Call,
+            initial_gas,
         };
 
         Ok(fee_transfer_call.execute(state, context)?)

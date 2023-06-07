@@ -7,14 +7,12 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
-use super::contract_class::EntryPointV1;
-use super::errors::EntryPointExecutionError;
-use crate::execution::contract_class::ContractClassV1;
+use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
 };
 use crate::execution::errors::{
-    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
+    EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
@@ -184,9 +182,8 @@ pub fn prepare_call_arguments(
         }
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
-    // TODO(spapini): Use the correct gas counter.
     // Push gas counter.
-    args.push(CairoArg::Single(10000000000.into()));
+    args.push(CairoArg::Single((&call.initial_gas).into()));
     // Push syscall ptr.
     args.push(CairoArg::Single(initial_syscall_ptr.into()));
 

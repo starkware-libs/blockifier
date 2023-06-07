@@ -3,17 +3,20 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants;
+use crate::abi::constants as abi_constants;
 use crate::transaction::constants as transaction_constants;
 
 #[test]
 fn test_selector_from_name() {
     // Test default EP.
     let expected_default_selector =
-        EntryPointSelector(stark_felt!(constants::DEFAULT_ENTRY_POINT_SELECTOR));
-    assert_eq!(selector_from_name(constants::DEFAULT_ENTRY_POINT_NAME), expected_default_selector);
+        EntryPointSelector(stark_felt!(abi_constants::DEFAULT_ENTRY_POINT_SELECTOR));
     assert_eq!(
-        selector_from_name(constants::DEFAULT_L1_ENTRY_POINT_NAME),
+        selector_from_name(abi_constants::DEFAULT_ENTRY_POINT_NAME),
+        expected_default_selector
+    );
+    assert_eq!(
+        selector_from_name(abi_constants::DEFAULT_L1_ENTRY_POINT_NAME),
         expected_default_selector
     );
 

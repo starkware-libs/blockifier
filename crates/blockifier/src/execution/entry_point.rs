@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -45,6 +46,7 @@ pub struct CallEntryPoint {
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
     pub call_type: CallType,
+    pub initial_gas: Felt252,
 }
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
@@ -294,6 +296,7 @@ pub fn execute_constructor_entry_point(
         );
     };
 
+    let initial_gas = constants::INITIAL_GAS_COST.into();
     let constructor_call = CallEntryPoint {
         class_hash: None,
         code_address,
@@ -303,6 +306,7 @@ pub fn execute_constructor_entry_point(
         storage_address,
         caller_address,
         call_type: CallType::Call,
+        initial_gas,
     };
 
     constructor_call.execute(state, context)
@@ -323,6 +327,7 @@ pub fn handle_empty_constructor(
         });
     }
 
+    let initial_gas = constants::INITIAL_GAS_COST.into();
     let empty_constructor_call_info = CallInfo {
         call: CallEntryPoint {
             class_hash: Some(class_hash),
@@ -333,6 +338,7 @@ pub fn handle_empty_constructor(
             storage_address,
             caller_address,
             call_type: CallType::Call,
+            initial_gas,
         },
         ..Default::default()
     };
