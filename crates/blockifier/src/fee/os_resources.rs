@@ -8,6 +8,7 @@ pub static OS_RESOURCES: OsResources = {
         .expect("os_resources json does not exist or cannot be deserialized.")
 };
 
+// TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
 fn os_resources() -> serde_json::Value {
     json!({
         "execute_syscalls": {
@@ -44,6 +45,11 @@ fn os_resources() -> serde_json::Value {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
                 "n_steps": 19
+            },
+            "GetBlockHash": {
+                "builtin_instance_counter": {},
+                "n_memory_holes": 0,
+                "n_steps": 44
             },
             "GetBlockNumber": {
                 "builtin_instance_counter": {},
