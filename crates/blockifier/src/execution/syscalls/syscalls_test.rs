@@ -122,6 +122,26 @@ fn test_emit_event() {
     );
 }
 
+// TODO(Arni, 11/6/2023): Initialize the "contract" at BLOCK_HASH_CONTRACT_ADDRESS.
+#[test]
+fn test_get_block_hash() {
+    let mut state = create_test_state();
+
+    let calldata = calldata![
+        stark_felt!(1800_u64) // Block number.
+    ];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution::from_retdata(retdata![stark_felt!(0_u8)])
+    );
+}
+
 #[test]
 fn test_get_execution_info() {
     let mut state = create_test_state();
