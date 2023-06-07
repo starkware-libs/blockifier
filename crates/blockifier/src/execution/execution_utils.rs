@@ -109,10 +109,14 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
     let data = deserialize_array_of_bigint_hex(program.data)?;
     let hints = serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?;
     let main = None;
-    let error_message_attributes = serde_json::from_value::<Vec<Attribute>>(program.attributes)?
-        .into_iter()
-        .filter(|attr| attr.name == "error_message")
-        .collect();
+    let error_message_attributes = match program.attributes {
+        serde_json::Value::Null => vec![],
+        attributes => serde_json::from_value::<Vec<Attribute>>(attributes)?
+            .into_iter()
+            .filter(|attr| attr.name == "error_message")
+            .collect(),
+    };
+
     let instruction_locations = None;
     let reference_manager = serde_json::from_value::<ReferenceManager>(program.reference_manager)?;
 
