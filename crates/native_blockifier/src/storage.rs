@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
+use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
+use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
@@ -140,13 +142,17 @@ impl Storage {
         }
         let mut declared_classes: IndexMap<ClassHash, (CompiledClassHash, ContractClass)> =
             IndexMap::new();
+        let mut append_txn = self.writer().begin_rw_txn()?;
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
-            let contract_class: starknet_api::state::ContractClass =
-                serde_json::from_str(&raw_class)?;
+            let contract_class: CasmContractClass = serde_json::from_str(&raw_class)?;
+            let class_hash = ClassHash(class_hash.0);
             declared_classes.insert(
-                ClassHash(class_hash.0),
-                (CompiledClassHash(compiled_class_hash.0), contract_class),
+                class_hash,
+                // Insert a default contract class since Sierra classes are not required for
+                // execution.
+                (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
             );
+            append_txn = append_txn.append_casm(class_hash, &contract_class)?;
         }
 
         // Construct state diff; manually add declared classes.
@@ -156,7 +162,7 @@ impl Storage {
 
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
-        let append_txn = self.writer().begin_rw_txn()?.append_state_diff(
+        let append_txn = append_txn.append_state_diff(
             block_number,
             state_diff,
             deployed_contract_class_definitions,

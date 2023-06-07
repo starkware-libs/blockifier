@@ -191,6 +191,6 @@ impl<'env> PapyrusExecutableClassReader<'env> {
     }
 
     fn get_casm(&self, class_hash: ClassHash) -> StorageResult<Option<CasmContractClass>> {
-        self.txn.get_casm(class_hash)
+        self.txn.get_casm(&class_hash)
     }
 }
