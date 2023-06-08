@@ -467,7 +467,7 @@ pub fn emit_event(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
-    let mut execution_context = &mut syscall_handler.execution_context;
+    let execution_context = &mut syscall_handler.execution_context;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
@@ -502,7 +502,7 @@ pub fn send_message_to_l1(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
 ) -> SyscallResult<EmptyResponse> {
-    let mut execution_context = &mut syscall_handler.execution_context;
+    let execution_context = &mut syscall_handler.execution_context;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
         order: execution_context.n_sent_messages_to_l1,
         message: request.message,
