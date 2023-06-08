@@ -68,7 +68,7 @@ pub fn read_execution_retdata(
         MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())
             .map_err(PostExecutionError::RetdataSizeTooBig)?,
         relocatable => {
-            return Err(VirtualMachineError::ExpectedIntAtRange(Some(relocatable)).into());
+            return Err(VirtualMachineError::ExpectedIntAtRange(Box::new(Some(relocatable))).into());
         }
     };
 
@@ -122,7 +122,6 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
 
     let program = Program::new(
         builtins,
-        Felt252::prime().to_str_radix(16),
         data,
         main,
         hints,
