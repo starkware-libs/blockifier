@@ -190,6 +190,7 @@ pub fn run_entry_point(
     runner.run_from_entrypoint(
         entry_point_pc,
         &args,
+        &mut None,
         verify_secure,
         program_segment_size,
         vm,
