@@ -72,12 +72,12 @@ impl ContractClassV0 {
         self.entry_points_by_type.values().map(|vec| vec.len()).sum()
     }
 
-    fn n_builtins(&self) -> usize {
-        self.program.builtins.len()
+    pub fn n_builtins(&self) -> usize {
+        self.program.builtins_len()
     }
 
-    fn bytecode_length(&self) -> usize {
-        self.program.data.len()
+    pub fn bytecode_length(&self) -> usize {
+        self.program.data_len()
     }
 
     fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
@@ -138,8 +138,8 @@ impl ContractClassV1 {
         Some(self.0.entry_points_by_type[&EntryPointType::Constructor].first()?.selector)
     }
 
-    fn bytecode_length(&self) -> usize {
-        self.program.data.len()
+    pub fn bytecode_length(&self) -> usize {
+        self.program.data_len()
     }
 
     pub fn get_entry_point(
@@ -251,7 +251,6 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
         let program = Program::new(
             builtins,
-            Felt252::prime().to_str_radix(16),
             data,
             main,
             hints,
@@ -264,15 +263,15 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
         let mut entry_points_by_type = HashMap::new();
         entry_points_by_type.insert(
             EntryPointType::Constructor,
-            convert_entrypoints_v1(class.entry_points_by_type.constructor)?,
+            convert_entry_points_v1(class.entry_points_by_type.constructor)?,
         );
         entry_points_by_type.insert(
             EntryPointType::External,
-            convert_entrypoints_v1(class.entry_points_by_type.external)?,
+            convert_entry_points_v1(class.entry_points_by_type.external)?,
         );
         entry_points_by_type.insert(
             EntryPointType::L1Handler,
-            convert_entrypoints_v1(class.entry_points_by_type.l1_handler)?,
+            convert_entry_points_v1(class.entry_points_by_type.l1_handler)?,
         );
 
         Ok(Self(Arc::new(ContractClassV1Inner {
@@ -308,7 +307,7 @@ fn hint_to_hint_params(hint: &cairo_lang_casm::hints::Hint) -> HintParams {
     }
 }
 
-fn convert_entrypoints_v1(
+fn convert_entry_points_v1(
     external: Vec<CasmContractEntryPoint>,
 ) -> Result<Vec<EntryPointV1>, ProgramError> {
     external
@@ -319,7 +318,7 @@ fn convert_entrypoints_v1(
                     &Felt252::try_from(ep.selector).unwrap(),
                 )),
                 offset: EntryPointOffset(ep.offset),
-                builtins: ep.builtins,
+                builtins: ep.builtins.into_iter().map(|builtin| builtin + "_builtin").collect(),
             })
         })
         .collect()
