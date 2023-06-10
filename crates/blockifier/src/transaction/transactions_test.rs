@@ -2,6 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -25,7 +28,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
@@ -489,8 +492,14 @@ fn test_negative_invoke_tx_flows() {
     // Test error.
     assert_matches!(
         execution_error,
-        TransactionExecutionError::FeeTransferError{ max_fee, .. }
-        if max_fee == invalid_max_fee
+        TransactionExecutionError::ValidateTransactionError(
+            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                source: VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
+                    VmException { inner_exc: VirtualMachineError::UnfinishedExecution, .. }
+                )),
+                ..
+            }
+        )
     );
 
     // Invalid nonce.

@@ -261,6 +261,8 @@ impl AccountTransaction {
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
         let max_fee = context.account_tx_context.max_fee;
+        // TODO(Dori, 1/7/2023): Actual fee should never be greater than max fee - this should
+        //   either panic, or actual fee should be set to max fee.
         if actual_fee > max_fee {
             return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
         }

@@ -2,7 +2,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
+    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources, RunResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::hash::StarkFelt;
@@ -201,6 +201,7 @@ pub fn prepare_call_arguments(
     Ok(args)
 }
 /// Runs the runner from the given PC.
+/// Returns the remaining resources.
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
@@ -208,21 +209,21 @@ pub fn run_entry_point(
     entry_point: EntryPointV1,
     args: Args,
     program_segment_size: usize,
-) -> Result<(), VirtualMachineExecutionError> {
-    let run_resources = &mut None;
+) -> Result<RunResources, VirtualMachineExecutionError> {
+    let mut run_resources = Some(hint_processor.context.resources.run_resources.clone());
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
-        run_resources,
+        &mut run_resources,
         verify_secure,
         Some(program_segment_size),
         vm,
         hint_processor,
     )?;
 
-    Ok(())
+    Ok(run_resources.unwrap())
 }
 
 pub fn finalize_execution(

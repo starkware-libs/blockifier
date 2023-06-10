@@ -1,7 +1,7 @@
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
+    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources, RunResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
@@ -177,28 +177,29 @@ pub fn prepare_call_arguments(
     Ok((implicit_args, args))
 }
 /// Runs the runner from the given PC.
+/// Returns the remaining resources.
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
     hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
-) -> Result<(), VirtualMachineExecutionError> {
-    let run_resources = &mut None;
+) -> Result<RunResources, VirtualMachineExecutionError> {
+    let mut run_resources = Some(hint_processor.context.resources.run_resources.clone());
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
         entry_point_pc,
         &args,
-        run_resources,
+        &mut run_resources,
         verify_secure,
         program_segment_size,
         vm,
         hint_processor,
     )?;
 
-    Ok(())
+    Ok(run_resources.unwrap())
 }
 
 pub fn finalize_execution(
