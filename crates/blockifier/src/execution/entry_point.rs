@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use cairo_felt::Felt252;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::{
+    ExecutionResources as VmExecutionResources, RunResources,
+};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -49,10 +51,11 @@ pub struct CallEntryPoint {
     pub initial_gas: Felt252,
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
+    pub run_resources: RunResources,
 }
 
 #[derive(Debug, Clone)]
@@ -69,13 +72,20 @@ pub struct ExecutionContext {
 }
 impl ExecutionContext {
     pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
-        Self {
+        let execution_context = Self {
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
             block_context,
             resources: ExecutionResources::default(),
             account_tx_context,
+        };
+        Self {
+            resources: ExecutionResources {
+                run_resources: RunResources::new(execution_context.max_steps()),
+                ..execution_context.resources
+            },
+            ..execution_context
         }
     }
 
