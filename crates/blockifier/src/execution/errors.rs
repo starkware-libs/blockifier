@@ -3,6 +3,7 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::cairo_runner::RunResources;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -68,8 +69,12 @@ impl From<RunnerError> for PostExecutionError {
 
 #[derive(Debug, Error)]
 pub enum VirtualMachineExecutionError {
-    #[error(transparent)]
-    CairoRunError(#[from] CairoRunError),
+    #[error("{source}")]
+    CairoRunError {
+        remaining_resources: RunResources,
+        #[source]
+        source: CairoRunError,
+    },
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
 }
@@ -79,7 +84,10 @@ impl VirtualMachineExecutionError {
     /// the inner error (inner call errors) will not appear in the string.
     pub fn try_to_vm_trace(&self) -> String {
         match self {
-            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
+            VirtualMachineExecutionError::CairoRunError {
+                source: CairoRunError::VmException(exception),
+                ..
+            } => {
                 let mut trace_string = format!("Error at pc=0:{}:\n", exception.pc);
                 let inner_exc_string = &exception.inner_exc.to_string();
 

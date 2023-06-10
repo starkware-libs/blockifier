@@ -494,9 +494,13 @@ fn test_negative_invoke_tx_flows() {
         execution_error,
         TransactionExecutionError::ValidateTransactionError(
             EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                source: VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
-                    VmException { inner_exc: VirtualMachineError::UnfinishedExecution, .. }
-                )),
+                source: VirtualMachineExecutionError::CairoRunError {
+                    source: CairoRunError::VmException(VmException {
+                        inner_exc: VirtualMachineError::UnfinishedExecution,
+                        ..
+                    }),
+                    ..
+                },
                 ..
             }
         )
