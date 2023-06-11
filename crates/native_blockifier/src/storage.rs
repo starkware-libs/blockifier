@@ -146,23 +146,6 @@ impl Storage {
         let mut append_txn = self.writer().begin_rw_txn()?;
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
             let class_hash = ClassHash(class_hash.0);
-<<<<<<< HEAD
-            declared_classes.insert(
-                class_hash,
-                // Insert a default contract class since Sierra classes are not required for
-                // execution.
-                (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
-            );
-            append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
-||||||| 9dcf339
-            declared_classes.insert(
-                class_hash,
-                // Insert a default contract class since Sierra classes are not required for
-                // execution.
-                (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
-            );
-            append_txn = append_txn.append_casm(class_hash, &contract_class)?;
-=======
             let state_number = StateNumber(block_number);
             let class_undeclared = append_txn
                 .get_state_reader()?
@@ -177,7 +160,6 @@ impl Storage {
                 );
                 append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
             }
->>>>>>> origin/main-v0.12.0
         }
 
         // Construct state diff; manually add declared classes.

@@ -211,6 +211,7 @@ impl AccountTransaction {
         &self,
         state: &mut TransactionalState<'_, S>,
         context: &mut ExecutionContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         // Handle nonce.
         Self::handle_nonce(&context.account_tx_context, state)?;
@@ -236,7 +237,7 @@ impl AccountTransaction {
 
         // Validate transaction (if applicable).
         match &self {
-            Self::Declare(_) | Self::Invoke(_) => self.validate_tx(state, context),
+            Self::Declare(_) | Self::Invoke(_) => self.validate_tx(state, context, remaining_gas),
             Self::DeployAccount(_) => Ok(None),
         }
     }
@@ -299,11 +300,12 @@ impl AccountTransaction {
         &self,
         state: &mut S,
         context: &mut ExecutionContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         match &self {
-            Self::Declare(tx) => tx.run_execute(state, context),
-            Self::DeployAccount(tx) => tx.run_execute(state, context),
-            Self::Invoke(tx) => tx.run_execute(state, context),
+            Self::Declare(tx) => tx.run_execute(state, context, remaining_gas),
+            Self::DeployAccount(tx) => tx.run_execute(state, context, remaining_gas),
+            Self::Invoke(tx) => tx.run_execute(state, context, remaining_gas),
         }
     }
 }
@@ -317,69 +319,18 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
         let mut context = ExecutionContext::new(block_context.clone(), account_tx_context);
-<<<<<<< HEAD
-||||||| 9dcf339
-        match &self {
-            Self::Declare(tx) => {
-                // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
-
-                // Execute.
-                execute_call_info = tx.run_execute(state, &mut context)?;
-            }
-            Self::DeployAccount(tx) => {
-                // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context)?;
-=======
         let mut remaining_gas = Transaction::initial_gas();
-        match &self {
-            Self::Declare(tx) => {
-                // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
 
-                // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
-            }
-            Self::DeployAccount(tx) => {
-                // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
->>>>>>> origin/main-v0.12.0
-
-<<<<<<< HEAD
         // Pre-process the nonce / fee check / validation state changes.
-        let early_validate_call_info = self.process_validation_state(state, &mut context)?;
-||||||| 9dcf339
-                // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
-            }
-            Self::Invoke(tx) => {
-                // Validate.
-                validate_call_info = self.validate_tx(state, &mut context)?;
-=======
-                // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
-            }
-            Self::Invoke(tx) => {
-                // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
->>>>>>> origin/main-v0.12.0
+        let early_validate_call_info =
+            self.process_validation_state(state, &mut context, &mut remaining_gas)?;
 
-<<<<<<< HEAD
         // Handle transaction-type specific execution.
         // The validation phase in a `DeployAccount` transaction happens after execution.
-        let execute_call_info = self.run_execute(state, &mut context)?;
+        let execute_call_info = self.run_execute(state, &mut context, &mut remaining_gas)?;
         let validate_call_info = match &self {
-            Self::DeployAccount(_) => self.validate_tx(state, &mut context)?,
+            Self::DeployAccount(_) => self.validate_tx(state, &mut context, &mut remaining_gas)?,
             Self::Declare(_) | Self::Invoke(_) => early_validate_call_info,
-||||||| 9dcf339
-                // Execute.
-                execute_call_info = tx.run_execute(state, &mut context)?;
-            }
-=======
-                // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
-            }
->>>>>>> origin/main-v0.12.0
         };
 
         // Handle fee.
