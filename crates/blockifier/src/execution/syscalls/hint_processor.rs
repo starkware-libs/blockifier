@@ -51,6 +51,8 @@ pub enum SyscallExecutionError {
     ForbiddenClassReplacement { class_hash: ClassHash },
     #[error("Invalid address domain: {address_domain}.")]
     InvalidAddressDomain { address_domain: StarkFelt },
+    #[error("Invalid block number: {block_number}.")]
+    InvalidBlockNumber { block_number: StarkFelt },
     #[error(transparent)]
     InnerCallExecutionError(#[from] EntryPointExecutionError),
     #[error("Invalid syscall input: {input:?}; {info}")]

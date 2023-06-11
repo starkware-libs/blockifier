@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use starknet_api::block::BlockNumber;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -289,13 +290,23 @@ pub fn emit_event(
 
 // TODO(Arni, 8/6/2023): Consider replacing with block_number: u64 or with BlockNumber.
 pub struct GetBlockHashRequest {
-    pub block_number: StarkFelt,
+    pub block_number: BlockNumber,
 }
 
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-        let block_number = stark_felt_from_ptr(vm, ptr)?;
-        Ok(GetBlockHashRequest { block_number })
+        let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
+        let block_number_as_usize: usize = block_number_as_felt.try_into()?;
+        let block_number_result: Result<u64, _> = block_number_as_usize.try_into();
+        match block_number_result {
+            Ok(block_number) => {
+                let block_number = BlockNumber(block_number);
+                Ok(GetBlockHashRequest { block_number })
+            }
+            Err(_) => Err(SyscallExecutionError::InvalidBlockNumber {
+                block_number: block_number_as_felt,
+            }),
+        }
     }
 }
 
@@ -322,7 +333,7 @@ pub fn get_block_hash(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
-    let key = StorageKey::try_from(request.block_number)?;
+    let key = StorageKey::try_from(StarkFelt::from(request.block_number.0))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
     let block_hash = syscall_handler.state.get_storage_at(block_hash_contract_address, key)?;
