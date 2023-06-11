@@ -102,11 +102,13 @@ impl Storage {
         py_block_info,
         py_state_diff,
         declared_class_hash_to_class,
-        deprecated_declared_class_hash_to_class
+        deprecated_declared_class_hash_to_class,
+        class_address_to_replaced_class_hash
     )]
     /// Appends state diff and block header into Papyrus storage.
     // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
     // sequential ID (throughout sequencing).
+    #[allow(clippy::too_many_arguments)]
     pub fn append_block(
         &mut self,
         block_id: u64,
@@ -115,6 +117,7 @@ impl Storage {
         py_state_diff: PyStateDiff,
         declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
         deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
+        class_address_to_replaced_class_hash: HashMap<PyFelt, PyFelt>,
     ) -> NativeBlockifierResult<()> {
         log::debug!(
             "Appending state diff with {block_id:?} for block_number: {}.",
@@ -141,6 +144,7 @@ impl Storage {
                 deprecated_declared_classes.insert(class_hash, deprecated_contract_class);
             }
         }
+
         let mut declared_classes: IndexMap<ClassHash, (CompiledClassHash, ContractClass)> =
             IndexMap::new();
         let mut append_txn = self.writer().begin_rw_txn()?;
@@ -162,10 +166,19 @@ impl Storage {
             }
         }
 
+        // Mapping of cairo0 contract addresses whose contracts are replaced with cairo1 contracts.
+        let mut replaced_classes: IndexMap<ContractAddress, ClassHash> = IndexMap::new();
+        for (contract_address, class_hash) in class_address_to_replaced_class_hash {
+            let contract_address = ContractAddress::try_from(contract_address.0)?;
+            let class_hash = ClassHash(class_hash.0);
+            replaced_classes.insert(contract_address, class_hash);
+        }
+
         // Construct state diff; manually add declared classes.
         let mut state_diff = StateDiff::try_from(py_state_diff)?;
         state_diff.deprecated_declared_classes = deprecated_declared_classes;
         state_diff.declared_classes = declared_classes;
+        state_diff.replaced_classes = replaced_classes;
 
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
