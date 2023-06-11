@@ -279,22 +279,68 @@ pub fn py_tx(
     }
 }
 
+/// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
+/// The explicit deallocation is needed since PyO3 can't track lifetimes within Python.
 #[pyclass]
-#[derive(Clone)]
-pub struct PyContractClassSizes {
-    #[pyo3(get)]
-    pub bytecode_length: usize,
-    #[pyo3(get)]
-    // For a Cairo 1.0 contract class, builtins are an attribute of an entry point,
-    // and not of the entire class.
-    pub n_builtins: Option<usize>,
+pub struct PyTransactionExecutor {
+    pub executor: Option<PyTransactionExecutorInner>,
 }
 
-#[pyclass]
+#[pymethods]
+impl PyTransactionExecutor {
+    #[new]
+    #[args(general_config, block_info, papyrus_storage)]
+    pub fn create(
+        general_config: &PyAny,
+        block_info: &PyAny,
+        papyrus_storage: &Storage,
+    ) -> NativeBlockifierResult<Self> {
+        log::debug!("Initializing Transaction Executor...");
+        let executor =
+            PyTransactionExecutorInner::create(general_config, block_info, papyrus_storage)?;
+        log::debug!("Initialized Transaction Executor.");
+
+        Ok(Self { executor: Some(executor) })
+    }
+
+    #[args(tx, raw_contract_class, enough_room_for_tx)]
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+        // This is functools.partial(bouncer.add, tw_written=tx_written).
+        enough_room_for_tx: &PyAny,
+    ) -> NativeBlockifierResult<(
+        Py<PyTransactionExecutionInfo>,
+        HashMap<PyFelt, PyContractClassSizes>,
+    )> {
+        self.executor().execute(tx, raw_contract_class, enough_room_for_tx)
+    }
+
+    pub fn finalize(&mut self) -> PyStateDiff {
+        log::debug!("Finalizing execution...");
+        let state_diff = self.executor().finalize();
+        self.close();
+        log::debug!("Finalized execution.");
+
+        state_diff
+    }
+
+    pub fn close(&mut self) {
+        self.executor = None;
+    }
+}
+
+impl PyTransactionExecutor {
+    fn executor(&mut self) -> &mut PyTransactionExecutorInner {
+        self.executor.as_mut().expect("Transaction executor should be initialized.")
+    }
+}
+
 // To access a field you must use `self.borrow_{field_name}()`.
 // Alternately, you can borrow the whole object using `self.with[_mut]()`.
 #[ouroboros::self_referencing]
-pub struct PyTransactionExecutor {
+pub struct PyTransactionExecutorInner {
     pub block_context: BlockContext,
 
     // State-related fields.
@@ -308,62 +354,22 @@ pub struct PyTransactionExecutor {
     pub state: CachedState<PapyrusStateReader<'this>>,
 }
 
-pub fn build_tx_executor(
-    block_context: BlockContext,
-    storage_reader: papyrus_storage::StorageReader,
-) -> NativeBlockifierResult<PyTransactionExecutor> {
-    // The following callbacks are required to capture the local lifetime parameter.
-    fn storage_tx_builder(
-        storage_reader: &papyrus_storage::StorageReader,
-    ) -> NativeBlockifierResult<papyrus_storage::StorageTxn<'_, RO>> {
-        Ok(storage_reader.begin_ro_txn()?)
-    }
-
-    fn state_builder<'a>(
-        storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
-        block_number: BlockNumber,
-    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
-        let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
-        Ok(CachedState::new(papyrus_reader))
-    }
-
-    let block_number = block_context.block_number;
-    // The builder struct below is implicitly created by `ouroboros`.
-    let py_tx_executor_builder = PyTransactionExecutorTryBuilder {
-        block_context,
-        storage_reader,
-        storage_tx_builder,
-        state_builder: |storage_tx| state_builder(storage_tx, block_number),
-    };
-    py_tx_executor_builder.try_build()
-}
-
-#[pymethods]
-impl PyTransactionExecutor {
-    #[new]
-    #[args(general_config, block_info, papyrus_storage)]
+impl PyTransactionExecutorInner {
     pub fn create(
         general_config: &PyAny,
         block_info: &PyAny,
         papyrus_storage: &Storage,
     ) -> NativeBlockifierResult<Self> {
-        log::debug!("Initializing Transaction Executor...");
-
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
 
         let block_context = py_block_context(general_config, block_info)?;
-        let build_result = build_tx_executor(block_context, reader);
-        log::debug!("Initialized Transaction Executor.");
-
-        build_result
+        build_tx_executor(block_context, reader)
     }
 
     /// Executes the given transaction on the state maintained by the executor.
     /// Returns the execution trace, together with the compiled class hashes of executed classes
     /// (used for counting purposes).
-    #[args(tx, raw_contract_class, enough_room_for_tx)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
@@ -437,12 +443,50 @@ impl PyTransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        log::debug!("Finalizing execution...");
-        let state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
-        log::debug!("Finalized execution.");
-
-        state_diff
+        PyStateDiff::from(self.borrow_state().to_state_diff())
     }
+}
+
+pub fn build_tx_executor(
+    block_context: BlockContext,
+    storage_reader: papyrus_storage::StorageReader,
+) -> NativeBlockifierResult<PyTransactionExecutorInner> {
+    // The following callbacks are required to capture the local lifetime parameter.
+    fn storage_tx_builder(
+        storage_reader: &papyrus_storage::StorageReader,
+    ) -> NativeBlockifierResult<papyrus_storage::StorageTxn<'_, RO>> {
+        Ok(storage_reader.begin_ro_txn()?)
+    }
+
+    fn state_builder<'a>(
+        storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
+        block_number: BlockNumber,
+    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
+        let state_reader = storage_tx.get_state_reader()?;
+        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+        Ok(CachedState::new(papyrus_reader))
+    }
+
+    let block_number = block_context.block_number;
+    // The builder struct below is implicitly created by `ouroboros`.
+    let py_tx_executor_builder = PyTransactionExecutorInnerTryBuilder {
+        block_context,
+        storage_reader,
+        storage_tx_builder,
+        state_builder: |storage_tx| state_builder(storage_tx, block_number),
+    };
+    py_tx_executor_builder.try_build()
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyContractClassSizes {
+    #[pyo3(get)]
+    pub bytecode_length: usize,
+    #[pyo3(get)]
+    // For a Cairo 1.0 contract class, builtins are an attribute of an entry point,
+    // and not of the entire class.
+    pub n_builtins: Option<usize>,
 }
 
 fn unexpected_callback_error(error: &PyErr) -> bool {

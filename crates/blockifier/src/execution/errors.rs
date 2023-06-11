@@ -9,7 +9,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use thiserror::Error;
 
-use super::execution_utils::felts_as_str;
+use crate::execution::execution_utils::felts_as_str;
 use crate::state::errors::StateError;
 
 // TODO(AlonH, 21/12/2022): Implement Display for all types that appear in errors.
@@ -56,8 +56,8 @@ pub enum PostExecutionError {
     SecurityValidationError(String),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
-    #[error("Malformed return data.")]
-    MalformedReturnData,
+    #[error("Malformed return data : {error_message}.")]
+    MalformedReturnData { error_message: String },
 }
 
 impl From<RunnerError> for PostExecutionError {

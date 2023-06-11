@@ -238,7 +238,7 @@ pub fn finalize_execution(
     Ok(CallInfo {
         call,
         execution: CallExecution {
-            retdata: read_execution_retdata(vm, retdata_size, retdata_ptr)?,
+            retdata: read_execution_retdata(&vm, retdata_size, &retdata_ptr)?,
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
             failed: false,
