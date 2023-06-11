@@ -2409,7 +2409,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus?rev=0fe3141#0fe31419e399044d793eeabc354ba32bd80cbd37"
+source = "git+https://github.com/starkware-libs/papyrus?rev=1f6874f#1f6874f6564b340e7a90e0dae9ec5f6f7b8726fe"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -3632,7 +3632,7 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0"
-source = "git+https://github.com/starkware-libs/papyrus?rev=0fe3141#0fe31419e399044d793eeabc354ba32bd80cbd37"
+source = "git+https://github.com/starkware-libs/papyrus?rev=1f6874f#1f6874f6564b340e7a90e0dae9ec5f6f7b8726fe"
 dependencies = [
  "indexmap",
  "rand",
