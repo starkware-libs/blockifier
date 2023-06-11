@@ -5,7 +5,6 @@ use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
 
-use super::transaction_utils::update_remaining_gas;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
@@ -19,8 +18,9 @@ use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use crate::transaction::transaction_execution::Transaction;
-use crate::transaction::transaction_utils::verify_no_calls_to_other_contracts;
+use crate::transaction::transaction_utils::{
+    update_remaining_gas, verify_no_calls_to_other_contracts,
+};
 
 #[cfg(test)]
 #[path = "transactions_test.rs"]
@@ -36,9 +36,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = CachedState::new(MutRefState::new(state));
-        let mut initial_gas = Transaction::initial_gas();
-        let execution_result =
-            self.execute_raw(&mut transactional_state, block_context, &mut initial_gas);
+        let execution_result = self.execute_raw(&mut transactional_state, block_context);
 
         match execution_result {
             Ok(value) => {
@@ -60,7 +58,6 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
-        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
 
