@@ -1,5 +1,7 @@
+use cairo_felt::Felt252;
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
 
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionContext;
@@ -21,6 +23,13 @@ use crate::transaction::transactions::{
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
     L1HandlerTransaction(L1HandlerTransaction),
+}
+
+impl Transaction {
+    /// Returns the initial gas of the transaction to run with.
+    pub fn initial_gas() -> Felt252 {
+        Felt252::from(abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST)
+    }
 }
 
 impl Transaction {
@@ -59,6 +68,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
@@ -70,7 +80,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             sender_address: tx.contract_address,
         };
         let mut context = ExecutionContext::new(block_context.clone(), tx_context);
-        let execute_call_info = self.run_execute(state, &mut context)?;
+        let execute_call_info = self.run_execute(state, &mut context, remaining_gas)?;
 
         let call_infos =
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
@@ -107,10 +117,13 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         match self {
-            Self::AccountTransaction(account_tx) => account_tx.execute_raw(state, block_context),
-            Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context),
+            Self::AccountTransaction(account_tx) => {
+                account_tx.execute_raw(state, block_context, remaining_gas)
+            }
+            Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context, remaining_gas),
         }
     }
 }

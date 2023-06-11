@@ -12,15 +12,15 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    execute_constructor_entry_point, CallEntryPoint, CallInfo, EntryPointExecutionResult,
-    ExecutionContext, Retdata,
+    execute_constructor_entry_point, CallEntryPoint, CallInfo, ConstructorContext,
+    EntryPointExecutionResult, ExecutionContext, Retdata,
 };
 use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};
@@ -60,9 +60,9 @@ pub fn execute_entry_point_call(
 }
 
 pub fn read_execution_retdata(
-    vm: VirtualMachine,
+    vm: &VirtualMachine,
     retdata_size: MaybeRelocatable,
-    retdata_ptr: MaybeRelocatable,
+    retdata_ptr: &MaybeRelocatable,
 ) -> Result<Retdata, PostExecutionError> {
     let retdata_size = match retdata_size {
         MaybeRelocatable::Int(retdata_size) => usize::try_from(retdata_size.to_bigint())
@@ -72,7 +72,7 @@ pub fn read_execution_retdata(
         }
     };
 
-    Ok(Retdata(felt_range_from_ptr(&vm, Relocatable::try_from(&retdata_ptr)?, retdata_size)?))
+    Ok(Retdata(felt_range_from_ptr(vm, Relocatable::try_from(retdata_ptr)?, retdata_size)?))
 }
 
 pub fn stark_felt_from_ptr(
@@ -187,31 +187,29 @@ impl ReadOnlySegments {
 pub fn execute_deployment(
     state: &mut dyn State,
     context: &mut ExecutionContext,
-    class_hash: ClassHash,
-    deployed_contract_address: ContractAddress,
-    deployer_address: ContractAddress,
+    ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
-    is_deploy_account_tx: bool,
+    remaining_gas: Felt252,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
+    let deployed_contract_address = ctor_context.storage_address;
     let current_class_hash = state.get_class_hash_at(deployed_contract_address)?;
     if current_class_hash != ClassHash::default() {
         return Err(StateError::UnavailableContractAddress(deployed_contract_address).into());
     }
 
-    state.set_class_hash_at(deployed_contract_address, class_hash)?;
+    state.set_class_hash_at(deployed_contract_address, ctor_context.class_hash)?;
 
-    let code_address = if is_deploy_account_tx { None } else { Some(deployed_contract_address) };
-    execute_constructor_entry_point(
+    let call_info = execute_constructor_entry_point(
         state,
         context,
-        class_hash,
-        code_address,
-        deployed_contract_address,
-        deployer_address,
+        ctor_context,
         constructor_calldata,
-    )
+        remaining_gas,
+    )?;
+
+    Ok(call_info)
 }
 
 pub fn write_stark_felt(
