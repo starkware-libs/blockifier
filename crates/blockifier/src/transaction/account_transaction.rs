@@ -8,7 +8,6 @@ use starknet_api::transaction::{
     Calldata, DeployAccountTransaction, Fee, InvokeTransaction, TransactionVersion,
 };
 
-use super::transaction_utils::update_remaining_gas;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -22,9 +21,10 @@ use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
 };
+use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
-    calculate_tx_resources, verify_no_calls_to_other_contracts,
+    calculate_tx_resources, update_remaining_gas, verify_no_calls_to_other_contracts,
 };
 use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
 
@@ -252,7 +252,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
-        remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
@@ -263,27 +262,28 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let execute_call_info: Option<CallInfo>;
         let tx_type = self.tx_type();
         let mut context = ExecutionContext::new(block_context.clone(), account_tx_context);
+        let mut remaining_gas = Transaction::initial_gas();
         match &self {
             Self::Declare(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
+                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
+                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
+                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
+                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, remaining_gas)?;
+                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, remaining_gas)?;
+                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
             }
         };
 
