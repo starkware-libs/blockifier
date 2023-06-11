@@ -337,7 +337,6 @@ impl PyTransactionExecutor {
     }
 }
 
-#[pyclass]
 // To access a field you must use `self.borrow_{field_name}()`.
 // Alternately, you can borrow the whole object using `self.with[_mut]()`.
 #[ouroboros::self_referencing]
