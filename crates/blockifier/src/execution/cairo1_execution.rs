@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
@@ -146,13 +147,13 @@ fn prepare_builtin_costs(
 
     // Put a pointer to the builtin cost segment at the end of the program (after the
     // additional `ret` statement).
-    let mut ptr = (vm.get_pc() + contract_class.program.data.len())?;
+    let mut ptr = (vm.get_pc() + contract_class.bytecode_length())?;
     // Push a `ret` opcode.
     write_stark_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe"))?;
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
-    Ok(contract_class.program.data.len() + 2)
+    Ok(contract_class.bytecode_length() + 2)
 }
 
 pub fn prepare_call_arguments(
@@ -172,7 +173,7 @@ pub fn prepare_call_arguments(
             args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
             continue;
         }
-        if builtin_name == "segment_arena" {
+        if builtin_name == SEGMENT_ARENA_BUILTIN_NAME {
             let segment_arena = vm.add_memory_segment();
 
             // Write into segment_arena.
@@ -215,11 +216,13 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> Result<(), VirtualMachineExecutionError> {
+    let run_resources = &mut None;
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
+        run_resources,
         verify_secure,
         Some(program_segment_size),
         vm,

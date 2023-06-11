@@ -158,7 +158,7 @@ impl Storage {
                     class_hash,
                     (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
                 );
-                append_txn = append_txn.append_casm(class_hash, &contract_class)?;
+                append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
             }
         }
 

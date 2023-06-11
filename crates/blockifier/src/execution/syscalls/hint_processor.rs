@@ -75,7 +75,7 @@ pub enum SyscallExecutionError {
 // cairo-rs API.
 impl From<SyscallExecutionError> for HintError {
     fn from(error: SyscallExecutionError) -> Self {
-        HintError::CustomHint(error.to_string())
+        HintError::CustomHint(error.to_string().into())
     }
 }
 
@@ -168,7 +168,7 @@ impl<'a> SyscallHintProcessor<'a> {
     ) -> HintExecutionResult {
         let StarknetHint::SystemCall{ system: syscall } = hint else {
             return Err(HintError::CustomHint(
-                "Test functions are unsupported on starknet.".to_string()
+                "Test functions are unsupported on starknet.".into()
             ));
         };
         let initial_syscall_ptr = get_ptr_from_res_operand_unchecked(vm, syscall);
@@ -206,7 +206,9 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::StorageWrite => {
                 self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
             }
-            _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {selector:?}."))),
+            _ => Err(HintError::UnknownHint(
+                format!("Unsupported syscall selector {selector:?}.").into(),
+            )),
         }
     }
 

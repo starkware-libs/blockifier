@@ -33,21 +33,27 @@ pub fn normalize_address_set_is_small(
     constants: &HashMap<String, Felt252>,
 ) -> HintExecutionResult {
     const ADDR_BOUND: &str = "starkware.starknet.common.storage.ADDR_BOUND";
-    let addr_bound =
-        &constants.get(ADDR_BOUND).ok_or(HintError::MissingConstant("ADDR_BOUND"))?.to_biguint();
+    let addr_bound = &constants
+        .get(ADDR_BOUND)
+        .ok_or(HintError::MissingConstant("ADDR_BOUND".into()))?
+        .to_biguint();
     let addr = get_integer_from_var_name("addr", vm, ids_data, ap_tracking)?.to_biguint();
     let prime = BigUint::from_str_radix(&PRIME_STR[2..], 16)
-        .map_err(|_| VirtualMachineError::CouldntParsePrime(PRIME_STR.to_string()))?;
+        .map_err(|_| VirtualMachineError::CouldntParsePrime(PRIME_STR.into()))?;
 
     if !(addr_bound > &BigUint::from(1u8).shl(250)
         && addr_bound <= &BigUint::from(1u8).shl(251)
         && prime > (BigUint::from(2u8) * BigUint::from(1u8).shl(250))
         && prime < (2u8 * addr_bound))
     {
-        return Err(HintError::AssertionFailed(format!(
-            "assert (2**250 < {addr_bound} <= 2**251) and (2 * 2**250 < PRIME) and ({addr_bound} \
-             * 2 > PRIME); normalize_address() cannot be used with the current constants.",
-        )));
+        return Err(HintError::AssertionFailed(
+            format!(
+                "assert (2**250 < {addr_bound} <= 2**251) and (2 * 2**250 < PRIME) and \
+                 ({addr_bound} * 2 > PRIME); normalize_address() cannot be used with the current \
+                 constants.",
+            )
+            .into(),
+        ));
     }
 
     let is_small = if addr < *addr_bound { Felt252::one() } else { Felt252::zero() };
