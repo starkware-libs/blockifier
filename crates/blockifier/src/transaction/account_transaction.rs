@@ -1,3 +1,4 @@
+use cairo_vm::vm::runners::cairo_runner::RunResources;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -8,7 +9,7 @@ use starknet_api::transaction::{
 };
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants as abi_constants;
+use crate::abi::constants::{self as abi_constants, N_STEPS_RESOURCE};
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -38,10 +39,15 @@ pub enum AccountTransaction {
     Invoke(InvokeTransaction),
 }
 
+struct RevertData {
+    revert_error: String,
+    remaining_resources: Option<RunResources>,
+}
+
 struct ValidateExecuteCallInfo {
     validate_call_info: Option<CallInfo>,
     execute_call_info: Option<CallInfo>,
-    revert_error: Option<String>,
+    revert_data: Option<RevertData>,
 }
 
 impl AccountTransaction {
@@ -319,7 +325,7 @@ impl AccountTransaction {
             return Ok(ValidateExecuteCallInfo {
                 validate_call_info: self.validate_tx(state, context)?,
                 execute_call_info,
-                revert_error: None,
+                revert_data: None,
             });
         }
 
@@ -327,12 +333,15 @@ impl AccountTransaction {
         let validate_call_info = self.validate_tx(state, context)?;
         let mut execution_state = CachedState::new(MutRefState::new(state));
         match self.run_execute(&mut execution_state, context) {
-            Err(_) => {
+            Err(error) => {
                 execution_state.abort();
                 Ok(ValidateExecuteCallInfo {
                     validate_call_info,
                     execute_call_info: None,
-                    revert_error: Some(context.error_trace()),
+                    revert_data: Some(RevertData {
+                        revert_error: context.error_trace(),
+                        remaining_resources: error.remaining_resources(),
+                    }),
                 })
             }
             Ok(execute_call_info) => {
@@ -340,7 +349,7 @@ impl AccountTransaction {
                 Ok(ValidateExecuteCallInfo {
                     validate_call_info,
                     execute_call_info,
-                    revert_error: None,
+                    revert_data: None,
                 })
             }
         }
@@ -361,7 +370,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.handle_nonce_and_check_fee_balance(state, &mut context)?;
 
         // Run validation and execution.
-        let ValidateExecuteCallInfo { validate_call_info, execute_call_info, revert_error } =
+        let ValidateExecuteCallInfo { validate_call_info, execute_call_info, revert_data } =
             self.run_or_revert(state, &mut context)?;
 
         // Handle fee.
@@ -369,13 +378,29 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let actual_resources = calculate_tx_resources(
+        let mut actual_resources = calculate_tx_resources(
             context.resources,
             &non_optional_call_infos,
             self.tx_type(),
             state,
             None,
         )?;
+        // Revert fee for execution is computed by remaining resources.
+        if let Some(RevertData { remaining_resources: Some(remaining_resources), .. }) =
+            &revert_data
+        {
+            if execute_call_info.is_some() {
+                panic!(
+                    "Reverted transaction cannot contain non-trivial execution call info: {:?}.",
+                    execute_call_info
+                );
+            }
+            let execution_steps_consumed = context.max_steps() - remaining_resources.n_steps;
+            actual_resources.0.insert(
+                N_STEPS_RESOURCE.to_string(),
+                actual_resources.0.get(N_STEPS_RESOURCE).unwrap_or(&0) + execution_steps_consumed,
+            );
+        }
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
@@ -389,7 +414,11 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             fee_transfer_call_info,
             actual_fee,
             actual_resources,
-            revert_error,
+            revert_error: if let Some(revert_data) = revert_data {
+                Some(revert_data.revert_error)
+            } else {
+                None
+            },
         };
         Ok(tx_execution_info)
     }

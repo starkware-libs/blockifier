@@ -1,10 +1,11 @@
+use cairo_vm::vm::runners::cairo_runner::RunResources;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -52,4 +53,33 @@ pub enum TransactionExecutionError {
     UnknownChainId { chain_id: String },
     #[error("Transaction validation has failed.")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
+}
+
+impl TransactionExecutionError {
+    /// If the error contains information about remaining run resources, returns them.
+    pub fn remaining_resources(&self) -> Option<RunResources> {
+        match self {
+            TransactionExecutionError::ContractConstructorExecutionFailed(
+                entry_point_execution_error,
+            )
+            | TransactionExecutionError::EntryPointExecutionError(entry_point_execution_error)
+            | TransactionExecutionError::ExecutionError(entry_point_execution_error) => {
+                match entry_point_execution_error {
+                    EntryPointExecutionError::VirtualMachineExecutionError(vm_execution_error)
+                    | EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                        trace: _,
+                        source: vm_execution_error,
+                    } => match vm_execution_error {
+                        VirtualMachineExecutionError::CairoRunError {
+                            remaining_resources,
+                            source: _,
+                        } => Some(remaining_resources.clone()),
+                        _ => None,
+                    },
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
 }
