@@ -96,6 +96,7 @@ impl Storage {
         Ok(())
     }
 
+    // TODO(Gilad): Refactor.
     #[args(
         block_id,
         previous_block_id,
@@ -121,12 +122,12 @@ impl Storage {
             py_block_info.block_number
         );
         let block_number = BlockNumber(py_block_info.block_number);
+        let state_number = StateNumber(block_number);
 
         // Deserialize contract classes.
         let mut deprecated_declared_classes = IndexMap::<ClassHash, DeprecatedContractClass>::new();
         for (class_hash, raw_class) in deprecated_declared_class_hash_to_class {
             let class_hash = ClassHash(class_hash.0);
-            let state_number = StateNumber(block_number);
             let class_undeclared = self
                 .reader()
                 .begin_ro_txn()?
@@ -144,7 +145,6 @@ impl Storage {
         let mut undeclared_casm_contracts = Vec::<(ClassHash, CasmContractClass)>::new();
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
             let class_hash = ClassHash(class_hash.0);
-            let state_number = StateNumber(block_number);
             let class_undeclared = self
                 .reader()
                 .begin_ro_txn()?
@@ -161,6 +161,30 @@ impl Storage {
                 undeclared_casm_contracts.push((class_hash, contract_class));
             }
         }
+
+        // Remove deployed entries from `address_to_class_hash` in `py_state_diff`.
+        // These entries correspond to contract addresses whose class has been replaced with a new
+        // contract.
+        // Note: Replacing `cairo1` contracts with `cairo0` contracts is not supported.
+        let mut replaced_classes = IndexMap::<ContractAddress, ClassHash>::new();
+        for (address, class_hash) in &py_state_diff.address_to_class_hash {
+            let address = ContractAddress::try_from(address.0)?;
+            let is_deployed: bool = self
+                .reader()
+                .begin_ro_txn()?
+                .get_state_reader()?
+                .get_class_hash_at(state_number, &address)
+                .is_ok();
+
+            if is_deployed {
+                replaced_classes.insert(address, ClassHash(class_hash.0));
+            }
+        }
+        let mut py_state_diff = py_state_diff;
+        replaced_classes.keys().for_each(|&address| {
+            py_state_diff.address_to_class_hash.remove(&address.into());
+        });
+
         let mut append_txn = self.writer().begin_rw_txn()?;
         for (class_hash, contract_class) in undeclared_casm_contracts {
             append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
@@ -170,6 +194,7 @@ impl Storage {
         let mut state_diff = StateDiff::try_from(py_state_diff)?;
         state_diff.deprecated_declared_classes = deprecated_declared_classes;
         state_diff.declared_classes = declared_classes;
+        state_diff.replaced_classes = replaced_classes;
 
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
