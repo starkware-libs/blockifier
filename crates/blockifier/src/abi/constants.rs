@@ -9,6 +9,7 @@ pub const L1_HANDLER_VERSION: u64 = 0;
 // OS-related constants.
 pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;
 pub const L2_TO_L1_MSG_HEADER_SIZE: usize = 3;
+pub const DEPLOYMENT_INFO_SIZE: usize = 2;
 pub const CLASS_UPDATE_SIZE: usize = 1;
 
 // StarkNet solidity contract-related constants.

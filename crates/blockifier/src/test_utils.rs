@@ -354,6 +354,7 @@ impl BlockContext {
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
+            is_0_10: false,
         }
     }
 

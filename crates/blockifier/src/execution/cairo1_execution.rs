@@ -71,6 +71,12 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
+    log::debug!(
+        "Executing entry point selector: {:?}. storage_address: {:?}. caller_address {:?}.",
+        args.first(),
+        syscall_handler.call.storage_address,
+        syscall_handler.call.caller_address
+    );
     run_entry_point(
         &mut vm,
         &mut runner,
@@ -201,6 +207,7 @@ pub fn prepare_call_arguments(
 
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;
+    log::debug!("Preparing call data for entry point: {calldata:?}.");
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
 

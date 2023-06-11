@@ -151,6 +151,7 @@ impl CallEntryPoint {
         }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
+        log::debug!("Running entry point in class hash : {class_hash:?}.");
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
         let result = execute_entry_point_call(self, contract_class, state, resources, context)

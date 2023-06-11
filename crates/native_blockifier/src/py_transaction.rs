@@ -86,16 +86,22 @@ pub fn py_block_context(
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.starknet_os_config;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
+    let starknet_version: String = py_attr(block_info, "starknet_version")?;
+    let sequencer_address: Option<BigUint> = py_attr(block_info, "sequencer_address")?;
+    let sequencer_address = ContractAddress::try_from(biguint_to_felt(
+        sequencer_address.expect("sequencer_address is None in block_info"),
+    )?)?;
     let block_context = BlockContext {
         chain_id: to_chain_id_enum(starknet_os_config.chain_id)?,
         block_number,
         block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
+        sequencer_address,
         fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights,
         gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
+        is_0_10: starknet_version == "0.10.3",
     };
 
     Ok(block_context)
@@ -373,13 +379,16 @@ impl PyTransactionExecutorInner {
         HashMap<PyFelt, PyContractClassSizes>,
     )> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let actual_fee = Fee(py_attr(tx, "actual_fee")?);
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        log::debug!("Received Transaction: {tx:?}, actual_fee: {actual_fee:?}.");
 
         let mut executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
+            log::debug!("Block context: {:?}", executor.block_context);
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context)
+                .execute_raw(&mut transactional_state, executor.block_context, actual_fee)
                 .map_err(NativeBlockifierError::from);
             let py_tx_execution_info = match tx_execution_result {
                 Ok(tx_execution_info) => {

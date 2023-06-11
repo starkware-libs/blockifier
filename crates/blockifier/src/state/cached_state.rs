@@ -50,7 +50,7 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the number of storage changes done through this state.
     /// Any change to the contract's state (storage, nonce, class hash) is considered.
     // TODO(Noa, 30/04/23): Add nonce count.
-    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+    pub fn count_actual_state_changes(&self, is_0_10: bool) -> (usize, usize, usize) {
         // Storage Update.
         let storage_updates = &self.cache.get_storage_updates();
         let mut modified_contracts: HashSet<ContractAddress> =
@@ -58,7 +58,12 @@ impl<S: StateReader> CachedState<S> {
 
         // Class hash Update (deployed contracts + replace_class syscall).
         let class_hash_updates = &self.cache.get_class_hash_updates();
-        modified_contracts.extend(class_hash_updates.keys());
+        // In 0.10.3: A contract is considered as modified if one or more of its storage cells has
+        // changed. In 0.11.0: A contract is considered modified if (its nonce was updated), if its
+        // class hash was updated or if one of its storage cells has changed.
+        if !is_0_10 {
+            modified_contracts.extend(class_hash_updates.keys());
+        }
 
         (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
     }
@@ -438,8 +443,11 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.storage_writes.extend(child_cache.storage_writes);
         parent_cache.compiled_class_hash_writes.extend(child_cache.compiled_class_hash_writes);
         self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
+        log::debug!("Transaction Committed.");
     }
 
     /// Drops `self`.
-    pub fn abort(self) {}
+    pub fn abort(self) {
+        log::debug!("Transaction Aborted.");
+    }
 }
