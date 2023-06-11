@@ -463,11 +463,11 @@ pub fn into_py_contract_class_sizes_mapping(
 
         let sizes = match class {
             ContractClass::V0(class) => PyContractClassSizes {
-                bytecode_length: class.program.data.len(),
-                n_builtins: Some(class.program.builtins.len()),
+                bytecode_length: class.bytecode_length(),
+                n_builtins: Some(class.n_builtins()),
             },
             ContractClass::V1(class) => {
-                PyContractClassSizes { bytecode_length: class.program.data.len(), n_builtins: None }
+                PyContractClassSizes { bytecode_length: class.bytecode_length(), n_builtins: None }
             }
         };
 
