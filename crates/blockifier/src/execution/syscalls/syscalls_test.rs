@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -20,12 +21,18 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
     OrderedL2ToL1Message, Retdata,
 };
+use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::syscalls::hint_processor::OUT_OF_GAS_ERROR;
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
 };
+
+pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35170;
+pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 129650;
+pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
 
 #[test]
 fn test_storage_read_write() {
@@ -44,7 +51,7 @@ fn test_storage_read_write() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: stark_felt!(35170_u64),
+            gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         }
     );
@@ -76,7 +83,7 @@ fn test_call_contract() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(48_u8)],
-            gas_consumed: stark_felt!(129650_u64),
+            gas_consumed: stark_felt!(REQUIRED_GAS_CALL_CONTRACT_TEST),
             ..CallExecution::default()
         }
     );
@@ -168,7 +175,7 @@ fn test_library_call() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(91_u16)],
-            gas_consumed: stark_felt!(129650_u64),
+            gas_consumed: stark_felt!(REQUIRED_GAS_LIBRARY_CALL_TEST),
             ..Default::default()
         }
     );
@@ -235,7 +242,7 @@ fn test_nested_library_call() {
         call: nested_storage_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value + 1)],
-            gas_consumed: stark_felt!(35170_u64),
+            gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
         vm_resources: storage_entry_point_vm_resources.clone(),
@@ -253,7 +260,7 @@ fn test_nested_library_call() {
         call: library_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value + 1)],
-            gas_consumed: stark_felt!(129650_u64),
+            gas_consumed: stark_felt!(REQUIRED_GAS_LIBRARY_CALL_TEST),
             ..CallExecution::default()
         },
         vm_resources: library_call_vm_resources.clone(),
@@ -264,7 +271,7 @@ fn test_nested_library_call() {
         call: storage_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: stark_felt!(35170_u64),
+            gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
         vm_resources: storage_entry_point_vm_resources.clone(),
@@ -332,7 +339,10 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    entry_point_call.execute_directly(&mut state).unwrap();
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { gas_consumed: stark_felt!(14960_u64), ..Default::default() }
+    );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
 
@@ -469,4 +479,22 @@ fn test_deploy(
         }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
+}
+
+#[test]
+fn test_out_of_gas() {
+    let mut state = create_test_state();
+
+    let key = stark_felt!(1234_u16);
+    let value = stark_felt!(18_u8);
+    let calldata = calldata![key, value];
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name("test_storage_read_write"),
+        initial_gas: Felt252::from(REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1),
+        ..trivial_external_entry_point()
+    };
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
+    assert_matches!(error,EntryPointExecutionError::ExecutionFailed{ error_data}
+        if error_data == vec![stark_felt!(OUT_OF_GAS_ERROR)]);
 }
