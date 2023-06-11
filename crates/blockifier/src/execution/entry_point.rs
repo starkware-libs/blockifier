@@ -128,6 +128,7 @@ impl CallEntryPoint {
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         context.current_recursion_depth += 1;
+        log::debug!("Recursion depth: {:?}.", context.current_recursion_depth);
         if context.current_recursion_depth > context.max_recursion_depth {
             return Err(EntryPointExecutionError::RecursionDepthExceeded);
         }
@@ -154,6 +155,7 @@ impl CallEntryPoint {
         }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
+        log::debug!("Running entry point in class hash : {class_hash:?}.");
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
         let result = execute_entry_point_call(self, contract_class, state, resources, context)
@@ -175,6 +177,9 @@ impl CallEntryPoint {
                     other_error => other_error,
                 }
             });
+        if result.is_err() {
+            dbg!(class_hash);
+        }
 
         context.current_recursion_depth -= 1;
         result

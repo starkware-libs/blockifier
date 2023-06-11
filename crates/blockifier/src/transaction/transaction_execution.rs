@@ -4,11 +4,11 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
-use crate::fee::fee_utils::calculate_tx_fee;
+// use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::TransactionExecutionError;
+// use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
@@ -67,6 +67,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        _actual_fee: Fee,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
@@ -97,14 +98,15 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,
+            block_context.is_0_10,
         )?;
-        let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
-        let paid_fee = self.paid_fee_on_l1;
-        // For now, assert only that any amount of fee was paid.
-        // The error message still indicates the required fee.
-        if paid_fee == Fee(0) {
-            return Err(TransactionExecutionError::InsufficientL1Fee { paid_fee, actual_fee });
-        }
+        // let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
+        // let paid_fee = self.paid_fee_on_l1;
+        // // For now, assert only that any amount of fee was paid.
+        // // The error message still indicates the required fee.
+        // if paid_fee == Fee(0) {
+        //     return Err(TransactionExecutionError::InsufficientL1Fee { paid_fee, actual_fee });
+        // }
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
@@ -121,10 +123,13 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        actual_fee: Fee,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         match self {
-            Self::AccountTransaction(account_tx) => account_tx.execute_raw(state, block_context),
-            Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context),
+            Self::AccountTransaction(account_tx) => {
+                account_tx.execute_raw(state, block_context, actual_fee)
+            }
+            Self::L1HandlerTransaction(tx) => tx.execute_raw(state, block_context, actual_fee),
         }
     }
 }

@@ -19,4 +19,6 @@ pub struct BlockContext {
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
+
+    pub is_0_10: bool,
 }

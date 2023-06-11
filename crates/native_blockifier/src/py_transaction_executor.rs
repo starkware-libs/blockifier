@@ -14,13 +14,14 @@ use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::transaction::Fee;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{py_attr, py_enum_name, to_chain_id_enum, PyFelt};
+use crate::py_utils::{py_attr, py_enum_name, to_chain_id_enum, PyFelt, biguint_to_felt};
 use crate::storage::Storage;
 
 /// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
@@ -135,13 +136,16 @@ impl TransactionExecutor {
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let actual_fee = Fee(py_attr(tx, "actual_fee")?);
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        log::debug!("Received Transaction: {tx:?}, actual_fee: {actual_fee:?}.");
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
+            log::debug!("Block context: {:?}", executor.block_context);
             let mut transactional_state = CachedState::create_transactional(executor.state);
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context)
+                .execute_raw(&mut transactional_state, executor.block_context, actual_fee)
                 .map_err(NativeBlockifierError::from);
             let (py_tx_execution_info, py_casm_hash_calculation_resources) =
                 match tx_execution_result {
@@ -244,17 +248,23 @@ pub fn py_block_context(
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.starknet_os_config;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
+    let starknet_version: String = py_attr(block_info, "starknet_version")?;
+    let sequencer_address: Option<BigUint> = py_attr(block_info, "sequencer_address")?;
+    let sequencer_address = ContractAddress::try_from(biguint_to_felt(
+        sequencer_address.expect("sequencer_address is None in block_info"),
+    )?)?;
     let block_context = BlockContext {
         chain_id: to_chain_id_enum(starknet_os_config.chain_id)?,
         block_number,
         block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
+        sequencer_address,
         fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights,
         gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
         max_recursion_depth,
+        is_0_10: starknet_version == "0.10.3",
     };
 
     Ok(block_context)

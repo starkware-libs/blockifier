@@ -274,7 +274,7 @@ fn count_actual_state_changes() {
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val);
 
-    let state_changes = state.count_actual_state_changes().unwrap();
+    let state_changes = state.count_actual_state_changes(false).unwrap();
 
     assert_eq!(
         state_changes,

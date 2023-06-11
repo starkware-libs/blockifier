@@ -3,161 +3,145 @@ use serde_json::json;
 use crate::fee::os_usage::OsResources;
 
 #[ctor::ctor]
-pub static OS_RESOURCES: OsResources = {
+pub static OS_RESOURCES_0_10_3: OsResources = {
     serde_json::from_value(os_resources())
         .expect("os_resources json does not exist or cannot be deserialized.")
 };
 
-// TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
 fn os_resources() -> serde_json::Value {
     json!({
         "execute_syscalls": {
             "CallContract": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check_builtin": 17
                 },
                 "n_memory_holes": 0,
-                "n_steps": 690
+                "n_steps": 545
             },
             "DelegateCall": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check_builtin": 17
                 },
                 "n_memory_holes": 0,
-                "n_steps": 712
+                "n_steps": 567
             },
             "DelegateL1Handler": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 15
+                    "range_check_builtin": 13
                 },
                 "n_memory_holes": 0,
-                "n_steps": 691
+                "n_steps": 546
             },
             "Deploy": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 7,
-                    "range_check_builtin": 18
+                    "range_check_builtin": 16
                 },
                 "n_memory_holes": 0,
-                "n_steps": 936
+                "n_steps": 800
             },
             "EmitEvent": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 19
-            },
-            "GetBlockHash": {
-                "builtin_instance_counter": {},
-                "n_memory_holes": 0,
-                "n_steps": 44
+                "n_steps": 18
             },
             "GetBlockNumber": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 40
+                "n_steps": 38
             },
             "GetBlockTimestamp": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 38
+                "n_steps": 36
             },
             "GetCallerAddress": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 32
+                "n_steps": 30
             },
             "GetContractAddress": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 36
-            },
-            "GetExecutionInfo": {
-                "builtin_instance_counter": {},
-                "n_memory_holes": 0,
-                "n_steps": 29
+                "n_steps": 34
             },
             "GetSequencerAddress": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 34
+                "n_steps": 32
             },
             "GetTxInfo": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 29
+                "n_steps": 28
             },
             "GetTxSignature": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 44
+                "n_steps": 43
             },
             "LibraryCall": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check_builtin": 17
                 },
                 "n_memory_holes": 0,
-                "n_steps": 679
+                "n_steps": 535
             },
             "LibraryCallL1Handler": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 15
+                    "range_check_builtin": 13
                 },
                 "n_memory_holes": 0,
-                "n_steps": 658
-            },
-            "ReplaceClass": {
-                "builtin_instance_counter": {},
-                "n_memory_holes": 0,
-                "n_steps": 73
+                "n_steps": 514
             },
             "SendMessageToL1": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 84
+                "n_steps": 81
             },
             "StorageRead": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 44
+                "n_steps": 42
             },
             "StorageWrite": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
-                "n_steps": 46
+                "n_steps": 44
             }
         },
         "execute_txs_inner": {
             "Declare": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 15,
-                    "range_check_builtin": 63
+                    "range_check_builtin": 57
                 },
                 "n_memory_holes": 0,
-                "n_steps": 2703
+                "n_steps": 2336
             },
             "DeployAccount": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 23,
-                    "range_check_builtin": 83
+                    "range_check_builtin": 74
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3612
+                "n_steps": 3098
             },
             "InvokeFunction": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 16,
-                    "range_check_builtin": 80,
+                    "range_check_builtin": 70
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3363
+                "n_steps": 2839
             },
             "L1Handler": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 11,
-                    "range_check_builtin": 17
+                    "range_check_builtin": 13
                 },
                 "n_memory_holes": 0,
-                "n_steps": 1068
+                "n_steps": 877
             }
         }
     })
