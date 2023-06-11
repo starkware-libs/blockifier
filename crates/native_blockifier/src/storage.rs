@@ -123,8 +123,7 @@ impl Storage {
         let block_number = BlockNumber(py_block_info.block_number);
 
         // Deserialize contract classes.
-        let mut deprecated_declared_classes: IndexMap<ClassHash, DeprecatedContractClass> =
-            IndexMap::new();
+        let mut deprecated_declared_classes = IndexMap::<ClassHash, DeprecatedContractClass>::new();
         for (class_hash, raw_class) in deprecated_declared_class_hash_to_class {
             let class_hash = ClassHash(class_hash.0);
             let state_number = StateNumber(block_number);
@@ -141,13 +140,14 @@ impl Storage {
                 deprecated_declared_classes.insert(class_hash, deprecated_contract_class);
             }
         }
-        let mut declared_classes: IndexMap<ClassHash, (CompiledClassHash, ContractClass)> =
-            IndexMap::new();
-        let mut append_txn = self.writer().begin_rw_txn()?;
+        let mut declared_classes = IndexMap::<ClassHash, (CompiledClassHash, ContractClass)>::new();
+        let mut undeclared_casm_contracts = Vec::<(ClassHash, CasmContractClass)>::new();
         for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
             let class_hash = ClassHash(class_hash.0);
             let state_number = StateNumber(block_number);
-            let class_undeclared = append_txn
+            let class_undeclared = self
+                .reader()
+                .begin_ro_txn()?
                 .get_state_reader()?
                 .get_class_definition_at(state_number, &class_hash)?
                 .is_none();
@@ -158,8 +158,12 @@ impl Storage {
                     class_hash,
                     (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
                 );
-                append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
+                undeclared_casm_contracts.push((class_hash, contract_class));
             }
+        }
+        let mut append_txn = self.writer().begin_rw_txn()?;
+        for (class_hash, contract_class) in undeclared_casm_contracts {
+            append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
         }
 
         // Construct state diff; manually add declared classes.
@@ -169,12 +173,11 @@ impl Storage {
 
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
-        let append_txn = append_txn.append_state_diff(
+        append_txn = append_txn.append_state_diff(
             block_number,
             state_diff,
             deployed_contract_class_definitions,
-        );
-        let append_txn = append_txn?;
+        )?;
 
         let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));
         let block_header = BlockHeader {
@@ -186,7 +189,7 @@ impl Storage {
             sequencer: ContractAddress::try_from(py_block_info.sequencer_address.0)?,
             timestamp: BlockTimestamp(py_block_info.block_timestamp),
         };
-        let append_txn = append_txn.append_header(block_number, &block_header)?;
+        append_txn = append_txn.append_header(block_number, &block_header)?;
 
         append_txn.commit()?;
         Ok(())
