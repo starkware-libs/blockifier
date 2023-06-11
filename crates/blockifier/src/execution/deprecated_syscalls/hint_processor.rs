@@ -71,7 +71,7 @@ pub enum DeprecatedSyscallExecutionError {
 // cairo-rs API.
 impl From<DeprecatedSyscallExecutionError> for HintError {
     fn from(error: DeprecatedSyscallExecutionError) -> Self {
-        HintError::CustomHint(error.to_string())
+        HintError::CustomHint(error.to_string().into())
     }
 }
 
@@ -190,7 +190,9 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             }
             DeprecatedSyscallSelector::StorageRead => self.execute_syscall(vm, storage_read),
             DeprecatedSyscallSelector::StorageWrite => self.execute_syscall(vm, storage_write),
-            _ => Err(HintError::UnknownHint(format!("Unsupported syscall selector {selector:?}."))),
+            _ => Err(HintError::UnknownHint(
+                format!("Unsupported syscall selector {selector:?}.").into(),
+            )),
         }
     }
 
