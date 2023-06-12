@@ -20,6 +20,7 @@ use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
 };
 use crate::state::state_api::State;
+use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
@@ -34,6 +35,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClassV0,
     state: &mut dyn State,
+    tx_context: &mut TransactionExecutionContext,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
@@ -42,7 +44,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point_pc,
-    } = initialize_execution_context(&call, contract_class, state, context)?;
+    } = initialize_execution_context(&call, contract_class, state, tx_context, context)?;
 
     let (implicit_args, args) = prepare_call_arguments(
         &call,
@@ -53,7 +55,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.context.resources.vm_resources.clone();
+    let previous_vm_resources = syscall_handler.tx_context.resources.vm_resources.clone();
 
     // Execute.
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
@@ -73,6 +75,7 @@ pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     contract_class: ContractClassV0,
     state: &'a mut dyn State,
+    tx_context: &'a mut TransactionExecutionContext,
     context: &'a mut EntryPointExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     // Resolve initial PC from EP indicator.
@@ -92,6 +95,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = DeprecatedSyscallHintProcessor::new(
         state,
+        tx_context,
         context,
         initial_syscall_ptr,
         call.storage_address,
@@ -231,10 +235,10 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.context.resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.tx_context.resources.vm_resources += &vm_resources_without_inner_calls;
 
     let full_call_vm_resources =
-        &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
+        &syscall_handler.tx_context.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {

@@ -41,6 +41,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
@@ -90,6 +91,7 @@ pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
     pub context: &'a mut EntryPointExecutionContext,
+    pub tx_context: &'a mut TransactionExecutionContext,
     pub call: CallEntryPoint,
 
     // Execution results.
@@ -115,6 +117,7 @@ pub struct SyscallHintProcessor<'a> {
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
+        tx_context: &'a mut TransactionExecutionContext,
         context: &'a mut EntryPointExecutionContext,
         initial_syscall_ptr: Relocatable,
         call: CallEntryPoint,
@@ -123,6 +126,7 @@ impl<'a> SyscallHintProcessor<'a> {
     ) -> Self {
         SyscallHintProcessor {
             state,
+            tx_context,
             context,
             call,
             inner_calls: vec![],
@@ -282,7 +286,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
-        let syscall_count = self.context.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.tx_context.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -310,7 +314,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        let block_context = &self.context.block_context;
+        let block_context = &self.tx_context.block_context;
         let block_info: Vec<MaybeRelocatable> = vec![
             Felt252::from(block_context.block_number.0).into(),
             Felt252::from(block_context.block_timestamp.0).into(),
@@ -325,7 +329,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        let signature = &self.context.account_tx_context.signature.0;
+        let signature = &self.tx_context.account_tx_context.signature.0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -335,7 +339,7 @@ impl<'a> SyscallHintProcessor<'a> {
 
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
-        let account_tx_context = &self.context.account_tx_context;
+        let account_tx_context = &self.tx_context.account_tx_context;
         let tx_signature_length = account_tx_context.signature.0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(account_tx_context.version.0).into(),
@@ -344,7 +348,7 @@ impl<'a> SyscallHintProcessor<'a> {
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
             stark_felt_to_felt(account_tx_context.transaction_hash.0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+            Felt252::from_bytes_be(self.tx_context.block_context.chain_id.0.as_bytes()).into(),
             stark_felt_to_felt(account_tx_context.nonce.0).into(),
         ];
 
@@ -457,7 +461,8 @@ pub fn execute_inner_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut Felt252,
 ) -> SyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
+    let call_info =
+        call.execute(syscall_handler.state, syscall_handler.tx_context, syscall_handler.context)?;
     let raw_retdata = &call_info.execution.retdata.0;
 
     if call_info.execution.failed {
