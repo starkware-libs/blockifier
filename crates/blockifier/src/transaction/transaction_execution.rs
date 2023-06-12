@@ -4,7 +4,7 @@ use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, Tran
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::ExecutionContext;
+use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -78,7 +78,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: tx.nonce,
             sender_address: tx.contract_address,
         };
-        let mut context = ExecutionContext::new(block_context.clone(), tx_context);
+        let mut context = EntryPointExecutionContext::new(block_context.clone(), tx_context);
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info = self.run_execute(state, &mut context, &mut remaining_gas)?;
 

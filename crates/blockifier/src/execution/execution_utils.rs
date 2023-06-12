@@ -20,7 +20,7 @@ use starknet_api::transaction::Calldata;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallInfo, ConstructorContext,
-    EntryPointExecutionResult, ExecutionContext, Retdata,
+    EntryPointExecutionContext, EntryPointExecutionResult, Retdata,
 };
 use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};
@@ -47,7 +47,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClass,
     state: &mut dyn State,
-    context: &mut ExecutionContext,
+    context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     match contract_class {
         ContractClass::V0(contract_class) => {
@@ -186,7 +186,7 @@ impl ReadOnlySegments {
 /// Returns the call info of the deployed class' constructor execution.
 pub fn execute_deployment(
     state: &mut dyn State,
-    context: &mut ExecutionContext,
+    context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
     remaining_gas: Felt252,

@@ -25,7 +25,8 @@ use thiserror::Error;
 use crate::abi::constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, OrderedEvent,
+    OrderedL2ToL1Message,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
@@ -88,7 +89,7 @@ pub const OUT_OF_GAS_ERROR: &str =
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
-    pub context: &'a mut ExecutionContext,
+    pub context: &'a mut EntryPointExecutionContext,
     pub call: CallEntryPoint,
 
     // Execution results.
@@ -114,7 +115,7 @@ pub struct SyscallHintProcessor<'a> {
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
-        context: &'a mut ExecutionContext,
+        context: &'a mut EntryPointExecutionContext,
         initial_syscall_ptr: Relocatable,
         call: CallEntryPoint,
         hints: &'a HashMap<String, Hint>,
