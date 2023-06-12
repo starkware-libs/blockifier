@@ -11,7 +11,7 @@ use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext,
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -34,7 +34,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClassV0,
     state: &mut dyn State,
-    context: &mut ExecutionContext,
+    context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
         mut runner,
@@ -73,7 +73,7 @@ pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     contract_class: ContractClassV0,
     state: &'a mut dyn State,
-    context: &'a mut ExecutionContext,
+    context: &'a mut EntryPointExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     // Resolve initial PC from EP indicator.
     let entry_point_pc = resolve_entry_point_pc(call, &contract_class)?;

@@ -33,7 +33,8 @@ use crate::execution::deprecated_syscalls::{
     SyscallResponse,
 };
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, ExecutionContext, OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, OrderedEvent,
+    OrderedL2ToL1Message,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
@@ -80,7 +81,7 @@ impl From<DeprecatedSyscallExecutionError> for HintError {
 pub struct DeprecatedSyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
-    pub context: &'a mut ExecutionContext,
+    pub context: &'a mut EntryPointExecutionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
 
@@ -109,7 +110,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
 impl<'a> DeprecatedSyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
-        context: &'a mut ExecutionContext,
+        context: &'a mut EntryPointExecutionContext,
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,

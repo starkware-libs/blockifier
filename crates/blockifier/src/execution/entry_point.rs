@@ -64,7 +64,7 @@ pub struct ExecutionResources {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExecutionContext {
+pub struct EntryPointExecutionContext {
     pub block_context: BlockContext,
     pub resources: ExecutionResources,
     pub account_tx_context: AccountTransactionContext,
@@ -75,7 +75,7 @@ pub struct ExecutionContext {
     /// Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
 }
-impl ExecutionContext {
+impl EntryPointExecutionContext {
     pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
         Self {
             n_emitted_events: 0,
@@ -86,9 +86,7 @@ impl ExecutionContext {
             account_tx_context,
         }
     }
-}
 
-impl ExecutionContext {
     /// Combines individual errors into a single stack trace string, with contract addresses printed
     /// alongside their respective trace.
     pub fn error_trace(&self) -> String {
@@ -108,7 +106,7 @@ impl CallEntryPoint {
     pub fn execute(
         mut self,
         state: &mut dyn State,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
         let storage_address = self.storage_address;
@@ -265,7 +263,7 @@ impl<'a> IntoIterator for &'a CallInfo {
 
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
-    context: &mut ExecutionContext,
+    context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     calldata: Calldata,
     remaining_gas: Felt252,
