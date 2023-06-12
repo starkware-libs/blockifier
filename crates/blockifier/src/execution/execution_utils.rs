@@ -26,6 +26,7 @@ use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 pub type Args = Vec<CairoArg>;
 
@@ -47,15 +48,24 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClass,
     state: &mut dyn State,
+    tx_context: &mut TransactionExecutionContext,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     match contract_class {
-        ContractClass::V0(contract_class) => {
-            deprecated_execution::execute_entry_point_call(call, contract_class, state, context)
-        }
-        ContractClass::V1(contract_class) => {
-            cairo1_execution::execute_entry_point_call(call, contract_class, state, context)
-        }
+        ContractClass::V0(contract_class) => deprecated_execution::execute_entry_point_call(
+            call,
+            contract_class,
+            state,
+            tx_context,
+            context,
+        ),
+        ContractClass::V1(contract_class) => cairo1_execution::execute_entry_point_call(
+            call,
+            contract_class,
+            state,
+            tx_context,
+            context,
+        ),
     }
 }
 
@@ -186,6 +196,7 @@ impl ReadOnlySegments {
 /// Returns the call info of the deployed class' constructor execution.
 pub fn execute_deployment(
     state: &mut dyn State,
+    tx_context: &mut TransactionExecutionContext,
     context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
@@ -203,6 +214,7 @@ pub fn execute_deployment(
 
     let call_info = execute_constructor_entry_point(
         state,
+        tx_context,
         context,
         ctor_context,
         constructor_calldata,

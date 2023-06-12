@@ -43,6 +43,7 @@ use crate::execution::execution_utils::{
 use crate::execution::hint_code;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
 
@@ -82,6 +83,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
     pub context: &'a mut EntryPointExecutionContext,
+    pub tx_context: &'a mut TransactionExecutionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
 
@@ -110,6 +112,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
 impl<'a> DeprecatedSyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
+        tx_context: &'a mut TransactionExecutionContext,
         context: &'a mut EntryPointExecutionContext,
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
@@ -117,6 +120,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     ) -> Self {
         DeprecatedSyscallHintProcessor {
             state,
+            tx_context,
             context,
             storage_address,
             caller_address,
@@ -257,7 +261,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
-        let syscall_count = self.context.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.tx_context.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -265,7 +269,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
-        let signature = &self.context.account_tx_context.signature.0;
+        let signature = &self.tx_context.account_tx_context.signature.0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -278,7 +282,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
-        let account_tx_context = &self.context.account_tx_context;
+        let account_tx_context = &self.tx_context.account_tx_context;
         let tx_signature_length = account_tx_context.signature.0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(account_tx_context.version.0).into(),
@@ -287,7 +291,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
             stark_felt_to_felt(account_tx_context.transaction_hash.0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+            Felt252::from_bytes_be(self.tx_context.block_context.chain_id.0.as_bytes()).into(),
             stark_felt_to_felt(account_tx_context.nonce.0).into(),
         ];
 
@@ -372,7 +376,8 @@ pub fn execute_inner_call(
     vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
+    let call_info =
+        call.execute(syscall_handler.state, syscall_handler.tx_context, syscall_handler.context)?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
         retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();

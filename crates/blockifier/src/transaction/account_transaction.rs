@@ -11,9 +11,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
@@ -23,7 +21,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
 };
-use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transaction_execution::{Transaction, TransactionExecutionContext};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
     calculate_tx_resources, update_remaining_gas, verify_no_calls_to_other_contracts,
@@ -162,14 +160,15 @@ impl AccountTransaction {
     fn validate_tx(
         &self,
         state: &mut dyn State,
-        context: &mut EntryPointExecutionContext,
+        tx_context: &mut TransactionExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
+        let account_tx_context = &tx_context.account_tx_context;
+        if account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
         }
 
-        let storage_address = context.account_tx_context.sender_address;
+        let storage_address = account_tx_context.sender_address;
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.validate_entry_point_selector(),
@@ -183,7 +182,7 @@ impl AccountTransaction {
         };
 
         let validate_call_info = validate_call
-            .execute(state, context)
+            .execute(state, tx_context, &mut tx_context.get_validate_context())
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
@@ -196,27 +195,28 @@ impl AccountTransaction {
 
     fn charge_fee(
         state: &mut dyn State,
-        context: &mut EntryPointExecutionContext,
+        tx_context: &mut TransactionExecutionContext,
         resources: &ResourcesMapping,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
-        if context.account_tx_context.max_fee == no_fee {
+        if tx_context.account_tx_context.max_fee == no_fee {
             // Fee charging is not enforced in some tests.
             return Ok((no_fee, None));
         }
 
-        let actual_fee = calculate_tx_fee(resources, &context.block_context)?;
-        let fee_transfer_call_info = Self::execute_fee_transfer(state, context, actual_fee)?;
+        let actual_fee = calculate_tx_fee(resources, &tx_context.block_context)?;
+        let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
 
         Ok((actual_fee, Some(fee_transfer_call_info)))
     }
 
     fn execute_fee_transfer(
         state: &mut dyn State,
-        context: &mut EntryPointExecutionContext,
+        tx_context: &mut TransactionExecutionContext,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
-        let max_fee = context.account_tx_context.max_fee;
+        let account_tx_context = &tx_context.account_tx_context;
+        let max_fee = account_tx_context.max_fee;
         if actual_fee > max_fee {
             return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
         }
@@ -226,7 +226,8 @@ impl AccountTransaction {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
 
-        let storage_address = context.block_context.fee_token_address;
+        let block_context = &tx_context.block_context;
+        let storage_address = block_context.fee_token_address;
         // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
         let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let fee_transfer_call = CallEntryPoint {
@@ -235,17 +236,17 @@ impl AccountTransaction {
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
-                *context.block_context.sequencer_address.0.key(), // Recipient.
+                *block_context.sequencer_address.0.key(), // Recipient.
                 lsb_amount,
                 msb_amount
             ],
             storage_address,
-            caller_address: context.account_tx_context.sender_address,
+            caller_address: account_tx_context.sender_address,
             call_type: CallType::Call,
             initial_gas,
         };
 
-        Ok(fee_transfer_call.execute(state, context)?)
+        Ok(fee_transfer_call.execute(state, tx_context, &mut tx_context.get_execute_context())?)
     }
 }
 
@@ -259,34 +260,39 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.verify_tx_version(account_tx_context.version)?;
         Self::handle_nonce(&account_tx_context, state)?;
 
-        // Handle transaction-type specific execution.
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         let tx_type = self.tx_type();
-        let mut context =
-            EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
+
+        let mut tx_context =
+            TransactionExecutionContext::new(block_context.clone(), account_tx_context);
         let mut remaining_gas = Transaction::initial_gas();
+
+        // Handle transaction-type specific execution.
         match &self {
             Self::Declare(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
+                validate_call_info =
+                    self.validate_tx(state, &mut tx_context, &mut remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
+                execute_call_info = tx.run_execute(state, &mut tx_context, &mut remaining_gas)?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
+                execute_call_info = tx.run_execute(state, &mut tx_context, &mut remaining_gas)?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
+                validate_call_info =
+                    self.validate_tx(state, &mut tx_context, &mut remaining_gas)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
+                validate_call_info =
+                    self.validate_tx(state, &mut tx_context, &mut remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
+                execute_call_info = tx.run_execute(state, &mut tx_context, &mut remaining_gas)?;
             }
         };
 
@@ -296,7 +302,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             .flatten()
             .collect::<Vec<&CallInfo>>();
         let actual_resources = calculate_tx_resources(
-            context.resources,
+            tx_context.resources,
             &non_optional_call_infos,
             tx_type,
             state,
@@ -305,10 +311,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
-        let mut context =
-            EntryPointExecutionContext::new(context.block_context, context.account_tx_context);
+        let mut tx_context = TransactionExecutionContext::new(
+            tx_context.block_context,
+            tx_context.account_tx_context,
+        );
         let (actual_fee, fee_transfer_call_info) =
-            Self::charge_fee(state, &mut context, &actual_resources)?;
+            Self::charge_fee(state, &mut tx_context, &actual_resources)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
