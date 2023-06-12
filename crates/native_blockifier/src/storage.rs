@@ -36,6 +36,7 @@ impl Storage {
     #[args(path, max_size)]
     pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
+        log::debug!("XXXX path: {:?}", path);
         let db_config = papyrus_storage::db::DbConfig {
             path,
             min_size: 1 << 20, // 1MB.
