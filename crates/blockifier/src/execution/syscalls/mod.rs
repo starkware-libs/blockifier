@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
@@ -11,13 +12,13 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
 };
-use starknet_api::StarknetApiError;
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
     SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
+use super::execution_utils::felt_to_stark_felt;
 use crate::abi::constants;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
@@ -298,12 +299,11 @@ pub struct GetBlockHashRequest {
 //  fn try_from(felt: StarkFelt) -> Result<u64, _>.
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-        let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
+        let felt = felt_from_ptr(vm, ptr)?;
         let block_number =
-            BlockNumber(u64::try_from(usize::try_from(block_number_as_felt)?).map_err(|_| {
-                SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
-                    string: block_number_as_felt.to_string(),
-                })
+            BlockNumber(felt.to_u64().ok_or(SyscallExecutionError::InvalidSyscallInput {
+                input: felt_to_stark_felt(&felt),
+                info: "Should be a u64.".to_string(),
             })?);
         Ok(GetBlockHashRequest { block_number })
     }
