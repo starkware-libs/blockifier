@@ -254,18 +254,33 @@ impl CallInfo {
 
         for call in self.into_iter() {
             for ordered_message_content in &call.execution.l2_to_l1_messages {
-                if starknet_l2_to_l1_payloads_length[ordered_message_content.order].is_some() {
-                    return Err(TransactionExecutionError::UnexpectedHoles {
+                let message_order = ordered_message_content.order;
+                if message_order >= n_messages {
+                    return Err(TransactionExecutionError::InvalidOrder {
                         object: "L2-to-L1 message".to_string(),
-                        order: ordered_message_content.order,
+                        order: message_order,
+                        max_order: n_messages,
                     });
                 }
-                starknet_l2_to_l1_payloads_length[ordered_message_content.order] =
+                starknet_l2_to_l1_payloads_length[message_order] =
                     Some(ordered_message_content.message.payload.0.len());
             }
         }
 
-        Ok(starknet_l2_to_l1_payloads_length.into_iter().flatten().collect())
+        starknet_l2_to_l1_payloads_length.into_iter().enumerate().try_fold(
+            Vec::new(),
+            |mut acc, (i, option)| match option {
+                Some(value) => {
+                    acc.push(value);
+                    Ok(acc)
+                }
+                None => Err(TransactionExecutionError::UnexpectedHoles {
+                    object: "L2-to-L1 message".to_string(),
+                    order: i,
+                }),
+            },
+        )
+
     }
 }
 
