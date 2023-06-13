@@ -31,7 +31,7 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
-use crate::papyrus_state::PapyrusStateReader;
+use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
 use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
@@ -81,46 +81,38 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
 }
 
 pub fn py_block_context(
-    general_config: &PyAny,
+    general_config: PyGeneralConfig,
     block_info: &PyAny,
 ) -> NativeBlockifierResult<BlockContext> {
-    let starknet_os_config = general_config.getattr("starknet_os_config")?;
+    let starknet_os_config = general_config.starknet_os_config;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
     let block_context = BlockContext {
-        chain_id: to_chain_id_enum(py_attr(starknet_os_config, "chain_id")?)?,
+        chain_id: to_chain_id_enum(starknet_os_config.chain_id)?,
         block_number,
         block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(py_felt_attr(
-            general_config,
-            "sequencer_address",
-        )?)?,
-        fee_token_address: ContractAddress::try_from(py_felt_attr(
-            starknet_os_config,
-            "fee_token_address",
-        )?)?,
-        vm_resource_fee_cost: process_cairo_resource_fee_weights(general_config)?,
+        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
+        fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
+        vm_resource_fee_cost: general_config.cairo_resource_fee_weights,
         gas_price: py_attr(block_info, "gas_price")?,
-        invoke_tx_max_n_steps: py_attr(general_config, "invoke_tx_max_n_steps")?,
-        validate_max_n_steps: py_attr(general_config, "validate_max_n_steps")?,
+        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
+        validate_max_n_steps: general_config.validate_max_n_steps,
     };
 
     Ok(block_context)
 }
 
-fn process_cairo_resource_fee_weights(
-    general_config: &PyAny,
-) -> Result<HashMap<String, f64>, NativeBlockifierError> {
-    let cairo_resource_fee_weights: HashMap<String, f64> =
-        py_attr(general_config, "cairo_resource_fee_weights")?;
-
-    // Remove the suffix "_builtin" from the keys, if exists.
-    // FIXME: This should be fixed in python though...
-    let cairo_resource_fee_weights = cairo_resource_fee_weights
-        .into_iter()
-        .map(|(k, v)| (k.trim_end_matches("_builtin").to_string(), v))
-        .collect();
-
-    Ok(cairo_resource_fee_weights)
+#[derive(FromPyObject)]
+pub struct PyGeneralConfig {
+    pub starknet_os_config: PyOsConfig,
+    pub sequencer_address: PyFelt,
+    pub cairo_resource_fee_weights: HashMap<String, f64>,
+    pub invoke_tx_max_n_steps: u32,
+    pub validate_max_n_steps: u32,
+}
+#[derive(FromPyObject)]
+pub struct PyOsConfig {
+    pub chain_id: BigUint,
+    pub fee_token_address: PyFelt,
 }
 
 pub fn py_declare(
@@ -291,7 +283,7 @@ impl PyTransactionExecutor {
     #[new]
     #[args(general_config, block_info, papyrus_storage)]
     pub fn create(
-        general_config: &PyAny,
+        general_config: PyGeneralConfig,
         block_info: &PyAny,
         papyrus_storage: &Storage,
     ) -> NativeBlockifierResult<Self> {
@@ -351,12 +343,12 @@ pub struct PyTransactionExecutorInner {
     pub storage_tx: papyrus_storage::StorageTxn<'this, RO>,
     #[borrows(storage_tx)]
     #[covariant]
-    pub state: CachedState<PapyrusStateReader<'this>>,
+    pub state: CachedState<PapyrusReader<'this>>,
 }
 
 impl PyTransactionExecutorInner {
     pub fn create(
-        general_config: &PyAny,
+        general_config: PyGeneralConfig,
         block_info: &PyAny,
         papyrus_storage: &Storage,
     ) -> NativeBlockifierResult<Self> {
@@ -461,9 +453,10 @@ pub fn build_tx_executor(
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
-    ) -> NativeBlockifierResult<CachedState<PapyrusStateReader<'a>>> {
+    ) -> NativeBlockifierResult<CachedState<PapyrusReader<'a>>> {
         let state_reader = storage_tx.get_state_reader()?;
-        let papyrus_reader = PapyrusStateReader::new(state_reader, block_number);
+        let state_reader = PapyrusStateReader::new(state_reader, block_number);
+        let papyrus_reader = PapyrusReader::new(storage_tx, state_reader);
         Ok(CachedState::new(papyrus_reader))
     }
 
@@ -496,7 +489,7 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 
 /// Maps Sierra class hashes to their corresponding compiled class hash.
 pub fn into_py_contract_class_sizes_mapping(
-    state: &mut CachedState<PapyrusStateReader<'_>>,
+    state: &mut CachedState<PapyrusReader<'_>>,
     executed_class_hashes: HashSet<ClassHash>,
 ) -> NativeBlockifierResult<HashMap<PyFelt, PyContractClassSizes>> {
     let mut executed_compiled_class_sizes = HashMap::<PyFelt, PyContractClassSizes>::new();
