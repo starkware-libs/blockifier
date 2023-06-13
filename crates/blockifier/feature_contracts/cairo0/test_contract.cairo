@@ -82,6 +82,21 @@ func write_and_revert{syscall_ptr: felt*}(address: felt, value: felt) {
 }
 
 @external
+func work_for(n_recursions: felt, revert_when_done: felt) {
+    let x = 7;
+    let y = 7;
+    assert x * y = 49;
+    if (n_recursions == 0) {
+        if (revert_when_done == 0) {
+            return ();
+        }
+        assert 0 = 1;
+    }
+    work_for(n_recursions=n_recursions - 1, revert_when_done=revert_when_done);
+    return ();
+}
+
+@external
 func test_long_retdata() -> (a: felt, b: felt, c: felt, d: felt, e: felt) {
     return (a=0, b=1, c=2, d=3, e=4);
 }
