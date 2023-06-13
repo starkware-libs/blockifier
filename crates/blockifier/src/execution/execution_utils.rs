@@ -12,6 +12,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
@@ -89,6 +90,17 @@ pub fn stark_felt_from_ptr(
     ptr: &mut Relocatable,
 ) -> Result<StarkFelt, VirtualMachineError> {
     Ok(felt_to_stark_felt(&felt_from_ptr(vm, ptr)?))
+}
+
+pub fn u64_from_ptr(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<u64, VirtualMachineError> {
+    let felt = felt_from_ptr(vm, ptr)?;
+    // TODO(Arni, 28/6/2023): Add correct VirtualMachineError. The error should idicate the felt
+    // cannot be converted to u64.
+    let value = felt.to_u64().ok_or_else(|| VirtualMachineError::Unexpected)?;
+    Ok(value)
 }
 
 pub fn felt_from_ptr(
