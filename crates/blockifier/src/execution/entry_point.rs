@@ -87,7 +87,6 @@ impl EntryPointExecutionContext {
         }
     }
 
-<<<<<<< HEAD
     /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
     /// If fee is disabled, returns the global maximum.
     pub fn max_steps(&self) -> usize {
@@ -106,10 +105,6 @@ impl EntryPointExecutionContext {
         }
     }
 
-||||||| 0af6406
-impl ExecutionContext {
-=======
->>>>>>> origin/main-v0.12.0
     /// Combines individual errors into a single stack trace string, with contract addresses printed
     /// alongside their respective trace.
     pub fn error_trace(&self) -> String {

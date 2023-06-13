@@ -212,7 +212,7 @@ impl AccountTransaction {
     fn process_validation_state<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         // Handle nonce.
@@ -301,7 +301,7 @@ impl AccountTransaction {
     fn run_execute<S: State>(
         &self,
         state: &mut S,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         match &self {
@@ -320,26 +320,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
-<<<<<<< HEAD
-        let mut context = ExecutionContext::new(block_context.clone(), account_tx_context);
-||||||| 0af6406
-        Self::handle_nonce(&account_tx_context, state)?;
-
-        // Handle transaction-type specific execution.
-        let validate_call_info: Option<CallInfo>;
-        let execute_call_info: Option<CallInfo>;
-        let tx_type = self.tx_type();
-        let mut context = ExecutionContext::new(block_context.clone(), account_tx_context);
-=======
-        Self::handle_nonce(&account_tx_context, state)?;
-
-        // Handle transaction-type specific execution.
-        let validate_call_info: Option<CallInfo>;
-        let execute_call_info: Option<CallInfo>;
-        let tx_type = self.tx_type();
         let mut context =
             EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
->>>>>>> origin/main-v0.12.0
         let mut remaining_gas = Transaction::initial_gas();
 
         // Pre-process the nonce / fee check / validation state changes.
