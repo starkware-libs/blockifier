@@ -219,7 +219,7 @@ impl CallInfo {
 
         for call in self.into_iter() {
             for ordered_message_content in &call.execution.l2_to_l1_messages {
-                if starknet_l2_to_l1_payloads_length[ordered_message_content.order].is_some() {
+                if ordered_message_content.order >= n_messages {
                     return Err(TransactionExecutionError::UnexpectedHoles {
                         object: "L2-to-L1 message".to_string(),
                         order: ordered_message_content.order,
@@ -227,6 +227,15 @@ impl CallInfo {
                 }
                 starknet_l2_to_l1_payloads_length[ordered_message_content.order] =
                     Some(ordered_message_content.message.payload.0.len());
+            }
+        }
+
+        for (i, length) in starknet_l2_to_l1_payloads_length.iter().enumerate() {
+            if length.is_none() {
+                return Err(TransactionExecutionError::UnexpectedHoles {
+                    object: "L2-to-L1 message".to_string(),
+                    order: i,
+                });
             }
         }
 
