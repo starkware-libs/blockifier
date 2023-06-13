@@ -11,7 +11,9 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType, ExecutionContext};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext,
+};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
@@ -168,7 +170,7 @@ impl AccountTransaction {
     fn validate_tx(
         &self,
         state: &mut dyn State,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
@@ -210,7 +212,7 @@ impl AccountTransaction {
     fn process_validation_state<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         // Handle nonce.
@@ -244,7 +246,7 @@ impl AccountTransaction {
 
     fn charge_fee(
         state: &mut dyn State,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         resources: &ResourcesMapping,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
@@ -261,7 +263,7 @@ impl AccountTransaction {
 
     fn execute_fee_transfer(
         state: &mut dyn State,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
         let max_fee = context.account_tx_context.max_fee;
@@ -299,7 +301,7 @@ impl AccountTransaction {
     fn run_execute<S: State>(
         &self,
         state: &mut S,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         match &self {
@@ -318,7 +320,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
-        let mut context = ExecutionContext::new(block_context.clone(), account_tx_context);
+        let mut context =
+            EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
         let mut remaining_gas = Transaction::initial_gas();
 
         // Pre-process the nonce / fee check / validation state changes.
@@ -348,7 +351,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
-        let mut context = ExecutionContext::new(context.block_context, context.account_tx_context);
+        let mut context =
+            EntryPointExecutionContext::new(context.block_context, context.account_tx_context);
         let (actual_fee, fee_transfer_call_info) =
             Self::charge_fee(state, &mut context, &actual_resources)?;
 

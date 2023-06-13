@@ -35,7 +35,7 @@ pub fn normalize_address_set_is_small(
     const ADDR_BOUND: &str = "starkware.starknet.common.storage.ADDR_BOUND";
     let addr_bound = &constants
         .get(ADDR_BOUND)
-        .ok_or(HintError::MissingConstant("ADDR_BOUND".into()))?
+        .ok_or_else(|| HintError::MissingConstant("ADDR_BOUND".into()))?
         .to_biguint();
     let addr = get_integer_from_var_name("addr", vm, ids_data, ap_tracking)?.to_biguint();
     let prime = BigUint::from_str_radix(&PRIME_STR[2..], 16)

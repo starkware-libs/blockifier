@@ -9,7 +9,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, ConstructorContext, ExecutionContext,
+    CallEntryPoint, CallInfo, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
@@ -65,7 +65,7 @@ pub trait Executable<S: State> {
     fn run_execute(
         &self,
         state: &mut S,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
@@ -134,7 +134,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        _ctx: &mut ExecutionContext,
+        _ctx: &mut EntryPointExecutionContext,
         _remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.tx.class_hash();
@@ -170,7 +170,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let ctor_context = ConstructorContext {
@@ -199,7 +199,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match self {
@@ -238,7 +238,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        context: &mut ExecutionContext,
+        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let tx = &self.tx;

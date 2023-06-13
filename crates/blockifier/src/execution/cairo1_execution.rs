@@ -11,7 +11,8 @@ use starknet_api::stark_felt;
 
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionResult, ExecutionContext, Retdata,
+    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
+    Retdata,
 };
 use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -45,7 +46,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClassV1,
     state: &mut dyn State,
-    context: &mut ExecutionContext,
+    context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
         mut runner,
@@ -93,7 +94,7 @@ pub fn initialize_execution_context<'a>(
     call: CallEntryPoint,
     contract_class: &'a ContractClassV1,
     state: &'a mut dyn State,
-    context: &'a mut ExecutionContext,
+    context: &'a mut EntryPointExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let entry_point = contract_class.get_entry_point(&call)?;
 
