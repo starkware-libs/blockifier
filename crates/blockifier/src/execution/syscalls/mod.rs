@@ -25,8 +25,8 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_felt,
-    write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
+    execute_deployment, felt_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, u64_from_ptr,
+    write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::transaction::transaction_utils::update_remaining_gas;
 
@@ -298,13 +298,7 @@ pub struct GetBlockHashRequest {
 //  fn try_from(felt: StarkFelt) -> Result<u64, _>
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-        let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
-        let block_number =
-            BlockNumber(u64::try_from(usize::try_from(block_number_as_felt)?).map_err(|_| {
-                SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
-                    string: block_number_as_felt.to_string(),
-                })
-            })?);
+        let block_number = BlockNumber(u64_from_ptr(vm, ptr)?);
         Ok(GetBlockHashRequest { block_number })
     }
 }
