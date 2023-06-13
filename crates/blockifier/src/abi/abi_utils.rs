@@ -7,7 +7,6 @@ use starknet_api::core::{
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::StarknetApiError;
-use starknet_crypto::FieldElement;
 
 use crate::abi::constants;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -64,11 +63,8 @@ pub fn get_uint256_storage_var_addresses(
     args: &[StarkFelt],
 ) -> Result<(StorageKey, StorageKey), StarknetApiError> {
     let low_key = get_storage_var_address(storage_var_name, args)?;
-    // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, there may
-    //   be a better way to add 1 to the key.
-    let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
-        FieldElement::from(*low_key.0.key()) + FieldElement::ONE,
-    ))?);
+    let high_key_felt = Felt252::from_bytes_be(low_key.0.key().bytes()) + Felt252::new(1_u8);
+    let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::new(high_key_felt.to_be_bytes())?)?);
     Ok((low_key, high_key))
 }
 

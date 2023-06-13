@@ -365,6 +365,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
         let mut context = ExecutionContext::new(block_context.clone(), account_tx_context);
+        let max_steps = context.max_steps();
 
         // Nonce and fee check should be done before running user code.
         self.handle_nonce_and_check_fee_balance(state, &mut context)?;
@@ -395,7 +396,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     execute_call_info
                 );
             }
-            let execution_steps_consumed = context.max_steps() - remaining_resources.n_steps;
+            let execution_steps_consumed = max_steps - remaining_resources.get_n_steps();
             actual_resources.0.insert(
                 N_STEPS_RESOURCE.to_string(),
                 actual_resources.0.get(N_STEPS_RESOURCE).unwrap_or(&0) + execution_steps_consumed,
