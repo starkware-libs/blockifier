@@ -12,7 +12,6 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
 };
-use starknet_api::StarknetApiError;
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
@@ -299,18 +298,16 @@ pub struct GetBlockHashRequest {
     pub block_number: BlockNumber,
 }
 
-// TODO(Arni, 20/6/2023): Implement in starknet-api, the conversions:
-//  fn try_from(felt: StarkFelt) -> Result<u64, _>.
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-        let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
+        let felt = felt_from_ptr(vm, ptr)?;
         let block_number =
-            BlockNumber(u64::try_from(usize::try_from(block_number_as_felt)?).map_err(|_| {
-                SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
-                    string: block_number_as_felt.to_string(),
-                })
-            })?);
-        Ok(GetBlockHashRequest { block_number })
+            felt.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
+                input: felt_to_stark_felt(&felt),
+                info: String::from("Block number must fit within 64 bits."),
+            })?;
+
+        Ok(GetBlockHashRequest { block_number: BlockNumber(block_number) })
     }
 }
 
