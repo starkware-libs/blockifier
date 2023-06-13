@@ -1,7 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::block::BlockHash;
+use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -11,6 +11,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
 };
+use starknet_api::StarknetApiError;
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
@@ -290,12 +291,23 @@ pub fn emit_event(
 
 // TODO(Arni, 8/6/2023): Consider replacing `BlockNumber`.
 pub struct GetBlockHashRequest {
-    pub block_number: StarkFelt,
+    pub block_number: BlockNumber,
 }
 
+// TODO(Arni, 20/6/2023): Implement in starknet-api, the conversions:
+// <StarkFelt as TryInto<u64>>::try_into and <StarkFelt as TryInto<BlockNumber>>::try_into
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-        let block_number = stark_felt_from_ptr(vm, ptr)?;
+        let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
+        let block_number = BlockNumber(
+            <StarkFelt as TryInto<usize>>::try_into(block_number_as_felt)?.try_into().map_err(
+                |_| {
+                    SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
+                        string: block_number_as_felt.to_string(),
+                    })
+                },
+            )?,
+        );
         Ok(GetBlockHashRequest { block_number })
     }
 }
@@ -322,7 +334,7 @@ pub fn get_block_hash(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
-    let key = StorageKey::try_from(request.block_number)?;
+    let key = StorageKey::try_from(StarkFelt::from(request.block_number.0))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
     Ok(GetBlockHashResponse {
