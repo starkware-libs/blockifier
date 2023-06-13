@@ -6,6 +6,7 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import TxInfo, call_contract, get_tx_info
+from starkware.starknet.common.messages import send_message_to_l1
 
 // Validate Scenarios.
 
@@ -42,14 +43,21 @@ func __validate_deploy__{syscall_ptr: felt*}(
 func __validate__{syscall_ptr: felt*}(
     contract_address: felt, selector: felt, calldata_len: felt, calldata: felt*
 ) {
+    let to_address = 0;
+    // By calling the `send_message_to_l1` function in validation and exeution, tests can now verify
+    // the functionality of entry point counters.
+    send_message_to_l1(to_address, calldata_len, calldata);
     faulty_validate();
     return ();
 }
 
 @external
-func __execute__{pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func __execute__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     contract_address: felt, selector: felt, calldata_len: felt, calldata: felt*
 ) {
+    let to_address = 0;
+
+    send_message_to_l1(to_address, calldata_len, calldata);
     return ();
 }
 
