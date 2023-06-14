@@ -28,13 +28,13 @@ use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionResult, Retdata,
+    CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
+    EntryPointExecutionResult, Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
-use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
@@ -314,13 +314,14 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 impl CallEntryPoint {
     // Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-        let mut tx_context = TransactionExecutionContext::new(
-            BlockContext::create_for_testing(),
+        let block_context = BlockContext::create_for_testing();
+        let mut context = EntryPointExecutionContext::new(
+            block_context,
             AccountTransactionContext::default(),
+            block_context.invoke_tx_max_n_steps as usize,
         );
-        let mut context = tx_context.get_execute_context();
 
-        self.execute(state, &mut tx_context, &mut context)
+        self.execute(state, &mut context)
     }
 }
 

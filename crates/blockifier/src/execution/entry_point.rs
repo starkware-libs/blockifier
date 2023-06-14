@@ -12,13 +12,13 @@ use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payloa
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::TransactionExecutionResult;
-use crate::transaction::transaction_execution::TransactionExecutionContext;
+use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -67,6 +67,8 @@ pub struct ExecutionResources {
 
 #[derive(Debug, Clone)]
 pub struct EntryPointExecutionContext {
+    pub block_context: BlockContext,
+    pub account_tx_context: AccountTransactionContext,
     // VM execution limits.
     pub vm_run_resources: RunResources,
     /// Used for tracking events order during the current execution.
@@ -77,8 +79,14 @@ pub struct EntryPointExecutionContext {
     pub error_stack: Vec<(ContractAddress, String)>,
 }
 impl EntryPointExecutionContext {
-    pub fn new(max_n_steps: usize) -> Self {
+    pub fn new(
+        block_context: &BlockContext,
+        account_tx_context: AccountTransactionContext,
+        max_n_steps: usize,
+    ) -> Self {
         Self {
+            block_context.clone(),
+            account_tx_context,
             vm_run_resources: RunResources::new(max_n_steps),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
@@ -105,7 +113,7 @@ impl CallEntryPoint {
     pub fn execute(
         mut self,
         state: &mut dyn State,
-        tx_context: &mut TransactionExecutionContext,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
@@ -123,7 +131,7 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        execute_entry_point_call(self, contract_class, state, tx_context, context).map_err(
+        execute_entry_point_call(self, contract_class, state, resources, context).map_err(
             |error| match error {
                 // On VM error, pack the stack trace into the propagated error.
                 EntryPointExecutionError::VirtualMachineExecutionError(error) => {
@@ -263,7 +271,7 @@ impl<'a> IntoIterator for &'a CallInfo {
 
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
-    tx_context: &mut TransactionExecutionContext,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     calldata: Calldata,
@@ -288,7 +296,7 @@ pub fn execute_constructor_entry_point(
         initial_gas: remaining_gas,
     };
 
-    constructor_call.execute(state, tx_context, context)
+    constructor_call.execute(state, resources, context)
 }
 
 pub fn handle_empty_constructor(

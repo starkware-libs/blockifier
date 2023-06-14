@@ -17,6 +17,7 @@ use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use super::entry_point::ExecutionResources;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, CallInfo, ConstructorContext,
@@ -26,7 +27,6 @@ use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 pub type Args = Vec<CairoArg>;
 
@@ -48,7 +48,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClass,
     state: &mut dyn State,
-    tx_context: &mut TransactionExecutionContext,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     match contract_class {
@@ -56,14 +56,14 @@ pub fn execute_entry_point_call(
             call,
             contract_class,
             state,
-            tx_context,
+            resources,
             context,
         ),
         ContractClass::V1(contract_class) => cairo1_execution::execute_entry_point_call(
             call,
             contract_class,
             state,
-            tx_context,
+            resources,
             context,
         ),
     }
@@ -196,7 +196,7 @@ impl ReadOnlySegments {
 /// Returns the call info of the deployed class' constructor execution.
 pub fn execute_deployment(
     state: &mut dyn State,
-    tx_context: &mut TransactionExecutionContext,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
@@ -214,7 +214,7 @@ pub fn execute_deployment(
 
     let call_info = execute_constructor_entry_point(
         state,
-        tx_context,
+        resources,
         context,
         ctor_context,
         constructor_calldata,

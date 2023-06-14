@@ -9,6 +9,7 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
+use super::entry_point::ExecutionResources;
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
@@ -23,7 +24,6 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
-use crate::transaction::transaction_execution::TransactionExecutionContext;
 
 // TODO(spapini): Try to refactor this file into a StarknetRunner struct.
 
@@ -47,7 +47,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClassV1,
     state: &mut dyn State,
-    tx_context: &mut TransactionExecutionContext,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
@@ -57,7 +57,7 @@ pub fn execute_entry_point_call(
         initial_syscall_ptr,
         entry_point,
         program_segment_size,
-    } = initialize_execution_context(call, &contract_class, state, tx_context, context)?;
+    } = initialize_execution_context(call, &contract_class, state, resources, context)?;
 
     let args = prepare_call_arguments(
         &syscall_handler.call,
@@ -69,7 +69,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.tx_context.resources.vm_resources.clone();
+    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
     run_entry_point(
@@ -96,7 +96,7 @@ pub fn initialize_execution_context<'a>(
     call: CallEntryPoint,
     contract_class: &'a ContractClassV1,
     state: &'a mut dyn State,
-    tx_context: &'a mut TransactionExecutionContext,
+    resources: &'a mut ExecutionResources,
     context: &'a mut EntryPointExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let entry_point = contract_class.get_entry_point(&call)?;
@@ -118,7 +118,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = SyscallHintProcessor::new(
         state,
-        tx_context,
+        resources,
         context,
         initial_syscall_ptr,
         call,
@@ -261,10 +261,9 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.tx_context.resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
 
-    let full_call_vm_resources =
-        &syscall_handler.tx_context.resources.vm_resources - &previous_vm_resources;
+    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {

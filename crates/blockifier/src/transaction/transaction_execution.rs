@@ -1,44 +1,21 @@
 use cairo_felt::Felt252;
-use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
+use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction};
 
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
+use crate::execution::entry_point::ExecutionResources;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{
-    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
-};
+use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
 use crate::transaction::transactions::{
     DeclareTransaction, Executable, ExecutableTransaction, L1HandlerTransaction,
 };
-
-#[derive(Debug, Clone)]
-pub struct TransactionExecutionContext {
-    pub block_context: BlockContext,
-    pub account_tx_context: AccountTransactionContext,
-    pub resources: ExecutionResources,
-}
-
-impl TransactionExecutionContext {
-    pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
-        Self { block_context, account_tx_context, resources: ExecutionResources::default() }
-    }
-
-    pub fn get_validate_context(&self) -> EntryPointExecutionContext {
-        EntryPointExecutionContext::new(self.block_context.validate_max_n_steps as usize)
-    }
-
-    pub fn get_execute_context(&self) -> EntryPointExecutionContext {
-        EntryPointExecutionContext::new(self.block_context.invoke_tx_max_n_steps as usize)
-    }
-}
 
 #[derive(Debug)]
 pub enum Transaction {
@@ -88,32 +65,23 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let tx = &self.tx;
-        let account_tx_context = AccountTransactionContext {
-            transaction_hash: tx.transaction_hash,
-            max_fee: Fee::default(),
-            version: tx.version,
-            signature: TransactionSignature::default(),
-            nonce: tx.nonce,
-            sender_address: tx.contract_address,
-        };
-        let mut tx_context =
-            TransactionExecutionContext::new(block_context.clone(), account_tx_context);
+        let mut resources = ExecutionResources::default();
         let mut remaining_gas = Transaction::initial_gas();
-        let execute_call_info = self.run_execute(state, &mut tx_context, &mut remaining_gas)?;
+        let execute_call_info =
+            self.run_execute(state, &mut resources, block_context, &mut remaining_gas)?;
 
         let call_infos =
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
         // The calldata includes the "from" field, which is not a part of the payload.
-        let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
+        let l1_handler_payload_size = Some(self.tx.calldata.0.len() - 1);
         let actual_resources = calculate_tx_resources(
-            tx_context.resources,
+            resources,
             &call_infos,
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,
         )?;
-        let actual_fee = calculate_tx_fee(&actual_resources, &tx_context.block_context)?;
+        let actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.

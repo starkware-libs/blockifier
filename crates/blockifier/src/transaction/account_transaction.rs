@@ -11,7 +11,9 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::entry_point::{CallEntryPoint, CallInfo, CallType};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
+};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::{State, StateReader};
@@ -21,7 +23,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
     TransactionExecutionResult,
 };
-use crate::transaction::transaction_execution::{Transaction, TransactionExecutionContext};
+use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
     calculate_tx_resources, update_remaining_gas, verify_no_calls_to_other_contracts,
@@ -73,6 +75,18 @@ impl AccountTransaction {
             // Calldata for validation is the same calldata as for the execution itself.
             Self::Invoke(tx) => tx.calldata(),
         }
+    }
+
+    fn get_execution_context(
+        &self,
+        block_context: &BlockContext,
+        max_n_steps: u32,
+    ) -> EntryPointExecutionContext {
+        EntryPointExecutionContext::new(
+            block_context,
+            self.get_account_transaction_context(),
+            max_n_steps as usize,
+        )
     }
 
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
@@ -160,10 +174,14 @@ impl AccountTransaction {
     fn validate_tx(
         &self,
         state: &mut dyn State,
-        tx_context: &mut TransactionExecutionContext,
+        resources: &mut ExecutionResources,
+        block_context: &BlockContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let account_tx_context = &tx_context.account_tx_context;
+        let mut context =
+            self.get_execution_context(block_context, block_context.validate_max_n_steps);
+
+        let account_tx_context = &context.account_tx_context;
         if account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
         }
@@ -182,7 +200,7 @@ impl AccountTransaction {
         };
 
         let validate_call_info = validate_call
-            .execute(state, tx_context, &mut tx_context.get_validate_context())
+            .execute(state, resources, &mut context)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
@@ -193,29 +211,48 @@ impl AccountTransaction {
         Ok(Some(validate_call_info))
     }
 
+    fn execute_tx(
+        &self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        block_context: &BlockContext,
+        remaining_gas: &mut Felt252,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let mut context = EntryPointExecutionContext::new(
+            block_context,
+            self.get_account_transaction_context(),
+            block_context.invoke_tx_max_n_steps,
+        );
+
+        Executable::run_execute(state, resources, block_context, &mut context, remaining_gas)
+    }
+
     fn charge_fee(
         state: &mut dyn State,
-        tx_context: &mut TransactionExecutionContext,
-        resources: &ResourcesMapping,
+        resources: &mut ExecutionResources,
+        context: &mut EntryPointExecutionContext,
+        resources: &mut ResourcesMapping,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
-        if tx_context.account_tx_context.max_fee == no_fee {
+        if context.account_tx_context.max_fee == no_fee {
             // Fee charging is not enforced in some tests.
             return Ok((no_fee, None));
         }
 
-        let actual_fee = calculate_tx_fee(resources, &tx_context.block_context)?;
-        let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
+        let actual_fee = calculate_tx_fee(resources, &context.block_context)?;
+        let fee_transfer_call_info =
+            Self::execute_fee_transfer(state, resources, context, actual_fee)?;
 
         Ok((actual_fee, Some(fee_transfer_call_info)))
     }
 
     fn execute_fee_transfer(
         state: &mut dyn State,
-        tx_context: &mut TransactionExecutionContext,
+        resources: &mut ExecutionResources,
+        context: &mut EntryPointExecutionContext,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
-        let account_tx_context = &tx_context.account_tx_context;
+        let account_tx_context = &context.account_tx_context;
         let max_fee = account_tx_context.max_fee;
         if actual_fee > max_fee {
             return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
@@ -226,7 +263,7 @@ impl AccountTransaction {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
 
-        let block_context = &tx_context.block_context;
+        let block_context = &context.block_context;
         let storage_address = block_context.fee_token_address;
         // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
         let initial_gas = abi_constants::INITIAL_GAS_COST.into();
@@ -246,7 +283,7 @@ impl AccountTransaction {
             initial_gas,
         };
 
-        Ok(fee_transfer_call.execute(state, tx_context, &mut tx_context.get_execute_context())?)
+        Ok(fee_transfer_call.execute(state, resources, context)?)
     }
 }
 
@@ -263,9 +300,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         let tx_type = self.tx_type();
-
-        let mut tx_context =
-            TransactionExecutionContext::new(block_context.clone(), account_tx_context);
+        let mut resources = ExecutionResources::default();
         let mut remaining_gas = Transaction::initial_gas();
 
         // Handle transaction-type specific execution.
@@ -273,7 +308,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             Self::Declare(tx) => {
                 // Validate.
                 validate_call_info =
-                    self.validate_tx(state, &mut tx_context, &mut remaining_gas)?;
+                    self.validate_tx(state, block_context, resources, &mut remaining_gas)?;
 
                 // Execute.
                 execute_call_info = tx.run_execute(state, &mut tx_context, &mut remaining_gas)?;
@@ -284,12 +319,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
                 // Validate.
                 validate_call_info =
-                    self.validate_tx(state, &mut tx_context, &mut remaining_gas)?;
+                    self.validate_tx(state, block_context, resources, &mut remaining_gas)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
                 validate_call_info =
-                    self.validate_tx(state, &mut tx_context, &mut remaining_gas)?;
+                    self.validate_tx(state, block_context, resources, &mut remaining_gas)?;
 
                 // Execute.
                 execute_call_info = tx.run_execute(state, &mut tx_context, &mut remaining_gas)?;
@@ -301,13 +336,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let actual_resources = calculate_tx_resources(
-            tx_context.resources,
-            &non_optional_call_infos,
-            tx_type,
-            state,
-            None,
-        )?;
+        let actual_resources =
+            calculate_tx_resources(resources, &non_optional_call_infos, tx_type, state, None)?;
 
         // Charge fee.
         // Recreate the context to empty the execution resources.

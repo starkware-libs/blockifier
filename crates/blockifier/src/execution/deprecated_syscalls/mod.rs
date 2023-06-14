@@ -297,7 +297,7 @@ pub fn deploy(
     };
     let call_info = execute_deployment(
         syscall_handler.state,
-        syscall_handler.tx_context,
+        syscall_handler.resources,
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
@@ -368,9 +368,7 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
-    Ok(GetBlockNumberResponse {
-        block_number: syscall_handler.tx_context.block_context.block_number,
-    })
+    Ok(GetBlockNumberResponse { block_number: syscall_handler.context.block_context.block_number })
 }
 
 // GetBlockTimestamp syscall.
@@ -395,7 +393,7 @@ pub fn get_block_timestamp(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
     Ok(GetBlockTimestampResponse {
-        block_timestamp: syscall_handler.tx_context.block_context.block_timestamp,
+        block_timestamp: syscall_handler.context.block_context.block_timestamp,
     })
 }
 
@@ -447,7 +445,7 @@ pub fn get_sequencer_address(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetSequencerAddressResponse> {
     Ok(GetSequencerAddressResponse {
-        address: syscall_handler.tx_context.block_context.sequencer_address,
+        address: syscall_handler.context.block_context.sequencer_address,
     })
 }
 
@@ -487,7 +485,7 @@ pub fn get_tx_signature(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetTxSignatureResponse> {
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.tx_context.account_tx_context.signature.0.len();
+    let length = syscall_handler.context.account_tx_context.signature.0.len();
 
     Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }
