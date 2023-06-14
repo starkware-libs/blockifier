@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
+use blockifier::block_execution::pre_process_block;
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::{State, StateReader};
@@ -19,7 +20,7 @@ use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
 };
@@ -321,6 +322,14 @@ impl PyTransactionExecutor {
     pub fn close(&mut self) {
         self.executor = None;
     }
+
+    #[args(old_block_number_and_hash)]
+    pub fn pre_process_block(
+        &mut self,
+        old_block_number_and_hash: Option<(u64, PyFelt)>,
+    ) -> NativeBlockifierResult<()> {
+        self.executor().pre_process_block(old_block_number_and_hash)
+    }
 }
 
 impl PyTransactionExecutor {
@@ -436,6 +445,21 @@ impl PyTransactionExecutorInner {
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
         PyStateDiff::from(self.borrow_state().to_state_diff())
+    }
+
+    // Block pre-processing; see `block_execution::pre_process_block` documentation.
+    pub fn pre_process_block(
+        &mut self,
+        old_block_number_and_hash: Option<(u64, PyFelt)>,
+    ) -> NativeBlockifierResult<()> {
+        let old_block_number_and_hash = old_block_number_and_hash
+            .map(|(block_number, block_hash)| (BlockNumber(block_number), BlockHash(block_hash.0)));
+
+        self.with_mut(|executor| {
+            pre_process_block(executor.state, old_block_number_and_hash);
+        });
+
+        Ok(())
     }
 }
 
