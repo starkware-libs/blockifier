@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
+use blockifier::block_execution::pre_process_block;
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::cached_state::{CachedState, MutRefState};
 use blockifier::state::state_api::{State, StateReader};
@@ -19,7 +20,7 @@ use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
 };
@@ -43,6 +44,14 @@ where
     T: Clone,
 {
     Ok(obj.getattr(attr)?.extract()?)
+}
+
+fn py_item<T>(obj: &PyAny, index: u8) -> NativeBlockifierResult<T>
+where
+    T: for<'a> FromPyObject<'a>,
+    T: Clone,
+{
+    Ok(obj.get_item(index)?.extract()?)
 }
 
 fn py_enum_name<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
@@ -321,6 +330,13 @@ impl PyTransactionExecutor {
     pub fn close(&mut self) {
         self.executor = None;
     }
+
+    pub fn pre_process_block(
+        &mut self,
+        n_from_current_block_number_and_hash: &PyAny,
+    ) -> NativeBlockifierResult<()> {
+        self.executor().pre_process_block(n_from_current_block_number_and_hash)
+    }
 }
 
 impl PyTransactionExecutor {
@@ -436,6 +452,27 @@ impl PyTransactionExecutorInner {
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
         PyStateDiff::from(self.borrow_state().to_state_diff())
+    }
+
+    // Block pre-processing; see `block_execution::pre_process_block` documentation.
+    pub fn pre_process_block(
+        &mut self,
+        n_from_current_block_number_and_hash: &PyAny,
+    ) -> NativeBlockifierResult<()> {
+        if n_from_current_block_number_and_hash.is_none() {
+            return Ok(());
+        }
+
+        let block_number = py_item(n_from_current_block_number_and_hash, 0)?;
+        let block_hash = biguint_to_felt(py_item(n_from_current_block_number_and_hash, 1)?)?;
+
+        self.with_mut(|executor| {
+            pre_process_block(
+                executor.state,
+                Some((BlockNumber(block_number), BlockHash(block_hash))),
+            );
+        });
+        Ok(())
     }
 }
 
