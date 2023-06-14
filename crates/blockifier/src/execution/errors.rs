@@ -137,4 +137,6 @@ pub enum EntryPointExecutionError {
         #[source]
         source: VirtualMachineExecutionError,
     },
+    #[error("Execution failed due to recursion depth exceeded.")]
+    RecursionDepthExceeded,
 }
