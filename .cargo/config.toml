@@ -1,3 +1,14 @@
 [build]
 # Configuration for these lints should be placed in `.clippy.toml` at the crate root.
-rustflags = ["-Dwarnings", "-Dfuture-incompatible", "-Dnonstandard-style", "-Drust-2018-idioms", "-Dunused"]
+rustflags = [
+    "-Dwarnings",
+    "-Dfuture-incompatible",
+    "-Dnonstandard-style",
+    "-Drust-2018-idioms",
+    "-Dunused",
+]
+
+[env]
+# Increase Rust stack size.
+# This should be large enough for `MAX_ENTRY_POINT_RECURSION_DEPTH` recursive entry point calls.
+RUST_MIN_STACK = "4194304" #  4 MiB
