@@ -2,7 +2,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
+    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources, RunResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::hash::StarkFelt;
@@ -209,25 +209,32 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> Result<(), VirtualMachineExecutionError> {
-    let mut run_resources = Some(hint_processor.context.resources.run_resources.clone());
+    let mut new_run_resources = hint_processor.context.resources.run_resources.clone();
+    let original_run_resources = new_run_resources.clone();
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
-    runner
+    let run_result = runner
         .run_from_entrypoint(
             entry_point.pc(),
             &args,
-            &mut run_resources,
+            &mut new_run_resources,
             verify_secure,
             Some(program_segment_size),
             vm,
             hint_processor,
         )
         .map_err(|run_error| VirtualMachineExecutionError::CairoRunError {
-            remaining_resources: run_resources.unwrap(),
+            remaining_resources: new_run_resources.clone().unwrap(),
             source: run_error,
-        })?;
-
-    Ok(())
+        });
+    let inner_n_steps_consumed =
+        original_run_resources.unwrap().get_n_steps() - new_run_resources.unwrap().get_n_steps();
+    let total_n_steps_remaining =
+        hint_processor.context.resources.run_resources.clone().unwrap().get_n_steps()
+            - inner_n_steps_consumed;
+    hint_processor.context.resources.run_resources =
+        Some(RunResources::new(total_n_steps_remaining));
+    run_result
 }
 
 pub fn finalize_execution(

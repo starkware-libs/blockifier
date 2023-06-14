@@ -333,14 +333,14 @@ impl AccountTransaction {
         let validate_call_info = self.validate_tx(state, context)?;
         let mut execution_state = CachedState::new(MutRefState::new(state));
         match self.run_execute(&mut execution_state, context) {
-            Err(error) => {
+            Err(_) => {
                 execution_state.abort();
                 Ok(ValidateExecuteCallInfo {
                     validate_call_info,
                     execute_call_info: None,
                     revert_data: Some(RevertData {
                         revert_error: context.error_trace(),
-                        remaining_resources: error.remaining_resources(),
+                        remaining_resources: context.remaining_resources(),
                     }),
                 })
             }

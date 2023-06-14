@@ -55,7 +55,7 @@ pub struct CallEntryPoint {
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
-    pub run_resources: RunResources,
+    pub run_resources: Option<RunResources>,
 }
 
 #[derive(Debug, Clone)]
@@ -82,7 +82,7 @@ impl ExecutionContext {
         };
         Self {
             resources: ExecutionResources {
-                run_resources: RunResources::new(execution_context.max_steps()),
+                run_resources: Some(RunResources::new(execution_context.max_steps())),
                 ..execution_context.resources
             },
             ..execution_context
@@ -122,6 +122,10 @@ impl ExecutionContext {
             })
             .collect::<Vec<String>>()
             .join("\n")
+    }
+
+    pub fn remaining_resources(&self) -> Option<RunResources> {
+        self.resources.run_resources.clone()
     }
 }
 
