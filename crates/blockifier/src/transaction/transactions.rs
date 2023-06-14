@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cairo_felt::Felt252;
-use starknet_api::core::ContractAddress;
+use starknet_api::core::{ContractAddress, CompiledClassHash};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
 
@@ -144,6 +144,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
             starknet_api::transaction::DeclareTransaction::V0(_)
             | starknet_api::transaction::DeclareTransaction::V1(_) => {
                 state.set_contract_class(&class_hash, self.contract_class.clone())?;
+                state.set_compiled_class_hash(class_hash, CompiledClassHash(class_hash.0))?;
                 Ok(None)
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
