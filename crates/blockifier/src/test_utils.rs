@@ -391,9 +391,26 @@ pub fn deploy_account_tx(
     signature: Option<TransactionSignature>,
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
+    deploy_account_tx_with_salt(
+        class_hash,
+        max_fee,
+        constructor_calldata,
+        ContractAddressSalt::default(),
+        signature,
+        nonce_manager,
+    )
+}
+
+pub fn deploy_account_tx_with_salt(
+    class_hash: &str,
+    max_fee: Fee,
+    constructor_calldata: Option<Calldata>,
+    contract_address_salt: ContractAddressSalt,
+    signature: Option<TransactionSignature>,
+    nonce_manager: &mut NonceManager,
+) -> DeployAccountTransaction {
     let class_hash = ClassHash(stark_felt!(class_hash));
     let deployer_address = ContractAddress::default();
-    let contract_address_salt = ContractAddressSalt::default();
     let constructor_calldata = constructor_calldata.unwrap_or_default();
     let contract_address = calculate_contract_address(
         contract_address_salt,
