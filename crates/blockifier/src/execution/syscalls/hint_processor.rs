@@ -22,6 +22,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use super::keccak;
 use crate::abi::constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
@@ -83,6 +84,9 @@ impl From<SyscallExecutionError> for HintError {
 /// Error codes returned by Cairo 1.0 code.
 pub const OUT_OF_GAS_ERROR: &str =
     "0x000000000000000000000000000000000000000000004f7574206f6620676173"; // "Out of gas";
+
+pub const INVALID_INPUT_LEN_ERROR: &str =
+    "0x000000000000000000000000496e76616c696420696e707574206c656e677468"; // "Invalid input length";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -207,6 +211,8 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::StorageWrite => {
                 self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
             }
+
+            SyscallSelector::Keccak => self.execute_syscall(vm, keccak, constants::KECCAK_GAS_COST),
             _ => Err(HintError::UnknownHint(
                 format!("Unsupported syscall selector {selector:?}.").into(),
             )),
@@ -275,15 +281,22 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(())
     }
 
-    fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
+    pub fn read_next_syscall_selector(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<StarkFelt> {
         let selector = stark_felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
 
-    fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
+    pub fn increment_syscall_count_by(&mut self, selector: &SyscallSelector, n: usize) {
         let syscall_count = self.context.resources.syscall_counter.entry(*selector).or_default();
-        *syscall_count += 1;
+        *syscall_count += n;
+    }
+
+    fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
+        self.increment_syscall_count_by(selector, 1);
     }
 
     fn allocate_execution_info_segment(
