@@ -12,7 +12,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext,
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
@@ -162,6 +162,7 @@ impl AccountTransaction {
     fn validate_tx(
         &self,
         state: &mut dyn State,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
@@ -183,7 +184,7 @@ impl AccountTransaction {
         };
 
         let validate_call_info = validate_call
-            .execute(state, context)
+            .execute(state, resources, context)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
@@ -245,7 +246,7 @@ impl AccountTransaction {
             initial_gas,
         };
 
-        Ok(fee_transfer_call.execute(state, context)?)
+        Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), context)?)
     }
 }
 
@@ -263,30 +264,37 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         let tx_type = self.tx_type();
+        let mut resources = ExecutionResources::default();
         let mut context =
             EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
         let mut remaining_gas = Transaction::initial_gas();
         match &self {
             Self::Declare(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
+                validate_call_info =
+                    self.validate_tx(state, &mut resources, &mut context, &mut remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
+                execute_call_info =
+                    tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
+                execute_call_info =
+                    tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
 
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
+                validate_call_info =
+                    self.validate_tx(state, &mut resources, &mut context, &mut remaining_gas)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
-                validate_call_info = self.validate_tx(state, &mut context, &mut remaining_gas)?;
+                validate_call_info =
+                    self.validate_tx(state, &mut resources, &mut context, &mut remaining_gas)?;
 
                 // Execute.
-                execute_call_info = tx.run_execute(state, &mut context, &mut remaining_gas)?;
+                execute_call_info =
+                    tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
             }
         };
 
@@ -295,13 +303,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let actual_resources = calculate_tx_resources(
-            context.resources,
-            &non_optional_call_infos,
-            tx_type,
-            state,
-            None,
-        )?;
+        let actual_resources =
+            calculate_tx_resources(resources, &non_optional_call_infos, tx_type, state, None)?;
 
         // Charge fee.
         // Recreate the context to empty the execution resources.

@@ -29,7 +29,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
-    EntryPointExecutionResult, Retdata,
+    EntryPointExecutionResult, ExecutionResources, Retdata,
 };
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
@@ -318,7 +318,7 @@ impl CallEntryPoint {
             BlockContext::create_for_testing(),
             AccountTransactionContext::default(),
         );
-        self.execute(state, &mut context)
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }
 

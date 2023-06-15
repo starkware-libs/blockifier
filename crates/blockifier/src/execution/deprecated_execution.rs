@@ -12,6 +12,7 @@ use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
+    ExecutionResources,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -34,6 +35,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClassV0,
     state: &mut dyn State,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
@@ -42,7 +44,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point_pc,
-    } = initialize_execution_context(&call, contract_class, state, context)?;
+    } = initialize_execution_context(&call, contract_class, state, resources, context)?;
 
     let (implicit_args, args) = prepare_call_arguments(
         &call,
@@ -53,7 +55,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.context.resources.vm_resources.clone();
+    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
@@ -73,6 +75,7 @@ pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     contract_class: ContractClassV0,
     state: &'a mut dyn State,
+    resources: &'a mut ExecutionResources,
     context: &'a mut EntryPointExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     // Resolve initial PC from EP indicator.
@@ -92,6 +95,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = DeprecatedSyscallHintProcessor::new(
         state,
+        resources,
         context,
         initial_syscall_ptr,
         call.storage_address,
@@ -231,10 +235,9 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.context.resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
 
-    let full_call_vm_resources =
-        &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
+    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {

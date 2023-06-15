@@ -25,8 +25,8 @@ use thiserror::Error;
 use crate::abi::constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, OrderedEvent,
-    OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
+    OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
@@ -89,6 +89,7 @@ pub const OUT_OF_GAS_ERROR: &str =
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
+    pub resources: &'a mut ExecutionResources,
     pub context: &'a mut EntryPointExecutionContext,
     pub call: CallEntryPoint,
 
@@ -115,6 +116,7 @@ pub struct SyscallHintProcessor<'a> {
 impl<'a> SyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
+        resources: &'a mut ExecutionResources,
         context: &'a mut EntryPointExecutionContext,
         initial_syscall_ptr: Relocatable,
         call: CallEntryPoint,
@@ -123,6 +125,7 @@ impl<'a> SyscallHintProcessor<'a> {
     ) -> Self {
         SyscallHintProcessor {
             state,
+            resources,
             context,
             call,
             inner_calls: vec![],
@@ -285,7 +288,7 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
-        let syscall_count = self.context.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -460,7 +463,8 @@ pub fn execute_inner_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut Felt252,
 ) -> SyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
+    let call_info =
+        call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
     let raw_retdata = &call_info.execution.retdata.0;
 
     if call_info.execution.failed {

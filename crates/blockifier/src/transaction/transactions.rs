@@ -10,6 +10,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, ConstructorContext, EntryPointExecutionContext,
+    ExecutionResources,
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
@@ -65,6 +66,7 @@ pub trait Executable<S: State> {
     fn run_execute(
         &self,
         state: &mut S,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
@@ -134,7 +136,8 @@ impl<S: State> Executable<S> for DeclareTransaction {
     fn run_execute(
         &self,
         state: &mut S,
-        _ctx: &mut EntryPointExecutionContext,
+        _resources: &mut ExecutionResources,
+        _context: &mut EntryPointExecutionContext,
         _remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.tx.class_hash();
@@ -170,6 +173,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
         state: &mut S,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
@@ -181,6 +185,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         };
         let deployment_result = execute_deployment(
             state,
+            resources,
             context,
             ctor_context,
             self.constructor_calldata.clone(),
@@ -199,6 +204,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
     fn run_execute(
         &self,
         state: &mut S,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
@@ -220,7 +226,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
         };
 
         let call_info = execute_call
-            .execute(state, context)
+            .execute(state, resources, context)
             .map_err(TransactionExecutionError::ExecutionError)?;
         update_remaining_gas(remaining_gas, &call_info);
 
@@ -238,6 +244,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     fn run_execute(
         &self,
         state: &mut S,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
@@ -256,7 +263,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         };
 
         execute_call
-            .execute(state, context)
+            .execute(state, resources, context)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
     }
