@@ -31,8 +31,8 @@ use crate::test_utils::{
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
 };
 
-pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35170;
-pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 129650;
+pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35050;
+pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128880;
 pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
 
 #[test]
@@ -117,7 +117,7 @@ fn test_emit_event() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: stark_felt!(53940_u64),
+            gas_consumed: stark_felt!(52970_u64),
             ..Default::default()
         }
     );
@@ -146,7 +146,7 @@ fn test_get_block_hash() {
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
-            gas_consumed: stark_felt!(15750_u64),
+            gas_consumed: stark_felt!(15650_u64),
             ..CallExecution::from_retdata(retdata![block_hash])
         }
     );
@@ -240,7 +240,7 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: Felt252::from(9999718720_u64),
+        initial_gas: Felt252::from(9999719920_u64),
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
@@ -255,16 +255,16 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: Felt252::from(9999813200_u64),
+        initial_gas: Felt252::from(9999813750_u64),
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        initial_gas: Felt252::from(9999622550_u64),
+        initial_gas: Felt252::from(9999623870_u64),
         ..nested_storage_entry_point
     };
     let storage_entry_point_vm_resources = VmExecutionResources {
-        n_steps: 148,
+        n_steps: 147,
         n_memory_holes: 2,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
     };
@@ -280,12 +280,11 @@ fn test_nested_library_call() {
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let mut library_call_vm_resources = VmExecutionResources {
-        n_steps: 277,
-        n_memory_holes: 2,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 8)]),
+    let library_call_vm_resources = VmExecutionResources {
+        n_steps: 419,
+        n_memory_holes: 4,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 13)]),
     };
-    library_call_vm_resources += &storage_entry_point_vm_resources;
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution {
@@ -293,7 +292,7 @@ fn test_nested_library_call() {
             gas_consumed: stark_felt!(REQUIRED_GAS_LIBRARY_CALL_TEST),
             ..CallExecution::default()
         },
-        vm_resources: library_call_vm_resources.clone(),
+        vm_resources: library_call_vm_resources,
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
@@ -304,23 +303,22 @@ fn test_nested_library_call() {
             gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        vm_resources: storage_entry_point_vm_resources,
         storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
 
-    let mut main_call_vm_resources = VmExecutionResources {
-        n_steps: 368,
-        n_memory_holes: 4,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 10)]),
+    let main_call_vm_resources = VmExecutionResources {
+        n_steps: 781,
+        n_memory_holes: 8,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
     };
-    main_call_vm_resources += &library_call_vm_resources;
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: stark_felt!(319220_u64),
+            gas_consumed: stark_felt!(317780_u64),
             ..CallExecution::default()
         },
         vm_resources: main_call_vm_resources,
@@ -371,7 +369,7 @@ fn test_replace_class() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: stark_felt!(14960_u64), ..Default::default() }
+        CallExecution { gas_consumed: stark_felt!(14850_u64), ..Default::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
@@ -398,7 +396,7 @@ fn test_send_message_to_l1() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
-            gas_consumed: stark_felt!(39040_u64),
+            gas_consumed: stark_felt!(38390_u64),
             ..Default::default()
         }
     );
@@ -498,7 +496,7 @@ fn test_deploy(
         stark_felt!(0_u64)
     } else {
         retdata.0.push(constructor_calldata.0[0]);
-        stark_felt!(17260_u64)
+        stark_felt!(17040_u64)
     };
     assert_eq!(
         deploy_call.execution,
