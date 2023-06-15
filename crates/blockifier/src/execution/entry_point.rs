@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use cairo_felt::Felt252;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::{
+    ExecutionResources as VmExecutionResources, RunResources,
+};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -66,8 +68,9 @@ pub struct ExecutionResources {
 #[derive(Debug, Clone)]
 pub struct EntryPointExecutionContext {
     pub block_context: BlockContext,
-    pub resources: ExecutionResources,
     pub account_tx_context: AccountTransactionContext,
+    // VM execution limits.
+    pub vm_run_resources: RunResources,
     /// Used for tracking events order during the current execution.
     pub n_emitted_events: usize,
     /// Used for tracking L2-to-L1 messages order during the current execution.
@@ -76,13 +79,17 @@ pub struct EntryPointExecutionContext {
     pub error_stack: Vec<(ContractAddress, String)>,
 }
 impl EntryPointExecutionContext {
-    pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
+    pub fn new(
+        block_context: BlockContext,
+        account_tx_context: AccountTransactionContext,
+        max_n_steps: u32,
+    ) -> Self {
         Self {
+            vm_run_resources: RunResources::new(max_n_steps as usize),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
             block_context,
-            resources: ExecutionResources::default(),
             account_tx_context,
         }
     }
@@ -127,6 +134,7 @@ impl CallEntryPoint {
     pub fn execute(
         mut self,
         state: &mut dyn State,
+        resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         // Validate contract is deployed.
@@ -144,8 +152,8 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        execute_entry_point_call(self, contract_class, state, context).map_err(
-            |error| match error {
+        execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
+            match error {
                 // On VM error, pack the stack trace into the propagated error.
                 EntryPointExecutionError::VirtualMachineExecutionError(error) => {
                     context.error_stack.push((storage_address, error.try_to_vm_trace()));
@@ -159,8 +167,8 @@ impl CallEntryPoint {
                     }
                 }
                 other_error => other_error,
-            },
-        )
+            }
+        })
     }
 }
 
@@ -284,6 +292,7 @@ impl<'a> IntoIterator for &'a CallInfo {
 
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     calldata: Calldata,
@@ -308,7 +317,7 @@ pub fn execute_constructor_entry_point(
         initial_gas: remaining_gas,
     };
 
-    constructor_call.execute(state, context)
+    constructor_call.execute(state, resources, context)
 }
 
 pub fn handle_empty_constructor(

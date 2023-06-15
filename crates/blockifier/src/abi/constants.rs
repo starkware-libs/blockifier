@@ -51,9 +51,17 @@ pub const TRANSACTION_GAS_COST: u64 =
 pub const CALL_CONTRACT_GAS_COST: u64 = 10 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
 pub const DEPLOY_GAS_COST: u64 = 200 * STEP_GAS_COST + ENTRY_POINT_GAS_COST;
 pub const EMIT_EVENT_GAS_COST: u64 = 10 * STEP_GAS_COST;
+pub const GET_BLOCK_HASH_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const GET_EXECUTION_INFO_GAS_COST: u64 = 10 * STEP_GAS_COST;
 pub const LIBRARY_CALL_GAS_COST: u64 = CALL_CONTRACT_GAS_COST;
 pub const REPLACE_CLASS_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const SEND_MESSAGE_TO_L1_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_READ_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_WRITE_GAS_COST: u64 = 50 * STEP_GAS_COST;
+
+// OS reserved contract addresses.
+
+// This contract stores the block number -> block hash mapping.
+// TODO(Arni, 14/6/2023): Replace BLOCK_HASH_CONSTANT_ADDRESS with a lazy calculation.
+//      pub static BLOCK_HASH_CONTRACT_ADDRESS: Lazy<ContractAddress> = ...
+pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
