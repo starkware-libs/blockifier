@@ -35,7 +35,7 @@ use crate::execution::execution_utils::{
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::{
-    call_contract, deploy, emit_event, get_block_hash, get_execution_info, library_call,
+    call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
     library_call_l1_handler, replace_class, send_message_to_l1, storage_read, storage_write,
     StorageReadResponse, StorageWriteResponse, SyscallRequest, SyscallRequestWrapper,
     SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
@@ -84,6 +84,9 @@ impl From<SyscallExecutionError> for HintError {
 /// Error codes returned by Cairo 1.0 code.
 pub const OUT_OF_GAS_ERROR: &str =
     "0x000000000000000000000000000000000000000000004f7574206f6620676173"; // "Out of gas";
+
+pub const INVALID_INPUT_LEN_ERROR: &str =
+    "0x000000000000000000000000496e76616c696420696e707574206c656e677468"; // "Invalid input length";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -180,7 +183,10 @@ impl<'a> SyscallHintProcessor<'a> {
         self.verify_syscall_ptr(initial_syscall_ptr)?;
 
         let selector = SyscallSelector::try_from(self.read_next_syscall_selector(vm)?)?;
-        self.increment_syscall_count(&selector);
+
+        if selector != SyscallSelector::Keccak {
+            self.increment_syscall_count(&selector);
+        }
 
         match selector {
             SyscallSelector::CallContract => {
@@ -214,6 +220,7 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::StorageWrite => {
                 self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
             }
+            SyscallSelector::Keccak => self.execute_syscall(vm, keccak, constants::KECCAK_GAS_COST),
             _ => Err(HintError::UnknownHint(
                 format!("Unsupported syscall selector {selector:?}.").into(),
             )),
@@ -282,15 +289,22 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(())
     }
 
-    fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
+    pub fn read_next_syscall_selector(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<StarkFelt> {
         let selector = stark_felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
 
-    fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
+    pub fn increment_syscall_count_by(&mut self, selector: &SyscallSelector, n: usize) {
         let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
-        *syscall_count += 1;
+        *syscall_count += n;
+    }
+
+    fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
+        self.increment_syscall_count_by(selector, 1);
     }
 
     fn allocate_execution_info_segment(

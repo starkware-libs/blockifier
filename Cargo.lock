@@ -329,6 +329,7 @@ dependencies = [
  "derive_more",
  "indexmap",
  "itertools",
+ "keccak",
  "log",
  "num-bigint",
  "num-integer",

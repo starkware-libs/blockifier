@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::{FromPrimitive, ToPrimitive};
 use starknet_api::block::BlockHash;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
@@ -27,6 +28,7 @@ use crate::execution::execution_utils::{
     execute_deployment, felt_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_felt,
     write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
+use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LEN_ERROR, OUT_OF_GAS_ERROR};
 
 pub mod hint_processor;
 
@@ -566,4 +568,84 @@ pub fn storage_write(
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<StorageWriteResponse> {
     syscall_handler.set_contract_storage_at(request.address, request.value)
+}
+
+// Keccak syscall.
+#[derive(Debug, Eq, PartialEq)]
+pub struct KeccakRequest {
+    pub input_start: Relocatable,
+    pub input_end: Relocatable,
+}
+
+impl SyscallRequest for KeccakRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<KeccakRequest> {
+        let input_start = vm.get_relocatable(*ptr)?;
+        *ptr += 1;
+        let input_end = vm.get_relocatable(*ptr)?;
+        *ptr += 1;
+        Ok(KeccakRequest { input_start, input_end })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct KeccakResponse {
+    pub result_low: Felt252,
+    pub result_high: Felt252,
+}
+
+impl SyscallResponse for KeccakResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, ptr, self.result_low)?;
+        write_felt(vm, ptr, self.result_high)?;
+        Ok(())
+    }
+}
+
+pub fn keccak(
+    request: KeccakRequest,
+    vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    remaining_gas: &mut Felt252,
+) -> SyscallResult<KeccakResponse> {
+    let input_len = (request.input_end - request.input_start)?;
+
+    const KECCAK_FULL_RATE_IN_WORDS: usize = 17;
+    let (n_rounds, r) = num_integer::div_rem(input_len, KECCAK_FULL_RATE_IN_WORDS);
+
+    if r != 0 {
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![
+                StarkFelt::try_from(INVALID_INPUT_LEN_ERROR)
+                    .map_err(SyscallExecutionError::from)?,
+            ],
+        });
+    }
+
+    let gas_cost = Felt252::from(n_rounds as u64 * constants::KECCAK_ROUND_COST_GAS_COST);
+    if gas_cost > *remaining_gas {
+        let out_of_gas_error =
+            StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
+
+        return Err(SyscallExecutionError::SyscallError { error_data: vec![out_of_gas_error] });
+    }
+    *remaining_gas -= gas_cost;
+
+    // For the keccak system call we want to count the number of rounds rather than the number of
+    // syscall invocations.
+    syscall_handler.increment_syscall_count_by(&SyscallSelector::Keccak, n_rounds);
+
+    let data = vm.get_integer_range(request.input_start, input_len)?;
+
+    let mut state = [0u64; 25];
+    for chunk in data.chunks(KECCAK_FULL_RATE_IN_WORDS) {
+        for (i, val) in chunk.iter().enumerate() {
+            state[i] ^= val.to_u64().unwrap();
+        }
+        keccak::f1600(&mut state)
+    }
+
+    Ok(KeccakResponse {
+        result_low: (Felt252::from(state[1]) << 64u32) + Felt252::from(state[0]),
+        result_high: (Felt252::from(state[3]) << 64u32) + Felt252::from(state[2]),
+    })
 }
