@@ -388,6 +388,36 @@ pub fn deploy_account_tx(
     }
 }
 
+pub fn deploy_account_tx_with_salt(
+    class_hash: &str,
+    max_fee: Fee,
+    constructor_calldata: Option<Calldata>,
+    contract_address_salt: ContractAddressSalt,
+    signature: Option<TransactionSignature>,
+) -> DeployAccountTransaction {
+    let class_hash = ClassHash(stark_felt!(class_hash));
+    let deployer_address = ContractAddress::default();
+    let constructor_calldata = constructor_calldata.unwrap_or_default();
+    let contract_address = calculate_contract_address(
+        contract_address_salt,
+        class_hash,
+        &constructor_calldata,
+        deployer_address,
+    )
+    .unwrap();
+
+    DeployAccountTransaction {
+        max_fee,
+        version: TransactionVersion(stark_felt!(1_u8)),
+        signature: signature.unwrap_or_default(),
+        class_hash,
+        contract_address,
+        contract_address_salt,
+        constructor_calldata,
+        ..Default::default()
+    }
+}
+
 pub fn invoke_tx(
     calldata: Calldata,
     sender_address: ContractAddress,
