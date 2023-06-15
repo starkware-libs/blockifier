@@ -188,7 +188,8 @@ pub fn run_entry_point(
     entry_point_pc: usize,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
-    let run_resources = &mut Some(hint_processor.context.vm_run_resources.clone());
+    // TODO(Dori,30/06/2023): propagate properly once VM allows it.
+    let run_resources = &mut None;
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
@@ -201,8 +202,6 @@ pub fn run_entry_point(
         vm,
         hint_processor,
     )?;
-    hint_processor.context.vm_run_resources =
-        run_resources.clone().expect("Run resources should not be None");
 
     Ok(())
 }
