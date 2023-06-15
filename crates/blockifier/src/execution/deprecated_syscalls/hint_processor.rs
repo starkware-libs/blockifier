@@ -33,8 +33,8 @@ use crate::execution::deprecated_syscalls::{
     SyscallResponse,
 };
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, OrderedEvent,
-    OrderedL2ToL1Message,
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
+    OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
@@ -81,6 +81,7 @@ impl From<DeprecatedSyscallExecutionError> for HintError {
 pub struct DeprecatedSyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
+    pub resources: &'a mut ExecutionResources,
     pub context: &'a mut EntryPointExecutionContext,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
@@ -110,6 +111,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
 impl<'a> DeprecatedSyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
+        resources: &'a mut ExecutionResources,
         context: &'a mut EntryPointExecutionContext,
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
@@ -117,6 +119,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     ) -> Self {
         DeprecatedSyscallHintProcessor {
             state,
+            resources,
             context,
             storage_address,
             caller_address,
@@ -257,7 +260,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
-        let syscall_count = self.context.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -372,7 +375,8 @@ pub fn execute_inner_call(
     vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
+    let call_info =
+        call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
         retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();

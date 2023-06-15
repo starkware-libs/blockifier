@@ -12,7 +12,7 @@ use starknet_api::stark_felt;
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
-    Retdata,
+    ExecutionResources, Retdata,
 };
 use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -46,6 +46,7 @@ pub fn execute_entry_point_call(
     call: CallEntryPoint,
     contract_class: ContractClassV1,
     state: &mut dyn State,
+    resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
@@ -55,7 +56,7 @@ pub fn execute_entry_point_call(
         initial_syscall_ptr,
         entry_point,
         program_segment_size,
-    } = initialize_execution_context(call, &contract_class, state, context)?;
+    } = initialize_execution_context(call, &contract_class, state, resources, context)?;
 
     let args = prepare_call_arguments(
         &syscall_handler.call,
@@ -67,7 +68,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.context.resources.vm_resources.clone();
+    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
     run_entry_point(
@@ -94,6 +95,7 @@ pub fn initialize_execution_context<'a>(
     call: CallEntryPoint,
     contract_class: &'a ContractClassV1,
     state: &'a mut dyn State,
+    resources: &'a mut ExecutionResources,
     context: &'a mut EntryPointExecutionContext,
 ) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     let entry_point = contract_class.get_entry_point(&call)?;
@@ -115,6 +117,7 @@ pub fn initialize_execution_context<'a>(
     let initial_syscall_ptr = vm.add_memory_segment();
     let syscall_handler = SyscallHintProcessor::new(
         state,
+        resources,
         context,
         initial_syscall_ptr,
         call,
@@ -217,6 +220,7 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> Result<(), VirtualMachineExecutionError> {
+    // TODO(Dori,30/06/2023): propagate properly once VM allows it.
     let run_resources = &mut None;
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
@@ -257,10 +261,9 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
-    syscall_handler.context.resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
 
-    let full_call_vm_resources =
-        &syscall_handler.context.resources.vm_resources - &previous_vm_resources;
+    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {

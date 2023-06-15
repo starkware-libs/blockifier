@@ -42,6 +42,7 @@ pub enum DeprecatedSyscallSelector {
     DelegateL1Handler,
     Deploy,
     EmitEvent,
+    GetBlockHash,
     GetBlockNumber,
     GetBlockTimestamp,
     GetCallerAddress,
@@ -71,6 +72,7 @@ impl TryFrom<StarkFelt> for DeprecatedSyscallSelector {
             b"DelegateL1Handler" => Ok(Self::DelegateL1Handler),
             b"Deploy" => Ok(Self::Deploy),
             b"EmitEvent" => Ok(Self::EmitEvent),
+            b"GetBlockHash" => Ok(Self::GetBlockHash),
             b"GetBlockNumber" => Ok(Self::GetBlockNumber),
             b"GetBlockTimestamp" => Ok(Self::GetBlockTimestamp),
             b"GetCallerAddress" => Ok(Self::GetCallerAddress),
@@ -297,6 +299,7 @@ pub fn deploy(
     };
     let call_info = execute_deployment(
         syscall_handler.state,
+        syscall_handler.resources,
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,

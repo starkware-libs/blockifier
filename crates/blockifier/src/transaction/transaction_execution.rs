@@ -4,7 +4,7 @@ use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, Tran
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -78,16 +78,22 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             nonce: tx.nonce,
             sender_address: tx.contract_address,
         };
-        let mut context = EntryPointExecutionContext::new(block_context.clone(), tx_context);
+        let mut resources = ExecutionResources::default();
+        let mut context = EntryPointExecutionContext::new(
+            block_context.clone(),
+            tx_context,
+            block_context.invoke_tx_max_n_steps,
+        );
         let mut remaining_gas = Transaction::initial_gas();
-        let execute_call_info = self.run_execute(state, &mut context, &mut remaining_gas)?;
+        let execute_call_info =
+            self.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
 
         let call_infos =
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
         let actual_resources = calculate_tx_resources(
-            context.resources,
+            resources,
             &call_infos,
             TransactionType::L1Handler,
             state,
