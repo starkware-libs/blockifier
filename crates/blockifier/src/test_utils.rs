@@ -314,9 +314,11 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 impl CallEntryPoint {
     // Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
+        let block_context = BlockContext::create_for_testing();
         let mut context = EntryPointExecutionContext::new(
-            BlockContext::create_for_testing(),
+            block_context.clone(),
             AccountTransactionContext::default(),
+            block_context.invoke_tx_max_n_steps,
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
