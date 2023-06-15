@@ -77,6 +77,8 @@ pub struct EntryPointExecutionContext {
     pub n_sent_messages_to_l1: usize,
     /// Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
+
+    recursion_depth: usize,
 }
 impl EntryPointExecutionContext {
     pub fn new(
@@ -91,6 +93,7 @@ impl EntryPointExecutionContext {
             error_stack: vec![],
             block_context,
             account_tx_context,
+            recursion_depth: 0,
         }
     }
 
@@ -116,6 +119,11 @@ impl CallEntryPoint {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
+        context.recursion_depth += 1;
+        if context.recursion_depth > constants::MAX_ENTRY_POINT_RECURSION_DEPTH {
+            return Err(EntryPointExecutionError::RecursionDepthExceeded);
+        }
+
         // Validate contract is deployed.
         let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
