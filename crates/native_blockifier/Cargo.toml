@@ -42,3 +42,10 @@ thiserror.workspace = true
 [dev-dependencies]
 cached.workspace = true
 tempfile.workspace = true
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+path = "bench/blockifier_bench.rs"
+name = "blockifier_bench"
+harness = false
+# cargo criterion --bench criterion_benchmark
