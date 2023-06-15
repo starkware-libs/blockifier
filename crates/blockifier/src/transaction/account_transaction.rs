@@ -169,6 +169,7 @@ impl AccountTransaction {
         let mut context = EntryPointExecutionContext::new(
             block_context.clone(),
             self.get_account_transaction_context(),
+            block_context.validate_max_n_steps,
         );
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
@@ -254,8 +255,11 @@ impl AccountTransaction {
             initial_gas,
         };
 
-        let mut context =
-            EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
+        let mut context = EntryPointExecutionContext::new(
+            block_context.clone(),
+            account_tx_context,
+            block_context.invoke_tx_max_n_steps,
+        );
 
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
     }
@@ -285,15 +289,21 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     self.validate_tx(state, &mut resources, &mut remaining_gas, block_context)?;
 
                 // Execute.
-                let mut context =
-                    EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
+                let mut context = EntryPointExecutionContext::new(
+                    block_context.clone(),
+                    account_tx_context,
+                    block_context.invoke_tx_max_n_steps,
+                );
                 execute_call_info =
                     tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
             }
             Self::DeployAccount(tx) => {
                 // Execute the constructor of the deployed class.
-                let mut context =
-                    EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
+                let mut context = EntryPointExecutionContext::new(
+                    block_context.clone(),
+                    account_tx_context,
+                    block_context.invoke_tx_max_n_steps,
+                );
                 execute_call_info =
                     tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
 
@@ -307,8 +317,11 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     self.validate_tx(state, &mut resources, &mut remaining_gas, block_context)?;
 
                 // Execute.
-                let mut context =
-                    EntryPointExecutionContext::new(block_context.clone(), account_tx_context);
+                let mut context = EntryPointExecutionContext::new(
+                    block_context.clone(),
+                    account_tx_context,
+                    block_context.invoke_tx_max_n_steps,
+                );
                 execute_call_info =
                     tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
             }

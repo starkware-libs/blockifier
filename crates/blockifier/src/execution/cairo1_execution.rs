@@ -220,7 +220,7 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> Result<(), VirtualMachineExecutionError> {
-    let run_resources = &mut None;
+    let run_resources = &mut Some(hint_processor.context.vm_run_resources.clone());
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
     runner.run_from_entrypoint(
@@ -232,6 +232,8 @@ pub fn run_entry_point(
         vm,
         hint_processor,
     )?;
+    hint_processor.context.vm_run_resources =
+        run_resources.clone().expect("Run resources should not be None");
 
     Ok(())
 }
