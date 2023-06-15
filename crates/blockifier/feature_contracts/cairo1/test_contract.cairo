@@ -171,4 +171,23 @@ mod TestContract {
             class_hash, contract_address_salt, calldata.span(), deploy_from_zero
         ).unwrap_syscall();
     }
+
+
+    #[external]
+    fn test_keccak(ref self: ContractState) {
+        let mut input = Default::default();
+        input.append(u256 { low: 1, high: 0 });
+
+        let res = keccak::keccak_u256s_le_inputs(input.span());
+        assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
+        assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
+
+        let mut input = Default::default();
+        input.append(1_u64);
+        match starknet::syscalls::keccak_syscall(input.span()) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) =>
+                assert(*revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'),
+        }
+    }
 }
