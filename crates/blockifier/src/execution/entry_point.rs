@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use cairo_felt::Felt252;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::{
+    ExecutionResources as VmExecutionResources, RunResources,
+};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -67,6 +69,8 @@ pub struct ExecutionResources {
 pub struct EntryPointExecutionContext {
     pub block_context: BlockContext,
     pub account_tx_context: AccountTransactionContext,
+    // VM execution limits.
+    pub vm_run_resources: RunResources,
     /// Used for tracking events order during the current execution.
     pub n_emitted_events: usize,
     /// Used for tracking L2-to-L1 messages order during the current execution.
@@ -75,8 +79,13 @@ pub struct EntryPointExecutionContext {
     pub error_stack: Vec<(ContractAddress, String)>,
 }
 impl EntryPointExecutionContext {
-    pub fn new(block_context: BlockContext, account_tx_context: AccountTransactionContext) -> Self {
+    pub fn new(
+        block_context: BlockContext,
+        account_tx_context: AccountTransactionContext,
+        max_n_steps: u32,
+    ) -> Self {
         Self {
+            vm_run_resources: RunResources::new(max_n_steps as usize),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
