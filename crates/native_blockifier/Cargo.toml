@@ -33,3 +33,12 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 starknet_api = { workspace = true, features = ["testing"] }
 
 thiserror.workspace = true
+
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+path = "bench/blockifier_bench.rs"
+name = "blockifier_bench"
+harness = false
+# cargo criterion --bench criterion_benchmark
