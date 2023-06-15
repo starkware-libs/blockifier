@@ -163,9 +163,13 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         resources: &mut ExecutionResources,
-        context: &mut EntryPointExecutionContext,
         remaining_gas: &mut Felt252,
+        block_context: &BlockContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let mut context = EntryPointExecutionContext::new(
+            block_context.clone(),
+            self.get_account_transaction_context(),
+        );
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
         }
@@ -184,7 +188,7 @@ impl AccountTransaction {
         };
 
         let validate_call_info = validate_call
-            .execute(state, resources, context)
+            .execute(state, resources, &mut context)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
         verify_no_calls_to_other_contracts(
             &validate_call_info,
@@ -272,7 +276,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             Self::Declare(tx) => {
                 // Validate.
                 validate_call_info =
-                    self.validate_tx(state, &mut resources, &mut context, &mut remaining_gas)?;
+                    self.validate_tx(state, &mut resources, &mut remaining_gas, block_context)?;
 
                 // Execute.
                 execute_call_info =
@@ -285,12 +289,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
                 // Validate.
                 validate_call_info =
-                    self.validate_tx(state, &mut resources, &mut context, &mut remaining_gas)?;
+                    self.validate_tx(state, &mut resources, &mut remaining_gas, block_context)?;
             }
             Self::Invoke(tx) => {
                 // Validate.
                 validate_call_info =
-                    self.validate_tx(state, &mut resources, &mut context, &mut remaining_gas)?;
+                    self.validate_tx(state, &mut resources, &mut remaining_gas, block_context)?;
 
                 // Execute.
                 execute_call_info =
