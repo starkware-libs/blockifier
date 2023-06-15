@@ -18,13 +18,13 @@ mod TestContract {
     }
 
     #[constructor]
-    fn constructor(ref self: Storage, arg1: felt252, arg2: felt252) -> felt252 {
+    fn constructor(ref self: ContractState, arg1: felt252, arg2: felt252) -> felt252 {
         self.my_storage_var.write(arg1 + arg2);
         arg1
     }
 
     #[external]
-    fn test_storage_read_write(self: @Storage, address: StorageAddress, value: felt252) -> felt252 {
+    fn test_storage_read_write(ref self: ContractState, address: StorageAddress, value: felt252) -> felt252 {
         let address_domain = 0;
         starknet::syscalls::storage_write_syscall(address_domain, address, value).unwrap_syscall();
         starknet::syscalls::storage_read_syscall(address_domain, address).unwrap_syscall()
@@ -33,7 +33,7 @@ mod TestContract {
     #[external]
     #[raw_output]
     fn test_call_contract(
-        self: @Storage,
+        ref self: ContractState,
         contract_address: ContractAddress,
         entry_point_selector: felt252,
         calldata: Array::<felt252>
@@ -44,13 +44,13 @@ mod TestContract {
     }
 
     #[external]
-    fn test_emit_event(self: @Storage, keys: Array::<felt252>, data: Array::<felt252>) {
+    fn test_emit_event(ref self: ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
         starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
     }
 
     #[external]
     fn test_get_execution_info(
-        self: @Storage,
+        ref self: ContractState,
         // Expected block info.
         block_number: felt252,
         block_timestamp: felt252,
@@ -92,7 +92,7 @@ mod TestContract {
     #[external]
     #[raw_output]
     fn test_library_call(
-        self: @Storage,
+        ref self: ContractState,
         class_hash: ClassHash,
         function_selector: felt252,
         calldata: Array<felt252>
@@ -105,7 +105,7 @@ mod TestContract {
     #[external]
     #[raw_output]
     fn test_nested_library_call(
-        self: @Storage,
+        ref self: ContractState,
         class_hash: ClassHash,
         lib_selector: felt252,
         nested_selector: felt252,
@@ -131,30 +131,30 @@ mod TestContract {
     }
 
     #[external]
-    fn test_replace_class(self: @Storage, class_hash: ClassHash) {
+    fn test_replace_class(ref self: ContractState, class_hash: ClassHash) {
         starknet::syscalls::replace_class_syscall(class_hash).unwrap_syscall();
     }
 
     #[external]
-    fn test_send_message_to_l1(self: @Storage, to_address: felt252, payload: Array::<felt252>) {
+    fn test_send_message_to_l1(ref self: ContractState, to_address: felt252, payload: Array::<felt252>) {
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
     }
 
     /// An external method that requires the `segment_arena` builtin.
     #[external]
-    fn segment_arena_builtin(self: @Storage) {
+    fn segment_arena_builtin(ref self: ContractState) {
         let x = felt252_dict_new::<felt252>();
         x.squash();
     }
 
     #[l1_handler]
-    fn l1_handle(self: @Storage, from_address: felt252, arg: felt252) -> felt252 {
+    fn l1_handle(ref self: ContractState, from_address: felt252, arg: felt252) -> felt252 {
         arg
     }
 
     #[external]
     fn test_deploy(
-        self: @Storage,
+        ref self: ContractState,
         class_hash: ClassHash,
         contract_address_salt: felt252,
         calldata: Array::<felt252>,
@@ -163,5 +163,24 @@ mod TestContract {
         starknet::syscalls::deploy_syscall(
             class_hash, contract_address_salt, calldata.span(), deploy_from_zero
         ).unwrap_syscall();
+    }
+
+
+    #[external]
+    fn test_keccak(ref self: ContractState) {
+        let mut input = Default::default();
+        input.append(u256 { low: 1, high: 0 });
+
+        let res = keccak::keccak_u256s_le_inputs(input.span());
+        assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
+        assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
+
+        let mut input = Default::default();
+        input.append(1_u64);
+        match starknet::syscalls::keccak_syscall(input.span()) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) =>
+                assert(*revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'),
+        }
     }
 }

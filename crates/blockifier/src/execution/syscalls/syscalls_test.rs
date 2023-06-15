@@ -123,6 +123,20 @@ fn test_emit_event() {
 }
 
 #[test]
+fn test_keccak() {
+    let mut state = create_test_state();
+
+    let calldata = Calldata(vec![].into());
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_keccak"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    entry_point_call.execute_directly(&mut state).unwrap();
+}
+
+#[test]
 fn test_get_execution_info() {
     let mut state = create_test_state();
 
