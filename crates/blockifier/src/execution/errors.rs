@@ -138,3 +138,13 @@ pub enum EntryPointExecutionError {
         source: VirtualMachineExecutionError,
     },
 }
+
+impl EntryPointExecutionError {
+    pub fn vm_error(&self) -> Option<&VirtualMachineExecutionError> {
+        match self {
+            Self::VirtualMachineExecutionError(source)
+            | Self::VirtualMachineExecutionErrorWithTrace { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+}

@@ -53,3 +53,15 @@ pub enum TransactionExecutionError {
     #[error("Transaction validation has failed.")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
 }
+
+impl TransactionExecutionError {
+    pub fn entry_point_execution_error(&self) -> Option<&EntryPointExecutionError> {
+        match self {
+            Self::ContractConstructorExecutionFailed(error)
+            | Self::EntryPointExecutionError(error)
+            | Self::ExecutionError(error)
+            | Self::ValidateTransactionError(error) => Some(error),
+            _ => None,
+        }
+    }
+}
