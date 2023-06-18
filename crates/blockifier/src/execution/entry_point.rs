@@ -8,7 +8,9 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{
+    Calldata, EthAddress, EventContent, L2ToL1Payload, TransactionVersion,
+};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
@@ -23,6 +25,9 @@ use crate::transaction::objects::{AccountTransactionContext, TransactionExecutio
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
 pub mod test;
+
+pub const FAULTY_CLASS_HASH: &str =
+    "0x1A7820094FEAF82D53F53F214B81292D717E7BB9A92BB2488092CD306F3993F";
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
@@ -135,6 +140,15 @@ impl CallEntryPoint {
             Some(class_hash) => class_hash,
             None => storage_class_hash, // If not given, take the storage contract class hash.
         };
+        // Hack to prevent version 0 attack on argent accounts.
+        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8))
+            && class_hash
+                == ClassHash(
+                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
+                )
+        {
+            return Err(PreExecutionError::FraudAttempt().into());
+        }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
