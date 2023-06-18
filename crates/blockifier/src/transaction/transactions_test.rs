@@ -33,21 +33,12 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-<<<<<<< HEAD
-    test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader, NonceManager,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    test_erc20_sequencer_balance_key, DictStateReader, NonceManager, ACCOUNT_CONTRACT_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
-=======
-    test_erc20_sequencer_balance_key, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
-    TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
->>>>>>> main
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -467,7 +458,12 @@ fn test_max_fee_exceeds_balance() {
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
         max_fee: invalid_max_fee,
-        ..deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None)
+        ..deploy_account_tx(
+            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+            None,
+            None,
+            &mut NonceManager::default(),
+        )
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
