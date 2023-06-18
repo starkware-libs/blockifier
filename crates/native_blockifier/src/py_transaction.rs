@@ -285,7 +285,7 @@ impl PyTransactionExecutor {
     pub fn create(
         general_config: PyGeneralConfig,
         block_info: &PyAny,
-        papyrus_storage: &Storage,
+        papyrus_storage: &mut Storage,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let executor =
