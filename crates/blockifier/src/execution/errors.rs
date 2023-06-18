@@ -20,6 +20,8 @@ pub enum PreExecutionError {
     EntryPointNotFound(EntryPointSelector),
     #[error("Entry point {selector:?} of type {typ:?} is not unique.")]
     DuplicatedEntryPointSelector { selector: EntryPointSelector, typ: EntryPointType },
+    #[error("Fraud attempt blocked.")]
+    FraudAttempt(),
     #[error("Invalid builtin {0:?}.")]
     InvalidBuiltin(String),
     #[error("No entry points of type {0:?} found in contract.")]
@@ -126,6 +128,8 @@ pub enum EntryPointExecutionError {
     PostExecutionError(#[from] PostExecutionError),
     #[error(transparent)]
     PreExecutionError(#[from] PreExecutionError),
+    #[error("Execution failed due to recursion depth exceeded.")]
+    RecursionDepthExceeded,
     #[error(transparent)]
     StateError(#[from] StateError),
     /// Gathers all errors from running the Cairo VM, excluding hints.
@@ -137,6 +141,4 @@ pub enum EntryPointExecutionError {
         #[source]
         source: VirtualMachineExecutionError,
     },
-    #[error("Execution failed due to recursion depth exceeded.")]
-    RecursionDepthExceeded,
 }
