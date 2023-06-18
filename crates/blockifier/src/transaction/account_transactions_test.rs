@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{calculate_contract_address, ClassHash, Nonce};
+use starknet_api::core::{calculate_contract_address, ClassHash};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
@@ -14,8 +14,8 @@ use crate::execution::contract_class::ContractClassV0;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, invoke_tx, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    declare_tx, deploy_account_tx, invoke_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -47,10 +47,16 @@ fn test_account_flow_test() {
     let state = &mut create_state();
     let block_context = &BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
+    let mut nonce_manager = NonceManager::default();
 
     // Deploy an account contract.
-    let deploy_account_tx =
-        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee, None, None);
+    let deploy_account_tx = deploy_account_tx(
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        None,
+        None,
+        &mut nonce_manager,
+    );
     let deployed_account_address = deploy_account_tx.contract_address;
 
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
@@ -72,7 +78,7 @@ fn test_account_flow_test() {
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-                nonce: Nonce(stark_felt!(1_u8)),
+                nonce: nonce_manager.next(deployed_account_address),
                 ..declare_tx
             }),
             contract_class,
@@ -97,7 +103,7 @@ fn test_account_flow_test() {
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(2_u8)),
+        nonce: nonce_manager.next(deployed_account_address),
         ..tx
     }));
     account_tx.execute(state, block_context).unwrap();
@@ -121,7 +127,7 @@ fn test_account_flow_test() {
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(3_u8)),
+        nonce: nonce_manager.next(deployed_account_address),
         ..tx
     }));
     account_tx.execute(state, block_context).unwrap();

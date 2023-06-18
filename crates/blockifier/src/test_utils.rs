@@ -3,10 +3,12 @@ use std::fs;
 use std::iter::zip;
 use std::path::PathBuf;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
     POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
 };
+use num_traits::{One, Zero};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
@@ -31,6 +33,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
     EntryPointExecutionResult, ExecutionResources, Retdata,
 };
+use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -144,6 +147,21 @@ impl StateReader for DictStateReader {
         let compiled_class_hash =
             self.class_hash_to_compiled_class_hash.get(&class_hash).copied().unwrap_or_default();
         Ok(compiled_class_hash)
+    }
+}
+
+#[derive(Default)]
+pub struct NonceManager {
+    next_nonce: HashMap<ContractAddress, Felt252>,
+}
+
+impl NonceManager {
+    pub fn next(&mut self, account_address: ContractAddress) -> Nonce {
+        let zero = Felt252::zero();
+        let next_felt252 = self.next_nonce.get(&account_address).unwrap_or(&zero);
+        let next = Nonce(felt_to_stark_felt(next_felt252));
+        self.next_nonce.insert(account_address, Felt252::one() + next_felt252);
+        next
     }
 }
 
@@ -366,6 +384,7 @@ pub fn deploy_account_tx(
     max_fee: Fee,
     constructor_calldata: Option<Calldata>,
     signature: Option<TransactionSignature>,
+    nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     let class_hash = ClassHash(stark_felt!(class_hash));
     let deployer_address = ContractAddress::default();
@@ -387,6 +406,7 @@ pub fn deploy_account_tx(
         contract_address,
         contract_address_salt,
         constructor_calldata,
+        nonce: nonce_manager.next(contract_address),
         ..Default::default()
     }
 }
