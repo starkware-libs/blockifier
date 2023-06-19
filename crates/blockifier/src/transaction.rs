@@ -6,4 +6,5 @@ pub mod test_utils;
 pub mod transaction_execution;
 pub mod transaction_types;
 pub mod transaction_utils;
+pub mod transaction_utils_for_protostar;
 pub mod transactions;
