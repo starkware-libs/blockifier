@@ -146,3 +146,69 @@ fn test_account_flow_test() {
     }));
     account_tx.execute(&mut state, block_context).unwrap();
 }
+
+#[test]
+fn test_infinite_recursion() {
+    let max_fee = Fee(MAX_FEE);
+    let mut block_context = BlockContext::create_for_account_testing();
+
+    // Limit the number of execution steps (so we quickly hit the limit).
+    block_context.invoke_tx_max_n_steps = 1000;
+
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_state(max_fee, &block_context);
+
+    // Two types of recursion: one "normal" recursion, and one that uses the call_contract syscall.
+    let contract_address_felt = *contract_address.0.key();
+    let normal_entry_point_selector_felt = selector_from_name("recurse").0;
+    let syscall_entry_point_selector_felt = selector_from_name("recursive_syscall").0;
+
+    let normal_calldata = |recursion_depth: u32| -> Calldata {
+        calldata![
+            contract_address_felt,
+            normal_entry_point_selector_felt,
+            stark_felt!(1_u8),
+            stark_felt!(recursion_depth)
+        ]
+    };
+    let syscall_calldata = |recursion_depth: u32| -> Calldata {
+        calldata![
+            contract_address_felt,
+            syscall_entry_point_selector_felt,
+            stark_felt!(3_u8), // Calldata length.
+            contract_address_felt,
+            syscall_entry_point_selector_felt,
+            stark_felt!(recursion_depth)
+        ]
+    };
+
+    // Try two runs for each recursion type: one short run (success), and one that reverts due to
+    // step limit.
+    let first_valid_nonce = nonce_manager.next(account_address);
+    let second_valid_nonce = nonce_manager.next(account_address);
+    let third_valid_nonce = nonce_manager.next(account_address);
+    [
+        (1_u32, true, true, first_valid_nonce),
+        (1000_u32, false, true, second_valid_nonce),
+        (3_u32, true, false, second_valid_nonce), // Use same nonce, since previous tx should fail.
+        (1000_u32, false, false, third_valid_nonce),
+    ]
+    .into_iter()
+    .map(|(recursion_depth, should_be_ok, use_normal_calldata, nonce)| {
+        let execute_calldata = if use_normal_calldata {
+            normal_calldata(recursion_depth)
+        } else {
+            syscall_calldata(recursion_depth)
+        };
+        let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+        let account_tx =
+            AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 { nonce, ..tx }));
+        let result = account_tx.execute(&mut state, &block_context);
+        if should_be_ok {
+            result.unwrap();
+        } else {
+            result.unwrap_err();
+        }
+    })
+    .for_each(drop);
+}
