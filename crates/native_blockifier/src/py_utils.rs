@@ -80,6 +80,11 @@ where
     values.into_iter().map(converter).collect()
 }
 
+#[pyfunction]
+pub fn all_chain_names() -> Vec<String> {
+    CHAIN_NAMES.iter().map(|s| s.to_string()).collect()
+}
+
 pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
     let expected_name = String::from_utf8_lossy(&value.to_bytes_be()).to_string();
     for chain_name in CHAIN_NAMES {

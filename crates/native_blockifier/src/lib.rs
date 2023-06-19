@@ -17,7 +17,7 @@ use pyo3::prelude::*;
 use storage::Storage;
 
 use crate::py_state_diff::PyStateDiff;
-use crate::py_utils::raise_error_for_testing;
+use crate::py_utils::{all_chain_names, raise_error_for_testing};
 
 #[pymodule]
 fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
@@ -35,6 +35,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<Storage>()?;
     add_py_exceptions(py, py_module)?;
 
+    py_module.add_function(wrap_pyfunction!(all_chain_names, py)?)?;
     // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, gate this code
     //   with #[cfg(test)].
     py_module.add_function(wrap_pyfunction!(raise_error_for_testing, py)?)?;
