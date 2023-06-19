@@ -10,8 +10,13 @@ use starknet_api::transaction::EthAddress;
 
 use crate::errors::NativeBlockifierResult;
 
-pub const CHAIN_NAMES: &[&str; 4] =
-    &["SN_MAIN", "SN_GOERLI", "SN_GOERLI2", "PRIVATE_SN_POTC_GOERLI"];
+pub const CHAIN_NAMES: &[&str; 5] = &[
+    "SN_MAIN",
+    "SN_GOERLI",
+    "SN_GOERLI2",
+    "PRIVATE_SN_POTC_GOERLI",
+    "PRIVATE_SN_POTC_MOCK_GOERLI",
+];
 
 #[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy)]
 pub struct PyFelt(#[pyo3(from_py_with = "pyint_to_stark_felt")] pub StarkFelt);
