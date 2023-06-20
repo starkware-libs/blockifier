@@ -393,6 +393,7 @@ impl PyTransactionExecutorInner {
             let py_tx_execution_info = match tx_execution_result {
                 Ok(tx_execution_info) => {
                     executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                    log::debug!("Before with_gil.");
                     Python::with_gil(|py| {
                         // Allocate this instance on the Python heap.
                         // This is necessary in order to pass a reference to it to the callback
@@ -407,13 +408,16 @@ impl PyTransactionExecutorInner {
                     return Err(error);
                 }
             };
+            log::debug!("After with_gil.");
 
+            log::debug!("Before with_gil 2.");
             let has_enough_room_for_tx = Python::with_gil(|py| {
                 // Can be done because `py_tx_execution_info` is a `Py<PyTransactionExecutionInfo>`,
                 // hence is allocated on the Python heap.
                 let args = (py_tx_execution_info.borrow(py),);
                 enough_room_for_tx.call1(args) // Callback to Python code.
             });
+            log::debug!("After with_gil 2.");
 
             match has_enough_room_for_tx {
                 Ok(_) => {
