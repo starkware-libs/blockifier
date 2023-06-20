@@ -323,23 +323,26 @@ pub fn get_block_hash(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
-    // TODO(Arni, 21/6/2023): implement <StarkFelt as TryInto<u64>>::try_into.
-    let request_block_number: u64 = <StarkFelt as TryInto<usize>>::try_into(request.block_number)?
-        .try_into()
-        .map_err(|_| {
+    // TODO(Arni, 21/6/2023): implement <StarkFelt as TryInto<u64>>::try_into. The current code is
+    // buged, as the direct conversion from StarkFelt to usize can overflow, on 32 bit systems.
+    let request_block_number: u64 =
+        u64::try_from(usize::try_from(request.block_number)?).map_err(|_| {
             SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
                 string: request.block_number.to_string(),
             })
         })?;
-    let current_block_number = syscall_handler.context.block_context.block_number.0;
+    let current_block_number: u64 = syscall_handler.context.block_context.block_number.0;
+
+    // If the current block number is smaller than 10, the get block hash syscall is disabled.
     if current_block_number < constants::STORED_BLOCK_HASH_BUFFER {
-        // The get block hash should be desabled for the first 10 blocks.
         // TODO(Arni, 21/6/2023): Add a new error type for this case.
         return Err(SyscallExecutionError::BlockNumberOutOfRange {
             upper_bound_block_number: 0,
             request_block_number,
         });
     }
+
+    // If the requested block number is larger than the upper bound, return an error.
     let upper_bound_block_number = current_block_number - constants::STORED_BLOCK_HASH_BUFFER;
     if request_block_number > upper_bound_block_number {
         return Err(SyscallExecutionError::BlockNumberOutOfRange {
