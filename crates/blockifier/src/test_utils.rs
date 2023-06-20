@@ -97,6 +97,9 @@ pub const BALANCE: u128 = 10 * MAX_FEE;
 
 pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
+// The block number of the BlockContext being used for testing.
+pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
+
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -346,7 +349,7 @@ impl BlockContext {
     pub fn create_for_testing() -> BlockContext {
         BlockContext {
             chain_id: ChainId("SN_GOERLI".to_string()),
-            block_number: BlockNumber::default(),
+            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
