@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -180,6 +178,7 @@ fn test_revert_invoke() {
     let state = &mut create_state();
     let block_context = &BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
+    let mut nonce_manager = NonceManager::default();
 
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
@@ -187,7 +186,7 @@ fn test_revert_invoke() {
         max_fee,
         None,
         None,
-        &mut NonceManager::default(),
+        &mut nonce_manager,
     );
     let deployed_account_address = deploy_account_tx.contract_address;
 
@@ -216,7 +215,7 @@ fn test_revert_invoke() {
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(1_u8)),
+        nonce: nonce_manager.next(deployed_account_address),
         ..tx
     }));
     let tx_execution_info = account_tx.execute(state, block_context).unwrap();
@@ -233,7 +232,10 @@ fn test_revert_invoke() {
         state.get_fee_token_balance(block_context, &deployed_account_address).unwrap(),
         (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
     );
-    assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(2_u8)));
+    assert_eq!(
+        state.get_nonce_at(deployed_account_address).unwrap(),
+        nonce_manager.next(deployed_account_address)
+    );
 
     // Check that execution state changes were reverted.
     assert_eq!(
