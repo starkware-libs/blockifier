@@ -82,8 +82,13 @@ impl From<SyscallExecutionError> for HintError {
 }
 
 /// Error codes returned by Cairo 1.0 code.
+
+// "Out of gas";
 pub const OUT_OF_GAS_ERROR: &str =
-    "0x000000000000000000000000000000000000000000004f7574206f6620676173"; // "Out of gas";
+    "0x000000000000000000000000000000000000000000004f7574206f6620676173";
+// "Block number out of range";
+pub const BLOCK_NUMBER_OUT_OF_RANGE_ERROR: &str =
+    "0x00000000000000426c6f636b206e756d626572206f7574206f662072616e6765";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
