@@ -189,7 +189,7 @@ pub fn execute_deployment(
     context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
-    remaining_gas: Felt252,
+    remaining_gas: &mut u64,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.

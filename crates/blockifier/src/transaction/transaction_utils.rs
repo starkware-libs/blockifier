@@ -1,10 +1,6 @@
 use std::collections::HashMap;
-
-use cairo_felt::Felt252;
-
 use crate::abi::constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
-use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::TransactionalState;
@@ -74,6 +70,6 @@ pub fn calculate_tx_resources<S: StateReader>(
     Ok(ResourcesMapping(tx_resources))
 }
 
-pub fn update_remaining_gas(remaining_gas: &mut Felt252, call_info: &CallInfo) {
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
+    *remaining_gas -= call_info.execution.gas_consumed;
 }

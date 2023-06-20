@@ -288,7 +288,7 @@ pub fn deploy(
         deployer_address_for_calculation,
     )?;
 
-    let initial_gas = constants::INITIAL_GAS_COST.into();
+    let mut initial_gas = constants::INITIAL_GAS_COST;
     let ctor_context = ConstructorContext {
         class_hash: request.class_hash,
         code_address: Some(deployed_contract_address),
@@ -300,7 +300,7 @@ pub fn deploy(
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
-        initial_gas,
+        &mut initial_gas,
     )?;
     syscall_handler.inner_calls.push(call_info);
 

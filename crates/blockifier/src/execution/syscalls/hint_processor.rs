@@ -14,6 +14,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -70,6 +71,8 @@ pub enum SyscallExecutionError {
     VirtualMachineError(#[from] VirtualMachineError),
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<StarkFelt> },
+    #[error("Invalid gas value.")]
+    GasValueError {},
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
@@ -240,7 +243,7 @@ impl<'a> SyscallHintProcessor<'a> {
             Request,
             &mut VirtualMachine,
             &mut SyscallHintProcessor<'_>,
-            &mut Felt252,
+            &mut u64,
         ) -> SyscallResult<Response>,
     {
         let SyscallRequestWrapper { gas_counter, request } =
@@ -258,7 +261,11 @@ impl<'a> SyscallHintProcessor<'a> {
         }
 
         // Execute.
-        let mut remaining_gas = gas_counter - Felt252::from(base_gas_cost);
+        let gas_counter = gas_counter.to_u64();
+        let Some(gas_counter) = gas_counter else{
+            return Err(HintError::from(SyscallExecutionError::GasValueError{}))
+            };
+        let mut remaining_gas = gas_counter - base_gas_cost;
         let original_response = execute_callback(request, vm, self, &mut remaining_gas);
         let response = match original_response {
             Ok(response) => {
@@ -455,7 +462,7 @@ pub fn execute_inner_call(
     call: CallEntryPoint,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-    remaining_gas: &mut Felt252,
+    remaining_gas: &mut u64,
 ) -> SyscallResult<ReadOnlySegment> {
     let call_info = call.execute(syscall_handler.state, syscall_handler.context)?;
     let raw_retdata = &call_info.execution.retdata.0;
@@ -467,7 +474,7 @@ pub fn execute_inner_call(
     }
 
     let retdata_segment = create_retdata_segment(vm, syscall_handler, raw_retdata)?;
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+    *remaining_gas -= call_info.execution.gas_consumed;
 
     syscall_handler.inner_calls.push(call_info);
 
@@ -493,7 +500,7 @@ pub fn execute_library_call(
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
-    remaining_gas: &mut Felt252,
+    remaining_gas: &mut u64,
 ) -> SyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
@@ -507,7 +514,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address(),
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
-        initial_gas: remaining_gas.clone(),
+        initial_gas: *remaining_gas,
     };
 
     execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)

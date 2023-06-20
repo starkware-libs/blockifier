@@ -6,6 +6,7 @@ use cairo_vm::vm::runners::cairo_runner::{
     CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
@@ -18,9 +19,10 @@ use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
-    felt_to_stark_felt, read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable,
-    write_stark_felt, Args, ReadOnlySegments,
+    read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
+    ReadOnlySegments,
 };
+
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
 
@@ -38,7 +40,7 @@ pub struct VmExecutionContext<'a> {
 pub struct CallResult {
     pub failed: bool,
     pub retdata: Retdata,
-    pub gas_consumed: StarkFelt,
+    pub gas_consumed: u64,
 }
 
 /// Executes a specific call to a contract entry point and returns its output.
@@ -192,7 +194,7 @@ pub fn prepare_call_arguments(
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
     // Push gas counter.
-    args.push(CairoArg::Single(MaybeRelocatable::from(&call.initial_gas)));
+    args.push(CairoArg::Single(MaybeRelocatable::from(Felt252::from(call.initial_gas))));
     // Push syscall ptr.
     args.push(CairoArg::Single(MaybeRelocatable::from(initial_syscall_ptr)));
 
@@ -307,16 +309,25 @@ fn get_call_result(
         Err(PostExecutionError::MalformedReturnData {
             error_message: "Error extracting return data.".to_string()});
     };
-    if gas < &Felt252::from(0) || gas > &syscall_handler.call.initial_gas {
+
+    let gas = gas.to_u64();
+
+    let Some(gas) = gas else{
+        return Err(PostExecutionError::MalformedReturnData {
+            error_message: "Error extracting return data.".to_string(),
+        })
+    };
+
+    if gas > syscall_handler.call.initial_gas {
         return Err(PostExecutionError::MalformedReturnData {
             error_message: format!("Unexpected remaining gas: {gas}."),
         });
     }
 
-    let gas_consumed = &syscall_handler.call.initial_gas - gas;
+    let gas_consumed = syscall_handler.call.initial_gas - gas;
     Ok(CallResult {
         failed,
         retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,
-        gas_consumed: felt_to_stark_felt(&gas_consumed),
+        gas_consumed,
     })
 }

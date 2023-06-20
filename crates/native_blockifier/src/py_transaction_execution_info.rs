@@ -4,6 +4,7 @@ use blockifier::execution::entry_point::{CallInfo, OrderedEvent, OrderedL2ToL1Me
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
+use starknet_api::hash::StarkFelt;
 
 use crate::py_utils::{to_py_vec, PyFelt};
 
@@ -95,7 +96,7 @@ impl From<CallInfo> for PyCallInfo {
             entry_point_selector: PyFelt(call.entry_point_selector.0),
             entry_point_type: call.entry_point_type as u8,
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
-            gas_consumed: PyFelt(execution.gas_consumed),
+            gas_consumed: PyFelt(StarkFelt::from(execution.gas_consumed)),
             failure_flag: PyFelt::from(execution.failed as u8),
             retdata: to_py_vec(execution.retdata.0, PyFelt),
             execution_resources: PyVmExecutionResources::from(call_info.vm_resources),

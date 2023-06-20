@@ -1,4 +1,3 @@
-use cairo_felt::Felt252;
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
 
 use crate::abi::constants as abi_constants;
@@ -27,8 +26,8 @@ pub enum Transaction {
 
 impl Transaction {
     /// Returns the initial gas of the transaction to run with.
-    pub fn initial_gas() -> Felt252 {
-        Felt252::from(abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST)
+    pub fn initial_gas() -> u64 {
+        abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
     }
 }
 

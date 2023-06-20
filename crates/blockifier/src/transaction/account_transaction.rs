@@ -1,4 +1,3 @@
-use cairo_felt::Felt252;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -163,7 +162,7 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
@@ -179,7 +178,7 @@ impl AccountTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas.clone(),
+            initial_gas: *remaining_gas,
         };
 
         let validate_call_info = validate_call
