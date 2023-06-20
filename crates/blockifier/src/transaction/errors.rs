@@ -45,7 +45,10 @@ pub enum TransactionExecutionError {
     UnauthorizedInnerCall { entry_point_kind: String },
     #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
-    #[error("Invalid order number for {object}. Order: {order} exceeds the maximum order limit: {max_order}.")]
+    #[error(
+        "Invalid order number for {object}. Order: {order} exceeds the maximum order limit: \
+            {max_order}."
+    )]
     InvalidOrder { object: String, order: usize, max_order: usize },
     #[error("Unknown chain ID '{chain_id:?}'.")]
     UnknownChainId { chain_id: String },
