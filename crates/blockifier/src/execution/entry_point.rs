@@ -244,7 +244,6 @@ impl CallInfo {
                 }),
             },
         )
-
     }
 }
 
