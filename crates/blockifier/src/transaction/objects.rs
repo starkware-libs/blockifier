@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::entry_point::CallInfo;
@@ -20,6 +22,12 @@ pub struct AccountTransactionContext {
     pub sender_address: ContractAddress,
 }
 
+impl AccountTransactionContext {
+    pub fn is_v0(&self) -> bool {
+        self.version == TransactionVersion(stark_felt!(0_u8))
+    }
+}
+
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionExecutionInfo {
@@ -34,6 +42,10 @@ pub struct TransactionExecutionInfo {
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
+    /// Error string for reverted transactions; [None] if transaction execution was successful.
+    // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
+    //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
+    pub revert_error: Option<String>,
 }
 
 impl TransactionExecutionInfo {

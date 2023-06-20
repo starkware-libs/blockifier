@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
@@ -16,7 +16,9 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use crate::abi::abi_utils::{
+    get_erc20_balance_var_addresses, get_storage_var_address, selector_from_name,
+};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
@@ -30,6 +32,7 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
+<<<<<<< HEAD
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader, NonceManager,
     ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
@@ -37,61 +40,25 @@ use crate::test_utils::{
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+=======
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader, BALANCE,
+    MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
+    TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+>>>>>>> main
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::test_utils::{
+    create_account_tx_for_validate_test, create_state_with_falliable_validation_account,
+    create_state_with_trivial_validation_account, CALL_CONTRACT, INVALID, VALID,
+};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
-
-// Corresponding constants to the ones in faulty_account.
-pub const VALID: u64 = 0;
-pub const INVALID: u64 = 1;
-pub const CALL_CONTRACT: u64 = 2;
-
-fn create_account_tx_test_state(
-    account_class_hash: &str,
-    account_address: &str,
-    account_path: &str,
-    erc20_account_balance_key: StorageKey,
-    initial_account_balance: u128,
-) -> CachedState<DictStateReader> {
-    let block_context = BlockContext::create_for_testing();
-
-    let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
-    let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
-    let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(account_path).into()),
-        (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_PATH).into()),
-        (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
-    ]);
-    let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    // A random address that is unlikely to equal the result of the calculation of a contract
-    // address.
-    let test_account_address = ContractAddress(patricia_key!(account_address));
-    let test_erc20_address = block_context.fee_token_address;
-    let address_to_class_hash = HashMap::from([
-        (test_contract_address, test_contract_class_hash),
-        (test_account_address, test_account_class_hash),
-        (test_erc20_address, test_erc20_class_hash),
-    ]);
-    let minter_var_address = get_storage_var_address("permitted_minter", &[])
-        .expect("Failed to get permitted_minter storage address.");
-    let storage_view = HashMap::from([
-        ((test_erc20_address, erc20_account_balance_key), stark_felt!(initial_account_balance)),
-        // Give the account mint permission.
-        ((test_erc20_address, minter_var_address), *test_account_address.0.key()),
-    ]);
-    CachedState::new(DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        storage_view,
-        ..Default::default()
-    })
-}
 
 fn expected_validate_call_info(
     class_hash: ClassHash,
@@ -99,17 +66,24 @@ fn expected_validate_call_info(
     calldata: Calldata,
     storage_address: ContractAddress,
 ) -> Option<CallInfo> {
+    let n_steps = match entry_point_selector_name {
+        constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME => 13_usize,
+        constants::VALIDATE_DECLARE_ENTRY_POINT_NAME => 12_usize,
+        constants::VALIDATE_ENTRY_POINT_NAME => 21_usize,
+        selector => panic!("Selector {selector} is not a known validate selector."),
+    };
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks =
         usize::from(entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME);
     let vm_resources = VmExecutionResources {
-        n_steps: 21,
-        n_memory_holes: 1,
+        n_steps,
+        n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(
             RANGE_CHECK_BUILTIN_NAME.to_string(),
             n_range_checks,
         )]),
-    };
+    }
+    .filter_unused_builtins();
 
     let initial_gas = Transaction::initial_gas();
     Some(CallInfo {
@@ -174,6 +148,11 @@ fn expected_fee_transfer_call_info(
         },
     };
 
+    let (sender_balance_key_low, sender_balance_key_high) =
+        get_erc20_balance_var_addresses(&account_address).expect("Cannot get sender balance keys.");
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_erc20_balance_var_addresses(&block_context.sequencer_address)
+            .expect("Cannot get sequencer balance keys.");
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
@@ -182,6 +161,24 @@ fn expected_fee_transfer_call_info(
             ..Default::default()
         },
         vm_resources,
+        // We read sender balance, write (which starts with read) sender balance, then the same for
+        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
+        storage_read_values: vec![
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+        ],
+        accessed_storage_keys: HashSet::from_iter(vec![
+            sender_balance_key_low,
+            sender_balance_key_high,
+            sequencer_balance_key_low,
+            sequencer_balance_key_high,
+        ]),
         ..Default::default()
     })
 }
@@ -219,28 +216,6 @@ fn invoke_tx() -> InvokeTransactionV1 {
         ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
         Fee(MAX_FEE),
         None,
-    )
-}
-
-fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
-    let account_balance = BALANCE;
-    create_account_tx_test_state(
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
-        ACCOUNT_CONTRACT_PATH,
-        test_erc20_account_balance_key(),
-        account_balance,
-    )
-}
-
-fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
-    let account_balance = BALANCE;
-    create_account_tx_test_state(
-        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-        TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
-        test_erc20_faulty_account_balance_key(),
-        account_balance * 2,
     )
 }
 
@@ -292,8 +267,8 @@ fn test_invoke_tx() {
         call: expected_execute_call,
         execution: CallExecution::from_retdata(Retdata(expected_return_result_retdata.0.clone())),
         vm_resources: VmExecutionResources {
-            n_steps: 39,
-            n_memory_holes: 1,
+            n_steps: 61,
+            n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
         inner_calls: vec![CallInfo {
@@ -301,7 +276,7 @@ fn test_invoke_tx() {
             execution: CallExecution::from_retdata(expected_return_result_retdata),
             vm_resources: VmExecutionResources {
                 n_steps: 22,
-                n_memory_holes: 1,
+                n_memory_holes: 0,
                 ..Default::default()
             },
             ..Default::default()
@@ -318,7 +293,7 @@ fn test_invoke_tx() {
         expected_actual_fee,
         VmExecutionResources {
             n_steps: 525,
-            n_memory_holes: 60,
+            n_memory_holes: 59,
             builtin_instance_counter: HashMap::from([
                 (HASH_BUILTIN_NAME.to_string(), 4),
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
@@ -337,10 +312,11 @@ fn test_invoke_tx() {
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 101),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 4135),
         ])),
+        revert_error: None,
     };
 
     // Test execution info result.
-    validate_tx_execution_info(actual_execution_info, expected_execution_info);
+    assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
@@ -392,6 +368,52 @@ fn test_state_get_fee_token_balance() {
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);
+}
+
+fn assert_failure_if_max_fee_exceeds_balance(
+    state: &mut CachedState<DictStateReader>,
+    block_context: &BlockContext,
+    invalid_tx: AccountTransaction,
+) {
+    let sent_max_fee = invalid_tx.max_fee();
+
+    // Test error.
+    assert_matches!(
+        invalid_tx.execute(state, block_context).unwrap_err(),
+        TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
+        if max_fee == sent_max_fee
+    );
+}
+
+#[test]
+fn test_max_fee_exceeds_balance() {
+    let state = &mut create_state_with_trivial_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let invalid_max_fee = Fee(BALANCE + 1);
+
+    // Invoke.
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        max_fee: invalid_max_fee,
+        ..invoke_tx()
+    }));
+    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
+
+    // Deploy.
+    let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+        max_fee: invalid_max_fee,
+        ..deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None)
+    });
+    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
+
+    // Declare.
+    let invalid_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+            max_fee: invalid_max_fee,
+            ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
+        }),
+        contract_class: ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH)),
+    });
+    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
 
 #[test]
@@ -493,7 +515,7 @@ fn test_declare_tx() {
         expected_actual_fee,
         VmExecutionResources {
             n_steps: 525,
-            n_memory_holes: 60,
+            n_memory_holes: 59,
             builtin_instance_counter: HashMap::from([
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
                 (HASH_BUILTIN_NAME.to_string(), 4),
@@ -512,10 +534,11 @@ fn test_declare_tx() {
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
         ])),
+        revert_error: None,
     };
 
     // Test execution info result.
-    validate_tx_execution_info(actual_execution_info, expected_execution_info);
+    assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
@@ -614,8 +637,8 @@ fn test_deploy_account_tx() {
         deployed_account_address,
         expected_actual_fee,
         VmExecutionResources {
-            n_steps: 525,
-            n_memory_holes: 58,
+            n_steps: 529,
+            n_memory_holes: 57,
             builtin_instance_counter: HashMap::from([
                 (HASH_BUILTIN_NAME.to_string(), 4),
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
@@ -634,10 +657,11 @@ fn test_deploy_account_tx() {
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
         ])),
+        revert_error: None,
     };
 
     // Test execution info result.
-    validate_tx_execution_info(actual_execution_info, expected_execution_info);
+    assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();
@@ -674,6 +698,7 @@ fn test_deploy_account_tx() {
     );
 }
 
+<<<<<<< HEAD
 fn create_account_tx_for_validate_test(
     tx_type: TransactionType,
     scenario: u64,
@@ -732,6 +757,8 @@ fn create_account_tx_for_validate_test(
         TransactionType::L1Handler => unimplemented!(),
     }
 }
+=======
+>>>>>>> main
 #[test]
 fn test_validate_accounts_tx() {
     fn test_validate_account_tx(tx_type: TransactionType) {

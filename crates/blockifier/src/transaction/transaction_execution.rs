@@ -113,6 +113,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
             actual_resources,
+            revert_error: None,
         })
     }
 }

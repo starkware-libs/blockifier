@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fs;
-use std::iter::zip;
 use std::path::PathBuf;
 
 use cairo_felt::Felt252;
@@ -37,7 +36,7 @@ use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::transaction::objects::{AccountTransactionContext, TransactionExecutionInfo};
+use crate::transaction::objects::AccountTransactionContext;
 
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
@@ -441,40 +440,7 @@ pub fn declare_tx(
     }
 }
 
-// Validations
-
-pub fn compare_optional_call_infos(actual: Option<CallInfo>, expected: Option<CallInfo>) {
-    match (&actual, &expected) {
-        (Some(actual), Some(expected)) => compare_call_info_fields(actual, expected),
-        (None, None) => (),
-        _ => panic!(
-            "The actual call info does not equal the expected call info. Expected: {expected:?}, \
-             Actual: {actual:?}"
-        ),
-    }
-}
-
-pub fn compare_call_info_fields(actual: &CallInfo, expected: &CallInfo) {
-    // Check selected members
-    assert_eq!(actual.call, expected.call);
-    assert_eq!(actual.execution, expected.execution);
-    assert_eq!(actual.inner_calls.len(), expected.inner_calls.len());
-    for (actual_inner_call, expected_inner_call) in zip(&actual.inner_calls, &expected.inner_calls)
-    {
-        compare_call_info_fields(actual_inner_call, expected_inner_call);
-    }
-}
-
-pub fn validate_tx_execution_info(
-    actual: TransactionExecutionInfo,
-    expected: TransactionExecutionInfo,
-) {
-    compare_optional_call_infos(actual.validate_call_info, expected.validate_call_info);
-    compare_optional_call_infos(actual.execute_call_info, expected.execute_call_info);
-    compare_optional_call_infos(actual.fee_transfer_call_info, expected.fee_transfer_call_info);
-    assert_eq!(actual.actual_fee, expected.actual_fee);
-    assert_eq!(actual.actual_resources, expected.actual_resources);
-}
+// Contract loaders.
 
 impl ContractClassV0 {
     pub fn from_file(contract_path: &str) -> ContractClassV0 {
