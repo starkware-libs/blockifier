@@ -45,8 +45,6 @@ pub enum TransactionExecutionError {
     UnauthorizedInnerCall { entry_point_kind: String },
     #[error("Unexpected holes in the {object} order. Two objects with the same order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
-    #[error("Unknown chain ID '{chain_id:?}'.")]
-    UnknownChainId { chain_id: String },
     #[error("Transaction validation has failed.")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
 }
