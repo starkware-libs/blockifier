@@ -47,6 +47,11 @@ pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
 #[derive(Debug, Error)]
 pub enum SyscallExecutionError {
+    #[error(
+        "Block number out of range; maximal allowed: {upper_bound_block_number:?}, got: \
+         {requested_block_number:?}."
+    )]
+    BlockNumberOutOfRange { upper_bound_block_number: u64, requested_block_number: u64 },
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error("Cannot replace V1 class hash with V0 class hash: {class_hash}.")]
