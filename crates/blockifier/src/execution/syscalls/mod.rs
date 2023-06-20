@@ -296,7 +296,7 @@ pub struct GetBlockHashRequest {
 }
 
 // TODO(Arni, 20/6/2023): Implement in starknet-api, the conversions:
-//  fn try_from(felt: StarkFelt) -> Result<u64, _>
+//  fn try_from(felt: StarkFelt) -> Result<u64, _>.
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
         let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
@@ -325,14 +325,26 @@ impl SyscallResponse for GetBlockHashResponse {
 // Returns the block hash of a given block_number.
 // Returns the expected block hash if the given block was created at least 10 blocks before the
 // current block. Otherwise, returns an error.
-// TODO(Arni, 11/6/2023): Implement according to the documentation above.
 pub fn get_block_hash(
     request: GetBlockHashRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
-    let key = StorageKey::try_from(StarkFelt::from(request.block_number.0))?;
+    let requested_block_number = request.block_number.0;
+    let current_block_number = syscall_handler.context.block_context.block_number.0;
+
+    // We assure the requested block number is at least 10 blocks before the current block.
+    // We use checked_sub to avoid underflow.
+    let upper_bound_block_number =
+        current_block_number.checked_sub(constants::STORED_BLOCK_HASH_BUFFER);
+    if upper_bound_block_number
+        .map_or(true, |upper_bound_block_number| requested_block_number > upper_bound_block_number)
+    {
+        return Err(SyscallExecutionError::BlockNumberOutOfRange);
+    }
+
+    let key = StorageKey::try_from(StarkFelt::from(requested_block_number))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
     let block_hash =
