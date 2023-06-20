@@ -27,8 +27,9 @@ use crate::execution::syscalls::hint_processor::OUT_OF_GAS_ERROR;
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
+    create_deploy_test_state, create_test_state, trivial_external_entry_point, BLOCK_NUMBER,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_PATH,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35050;
@@ -128,7 +129,7 @@ fn test_get_block_hash() {
     let mut state = create_test_state();
 
     // Initialize block number -> block hash entry.
-    let block_number = stark_felt!(1800_u64);
+    let block_number = stark_felt!(BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER);
     let block_hash = stark_felt!(66_u64);
     let key = StorageKey::try_from(block_number).unwrap();
     let block_hash_contract_address =

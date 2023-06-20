@@ -11,6 +11,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
 };
+use starknet_api::StarknetApiError;
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
@@ -316,13 +317,37 @@ impl SyscallResponse for GetBlockHashResponse {
 // Returns the block hash of a given block_number.
 // Returns the expected block hash if the given block was created at least 10 blocks before the
 // current block. Otherwise, returns an error.
-// TODO(Arni, 11/6/2023): Implement according to the documentation above.
 pub fn get_block_hash(
     request: GetBlockHashRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
+    // TODO(Arni, 21/6/2023): implement <StarkFelt as TryInto<u64>>::try_into.
+    let request_block_number: u64 = <StarkFelt as TryInto<usize>>::try_into(request.block_number)?
+        .try_into()
+        .map_err(|_| {
+            SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
+                string: request.block_number.to_string(),
+            })
+        })?;
+    let current_block_number = syscall_handler.context.block_context.block_number.0;
+    if current_block_number < constants::STORED_BLOCK_HASH_BUFFER {
+        // The get block hash should be desabled for the first 10 blocks.
+        // TODO(Arni, 21/6/2023): Add a new error type for this case.
+        return Err(SyscallExecutionError::BlockNumberOutOfRange {
+            upper_bound_block_number: 0,
+            request_block_number,
+        });
+    }
+    let upper_bound_block_number = current_block_number - constants::STORED_BLOCK_HASH_BUFFER;
+    if request_block_number > upper_bound_block_number {
+        return Err(SyscallExecutionError::BlockNumberOutOfRange {
+            upper_bound_block_number,
+            request_block_number,
+        });
+    }
+
     let key = StorageKey::try_from(request.block_number)?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
