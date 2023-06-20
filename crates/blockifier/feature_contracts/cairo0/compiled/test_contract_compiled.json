@@ -359,11 +359,11 @@
         ],
         "EXTERNAL": [
             {
-                "offset": 820,
+                "offset": 849,
                 "selector": "0x1143aa89c8e3ebf8ed14df2a3606c1cd2dd513fac8040b0f8ab441f5c52fe4"
             },
             {
-                "offset": 861,
+                "offset": 890,
                 "selector": "0x600c98a299d72ef1e09a2e1503206fbc76081233172c65f7e2438ef0069d8d"
             },
             {
@@ -1318,7 +1318,7 @@
             "0x482680017ffd8000",
             "0x800000000000011000000000000000000000000000000000000000000000000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffcba",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffc9d",
             "0x482480017fff8000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffe",
             "0x40137fff7fff8000",
@@ -1329,7 +1329,7 @@
             "0x3",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffcb4",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffc97",
             "0x48127ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
@@ -1810,7 +1810,7 @@
                     }
                 }
             ],
-            "826": [
+            "855": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1821,14 +1821,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 69,
+                            "group": 71,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "870": [
+            "899": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1839,7 +1839,7 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 72,
+                            "group": 74,
                             "offset": 0
                         },
                         "reference_ids": {}
@@ -2161,7 +2161,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 812,
+                "pc": 841,
                 "type": "function"
             },
             "__main__.recurse.Args": {
@@ -2193,7 +2193,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 836,
+                "pc": 865,
                 "type": "function"
             },
             "__main__.recursive_syscall.Args": {
@@ -2962,7 +2962,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 820,
+                "pc": 849,
                 "type": "function"
             },
             "__wrappers__.recurse.Args": {
@@ -2997,7 +2997,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 861,
+                "pc": 890,
                 "type": "function"
             },
             "__wrappers__.recursive_syscall.Args": {
