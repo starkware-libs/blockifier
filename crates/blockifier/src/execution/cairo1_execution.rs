@@ -220,21 +220,21 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> Result<(), VirtualMachineExecutionError> {
-    // TODO(Dori,30/06/2023): propagate properly once VM allows it.
-    let run_resources = &mut None;
+    let mut run_resources = hint_processor.context.vm_run_resources.clone();
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
-    runner.run_from_entrypoint(
+    let result = runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
-        run_resources,
+        &mut run_resources,
         verify_secure,
         Some(program_segment_size),
         vm,
         hint_processor,
-    )?;
+    );
 
-    Ok(())
+    hint_processor.context.vm_run_resources = run_resources;
+    Ok(result?)
 }
 
 pub fn finalize_execution(

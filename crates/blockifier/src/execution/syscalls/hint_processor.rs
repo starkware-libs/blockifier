@@ -13,6 +13,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -408,12 +409,16 @@ impl HintProcessor for SyscallHintProcessor<'_> {
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
         _constants: &HashMap<String, Felt252>,
+        run_resources: &mut RunResources,
     ) -> HintExecutionResult {
+        self.context.vm_run_resources = run_resources.clone();
         let hint = hint_data.downcast_ref::<Hint>().ok_or(HintError::WrongHintData)?;
-        match hint {
+        let result = match hint {
             Hint::Core(hint) => execute_core_hint_base(vm, exec_scopes, hint),
             Hint::Starknet(hint) => self.execute_next_syscall(vm, hint),
-        }
+        };
+        *run_resources = self.context.vm_run_resources.clone();
+        result
     }
 
     /// Trait function to store hint in the hint processor by string.
@@ -422,7 +427,7 @@ impl HintProcessor for SyscallHintProcessor<'_> {
         hint_code: &str,
         _ap_tracking_data: &ApTracking,
         _reference_ids: &HashMap<String, usize>,
-        _references: &HashMap<usize, HintReference>,
+        _references: &[HintReference],
     ) -> Result<Box<dyn Any>, VirtualMachineError> {
         Ok(Box::new(self.hints[hint_code].clone()))
     }
