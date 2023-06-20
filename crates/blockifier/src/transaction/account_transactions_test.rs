@@ -1,15 +1,10 @@
 use std::collections::HashMap;
 
-<<<<<<< HEAD
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
-=======
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
->>>>>>> main
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
     InvokeTransactionV1,
@@ -22,15 +17,9 @@ use crate::execution::contract_class::ContractClassV0;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-<<<<<<< HEAD
     declare_tx, deploy_account_tx, invoke_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_PATH,
     BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-=======
-    declare_tx, deploy_account_tx, invoke_tx, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
->>>>>>> main
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -63,35 +52,9 @@ fn create_state() -> CachedState<DictStateReader> {
     })
 }
 
-<<<<<<< HEAD
 fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData {
     let mut state = create_state();
     let mut nonce_manager = NonceManager::default();
-=======
-#[test]
-fn test_fee_enforcement() {
-    let state = &mut create_state();
-    let block_context = &BlockContext::create_for_account_testing();
-
-    for max_fee_value in 0..2 {
-        let max_fee = Fee(max_fee_value);
-
-        let deploy_account_tx =
-            deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee, None, None);
-
-        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        let enforce_fee = account_tx.enforce_fee();
-        let result = account_tx.execute(state, block_context);
-        assert_eq!(result.is_err(), enforce_fee);
-    }
-}
-
-#[test]
-fn test_account_flow_test() {
-    let state = &mut create_state();
-    let block_context = &BlockContext::create_for_account_testing();
-    let max_fee = Fee(MAX_FEE);
->>>>>>> main
 
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
@@ -165,6 +128,29 @@ fn test_account_flow_test() {
 }
 
 #[test]
+fn test_fee_enforcement() {
+    let state = &mut create_state();
+    let block_context = &BlockContext::create_for_account_testing();
+
+    for max_fee_value in 0..2 {
+        let max_fee = Fee(max_fee_value);
+
+        let deploy_account_tx = deploy_account_tx(
+            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+            max_fee,
+            None,
+            None,
+            &mut NonceManager::default(),
+        );
+
+        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+        let enforce_fee = account_tx.enforce_fee();
+        let result = account_tx.execute(state, block_context);
+        assert_eq!(result.is_err(), enforce_fee);
+    }
+}
+
+#[test]
 fn test_account_flow_test() {
     let max_fee = Fee(MAX_FEE);
     let block_context = &BlockContext::create_for_account_testing();
@@ -196,8 +182,13 @@ fn test_revert_invoke() {
     let max_fee = Fee(MAX_FEE);
 
     // Deploy an account contract.
-    let deploy_account_tx =
-        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, max_fee, None, None);
+    let deploy_account_tx = deploy_account_tx(
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        None,
+        None,
+        &mut NonceManager::default(),
+    );
     let deployed_account_address = deploy_account_tx.contract_address;
 
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it

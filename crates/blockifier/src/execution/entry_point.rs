@@ -8,13 +8,9 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-<<<<<<< HEAD
 use starknet_api::transaction::{
-    Calldata, EthAddress, EventContent, L2ToL1Payload, TransactionVersion,
+    Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
 };
-=======
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, Fee, L2ToL1Payload};
->>>>>>> main
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
