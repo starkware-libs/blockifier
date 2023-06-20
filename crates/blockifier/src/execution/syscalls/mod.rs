@@ -16,7 +16,7 @@ use starknet_api::StarknetApiError;
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
-    SyscallHintProcessor,
+    SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
 use crate::abi::constants;
 use crate::execution::contract_class::ContractClass;
@@ -295,7 +295,7 @@ pub struct GetBlockHashRequest {
 }
 
 // TODO(Arni, 20/6/2023): Implement in starknet-api, the conversions:
-//  fn try_from(felt: StarkFelt) -> Result<u64, _>
+//  fn try_from(felt: StarkFelt) -> Result<u64, _>.
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
         let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
@@ -321,17 +321,31 @@ impl SyscallResponse for GetBlockHashResponse {
     }
 }
 
-// Returns the block hash of a given block_number.
-// Returns the expected block hash if the given block was created at least 10 blocks before the
-// current block. Otherwise, returns an error.
-// TODO(Arni, 11/6/2023): Implement according to the documentation above.
+/// Returns the block hash of a given block_number.
+/// Returns the expected block hash if the given block was created at least
+/// [constants::STORED_BLOCK_HASH_BUFFER] blocks before the current block. Otherwise, returns an
+/// error.
 pub fn get_block_hash(
     request: GetBlockHashRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
-    let key = StorageKey::try_from(StarkFelt::from(request.block_number.0))?;
+    let requested_block_number = request.block_number.0;
+    let current_block_number = syscall_handler.context.block_context.block_number.0;
+
+    // We use 'checked_sub' to avoid underflow when current_block_number is too small.
+    let upper_bound_block_number =
+        current_block_number.checked_sub(constants::STORED_BLOCK_HASH_BUFFER);
+    if upper_bound_block_number.is_none()
+        || requested_block_number > upper_bound_block_number.unwrap()
+    {
+        let out_of_range_error = StarkFelt::try_from(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)
+            .map_err(SyscallExecutionError::from)?;
+        return Err(SyscallExecutionError::SyscallError { error_data: vec![out_of_range_error] });
+    }
+
+    let key = StorageKey::try_from(StarkFelt::from(requested_block_number))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
     let block_hash =
