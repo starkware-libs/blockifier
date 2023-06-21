@@ -9,7 +9,11 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
+<<<<<<< HEAD
     Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
+=======
+    Calldata, EthAddress, EventContent, L2ToL1Payload, TransactionVersion,
+>>>>>>> origin/main-v0.12.0
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -99,6 +103,7 @@ impl EntryPointExecutionContext {
             block_context,
             account_tx_context,
             recursion_depth: 0,
+<<<<<<< HEAD
         }
     }
 
@@ -117,6 +122,8 @@ impl EntryPointExecutionContext {
                 });
             let max_gas = self.account_tx_context.max_fee.0 / self.block_context.gas_price;
             ((max_gas as f64 / gas_per_step).floor() as usize).min(constants::MAX_STEPS_PER_TX)
+=======
+>>>>>>> origin/main-v0.12.0
         }
     }
 
@@ -251,17 +258,11 @@ impl CallInfo {
     /// Returns the set of class hashes that were executed during this call execution.
     // TODO: Add unit test for this method
     pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
-        let mut class_hashes = HashSet::<ClassHash>::from([self
-            .call
-            .class_hash
-            .expect("Class hash must be set after execution.")]);
-
-        // The first call in the iterator is self (it follows a pre-order traversal),
-        // which is added separately as the base case for the recursion.
-        let inner_calls = self.into_iter().skip(1);
-
-        for call in inner_calls {
-            class_hashes.extend(call.get_executed_class_hashes());
+        let mut class_hashes = HashSet::new();
+        let calls = self.into_iter();
+        for call in calls {
+            class_hashes
+                .insert(call.call.class_hash.expect("Class hash must be set after execution."));
         }
 
         class_hashes

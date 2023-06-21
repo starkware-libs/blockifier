@@ -1,10 +1,15 @@
 use std::collections::HashMap;
 
+<<<<<<< HEAD
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
+=======
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
+use starknet_api::hash::StarkFelt;
+>>>>>>> origin/main-v0.12.0
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
     InvokeTransactionV1,
@@ -19,7 +24,11 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     declare_tx, deploy_account_tx, invoke_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_PATH,
     BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+<<<<<<< HEAD
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+=======
+    TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+>>>>>>> origin/main-v0.12.0
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -128,6 +137,7 @@ fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData
 }
 
 #[test]
+<<<<<<< HEAD
 fn test_fee_enforcement() {
     let state = &mut create_state();
     let block_context = &BlockContext::create_for_account_testing();
@@ -151,6 +161,8 @@ fn test_fee_enforcement() {
 }
 
 #[test]
+=======
+>>>>>>> origin/main-v0.12.0
 fn test_account_flow_test() {
     let max_fee = Fee(MAX_FEE);
     let block_context = &BlockContext::create_for_account_testing();
@@ -166,6 +178,7 @@ fn test_account_flow_test() {
         stark_felt!(2_u8)          // Calldata: num.
     ];
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+<<<<<<< HEAD
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
         nonce: nonce_manager.next(account_address),
         ..tx
@@ -312,4 +325,81 @@ fn test_revert_invoke() {
             )
             .unwrap()
     );
+=======
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    account_tx.execute(&mut state, block_context).unwrap();
+}
+
+#[test]
+fn test_infinite_recursion() {
+    let max_fee = Fee(MAX_FEE);
+    let mut block_context = BlockContext::create_for_account_testing();
+
+    // Limit the number of execution steps (so we quickly hit the limit).
+    block_context.invoke_tx_max_n_steps = 1000;
+
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_state(max_fee, &block_context);
+
+    // Two types of recursion: one "normal" recursion, and one that uses the `call_contract`
+    // syscall.
+    let raw_contract_address = *contract_address.0.key();
+    let raw_normal_entry_point_selector = selector_from_name("recurse").0;
+    let raw_syscall_entry_point_selector = selector_from_name("recursive_syscall").0;
+
+    let normal_calldata = |recursion_depth: u32| -> Calldata {
+        calldata![
+            raw_contract_address,
+            raw_normal_entry_point_selector,
+            stark_felt!(1_u8),
+            stark_felt!(recursion_depth)
+        ]
+    };
+    let syscall_calldata = |recursion_depth: u32| -> Calldata {
+        calldata![
+            raw_contract_address,
+            raw_syscall_entry_point_selector,
+            stark_felt!(3_u8), // Calldata length.
+            raw_contract_address,
+            raw_syscall_entry_point_selector,
+            stark_felt!(recursion_depth)
+        ]
+    };
+
+    // Try two runs for each recursion type: one short run (success), and one that reverts due to
+    // step limit.
+    let first_valid_nonce = nonce_manager.next(account_address);
+    let second_valid_nonce = nonce_manager.next(account_address);
+    let third_valid_nonce = nonce_manager.next(account_address);
+    [
+        (1_u32, true, true, first_valid_nonce),
+        (1000_u32, false, true, second_valid_nonce),
+        (3_u32, true, false, second_valid_nonce), // Use same nonce, since previous tx should fail.
+        (1000_u32, false, false, third_valid_nonce),
+    ]
+    .into_iter()
+    .map(|(recursion_depth, should_be_ok, use_normal_calldata, nonce)| {
+        let execute_calldata = if use_normal_calldata {
+            normal_calldata(recursion_depth)
+        } else {
+            syscall_calldata(recursion_depth)
+        };
+        let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+        let account_tx =
+            AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 { nonce, ..tx }));
+        let result = account_tx.execute(&mut state, &block_context);
+        if should_be_ok {
+            result.unwrap();
+        } else {
+            assert!(
+                format!("{:?}", result.unwrap_err())
+                    .contains("RunResources has no remaining steps.")
+            );
+        }
+    })
+    .for_each(drop);
+>>>>>>> origin/main-v0.12.0
 }
