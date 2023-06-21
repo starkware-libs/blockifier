@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_felt::Felt252;
+use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 
 use crate::abi::constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
@@ -61,13 +62,18 @@ pub fn calculate_tx_resources<S: StateReader>(
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
         + &get_additional_os_resources(execution_resources.syscall_counter, tx_type)?;
-    let total_vm_usage = total_vm_usage.filter_unused_builtins();
+    let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
+    // "segment_arena" built-in is not a SHARP built-in - i.e., it is not part of any proof layout.
+    // Each instance requires approximately 10 steps in the OS.
+    let n_steps = total_vm_usage.n_steps
+        + 10 * total_vm_usage
+            .builtin_instance_counter
+            .remove(SEGMENT_ARENA_BUILTIN_NAME)
+            .unwrap_or_default();
+
     let mut tx_resources = HashMap::from([
         (constants::GAS_USAGE.to_string(), l1_gas_usage),
-        (
-            constants::N_STEPS_RESOURCE.to_string(),
-            total_vm_usage.n_steps + total_vm_usage.n_memory_holes,
-        ),
+        (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);
 

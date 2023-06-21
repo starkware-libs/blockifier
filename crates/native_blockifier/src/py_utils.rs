@@ -10,9 +10,6 @@ use starknet_api::transaction::EthAddress;
 
 use crate::errors::NativeBlockifierResult;
 
-pub const CHAIN_NAMES: &[&str; 4] =
-    &["SN_MAIN", "SN_GOERLI", "SN_GOERLI2", "PRIVATE_SN_POTC_GOERLI"];
-
 #[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy)]
 pub struct PyFelt(#[pyo3(from_py_with = "pyint_to_stark_felt")] pub StarkFelt);
 
@@ -81,18 +78,11 @@ where
 }
 
 pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
-    let expected_name = String::from_utf8_lossy(&value.to_bytes_be()).to_string();
-    for chain_name in CHAIN_NAMES {
-        if expected_name == *chain_name {
-            return Ok(ChainId(expected_name));
-        }
-    }
-    Err(TransactionExecutionError::UnknownChainId { chain_id: value.to_string() }.into())
+    Ok(ChainId(String::from_utf8_lossy(&value.to_bytes_be()).to_string()))
 }
 
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
 #[pyfunction]
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
-    Err(TransactionExecutionError::UnknownChainId { chain_id: String::from("Dummy message.") }
-        .into())
+    Err(TransactionExecutionError::CairoResourcesNotContainedInFeeCosts.into())
 }
