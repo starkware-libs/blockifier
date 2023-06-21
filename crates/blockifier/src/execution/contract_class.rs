@@ -217,22 +217,21 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             .into_iter()
             .map(|x| MaybeRelocatable::from(Felt252::from(x.value)))
             .collect();
-
-        let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
-        for (i, hint_list) in class.hints.iter() {
-            let hint_params: Result<Vec<HintParams>, ProgramError> =
-                hint_list.iter().map(hint_to_hint_params).collect();
-            hints.insert(*i, hint_params?);
-        }
+        let hints: HashMap<usize, Vec<HintParams>> = class
+            .hints
+            .iter()
+            .map(|(i, hints)| (*i, hints.iter().map(hint_to_hint_params).collect()))
+            .collect();
 
         // Collect a sting to hint map so that the hint processor can fetch the correct [Hint]
         // for each instruction.
-        let mut string_to_hint: HashMap<String, Hint> = HashMap::new();
-        for (_, hint_list) in class.hints.iter() {
-            for hint in hint_list.iter() {
-                string_to_hint.insert(serde_json::to_string(hint)?, hint.clone());
-            }
-        }
+        let string_to_hint: HashMap<String, Hint> = class
+            .hints
+            .into_iter()
+            .flat_map(|(_, hints)| {
+                hints.iter().map(|hint| (hint.to_string(), hint.clone())).collect::<Vec<_>>()
+            })
+            .collect();
 
         // Initialize program with all builtins.
         let builtins = vec![
@@ -297,15 +296,15 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
 // V1 utilities.
 
 // TODO(spapini): Share with cairo-lang-runner.
-fn hint_to_hint_params(hint: &cairo_lang_casm::hints::Hint) -> Result<HintParams, ProgramError> {
-    Ok(HintParams {
-        code: serde_json::to_string(hint)?,
+fn hint_to_hint_params(hint: &cairo_lang_casm::hints::Hint) -> HintParams {
+    HintParams {
+        code: hint.to_string(),
         accessible_scopes: vec![],
         flow_tracking_data: FlowTrackingData {
             ap_tracking: ApTracking::new(),
             reference_ids: HashMap::new(),
         },
-    })
+    }
 }
 
 fn convert_entry_points_v1(

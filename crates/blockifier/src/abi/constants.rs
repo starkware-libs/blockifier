@@ -59,10 +59,6 @@ pub const SEND_MESSAGE_TO_L1_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_READ_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_WRITE_GAS_COST: u64 = 50 * STEP_GAS_COST;
 
-// Max number of recursions allows in an EntryPoint.
-// Compatible with CPython's max recursion depth.
-pub const MAX_ENTRY_POINT_RECURSION_DEPTH: usize = 100;
-
 // OS reserved contract addresses.
 
 // This contract stores the block number -> block hash mapping.

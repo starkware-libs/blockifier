@@ -14,11 +14,10 @@ use crate::execution::contract_class::ContractClassV0;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key, DictStateReader,
-    NonceManager, ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
 };
 use crate::transaction::constants;
 use crate::transaction::transactions::DeclareTransaction;
@@ -96,7 +95,6 @@ pub fn create_account_tx_for_validate_test(
     tx_type: TransactionType,
     scenario: u64,
     additional_data: Option<StarkFelt>,
-    nonce_manager: &mut NonceManager,
 ) -> AccountTransaction {
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
@@ -131,7 +129,6 @@ pub fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(calldata![stark_felt!(constants::FELT_FALSE)]),
                 Some(signature),
-                nonce_manager,
             );
             AccountTransaction::DeployAccount(deploy_account_tx)
         }

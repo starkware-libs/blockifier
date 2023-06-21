@@ -312,6 +312,7 @@ impl PyTransactionExecutor {
     pub fn finalize(&mut self) -> PyStateDiff {
         log::debug!("Finalizing execution...");
         let state_diff = self.executor().finalize();
+        self.close();
         log::debug!("Finalized execution.");
 
         state_diff
