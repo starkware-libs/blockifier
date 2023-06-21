@@ -8,15 +8,9 @@ members = ["crates/blockifier", "crates/native_blockifier"]
 [workspace.dependencies]
 assert_matches = "1.5.0"
 cairo-felt = "0.6"
-<<<<<<< HEAD
-cairo-lang-casm = "2.0.0-rc3"
-cairo-lang-runner = "2.0.0-rc3"
-cairo-lang-starknet = "2.0.0-rc3"
-=======
 cairo-lang-casm = "2.0.0-rc4"
 cairo-lang-runner = "2.0.0-rc4"
 cairo-lang-starknet = "2.0.0-rc4"
->>>>>>> origin/main-v0.12.0
 cairo-vm = "0.6"
 ctor = "0.2.0"
 derive_more = "0.99.17"
@@ -30,11 +24,7 @@ ouroboros = "0.15.6"
 
 # IMPORTANT: next upgrade should delete replaced classes table handling.
 # https://github.com/starkware-libs/blockifier/blob/54002da4b11c3c839a1221122cc18330854f563c/crates/native_blockifier/src/storage.rs#L145-L164
-<<<<<<< HEAD
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "09aab31" }
-=======
 papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", tag = "v0.1.2-alpha" }
->>>>>>> origin/main-v0.12.0
 
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"

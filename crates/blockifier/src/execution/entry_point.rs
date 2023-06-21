@@ -9,11 +9,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-<<<<<<< HEAD
     Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
-=======
-    Calldata, EthAddress, EventContent, L2ToL1Payload, TransactionVersion,
->>>>>>> origin/main-v0.12.0
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -103,7 +99,6 @@ impl EntryPointExecutionContext {
             block_context,
             account_tx_context,
             recursion_depth: 0,
-<<<<<<< HEAD
         }
     }
 
@@ -122,8 +117,6 @@ impl EntryPointExecutionContext {
                 });
             let max_gas = self.account_tx_context.max_fee.0 / self.block_context.gas_price;
             ((max_gas as f64 / gas_per_step).floor() as usize).min(constants::MAX_STEPS_PER_TX)
-=======
->>>>>>> origin/main-v0.12.0
         }
     }
 
