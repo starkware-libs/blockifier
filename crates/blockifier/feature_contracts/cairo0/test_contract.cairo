@@ -195,3 +195,28 @@ func test_contract_address{pedersen_ptr: HashBuiltin*, range_check_ptr}(
 func foo() {
     return ();
 }
+
+@external
+func recurse(depth: felt) {
+    if (depth == 0) {
+        return ();
+    }
+    recurse(depth - 1);
+    return ();
+}
+
+@external
+func recursive_syscall{syscall_ptr: felt*}(contract_address: felt, function_selector: felt, depth: felt) {
+    alloc_locals;
+    if (depth == 0) {
+        return ();
+    }
+    local calldata: felt* = new(contract_address, function_selector, depth - 1);
+    call_contract(
+        contract_address=contract_address,
+        function_selector=function_selector,
+        calldata_size=3,
+        calldata=calldata,
+    );
+    return ();
+}

@@ -8,7 +8,9 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, Fee, L2ToL1Payload};
+use starknet_api::transaction::{
+    Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
+};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
@@ -23,6 +25,9 @@ use crate::transaction::objects::{AccountTransactionContext, TransactionExecutio
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
 pub mod test;
+
+pub const FAULTY_CLASS_HASH: &str =
+    "0x1A7820094FEAF82D53F53F214B81292D717E7BB9A92BB2488092CD306F3993F";
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
@@ -77,6 +82,8 @@ pub struct EntryPointExecutionContext {
     pub n_sent_messages_to_l1: usize,
     /// Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
+
+    recursion_depth: usize,
 }
 impl EntryPointExecutionContext {
     pub fn new(
@@ -91,6 +98,7 @@ impl EntryPointExecutionContext {
             error_stack: vec![],
             block_context,
             account_tx_context,
+            recursion_depth: 0,
         }
     }
 
@@ -137,6 +145,11 @@ impl CallEntryPoint {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
+        context.recursion_depth += 1;
+        if context.recursion_depth > constants::MAX_ENTRY_POINT_RECURSION_DEPTH {
+            return Err(EntryPointExecutionError::RecursionDepthExceeded);
+        }
+
         // Validate contract is deployed.
         let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
@@ -148,27 +161,41 @@ impl CallEntryPoint {
             Some(class_hash) => class_hash,
             None => storage_class_hash, // If not given, take the storage contract class hash.
         };
+        // Hack to prevent version 0 attack on argent accounts.
+        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8))
+            && class_hash
+                == ClassHash(
+                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
+                )
+        {
+            return Err(PreExecutionError::FraudAttempt().into());
+        }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
-            match error {
-                // On VM error, pack the stack trace into the propagated error.
-                EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                    context.error_stack.push((storage_address, error.try_to_vm_trace()));
-                    // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is right
-                    // now,  each intermediate VM error is wrapped in a
-                    // VirtualMachineExecutionErrorWithTrace  error with the
-                    // stringified trace of all errors below it.
-                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                        trace: context.error_trace(),
-                        source: error,
+        let result = execute_entry_point_call(self, contract_class, state, resources, context)
+            .map_err(|error| {
+                match error {
+                    // On VM error, pack the stack trace into the propagated error.
+                    EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                        context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                        // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
+                        // right now,  each intermediate VM error is wrapped
+                        // in a VirtualMachineExecutionErrorWithTrace  error
+                        // with the stringified trace of all errors below
+                        // it.
+                        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                            trace: context.error_trace(),
+                            source: error,
+                        }
                     }
+                    other_error => other_error,
                 }
-                other_error => other_error,
-            }
-        })
+            });
+
+        context.recursion_depth -= 1;
+        result
     }
 }
 
@@ -248,18 +275,32 @@ impl CallInfo {
 
         for call in self.into_iter() {
             for ordered_message_content in &call.execution.l2_to_l1_messages {
-                if starknet_l2_to_l1_payloads_length[ordered_message_content.order].is_some() {
-                    return Err(TransactionExecutionError::UnexpectedHoles {
+                let message_order = ordered_message_content.order;
+                if message_order >= n_messages {
+                    return Err(TransactionExecutionError::InvalidOrder {
                         object: "L2-to-L1 message".to_string(),
-                        order: ordered_message_content.order,
+                        order: message_order,
+                        max_order: n_messages,
                     });
                 }
-                starknet_l2_to_l1_payloads_length[ordered_message_content.order] =
+                starknet_l2_to_l1_payloads_length[message_order] =
                     Some(ordered_message_content.message.payload.0.len());
             }
         }
 
-        Ok(starknet_l2_to_l1_payloads_length.into_iter().flatten().collect())
+        starknet_l2_to_l1_payloads_length.into_iter().enumerate().try_fold(
+            Vec::new(),
+            |mut acc, (i, option)| match option {
+                Some(value) => {
+                    acc.push(value);
+                    Ok(acc)
+                }
+                None => Err(TransactionExecutionError::UnexpectedHoles {
+                    object: "L2-to-L1 message".to_string(),
+                    order: i,
+                }),
+            },
+        )
     }
 }
 

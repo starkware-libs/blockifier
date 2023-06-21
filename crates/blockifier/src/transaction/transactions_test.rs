@@ -32,11 +32,12 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader, BALANCE,
-    MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
-    TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
+    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -391,7 +392,12 @@ fn test_max_fee_exceeds_balance() {
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
         max_fee: invalid_max_fee,
-        ..deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None)
+        ..deploy_account_tx(
+            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+            None,
+            None,
+            &mut NonceManager::default(),
+        )
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
@@ -554,12 +560,14 @@ fn deploy_account_tx(
     account_class_hash: &str,
     constructor_calldata: Option<Calldata>,
     signature: Option<TransactionSignature>,
+    nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     crate::test_utils::deploy_account_tx(
         account_class_hash,
         Fee(MAX_FEE),
         constructor_calldata,
         signature,
+        nonce_manager,
     )
 }
 
@@ -567,7 +575,9 @@ fn deploy_account_tx(
 fn test_deploy_account_tx() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
-    let deploy_account_tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None);
+    let mut nonce_manager = NonceManager::default();
+    let deploy_account_tx =
+        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -670,8 +680,10 @@ fn test_deploy_account_tx() {
 
     // Negative flow.
     // Deploy to an existing address.
-    let deploy_account_tx =
-        DeployAccountTransaction { nonce: Nonce(stark_felt!(1_u8)), ..deploy_account_tx };
+    let deploy_account_tx = DeployAccountTransaction {
+        nonce: nonce_manager.next(deployed_account_address),
+        ..deploy_account_tx
+    };
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let error = account_tx.execute(state, block_context).unwrap_err();
     assert_matches!(
@@ -691,7 +703,8 @@ fn test_validate_accounts_tx() {
 
         // Valid logic.
         let state = &mut create_state_with_falliable_validation_account();
-        let account_tx = create_account_tx_for_validate_test(tx_type, VALID, None);
+        let account_tx =
+            create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
         account_tx.execute(state, block_context).unwrap();
 
         if tx_type != TransactionType::DeployAccount {
@@ -701,6 +714,7 @@ fn test_validate_accounts_tx() {
                 tx_type,
                 CALL_CONTRACT,
                 Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                &mut NonceManager::default(),
             );
             account_tx.execute(state, block_context).unwrap();
         }
@@ -709,7 +723,12 @@ fn test_validate_accounts_tx() {
 
         // Logic failure.
         let state = &mut create_state_with_falliable_validation_account();
-        let account_tx = create_account_tx_for_validate_test(tx_type, INVALID, None);
+        let account_tx = create_account_tx_for_validate_test(
+            tx_type,
+            INVALID,
+            None,
+            &mut NonceManager::default(),
+        );
         let error = account_tx.execute(state, block_context).unwrap_err();
         // TODO(Noa,01/05/2023): Test the exact failure reason.
         assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
@@ -719,6 +738,7 @@ fn test_validate_accounts_tx() {
             tx_type,
             CALL_CONTRACT,
             Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
+            &mut NonceManager::default(),
         );
         let error = account_tx.execute(state, block_context).unwrap_err();
         assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
@@ -739,6 +759,7 @@ fn test_validate_accounts_tx() {
                     stark_felt!(CALL_CONTRACT),
                     stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 ])),
+                &mut NonceManager::default(),
             );
             let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
             let error = account_tx.execute(state, block_context).unwrap_err();

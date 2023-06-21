@@ -34,6 +34,11 @@ pub enum TransactionExecutionError {
     )]
     InvalidNonce { address: ContractAddress, expected_nonce: Nonce, actual_nonce: Nonce },
     #[error(
+        "Invalid order number for {object}. Order: {order} exceeds the maximum order limit: \
+         {max_order}."
+    )]
+    InvalidOrder { object: String, order: usize, max_order: usize },
+    #[error(
         "Transaction version {version:?} is not supported. Supported versions: \
          {allowed_versions:?}."
     )]
@@ -46,10 +51,8 @@ pub enum TransactionExecutionError {
     StateError(#[from] StateError),
     #[error("Calling other contracts during '{entry_point_kind}' execution is forbidden.")]
     UnauthorizedInnerCall { entry_point_kind: String },
-    #[error("Unexpected holes in the {object} order. Two objects with the same order: {order}.")]
+    #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
-    #[error("Unknown chain ID '{chain_id:?}'.")]
-    UnknownChainId { chain_id: String },
     #[error("Transaction validation has failed.")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
 }
