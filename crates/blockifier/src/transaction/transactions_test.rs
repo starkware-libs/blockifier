@@ -62,7 +62,6 @@ enum CairoVersion {
 fn expected_validate_call_info(
     class_hash: ClassHash,
     entry_point_selector_name: &str,
-    return_data: Retdata,
     calldata: Calldata,
     storage_address: ContractAddress,
     cairo_version: CairoVersion,
@@ -80,9 +79,9 @@ fn expected_validate_call_info(
     };
     let n_steps = match (entry_point_selector_name, cairo_version) {
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 13_usize,
-        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 13_usize,
+        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 69_usize,
         (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 12_usize,
-        (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 54_usize,
+        (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 49_usize,
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 21_usize,
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 21_usize,
         (selector, _) => panic!("Selector {selector} is not a known validate selector."),
@@ -110,7 +109,6 @@ fn expected_validate_call_info(
             initial_gas: Transaction::initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
-        execution: CallExecution { retdata: (return_data), ..Default::default() },
         vm_resources,
         ..Default::default()
     })
@@ -246,11 +244,9 @@ fn test_invoke_tx() {
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-    let expected_return_data = Retdata::default();
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
-        expected_return_data,
         calldata,
         expected_account_address,
         CairoVersion::Cairo0,
@@ -509,7 +505,6 @@ fn declare_tx(
 
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
-    Retdata::default(),
     ResourcesMapping(HashMap::from([
         (abi_constants::GAS_USAGE.to_string(), 2448),
         (HASH_BUILTIN_NAME.to_string(), 15),
@@ -520,21 +515,16 @@ fn declare_tx(
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
-    retdata!(stark_felt!(
-        // Return data is VALIDATED
-        "0x00000000000000000000000000000000000000000000000000000056414c4944"
-    )),
     ResourcesMapping(HashMap::from([
         (abi_constants::GAS_USAGE.to_string(), 2448),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2758),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2753),
     ])),
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_declare_tx(
     state: &mut CachedState<DictStateReader>,
-    expected_return_data: Retdata,
     expected_actual_resources: ResourcesMapping,
     cairo_version: CairoVersion,
 ) {
@@ -568,7 +558,6 @@ fn test_declare_tx(
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
-        expected_return_data,
         calldata![class_hash.0],
         expected_account_address,
         cairo_version,
@@ -638,9 +627,31 @@ fn deploy_account_tx(
     )
 }
 
-#[test]
-fn test_deploy_account_tx() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account(),
+    ResourcesMapping(HashMap::from([
+        (abi_constants::GAS_USAGE.to_string(), 3060),
+        (HASH_BUILTIN_NAME.to_string(), 23),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
+    ])),
+    CairoVersion::Cairo0;
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account(),
+    ResourcesMapping(HashMap::from([
+        (abi_constants::GAS_USAGE.to_string(), 3060),
+        (HASH_BUILTIN_NAME.to_string(), 23),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 85),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 3682),
+    ])),
+    CairoVersion::Cairo1;
+    "With Cairo1 account")]
+fn test_deploy_account_tx(
+    state: &mut CachedState<DictStateReader>,
+    expected_actual_resources: ResourcesMapping,
+    cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
     let deploy_account_tx =
@@ -670,14 +681,12 @@ fn test_deploy_account_tx() {
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let expected_return_data = Retdata::default();
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
-        expected_return_data,
         Calldata(validate_calldata.into()),
         deployed_account_address,
-        CairoVersion::Cairo0,
+        cairo_version,
     );
 
     // Build expected execute call info.
@@ -716,13 +725,8 @@ fn test_deploy_account_tx() {
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 3060),
-            (HASH_BUILTIN_NAME.to_string(), 23),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
-        ])),
         revert_error: None,
+        actual_resources: expected_actual_resources,
     };
 
     // Test execution info result.
