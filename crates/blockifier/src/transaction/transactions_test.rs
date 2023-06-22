@@ -71,8 +71,7 @@ fn create_account_tx_test_state(
         ContractClassV0::from_file(account_path).into()
     };
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, account_class_hash),
-        // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract.
+        (test_account_class_hash, ContractClassV0::from_file(account_path).into()),
         (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
@@ -525,6 +524,14 @@ fn test_declare_tx(
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let expected_returned_data = if account_path.contains("cairo1") {
+        retdata!(stark_felt!(
+            // Returned data is VALIDATED
+            "0x00000000000000000000000000000000000000000000000000000056414c4944"
+        ))
+    } else {
+        Retdata::default()
+    };
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
@@ -550,6 +557,21 @@ fn test_declare_tx(
         },
     );
 
+    let expected_actual_resources = if account_path.contains("cairo1") {
+        ResourcesMapping(HashMap::from([
+            (abi_constants::GAS_USAGE.to_string(), 2448),
+            (HASH_BUILTIN_NAME.to_string(), 15),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 2758),
+        ]))
+    } else {
+        ResourcesMapping(HashMap::from([
+            (abi_constants::GAS_USAGE.to_string(), 2448),
+            (HASH_BUILTIN_NAME.to_string(), 15),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
+        ]))
+    };
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
