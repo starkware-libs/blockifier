@@ -50,9 +50,12 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the number of storage changes done through this state.
     /// Any change to the contract's state (storage, nonce, class hash) is considered.
     // TODO(Noa, 30/04/23): Add nonce count.
-    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+    pub fn count_actual_state_changes(&mut self) -> StateResult<(usize, usize, usize)> {
+        self.update_initial_values_of_write_only_access()?;
+
         // Storage Update.
         let storage_updates = &self.cache.get_storage_updates();
+
         let mut modified_contracts: HashSet<ContractAddress> =
             storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
 
@@ -60,7 +63,46 @@ impl<S: StateReader> CachedState<S> {
         let class_hash_updates = &self.cache.get_class_hash_updates();
         modified_contracts.extend(class_hash_updates.keys());
 
-        (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
+        Ok((storage_updates.len(), modified_contracts.len(), class_hash_updates.len()))
+    }
+
+    /// Updates cache with initial cell values for write-only access.
+    /// If written values match the original, the cell is unchanged and not counted as a
+    /// storage-change for fee calculation.
+    /// Same for class hash and nonce writes.
+    // TODO(Noa, 30/07/23): Consider adding DB getters in bulk (via a DB read transaction).
+    fn update_initial_values_of_write_only_access(&mut self) -> StateResult<()> {
+        // Eliminate storage writes that are identical to the initial value (no change). Assumes
+        // that `set_storage_at` does not affect the state field.
+        for (contract_storage_key, _v) in self.cache.storage_writes.iter() {
+            if self.cache.storage_initial_values.get(contract_storage_key).is_none() {
+                // First access to this cell was write; cache initial value.
+                self.cache.storage_initial_values.insert(
+                    *contract_storage_key,
+                    self.state.get_storage_at(contract_storage_key.0, contract_storage_key.1)?,
+                );
+            }
+        }
+
+        for (contract_address, _v) in self.cache.class_hash_writes.iter() {
+            if self.cache.class_hash_initial_values.get(contract_address).is_none() {
+                // First access to this cell was write; cache initial value.
+                self.cache
+                    .class_hash_initial_values
+                    .insert(*contract_address, self.state.get_class_hash_at(*contract_address)?);
+            }
+        }
+
+        for (contract_address, _v) in self.cache.nonce_writes.iter() {
+            if self.cache.nonce_initial_values.get(contract_address).is_none() {
+                // First access to this cell was write; cache initial value.
+                self.cache
+                    .nonce_initial_values
+                    .insert(*contract_address, self.state.get_nonce_at(*contract_address)?);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -188,6 +230,7 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
+    // Assumes calling to `count_actual_state_changes` before. See its documentation.
     fn to_state_diff(&self) -> CommitmentStateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
