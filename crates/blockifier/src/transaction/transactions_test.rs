@@ -15,11 +15,12 @@ use starknet_api::transaction::{
     Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
+use test_case::test_case;
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
@@ -32,11 +33,12 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader, NonceManager,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+    ACCOUNT_CONTRACT_PATH, BALANCE, CAIRO1_ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -52,9 +54,9 @@ pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 
 fn create_account_tx_test_state(
+    account_contract_class: ContractClass,
     account_class_hash: &str,
     account_address: &str,
-    account_path: &str,
     erc20_account_balance_key: StorageKey,
     initial_account_balance: u128,
 ) -> CachedState<DictStateReader> {
@@ -64,7 +66,9 @@ fn create_account_tx_test_state(
     let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(account_path).into()),
+        (test_account_class_hash, account_contract_class),
+        // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract when running Cairo 1 account
+        // contract.
         (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
@@ -96,6 +100,7 @@ fn create_account_tx_test_state(
 fn expected_validate_call_info(
     class_hash: ClassHash,
     entry_point_selector_name: &str,
+    return_data: Retdata,
     calldata: Calldata,
     storage_address: ContractAddress,
 ) -> Option<CallInfo> {
@@ -125,7 +130,7 @@ fn expected_validate_call_info(
             initial_gas,
         },
         // The account contract we use for testing has trivial `validate` functions.
-        execution: CallExecution::default(),
+        execution: CallExecution { retdata: (return_data), ..Default::default() },
         vm_resources,
         ..Default::default()
     })
@@ -225,9 +230,9 @@ fn invoke_tx() -> InvokeTransactionV1 {
 fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
+        ContractClassV0::from_file(ACCOUNT_CONTRACT_PATH).into(),
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_ACCOUNT_CONTRACT_ADDRESS,
-        ACCOUNT_CONTRACT_PATH,
         test_erc20_account_balance_key(),
         account_balance,
     )
@@ -236,11 +241,23 @@ fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader
 fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
+        ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_PATH).into(),
         TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-        TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
         test_erc20_faulty_account_balance_key(),
         account_balance * 2,
+    )
+}
+
+fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
+    let account_balance = BALANCE;
+
+    create_account_tx_test_state(
+        ContractClassV1::from_file(CAIRO1_ACCOUNT_CONTRACT_PATH).into(),
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_ACCOUNT_CONTRACT_ADDRESS,
+        test_erc20_account_balance_key(),
+        account_balance,
     )
 }
 
@@ -261,9 +278,11 @@ fn test_invoke_tx() {
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let expected_return_data = Retdata::default();
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
+        expected_return_data,
         calldata,
         expected_account_address,
     );
@@ -448,9 +467,34 @@ fn declare_tx(
     )
 }
 
-#[test]
-fn test_declare_tx() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account(),
+    Retdata::default(),
+    ResourcesMapping(HashMap::from([
+        (abi_constants::GAS_USAGE.to_string(), 2448),
+        (HASH_BUILTIN_NAME.to_string(), 15),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
+    ]));
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account(),
+    retdata!(stark_felt!(
+        // Return data is VALIDATED
+        "0x00000000000000000000000000000000000000000000000000000056414c4944"
+    )),
+    ResourcesMapping(HashMap::from([
+        (abi_constants::GAS_USAGE.to_string(), 2448),
+        (HASH_BUILTIN_NAME.to_string(), 15),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2758),
+    ]));
+    "With Cairo1 account")]
+fn test_declare_tx(
+    state: &mut CachedState<DictStateReader>,
+    expected_return_data: Retdata,
+    expected_actual_resources: ResourcesMapping,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let declare_tx =
         declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None);
@@ -480,6 +524,7 @@ fn test_declare_tx() {
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
+        expected_return_data,
         calldata![class_hash.0],
         expected_account_address,
     );
@@ -506,12 +551,7 @@ fn test_declare_tx() {
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 2448),
-            (HASH_BUILTIN_NAME.to_string(), 15),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
-        ])),
+        actual_resources: expected_actual_resources,
     };
 
     // Test execution info result.
@@ -584,9 +624,11 @@ fn test_deploy_account_tx() {
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let expected_return_data = Retdata::default();
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+        expected_return_data,
         Calldata(validate_calldata.into()),
         deployed_account_address,
     );
