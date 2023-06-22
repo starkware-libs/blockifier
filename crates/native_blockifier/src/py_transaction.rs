@@ -34,8 +34,8 @@ use starknet_api::transaction::{
 use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
-use crate::py_transaction_execution_info::PyTransactionExecutionInfo;
-use crate::py_utils::{biguint_to_felt, to_chain_id_enum, PyFelt};
+use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
+use crate::py_utils::{biguint_to_felt, to_chain_id_enum};
 use crate::storage::Storage;
 
 fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
@@ -134,7 +134,9 @@ pub fn py_declare(
                 class_hash,
                 sender_address: account_data_context.sender_address,
             };
-            Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx))
+            Ok(starknet_api::transaction::DeclareTransaction::V0(
+                declare_tx,
+            ))
         }
         1 => {
             let declare_tx = DeclareTransactionV0V1 {
@@ -145,7 +147,9 @@ pub fn py_declare(
                 class_hash,
                 sender_address: account_data_context.sender_address,
             };
-            Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
+            Ok(starknet_api::transaction::DeclareTransaction::V1(
+                declare_tx,
+            ))
         }
         2 => {
             let compiled_class_hash = CompiledClassHash(py_felt_attr(tx, "compiled_class_hash")?);
@@ -158,7 +162,9 @@ pub fn py_declare(
                 sender_address: account_data_context.sender_address,
                 compiled_class_hash,
             };
-            Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
+            Ok(starknet_api::transaction::DeclareTransaction::V2(
+                declare_tx,
+            ))
         }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::Declare,
@@ -293,7 +299,9 @@ impl PyTransactionExecutor {
             PyTransactionExecutorInner::create(general_config, block_info, papyrus_storage)?;
         log::debug!("Initialized Transaction Executor.");
 
-        Ok(Self { executor: Some(executor) })
+        Ok(Self {
+            executor: Some(executor),
+        })
     }
 
     #[args(tx, raw_contract_class, enough_room_for_tx)]
@@ -307,7 +315,8 @@ impl PyTransactionExecutor {
         Py<PyTransactionExecutionInfo>,
         HashMap<PyFelt, PyContractClassSizes>,
     )> {
-        self.executor().execute(tx, raw_contract_class, enough_room_for_tx)
+        self.executor()
+            .execute(tx, raw_contract_class, enough_room_for_tx)
     }
 
     pub fn finalize(&mut self) -> PyStateDiff {
@@ -333,7 +342,9 @@ impl PyTransactionExecutor {
 
 impl PyTransactionExecutor {
     fn executor(&mut self) -> &mut PyTransactionExecutorInner {
-        self.executor.as_mut().expect("Transaction executor should be initialized.")
+        self.executor
+            .as_mut()
+            .expect("Transaction executor should be initialized.")
     }
 }
 
@@ -342,6 +353,9 @@ impl PyTransactionExecutor {
 #[ouroboros::self_referencing]
 pub struct PyTransactionExecutorInner {
     pub block_context: BlockContext,
+
+    // Maintained for counting purposes.
+    pub executed_class_hashes: HashSet<ClassHash>,
 
     // State-related fields.
     // Storage reader and transaction are kept merely for lifetime parameter referencing.
@@ -376,14 +390,11 @@ impl PyTransactionExecutorInner {
         raw_contract_class: Option<&str>,
         // This is functools.partial(bouncer.add, tw_written=tx_written).
         enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<(
-        Py<PyTransactionExecutionInfo>,
-        HashMap<PyFelt, PyContractClassSizes>,
-    )> {
+    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, Vec<PyVmExecutionResources>)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
-        let mut executed_class_hashes = HashSet::<ClassHash>::new();
+        let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
             let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
             let tx_execution_result = tx
@@ -391,7 +402,7 @@ impl PyTransactionExecutorInner {
                 .map_err(NativeBlockifierError::from);
             let py_tx_execution_info = match tx_execution_result {
                 Ok(tx_execution_info) => {
-                    executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                    tx_executed_class_hashes = tx_execution_info.get_executed_class_hashes();
                     Python::with_gil(|py| {
                         // Allocate this instance on the Python heap.
                         // This is necessary in order to pass a reference to it to the callback
@@ -414,14 +425,17 @@ impl PyTransactionExecutorInner {
                 enough_room_for_tx.call1(args) // Callback to Python code.
             });
 
+            // dbg!(tx_execution_info);
             match has_enough_room_for_tx {
                 Ok(_) => {
                     transactional_state.commit();
-                    let py_executed_compiled_class_hashes = into_py_contract_class_sizes_mapping(
-                        executor.state,
-                        executed_class_hashes,
-                    )?;
-                    Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
+                    let py_casm_hash_calculation_resources =
+                        collect_casm_hash_calculation_resources(
+                            executor.state,
+                            executor.executed_class_hashes,
+                            &tx_executed_class_hashes,
+                        )?;
+                    Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
                 }
                 // Unexpected error, abort and let caller know.
                 Err(error) if unexpected_callback_error(&error) => {
@@ -431,11 +445,13 @@ impl PyTransactionExecutorInner {
                 // Not enough room in batch, abort and let caller verify on its own.
                 Err(_not_enough_weight_error) => {
                     transactional_state.abort();
-                    let py_executed_compiled_class_hashes = into_py_contract_class_sizes_mapping(
-                        executor.state,
-                        executed_class_hashes,
-                    )?;
-                    Ok((py_tx_execution_info, py_executed_compiled_class_hashes))
+                    let py_casm_hash_calculation_resources =
+                        collect_casm_hash_calculation_resources(
+                            executor.state,
+                            executor.executed_class_hashes,
+                            &tx_executed_class_hashes,
+                        )?;
+                    Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
                 }
             }
         })
@@ -511,27 +527,27 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 }
 
 /// Maps Sierra class hashes to their corresponding compiled class hash.
-pub fn into_py_contract_class_sizes_mapping(
-    state: &mut CachedState<PapyrusReader<'_>>,
-    executed_class_hashes: HashSet<ClassHash>,
-) -> NativeBlockifierResult<HashMap<PyFelt, PyContractClassSizes>> {
-    let mut executed_compiled_class_sizes = HashMap::<PyFelt, PyContractClassSizes>::new();
+pub fn collect_casm_hash_calculation_resources(
+    state: &mut CachedState<PapyrusStateReader<'_>>,
+    executed_class_hashes: &mut HashSet<ClassHash>,
+    tx_executed_class_hashes: &HashSet<ClassHash>,
+) -> NativeBlockifierResult<Vec<PyVmExecutionResources>> {
+    let cloned_executed_class_hashes = executed_class_hashes.clone();
+    let binding = tx_executed_class_hashes.clone();
+    let newly_executed_class_hashes: HashSet<&ClassHash> =
+        binding.difference(&cloned_executed_class_hashes).collect();
+    executed_class_hashes.extend(tx_executed_class_hashes);
 
-    for class_hash in executed_class_hashes {
-        let class = state.get_compiled_contract_class(&class_hash)?;
+    let mut casm_hash_computation_resources = HashMap::<PyFelt, PyVmExecutionResources>::new();
 
-        let sizes = match class {
-            ContractClass::V0(class) => PyContractClassSizes {
-                bytecode_length: class.bytecode_length(),
-                n_builtins: Some(class.n_builtins()),
-            },
-            ContractClass::V1(class) => {
-                PyContractClassSizes { bytecode_length: class.bytecode_length(), n_builtins: None }
-            }
-        };
-
-        executed_compiled_class_sizes.insert(PyFelt::from(class_hash), sizes);
+    for class_hash in newly_executed_class_hashes {
+        let class = state.get_compiled_contract_class(class_hash)?;
+        let estimated_resources = class.estimate_casm_hash_computation_resources();
+        casm_hash_computation_resources.insert(
+            PyFelt::from(*class_hash),
+            PyVmExecutionResources::from(estimated_resources),
+        );
     }
 
-    Ok(executed_compiled_class_sizes)
+    Ok(casm_hash_computation_resources)
 }
