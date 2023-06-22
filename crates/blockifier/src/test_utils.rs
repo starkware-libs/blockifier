@@ -42,6 +42,7 @@ pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
 pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
+pub const TEST_CAIRO1_ACCOUNT_CONTRACT_ADDRESS: &str = "0x201";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 
@@ -56,6 +57,8 @@ pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
+pub const CAIRO1_ACCOUNT_CONTRACT_PATH: &str =
+    "./feature_contracts/cairo1/compiled/account_contract.casm.json";
 pub const ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str =
