@@ -36,3 +36,7 @@ thiserror = "1.0.37"
 
 [patch."https://github.com/starkware-libs/starknet-api"]
 starknet_api = { git = "https://github.com/dojoengine/starknet-api", branch = "dev" }
+
+[patch.crates-io]
+cairo-vm = { git = "https://github.com/dojoengine/cairo-rs.git", rev = "46d77f3"}
+cairo-felt = { git = "https://github.com/dojoengine/cairo-rs.git", rev = "46d77f3"}
