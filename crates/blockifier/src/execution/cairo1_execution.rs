@@ -1,4 +1,5 @@
 use cairo_felt::Felt252;
+use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
@@ -107,8 +108,18 @@ pub fn initialize_execution_context<'a>(
     let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
 
-    runner.initialize_builtins(&mut vm)?;
-    runner.initialize_segments(&mut vm, None);
+    // Initialize program with all builtins.
+    let program_builtins = [
+        BuiltinName::bitwise,
+        BuiltinName::ecdsa,
+        BuiltinName::ec_op,
+        BuiltinName::output,
+        BuiltinName::pedersen,
+        BuiltinName::poseidon,
+        BuiltinName::range_check,
+        BuiltinName::segment_arena,
+    ];
+    runner.initialize_function_runner_cairo_1(&mut vm, &program_builtins)?;
     let mut read_only_segments = ReadOnlySegments::default();
     let program_segment_size =
         prepare_builtin_costs(&mut vm, contract_class, &mut read_only_segments)?;
