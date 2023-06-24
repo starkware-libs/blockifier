@@ -30,7 +30,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_p
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.
-#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::From, Deserialize)]
 pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
