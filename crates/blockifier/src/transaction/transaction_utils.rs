@@ -43,7 +43,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<ResourcesMapping> {
-    let (n_storage_changes, n_modified_contracts, n_class_updates) =
+    let (n_storage_changes, n_modified_contracts, n_class_updates, _n_nonce_updates) =
         state.count_actual_state_changes();
 
     let mut l2_to_l1_payloads_length = vec![];

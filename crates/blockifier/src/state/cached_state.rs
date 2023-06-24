@@ -49,8 +49,7 @@ impl<S: StateReader> CachedState<S> {
 
     /// Returns the number of storage changes done through this state.
     /// Any change to the contract's state (storage, nonce, class hash) is considered.
-    // TODO(Noa, 30/04/23): Add nonce count.
-    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+    pub fn count_actual_state_changes(&self) -> (usize, usize, usize, usize) {
         // Storage Update.
         let storage_updates = &self.cache.get_storage_updates();
         let mut modified_contracts: HashSet<ContractAddress> =
@@ -60,7 +59,16 @@ impl<S: StateReader> CachedState<S> {
         let class_hash_updates = &self.cache.get_class_hash_updates();
         modified_contracts.extend(class_hash_updates.keys());
 
-        (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
+        // Nonce updates.
+        let nonce_updates = &self.cache.get_nonce_updates();
+        modified_contracts.extend(nonce_updates.keys());
+
+        (
+            storage_updates.len(),
+            modified_contracts.len(),
+            class_hash_updates.len(),
+            nonce_updates.len(),
+        )
     }
 }
 
@@ -340,6 +348,10 @@ impl StateCache {
 
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
         subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
+    }
+
+    fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
+        subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
     }
 }
 
