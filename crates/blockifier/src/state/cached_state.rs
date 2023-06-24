@@ -42,9 +42,9 @@ impl<S: StateReader> CachedState<S> {
     }
 
     /// Returns the number of storage changes done through this state.
-    /// Any change to the contract's state (storage, nonce, class hash) is considered.
-    // TODO(Noa, 30/04/23): Add nonce count.
-    pub fn count_actual_state_changes(&mut self) -> StateResult<(usize, usize, usize)> {
+    /// For each contract instance (address) we have three attributes: `(class hash, nonce, storage
+    /// root)`; the state updates correspond to them.
+    pub fn count_actual_state_changes(&mut self) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
 
         // Storage Update.
@@ -57,7 +57,16 @@ impl<S: StateReader> CachedState<S> {
         let class_hash_updates = &self.cache.get_class_hash_updates();
         modified_contracts.extend(class_hash_updates.keys());
 
-        Ok((storage_updates.len(), modified_contracts.len(), class_hash_updates.len()))
+        // Nonce updates.
+        let nonce_updates = &self.cache.get_nonce_updates();
+        modified_contracts.extend(nonce_updates.keys());
+
+        Ok(StateChanges {
+            n_storage_updates: storage_updates.len(),
+            n_modified_contracts: modified_contracts.len(),
+            n_class_hash_updates: class_hash_updates.len(),
+            n_nonce_updates: nonce_updates.len(),
+        })
     }
 
     /// Updates cache with initial cell values for write-only access.
@@ -378,6 +387,10 @@ impl StateCache {
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
         subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
+
+    fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
+        subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
+    }
 }
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
@@ -493,4 +506,13 @@ pub struct CommitmentStateDiff {
 
     // Global attributes.
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
+}
+
+/// Holds the number of state changes.
+#[derive(Debug, Eq, PartialEq)]
+pub struct StateChanges {
+    pub n_storage_updates: usize,
+    pub n_class_hash_updates: usize,
+    pub n_nonce_updates: usize,
+    pub n_modified_contracts: usize,
 }

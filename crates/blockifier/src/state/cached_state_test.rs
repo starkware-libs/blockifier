@@ -266,6 +266,7 @@ fn count_actual_state_changes() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     state.set_class_hash_at(contract_address, class_hash).unwrap();
     state.set_storage_at(contract_address, key, storage_val);
+    state.increment_nonce(contract_address2).unwrap();
 
     // Assign the existing value to the storage (this shouldn't be considered a change).
     // As the first access:
@@ -273,8 +274,15 @@ fn count_actual_state_changes() {
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val);
 
-    let (n_storage_updates, n_modified_contracts, n_class_updates) =
-        state.count_actual_state_changes().unwrap();
+    let state_changes = state.count_actual_state_changes().unwrap();
 
-    assert_eq!((n_storage_updates, n_modified_contracts, n_class_updates), (1, 1, 1));
+    assert_eq!(
+        state_changes,
+        StateChanges {
+            n_storage_updates: 1,
+            n_modified_contracts: 2,
+            n_class_hash_updates: 1,
+            n_nonce_updates: 1
+        }
+    );
 }
