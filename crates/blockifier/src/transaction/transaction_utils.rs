@@ -65,6 +65,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // "segment_arena" built-in is not a SHARP built-in - i.e., it is not part of any proof layout.
     // Each instance requires approximately 10 steps in the OS.
+    // TODO(Noa, 01/07/23): Verify the removal of the segmen_arena builtin.
     let n_steps = total_vm_usage.n_steps
         + 10 * total_vm_usage
             .builtin_instance_counter
