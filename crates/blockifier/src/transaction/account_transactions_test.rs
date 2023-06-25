@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use rstest::rstest;
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, Nonce};
+use rstest::{fixture, rstest};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
     InvokeTransactionV1,
@@ -28,11 +27,21 @@ struct TestInitData {
     pub account_address: ContractAddress,
     pub contract_address: ContractAddress,
     pub nonce_manager: NonceManager,
+    pub block_context: BlockContext,
 }
 
-fn create_state() -> CachedState<DictStateReader> {
-    let block_context = BlockContext::create_for_account_testing();
+#[fixture]
+fn max_fee() -> Fee {
+    Fee(MAX_FEE)
+}
 
+#[fixture]
+fn block_context() -> BlockContext {
+    BlockContext::create_for_account_testing()
+}
+
+#[fixture]
+fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
@@ -51,8 +60,12 @@ fn create_state() -> CachedState<DictStateReader> {
     })
 }
 
-fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData {
-    let mut state = create_state();
+#[fixture]
+fn create_test_init_data(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[from(create_state)] mut state: CachedState<DictStateReader>,
+) -> TestInitData {
     let mut nonce_manager = NonceManager::default();
 
     // Deploy an account contract.
@@ -76,7 +89,7 @@ fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    account_tx.execute(&mut state, block_context).unwrap();
+    account_tx.execute(&mut state, &block_context).unwrap();
 
     // Declare a contract.
     let contract_class = ContractClassV0::from_file(TEST_CONTRACT_PATH).into();
@@ -91,7 +104,7 @@ fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData
         )
         .unwrap(),
     );
-    account_tx.execute(&mut state, block_context).unwrap();
+    account_tx.execute(&mut state, &block_context).unwrap();
 
     // Deploy a contract using syscall deploy.
     let entry_point_selector = selector_from_name("deploy_contract");
@@ -112,7 +125,7 @@ fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData
         nonce: nonce_manager.next(account_address),
         ..tx
     }));
-    account_tx.execute(&mut state, block_context).unwrap();
+    account_tx.execute(&mut state, &block_context).unwrap();
 
     // Calculate the newly deployed contract address
     let contract_address = calculate_contract_address(
@@ -123,15 +136,18 @@ fn create_test_state(max_fee: Fee, block_context: &BlockContext) -> TestInitData
     )
     .unwrap();
 
-    TestInitData { state, account_address, contract_address, nonce_manager }
+    TestInitData { state, account_address, contract_address, nonce_manager, block_context }
 }
 
-#[test]
-fn test_account_flow_test() {
-    let max_fee = Fee(MAX_FEE);
-    let block_context = &BlockContext::create_for_account_testing();
-    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_state(max_fee, block_context);
+#[rstest]
+fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = init_data;
 
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
@@ -146,7 +162,7 @@ fn test_account_flow_test() {
         nonce: nonce_manager.next(account_address),
         ..tx
     }));
-    account_tx.execute(&mut state, block_context).unwrap();
+    account_tx.execute(&mut state, &block_context).unwrap();
 }
 
 #[rstest]
@@ -154,15 +170,23 @@ fn test_account_flow_test() {
 #[case(true, false)]
 #[case(false, true)]
 #[case(false, false)]
-fn test_infinite_recursion(#[case] success: bool, #[case] normal_recurse: bool) {
-    let max_fee = Fee(MAX_FEE);
-    let mut block_context = BlockContext::create_for_account_testing();
-
+fn test_infinite_recursion(
+    #[case] success: bool,
+    #[case] normal_recurse: bool,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+    max_fee: Fee,
+    mut block_context: BlockContext,
+) {
     // Limit the number of execution steps (so we quickly hit the limit).
     block_context.invoke_tx_max_n_steps = 1000;
 
-    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_state(max_fee, &block_context);
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
 
     // Two types of recursion: one "normal" recursion, and one that uses the `call_contract`
     // syscall.
