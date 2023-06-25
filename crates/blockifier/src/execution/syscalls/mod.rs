@@ -31,6 +31,7 @@ use crate::execution::execution_utils::{
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
 
 pub mod hint_processor;
+mod secp;
 
 #[cfg(test)]
 #[path = "syscalls_test.rs"]
