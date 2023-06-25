@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rstest::rstest;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
@@ -173,8 +174,12 @@ fn test_account_flow_test() {
     account_tx.execute(&mut state, block_context).unwrap();
 }
 
-#[test]
-fn test_infinite_recursion() {
+#[rstest]
+#[case(true, true)]
+#[case(true, false)]
+#[case(false, true)]
+#[case(false, false)]
+fn test_infinite_recursion(#[case] success: bool, #[case] normal_recurse: bool) {
     let max_fee = Fee(MAX_FEE);
     let mut block_context = BlockContext::create_for_account_testing();
 
@@ -187,60 +192,47 @@ fn test_infinite_recursion() {
     // Two types of recursion: one "normal" recursion, and one that uses the `call_contract`
     // syscall.
     let raw_contract_address = *contract_address.0.key();
-    let raw_normal_entry_point_selector = selector_from_name("recurse").0;
-    let raw_syscall_entry_point_selector = selector_from_name("recursive_syscall").0;
+    let raw_entry_point_selector =
+        selector_from_name(if normal_recurse { "recurse" } else { "recursive_syscall" }).0;
 
-    let normal_calldata = |recursion_depth: u32| -> Calldata {
+    let recursion_depth = if success { 3_u32 } else { 1000_u32 };
+
+    let execute_calldata = if normal_recurse {
         calldata![
             raw_contract_address,
-            raw_normal_entry_point_selector,
+            raw_entry_point_selector,
             stark_felt!(1_u8),
             stark_felt!(recursion_depth)
         ]
-    };
-    let syscall_calldata = |recursion_depth: u32| -> Calldata {
+    } else {
         calldata![
             raw_contract_address,
-            raw_syscall_entry_point_selector,
+            raw_entry_point_selector,
             stark_felt!(3_u8), // Calldata length.
             raw_contract_address,
-            raw_syscall_entry_point_selector,
+            raw_entry_point_selector,
             stark_felt!(recursion_depth)
         ]
     };
 
     // Try two runs for each recursion type: one short run (success), and one that reverts due to
     // step limit.
-    let (success_n_recursions, failure_n_recursions) = (3_u32, 1000_u32);
-    [(true, true), (false, true), (true, false), (false, false)]
-        .into_iter()
-        .map(|(should_be_ok, use_normal_calldata)| {
-            let recursion_depth =
-                if should_be_ok { success_n_recursions } else { failure_n_recursions };
-            let execute_calldata = if use_normal_calldata {
-                normal_calldata(recursion_depth)
-            } else {
-                syscall_calldata(recursion_depth)
-            };
-            let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-            let account_tx =
-                AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-                    nonce: nonce_manager.next(account_address),
-                    ..tx
-                }));
-            let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
-            if should_be_ok {
-                assert!(tx_execution_info.revert_error.is_none());
-            } else {
-                assert!(
-                    tx_execution_info
-                        .revert_error
-                        .unwrap()
-                        .contains("RunResources has no remaining steps.")
-                );
-            }
-        })
-        .for_each(drop);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
+    if success {
+        assert!(tx_execution_info.revert_error.is_none());
+    } else {
+        assert!(
+            tx_execution_info
+                .revert_error
+                .unwrap()
+                .contains("RunResources has no remaining steps.")
+        );
+    }
 }
 
 #[test]
