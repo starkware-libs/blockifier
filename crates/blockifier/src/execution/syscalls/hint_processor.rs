@@ -34,6 +34,7 @@ use crate::execution::execution_utils::{
     felt_range_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
     ReadOnlySegment, ReadOnlySegments,
 };
+use crate::execution::syscalls::secp::secp256k1_new;
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
     library_call_l1_handler, replace_class, send_message_to_l1, storage_read, storage_write,
@@ -90,9 +91,12 @@ pub const OUT_OF_GAS_ERROR: &str =
 // "Block number out of range";
 pub const BLOCK_NUMBER_OUT_OF_RANGE_ERROR: &str =
     "0x00000000000000426c6f636b206e756d626572206f7574206f662072616e6765";
-
+// "Invalid input length";
 pub const INVALID_INPUT_LENGTH_ERROR: &str =
-    "0x000000000000000000000000496e76616c696420696e707574206c656e677468"; // "Invalid input length";
+    "0x000000000000000000000000496e76616c696420696e707574206c656e677468";
+// "Invalid argument";
+pub const INVALID_ARGUMENT: &str =
+    "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -116,6 +120,9 @@ pub struct SyscallHintProcessor<'a> {
     // Additional information gathered during execution.
     pub read_values: Vec<StarkFelt>,
     pub accessed_keys: HashSet<StorageKey>,
+
+    // Secp256k1 points.
+    pub secp256k1_points: Vec<ark_secp256k1::Affine>,
 
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
@@ -147,6 +154,7 @@ impl<'a> SyscallHintProcessor<'a> {
             accessed_keys: HashSet::new(),
             hints,
             execution_info_ptr: None,
+            secp256k1_points: vec![],
         }
     }
 
@@ -210,6 +218,7 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::GetExecutionInfo => {
                 self.execute_syscall(vm, get_execution_info, constants::GET_EXECUTION_INFO_GAS_COST)
             }
+            SyscallSelector::Keccak => self.execute_syscall(vm, keccak, constants::KECCAK_GAS_COST),
             SyscallSelector::LibraryCall => {
                 self.execute_syscall(vm, library_call, constants::LIBRARY_CALL_GAS_COST)
             }
@@ -218,6 +227,9 @@ impl<'a> SyscallHintProcessor<'a> {
             }
             SyscallSelector::ReplaceClass => {
                 self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
+            }
+            SyscallSelector::Secp256k1New => {
+                self.execute_syscall(vm, secp256k1_new, constants::SECP256K1_NEW_GAS_COST)
             }
             SyscallSelector::SendMessageToL1 => {
                 self.execute_syscall(vm, send_message_to_l1, constants::SEND_MESSAGE_TO_L1_GAS_COST)
@@ -228,7 +240,6 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::StorageWrite => {
                 self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
             }
-            SyscallSelector::Keccak => self.execute_syscall(vm, keccak, constants::KECCAK_GAS_COST),
             _ => Err(HintError::UnknownHint(
                 format!("Unsupported syscall selector {selector:?}.").into(),
             )),
