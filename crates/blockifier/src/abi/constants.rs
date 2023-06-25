@@ -37,6 +37,8 @@ pub const N_STEPS_PER_PEDERSEN: usize = 8;
 // Gas Cost.
 // See documentation in core/os/constants.cairo.
 pub const STEP_GAS_COST: u64 = 100;
+pub const RANGE_CHECK_GAS_COST: u64 = 70;
+
 // An estimation of the initial gas for a transaction to run with. This solution is temporary and
 // this value will become a field of the transaction.
 pub const INITIAL_GAS_COST: u64 = 10_u64.pow(8) * STEP_GAS_COST;
@@ -57,6 +59,7 @@ pub const KECCAK_GAS_COST: u64 = 0;
 pub const KECCAK_ROUND_COST_GAS_COST: u64 = 180000;
 pub const LIBRARY_CALL_GAS_COST: u64 = CALL_CONTRACT_GAS_COST;
 pub const REPLACE_CLASS_GAS_COST: u64 = 50 * STEP_GAS_COST;
+pub const SECP256K1_NEW_GAS_COST: u64 = 440 * STEP_GAS_COST + 36 * RANGE_CHECK_GAS_COST;
 pub const SEND_MESSAGE_TO_L1_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_READ_GAS_COST: u64 = 50 * STEP_GAS_COST;
 pub const STORAGE_WRITE_GAS_COST: u64 = 50 * STEP_GAS_COST;
