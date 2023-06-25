@@ -211,9 +211,12 @@ fn test_infinite_recursion() {
 
     // Try two runs for each recursion type: one short run (success), and one that reverts due to
     // step limit.
-    [(1_u32, true, true), (1000_u32, false, true), (3_u32, true, false), (1000_u32, false, false)]
+    let (success_n_recursions, failure_n_recursions) = (3_u32, 1000_u32);
+    [(true, true), (false, true), (true, false), (false, false)]
         .into_iter()
-        .map(|(recursion_depth, should_be_ok, use_normal_calldata)| {
+        .map(|(should_be_ok, use_normal_calldata)| {
+            let recursion_depth =
+                if should_be_ok { success_n_recursions } else { failure_n_recursions };
             let execute_calldata = if use_normal_calldata {
                 normal_calldata(recursion_depth)
             } else {
