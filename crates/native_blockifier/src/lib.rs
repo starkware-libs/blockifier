@@ -26,12 +26,12 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     pyo3_log::init();
 
     py_module.add_class::<PyCallInfo>()?;
-    py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<PyOrderedEvent>()?;
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutionInfo>()?;
     py_module.add_class::<PyTransactionExecutor>()?;
+    py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<Storage>()?;
     add_py_exceptions(py, py_module)?;
 
