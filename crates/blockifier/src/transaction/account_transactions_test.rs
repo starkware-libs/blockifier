@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
+use rstest::rstest;
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
     InvokeTransactionV1,
@@ -147,8 +149,12 @@ fn test_account_flow_test() {
     account_tx.execute(&mut state, block_context).unwrap();
 }
 
-#[test]
-fn test_infinite_recursion() {
+#[rstest]
+#[case(true, true)]
+#[case(true, false)]
+#[case(false, true)]
+#[case(false, false)]
+fn test_infinite_recursion(#[case] success: bool, #[case] normal_recurse: bool) {
     let max_fee = Fee(MAX_FEE);
     let mut block_context = BlockContext::create_for_account_testing();
 
@@ -161,58 +167,42 @@ fn test_infinite_recursion() {
     // Two types of recursion: one "normal" recursion, and one that uses the `call_contract`
     // syscall.
     let raw_contract_address = *contract_address.0.key();
-    let raw_normal_entry_point_selector = selector_from_name("recurse").0;
-    let raw_syscall_entry_point_selector = selector_from_name("recursive_syscall").0;
+    let raw_entry_point_selector =
+        selector_from_name(if normal_recurse { "recurse" } else { "recursive_syscall" }).0;
 
-    let normal_calldata = |recursion_depth: u32| -> Calldata {
+    let recursion_depth = if success { 3_u32 } else { 1000_u32 };
+
+    let execute_calldata = if normal_recurse {
         calldata![
             raw_contract_address,
-            raw_normal_entry_point_selector,
+            raw_entry_point_selector,
             stark_felt!(1_u8),
             stark_felt!(recursion_depth)
         ]
-    };
-    let syscall_calldata = |recursion_depth: u32| -> Calldata {
+    } else {
         calldata![
             raw_contract_address,
-            raw_syscall_entry_point_selector,
+            raw_entry_point_selector,
             stark_felt!(3_u8), // Calldata length.
             raw_contract_address,
-            raw_syscall_entry_point_selector,
+            raw_entry_point_selector,
             stark_felt!(recursion_depth)
         ]
     };
 
     // Try two runs for each recursion type: one short run (success), and one that reverts due to
     // step limit.
-    let first_valid_nonce = nonce_manager.next(account_address);
-    let second_valid_nonce = nonce_manager.next(account_address);
-    let third_valid_nonce = nonce_manager.next(account_address);
-    [
-        (1_u32, true, true, first_valid_nonce),
-        (1000_u32, false, true, second_valid_nonce),
-        (3_u32, true, false, second_valid_nonce), // Use same nonce, since previous tx should fail.
-        (1000_u32, false, false, third_valid_nonce),
-    ]
-    .into_iter()
-    .map(|(recursion_depth, should_be_ok, use_normal_calldata, nonce)| {
-        let execute_calldata = if use_normal_calldata {
-            normal_calldata(recursion_depth)
-        } else {
-            syscall_calldata(recursion_depth)
-        };
-        let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-        let account_tx =
-            AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 { nonce, ..tx }));
-        let result = account_tx.execute(&mut state, &block_context);
-        if should_be_ok {
-            result.unwrap();
-        } else {
-            assert!(
-                format!("{:?}", result.unwrap_err())
-                    .contains("RunResources has no remaining steps.")
-            );
-        }
-    })
-    .for_each(drop);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let result = account_tx.execute(&mut state, &block_context);
+    if success {
+        result.unwrap();
+    } else {
+        assert!(
+            format!("{:?}", result.unwrap_err()).contains("RunResources has no remaining steps.")
+        );
+    }
 }
