@@ -12,6 +12,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_bigint::BigUint;
 use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
@@ -98,6 +99,17 @@ pub fn felt_from_ptr(
     let felt = vm.get_integer(*ptr)?.into_owned();
     *ptr = (*ptr + 1)?;
     Ok(felt)
+}
+
+pub fn u256_from_ptr(
+    vm: &VirtualMachine,
+    ptr: &mut Relocatable,
+) -> Result<BigUint, VirtualMachineError> {
+    let low = vm.get_integer(*ptr)?;
+    *ptr = (*ptr + 1)?;
+    let high = vm.get_integer(*ptr)?;
+    *ptr = (*ptr + 1)?;
+    Ok((high.to_biguint() << 128) + low.to_biguint())
 }
 
 pub fn felt_range_from_ptr(
