@@ -9,6 +9,8 @@ testing = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-ff.workspace = true
+ark-secp256k1.workspace = true
 cairo-felt.workspace = true
 cairo-lang-casm.workspace = true
 cairo-lang-runner.workspace = true

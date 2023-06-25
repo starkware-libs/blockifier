@@ -1,13 +1,18 @@
-// Secp256k1 new syscall.
-
+use ark_secp256k1 as secp256k1;
+use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
+use num_traits::Zero;
+use starknet_api::hash::StarkFelt;
 
 use crate::execution::execution_utils::{u256_from_ptr, write_maybe_relocatable};
+use crate::execution::syscalls::hint_processor::{SyscallHintProcessor, INVALID_ARGUMENT};
 use crate::execution::syscalls::{
-    SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
+    SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
 };
+
+// Secp256k1 new syscall.
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Secp256k1NewRequest {
@@ -44,4 +49,36 @@ impl SyscallResponse for Secp256k1NewResponse {
         };
         Ok(())
     }
+}
+
+pub fn secp256k1_new(
+    request: Secp256k1NewRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
+) -> SyscallResult<Secp256k1NewResponse> {
+    let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
+    let (x, y) = (request.x, request.y);
+    if x >= modulos || y >= modulos {
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![
+                StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
+            ],
+        });
+    }
+    let p = if x.is_zero() && y.is_zero() {
+        secp256k1::Affine::identity()
+    } else {
+        secp256k1::Affine::new_unchecked(x.into(), y.into())
+    };
+    Ok(Secp256k1NewResponse {
+        optional_ec_point_id: if p.is_on_curve() && p.is_in_correct_subgroup_assuming_on_curve() {
+            let points = &mut syscall_handler.secp256k1_points;
+            let id = points.len();
+            points.push(p);
+            Some(id)
+        } else {
+            None
+        },
+    })
 }
