@@ -16,19 +16,6 @@ use crate::utils::subtract_mappings;
 mod test;
 
 pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
-pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
-
-/// Holds uncommitted changes induced on StarkNet contracts.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CommitmentStateDiff {
-    // Contract instance attributes (per address).
-    pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
-    pub address_to_nonce: IndexMap<ContractAddress, Nonce>,
-    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
-
-    // Global attributes.
-    pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
-}
 
 /// Caches read and write requests.
 ///
@@ -45,6 +32,15 @@ pub struct CachedState<S: StateReader> {
 impl<S: StateReader> CachedState<S> {
     pub fn new(state: S) -> Self {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+    }
+
+    /// Creates a `TransactionalState` for the given `state`.
+    ///
+    /// This function provides a transactional interface to perform buffered `write` actions on the
+    /// `state`. The `TransactionalState` has `commit` and `abort` methods for finalizing or
+    /// discarding the buffered writes.
+    pub fn create_transactional(state: &mut CachedState<S>) -> TransactionalState<'_, S> {
+        CachedState::new(MutRefState::new(state))
     }
 
     /// Returns the number of storage changes done through this state.
@@ -426,6 +422,8 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
     }
 }
 
+pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
+
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
     /// Commits changes in the child (wrapping) state to its parent.
@@ -442,4 +440,16 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
+}
+
+/// Holds uncommitted changes induced on StarkNet contracts.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CommitmentStateDiff {
+    // Contract instance attributes (per address).
+    pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
+    pub address_to_nonce: IndexMap<ContractAddress, Nonce>,
+    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+
+    // Global attributes.
+    pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
 }
