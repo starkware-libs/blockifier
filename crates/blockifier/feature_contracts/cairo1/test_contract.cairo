@@ -190,4 +190,26 @@ mod TestContract {
                 assert(*revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'),
         }
     }
+
+    #[external]
+    fn test_secp256k1(ref self: ContractState) {
+        // Test a point not on the curve.
+        assert (starknet::secp256k1::secp256k1_new_syscall(
+            x: 0, y: 1).unwrap_syscall().is_none(), 'Should be none');
+
+        // Test a point with x == Secp_prime.
+        match starknet::secp256k1::secp256k1_new_syscall(
+            x: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f, y: 1) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) =>
+                assert(*revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'),
+        }
+
+        // Test a point on the curve.
+        let x = 0xF728B4FA42485E3A0A5D2F346BAA9455E3E70682C2094CAC629F6FBED82C07CD;
+        let y = 0x8E182CA967F38E1BD6A49583F43F187608E031AB54FC0C4A8F0DC94FAD0D0611;
+        let p0 = starknet::secp256k1::secp256k1_new_syscall(x, y).unwrap_syscall().unwrap();
+    }
 }
+
+  
