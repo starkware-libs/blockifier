@@ -6,7 +6,7 @@ use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
-use blockifier::state::cached_state::{CachedState, MutRefState};
+use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
@@ -385,7 +385,7 @@ impl PyTransactionExecutorInner {
 
         let mut executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
-            let mut transactional_state = CachedState::new(MutRefState::new(executor.state));
+            let mut transactional_state = CachedState::create_transactional_state(executor.state);
             let tx_execution_result = tx
                 .execute_raw(&mut transactional_state, executor.block_context)
                 .map_err(NativeBlockifierError::from);

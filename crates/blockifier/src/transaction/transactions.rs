@@ -13,7 +13,7 @@ use crate::execution::entry_point::{
     ExecutionResources,
 };
 use crate::execution::execution_utils::execute_deployment;
-use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
+use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -36,7 +36,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
-        let mut transactional_state = CachedState::new(MutRefState::new(state));
+        let mut transactional_state = CachedState::create_transactional_state(state);
         let execution_result = self.execute_raw(&mut transactional_state, block_context);
 
         match execution_result {
