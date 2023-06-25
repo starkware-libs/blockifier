@@ -534,9 +534,9 @@ where
     TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError> + From<MathError>,
 {
     let array_data_start_ptr = vm.get_relocatable(*ptr)?;
-    *ptr += 1;
+    *ptr = (*ptr + 1)?;
     let array_data_end_ptr = vm.get_relocatable(*ptr)?;
-    *ptr += 1;
+    *ptr = (*ptr + 1)?;
     let array_size = (array_data_end_ptr - array_data_start_ptr)?;
 
     Ok(felt_range_from_ptr(vm, array_data_start_ptr, array_size)?)
