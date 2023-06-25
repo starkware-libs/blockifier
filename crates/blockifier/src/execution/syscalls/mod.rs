@@ -1,7 +1,9 @@
+use ark_secp256k1 as secp256k1;
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use num_traits::ToPrimitive;
+use num_bigint::BigUint;
+use num_traits::{ToPrimitive, Zero};
 use starknet_api::block::BlockHash;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
@@ -16,8 +18,9 @@ use starknet_api::transaction::{
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
-    SyscallHintProcessor,
+    SyscallHintProcessor, INVALID_ARGUMENT,
 };
+use super::execution_utils::u256_from_ptr;
 use crate::abi::constants;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
@@ -651,5 +654,64 @@ pub fn keccak(
     Ok(KeccakResponse {
         result_low: (Felt252::from(state[1]) << 64u32) + Felt252::from(state[0]),
         result_high: (Felt252::from(state[3]) << 64u32) + Felt252::from(state[2]),
+    })
+}
+
+// Secp256k1 new syscall.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1NewRequest {
+    pub x: BigUint,
+    pub y: BigUint,
+}
+
+impl SyscallRequest for Secp256k1NewRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1NewRequest> {
+        let x = u256_from_ptr(vm, ptr)?;
+        let y = u256_from_ptr(vm, ptr)?;
+        Ok(Secp256k1NewRequest { x, y })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1NewResponse {
+    pub not_on_curve: bool,
+    pub ec_point: usize,
+}
+
+impl SyscallResponse for Secp256k1NewResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_felt(vm, ptr, Felt252::from(if self.not_on_curve { 1 } else { 0 }))?;
+        write_maybe_relocatable(vm, ptr, self.ec_point)?;
+        Ok(())
+    }
+}
+
+pub fn secp256k1_new(
+    request: Secp256k1NewRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut Felt252,
+) -> SyscallResult<Secp256k1NewResponse> {
+    let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
+    let (x, y) = (request.x, request.y);
+    if x >= modulos || y >= modulos {
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![
+                StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
+            ],
+        });
+    }
+    let p = if x.is_zero() && y.is_zero() {
+        secp256k1::Affine::identity()
+    } else {
+        secp256k1::Affine::new_unchecked(x.into(), y.into())
+    };
+    Ok(if !(p.is_on_curve() && p.is_in_correct_subgroup_assuming_on_curve()) {
+        Secp256k1NewResponse { not_on_curve: true, ec_point: 0 }
+    } else {
+        let points = &mut syscall_handler.secp256k1_points;
+        let id = points.len();
+        points.push(p);
+        Secp256k1NewResponse { not_on_curve: false, ec_point: id }
     })
 }
