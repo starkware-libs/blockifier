@@ -27,6 +27,7 @@ use crate::execution::execution_utils::{
     execute_deployment, felt_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_felt,
     write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
+use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub mod hint_processor;
 
@@ -243,7 +244,7 @@ pub fn deploy(
 
     let constructor_retdata =
         create_retdata_segment(vm, syscall_handler, &call_info.execution.retdata.0)?;
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+    update_remaining_gas(remaining_gas, &call_info);
 
     syscall_handler.inner_calls.push(call_info);
 

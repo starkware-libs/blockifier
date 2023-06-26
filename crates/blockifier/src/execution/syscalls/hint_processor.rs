@@ -42,6 +42,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
@@ -480,7 +481,7 @@ pub fn execute_inner_call(
     }
 
     let retdata_segment = create_retdata_segment(vm, syscall_handler, raw_retdata)?;
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+    update_remaining_gas(remaining_gas, &call_info);
 
     syscall_handler.inner_calls.push(call_info);
 
