@@ -31,7 +31,7 @@ use crate::execution::execution_utils::{
 pub mod hint_processor;
 
 #[cfg(test)]
-#[path = "syscalls_test.rs"]
+#[path = "syscalls/syscalls_test.rs"]
 pub mod syscalls_test;
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;

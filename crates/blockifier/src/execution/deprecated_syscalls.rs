@@ -28,7 +28,7 @@ use crate::execution::execution_utils::{
 };
 
 #[cfg(test)]
-#[path = "deprecated_syscalls_test.rs"]
+#[path = "deprecated_syscalls/deprecated_syscalls_test.rs"]
 pub mod deprecated_syscalls_test;
 pub mod hint_processor;
 
