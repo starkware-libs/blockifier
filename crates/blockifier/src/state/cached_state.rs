@@ -16,19 +16,6 @@ use crate::utils::subtract_mappings;
 mod test;
 
 pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
-pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
-
-/// Holds uncommitted changes induced on StarkNet contracts.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CommitmentStateDiff {
-    // Contract instance attributes (per address).
-    pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
-    pub address_to_nonce: IndexMap<ContractAddress, Nonce>,
-    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
-
-    // Global attributes.
-    pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
-}
 
 /// Caches read and write requests.
 ///
@@ -47,10 +34,19 @@ impl<S: StateReader> CachedState<S> {
         Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
     }
 
+    /// Creates a transactional instance from the given cached state.
+    /// It allows performing buffered modifying actions on the given state, which
+    /// will either all happen (will be committed) or none of them (will be discarded).
+    pub fn create_transactional(state: &mut CachedState<S>) -> TransactionalState<'_, S> {
+        CachedState::new(MutRefState::new(state))
+    }
+
     /// Returns the number of storage changes done through this state.
-    /// Any change to the contract's state (storage, nonce, class hash) is considered.
-    // TODO(Noa, 30/04/23): Add nonce count.
-    pub fn count_actual_state_changes(&self) -> (usize, usize, usize) {
+    /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
+    /// root); the state updates correspond to them.
+    pub fn count_actual_state_changes(&mut self) -> StateResult<StateChanges> {
+        self.update_initial_values_of_write_only_access()?;
+
         // Storage Update.
         let storage_updates = &self.cache.get_storage_updates();
         let mut modified_contracts: HashSet<ContractAddress> =
@@ -60,7 +56,55 @@ impl<S: StateReader> CachedState<S> {
         let class_hash_updates = &self.cache.get_class_hash_updates();
         modified_contracts.extend(class_hash_updates.keys());
 
-        (storage_updates.len(), modified_contracts.len(), class_hash_updates.len())
+        // Nonce updates.
+        let nonce_updates = &self.cache.get_nonce_updates();
+        modified_contracts.extend(nonce_updates.keys());
+
+        Ok(StateChanges {
+            n_storage_updates: storage_updates.len(),
+            n_modified_contracts: modified_contracts.len(),
+            n_class_hash_updates: class_hash_updates.len(),
+            n_nonce_updates: nonce_updates.len(),
+        })
+    }
+
+    /// Updates cache with initial cell values for write-only access.
+    /// If written values match the original, the cell is unchanged and not counted as a
+    /// storage-change for fee calculation.
+    /// Same for class hash and nonce writes.
+    // TODO(Noa, 30/07/23): Consider adding DB getters in bulk (via a DB read transaction).
+    fn update_initial_values_of_write_only_access(&mut self) -> StateResult<()> {
+        // Eliminate storage writes that are identical to the initial value (no change). Assumes
+        // that `set_storage_at` does not affect the state field.
+        for contract_storage_key in self.cache.storage_writes.keys() {
+            if !self.cache.storage_initial_values.contains_key(contract_storage_key) {
+                // First access to this cell was write; cache initial value.
+                self.cache.storage_initial_values.insert(
+                    *contract_storage_key,
+                    self.state.get_storage_at(contract_storage_key.0, contract_storage_key.1)?,
+                );
+            }
+        }
+
+        for contract_address in self.cache.class_hash_writes.keys() {
+            if !self.cache.class_hash_initial_values.contains_key(contract_address) {
+                // First access to this cell was write; cache initial value.
+                self.cache
+                    .class_hash_initial_values
+                    .insert(*contract_address, self.state.get_class_hash_at(*contract_address)?);
+            }
+        }
+
+        for contract_address in self.cache.nonce_writes.keys() {
+            if !self.cache.nonce_initial_values.contains_key(contract_address) {
+                // First access to this cell was write; cache initial value.
+                self.cache
+                    .nonce_initial_values
+                    .insert(*contract_address, self.state.get_nonce_at(*contract_address)?);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -188,6 +232,7 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
+    // Assumes calling to `count_actual_state_changes` before. See its documentation.
     fn to_state_diff(&self) -> CommitmentStateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
@@ -341,6 +386,10 @@ impl StateCache {
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
         subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
+
+    fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
+        subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
+    }
 }
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
@@ -426,6 +475,8 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
     }
 }
 
+pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
+
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
     /// Commits changes in the child (wrapping) state to its parent.
@@ -442,4 +493,25 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
+}
+
+/// Holds uncommitted changes induced on StarkNet contracts.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CommitmentStateDiff {
+    // Contract instance attributes (per address).
+    pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
+    pub address_to_nonce: IndexMap<ContractAddress, Nonce>,
+    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+
+    // Global attributes.
+    pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
+}
+
+/// Holds the number of state changes.
+#[derive(Debug, Eq, PartialEq)]
+pub struct StateChanges {
+    pub n_storage_updates: usize,
+    pub n_class_hash_updates: usize,
+    pub n_nonce_updates: usize,
+    pub n_modified_contracts: usize,
 }

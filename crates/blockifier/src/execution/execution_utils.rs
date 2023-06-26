@@ -96,7 +96,7 @@ pub fn felt_from_ptr(
     ptr: &mut Relocatable,
 ) -> Result<Felt252, VirtualMachineError> {
     let felt = vm.get_integer(*ptr)?.into_owned();
-    *ptr += 1;
+    *ptr = (*ptr + 1)?;
     Ok(felt)
 }
 
@@ -245,7 +245,7 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     value: T,
 ) -> Result<(), MemoryError> {
     vm.insert_value(*ptr, value)?;
-    *ptr += 1;
+    *ptr = (*ptr + 1)?;
     Ok(())
 }
 

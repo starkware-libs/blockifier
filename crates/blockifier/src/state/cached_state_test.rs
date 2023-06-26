@@ -95,7 +95,7 @@ fn cast_between_storage_mapping_types() {
 
 #[test]
 fn get_uninitialized_value() {
-    let mut state = CachedState::new(DictStateReader::default());
+    let mut state: CachedState<DictStateReader> = CachedState::default();
     let contract_address = ContractAddress(patricia_key!("0x1"));
 
     assert_eq!(state.get_nonce_at(contract_address).unwrap(), Nonce::default());
@@ -153,7 +153,7 @@ fn get_contract_class() {
 
 #[test]
 fn get_uninitialized_class_hash_value() {
-    let mut state = CachedState::new(DictStateReader::default());
+    let mut state: CachedState<DictStateReader> = CachedState::default();
     let valid_contract_address = ContractAddress(patricia_key!("0x1"));
 
     assert_eq!(state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
@@ -162,7 +162,7 @@ fn get_uninitialized_class_hash_value() {
 #[test]
 fn set_and_get_contract_hash() {
     let contract_address = ContractAddress(patricia_key!("0x1"));
-    let mut state = CachedState::new(DictStateReader::default());
+    let mut state: CachedState<DictStateReader> = CachedState::default();
     let class_hash = ClassHash(stark_felt!("0x10"));
 
     assert!(state.set_class_hash_at(contract_address, class_hash).is_ok());
@@ -171,7 +171,7 @@ fn set_and_get_contract_hash() {
 
 #[test]
 fn cannot_set_class_hash_to_uninitialized_contract() {
-    let mut state = CachedState::new(DictStateReader::default());
+    let mut state: CachedState<DictStateReader> = CachedState::default();
 
     let uninitialized_contract_address = ContractAddress::default();
     let class_hash = ClassHash(stark_felt!("0x100"));
@@ -258,16 +258,31 @@ fn cached_state_state_diff_conversion() {
 #[test]
 fn count_actual_state_changes() {
     let contract_address = ContractAddress(patricia_key!("0x100"));
+    let contract_address2 = ContractAddress(patricia_key!("0x101"));
     let class_hash = ClassHash(stark_felt!("0x10"));
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");
 
-    let mut state = CachedState::new(DictStateReader::default());
+    let mut state: CachedState<DictStateReader> = CachedState::default();
     state.set_class_hash_at(contract_address, class_hash).unwrap();
     state.set_storage_at(contract_address, key, storage_val);
+    state.increment_nonce(contract_address2).unwrap();
 
-    let (n_storage_updates, n_modified_contracts, n_class_updates) =
-        state.count_actual_state_changes();
+    // Assign the existing value to the storage (this shouldn't be considered a change).
+    // As the first access:
+    state.set_storage_at(contract_address2, key, StarkFelt::default());
+    // As the second access:
+    state.set_storage_at(contract_address, key, storage_val);
 
-    assert_eq!((n_storage_updates, n_modified_contracts, n_class_updates), (1, 1, 1));
+    let state_changes = state.count_actual_state_changes().unwrap();
+
+    assert_eq!(
+        state_changes,
+        StateChanges {
+            n_storage_updates: 1,
+            n_modified_contracts: 2,
+            n_class_hash_updates: 1,
+            n_nonce_updates: 1
+        }
+    );
 }

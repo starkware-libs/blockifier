@@ -8,6 +8,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
 use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -430,11 +431,11 @@ pub fn read_felt_array<TErr>(
     ptr: &mut Relocatable,
 ) -> Result<Vec<StarkFelt>, TErr>
 where
-    TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError>,
+    TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError> + From<MathError>,
 {
     let array_size = stark_felt_from_ptr(vm, ptr)?;
     let array_data_start_ptr = vm.get_relocatable(*ptr)?;
-    *ptr += 1;
+    *ptr = (*ptr + 1)?;
 
     Ok(felt_range_from_ptr(vm, array_data_start_ptr, usize::try_from(array_size)?)?)
 }

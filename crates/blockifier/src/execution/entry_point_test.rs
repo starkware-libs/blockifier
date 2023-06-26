@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
@@ -493,7 +494,14 @@ fn test_cairo1_entry_point_segment_arena() {
         ..trivial_external_entry_point()
     };
 
-    entry_point_call.execute_directly(&mut state).unwrap();
+    assert!(
+        entry_point_call
+            .execute_directly(&mut state)
+            .unwrap()
+            .vm_resources
+            .builtin_instance_counter
+            .contains_key(BuiltinName::segment_arena.name())
+    );
 }
 
 #[test]
