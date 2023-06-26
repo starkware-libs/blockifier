@@ -7,7 +7,7 @@ use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
 use cairo_vm::serde::deserialize_program::{
-    ApTracking, BuiltinName, FlowTrackingData, HintParams, ReferenceManager,
+    ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
@@ -234,16 +234,7 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             }
         }
 
-        // Initialize program with all builtins.
-        let builtins = vec![
-            BuiltinName::output,
-            BuiltinName::pedersen,
-            BuiltinName::range_check,
-            BuiltinName::ecdsa,
-            BuiltinName::bitwise,
-            BuiltinName::ec_op,
-            BuiltinName::poseidon,
-        ];
+        let builtins = vec![]; // The builtins are initialize later.
         let main = Some(0);
         let reference_manager = ReferenceManager { references: Vec::new() };
         let identifiers = HashMap::new();

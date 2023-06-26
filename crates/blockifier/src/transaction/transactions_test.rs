@@ -298,7 +298,7 @@ fn test_invoke_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 1224),
+            (abi_constants::GAS_USAGE.to_string(), 2448),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 101),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 4135),
@@ -525,7 +525,7 @@ fn test_declare_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 1224),
+            (abi_constants::GAS_USAGE.to_string(), 2448),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),

@@ -43,8 +43,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<ResourcesMapping> {
-    let (n_storage_changes, n_modified_contracts, n_class_updates) =
-        state.count_actual_state_changes();
+    let state_changes = state.count_actual_state_changes()?;
 
     let mut l2_to_l1_payloads_length = vec![];
     for call_info in call_infos {
@@ -53,10 +52,10 @@ pub fn calculate_tx_resources<S: StateReader>(
 
     let l1_gas_usage = calculate_tx_gas_usage(
         &l2_to_l1_payloads_length,
-        n_modified_contracts,
-        n_storage_changes + usize::from(FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE),
+        state_changes.n_modified_contracts,
+        state_changes.n_storage_updates + usize::from(FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE),
         l1_handler_payload_size,
-        n_class_updates,
+        state_changes.n_class_hash_updates,
     );
 
     // Add additional Cairo resources needed for the OS to run the transaction.
@@ -65,6 +64,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // "segment_arena" built-in is not a SHARP built-in - i.e., it is not part of any proof layout.
     // Each instance requires approximately 10 steps in the OS.
+    // TODO(Noa, 01/07/23): Verify the removal of the segmen_arena builtin.
     let n_steps = total_vm_usage.n_steps
         + 10 * total_vm_usage
             .builtin_instance_counter
