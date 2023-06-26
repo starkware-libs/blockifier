@@ -86,3 +86,20 @@ pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
     Err(TransactionExecutionError::CairoResourcesNotContainedInFeeCosts.into())
 }
+
+pub fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
+where
+    T: for<'a> FromPyObject<'a>,
+    T: Clone,
+{
+    Ok(obj.getattr(attr)?.extract()?)
+}
+
+pub fn py_enum_name<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
+where
+    T: for<'a> FromPyObject<'a>,
+    T: Clone,
+    T: ToString,
+{
+    py_attr(obj.getattr(attr)?, "name")
+}

@@ -4,15 +4,16 @@ pub mod py_state_diff;
 pub mod py_test_utils;
 pub mod py_transaction;
 pub mod py_transaction_execution_info;
+pub mod py_transaction_executor;
 pub mod py_utils;
 pub mod storage;
 
 use errors::add_py_exceptions;
-use py_transaction::PyTransactionExecutor;
 use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
     PyVmExecutionResources,
 };
+use py_transaction_executor::PyTransactionExecutor;
 use pyo3::prelude::*;
 use storage::Storage;
 
