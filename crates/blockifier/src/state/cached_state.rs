@@ -21,7 +21,7 @@ pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 ///
 /// Writer functionality is builtin, whereas Reader functionality is injected through
 /// initialization.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
@@ -248,6 +248,17 @@ impl<S: StateReader> State for CachedState<S> {
             storage_updates: StorageDiff::from(StorageView(storage_diffs)),
             class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
             address_to_nonce: IndexMap::from_iter(nonces),
+        }
+    }
+}
+
+#[cfg(any(feature = "testing", test))]
+impl Default for CachedState<crate::test_utils::DictStateReader> {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            cache: Default::default(),
+            class_hash_to_class: Default::default(),
         }
     }
 }

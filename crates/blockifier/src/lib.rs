@@ -4,6 +4,7 @@ pub mod block_execution;
 pub mod execution;
 pub mod fee;
 pub mod state;
+#[cfg(any(feature = "testing", test))]
 pub mod test_utils;
 pub mod transaction;
 pub mod utils;
