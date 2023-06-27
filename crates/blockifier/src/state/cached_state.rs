@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex, MutexGuard};
 
+use cached::{Cached, SizedCache};
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -27,18 +29,27 @@ pub struct CachedState<S: StateReader> {
     // Invariant: read/write access is managed by CachedState.
     cache: StateCache,
     class_hash_to_class: ContractClassMapping,
+    // Invariant: read-only access is managed by CachedState.
+    global_class_hash_to_class: GlobalContractCache,
 }
 
 impl<S: StateReader> CachedState<S> {
-    pub fn new(state: S) -> Self {
-        Self { state, cache: StateCache::default(), class_hash_to_class: HashMap::default() }
+    pub fn new(state: S, global_class_hash_to_class: GlobalContractCache) -> Self {
+        Self {
+            state,
+            cache: StateCache::default(),
+            class_hash_to_class: HashMap::default(),
+            global_class_hash_to_class,
+        }
     }
 
     /// Creates a transactional instance from the given cached state.
     /// It allows performing buffered modifying actions on the given state, which
     /// will either all happen (will be committed) or none of them (will be discarded).
     pub fn create_transactional(state: &mut CachedState<S>) -> TransactionalState<'_, S> {
-        CachedState::new(MutRefState::new(state))
+        let global_class_hash_to_class = state.global_class_hash_to_class.clone();
+
+        CachedState::new(MutRefState::new(state), global_class_hash_to_class)
     }
 
     /// Returns the number of storage changes done through this state.
@@ -106,6 +117,25 @@ impl<S: StateReader> CachedState<S> {
 
         Ok(())
     }
+
+    pub fn drain_global_class_hash_to_class(&mut self) -> ContractClassMapping {
+        self.class_hash_to_class.drain().collect()
+    }
+
+    // The global cache can theoretically become poisoned, if a panic occurs in the middle of a
+    // write operation, but this is not expected to happen in our flow, and is a bug if it does.
+    // Note: `&mut` is used since the LRU cache updates internal counters on reads.
+    fn global_class_hash_to_class(
+        &mut self,
+    ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
+        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
+    }
+}
+
+impl<S: StateReader> From<S> for CachedState<S> {
+    fn from(state_reader: S) -> Self {
+        CachedState::new(state_reader, Default::default())
+    }
 }
 
 impl<S: StateReader> StateReader for CachedState<S> {
@@ -155,7 +185,10 @@ impl<S: StateReader> StateReader for CachedState<S> {
         &mut self,
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
+        let contract_class_cached: bool = self.class_hash_to_class.contains_key(class_hash)
+            || self.global_class_hash_to_class().cache_get(class_hash).is_some();
+
+        if !contract_class_cached {
             let contract_class = self.state.get_compiled_contract_class(class_hash)?;
             self.class_hash_to_class.insert(*class_hash, contract_class);
         }
@@ -163,8 +196,10 @@ impl<S: StateReader> StateReader for CachedState<S> {
         let contract_class = self
             .class_hash_to_class
             .get(class_hash)
+            .cloned()
+            .or_else(|| self.global_class_hash_to_class().cache_get(class_hash).cloned())
             .expect("The class hash must appear in the cache.");
-        Ok(contract_class.clone())
+        Ok(contract_class)
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
@@ -489,6 +524,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         parent_cache.storage_writes.extend(child_cache.storage_writes);
         parent_cache.compiled_class_hash_writes.extend(child_cache.compiled_class_hash_writes);
         self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
+        self.state.0.global_class_hash_to_class = self.global_class_hash_to_class;
     }
 
     /// Drops `self`.
@@ -514,4 +550,22 @@ pub struct StateChanges {
     pub n_class_hash_updates: usize,
     pub n_nonce_updates: usize,
     pub n_modified_contracts: usize,
+}
+
+// Note: `ContractClassLRUCache` key-value types must align with `ContractClassMapping`.
+type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
+// Thread-safe LRU cache for contract classes, optimized for inter-language sharing when
+// `blockifier` compiles as a shared library.
+#[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
+
+impl GlobalContractCache {
+    // TODO: make this configurable via a CachedState constructor argument.
+    const CACHE_SIZE: usize = 100;
+}
+
+impl Default for GlobalContractCache {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
+    }
 }
