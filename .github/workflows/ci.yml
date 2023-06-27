@@ -25,9 +25,8 @@ jobs:
           components: rustfmt, clippy
           toolchain: nightly-2022-11-03
       - uses: Swatinem/rust-cache@v2
-      - run: |
-          cargo +nightly-2022-11-03 fmt --all -- --check
-          cargo clippy --all-targets --all-features
+      - run: scripts/rust_fmt.sh --check
+      - run: scripts/clippy.sh
 
   run-tests:
     runs-on: ubuntu-latest
