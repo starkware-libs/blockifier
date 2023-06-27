@@ -60,7 +60,7 @@ pub const STORAGE_WRITE_GAS_COST: u64 = 50 * STEP_GAS_COST;
 
 // Max number of recursions allows in an EntryPoint.
 // Compatible with CPython's max recursion depth.
-pub const MAX_ENTRY_POINT_RECURSION_DEPTH: usize = 100;
+pub const MAX_ENTRY_POINT_RECURSION_DEPTH: usize = 50;
 
 // OS reserved contract addresses.
 
