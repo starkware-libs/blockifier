@@ -227,7 +227,6 @@ pub fn deploy(
         deployer_address_for_calculation,
     )?;
 
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     let ctor_context = ConstructorContext {
         class_hash: request.class_hash,
         code_address: Some(deployed_contract_address),
@@ -240,7 +239,7 @@ pub fn deploy(
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
-        initial_gas,
+        remaining_gas.clone(),
     )?;
 
     let constructor_retdata =
