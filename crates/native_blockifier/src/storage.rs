@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
+use blockifier::state::cached_state::GlobalContractCache;
+use cached::Cached;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
 use papyrus_storage::compiled_class::CasmStorageWriter;
@@ -16,6 +18,7 @@ use starknet_api::state::{ContractClass, StateDiff, StateNumber};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_transaction_executor::GlobalCacheUpdates;
 use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
 
@@ -26,6 +29,8 @@ const GENESIS_BLOCK_ID: u64 = u64::MAX;
 // Reader and writer fields must be cleared before the struct goes out of scope in Python;
 // to prevent possible memory leaks (TODO: see if this is indeed necessary).
 pub struct Storage {
+    pub global_contract_cache: GlobalContractCache,
+
     reader: Option<papyrus_storage::StorageReader>,
     writer: Option<papyrus_storage::StorageWriter>,
 }
@@ -45,7 +50,11 @@ impl Storage {
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
         log::debug!("Initialized Blockifier storage.");
 
-        Ok(Storage { reader: Some(reader), writer: Some(writer) })
+        Ok(Storage {
+            global_contract_cache: Default::default(),
+            reader: Some(reader),
+            writer: Some(writer),
+        })
     }
 
     /// Manually drops the storage reader and writer.
@@ -217,6 +226,16 @@ impl Storage {
 
         append_txn.commit()?;
         Ok(())
+    }
+
+    #[args(cache_updates)]
+    pub fn update_global_contract_cache(&mut self, cache_updates: &mut GlobalCacheUpdates) {
+        let mut current_global_cache =
+            self.global_contract_cache.lock().expect("Global contract cache is poisoned.");
+
+        for (key, value) in cache_updates.drain() {
+            current_global_cache.cache_set(key, value);
+        }
     }
 }
 

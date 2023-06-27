@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map, HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::state::cached_state::CachedState;
+use blockifier::execution::contract_class::ContractClass;
+use blockifier::state::cached_state::{CachedState, ContractClassMapping, GlobalContractCache};
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -57,7 +58,7 @@ impl PyTransactionExecutor {
         self.executor().execute(tx, raw_contract_class, enough_room_for_tx)
     }
 
-    pub fn finalize(&mut self) -> PyStateDiff {
+    pub fn finalize(&mut self) -> (PyStateDiff, GlobalCacheUpdates) {
         log::debug!("Finalizing execution...");
         let finalized_state = self.executor().finalize();
         log::debug!("Finalized execution.");
@@ -112,9 +113,10 @@ impl TransactionExecutor {
     ) -> NativeBlockifierResult<Self> {
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
+        let global_contract_cache = papyrus_storage.global_contract_cache.clone();
 
         let block_context = py_block_context(general_config, block_info)?;
-        build_tx_executor(block_context, reader)
+        build_tx_executor(block_context, reader, global_contract_cache)
     }
 
     /// Executes the given transaction on the state maintained by the executor.
@@ -191,8 +193,13 @@ impl TransactionExecutor {
     }
 
     /// Returns the state diff resulting in executing transactions.
-    pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.borrow_state().to_state_diff())
+    pub fn finalize(&mut self) -> (PyStateDiff, GlobalCacheUpdates) {
+        let py_state_diff = PyStateDiff::from(self.borrow_state().to_state_diff());
+        let global_cache_updates = GlobalCacheUpdates(
+            self.with_state_mut(|state| state.drain_global_class_hash_to_class()),
+        );
+
+        (py_state_diff, global_cache_updates)
     }
 
     // Block pre-processing; see `block_execution::pre_process_block` documentation.
@@ -250,6 +257,7 @@ pub fn py_block_context(
 pub fn build_tx_executor(
     block_context: BlockContext,
     storage_reader: papyrus_storage::StorageReader,
+    global_contract_cache: GlobalContractCache,
 ) -> NativeBlockifierResult<TransactionExecutor> {
     // The following callbacks are required to capture the local lifetime parameter.
     fn storage_tx_builder(
@@ -261,11 +269,12 @@ pub fn build_tx_executor(
     fn state_builder<'a>(
         storage_tx: &'a papyrus_storage::StorageTxn<'a, RO>,
         block_number: BlockNumber,
+        global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<CachedState<PapyrusReader<'a>>> {
         let state_reader = storage_tx.get_state_reader()?;
         let state_reader = PapyrusStateReader::new(state_reader, block_number);
         let papyrus_reader = PapyrusReader::new(storage_tx, state_reader);
-        Ok(CachedState::new(papyrus_reader))
+        Ok(CachedState::new(papyrus_reader, global_contract_cache))
     }
 
     let executed_class_hashes = HashSet::<ClassHash>::new();
@@ -276,7 +285,7 @@ pub fn build_tx_executor(
         executed_class_hashes,
         storage_reader,
         storage_tx_builder,
-        state_builder: |storage_tx| state_builder(storage_tx, block_number),
+        state_builder: |storage_tx| state_builder(storage_tx, block_number, global_contract_cache),
     };
     py_tx_executor_builder.try_build()
 }
@@ -307,4 +316,15 @@ pub fn get_casm_hash_calculation_resources(
     }
 
     Ok(PyVmExecutionResources::from(casm_hash_computation_resources))
+}
+
+#[pyclass]
+/// Stores current block's global contract cache changes for Python to update the shared cache on a
+/// distinct `Storage` instance.
+pub struct GlobalCacheUpdates(ContractClassMapping);
+
+impl GlobalCacheUpdates {
+    pub fn drain(&mut self) -> hash_map::Drain<'_, ClassHash, ContractClass> {
+        self.0.drain()
+    }
 }

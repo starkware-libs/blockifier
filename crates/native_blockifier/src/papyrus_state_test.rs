@@ -44,7 +44,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let block_number = BlockNumber(1);
     let state_reader = PapyrusStateReader::new(state_reader, block_number);
     let papyrus_reader = PapyrusReader::new(&storage_tx, state_reader);
-    let mut state = CachedState::new(papyrus_reader);
+    let mut state = CachedState::from(papyrus_reader);
 
     // Call entrypoint that want to write to storage, which updates the cached state's write cache.
     let key = stark_felt!(1234_u16);
