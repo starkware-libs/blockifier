@@ -42,6 +42,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     tx_type: TransactionType,
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
+    n_reverted_steps: usize,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let state_changes = state.count_actual_state_changes()?;
 
@@ -66,6 +67,7 @@ pub fn calculate_tx_resources<S: StateReader>(
     // Each instance requires approximately 10 steps in the OS.
     // TODO(Noa, 01/07/23): Verify the removal of the segmen_arena builtin.
     let n_steps = total_vm_usage.n_steps
+        + n_reverted_steps
         + 10 * total_vm_usage
             .builtin_instance_counter
             .remove(SEGMENT_ARENA_BUILTIN_NAME)
