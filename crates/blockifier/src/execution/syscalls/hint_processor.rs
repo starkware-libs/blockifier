@@ -23,6 +23,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use super::secp::secp256k1_get_xy;
 use crate::abi::constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
@@ -227,6 +228,9 @@ impl<'a> SyscallHintProcessor<'a> {
             }
             SyscallSelector::ReplaceClass => {
                 self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
+            }
+            SyscallSelector::Secp256k1GetXy => {
+                self.execute_syscall(vm, secp256k1_get_xy, constants::SECP256K1_NEW_GET_XY)
             }
             SyscallSelector::Secp256k1New => {
                 self.execute_syscall(vm, secp256k1_new, constants::SECP256K1_NEW_GAS_COST)
