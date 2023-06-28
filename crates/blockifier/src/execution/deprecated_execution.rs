@@ -5,7 +5,7 @@ use cairo_vm::vm::runners::cairo_runner::{
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkHash;
 
 use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
 use crate::execution::contract_class::ContractClassV0;
@@ -246,7 +246,7 @@ pub fn finalize_execution(
             events: syscall_handler.events,
             l2_to_l1_messages: syscall_handler.l2_to_l1_messages,
             failed: false,
-            gas_consumed: StarkFelt::default(),
+            gas_consumed: 0,
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,

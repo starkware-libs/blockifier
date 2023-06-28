@@ -213,7 +213,7 @@ pub struct CallExecution {
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub failed: bool,
-    pub gas_consumed: StarkFelt,
+    pub gas_consumed: u64,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
