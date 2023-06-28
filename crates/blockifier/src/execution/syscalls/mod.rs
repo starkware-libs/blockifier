@@ -1,6 +1,7 @@
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
@@ -163,7 +164,7 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
-        initial_gas: remaining_gas.clone(),
+        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)?;
 

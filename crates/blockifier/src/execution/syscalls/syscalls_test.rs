@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -248,7 +247,7 @@ fn test_nested_library_call() {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
-        initial_gas: Felt252::from(9999906600_u64),
+        initial_gas: 9999906600,
         ..trivial_external_entry_point()
     };
     let nested_storage_entry_point = CallEntryPoint {
@@ -257,7 +256,7 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: Felt252::from(9999719920_u64),
+        initial_gas: 9999719920,
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
@@ -272,12 +271,12 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: Felt252::from(9999813750_u64),
+        initial_gas: 9999813750,
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        initial_gas: Felt252::from(9999623870_u64),
+        initial_gas: 9999623870,
         ..nested_storage_entry_point
     };
     let storage_entry_point_vm_resources = VmExecutionResources {
@@ -536,7 +535,7 @@ fn test_out_of_gas() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        initial_gas: Felt252::from(REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1),
+        initial_gas: REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1,
         ..trivial_external_entry_point()
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
