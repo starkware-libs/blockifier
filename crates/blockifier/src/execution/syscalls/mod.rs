@@ -26,8 +26,8 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_felt,
-    write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
+    execute_deployment, felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
+    write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::transaction::transaction_utils::update_remaining_gas;
 
@@ -52,32 +52,37 @@ pub trait SyscallResponse {
 
 // Syscall header structs.
 pub struct SyscallRequestWrapper<T: SyscallRequest> {
-    pub gas_counter: Felt252,
+    pub gas_counter: u64,
     pub request: T,
 }
 impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Self> {
         let gas_counter = felt_from_ptr(vm, ptr)?;
+        let gas_counter =
+            gas_counter.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
+                input: felt_to_stark_felt(&gas_counter),
+                info: String::from("Unexpected gas."),
+            })?;
         let request = T::read(vm, ptr)?;
         Ok(Self { gas_counter, request })
     }
 }
 
 pub enum SyscallResponseWrapper<T: SyscallResponse> {
-    Success { gas_counter: Felt252, response: T },
-    Failure { gas_counter: Felt252, error_data: Vec<StarkFelt> },
+    Success { gas_counter: u64, response: T },
+    Failure { gas_counter: u64, error_data: Vec<StarkFelt> },
 }
 impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         match self {
             Self::Success { gas_counter, response } => {
-                write_felt(vm, ptr, gas_counter)?;
+                write_felt(vm, ptr, Felt252::from(gas_counter))?;
                 // 0 to indicate success.
                 write_stark_felt(vm, ptr, StarkFelt::from(0_u8))?;
                 response.write(vm, ptr)
             }
             Self::Failure { gas_counter, error_data } => {
-                write_felt(vm, ptr, gas_counter)?;
+                write_felt(vm, ptr, Felt252::from(gas_counter))?;
                 // 1 to indicate failure.
                 write_stark_felt(vm, ptr, StarkFelt::from(1_u8))?;
 
