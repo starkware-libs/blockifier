@@ -112,6 +112,15 @@ pub fn u256_from_ptr(
     Ok((high.to_biguint() << 128) + low.to_biguint())
 }
 
+pub fn write_u256(
+    vm: &mut VirtualMachine,
+    ptr: &mut Relocatable,
+    value: BigUint,
+) -> Result<(), MemoryError> {
+    write_felt(vm, ptr, Felt252::from(&value & BigUint::from(u128::MAX)))?;
+    write_felt(vm, ptr, Felt252::from(value >> 128))
+}
+
 pub fn felt_range_from_ptr(
     vm: &VirtualMachine,
     ptr: Relocatable,
