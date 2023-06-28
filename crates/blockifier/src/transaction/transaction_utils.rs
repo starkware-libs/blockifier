@@ -5,7 +5,6 @@ use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 
 use crate::abi::constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
-use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::TransactionalState;
@@ -81,5 +80,5 @@ pub fn calculate_tx_resources<S: StateReader>(
 }
 
 pub fn update_remaining_gas(remaining_gas: &mut Felt252, call_info: &CallInfo) {
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+    *remaining_gas -= Felt252::from(call_info.execution.gas_consumed);
 }
