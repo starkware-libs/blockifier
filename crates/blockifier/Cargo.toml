@@ -36,4 +36,5 @@ ctor.workspace = true
 [dev-dependencies]
 assert_matches.workspace = true
 pretty_assertions.workspace = true
+rstest.workspace = true
 test-case.workspace = true

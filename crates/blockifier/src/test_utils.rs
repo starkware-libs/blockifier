@@ -96,6 +96,9 @@ pub const BALANCE: u128 = 10 * MAX_FEE;
 
 pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
+// The block number of the BlockContext being used for testing.
+pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
+
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -194,7 +197,6 @@ pub fn get_test_contract_class() -> ContractClass {
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -204,7 +206,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
-        initial_gas,
+        initial_gas: constants::INITIAL_GAS_COST,
     }
 }
 
@@ -345,7 +347,7 @@ impl BlockContext {
     pub fn create_for_testing() -> BlockContext {
         BlockContext {
             chain_id: ChainId("SN_GOERLI".to_string()),
-            block_number: BlockNumber::default(),
+            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),

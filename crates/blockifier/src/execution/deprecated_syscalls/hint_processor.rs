@@ -335,7 +335,9 @@ impl HintProcessor for DeprecatedSyscallHintProcessor<'_> {
         self.context.vm_run_resources = run_resources.clone();
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {
-            return self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            let result = self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            *run_resources = self.context.vm_run_resources.clone();
+            return result;
         }
 
         let result = self.builtin_hint_processor.execute_hint(
@@ -409,7 +411,6 @@ pub fn execute_library_call(
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     let entry_point = CallEntryPoint {
         class_hash: Some(class_hash),
         code_address,
@@ -420,7 +421,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address,
         caller_address: syscall_handler.caller_address,
         call_type: CallType::Delegate,
-        initial_gas,
+        initial_gas: constants::INITIAL_GAS_COST,
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)

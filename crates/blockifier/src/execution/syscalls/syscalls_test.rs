@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -23,12 +22,15 @@ use crate::execution::entry_point::{
     OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::errors::EntryPointExecutionError;
-use crate::execution::syscalls::hint_processor::OUT_OF_GAS_ERROR;
+use crate::execution::syscalls::hint_processor::{
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
+};
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH,
+    create_deploy_test_state, create_test_state, trivial_external_entry_point,
+    CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_PATH,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35050;
@@ -128,14 +130,15 @@ fn test_get_block_hash() {
     let mut state = create_test_state();
 
     // Initialize block number -> block hash entry.
-    let block_number = stark_felt!(1800_u64);
+    let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
+    let block_number = stark_felt!(upper_bound_block_number);
     let block_hash = stark_felt!(66_u64);
     let key = StorageKey::try_from(block_number).unwrap();
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
     state.set_storage_at(block_hash_contract_address, key, block_hash);
 
-    // Create call.
+    // Positive flow.
     let calldata = calldata![block_number];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_get_block_hash"),
@@ -150,6 +153,19 @@ fn test_get_block_hash() {
             ..CallExecution::from_retdata(retdata![block_hash])
         }
     );
+
+    // Negative flow.
+    let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
+    let block_number = stark_felt!(requested_block_number);
+    let calldata = calldata![block_number];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
+    assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
+        if error_data == vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
 }
 
 #[test]
@@ -251,7 +267,7 @@ fn test_nested_library_call() {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
-        initial_gas: Felt252::from(9999906600_u64),
+        initial_gas: 9999906600,
         ..trivial_external_entry_point()
     };
     let nested_storage_entry_point = CallEntryPoint {
@@ -260,7 +276,7 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: Felt252::from(9999719920_u64),
+        initial_gas: 9999719920,
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
@@ -275,12 +291,12 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: Felt252::from(9999813750_u64),
+        initial_gas: 9999813750,
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        initial_gas: Felt252::from(9999623870_u64),
+        initial_gas: 9999623870,
         ..nested_storage_entry_point
     };
     let storage_entry_point_vm_resources = VmExecutionResources {
@@ -539,7 +555,7 @@ fn test_out_of_gas() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        initial_gas: Felt252::from(REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1),
+        initial_gas: REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1,
         ..trivial_external_entry_point()
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();

@@ -2,7 +2,11 @@ use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
+<<<<<<< HEAD
 use starknet_api::block::BlockHash;
+=======
+use starknet_api::block::{BlockHash, BlockNumber};
+>>>>>>> origin/main-v0.12.0
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -12,11 +16,12 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
 };
+use starknet_api::StarknetApiError;
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
     read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
-    SyscallHintProcessor,
+    SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
 use crate::abi::constants;
 use crate::execution::contract_class::ContractClass;
@@ -28,7 +33,11 @@ use crate::execution::execution_utils::{
     execute_deployment, felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
+<<<<<<< HEAD
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
+=======
+use crate::transaction::transaction_utils::update_remaining_gas;
+>>>>>>> origin/main-v0.12.0
 
 pub mod hint_processor;
 mod secp;
@@ -164,7 +173,7 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
-        initial_gas: remaining_gas.clone(),
+        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)?;
 
@@ -228,7 +237,6 @@ pub fn deploy(
         deployer_address_for_calculation,
     )?;
 
-    let initial_gas = constants::INITIAL_GAS_COST.into();
     let ctor_context = ConstructorContext {
         class_hash: request.class_hash,
         code_address: Some(deployed_contract_address),
@@ -241,12 +249,12 @@ pub fn deploy(
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
-        initial_gas,
+        remaining_gas.clone(),
     )?;
 
     let constructor_retdata =
         create_retdata_segment(vm, syscall_handler, &call_info.execution.retdata.0)?;
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+    update_remaining_gas(remaining_gas, &call_info);
 
     syscall_handler.inner_calls.push(call_info);
 
@@ -291,15 +299,21 @@ pub fn emit_event(
 // GetBlockHash syscall.
 
 #[derive(Debug, Eq, PartialEq)]
-
-// TODO(Arni, 8/6/2023): Consider replacing `BlockNumber`.
 pub struct GetBlockHashRequest {
-    pub block_number: StarkFelt,
+    pub block_number: BlockNumber,
 }
 
+// TODO(Arni, 20/6/2023): Implement in starknet-api, the conversions:
+//  fn try_from(felt: StarkFelt) -> Result<u64, _>.
 impl SyscallRequest for GetBlockHashRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<GetBlockHashRequest> {
-        let block_number = stark_felt_from_ptr(vm, ptr)?;
+        let block_number_as_felt = stark_felt_from_ptr(vm, ptr)?;
+        let block_number =
+            BlockNumber(u64::try_from(usize::try_from(block_number_as_felt)?).map_err(|_| {
+                SyscallExecutionError::StarknetApiError(StarknetApiError::OutOfRange {
+                    string: block_number_as_felt.to_string(),
+                })
+            })?);
         Ok(GetBlockHashRequest { block_number })
     }
 }
@@ -316,17 +330,28 @@ impl SyscallResponse for GetBlockHashResponse {
     }
 }
 
-// Returns the block hash of a given block_number.
-// Returns the expected block hash if the given block was created at least 10 blocks before the
-// current block. Otherwise, returns an error.
-// TODO(Arni, 11/6/2023): Implement according to the documentation above.
+/// Returns the block hash of a given block_number.
+/// Returns the expected block hash if the given block was created at least
+/// [constants::STORED_BLOCK_HASH_BUFFER] blocks before the current block. Otherwise, returns an
+/// error.
 pub fn get_block_hash(
     request: GetBlockHashRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut Felt252,
 ) -> SyscallResult<GetBlockHashResponse> {
-    let key = StorageKey::try_from(request.block_number)?;
+    let requested_block_number = request.block_number.0;
+    let current_block_number = syscall_handler.context.block_context.block_number.0;
+
+    if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
+        || requested_block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
+    {
+        let out_of_range_error = StarkFelt::try_from(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)
+            .map_err(SyscallExecutionError::from)?;
+        return Err(SyscallExecutionError::SyscallError { error_data: vec![out_of_range_error] });
+    }
+
+    let key = StorageKey::try_from(StarkFelt::from(requested_block_number))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
     let block_hash =

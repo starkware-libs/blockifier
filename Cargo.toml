@@ -22,6 +22,7 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 ouroboros = "0.15.6"
+rstest = "0.17.0"
 
 # IMPORTANT: next upgrade should delete replaced classes table handling.
 # https://github.com/starkware-libs/blockifier/blob/54002da4b11c3c839a1221122cc18330854f563c/crates/native_blockifier/src/storage.rs#L145-L164

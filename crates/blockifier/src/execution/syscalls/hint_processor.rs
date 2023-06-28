@@ -15,6 +15,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -42,6 +43,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
@@ -82,8 +84,13 @@ impl From<SyscallExecutionError> for HintError {
 }
 
 /// Error codes returned by Cairo 1.0 code.
+
+// "Out of gas";
 pub const OUT_OF_GAS_ERROR: &str =
-    "0x000000000000000000000000000000000000000000004f7574206f6620676173"; // "Out of gas";
+    "0x000000000000000000000000000000000000000000004f7574206f6620676173";
+// "Block number out of range";
+pub const BLOCK_NUMBER_OUT_OF_RANGE_ERROR: &str =
+    "0x00000000000000426c6f636b206e756d626572206f7574206f662072616e6765";
 
 pub const INVALID_INPUT_LENGTH_ERROR: &str =
     "0x000000000000000000000000496e76616c696420696e707574206c656e677468"; // "Invalid input length";
@@ -493,7 +500,7 @@ pub fn execute_inner_call(
     }
 
     let retdata_segment = create_retdata_segment(vm, syscall_handler, raw_retdata)?;
-    *remaining_gas -= stark_felt_to_felt(call_info.execution.gas_consumed);
+    update_remaining_gas(remaining_gas, &call_info);
 
     syscall_handler.inner_calls.push(call_info);
 
@@ -533,7 +540,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address(),
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
-        initial_gas: remaining_gas.clone(),
+        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
     };
 
     execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
