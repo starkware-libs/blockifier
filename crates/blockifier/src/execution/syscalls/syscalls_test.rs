@@ -54,7 +54,7 @@ fn test_storage_read_write() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
+            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         }
     );
@@ -86,7 +86,7 @@ fn test_call_contract() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(48_u8)],
-            gas_consumed: stark_felt!(REQUIRED_GAS_CALL_CONTRACT_TEST),
+            gas_consumed: REQUIRED_GAS_CALL_CONTRACT_TEST,
             ..CallExecution::default()
         }
     );
@@ -119,7 +119,7 @@ fn test_emit_event() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: stark_felt!(52970_u64),
+            gas_consumed: 52970,
             ..Default::default()
         }
     );
@@ -148,10 +148,7 @@ fn test_get_block_hash() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution {
-            gas_consumed: stark_felt!(15650_u64),
-            ..CallExecution::from_retdata(retdata![block_hash])
-        }
+        CallExecution { gas_consumed: 15650, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
 
     // Negative flow.
@@ -221,7 +218,7 @@ fn test_library_call() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(91_u16)],
-            gas_consumed: stark_felt!(REQUIRED_GAS_LIBRARY_CALL_TEST),
+            gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
             ..Default::default()
         }
     );
@@ -288,7 +285,7 @@ fn test_nested_library_call() {
         call: nested_storage_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value + 1)],
-            gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
+            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
         vm_resources: storage_entry_point_vm_resources.clone(),
@@ -305,7 +302,7 @@ fn test_nested_library_call() {
         call: library_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value + 1)],
-            gas_consumed: stark_felt!(REQUIRED_GAS_LIBRARY_CALL_TEST),
+            gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
             ..CallExecution::default()
         },
         vm_resources: library_call_vm_resources,
@@ -316,7 +313,7 @@ fn test_nested_library_call() {
         call: storage_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: stark_felt!(REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
+            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
         vm_resources: storage_entry_point_vm_resources,
@@ -334,7 +331,7 @@ fn test_nested_library_call() {
         call: main_entry_point.clone(),
         execution: CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: stark_felt!(317780_u64),
+            gas_consumed: 317780,
             ..CallExecution::default()
         },
         vm_resources: main_call_vm_resources,
@@ -385,7 +382,7 @@ fn test_replace_class() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: stark_felt!(14850_u64), ..Default::default() }
+        CallExecution { gas_consumed: 14850, ..Default::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
@@ -412,7 +409,7 @@ fn test_send_message_to_l1() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
-            gas_consumed: stark_felt!(38390_u64),
+            gas_consumed: 38390,
             ..Default::default()
         }
     );
@@ -509,18 +506,14 @@ fn test_deploy(
     assert_eq!(deploy_call.call.storage_address, contract_address);
     let mut retdata = retdata![];
     let gas_consumed = if constructor_calldata.0.is_empty() {
-        stark_felt!(0_u64)
+        0
     } else {
         retdata.0.push(constructor_calldata.0[0]);
-        stark_felt!(17040_u64)
+        17040
     };
     assert_eq!(
         deploy_call.execution,
-        CallExecution {
-            retdata,
-            gas_consumed: stark_felt!(gas_consumed),
-            ..CallExecution::default()
-        }
+        CallExecution { retdata, gas_consumed, ..CallExecution::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
