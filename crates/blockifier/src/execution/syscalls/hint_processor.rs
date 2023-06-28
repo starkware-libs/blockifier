@@ -15,6 +15,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -526,7 +527,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address(),
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
-        initial_gas: remaining_gas.clone(),
+        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
     };
 
     execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)

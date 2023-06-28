@@ -409,7 +409,7 @@ pub fn execute_library_call(
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
-    let initial_gas = constants::INITIAL_GAS_COST.into();
+    let initial_gas = constants::INITIAL_GAS_COST;
     let entry_point = CallEntryPoint {
         class_hash: Some(class_hash),
         code_address,

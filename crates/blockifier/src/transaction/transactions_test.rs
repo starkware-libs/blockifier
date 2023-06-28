@@ -144,7 +144,7 @@ fn expected_fee_transfer_call_info(
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
     let storage_address = block_context.fee_token_address;
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
+    let initial_gas = abi_constants::INITIAL_GAS_COST;
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
         code_address: None,
@@ -271,7 +271,7 @@ fn test_invoke_tx() {
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2_u8)];
     let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
+    let initial_gas = abi_constants::INITIAL_GAS_COST;
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),

@@ -198,7 +198,7 @@ pub fn get_test_contract_class() -> ContractClass {
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let initial_gas = constants::INITIAL_GAS_COST.into();
+    let initial_gas = constants::INITIAL_GAS_COST;
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),

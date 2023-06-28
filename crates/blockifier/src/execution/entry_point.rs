@@ -4,6 +4,7 @@ use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::{
     ExecutionResources as VmExecutionResources, RunResources,
 };
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -53,7 +54,7 @@ pub struct CallEntryPoint {
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
     pub call_type: CallType,
-    pub initial_gas: Felt252,
+    pub initial_gas: u64,
 }
 
 pub struct ConstructorContext {
@@ -328,7 +329,7 @@ pub fn execute_constructor_entry_point(
         storage_address: ctor_context.storage_address,
         caller_address: ctor_context.caller_address,
         call_type: CallType::Call,
-        initial_gas: remaining_gas,
+        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
     };
 
     constructor_call.execute(state, resources, context)
@@ -357,7 +358,9 @@ pub fn handle_empty_constructor(
             storage_address: ctor_context.storage_address,
             caller_address: ctor_context.caller_address,
             call_type: CallType::Call,
-            initial_gas: remaining_gas,
+            initial_gas: remaining_gas
+                .to_u64()
+                .expect("The gas must be representable with 64 bits."),
         },
         ..Default::default()
     };
