@@ -45,6 +45,7 @@ struct ValidateExecuteCallInfo {
     validate_call_info: Option<CallInfo>,
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
+    n_reverted_steps: usize,
 }
 
 impl ValidateExecuteCallInfo {
@@ -52,11 +53,20 @@ impl ValidateExecuteCallInfo {
         validate_call_info: Option<CallInfo>,
         execute_call_info: Option<CallInfo>,
     ) -> Self {
-        Self { validate_call_info, execute_call_info, revert_error: None }
+        Self { validate_call_info, execute_call_info, revert_error: None, n_reverted_steps: 0 }
     }
 
-    pub fn new_reverted(validate_call_info: Option<CallInfo>, revert_error: String) -> Self {
-        Self { validate_call_info, execute_call_info: None, revert_error: Some(revert_error) }
+    pub fn new_reverted(
+        validate_call_info: Option<CallInfo>,
+        revert_error: String,
+        n_reverted_steps: usize,
+    ) -> Self {
+        Self {
+            validate_call_info,
+            execute_call_info: None,
+            revert_error: Some(revert_error),
+            n_reverted_steps,
+        }
     }
 }
 
@@ -364,11 +374,9 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
         let is_v0 = account_tx_context.is_v0();
-        let mut context = EntryPointExecutionContext::new(
-            block_context.clone(),
-            account_tx_context,
-            self.execution_n_steps(block_context),
-        );
+        let max_n_steps = self.execution_n_steps(block_context);
+        let mut context =
+            EntryPointExecutionContext::new(block_context.clone(), account_tx_context, max_n_steps);
 
         // Handle `DeployAccount` transactions separately, due to different order of things.
         if matches!(self, Self::DeployAccount(_)) {
@@ -405,7 +413,14 @@ impl AccountTransaction {
             }
             Err(_) => {
                 execution_state.abort();
-                Ok(ValidateExecuteCallInfo::new_reverted(validate_call_info, context.error_trace()))
+                let n_reverted_steps =
+                    (max_n_steps as usize) - context.vm_run_resources.get_n_steps().unwrap();
+
+                Ok(ValidateExecuteCallInfo::new_reverted(
+                    validate_call_info,
+                    context.error_trace(),
+                    n_reverted_steps,
+                ))
             }
         }
     }
@@ -427,8 +442,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.handle_nonce_and_check_fee_balance(state, block_context)?;
 
         // Run validation and execution.
-        let ValidateExecuteCallInfo { validate_call_info, execute_call_info, revert_error } =
-            self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
+        let ValidateExecuteCallInfo {
+            validate_call_info,
+            execute_call_info,
+            revert_error,
+            n_reverted_steps,
+        } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
         // Handle fee.
         let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
@@ -441,6 +460,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             self.tx_type(),
             state,
             None,
+            n_reverted_steps,
         )?;
 
         // Charge fee.

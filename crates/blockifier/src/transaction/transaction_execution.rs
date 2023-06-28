@@ -97,6 +97,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             TransactionType::L1Handler,
             state,
             l1_handler_payload_size,
+            0,
         )?;
         let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
         let paid_fee = self.paid_fee_on_l1;
