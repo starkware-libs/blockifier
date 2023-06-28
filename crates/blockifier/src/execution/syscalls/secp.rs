@@ -44,6 +44,17 @@ impl SyscallResponse for Secp256k1GetXyResponse {
     }
 }
 
+pub fn secp256k1_get_xy(
+    request: Secp256k1GetXyRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1GetXyResponse> {
+    let ec_point = syscall_handler.get_secp256k1_point_by_id(request.ec_point_id)?;
+
+    Ok(Secp256k1GetXyResponse { x: ec_point.x.into(), y: ec_point.y.into() })
+}
+
 // Secp256k1New syscall.
 
 type Secp256k1NewRequest = EcPointCoordinates;

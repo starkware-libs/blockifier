@@ -209,6 +209,12 @@ mod TestContract {
         let x = 0xF728B4FA42485E3A0A5D2F346BAA9455E3E70682C2094CAC629F6FBED82C07CD;
         let y = 0x8E182CA967F38E1BD6A49583F43F187608E031AB54FC0C4A8F0DC94FAD0D0611;
         let p0 = starknet::secp256k1::secp256k1_new_syscall(x, y).unwrap_syscall().unwrap();
+
+        let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(
+                p0).unwrap_syscall();
+        assert (
+            x_coord == x && y_coord == y,
+            'Unexpected coordinates');
     }
 }
 
