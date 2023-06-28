@@ -2,11 +2,7 @@ use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
-<<<<<<< HEAD
-use starknet_api::block::BlockHash;
-=======
 use starknet_api::block::{BlockHash, BlockNumber};
->>>>>>> origin/main-v0.12.0
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector,
 };
@@ -33,11 +29,8 @@ use crate::execution::execution_utils::{
     execute_deployment, felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
-<<<<<<< HEAD
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
-=======
 use crate::transaction::transaction_utils::update_remaining_gas;
->>>>>>> origin/main-v0.12.0
 
 pub mod hint_processor;
 mod secp;

@@ -1,16 +1,11 @@
 use std::collections::HashMap;
 
-<<<<<<< HEAD
+use rstest::{fixture, rstest};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-=======
-use rstest::{fixture, rstest};
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
->>>>>>> origin/main-v0.12.0
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
     InvokeTransactionV1,
@@ -152,12 +147,11 @@ fn create_test_init_data(
     TestInitData { state, account_address, contract_address, nonce_manager, block_context }
 }
 
-<<<<<<< HEAD
-#[test]
-fn test_fee_enforcement() {
-    let state = &mut create_state();
-    let block_context = &BlockContext::create_for_account_testing();
-
+#[rstest]
+fn test_fee_enforcement(
+    block_context: BlockContext,
+    #[from(create_state)] mut state: CachedState<DictStateReader>,
+) {
     for max_fee_value in 0..2 {
         let max_fee = Fee(max_fee_value);
 
@@ -171,18 +165,11 @@ fn test_fee_enforcement() {
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
         let enforce_fee = account_tx.enforce_fee();
-        let result = account_tx.execute(state, block_context);
+        let result = account_tx.execute(&mut state, &block_context);
         assert_eq!(result.is_err(), enforce_fee);
     }
 }
 
-#[test]
-fn test_account_flow_test() {
-    let max_fee = Fee(MAX_FEE);
-    let block_context = &BlockContext::create_for_account_testing();
-    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_state(max_fee, block_context);
-=======
 #[rstest]
 fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
     let TestInitData {
@@ -192,7 +179,6 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
         mut nonce_manager,
         block_context,
     } = init_data;
->>>>>>> origin/main-v0.12.0
 
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
@@ -211,6 +197,8 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
 }
 
 #[rstest]
+// Try two runs for each recursion type: one short run (success), and one that reverts due to step
+// limit.
 #[case(true, true)]
 #[case(true, false)]
 #[case(false, true)]
@@ -259,49 +247,32 @@ fn test_infinite_recursion(
         ]
     };
 
-    // Try two runs for each recursion type: one short run (success), and one that reverts due to
-    // step limit.
-<<<<<<< HEAD
-    let (success_n_recursions, failure_n_recursions) = (3_u32, 1000_u32);
-    [(true, true), (false, true), (true, false), (false, false)]
-        .into_iter()
-        .map(|(should_be_ok, use_normal_calldata)| {
-            let recursion_depth =
-                if should_be_ok { success_n_recursions } else { failure_n_recursions };
-            let execute_calldata = if use_normal_calldata {
-                normal_calldata(recursion_depth)
-            } else {
-                syscall_calldata(recursion_depth)
-            };
-            let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-            let account_tx =
-                AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-                    nonce: nonce_manager.next(account_address),
-                    ..tx
-                }));
-            let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
-            if should_be_ok {
-                assert!(tx_execution_info.revert_error.is_none());
-            } else {
-                assert!(
-                    tx_execution_info
-                        .revert_error
-                        .unwrap()
-                        .contains("RunResources has no remaining steps.")
-                );
-            }
-        })
-        .for_each(drop);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
+    if success {
+        assert!(tx_execution_info.revert_error.is_none());
+    } else {
+        assert!(
+            tx_execution_info
+                .revert_error
+                .unwrap()
+                .contains("RunResources has no remaining steps.")
+        );
+    }
 }
 
-#[test]
+#[rstest]
 /// Tests that an account invoke transaction that fails the execution phase, still incurs a nonce
 /// increase and a fee deduction.
-fn test_revert_invoke() {
-    let state = &mut create_state();
-    let block_context = &BlockContext::create_for_account_testing();
-    let max_fee = Fee(MAX_FEE);
-
+fn test_revert_invoke(
+    block_context: BlockContext,
+    max_fee: Fee,
+    #[from(create_state)] mut state: CachedState<DictStateReader>,
+) {
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -323,7 +294,7 @@ fn test_revert_invoke() {
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let deploy_execution_info = account_tx.execute(state, block_context).unwrap();
+    let deploy_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.
     let storage_key = stark_felt!(9_u8);
@@ -340,7 +311,7 @@ fn test_revert_invoke() {
         nonce: Nonce(stark_felt!(1_u8)),
         ..tx
     }));
-    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+    let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
 
     // TODO(Dori, 1/7/2023): Verify that the actual fee collected is exactly the fee computed for
     // the validate and fee transfer calls.
@@ -351,7 +322,7 @@ fn test_revert_invoke() {
     // Check that the nonce was increased and the fee was deducted.
     let total_deducted_fee = deploy_execution_info.actual_fee.0 + tx_execution_info.actual_fee.0;
     assert_eq!(
-        state.get_fee_token_balance(block_context, &deployed_account_address).unwrap(),
+        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap(),
         (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
     );
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(2_u8)));
@@ -368,16 +339,15 @@ fn test_revert_invoke() {
     );
 }
 
-#[test]
+#[rstest]
 /// Tests that failing account deployment should not change state (no fee charge or nonce bump).
-fn test_fail_deploy_account() {
+fn test_fail_deploy_account(block_context: BlockContext) {
     let mut state = create_state_with_falliable_validation_account();
-    let block_context = &BlockContext::create_for_account_testing();
 
     let deployed_account_address =
         ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
     let initial_balance =
-        state.get_fee_token_balance(block_context, &deployed_account_address).unwrap();
+        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap();
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -387,28 +357,13 @@ fn test_fail_deploy_account() {
         &mut NonceManager::default(),
     );
     let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
-    deploy_account_tx.execute(&mut state, block_context).unwrap_err();
+    deploy_account_tx.execute(&mut state, &block_context).unwrap_err();
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
     assert_eq!(
-        state.get_fee_token_balance(block_context, &deployed_account_address).unwrap(),
+        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap(),
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
-=======
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    }));
-    let result = account_tx.execute(&mut state, &block_context);
-    if success {
-        result.unwrap();
-    } else {
-        assert!(
-            format!("{:?}", result.unwrap_err()).contains("RunResources has no remaining steps.")
-        );
-    }
->>>>>>> origin/main-v0.12.0
 }
