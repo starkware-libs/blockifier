@@ -335,7 +335,9 @@ impl HintProcessor for DeprecatedSyscallHintProcessor<'_> {
         self.context.vm_run_resources = run_resources.clone();
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {
-            return self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            let result = self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
+            *run_resources = self.context.vm_run_resources.clone();
+            return result;
         }
 
         let result = self.builtin_hint_processor.execute_hint(
