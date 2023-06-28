@@ -1,6 +1,4 @@
-use cairo_felt::Felt252;
 use itertools::concat;
-use num_traits::ToPrimitive;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -164,7 +162,7 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         resources: &mut ExecutionResources,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let mut context = EntryPointExecutionContext::new(
@@ -186,9 +184,7 @@ impl AccountTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas
-                .to_u64()
-                .expect("The gas must be representable with 64 bits."),
+            initial_gas: *remaining_gas,
         };
 
         let validate_call_info = validate_call
@@ -282,7 +278,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let execute_call_info: Option<CallInfo>;
         let tx_type = self.tx_type();
         let mut resources = ExecutionResources::default();
-        let mut remaining_gas = Felt252::from(Transaction::initial_gas());
+        let mut remaining_gas = Transaction::initial_gas();
 
         match &self {
             Self::Declare(tx) => {

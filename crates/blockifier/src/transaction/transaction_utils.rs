@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 
 use crate::abi::constants;
@@ -79,6 +78,6 @@ pub fn calculate_tx_resources<S: StateReader>(
     Ok(ResourcesMapping(tx_resources))
 }
 
-pub fn update_remaining_gas(remaining_gas: &mut Felt252, call_info: &CallInfo) {
-    *remaining_gas -= Felt252::from(call_info.execution.gas_consumed);
+pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
+    *remaining_gas -= call_info.execution.gas_consumed;
 }
