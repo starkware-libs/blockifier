@@ -1,5 +1,14 @@
+use std::collections::HashMap;
+
+use starknet_api::transaction::Fee;
+
+use super::fee_utils::calculate_tx_fee;
+use super::os_resources::OS_RESOURCES;
 use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::fee::eth_gas_constants;
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -33,7 +42,7 @@ pub fn calculate_tx_gas_usage(
     // StarkNet's updateState increases a (storage) counter for each L2-to-L1 message.
     + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
     // StarkNet's updateState decreases a (storage) counter for each L1-to-L2 consumed message.
-    // (Note that we will probably get a refund of 15,000 gas for each consumed message but we 
+    // (Note that we will probably get a refund of 15,000 gas for each consumed message but we
     // ignore it since refunded gas cannot be used for the current transaction execution).
     + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
@@ -124,4 +133,27 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
     eth_gas_constants::GAS_PER_LOG
         + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
         + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD
+}
+
+/// Return an estimated lower bound for the fee on an account transaction.
+pub fn estimate_minimal_fee(
+    block_context: &BlockContext,
+    tx: &AccountTransaction,
+) -> TransactionExecutionResult<Fee> {
+    // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
+    let os_steps_for_type = OS_RESOURCES.execute_txs_inner().get(&tx.tx_type()).unwrap().n_steps;
+    let (vm_steps_for_type, gas_for_type): (usize, usize) = match tx {
+        // Sender balance update (storage update) + nonce increment (contract modification) (we
+        // exclude the sequencer balance update and the ERC20 contract modification since it occurs
+        // for every tx).
+        AccountTransaction::Declare(_) => (71, get_onchain_data_segment_length(1, 1, 0)),
+        AccountTransaction::Invoke(_) => (12, get_onchain_data_segment_length(1, 1, 0)),
+        // DeployAccount also updates the address -> class hash mapping.
+        AccountTransaction::DeployAccount(_) => (13, get_onchain_data_segment_length(1, 1, 1)),
+    };
+    let resources = ResourcesMapping(HashMap::from([
+        (constants::GAS_USAGE.to_string(), gas_for_type),
+        (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type + vm_steps_for_type),
+    ]));
+    calculate_tx_fee(&resources, block_context)
 }

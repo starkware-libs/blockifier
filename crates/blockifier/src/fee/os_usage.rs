@@ -23,6 +23,12 @@ pub struct OsResources {
     execute_txs_inner: HashMap<TransactionType, VmExecutionResources>,
 }
 
+impl OsResources {
+    pub fn execute_txs_inner(&self) -> &HashMap<TransactionType, VmExecutionResources> {
+        &self.execute_txs_inner
+    }
+}
+
 /// Calculates the additional resources needed for the OS to run the given syscalls;
 /// i.e., the resources of the StarkNet OS function `execute_syscalls`.
 pub fn get_additional_os_resources(
