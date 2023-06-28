@@ -14,6 +14,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -61,7 +62,7 @@ impl ValidateExecuteCallInfo {
 }
 
 impl AccountTransaction {
-    fn tx_type(&self) -> TransactionType {
+    pub fn tx_type(&self) -> TransactionType {
         match self {
             AccountTransaction::Declare(_) => TransactionType::Declare,
             AccountTransaction::DeployAccount(_) => TransactionType::DeployAccount,
@@ -247,6 +248,15 @@ impl AccountTransaction {
 
         // Check fee balance.
         if self.enforce_fee() {
+            // Check max fee is at least the estimated constant overhead.
+            let minimal_fee = estimate_minimal_fee(block_context, self)?;
+            if minimal_fee > account_tx_context.max_fee {
+                return Err(TransactionExecutionError::MaxFeeTooLow {
+                    min_fee: minimal_fee,
+                    max_fee: account_tx_context.max_fee,
+                });
+            }
+
             let (balance_low, balance_high) =
                 state.get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
             // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
