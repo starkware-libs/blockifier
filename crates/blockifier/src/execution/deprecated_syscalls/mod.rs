@@ -301,7 +301,7 @@ pub fn deploy(
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
-        Felt252::from(constants::INITIAL_GAS_COST),
+        constants::INITIAL_GAS_COST,
     )?;
     syscall_handler.inner_calls.push(call_info);
 
