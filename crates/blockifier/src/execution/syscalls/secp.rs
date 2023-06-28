@@ -21,7 +21,24 @@ pub struct EcPointCoordinates {
     pub y: BigUint,
 }
 
+// secp256k1Add
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1AddRequest {
+    pub ec_point_id0: Felt252,
+    pub ec_point_id1: Felt252,
+}
+
 // Secp256k1GetXy syscall.
+
+impl SyscallRequest for Secp256k1AddRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1AddRequest> {
+        Ok(Secp256k1AddRequest {
+            ec_point_id0: felt_from_ptr(vm, ptr)?,
+            ec_point_id1: felt_from_ptr(vm, ptr)?,
+        })
+    }
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Secp256k1GetXyRequest {
@@ -112,4 +129,32 @@ pub fn secp256k1_new(
         None
     };
     Ok(Secp256k1NewResponse { optional_ec_point_id })
+}
+
+// secp256k1Mul syscall.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1MulRequest {
+    pub ec_point_id: Felt252,
+    m: BigUint,
+}
+
+impl SyscallRequest for Secp256k1MulRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1MulRequest> {
+        let ec_point_id = felt_from_ptr(vm, ptr)?;
+        let m = u256_from_ptr(vm, ptr)?;
+        Ok(Secp256k1MulRequest { ec_point_id, m })
+    }
+}
+
+// The response for Secp256k1 add and mul operations.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1OpRespone {
+    pub ec_point_id: usize,
+}
+
+impl SyscallResponse for Secp256k1OpRespone {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_maybe_relocatable(vm, ptr, self.ec_point_id)?;
+        Ok(())
+    }
 }
