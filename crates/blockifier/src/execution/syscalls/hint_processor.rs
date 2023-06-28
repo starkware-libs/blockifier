@@ -260,7 +260,7 @@ impl<'a> SyscallHintProcessor<'a> {
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
-        if gas_counter < base_gas_cost.into() {
+        if gas_counter < base_gas_cost {
             //  Out of gas failure.
             let out_of_gas_error =
                 StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
@@ -272,14 +272,22 @@ impl<'a> SyscallHintProcessor<'a> {
         }
 
         // Execute.
-        let mut remaining_gas = gas_counter - Felt252::from(base_gas_cost);
+        let mut remaining_gas = Felt252::from(gas_counter - base_gas_cost);
         let original_response = execute_callback(request, vm, self, &mut remaining_gas);
         let response = match original_response {
-            Ok(response) => {
-                SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
-            }
+            Ok(response) => SyscallResponseWrapper::Success {
+                gas_counter: remaining_gas
+                    .to_u64()
+                    .expect("The gas must be representable with 64 bits."),
+                response,
+            },
             Err(SyscallExecutionError::SyscallError { error_data: data }) => {
-                SyscallResponseWrapper::Failure { gas_counter: remaining_gas, error_data: data }
+                SyscallResponseWrapper::Failure {
+                    gas_counter: remaining_gas
+                        .to_u64()
+                        .expect("The gas must be representable with 64 bits."),
+                    error_data: data,
+                }
             }
             Err(error) => return Err(error.into()),
         };
