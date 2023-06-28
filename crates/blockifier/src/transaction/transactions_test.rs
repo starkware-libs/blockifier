@@ -27,6 +27,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
@@ -417,9 +418,27 @@ fn test_negative_invoke_tx_flows() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx = invoke_tx();
+    let valid_account_tx =
+        AccountTransaction::Invoke(InvokeTransaction::V1(valid_invoke_tx.clone()));
+
+    // Fee too low (lower than minimal estimated fee).
+    let minimal_fee = estimate_minimal_fee(block_context, &valid_account_tx).unwrap();
+    let invalid_max_fee = Fee(minimal_fee.0 - 1);
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        max_fee: invalid_max_fee,
+        ..valid_invoke_tx.clone()
+    }));
+    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::MaxFeeTooLow{ min_fee, max_fee }
+        if max_fee == invalid_max_fee && min_fee == minimal_fee
+    );
 
     // Insufficient fee.
-    let invalid_max_fee = Fee(1);
+    let invalid_max_fee = minimal_fee;
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
