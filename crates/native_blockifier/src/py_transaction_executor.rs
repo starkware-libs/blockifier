@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, TransactionalState};
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -136,39 +136,48 @@ impl TransactionExecutor {
             let tx_execution_result = tx
                 .execute_raw(&mut transactional_state, executor.block_context)
                 .map_err(NativeBlockifierError::from);
-            let py_tx_execution_info = match tx_execution_result {
-                Ok(tx_execution_info) => {
-                    tx_executed_class_hashes = tx_execution_info.get_executed_class_hashes();
-                    Python::with_gil(|py| {
-                        // Allocate this instance on the Python heap.
-                        // This is necessary in order to pass a reference to it to the callback
-                        // (otherwise, if it were allocated on Rust's heap/stack, giving Python a
-                        // reference to the objects will not work).
-                        Py::new(py, PyTransactionExecutionInfo::from(tx_execution_info))
-                            .expect("Should be able to allocate on Python heap")
-                    })
-                }
-                Err(error) => {
-                    transactional_state.abort();
-                    return Err(error);
-                }
-            };
+            let (py_tx_execution_info, py_casm_hash_calculation_resources) =
+                match tx_execution_result {
+                    Ok(tx_execution_info) => {
+                        tx_executed_class_hashes = tx_execution_info.get_executed_class_hashes();
+
+                        let py_tx_execution_info = Python::with_gil(|py| {
+                            // Allocate this instance on the Python heap.
+                            // This is necessary in order to pass a reference to it to the callback
+                            // (otherwise, if it were allocated on Rust's heap/stack, giving Python
+                            // a reference to the objects will not
+                            // work).
+                            Py::new(py, PyTransactionExecutionInfo::from(tx_execution_info))
+                                .expect("Should be able to allocate on Python heap")
+                        });
+
+                        let py_casm_hash_calculation_resources =
+                            get_casm_hash_calculation_resources(
+                                &mut transactional_state,
+                                executor.executed_class_hashes,
+                                &tx_executed_class_hashes,
+                            )?;
+
+                        (py_tx_execution_info, py_casm_hash_calculation_resources)
+                    }
+                    Err(error) => {
+                        transactional_state.abort();
+                        return Err(error);
+                    }
+                };
 
             let has_enough_room_for_tx = Python::with_gil(|py| {
                 // Can be done because `py_tx_execution_info` is a `Py<PyTransactionExecutionInfo>`,
                 // hence is allocated on the Python heap.
-                let args = (py_tx_execution_info.borrow(py),);
+                let args =
+                    (py_tx_execution_info.borrow(py), py_casm_hash_calculation_resources.clone());
                 enough_room_for_tx.call1(args) // Callback to Python code.
             });
 
             match has_enough_room_for_tx {
                 Ok(_) => {
                     transactional_state.commit();
-                    let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
-                        executor.state,
-                        executor.executed_class_hashes,
-                        &tx_executed_class_hashes,
-                    )?;
+                    executor.executed_class_hashes.extend(&tx_executed_class_hashes);
                     Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
                 }
                 // Unexpected error, abort and let caller know.
@@ -179,11 +188,6 @@ impl TransactionExecutor {
                 // Not enough room in batch, abort and let caller verify on its own.
                 Err(_not_enough_weight_error) => {
                     transactional_state.abort();
-                    let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
-                        executor.state,
-                        executor.executed_class_hashes,
-                        &tx_executed_class_hashes,
-                    )?;
                     Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
                 }
             }
@@ -288,16 +292,13 @@ fn unexpected_callback_error(error: &PyErr) -> bool {
 
 /// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
 /// executed classes by the current transaction.
-/// Also, updates the executed class hashes set, to be able to recognize the newly added ones.
 pub fn get_casm_hash_calculation_resources(
-    state: &mut CachedState<PapyrusReader<'_>>,
-    executed_class_hashes: &mut HashSet<ClassHash>,
+    state: &mut TransactionalState<'_, PapyrusReader<'_>>,
+    executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
 ) -> NativeBlockifierResult<PyVmExecutionResources> {
-    let newly_executed_class_hashes: HashSet<&ClassHash> = tx_executed_class_hashes
-        .iter()
-        .filter(|&class_hash| executed_class_hashes.insert(*class_hash))
-        .collect();
+    let newly_executed_class_hashes: HashSet<&ClassHash> =
+        tx_executed_class_hashes.difference(executed_class_hashes).collect();
 
     let mut casm_hash_computation_resources = VmExecutionResources::default();
 
