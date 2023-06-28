@@ -1,23 +1,52 @@
 use ark_secp256k1 as secp256k1;
+use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use num_traits::Zero;
 use starknet_api::hash::StarkFelt;
 
-use crate::execution::execution_utils::{u256_from_ptr, write_maybe_relocatable};
+use crate::execution::execution_utils::{
+    felt_from_ptr, u256_from_ptr, write_maybe_relocatable, write_u256,
+};
 use crate::execution::syscalls::hint_processor::{SyscallHintProcessor, INVALID_ARGUMENT};
 use crate::execution::syscalls::{
     SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
 };
 
-// Secp256k1 new syscall.
-
+// The x and y coordinates of an elliptic curve point.
 #[derive(Debug, Eq, PartialEq)]
-pub struct Secp256k1NewRequest {
+pub struct EcPointCoordinates {
     pub x: BigUint,
     pub y: BigUint,
 }
+
+// Secp256k1GetXy syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1GetXyRequest {
+    pub ec_point_id: Felt252,
+}
+
+impl SyscallRequest for Secp256k1GetXyRequest {
+    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1GetXyRequest> {
+        Ok(Secp256k1GetXyRequest { ec_point_id: felt_from_ptr(vm, ptr)? })
+    }
+}
+
+type Secp256k1GetXyResponse = EcPointCoordinates;
+
+impl SyscallResponse for Secp256k1GetXyResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_u256(vm, ptr, self.x)?;
+        write_u256(vm, ptr, self.y)?;
+        Ok(())
+    }
+}
+
+// Secp256k1New syscall.
+
+type Secp256k1NewRequest = EcPointCoordinates;
 
 impl SyscallRequest for Secp256k1NewRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1NewRequest> {
