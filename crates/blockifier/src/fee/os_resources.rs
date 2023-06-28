@@ -94,8 +94,8 @@ fn os_resources() -> serde_json::Value {
             "Keccak": {
                 "builtin_instance_counter": {
                     "bitwise_builtin": 6,
-                    "range_check_builtin": 56,
-                    "range_check_builtin": 56,
+                    "keccak_builtin": 1,
+                    "range_check_builtin": 56
                 },
                 "n_memory_holes": 0,
                 "n_steps": 381
