@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use cairo_felt::Felt252;
+use num_traits::ToPrimitive;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
@@ -222,7 +223,9 @@ impl<S: State> Executable<S> for InvokeTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas.clone(),
+            initial_gas: remaining_gas
+                .to_u64()
+                .expect("The gas must be representable with 64 bits."),
         };
 
         let call_info = execute_call
@@ -259,7 +262,9 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas.clone(),
+            initial_gas: remaining_gas
+                .to_u64()
+                .expect("The gas must be representable with 64 bits."),
         };
 
         execute_call

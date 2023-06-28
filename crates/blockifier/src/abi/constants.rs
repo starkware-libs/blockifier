@@ -63,7 +63,7 @@ pub const STORAGE_WRITE_GAS_COST: u64 = 50 * STEP_GAS_COST;
 
 // Max number of recursions allows in an EntryPoint.
 // Compatible with CPython's max recursion depth.
-pub const MAX_ENTRY_POINT_RECURSION_DEPTH: usize = 100;
+pub const MAX_ENTRY_POINT_RECURSION_DEPTH: usize = 50;
 
 // OS reserved contract addresses.
 
@@ -71,3 +71,6 @@ pub const MAX_ENTRY_POINT_RECURSION_DEPTH: usize = 100;
 // TODO(Arni, 14/6/2023): Replace BLOCK_HASH_CONSTANT_ADDRESS with a lazy calculation.
 //      pub static BLOCK_HASH_CONTRACT_ADDRESS: Lazy<ContractAddress> = ...
 pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
+
+// The block number -> block hash mapping is written for the current block number minus this number.
+pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;

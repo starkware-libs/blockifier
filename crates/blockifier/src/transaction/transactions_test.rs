@@ -76,7 +76,6 @@ fn expected_validate_call_info(
     }
     .filter_unused_builtins();
 
-    let initial_gas = Transaction::initial_gas();
     Some(CallInfo {
         call: CallEntryPoint {
             class_hash: Some(class_hash),
@@ -87,7 +86,7 @@ fn expected_validate_call_info(
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas,
+            initial_gas: Transaction::initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
         execution: CallExecution::default(),
@@ -109,7 +108,6 @@ fn expected_fee_transfer_call_info(
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
     let storage_address = block_context.fee_token_address;
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
         code_address: None,
@@ -123,7 +121,7 @@ fn expected_fee_transfer_call_info(
         storage_address,
         caller_address: account_address,
         call_type: CallType::Call,
-        initial_gas,
+        initial_gas: abi_constants::INITIAL_GAS_COST,
     };
     let expected_fee_sender_address = *account_address.0.key();
     let expected_fee_transfer_event = OrderedEvent {
@@ -237,7 +235,6 @@ fn test_invoke_tx() {
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2_u8)];
     let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let initial_gas = abi_constants::INITIAL_GAS_COST.into();
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
@@ -247,7 +244,7 @@ fn test_invoke_tx() {
         storage_address,
         caller_address: expected_account_address,
         call_type: CallType::Call,
-        initial_gas,
+        initial_gas: abi_constants::INITIAL_GAS_COST,
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
@@ -611,7 +608,6 @@ fn test_deploy_account_tx() {
     );
 
     // Build expected execute call info.
-    let initial_gas = Transaction::initial_gas();
     let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
             class_hash: Some(expected_account_class_hash),
@@ -619,7 +615,7 @@ fn test_deploy_account_tx() {
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,
-            initial_gas,
+            initial_gas: Transaction::initial_gas(),
             ..Default::default()
         },
         ..Default::default()

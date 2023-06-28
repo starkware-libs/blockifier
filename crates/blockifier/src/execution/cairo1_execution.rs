@@ -206,7 +206,7 @@ pub fn prepare_call_arguments(
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
     // Push gas counter.
-    args.push(CairoArg::Single(MaybeRelocatable::from(&call.initial_gas)));
+    args.push(CairoArg::Single(MaybeRelocatable::from(Felt252::from(call.initial_gas))));
     // Push syscall ptr.
     args.push(CairoArg::Single(MaybeRelocatable::from(initial_syscall_ptr)));
 
@@ -321,13 +321,13 @@ fn get_call_result(
         Err(PostExecutionError::MalformedReturnData {
             error_message: "Error extracting return data.".to_string()});
     };
-    if gas < &Felt252::from(0) || gas > &syscall_handler.call.initial_gas {
+    if gas < &Felt252::from(0) || gas > &Felt252::from(syscall_handler.call.initial_gas) {
         return Err(PostExecutionError::MalformedReturnData {
             error_message: format!("Unexpected remaining gas: {gas}."),
         });
     }
 
-    let gas_consumed = &syscall_handler.call.initial_gas - gas;
+    let gas_consumed = &Felt252::from(syscall_handler.call.initial_gas) - gas;
     Ok(CallResult {
         failed,
         retdata: read_execution_retdata(vm, retdata_size, retdata_start)?,

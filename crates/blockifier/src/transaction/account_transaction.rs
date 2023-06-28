@@ -1,5 +1,6 @@
 use cairo_felt::Felt252;
 use itertools::concat;
+use num_traits::ToPrimitive;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -219,7 +220,9 @@ impl AccountTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas.clone(),
+            initial_gas: remaining_gas
+                .to_u64()
+                .expect("The gas must be representable with 64 bits."),
         };
 
         let validate_call_info = validate_call
@@ -306,8 +309,6 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         let storage_address = block_context.fee_token_address;
-        // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
-        let initial_gas = abi_constants::INITIAL_GAS_COST.into();
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,
@@ -321,7 +322,8 @@ impl AccountTransaction {
             storage_address,
             caller_address: account_tx_context.sender_address,
             call_type: CallType::Call,
-            initial_gas,
+            // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
+            initial_gas: abi_constants::INITIAL_GAS_COST,
         };
 
         let mut context = EntryPointExecutionContext::new(
@@ -423,7 +425,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.verify_tx_version(account_tx_context.version)?;
 
         let mut resources = ExecutionResources::default();
-        let mut remaining_gas = Transaction::initial_gas();
+        let mut remaining_gas = Felt252::from(Transaction::initial_gas());
 
         // Nonce and fee check should be done before running user code.
         self.handle_nonce_and_check_fee_balance(state, block_context)?;
