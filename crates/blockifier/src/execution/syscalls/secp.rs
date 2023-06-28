@@ -3,11 +3,11 @@ use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
-use num_traits::Zero;
+use num_traits::{ToPrimitive, Zero};
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::execution_utils::{
-    felt_from_ptr, u256_from_ptr, write_maybe_relocatable, write_u256,
+    felt_from_ptr, felt_to_stark_felt, u256_from_ptr, write_maybe_relocatable, write_u256,
 };
 use crate::execution::syscalls::hint_processor::{SyscallHintProcessor, INVALID_ARGUMENT};
 use crate::execution::syscalls::{
@@ -42,6 +42,30 @@ impl SyscallResponse for Secp256k1GetXyResponse {
         write_u256(vm, ptr, self.y)?;
         Ok(())
     }
+}
+
+/// Given a felt `ec_point_id` returns the corresponding secp256k1 point.
+pub fn secp256k1_get_point<'a>(
+    syscall_handler: &'a mut SyscallHintProcessor<'_>,
+    ec_point_id: Felt252,
+) -> SyscallResult<&'a ark_secp256k1::Affine> {
+    ec_point_id.to_usize().and_then(|id| syscall_handler.secp256k1_points.get(id)).ok_or_else(
+        || SyscallExecutionError::InvalidSyscallInput {
+            input: felt_to_stark_felt(&ec_point_id),
+            info: "Invalid Secp256k1 point ID".to_string(),
+        },
+    )
+}
+
+pub fn secp256k1_get_xy(
+    request: Secp256k1GetXyRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1GetXyResponse> {
+    let ec_point = secp256k1_get_point(syscall_handler, request.ec_point_id)?;
+
+    Ok(Secp256k1GetXyResponse { x: ec_point.x.into(), y: ec_point.y.into() })
 }
 
 // Secp256k1New syscall.
