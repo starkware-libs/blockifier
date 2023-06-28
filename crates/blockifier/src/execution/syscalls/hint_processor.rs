@@ -15,6 +15,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -31,10 +32,10 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_range_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
-    ReadOnlySegment, ReadOnlySegments,
+    felt_range_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
+    write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
 };
-use crate::execution::syscalls::secp::secp256k1_new;
+use crate::execution::syscalls::secp::{secp256k1_get_xy, secp256k1_new};
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
     library_call_l1_handler, replace_class, send_message_to_l1, storage_read, storage_write,
@@ -228,6 +229,9 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::ReplaceClass => {
                 self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
             }
+            SyscallSelector::Secp256k1GetXy => {
+                self.execute_syscall(vm, secp256k1_get_xy, constants::SECP256K1_NEW_GET_XY)
+            }
             SyscallSelector::Secp256k1New => {
                 self.execute_syscall(vm, secp256k1_new, constants::SECP256K1_NEW_GAS_COST)
             }
@@ -410,6 +414,19 @@ impl<'a> SyscallHintProcessor<'a> {
         self.state.set_storage_at(self.storage_address(), key, value);
 
         Ok(StorageWriteResponse {})
+    }
+
+    /// Given a felt `ec_point_id` returns the corresponding secp256k1 point.
+    pub fn get_secp256k1_point_by_id(
+        &self,
+        ec_point_id: Felt252,
+    ) -> SyscallResult<&ark_secp256k1::Affine> {
+        ec_point_id.to_usize().and_then(|id| self.secp256k1_points.get(id)).ok_or_else(|| {
+            SyscallExecutionError::InvalidSyscallInput {
+                input: felt_to_stark_felt(&ec_point_id),
+                info: "Invalid Secp256k1 point ID".to_string(),
+            }
+        })
     }
 }
 
