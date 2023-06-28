@@ -15,7 +15,6 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -254,7 +253,7 @@ impl<'a> SyscallHintProcessor<'a> {
             Request,
             &mut VirtualMachine,
             &mut SyscallHintProcessor<'_>,
-            &mut Felt252,
+            &mut u64,
         ) -> SyscallResult<Response>,
     {
         let SyscallRequestWrapper { gas_counter, request } =
@@ -272,22 +271,14 @@ impl<'a> SyscallHintProcessor<'a> {
         }
 
         // Execute.
-        let mut remaining_gas = Felt252::from(gas_counter - base_gas_cost);
+        let mut remaining_gas = gas_counter - base_gas_cost;
         let original_response = execute_callback(request, vm, self, &mut remaining_gas);
         let response = match original_response {
-            Ok(response) => SyscallResponseWrapper::Success {
-                gas_counter: remaining_gas
-                    .to_u64()
-                    .expect("The gas must be representable with 64 bits."),
-                response,
-            },
+            Ok(response) => {
+                SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
+            }
             Err(SyscallExecutionError::SyscallError { error_data: data }) => {
-                SyscallResponseWrapper::Failure {
-                    gas_counter: remaining_gas
-                        .to_u64()
-                        .expect("The gas must be representable with 64 bits."),
-                    error_data: data,
-                }
+                SyscallResponseWrapper::Failure { gas_counter: remaining_gas, error_data: data }
             }
             Err(error) => return Err(error.into()),
         };
@@ -482,7 +473,7 @@ pub fn execute_inner_call(
     call: CallEntryPoint,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-    remaining_gas: &mut Felt252,
+    remaining_gas: &mut u64,
 ) -> SyscallResult<ReadOnlySegment> {
     let call_info =
         call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
@@ -521,7 +512,7 @@ pub fn execute_library_call(
     call_to_external: bool,
     entry_point_selector: EntryPointSelector,
     calldata: Calldata,
-    remaining_gas: &mut Felt252,
+    remaining_gas: &mut u64,
 ) -> SyscallResult<ReadOnlySegment> {
     let entry_point_type =
         if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
@@ -535,7 +526,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address(),
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
-        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
+        initial_gas: *remaining_gas,
     };
 
     execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
