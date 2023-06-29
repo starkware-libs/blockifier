@@ -112,6 +112,20 @@ impl SyscallRequest for Secp256k1MulRequest {
     }
 }
 
+type Secp256k1MulResponse = Secp256k1OpRespone;
+
+pub fn secp256k1_mul(
+    request: Secp256k1MulRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1MulResponse> {
+    let ep_point = syscall_handler.get_secp256k1_point_by_id(request.ec_point_id)?;
+    let result = *ep_point * secp256k1::Fr::from(request.multiplier);
+    let ec_point_id = syscall_handler.allocate_secp256k1_point(result.into());
+    Ok(Secp256k1OpRespone { ec_point_id })
+}
+
 // Secp256k1New syscall.
 
 type Secp256k1NewRequest = EcPointCoordinates;
