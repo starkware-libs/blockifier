@@ -17,7 +17,7 @@ const FIX_COMMAND: &str = "FIX_FEATURE_TEST=1 cargo test -- --ignored";
 // 1. `TEST_CONTRACTS` dir exists and contains only `.cairo` files and the subdirectory
 // `COMPILED_CONTRACTS_SUBDIR`.
 // 2. for each `X.cairo` file in `TEST_CONTRACTS` there exists an `X_compiled.json` file in
-// `COMPILED_CONTRACTS_SUBDIR` which equals `starknet-compile X.cairo -- -no_debug_info`.
+// `COMPILED_CONTRACTS_SUBDIR` which equals `starknet-compile-deprecated X.cairo -- -no_debug_info`.
 fn verify_feature_contracts_compatibility(fix: bool) {
     for file in fs::read_dir(FEATURE_CONTRACTS_DIR).unwrap() {
         let path = file.unwrap().path();
