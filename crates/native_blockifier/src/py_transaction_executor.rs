@@ -35,12 +35,18 @@ impl PyTransactionExecutor {
     #[new]
     #[args(general_config, block_info, papyrus_storage)]
     pub fn create(
+        papyrus_storage: &Storage,
         general_config: PyGeneralConfig,
         block_info: &PyAny,
-        papyrus_storage: &Storage,
+        max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
-        let executor = TransactionExecutor::create(general_config, block_info, papyrus_storage)?;
+        let executor = TransactionExecutor::create(
+            papyrus_storage,
+            general_config,
+            block_info,
+            max_recursion_depth,
+        )?;
         log::debug!("Initialized Transaction Executor.");
 
         Ok(Self { executor: Some(executor) })
@@ -106,14 +112,15 @@ pub struct TransactionExecutor {
 
 impl TransactionExecutor {
     pub fn create(
+        papyrus_storage: &Storage,
         general_config: PyGeneralConfig,
         block_info: &PyAny,
-        papyrus_storage: &Storage,
+        max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
 
-        let block_context = py_block_context(general_config, block_info)?;
+        let block_context = py_block_context(general_config, block_info, max_recursion_depth)?;
         build_tx_executor(block_context, reader)
     }
 
@@ -233,6 +240,7 @@ pub struct PyOsConfig {
 pub fn py_block_context(
     general_config: PyGeneralConfig,
     block_info: &PyAny,
+    max_recursion_depth: usize,
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.starknet_os_config;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
@@ -246,6 +254,7 @@ pub fn py_block_context(
         gas_price: py_attr(block_info, "gas_price")?,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
+        max_recursion_depth,
     };
 
     Ok(block_context)

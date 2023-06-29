@@ -83,7 +83,9 @@ pub struct EntryPointExecutionContext {
     /// Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
 
-    recursion_depth: usize,
+    current_recursion_depth: usize,
+    // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
+    max_recursion_depth: usize,
 }
 impl EntryPointExecutionContext {
     pub fn new(
@@ -96,9 +98,10 @@ impl EntryPointExecutionContext {
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
-            block_context,
             account_tx_context,
-            recursion_depth: 0,
+            current_recursion_depth: 0,
+            max_recursion_depth: block_context.max_recursion_depth,
+            block_context,
         }
     }
 
@@ -124,8 +127,8 @@ impl CallEntryPoint {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
-        context.recursion_depth += 1;
-        if context.recursion_depth > constants::MAX_ENTRY_POINT_RECURSION_DEPTH {
+        context.current_recursion_depth += 1;
+        if context.current_recursion_depth > context.max_recursion_depth {
             return Err(EntryPointExecutionError::RecursionDepthExceeded);
         }
 
@@ -173,7 +176,7 @@ impl CallEntryPoint {
                 }
             });
 
-        context.recursion_depth -= 1;
+        context.current_recursion_depth -= 1;
         result
     }
 }
