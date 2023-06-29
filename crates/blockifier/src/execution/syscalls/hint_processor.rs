@@ -35,7 +35,7 @@ use crate::execution::execution_utils::{
     felt_range_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
     write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
 };
-use crate::execution::syscalls::secp::{secp256k1_get_xy, secp256k1_new};
+use crate::execution::syscalls::secp::{secp256k1_add, secp256k1_get_xy, secp256k1_new};
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
     library_call_l1_handler, replace_class, send_message_to_l1, storage_read, storage_write,
@@ -229,6 +229,9 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::ReplaceClass => {
                 self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
             }
+            SyscallSelector::Secp256k1Add => {
+                self.execute_syscall(vm, secp256k1_add, constants::SECP256K1_NEW_GET_XY)
+            }
             SyscallSelector::Secp256k1GetXy => {
                 self.execute_syscall(vm, secp256k1_get_xy, constants::SECP256K1_NEW_GET_XY)
             }
@@ -414,6 +417,13 @@ impl<'a> SyscallHintProcessor<'a> {
         self.state.set_storage_at(self.storage_address(), key, value);
 
         Ok(StorageWriteResponse {})
+    }
+
+    pub fn new_secp256k1_point(&mut self, p: ark_secp256k1::Affine) -> usize {
+        let points = &mut self.secp256k1_points;
+        let id = points.len();
+        points.push(p);
+        id
     }
 
     pub fn get_secp256k1_point_by_id(

@@ -47,6 +47,21 @@ impl SyscallRequest for Secp256k1AddRequest {
     }
 }
 
+type Secp256k1AddResponse = Secp256k1OpRespone;
+
+pub fn secp256k1_add(
+    request: Secp256k1AddRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1AddResponse> {
+    let lhs = syscall_handler.get_secp256k1_point_by_id(request.lhs_id)?;
+    let rhs = syscall_handler.get_secp256k1_point_by_id(request.rhs_id)?;
+    let result = *lhs + *rhs;
+    let ec_point_id = syscall_handler.new_secp256k1_point(result.into());
+    Ok(Secp256k1OpRespone { ec_point_id })
+}
+
 // Secp256k1GetXy syscall.
 
 #[derive(Debug, Eq, PartialEq)]
@@ -157,10 +172,7 @@ pub fn secp256k1_new(
         secp256k1::Affine::new_unchecked(x.into(), y.into())
     };
     let optional_ec_point_id = if p.is_on_curve() && p.is_in_correct_subgroup_assuming_on_curve() {
-        let points = &mut syscall_handler.secp256k1_points;
-        let id = points.len();
-        points.push(p);
-        Some(id)
+        Some(syscall_handler.new_secp256k1_point(p))
     } else {
         None
     };
