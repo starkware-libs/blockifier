@@ -91,11 +91,13 @@ fn os_resources() -> serde_json::Value {
                 "n_memory_holes": 0,
                 "n_steps": 44
             },
+            // The following is the cost of one Keccak round.
+            // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
             "Keccak": {
                 "builtin_instance_counter": {
                     "bitwise_builtin": 6,
-                    "range_check_builtin": 56,
-                    "range_check_builtin": 56,
+                    "keccak_builtin": 1,
+                    "range_check_builtin": 56
                 },
                 "n_memory_holes": 0,
                 "n_steps": 381
