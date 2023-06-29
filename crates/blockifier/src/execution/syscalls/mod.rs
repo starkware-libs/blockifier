@@ -630,7 +630,7 @@ pub fn keccak(
     request: KeccakRequest,
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-    remaining_gas: &mut Felt252,
+    remaining_gas: &mut u64,
 ) -> SyscallResult<KeccakResponse> {
     let input_length = (request.input_end - request.input_start)?;
 
@@ -646,7 +646,7 @@ pub fn keccak(
         });
     }
 
-    let gas_cost = Felt252::from(n_rounds as u64 * constants::KECCAK_ROUND_COST_GAS_COST);
+    let gas_cost = n_rounds as u64 * constants::KECCAK_ROUND_COST_GAS_COST;
     if gas_cost > *remaining_gas {
         let out_of_gas_error =
             StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;

@@ -178,10 +178,7 @@ fn test_keccak() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution {
-            gas_consumed: stark_felt!(339240_u64),
-            ..CallExecution::from_retdata(retdata![])
-        }
+        CallExecution { gas_consumed: 339240_u64, ..CallExecution::from_retdata(retdata![]) }
     );
 }
 

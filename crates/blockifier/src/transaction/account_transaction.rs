@@ -344,7 +344,7 @@ impl AccountTransaction {
         state: &mut S,
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         match &self {
             Self::Declare(tx) => tx.run_execute(state, resources, context, remaining_gas),
@@ -359,7 +359,7 @@ impl AccountTransaction {
         &self,
         state: &mut TransactionalState<'_, S>,
         resources: &mut ExecutionResources,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
