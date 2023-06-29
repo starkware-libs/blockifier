@@ -36,7 +36,7 @@ use crate::execution::execution_utils::{
     write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::secp::{
-    secp256k1_add, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
+    secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
 };
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
@@ -234,6 +234,11 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::Secp256k1Add => {
                 self.execute_syscall(vm, secp256k1_add, constants::SECP256K1_ADD_GAS_COST)
             }
+            SyscallSelector::Secp256k1GetPointFromX => self.execute_syscall(
+                vm,
+                secp256k1_get_point_from_x,
+                constants::SECP256K1_GET_POINT_FROM_X_GAS_COST,
+            ),
             SyscallSelector::Secp256k1GetXy => {
                 self.execute_syscall(vm, secp256k1_get_xy, constants::SECP256K1_GET_XY_GAS_COST)
             }
