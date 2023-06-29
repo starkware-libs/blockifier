@@ -82,6 +82,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             block_context.clone(),
             tx_context,
             block_context.invoke_tx_max_n_steps,
+            block_context.max_recursion_depth,
         );
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =

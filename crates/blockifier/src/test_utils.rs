@@ -339,6 +339,7 @@ impl CallEntryPoint {
             block_context.clone(),
             AccountTransactionContext::default(),
             block_context.invoke_tx_max_n_steps,
+            block_context.max_recursion_depth,
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
@@ -356,6 +357,7 @@ impl BlockContext {
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
+            max_recursion_depth: 50,
         }
     }
 

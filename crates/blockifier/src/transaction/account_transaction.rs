@@ -169,6 +169,7 @@ impl AccountTransaction {
             block_context.clone(),
             self.get_account_transaction_context(),
             block_context.validate_max_n_steps,
+            block_context.max_recursion_depth,
         );
         if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
             return Ok(None);
@@ -257,6 +258,7 @@ impl AccountTransaction {
             block_context.clone(),
             account_tx_context,
             block_context.invoke_tx_max_n_steps,
+            block_context.max_recursion_depth,
         );
 
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
@@ -291,6 +293,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     block_context.clone(),
                     account_tx_context,
                     block_context.invoke_tx_max_n_steps,
+                    block_context.max_recursion_depth,
                 );
                 execute_call_info =
                     tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
@@ -301,6 +304,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     block_context.clone(),
                     account_tx_context,
                     block_context.validate_max_n_steps,
+                    block_context.max_recursion_depth,
                 );
                 execute_call_info =
                     tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
@@ -319,6 +323,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     block_context.clone(),
                     account_tx_context,
                     block_context.invoke_tx_max_n_steps,
+                    block_context.max_recursion_depth,
                 );
                 execute_call_info =
                     tx.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
