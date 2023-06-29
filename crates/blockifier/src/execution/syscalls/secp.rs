@@ -3,11 +3,11 @@ use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::execution_utils::{
-    felt_from_ptr, u256_from_ptr, write_maybe_relocatable, write_u256,
+    felt_from_ptr, felt_to_stark_felt, u256_from_ptr, write_maybe_relocatable, write_u256,
 };
 use crate::execution::syscalls::hint_processor::{SyscallHintProcessor, INVALID_ARGUMENT};
 use crate::execution::syscalls::{
@@ -24,6 +24,33 @@ pub struct EcPointCoordinates {
 #[derive(Debug, Eq, PartialEq)]
 pub struct Secp256k1OpRespone {
     pub ec_point_id: usize,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Secp256k1OptionalEcPointResponse {
+    // `Option<Secp256k1Point>` which is represented as two felts.
+    // The first felt is a indicates if it is `Some` (0) or `None` (1).
+    // The second felt is only valid if the first felt is `Some` and contains the ID of the point.
+    // The ID of the point is the index of the point in the `secp256k1_points` vector.
+    pub optional_ec_point_id: Option<usize>,
+}
+
+impl SyscallResponse for Secp256k1OptionalEcPointResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        match self.optional_ec_point_id {
+            Some(id) => {
+                // Cairo 1 representation of Some(id).
+                write_maybe_relocatable(vm, ptr, 0)?;
+                write_maybe_relocatable(vm, ptr, id)?;
+            }
+            None => {
+                // Cairo 1 representation of None.
+                write_maybe_relocatable(vm, ptr, 1)?;
+                write_maybe_relocatable(vm, ptr, 0)?;
+            }
+        };
+        Ok(())
+    }
 }
 
 impl SyscallResponse for Secp256k1OpRespone {
@@ -60,6 +87,37 @@ pub fn secp256k1_add(
     let result = *lhs + *rhs;
     let ec_point_id = syscall_handler.allocate_secp256k1_point(result.into());
     Ok(Secp256k1OpRespone { ec_point_id })
+}
+
+// Secp256k1GetPointFromXRequest syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+struct Secp256k1GetPointFromXRequest {
+    x: BigUint,
+    // The parity of the y coordinate, assuming a point with the given x coordinate exists.
+    // True means the y coordinate is odd, false means the y coordinate is even.
+    y_parity: bool,
+}
+
+impl SyscallRequest for Secp256k1GetPointFromXRequest {
+    fn read(
+        vm: &VirtualMachine,
+        ptr: &mut Relocatable,
+    ) -> SyscallResult<Secp256k1GetPointFromXRequest> {
+        let x = u256_from_ptr(vm, ptr)?;
+        let y_parity_felt = felt_from_ptr(vm, ptr)?;
+
+        // y_parity should be bool.
+        if !(y_parity_felt.is_zero() || y_parity_felt.is_one()) {
+            return Err(SyscallExecutionError::InvalidSyscallInput {
+                input: felt_to_stark_felt(&y_parity_felt),
+                info: "Invalid y parity".to_string(),
+            });
+        }
+
+        let y_parity = y_parity_felt.is_one();
+        Ok(Secp256k1GetPointFromXRequest { x, y_parity })
+    }
 }
 
 // Secp256k1GetXy syscall.
@@ -138,32 +196,7 @@ impl SyscallRequest for Secp256k1NewRequest {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub struct Secp256k1NewResponse {
-    // The syscall returns `Option<Secp256k1Point>` which is represented as two felts in Cairo0.
-    // The first felt is a indicates if it is `Some` (0) or `None` (1).
-    // The second felt is only valid if the first felt is `Some` and contains the ID of the point.
-    // The ID of the point is the index of the point in the `secp256k1_points` vector.
-    pub optional_ec_point_id: Option<usize>,
-}
-
-impl SyscallResponse for Secp256k1NewResponse {
-    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        match self.optional_ec_point_id {
-            Some(id) => {
-                // Cairo 1 representation of Some(id).
-                write_maybe_relocatable(vm, ptr, 0)?;
-                write_maybe_relocatable(vm, ptr, id)?;
-            }
-            None => {
-                // Cairo 1 representation of None.
-                write_maybe_relocatable(vm, ptr, 1)?;
-                write_maybe_relocatable(vm, ptr, 0)?;
-            }
-        };
-        Ok(())
-    }
-}
+type Secp256k1NewResponse = Secp256k1OptionalEcPointResponse;
 
 pub fn secp256k1_new(
     request: Secp256k1NewRequest,
