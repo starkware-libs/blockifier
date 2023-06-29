@@ -199,7 +199,10 @@ impl SyscallRequest for DeployRequest {
             class_hash,
             contract_address_salt,
             constructor_calldata,
-            deploy_from_zero: felt_to_bool(deploy_from_zero)?,
+            deploy_from_zero: felt_to_bool(
+                deploy_from_zero,
+                "The deploy_from_zero field in the deploy system call must be 0 or 1.",
+            )?,
         })
     }
 }
