@@ -59,7 +59,7 @@ pub struct PyCallInfo {
 
     // Call results.
     #[pyo3(get)]
-    pub gas_consumed: PyFelt, // Currently not in use.
+    pub gas_consumed: u64, // Currently not in use.
     #[pyo3(get)]
     pub failure_flag: PyFelt, // Currently not in use.
     #[pyo3(get)]
@@ -98,7 +98,7 @@ impl From<CallInfo> for PyCallInfo {
             entry_point_selector: PyFelt(call.entry_point_selector.0),
             entry_point_type: call.entry_point_type as u8,
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
-            gas_consumed: PyFelt(execution.gas_consumed),
+            gas_consumed: execution.gas_consumed,
             failure_flag: PyFelt::from(execution.failed as u8),
             retdata: to_py_vec(execution.retdata.0, PyFelt),
             execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
