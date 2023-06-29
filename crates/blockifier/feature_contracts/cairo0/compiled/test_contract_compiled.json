@@ -326,6 +326,17 @@
                     "type": "felt"
                 }
             ],
+            "name": "recursive_fail",
+            "outputs": [],
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "name": "depth",
+                    "type": "felt"
+                }
+            ],
             "name": "recurse",
             "outputs": [],
             "type": "function"
@@ -359,11 +370,11 @@
         ],
         "EXTERNAL": [
             {
-                "offset": 849,
+                "offset": 877,
                 "selector": "0x1143aa89c8e3ebf8ed14df2a3606c1cd2dd513fac8040b0f8ab441f5c52fe4"
             },
             {
-                "offset": 890,
+                "offset": 918,
                 "selector": "0x600c98a299d72ef1e09a2e1503206fbc76081233172c65f7e2438ef0069d8d"
             },
             {
@@ -429,6 +440,10 @@
             {
                 "offset": 442,
                 "selector": "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97"
+            },
+            {
+                "offset": 853,
+                "selector": "0x3eb640b15f75fcc06d43182cdb94ed38c8e71755d5fb57c16dd673b466db1d4"
             }
         ],
         "L1_HANDLER": []
@@ -1284,6 +1299,34 @@
             "0x48127ffa7fff8000",
             "0x208b7fff7fff7ffe",
             "0x20780017fff7ffd",
+            "0x7",
+            "0x480680017fff8000",
+            "0x1",
+            "0x400680017fff7fff",
+            "0x0",
+            "0x208b7fff7fff7ffe",
+            "0x482680017ffd8000",
+            "0x800000000000011000000000000000000000000000000000000000000000000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff8",
+            "0x208b7fff7fff7ffe",
+            "0x482680017ffd8000",
+            "0x1",
+            "0x402a7ffd7ffc7fff",
+            "0x480280007ffd8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff1",
+            "0x40780017fff7fff",
+            "0x1",
+            "0x480280007ffb8000",
+            "0x480280017ffb8000",
+            "0x480280027ffb8000",
+            "0x480280037ffb8000",
+            "0x480680017fff8000",
+            "0x0",
+            "0x48127ffa7fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x20780017fff7ffd",
             "0x3",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
@@ -1318,7 +1361,7 @@
             "0x482680017ffd8000",
             "0x800000000000011000000000000000000000000000000000000000000000000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffc9d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffc81",
             "0x482480017fff8000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffe",
             "0x40137fff7fff8000",
@@ -1329,7 +1372,7 @@
             "0x3",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffc97",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffc7b",
             "0x48127ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
@@ -1810,13 +1853,13 @@
                     }
                 }
             ],
-            "855": [
+            "859": [
                 {
                     "accessible_scopes": [
                         "__main__",
                         "__main__",
                         "__wrappers__",
-                        "__wrappers__.recurse"
+                        "__wrappers__.recursive_fail"
                     ],
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
@@ -1828,7 +1871,25 @@
                     }
                 }
             ],
-            "899": [
+            "883": [
+                {
+                    "accessible_scopes": [
+                        "__main__",
+                        "__main__",
+                        "__wrappers__",
+                        "__wrappers__.recurse"
+                    ],
+                    "code": "memory[ap] = segments.add()",
+                    "flow_tracking_data": {
+                        "ap_tracking": {
+                            "group": 75,
+                            "offset": 0
+                        },
+                        "reference_ids": {}
+                    }
+                }
+            ],
+            "927": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -1839,7 +1900,7 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 74,
+                            "group": 78,
                             "offset": 0
                         },
                         "reference_ids": {}
@@ -2161,7 +2222,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 841,
+                "pc": 869,
                 "type": "function"
             },
             "__main__.recurse.Args": {
@@ -2189,11 +2250,43 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.recursive_fail": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 841,
+                "type": "function"
+            },
+            "__main__.recursive_fail.Args": {
+                "full_name": "__main__.recursive_fail.Args",
+                "members": {
+                    "depth": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.recursive_fail.ImplicitArgs": {
+                "full_name": "__main__.recursive_fail.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.recursive_fail.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.recursive_fail.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.recursive_syscall": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 865,
+                "pc": 893,
                 "type": "function"
             },
             "__main__.recursive_syscall.Args": {
@@ -2962,7 +3055,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 849,
+                "pc": 877,
                 "type": "function"
             },
             "__wrappers__.recurse.Args": {
@@ -2993,11 +3086,46 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
+            "__wrappers__.recursive_fail": {
+                "decorators": [
+                    "external"
+                ],
+                "pc": 853,
+                "type": "function"
+            },
+            "__wrappers__.recursive_fail.Args": {
+                "full_name": "__wrappers__.recursive_fail.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.recursive_fail.ImplicitArgs": {
+                "full_name": "__wrappers__.recursive_fail.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__wrappers__.recursive_fail.Return": {
+                "cairo_type": "(syscall_ptr: felt, pedersen_ptr: felt, range_check_ptr: felt, bitwise_ptr: felt, size: felt, retdata: felt*)",
+                "type": "type_definition"
+            },
+            "__wrappers__.recursive_fail.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__wrappers__.recursive_fail.__wrapped_func": {
+                "destination": "__main__.recursive_fail",
+                "type": "alias"
+            },
+            "__wrappers__.recursive_fail_encode_return.memcpy": {
+                "destination": "starkware.cairo.common.memcpy.memcpy",
+                "type": "alias"
+            },
             "__wrappers__.recursive_syscall": {
                 "decorators": [
                     "external"
                 ],
-                "pc": 890,
+                "pc": 918,
                 "type": "function"
             },
             "__wrappers__.recursive_syscall.Args": {

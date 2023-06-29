@@ -67,6 +67,10 @@ impl TransactionExecutionInfo {
                 .map(|call_info| call_info.get_executed_class_hashes()),
         )
     }
+
+    pub fn is_reverted(&self) -> bool {
+        self.revert_error.is_some()
+    }
 }
 
 /// A mapping from a transaction execution resource to its actual usage.

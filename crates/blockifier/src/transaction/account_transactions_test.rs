@@ -367,3 +367,197 @@ fn test_fail_deploy_account(block_context: BlockContext) {
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
 }
+
+#[rstest]
+/// Tests that the n_steps delta of two consecutive recursive reverted transactions is the same as
+/// the delta of two consecutive recursive successful transactions.
+/// In this test reverted transactions are valid function calls that got insufficient steps limit.
+fn test_reverted_reach_steps_limit(
+    max_fee: Fee,
+    mut block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    // Limit the number of execution steps (so we quickly hit the limit).
+    block_context.invoke_tx_max_n_steps = 1000;
+
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
+
+    fn create_calldata(contract_address: &ContractAddress, depth: u16) -> Calldata {
+        calldata![
+            *contract_address.0.key(),       // Contract address.
+            selector_from_name("recurse").0, // EP selector.
+            stark_felt!(1_u8),               // Calldata length.
+            stark_felt!(depth)               // Calldata: recursion depth.
+        ]
+    }
+
+    // Invoke the `recurse` function with 0 iterations. This call should succeed.
+    let execute_calldata = create_calldata(&contract_address, 0);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_0 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_0 = res.actual_fee.0;
+    // Ensure the transaction was not reverted.
+    assert!(!res.is_reverted());
+
+    // Invoke the `recurse` function with 1 iteration. This call should succeed.
+    let execute_calldata = create_calldata(&contract_address, 1);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_1 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_1 = res.actual_fee.0;
+    // Ensure the transaction was not reverted.
+    assert!(!res.is_reverted());
+
+    // Make sure that the n_steps and actual_fee are higher as the recursion depth increases.
+    assert!(n_steps_1 > n_steps_0);
+    assert!(actual_fee_1 > actual_fee_0);
+
+    // Invoke the `recurse` function with 237 iterations. This call should fail.
+    let execute_calldata = create_calldata(&contract_address, 237);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_237 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_237 = res.actual_fee.0;
+    // Ensure the transaction was reverted.
+    assert!(res.is_reverted());
+
+    // Make sure that n_steps and actual_fee are higher for depth 237 than for depth 1, even though
+    // the deeper transaction was reverted.
+    assert!(n_steps_237 > n_steps_1);
+    assert!(actual_fee_237 > actual_fee_1);
+
+    // Invoke the `recurse` function with 238 iterations. This call should fail.
+    let execute_calldata = create_calldata(&contract_address, 238);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_238 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_238 = res.actual_fee.0;
+    // Ensure the transaction was reverted.
+    assert!(res.is_reverted());
+
+    // Make sure that the n_steps and actual_fee are higher as the recursion depth increases, for
+    // reverted transactions too.
+    assert!(n_steps_238 > n_steps_237);
+    assert!(actual_fee_238 > actual_fee_237);
+
+    // Make sure that the steps and fee diffs are the same for two consecutive reverted and
+    // non-reverted transactions.
+    assert!(n_steps_1 - n_steps_0 == n_steps_238 - n_steps_237);
+    assert!(actual_fee_1 - actual_fee_0 == actual_fee_238 - actual_fee_237);
+}
+
+#[rstest]
+/// Tests that n_steps and actual_fees of reverted transactions invocations are consistent.
+/// In this test reverted transactions are recursive function invocations where the innermost call
+/// asserts false. We test deltas between consecutive depths, and further depths.
+fn test_n_reverted_steps(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
+
+    fn create_calldata(contract_address: &ContractAddress, depth: u8) -> Calldata {
+        calldata![
+            *contract_address.0.key(),              // Contract address.
+            selector_from_name("recursive_fail").0, // EP selector.
+            stark_felt!(1_u8),                      // Calldata length.
+            stark_felt!(depth)                      // Calldata: recursion depth.
+        ]
+    }
+
+    // Invoke the `recursive_fail` function with 0 iterations. This call should fail.
+    let execute_calldata = create_calldata(&contract_address, 0);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_0 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_0 = res.actual_fee.0;
+    // Ensure the transaction was reverted.
+    assert!(res.is_reverted());
+
+    // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
+    let execute_calldata = create_calldata(&contract_address, 1);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_1 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_1 = res.actual_fee.0;
+    // Ensure the transaction was reverted.
+    assert!(res.is_reverted());
+
+    // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
+    let execute_calldata = create_calldata(&contract_address, 2);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_2 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_2 = res.actual_fee.0;
+    // Ensure the transaction was reverted.
+    assert!(res.is_reverted());
+
+    // Make sure that n_steps and actual_fee diffs are the same for two consecutive reverted calls.
+    assert!(n_steps_1 - n_steps_0 == n_steps_2 - n_steps_1);
+    assert!(actual_fee_1 - actual_fee_0 == actual_fee_2 - actual_fee_1);
+
+    // Save the delta between two consecutive calls to be tested against a much larger recursion.
+    let single_call_steps_delta = n_steps_1 - n_steps_0;
+    let single_call_fee_delta = actual_fee_1 - actual_fee_0;
+    assert!(single_call_steps_delta > 0);
+    assert!(single_call_fee_delta > 0);
+
+    // Invoke the `recursive_fail` function with 100 iterations. This call should fail.
+    let execute_calldata = create_calldata(&contract_address, 100);
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: nonce_manager.next(account_address),
+        ..tx
+    }));
+    let res = account_tx.execute(&mut state, &block_context).unwrap();
+    let n_steps_100 = res.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_100 = res.actual_fee.0;
+    // Ensure the transaction was reverted.
+    assert!(res.is_reverted());
+
+    // Make sure that n_steps and actual_fee grew as expected.
+    assert!(n_steps_100 - n_steps_0 == 100 * single_call_steps_delta);
+    assert!(actual_fee_100 - actual_fee_0 == 100 * single_call_fee_delta);
+}
