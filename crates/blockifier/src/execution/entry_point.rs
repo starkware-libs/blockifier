@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::{
     ExecutionResources as VmExecutionResources, RunResources,
 };
-use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -234,7 +232,7 @@ pub struct CallExecution {
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub failed: bool,
-    pub gas_consumed: StarkFelt,
+    pub gas_consumed: u64,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -333,7 +331,7 @@ pub fn execute_constructor_entry_point(
     context: &mut EntryPointExecutionContext,
     ctor_context: ConstructorContext,
     calldata: Calldata,
-    remaining_gas: Felt252,
+    remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
     let contract_class = state.get_compiled_contract_class(&ctor_context.class_hash)?;
@@ -351,7 +349,7 @@ pub fn execute_constructor_entry_point(
         storage_address: ctor_context.storage_address,
         caller_address: ctor_context.caller_address,
         call_type: CallType::Call,
-        initial_gas: remaining_gas.to_u64().expect("The gas must be representable with 64 bits."),
+        initial_gas: remaining_gas,
     };
 
     constructor_call.execute(state, resources, context)
@@ -360,7 +358,7 @@ pub fn execute_constructor_entry_point(
 pub fn handle_empty_constructor(
     ctor_context: ConstructorContext,
     calldata: Calldata,
-    remaining_gas: Felt252,
+    remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Validate no calldata.
     if !calldata.0.is_empty() {
@@ -380,9 +378,7 @@ pub fn handle_empty_constructor(
             storage_address: ctor_context.storage_address,
             caller_address: ctor_context.caller_address,
             call_type: CallType::Call,
-            initial_gas: remaining_gas
-                .to_u64()
-                .expect("The gas must be representable with 64 bits."),
+            initial_gas: remaining_gas,
         },
         ..Default::default()
     };

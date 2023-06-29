@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use cairo_felt::Felt252;
-use num_traits::ToPrimitive;
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
@@ -69,7 +67,7 @@ pub trait Executable<S: State> {
         state: &mut S,
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
@@ -139,7 +137,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
         state: &mut S,
         _resources: &mut ExecutionResources,
         _context: &mut EntryPointExecutionContext,
-        _remaining_gas: &mut Felt252,
+        _remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.tx.class_hash();
 
@@ -176,7 +174,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         state: &mut S,
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let ctor_context = ConstructorContext {
             class_hash: self.class_hash,
@@ -190,7 +188,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             context,
             ctor_context,
             self.constructor_calldata.clone(),
-            remaining_gas.clone(),
+            *remaining_gas,
         );
         let call_info = deployment_result
             .map_err(TransactionExecutionError::ContractConstructorExecutionFailed)?;
@@ -207,7 +205,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
         state: &mut S,
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match self {
             InvokeTransaction::V0(tx) => tx.entry_point_selector,
@@ -223,9 +221,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas
-                .to_u64()
-                .expect("The gas must be representable with 64 bits."),
+            initial_gas: *remaining_gas,
         };
 
         let call_info = execute_call
@@ -249,7 +245,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         state: &mut S,
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
-        remaining_gas: &mut Felt252,
+        remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let tx = &self.tx;
         let storage_address = tx.contract_address;
@@ -262,9 +258,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: remaining_gas
-                .to_u64()
-                .expect("The gas must be representable with 64 bits."),
+            initial_gas: *remaining_gas,
         };
 
         execute_call

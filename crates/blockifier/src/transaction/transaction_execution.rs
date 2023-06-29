@@ -1,4 +1,3 @@
-use cairo_felt::Felt252;
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
 
 use crate::abi::constants as abi_constants;
@@ -84,7 +83,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             tx_context,
             block_context.invoke_tx_max_n_steps,
         );
-        let mut remaining_gas = Felt252::from(Transaction::initial_gas());
+        let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
 
