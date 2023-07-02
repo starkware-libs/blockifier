@@ -14,18 +14,18 @@ mod Account {
         public_key: felt252
     }
 
-    #[constructor]
-    fn constructor(ref self: ContractState, public_key_: felt252) {
-        self.public_key.write(public_key_);
-    }
+    // #[constructor]
+    // // fn constructor(ref self: ContractState) {
+    // fn constructor(ref self: ContractState, public_key_: felt252) {
+    //     self.public_key.write(public_key_);
+    // }
 
 
     #[external]
     fn __validate_deploy__(
         self: @ContractState,
         class_hash: felt252,
-        contract_address_salt: felt252,
-        public_key_: felt252
+        contract_address_salt: felt252
     ) -> felt252 {
         starknet::VALIDATED
     }

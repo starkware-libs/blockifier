@@ -604,9 +604,19 @@ fn deploy_account_tx(
     )
 }
 
-#[test]
-fn test_deploy_account_tx() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    ACCOUNT_CONTRACT_PATH;
+    "With Cairo0 account")]
+#[test_case(
+    CAIRO1_ACCOUNT_CONTRACT_PATH;
+    "With Cairo1 account")]
+fn test_deploy_account_tx(account_path: &str) {
+    let mut temp_state = if account_path.contains("cairo1") {
+        create_state_with_cairo1_account()
+    } else {
+        create_state_with_trivial_validation_account()
+    };
+    let state = &mut temp_state;
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
     let deploy_account_tx =
@@ -636,7 +646,14 @@ fn test_deploy_account_tx() {
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let expected_returned_data = Retdata::default();
+    let expected_returned_data = if account_path.contains("cairo1") {
+        retdata!(stark_felt!(
+            // Returned data is VALIDATED
+            "0x00000000000000000000000000000000000000000000000000000056414c4944"
+        ))
+    } else {
+        Retdata::default()
+    };
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
@@ -677,17 +694,27 @@ fn test_deploy_account_tx() {
         },
     );
 
+    let expected_actual_resources = if account_path.contains("cairo1") {
+        ResourcesMapping(HashMap::from([
+            (abi_constants::GAS_USAGE.to_string(), 3060),
+            (HASH_BUILTIN_NAME.to_string(), 23),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 85),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 3686),
+        ]))
+    } else {
+        ResourcesMapping(HashMap::from([
+            (abi_constants::GAS_USAGE.to_string(), 3060),
+            (HASH_BUILTIN_NAME.to_string(), 23),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
+        ]))
+    };
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 3060),
-            (HASH_BUILTIN_NAME.to_string(), 23),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
-        ])),
+        actual_resources: expected_actual_resources,
     };
 
     // Test execution info result.
