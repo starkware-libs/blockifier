@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 {
   "prime": "0x800000000000011000000000000000000000000000000000000000000000001",
   "compiler_version": "2.0.0",
@@ -191,15 +190,9 @@
     "0x20680017fff7fff",
     "0x33",
     "0x1104800180018000",
-<<<<<<< HEAD
     "0x639",
     "0x482480017fff8000",
     "0x638",
-=======
-    "0x8a",
-    "0x482480017fff8000",
-    "0x89",
->>>>>>> Adding Cairo1 account contract to test_declare_tx
     "0x480080007fff8000",
     "0xa0680017fff8000",
     "0x9",
@@ -220,11 +213,7 @@
     "0x48127ffe7fff8000",
     "0x48127ffd7fff8000",
     "0x1104800180018000",
-<<<<<<< HEAD
     "0x1a8",
-=======
-    "0x6c",
->>>>>>> Adding Cairo1 account contract to test_declare_tx
     "0x482480017fec8000",
     "0x1",
     "0x48127ff67fff8000",
@@ -251,11 +240,7 @@
     "0x208b7fff7fff7ffe",
     "0x480a7ffb7fff8000",
     "0x1104800180018000",
-<<<<<<< HEAD
     "0x192",
-=======
-    "0x56",
->>>>>>> Adding Cairo1 account contract to test_declare_tx
     "0x40780017fff7fff",
     "0x1",
     "0x480680017fff8000",
@@ -299,7 +284,6 @@
     "0x482480017ff98000",
     "0x1",
     "0x208b7fff7fff7ffe",
-<<<<<<< HEAD
     "0xa0680017fff8000",
     "0x7",
     "0x482680017ffa8000",
@@ -2055,55 +2039,6 @@
     ],
     [
       326,
-=======
-    "0x48297ffc80007ffd",
-    "0x20680017fff7fff",
-    "0x4",
-    "0x10780017fff7fff",
-    "0xa",
-    "0x482680017ffc8000",
-    "0x1",
-    "0x480a7ffd7fff8000",
-    "0x480680017fff8000",
-    "0x0",
-    "0x480a7ffc7fff8000",
-    "0x10780017fff7fff",
-    "0x8",
-    "0x480a7ffc7fff8000",
-    "0x480a7ffd7fff8000",
-    "0x480680017fff8000",
-    "0x1",
-    "0x480680017fff8000",
-    "0x0",
-    "0x48127ffc7fff8000",
-    "0x48127ffc7fff8000",
-    "0x20680017fff7ffc",
-    "0x8",
-    "0x48127ffe7fff8000",
-    "0x48127ffe7fff8000",
-    "0x480680017fff8000",
-    "0x0",
-    "0x480080007ffa8000",
-    "0x208b7fff7fff7ffe",
-    "0x48127ffe7fff8000",
-    "0x48127ffe7fff8000",
-    "0x480680017fff8000",
-    "0x1",
-    "0x480680017fff8000",
-    "0x0",
-    "0x208b7fff7fff7ffe",
-    "0x400380007ffd7ffb",
-    "0x480a7ffc7fff8000",
-    "0x482680017ffd8000",
-    "0x1",
-    "0x208b7fff7fff7ffe",
-    "0x480a7ffd7fff8000",
-    "0x208b7fff7fff7ffe"
-  ],
-  "hints": [
-    [
-      0,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "TestLessThanOrEqual": {
@@ -2112,7 +2047,6 @@
             },
             "rhs": {
               "Deref": {
-<<<<<<< HEAD
                 "register": "AP",
                 "offset": -16
               }
@@ -2200,8 +2134,6 @@
             },
             "rhs": {
               "Deref": {
-=======
->>>>>>> Adding Cairo1 account contract to test_declare_tx
                 "register": "FP",
                 "offset": -6
               }
@@ -2215,11 +2147,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       470,
-=======
-      53,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "TestLessThanOrEqual": {
@@ -2229,11 +2157,7 @@
             "rhs": {
               "Deref": {
                 "register": "AP",
-<<<<<<< HEAD
                 "offset": -16
-=======
-                "offset": -56
->>>>>>> Adding Cairo1 account contract to test_declare_tx
               }
             },
             "dst": {
@@ -2245,7 +2169,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       493,
       [
         {
@@ -2260,9 +2183,6 @@
     ],
     [
       529,
-=======
-      65,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2275,11 +2195,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       547,
-=======
-      82,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2292,11 +2208,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       561,
-=======
-      100,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2309,11 +2221,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       583,
-=======
-      114,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2326,11 +2234,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       664,
-=======
-      128,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2343,11 +2247,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       734,
-=======
-      142,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2360,11 +2260,7 @@
       ]
     ],
     [
-<<<<<<< HEAD
       763,
-=======
-      156,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2377,29 +2273,17 @@
       ]
     ],
     [
-<<<<<<< HEAD
       821,
-=======
-      171,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "TestLessThanOrEqual": {
             "lhs": {
-<<<<<<< HEAD
               "Immediate": "0x429a"
-=======
-              "Immediate": "0x0"
->>>>>>> Adding Cairo1 account contract to test_declare_tx
             },
             "rhs": {
               "Deref": {
                 "register": "FP",
-<<<<<<< HEAD
                 "offset": -8
-=======
-                "offset": -6
->>>>>>> Adding Cairo1 account contract to test_declare_tx
               }
             },
             "dst": {
@@ -2411,7 +2295,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       924,
       [
         {
@@ -2426,28 +2309,16 @@
     ],
     [
       970,
-=======
-      212,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "TestLessThanOrEqual": {
             "lhs": {
-<<<<<<< HEAD
               "Immediate": "0x3ff2"
             },
             "rhs": {
               "Deref": {
                 "register": "FP",
                 "offset": -8
-=======
-              "Immediate": "0x0"
-            },
-            "rhs": {
-              "Deref": {
-                "register": "AP",
-                "offset": -26
->>>>>>> Adding Cairo1 account contract to test_declare_tx
               }
             },
             "dst": {
@@ -2459,7 +2330,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       1024,
       [
         {
@@ -2476,9 +2346,6 @@
     ],
     [
       1105,
-=======
-      224,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2491,7 +2358,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       1139,
       [
         {
@@ -2515,9 +2381,6 @@
     ],
     [
       1229,
-=======
-      241,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2530,7 +2393,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       1355,
       [
         {
@@ -2627,9 +2489,6 @@
     ],
     [
       1515,
-=======
-      259,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2642,7 +2501,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       1582,
       [
         {
@@ -2666,9 +2524,6 @@
     ],
     [
       1658,
-=======
-      273,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2681,7 +2536,6 @@
       ]
     ],
     [
-<<<<<<< HEAD
       1677,
       [
         {
@@ -2705,9 +2559,6 @@
     ],
     [
       1760,
-=======
-      287,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
       [
         {
           "AllocSegment": {
@@ -2723,7 +2574,6 @@
   "entry_points_by_type": {
     "EXTERNAL": [
       {
-<<<<<<< HEAD
         "selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
         "offset": 424,
         "builtins": [
@@ -2740,10 +2590,6 @@
       {
         "selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3",
         "offset": 151,
-=======
-        "selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3",
-        "offset": 171,
->>>>>>> Adding Cairo1 account contract to test_declare_tx
         "builtins": [
           "range_check"
         ]
@@ -2760,5 +2606,3 @@
     "CONSTRUCTOR": []
   }
 }
-=======
->>>>>>> Adding Cairo1 account contract to test_declare_tx
