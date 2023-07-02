@@ -1,3 +1,4 @@
+use ark_ff::BigInteger;
 use ark_secp256k1 as secp256k1;
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
@@ -94,7 +95,7 @@ pub fn secp256k1_add(
 // Secp256k1GetPointFromXRequest syscall.
 
 #[derive(Debug, Eq, PartialEq)]
-struct Secp256k1GetPointFromXRequest {
+pub struct Secp256k1GetPointFromXRequest {
     x: BigUint,
     // The parity of the y coordinate, assuming a point with the given x coordinate exists.
     // True means the y coordinate is odd.
@@ -111,6 +112,38 @@ impl SyscallRequest for Secp256k1GetPointFromXRequest {
         let y_parity = felt_to_bool(stark_felt_from_ptr(vm, ptr)?, "Invalid y parity")?;
         Ok(Secp256k1GetPointFromXRequest { x, y_parity })
     }
+}
+
+type Secp256k1GetPointFromXResponse = Secp256k1OptionalEcPointResponse;
+
+pub fn secp256k1_get_point_from_x(
+    request: Secp256k1GetPointFromXRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1GetPointFromXResponse> {
+    let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
+    let x = request.x.into();
+    if x >= modulos {
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![
+                StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
+            ],
+        });
+    }
+
+    let maybe_ec_point = secp256k1::Affine::get_ys_from_x_unchecked(x)
+        .map(|(smaller, greater)| {
+            // Return the correct y coordinate based on the parity.
+            if smaller.0.is_odd() == request.y_parity { smaller } else { greater }
+        })
+        .map(|y| secp256k1::Affine::new_unchecked(x, y))
+        .filter(|p| p.is_in_correct_subgroup_assuming_on_curve());
+
+    Ok(Secp256k1GetPointFromXResponse {
+        optional_ec_point_id: maybe_ec_point
+            .map(|ec_point| syscall_handler.allocate_secp256k1_point(ec_point)),
+    })
 }
 
 // Secp256k1GetXy syscall.
