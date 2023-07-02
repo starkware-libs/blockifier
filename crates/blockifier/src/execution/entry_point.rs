@@ -150,7 +150,7 @@ impl CallEntryPoint {
                     StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
                 )
         {
-            return Err(PreExecutionError::FraudAttempt().into());
+            return Err(PreExecutionError::FraudAttempt.into());
         }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);

@@ -16,20 +16,22 @@ use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
 pub enum PreExecutionError {
-    #[error("Entry point {0:?} not found in contract.")]
-    EntryPointNotFound(EntryPointSelector),
     #[error("Entry point {selector:?} of type {typ:?} is not unique.")]
     DuplicatedEntryPointSelector { selector: EntryPointSelector, typ: EntryPointType },
+    #[error("Entry point {0:?} not found in contract.")]
+    EntryPointNotFound(EntryPointSelector),
     #[error("Fraud attempt blocked.")]
-    FraudAttempt(),
+    FraudAttempt,
     #[error("Invalid builtin {0:?}.")]
     InvalidBuiltin(String),
-    #[error("No entry points of type {0:?} found in contract.")]
-    NoEntryPointOfTypeFound(EntryPointType),
+    #[error("The constructor entry point must be named 'constructor'.")]
+    InvalidConstructorEntryPointName,
     #[error(transparent)]
     MathError(#[from] MathError),
     #[error(transparent)]
     MemoryError(#[from] MemoryError),
+    #[error("No entry points of type {0:?} found in contract.")]
+    NoEntryPointOfTypeFound(EntryPointType),
     #[error(transparent)]
     ProgramError(#[from] cairo_vm::types::errors::program_errors::ProgramError),
     #[error(transparent)]
