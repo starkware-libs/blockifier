@@ -495,18 +495,13 @@ impl HintProcessor for SyscallHintProcessor<'_> {
     }
 }
 
-pub fn felt_to_bool(felt: StarkFelt) -> SyscallResult<bool> {
+pub fn felt_to_bool(felt: StarkFelt, error_info: &str) -> SyscallResult<bool> {
     if felt == StarkFelt::from(0_u8) {
         Ok(false)
     } else if felt == StarkFelt::from(1_u8) {
         Ok(true)
     } else {
-        Err(SyscallExecutionError::InvalidSyscallInput {
-            input: felt,
-            info: String::from(
-                "The deploy_from_zero field in the deploy system call must be 0 or 1.",
-            ),
-        })
+        Err(SyscallExecutionError::InvalidSyscallInput { input: felt, info: error_info.into() })
     }
 }
 
