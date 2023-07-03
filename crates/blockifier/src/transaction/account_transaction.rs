@@ -238,15 +238,12 @@ impl AccountTransaction {
     }
 
     /// Handles nonce and checks that the account's balance covers max fee.
-    fn handle_nonce_and_check_fee_balance<S: StateReader>(
+    fn check_fee_balance_and_handle_nonce<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<()> {
         let account_tx_context = self.get_account_transaction_context();
-
-        // Handle nonce.
-        Self::handle_nonce(&account_tx_context, state)?;
 
         // Check fee balance.
         if self.enforce_fee() {
@@ -264,6 +261,9 @@ impl AccountTransaction {
                 });
             }
         }
+
+        // Handle nonce.
+        Self::handle_nonce(&account_tx_context, state)?;
 
         Ok(())
     }
@@ -424,7 +424,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
-        self.handle_nonce_and_check_fee_balance(state, block_context)?;
+        self.check_fee_balance_and_handle_nonce(state, block_context)?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo { validate_call_info, execute_call_info, revert_error } =
