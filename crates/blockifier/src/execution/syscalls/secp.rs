@@ -123,8 +123,8 @@ pub fn secp256k1_get_point_from_x(
     _remaining_gas: &mut u64,
 ) -> SyscallResult<Secp256k1GetPointFromXResponse> {
     let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
-    let x = request.x.into();
-    if x >= modulos {
+
+    if request.x >= modulos {
         return Err(SyscallExecutionError::SyscallError {
             error_data: vec![
                 StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
@@ -132,6 +132,7 @@ pub fn secp256k1_get_point_from_x(
         });
     }
 
+    let x = request.x.into();
     let maybe_ec_point = secp256k1::Affine::get_ys_from_x_unchecked(x)
         .map(|(smaller, greater)| {
             // Return the correct y coordinate based on the parity.

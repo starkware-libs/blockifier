@@ -11,6 +11,10 @@ mod TestContract {
     use traits::Into;
     use traits::TryInto;
     use option::OptionTrait;
+    use starknet::{
+    eth_address::U256IntoEthAddress, EthAddress,
+    secp256_trait::verify_eth_signature
+};
 
     const UNEXPECTED_ERROR: felt252 = 'UNEXPECTED ERROR';
 
@@ -25,14 +29,14 @@ mod TestContract {
         arg1
     }
 
-    #[external]
+    #[external(v0)]
     fn test_storage_read_write(self: @ContractState, address: StorageAddress, value: felt252) -> felt252 {
         let address_domain = 0;
         starknet::syscalls::storage_write_syscall(address_domain, address, value).unwrap_syscall();
         starknet::syscalls::storage_read_syscall(address_domain, address).unwrap_syscall()
     }
 
-    #[external]
+    #[external(v0)]
     #[raw_output]
     fn test_call_contract(
         self: @ContractState,
@@ -45,17 +49,17 @@ mod TestContract {
         ).unwrap_syscall().snapshot.span()
     }
 
-    #[external]
+    #[external(v0)]
     fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
         starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
     }
 
-    #[external]
+    #[external(v0)]
     fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
         starknet::syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
     }
 
-    #[external]
+    #[external(v0)]
     fn test_get_execution_info(
         self: @ContractState,
         // Expected block info.
@@ -96,7 +100,7 @@ mod TestContract {
         );
     }
 
-    #[external]
+    #[external(v0)]
     #[raw_output]
     fn test_library_call(
         self: @ContractState,
@@ -109,7 +113,7 @@ mod TestContract {
         ).unwrap_syscall().snapshot.span()
     }
 
-    #[external]
+    #[external(v0)]
     #[raw_output]
     fn test_nested_library_call(
         self: @ContractState,
@@ -137,18 +141,18 @@ mod TestContract {
             .unwrap_syscall()
     }
 
-    #[external]
+    #[external(v0)]
     fn test_replace_class(self: @ContractState, class_hash: ClassHash) {
         starknet::syscalls::replace_class_syscall(class_hash).unwrap_syscall();
     }
 
-    #[external]
+    #[external(v0)]
     fn test_send_message_to_l1(self: @ContractState, to_address: felt252, payload: Array::<felt252>) {
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
     }
 
     /// An external method that requires the `segment_arena` builtin.
-    #[external]
+    #[external(v0)]
     fn segment_arena_builtin(self: @ContractState) {
         let x = felt252_dict_new::<felt252>();
         x.squash();
@@ -159,7 +163,7 @@ mod TestContract {
         arg
     }
 
-    #[external]
+    #[external(v0)]
     fn test_deploy(
         self: @ContractState,
         class_hash: ClassHash,
@@ -173,7 +177,7 @@ mod TestContract {
     }
 
 
-    #[external]
+    #[external(v0)]
     fn test_keccak(ref self: ContractState) {
         let mut input = Default::default();
         input.append(u256 { low: 1, high: 0 });
@@ -191,7 +195,7 @@ mod TestContract {
         }
     }
 
-    #[external]
+    #[external(v0)]
     fn test_secp256k1(ref self: ContractState) {
         // Test a point not on the curve.
         assert (starknet::secp256k1::secp256k1_new_syscall(
@@ -215,6 +219,36 @@ mod TestContract {
         assert (
             x_coord == x && y_coord == y,
             'Unexpected coordinates');
+
+        let y_parity = true;
+        let (msg_hash, r, s, expected_public_key_x, expected_public_key_y, eth_address) =
+            get_message_and_signature(
+            :y_parity
+        );
+        verify_eth_signature::<starknet::secp256k1::Secp256k1Point>(
+            :msg_hash, :r, :s, :y_parity, :eth_address);
+    }
+
+    /// Returns a golden valid message hash and its signature, for testing.
+    fn get_message_and_signature(y_parity: bool) -> (u256, u256, u256, u256, u256, EthAddress) {
+        let msg_hash = 0xe888fbb4cf9ae6254f19ba12e6d9af54788f195a6f509ca3e934f78d7a71dd85;
+        let r = 0x4c8e4fbc1fbb1dece52185e532812c4f7a5f81cf3ee10044320a0d03b62d3e9a;
+        let s = 0x4ac5e5c0c0e8a4871583cc131f35fb49c2b7f60e6a8b84965830658f08f7410c;
+
+        let (public_key_x, public_key_y) = if y_parity {
+            (
+                0xa9a02d48081294b9bb0d8740d70d3607feb20876964d432846d9b9100b91eefd,
+                0x18b410b5523a1431024a6ab766c89fa5d062744c75e49efb9925bf8025a7c09e
+            )
+        } else {
+            (
+                0x57a910a2a58ef7d57f452e1f6ea7ee0080789091de946b0ca6e5c6af2c8ff5c8,
+                0x249d233d0d21f35db55ce852edbd340d31e92ea4d591886149ca5d89911331ac
+            )
+        };
+        let eth_address = 0x767410c1bb448978bd42b984d7de5970bcaf5c43_u256.into();
+
+        (msg_hash, r, s, public_key_x, public_key_y, eth_address)
     }
 }
 
