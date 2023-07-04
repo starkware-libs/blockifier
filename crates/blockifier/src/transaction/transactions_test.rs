@@ -33,21 +33,9 @@ use crate::state::cached_state::CachedState;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-<<<<<<< HEAD
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-||||||| 6cf52f1
-    test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    test_erc20_sequencer_balance_key, validate_tx_execution_info, DictStateReader, NonceManager,
-    ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
-=======
-    test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    test_erc20_sequencer_balance_key, DictStateReader, NonceManager, ACCOUNT_CONTRACT_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
->>>>>>> origin/main-v0.12.0
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -70,22 +58,12 @@ fn expected_validate_call_info(
     calldata: Calldata,
     storage_address: ContractAddress,
 ) -> Option<CallInfo> {
-<<<<<<< HEAD
     let n_steps = match entry_point_selector_name {
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME => 13_usize,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME => 12_usize,
         constants::VALIDATE_ENTRY_POINT_NAME => 21_usize,
         selector => panic!("Selector {selector} is not a known validate selector."),
     };
-||||||| 6cf52f1
-=======
-    let n_steps = match entry_point_selector_name {
-        constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME => 13_usize,
-        constants::VALIDATE_DECLARE_ENTRY_POINT_NAME => 12_usize,
-        constants::VALIDATE_ENTRY_POINT_NAME => 21_usize,
-        selector => panic!("Selector {} is not a known validate selector.", selector),
-    };
->>>>>>> origin/main-v0.12.0
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks =
         usize::from(entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME);
