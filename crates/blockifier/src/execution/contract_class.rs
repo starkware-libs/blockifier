@@ -22,7 +22,8 @@ use starknet_api::deprecated_contract_class::{
     Program as DeprecatedProgram,
 };
 
-use crate::abi::constants;
+use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
 
@@ -146,6 +147,12 @@ impl ContractClassV1 {
         &self,
         call: &super::entry_point::CallEntryPoint,
     ) -> Result<EntryPointV1, PreExecutionError> {
+        if call.entry_point_type == EntryPointType::Constructor
+            && call.entry_point_selector != selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME)
+        {
+            return Err(PreExecutionError::InvalidConstructorEntryPointName);
+        }
+
         let entry_points_of_same_type = &self.0.entry_points_by_type[&call.entry_point_type];
         let filtered_entry_points: Vec<_> = entry_points_of_same_type
             .iter()

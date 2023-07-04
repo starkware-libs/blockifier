@@ -5,9 +5,11 @@ use cairo_vm::vm::runners::cairo_runner::{
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkHash;
 
-use crate::abi::constants::DEFAULT_ENTRY_POINT_SELECTOR;
+use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
@@ -109,6 +111,12 @@ pub fn resolve_entry_point_pc(
     call: &CallEntryPoint,
     contract_class: &ContractClassV0,
 ) -> Result<usize, PreExecutionError> {
+    if call.entry_point_type == EntryPointType::Constructor
+        && call.entry_point_selector != selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME)
+    {
+        return Err(PreExecutionError::InvalidConstructorEntryPointName);
+    }
+
     let entry_points_of_same_type = &contract_class.entry_points_by_type[&call.entry_point_type];
     let filtered_entry_points: Vec<_> = entry_points_of_same_type
         .iter()
