@@ -10,7 +10,7 @@ use starknet_api::{patricia_key, stark_felt};
 use super::*;
 use crate::test_utils::{
     deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
 };
 
 fn set_initial_state_values(
@@ -257,6 +257,7 @@ fn cached_state_state_diff_conversion() {
 
 #[test]
 fn count_actual_state_changes() {
+    let fee_token_address = ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS));
     let contract_address = ContractAddress(patricia_key!("0x100"));
     let contract_address2 = ContractAddress(patricia_key!("0x101"));
     let class_hash = ClassHash(stark_felt!("0x10"));
@@ -274,7 +275,9 @@ fn count_actual_state_changes() {
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val);
 
-    let state_changes = state.count_actual_state_changes().unwrap();
+    let state_changes = state
+        .count_actual_state_changes(fee_token_address, Some(ContractAddress::default()))
+        .unwrap();
 
     assert_eq!(
         state_changes,

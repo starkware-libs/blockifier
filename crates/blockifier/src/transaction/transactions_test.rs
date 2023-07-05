@@ -29,7 +29,7 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
-use crate::state::cached_state::CachedState;
+use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -789,4 +789,47 @@ fn test_validate_accounts_tx() {
     test_validate_account_tx(TransactionType::InvokeFunction);
     test_validate_account_tx(TransactionType::Declare);
     test_validate_account_tx(TransactionType::DeployAccount);
+}
+
+// Test that we exclude the fee token contract modification and ignore the account’s balance change
+// in the state changes (we add it manually after).
+#[test]
+fn test_invoke_with_balance_change() {
+    let state = &mut create_state_with_trivial_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let entry_point_selector = selector_from_name("transfer");
+    let execute_calldata = calldata![
+        *block_context.fee_token_address.0.key(), // Contract address.
+        entry_point_selector.0,                   // EP selector.
+        stark_felt!(2_u8),                        // Calldata length.
+        stark_felt!(1993_u16),                    // Calldata: recipient.
+        stark_felt!(2_u8)                         // Calldata: amount.
+    ];
+
+    let invoke_tx = crate::test_utils::invoke_tx(
+        execute_calldata,
+        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        Fee(MAX_FEE),
+        None,
+    );
+
+    // Extract invoke transaction fields for testing, as it is consumed when creating an account
+    // transaction.
+    let sender_address = invoke_tx.sender_address;
+
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
+    account_tx.execute(state, block_context).unwrap();
+    let state_changes = state
+        .count_actual_state_changes(block_context.fee_token_address, Some(sender_address))
+        .unwrap();
+
+    assert_eq!(
+        state_changes,
+        StateChanges {
+            n_storage_updates: 1, // For the recipient balance update (only).
+            n_class_hash_updates: 0,
+            n_nonce_updates: 1,
+            n_modified_contracts: 1 // Only the account contract modification (nonce update).
+        }
+    );
 }
