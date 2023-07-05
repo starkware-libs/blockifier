@@ -3,10 +3,11 @@ use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
+use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::state::cached_state::{CachedState, TransactionalState};
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use ouroboros;
 use papyrus_storage::db::RO;
@@ -15,11 +16,14 @@ use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
+use crate::py_state_reader::PyStateReader;
 use crate::py_transaction::py_tx;
-use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
+use crate::py_transaction_execution_info::{
+    PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
+};
 use crate::py_utils::{int_to_chain_id, py_attr, py_enum_name, PyFelt};
 use crate::storage::Storage;
 
@@ -39,6 +43,7 @@ impl PyTransactionExecutor {
         general_config: PyGeneralConfig,
         block_info: &PyAny,
         max_recursion_depth: usize,
+        py_state: &PyAny,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let executor = TransactionExecutor::create(
@@ -46,6 +51,7 @@ impl PyTransactionExecutor {
             general_config,
             block_info,
             max_recursion_depth,
+            py_state,
         )?;
         log::debug!("Initialized Transaction Executor.");
 
@@ -61,6 +67,17 @@ impl PyTransactionExecutor {
         enough_room_for_tx: &PyAny,
     ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
         self.executor().execute(tx, raw_contract_class, enough_room_for_tx)
+    }
+
+    #[args(tx, raw_contract_class, remaining_gas)]
+    pub fn validate_tx(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+        remaining_gas: u64,
+    ) -> NativeBlockifierResult<Option<PyCallInfo>> {
+        log::debug!("Running validate_tx...");
+        self.executor().validate_tx(tx, raw_contract_class, remaining_gas)
     }
 
     pub fn finalize(&mut self) -> PyStateDiff {
@@ -108,6 +125,9 @@ pub struct TransactionExecutor {
     #[borrows(storage_tx)]
     #[covariant]
     pub state: CachedState<PapyrusReader<'this>>,
+
+    // TODO: comment
+    pub py_state: CachedState<PyStateReader>,
 }
 
 impl TransactionExecutor {
@@ -116,12 +136,13 @@ impl TransactionExecutor {
         general_config: PyGeneralConfig,
         block_info: &PyAny,
         max_recursion_depth: usize,
+        py_state: &PyAny,
     ) -> NativeBlockifierResult<Self> {
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
 
         let block_context = py_block_context(general_config, block_info, max_recursion_depth)?;
-        build_tx_executor(block_context, reader)
+        build_tx_executor(block_context, reader, PyStateReader::new(py_state))
     }
 
     /// Executes the given transaction on the state maintained by the executor.
@@ -197,6 +218,38 @@ impl TransactionExecutor {
                     transactional_state.abort();
                     Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
                 }
+            }
+        })
+    }
+
+    pub fn validate_tx(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+        mut remaining_gas: u64,
+    ) -> NativeBlockifierResult<Option<PyCallInfo>> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        log::debug!("Transaction type is: {tx_type}");
+        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+
+        self.with_mut(|executor| {
+            let mut resources = ExecutionResources::default();
+            if let Transaction::AccountTransaction(account_tx) = tx {
+                log::debug!("Executing validate...");
+                Ok(account_tx
+                    .validate(
+                        executor.py_state,
+                        &mut resources,
+                        &mut remaining_gas,
+                        executor.block_context,
+                    )
+                    .map_err(NativeBlockifierError::from)?
+                    .map(PyCallInfo::from))
+            } else {
+                log::debug!("Failed to get AccountTransaction.");
+                Err(NativeBlockifierError::NativeBlockifierInputError(
+                    NativeBlockifierInputError::UnexpectedTransactionType { tx_type },
+                ))
             }
         })
     }
@@ -284,6 +337,7 @@ pub fn py_block_context(
 pub fn build_tx_executor(
     block_context: BlockContext,
     storage_reader: papyrus_storage::StorageReader,
+    py_state_reader: PyStateReader,
 ) -> NativeBlockifierResult<TransactionExecutor> {
     // The following callbacks are required to capture the local lifetime parameter.
     fn storage_tx_builder(
@@ -311,6 +365,7 @@ pub fn build_tx_executor(
         storage_reader,
         storage_tx_builder,
         state_builder: |storage_tx| state_builder(storage_tx, block_number),
+        py_state: CachedState::new(py_state_reader),
     };
     py_tx_executor_builder.try_build()
 }

@@ -1,6 +1,8 @@
 pub mod errors;
 pub mod papyrus_state;
+pub mod py_contract_class;
 pub mod py_state_diff;
+pub mod py_state_reader;
 #[cfg(any(feature = "testing", test))]
 pub mod py_test_utils;
 pub mod py_transaction;
@@ -10,6 +12,7 @@ pub mod py_utils;
 pub mod storage;
 
 use errors::add_py_exceptions;
+use py_state_reader::PyStateReader;
 use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
     PyVmExecutionResources,
@@ -31,6 +34,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyOrderedEvent>()?;
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
+    py_module.add_class::<PyStateReader>()?;
     py_module.add_class::<PyTransactionExecutionInfo>()?;
     py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<PyVmExecutionResources>()?;

@@ -71,6 +71,17 @@ pub trait Executable<S: State> {
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
+pub trait ValidatableTransaction<S: StateReader> {
+    /// Executes transaction validate in a non-transactional manner.
+    fn validate(
+        &self,
+        state: &mut CachedState<S>,
+        resources: &mut ExecutionResources,
+        remaining_gas: &mut u64,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>>;
+}
+
 #[derive(Debug)]
 pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,

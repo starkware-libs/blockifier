@@ -154,11 +154,14 @@ impl CallEntryPoint {
         }
 
         // Validate contract is deployed.
+        log::debug!("Validate contract is deployed.");
         let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
+            log::debug!("Failed to get storage address.");
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
         }
+        log::debug!("storage_class_hash is {storage_class_hash}.");
 
         let class_hash = match self.class_hash {
             Some(class_hash) => class_hash,
@@ -177,6 +180,7 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
+        log::debug!("execute_entry_point_call");
         let result = execute_entry_point_call(self, contract_class, state, resources, context)
             .map_err(|error| {
                 match error {

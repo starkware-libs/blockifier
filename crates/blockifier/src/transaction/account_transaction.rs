@@ -7,6 +7,7 @@ use starknet_api::transaction::{
     Calldata, DeployAccountTransaction, Fee, InvokeTransaction, TransactionVersion,
 };
 
+use super::transactions::ValidatableTransaction;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -489,5 +490,17 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
         };
         Ok(tx_execution_info)
+    }
+}
+
+impl<S: StateReader> ValidatableTransaction<S> for AccountTransaction {
+    fn validate(
+        &self,
+        state: &mut CachedState<S>,
+        resources: &mut ExecutionResources,
+        remaining_gas: &mut u64,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        self.validate_tx(state, resources, remaining_gas, block_context)
     }
 }
