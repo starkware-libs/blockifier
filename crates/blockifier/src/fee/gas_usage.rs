@@ -155,7 +155,6 @@ pub fn estimate_minimal_fee(
         // DeployAccount also updates the address -> class hash mapping.
         AccountTransaction::DeployAccount(_) => (13, get_onchain_data_segment_length(1, 1, 1)),
     };
-    // We assume that the n_steps is the heaviest resource.
     let resources = ResourcesMapping(HashMap::from([
         (
             constants::GAS_USAGE.to_string(),
@@ -163,5 +162,6 @@ pub fn estimate_minimal_fee(
         ),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type + vm_steps_for_type),
     ]));
+
     calculate_tx_fee(&resources, block_context)
 }

@@ -423,8 +423,10 @@ impl AccountTransaction {
             }
             Err(_) => {
                 execution_state.abort();
-                let n_reverted_steps =
-                    (max_n_steps as usize) - context.vm_run_resources.get_n_steps().unwrap();
+                let n_reverted_steps = (max_n_steps as usize)
+                    - context.vm_run_resources.get_n_steps().expect(
+                        "We should always bound the number of steps in an account transaction",
+                    );
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
