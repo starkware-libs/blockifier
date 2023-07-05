@@ -146,21 +146,21 @@ pub fn estimate_minimal_fee(
         .get(&tx.tx_type())
         .expect("OS_RESOURCES must contain all transaction types.")
         .n_steps;
-    let (vm_steps_for_type, gas_for_type): (usize, usize) = match tx {
+    let gas_for_type: usize = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
         // contract modification since it occurs for every tx).
-        AccountTransaction::Declare(_) => (71, get_onchain_data_segment_length(1, 1, 0)),
-        AccountTransaction::Invoke(_) => (12, get_onchain_data_segment_length(1, 1, 0)),
+        AccountTransaction::Declare(_) => get_onchain_data_segment_length(1, 1, 0),
+        AccountTransaction::Invoke(_) => get_onchain_data_segment_length(1, 1, 0),
         // DeployAccount also updates the address -> class hash mapping.
-        AccountTransaction::DeployAccount(_) => (13, get_onchain_data_segment_length(1, 1, 1)),
+        AccountTransaction::DeployAccount(_) => get_onchain_data_segment_length(1, 1, 1),
     };
     let resources = ResourcesMapping(HashMap::from([
         (
             constants::GAS_USAGE.to_string(),
             gas_for_type * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
         ),
-        (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type + vm_steps_for_type),
+        (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
     calculate_tx_fee(&resources, block_context)
