@@ -28,9 +28,9 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::estimate_minimal_fee;
+use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::retdata;
-use crate::state::cached_state::CachedState;
+use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -836,4 +836,64 @@ fn test_validate_accounts_tx() {
     test_validate_account_tx(TransactionType::InvokeFunction);
     test_validate_account_tx(TransactionType::Declare);
     test_validate_account_tx(TransactionType::DeployAccount);
+}
+
+// Test that we exclude the fee token contract modification and adds the account’s balance change
+// in the state changes.
+#[test]
+fn test_calculate_tx_gas_usage() {
+    let state = &mut create_state_with_trivial_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+
+    let invoke_tx = invoke_tx();
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
+    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+
+    let n_storage_updates = 1; // For the account balance update.
+    let n_modified_contracts = 1;
+    let state_changes =
+        StateChanges { n_storage_updates, n_class_hash_updates: 0, n_modified_contracts };
+    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes, None);
+
+    assert_eq!(
+        *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
+        l1_gas_usage
+    );
+
+    // A tx that changes the account and sequencer balance in execute.
+    let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
+    let execute_calldata = calldata![
+        *block_context.fee_token_address.0.key(), // Contract address.
+        entry_point_selector.0,                   // EP selector.
+        stark_felt!(3_u8),                        // Calldata length.
+        *block_context.sequencer_address.0.key(), // Calldata: recipient.
+        stark_felt!(2_u8),                        // Calldata: lsb amount.
+        stark_felt!(0_u8)                         // Calldata: msb amount.
+    ];
+
+    let invoke_tx = crate::test_utils::invoke_tx(
+        execute_calldata,
+        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        Fee(MAX_FEE),
+        None,
+    );
+
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        nonce: Nonce(StarkFelt::from(1_u8)),
+        ..invoke_tx
+    }));
+
+    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+    // For the sender balance update only (and not the sequencer balance).
+    let n_storage_updates = 1;
+    // Only the account contract modification (nonce update) excluding the fee token contract.
+    let n_modified_contracts = 1;
+    let state_changes =
+        StateChanges { n_storage_updates, n_class_hash_updates: 0, n_modified_contracts };
+    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes, None);
+
+    assert_eq!(
+        *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
+        l1_gas_usage
+    );
 }
