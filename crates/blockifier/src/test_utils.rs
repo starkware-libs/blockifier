@@ -58,7 +58,7 @@ pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
-pub const ACCOUNT_CONTRACT_PATH: &str =
+pub const CAIRO0_ACCOUNT_CONTRACT_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
 pub const TEST_CONTRACT_PATH: &str =
     "./feature_contracts/cairo0/compiled/test_contract_compiled.json";

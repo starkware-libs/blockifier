@@ -14,7 +14,7 @@ use crate::execution::contract_class::ContractClassV0;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key, DictStateReader,
-    NonceManager, ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    NonceManager, BALANCE, CAIRO0_ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -75,7 +75,7 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
     create_account_tx_test_state(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_ACCOUNT_CONTRACT_ADDRESS,
-        ACCOUNT_CONTRACT_PATH,
+        CAIRO0_ACCOUNT_CONTRACT_PATH,
         test_erc20_account_balance_key(),
         account_balance,
     )
