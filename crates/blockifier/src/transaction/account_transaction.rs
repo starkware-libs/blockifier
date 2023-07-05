@@ -26,7 +26,8 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
-    calculate_tx_resources, update_remaining_gas, verify_no_calls_to_other_contracts,
+    calculate_l1_gas_usage, calculate_tx_resources, update_remaining_gas,
+    verify_no_calls_to_other_contracts,
 };
 use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
 
@@ -466,14 +467,15 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let actual_resources = calculate_tx_resources(
-            resources,
+        let l1_gas_usage = calculate_l1_gas_usage(
             &non_optional_call_infos,
-            self.tx_type(),
             state,
             None,
-            n_reverted_steps,
+            block_context.fee_token_address,
+            Some(account_tx_context.sender_address),
         )?;
+        let actual_resources =
+            calculate_tx_resources(resources, l1_gas_usage, self.tx_type(), n_reverted_steps)?;
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
