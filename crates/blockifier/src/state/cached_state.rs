@@ -6,6 +6,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
+use crate::abi::abi_utils::get_erc20_balance_var_addresses;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -44,11 +45,23 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the number of storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
-    pub fn count_actual_state_changes(&mut self) -> StateResult<StateChanges> {
+    /// Calculated before executing fee transfer and therefore we add manually the fee transfer
+    /// changes. Exclude the sequencer balance update and the fee token contract modification, since
+    /// it’s charged once throughout the block.
+    pub fn count_actual_state_changes(
+        &mut self,
+        fee_token_address: ContractAddress,
+        sender_address: Option<ContractAddress>,
+    ) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
 
         // Storage Update.
-        let storage_updates = &self.cache.get_storage_updates();
+        let storage_updates = &mut self.cache.get_storage_updates();
+        if let Some(sender_address) = sender_address {
+            // Adds the sender's balance to the storage updates with a default value.
+            let (low_key, _high_key) = get_erc20_balance_var_addresses(&sender_address)?;
+            storage_updates.insert((fee_token_address, low_key), StarkFelt::default());
+        }
         let mut modified_contracts: HashSet<ContractAddress> =
             storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
 
@@ -59,6 +72,9 @@ impl<S: StateReader> CachedState<S> {
         // Nonce updates.
         let nonce_updates = &self.cache.get_nonce_updates();
         modified_contracts.extend(nonce_updates.keys());
+
+        // Exclude the fee token contract modification.
+        modified_contracts.remove(&fee_token_address);
 
         Ok(StateChanges {
             n_storage_updates: storage_updates.len(),
