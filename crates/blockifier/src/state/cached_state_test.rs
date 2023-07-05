@@ -257,6 +257,7 @@ fn cached_state_state_diff_conversion() {
 
 #[test]
 fn count_actual_state_changes() {
+    let block_context = BlockContext::create_for_testing();
     let contract_address = ContractAddress(patricia_key!("0x100"));
     let contract_address2 = ContractAddress(patricia_key!("0x101"));
     let class_hash = ClassHash(stark_felt!("0x10"));
@@ -274,12 +275,19 @@ fn count_actual_state_changes() {
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val);
 
-    let state_changes = state.count_actual_state_changes().unwrap();
+    // Update the sequencer balance (should not be counted as a storage change).
+    let (low_key, _high_key) =
+        get_erc20_balance_var_addresses(&block_context.sequencer_address).unwrap();
+    state.set_storage_at(block_context.fee_token_address, low_key, storage_val);
+
+    let state_changes = state
+        .count_actual_state_changes_for_fee_charge(&block_context, Some(contract_address))
+        .unwrap();
 
     assert_eq!(
         state_changes,
         StateChanges {
-            n_storage_updates: 1,
+            n_storage_updates: 2, // 1 for storage update + 1 for sender balance update.
             n_modified_contracts: 2,
             n_class_hash_updates: 1,
             n_nonce_updates: 1
