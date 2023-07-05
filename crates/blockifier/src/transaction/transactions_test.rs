@@ -36,7 +36,7 @@ use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_EMPTY_CONTRACT_PATH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
@@ -405,7 +405,9 @@ fn test_max_fee_exceeds_balance() {
             max_fee: invalid_max_fee,
             ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
         }),
-        contract_class: ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH)),
+        contract_class: ContractClass::V0(ContractClassV0::from_file(
+            TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+        )),
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
@@ -494,7 +496,8 @@ fn test_declare_tx() {
     let sender_address = declare_tx.sender_address;
     let class_hash = declare_tx.class_hash;
 
-    let contract_class = ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH));
+    let contract_class =
+        ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH));
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         contract_class: contract_class.clone(),

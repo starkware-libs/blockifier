@@ -5,7 +5,7 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::{
     get_deprecated_contract_class, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
 };
 use indexmap::IndexMap;
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
@@ -29,7 +29,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     )]);
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
 
-    let test_contract = get_deprecated_contract_class(TEST_CONTRACT_PATH);
+    let test_contract = get_deprecated_contract_class(TEST_CONTRACT_CAIRO0_PATH);
     let deprecated_declared_classes =
         IndexMap::from([(ClassHash(stark_felt!(TEST_CLASS_HASH)), test_contract)]);
     storage_writer

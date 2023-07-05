@@ -14,11 +14,11 @@ use crate::execution::contract_class::ContractClassV0;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key, DictStateReader,
-    NonceManager, ACCOUNT_CONTRACT_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::constants;
 use crate::transaction::transactions::DeclareTransaction;
@@ -42,7 +42,7 @@ pub fn create_account_tx_test_state(
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, ContractClassV0::from_file(account_path).into()),
-        (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_PATH).into()),
+        (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
@@ -75,7 +75,7 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
     create_account_tx_test_state(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_ACCOUNT_CONTRACT_ADDRESS,
-        ACCOUNT_CONTRACT_PATH,
+        ACCOUNT_CONTRACT_CAIRO0_PATH,
         test_erc20_account_balance_key(),
         account_balance,
     )
@@ -86,7 +86,7 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
     create_account_tx_test_state(
         TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-        TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+        TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
         test_erc20_faulty_account_balance_key(),
         account_balance * 2,
     )
@@ -109,7 +109,7 @@ pub fn create_account_tx_for_validate_test(
     match tx_type {
         TransactionType::Declare => {
             let contract_class =
-                ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_PATH).into();
+                ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
             let declare_tx = crate::test_utils::declare_tx(
                 TEST_ACCOUNT_CONTRACT_CLASS_HASH,
                 ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),

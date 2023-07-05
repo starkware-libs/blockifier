@@ -29,8 +29,8 @@ use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, trivial_external_entry_point,
-    CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
-    TEST_EMPTY_CONTRACT_PATH,
+    CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35050;
@@ -376,7 +376,7 @@ fn test_replace_class() {
 
     // Replace with Cairo 0 class hash.
     let v0_class_hash = ClassHash(stark_felt!(5678_u16));
-    let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH).into();
+    let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into();
     state.set_contract_class(&v0_class_hash, v0_contract_class).unwrap();
 
     let entry_point_call = CallEntryPoint {
