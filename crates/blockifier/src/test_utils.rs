@@ -58,19 +58,19 @@ pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
-pub const ACCOUNT_CONTRACT_PATH: &str =
+pub const ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
-pub const TEST_CONTRACT_PATH: &str =
+pub const TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
 pub const TEST_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/test_contract.casm.json";
-pub const SECURITY_TEST_CONTRACT_PATH: &str =
+pub const SECURITY_TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
-pub const TEST_EMPTY_CONTRACT_PATH: &str =
+pub const TEST_EMPTY_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
@@ -192,7 +192,7 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
 }
 
 pub fn get_test_contract_class() -> ContractClass {
-    ContractClassV0::from_file(TEST_CONTRACT_PATH).into()
+    ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
@@ -221,15 +221,15 @@ fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
     HashMap::from([
         (
             ClassHash(stark_felt!(TEST_CLASS_HASH)),
-            ContractClassV0::from_file(TEST_CONTRACT_PATH).into(),
+            ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
         ),
         (
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
-            ContractClassV0::from_file(SECURITY_TEST_CONTRACT_PATH).into(),
+            ContractClassV0::from_file(SECURITY_TEST_CONTRACT_CAIRO0_PATH).into(),
         ),
         (
             ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
-            ContractClassV0::from_file(TEST_EMPTY_CONTRACT_PATH).into(),
+            ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into(),
         ),
     ])
 }
