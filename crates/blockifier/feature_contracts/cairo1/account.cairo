@@ -18,14 +18,10 @@ mod Account {
         self: @ContractState,
         class_hash: felt252,
         contract_address_salt: felt252
-    ) -> felt252 {
-        starknet::VALIDATED
-    }
+    ) {}
 
     #[external(v0)]
-    fn __validate_declare__(self: @ContractState, class_hash: felt252) -> felt252 {
-        starknet::VALIDATED
-    }
+    fn __validate_declare__(self: @ContractState, class_hash: felt252) {}
 
     #[external(v0)]
     fn __validate__(ref self: ContractState, calls: Array<Call>) -> felt252 {
