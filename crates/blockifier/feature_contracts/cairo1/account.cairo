@@ -11,23 +11,17 @@ mod Account {
 
     #[storage]
     struct Storage {
-        // public_key: felt252
     }
 
     #[external(v0)]
     fn __validate_deploy__(
         self: @ContractState,
         class_hash: felt252,
-        contract_address_salt: felt252//,
-        // public_key_: felt252
-    ) -> felt252 {
-        starknet::VALIDATED
-    }
+        contract_address_salt: felt252
+    ) {}
 
     #[external(v0)]
-    fn __validate_declare__(self: @ContractState, class_hash: felt252) -> felt252 {
-        starknet::VALIDATED
-    }
+    fn __validate_declare__(self: @ContractState, class_hash: felt252) {}
 
     #[external(v0)]
     fn __validate__(ref self: ContractState, calls: Array<Call>) -> felt252 {
