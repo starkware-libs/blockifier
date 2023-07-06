@@ -257,6 +257,11 @@ pub fn finalize_execution(
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
     // Close memory holes in segments (OS code touches those memory cells, we simulate it).
+    let program_start_ptr = runner
+        .program_base
+        .expect("The program_base field should be initialized after running the entry point.");
+    let program_end_ptr = (program_start_ptr + runner.get_program().data_len())?;
+    vm.mark_address_range_as_accessed(program_end_ptr, 2)?;
     let initial_fp = runner
         .get_initial_fp()
         .expect("The initial_fp field should be initialized after running the entry point.");

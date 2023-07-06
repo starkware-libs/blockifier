@@ -74,10 +74,6 @@ fn expected_validate_call_info(
         }
         CairoVersion::Cairo1 => 2,
     };
-    let n_memory_holes = match cairo_version {
-        CairoVersion::Cairo0 => 0,
-        CairoVersion::Cairo1 => 1,
-    };
     let n_steps = match (entry_point_selector_name, cairo_version) {
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 13_usize,
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 13_usize,
@@ -89,7 +85,7 @@ fn expected_validate_call_info(
     };
     let vm_resources = VmExecutionResources {
         n_steps,
-        n_memory_holes,
+        n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(
             RANGE_CHECK_BUILTIN_NAME.to_string(),
             n_range_checks,
@@ -528,7 +524,7 @@ fn declare_tx(
         (abi_constants::GAS_USAGE.to_string(), 2448),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2758),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2757),
     ])),
     CairoVersion::Cairo1;
     "With Cairo1 account")]
