@@ -34,7 +34,8 @@ pub struct VmExecutionContext<'a> {
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point: EntryPointV1,
-    pub program_segment_size: usize,
+    // Additional data required for execution is appended after the program bytecode.
+    pub program_extra_data_length: usize,
 }
 
 pub struct CallResult {
@@ -57,7 +58,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point,
-        program_segment_size,
+        program_extra_data_length,
     } = initialize_execution_context(call, &contract_class, state, resources, context)?;
 
     let args = prepare_call_arguments(
@@ -73,6 +74,7 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
+    let program_segment_size = contract_class.bytecode_length() + program_extra_data_length;
     run_entry_point(
         &mut vm,
         &mut runner,
@@ -82,8 +84,14 @@ pub fn execute_entry_point_call(
         program_segment_size,
     )?;
 
-    let call_info =
-        finalize_execution(vm, runner, syscall_handler, previous_vm_resources, n_total_args)?;
+    let call_info = finalize_execution(
+        vm,
+        runner,
+        syscall_handler,
+        previous_vm_resources,
+        n_total_args,
+        program_extra_data_length,
+    )?;
     if call_info.execution.failed {
         return Err(EntryPointExecutionError::ExecutionFailed {
             error_data: call_info.execution.retdata.0,
@@ -122,8 +130,8 @@ pub fn initialize_execution_context<'a>(
     ];
     runner.initialize_function_runner_cairo_1(&mut vm, &program_builtins)?;
     let mut read_only_segments = ReadOnlySegments::default();
-    let program_segment_size =
-        prepare_builtin_costs(&mut vm, contract_class, &mut read_only_segments)?;
+    let program_extra_data_length =
+        prepare_program_extra_data(&mut vm, contract_class, &mut read_only_segments)?;
 
     // Instantiate syscall handler.
     let initial_syscall_ptr = vm.add_memory_segment();
@@ -143,11 +151,11 @@ pub fn initialize_execution_context<'a>(
         syscall_handler,
         initial_syscall_ptr,
         entry_point,
-        program_segment_size,
+        program_extra_data_length,
     })
 }
 
-fn prepare_builtin_costs(
+fn prepare_program_extra_data(
     vm: &mut VirtualMachine,
     contract_class: &ContractClassV1,
     read_only_segments: &mut ReadOnlySegments,
@@ -169,7 +177,8 @@ fn prepare_builtin_costs(
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
-    Ok(contract_class.bytecode_length() + 2)
+    let program_extra_data_length = 2;
+    Ok(program_extra_data_length)
 }
 
 pub fn prepare_call_arguments(
@@ -255,11 +264,18 @@ pub fn finalize_execution(
     syscall_handler: SyscallHintProcessor<'_>,
     previous_vm_resources: VmExecutionResources,
     n_total_args: usize,
+    program_extra_data_length: usize,
 ) -> Result<CallInfo, PostExecutionError> {
     // Close memory holes in segments (OS code touches those memory cells, we simulate it).
+    let program_start_ptr = runner
+        .program_base
+        .expect("The `program_base` field should be initialized after running the entry point.");
+    let program_end_ptr = (program_start_ptr + runner.get_program().data_len())?;
+    vm.mark_address_range_as_accessed(program_end_ptr, program_extra_data_length)?;
+
     let initial_fp = runner
         .get_initial_fp()
-        .expect("The initial_fp field should be initialized after running the entry point.");
+        .expect("The `initial_fp` field should be initialized after running the entry point.");
     // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
     let args_ptr = (initial_fp - (n_total_args + 2))?;
     vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
