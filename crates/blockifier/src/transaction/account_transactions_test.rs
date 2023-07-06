@@ -22,12 +22,13 @@ use crate::test_utils::{
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_CAIRO1_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::TransactionExecutionInfo;
 use crate::transaction::test_utils::{
-    create_account_tx_for_validate_test, create_state_with_falliable_validation_account, INVALID,
+    create_account_tx_for_validate_test, create_state_with_falliable_validation_account,
+    CairoVersion, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -347,7 +348,8 @@ fn test_fail_deploy_account(block_context: BlockContext) {
     let mut state = create_state_with_falliable_validation_account();
 
     let deployed_account_address =
-        ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
+        ContractAddress::try_from(stark_felt!(TEST_FAULTY_CAIRO1_ACCOUNT_CONTRACT_ADDRESS))
+            .unwrap();
     let initial_balance =
         state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap();
 
@@ -357,6 +359,7 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         INVALID,
         None,
         &mut NonceManager::default(),
+        CairoVersion::Cairo0,
     );
     let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
     deploy_account_tx.execute(&mut state, &block_context).unwrap_err();
