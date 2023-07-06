@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
+use num_bigint::BigUint;
 use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
@@ -16,7 +17,7 @@ use starknet_api::state::{ContractClass, StateDiff, StateNumber};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_utils::PyFelt;
+use crate::py_utils::{to_chain_id_enum, PyFelt};
 use crate::PyStateDiff;
 
 const GENESIS_BLOCK_ID: u64 = u64::MAX;
@@ -33,11 +34,16 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    #[args(path, max_size)]
-    pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
+    #[args(path_prefix, chain_id, max_size)]
+    pub fn new(
+        path_prefix: PathBuf,
+        chain_id: BigUint,
+        max_size: usize,
+    ) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
-            path,
+            path_prefix,
+            chain_id: to_chain_id_enum(chain_id)?,
             min_size: 1 << 20, // 1MB.
             max_size,
             growth_step: 1 << 26, // 64MB.
