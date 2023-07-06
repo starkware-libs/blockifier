@@ -20,12 +20,12 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
-    InvokeTransactionV1, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
+    DeployAccountTransaction, Fee, InvokeTransactionV1, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::get_storage_var_address;
+use crate::abi::abi_utils::get_erc20_balance_var_addresses;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -44,7 +44,8 @@ pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
 pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
+pub const TEST_FAULTY_CAIRO0_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
+pub const TEST_FAULTY_CAIRO1_ACCOUNT_CONTRACT_ADDRESS: &str = "0x103";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 
@@ -52,8 +53,9 @@ pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_CLASS_HASH: &str = "0x110";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
+pub const TEST_FAULTY_CAIRO0_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
+pub const TEST_FAULTY_CAIRO1_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x115";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -73,6 +75,8 @@ pub const TEST_EMPTY_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/account_faulty_contract.casm.json";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
@@ -80,15 +84,15 @@ pub const ERC20_CONTRACT_PATH: &str =
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap()
+    lower_balance_key(TEST_SEQUENCER_ADDRESS)
 }
 pub fn test_erc20_account_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
-        .unwrap()
+    lower_balance_key(TEST_ACCOUNT_CONTRACT_ADDRESS)
 }
-pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)])
-        .unwrap()
+pub fn lower_balance_key(contract_address: &str) -> StorageKey {
+    let (low, _) =
+        get_erc20_balance_var_addresses(&ContractAddress(patricia_key!(contract_address))).unwrap();
+    low
 }
 
 // The max_fee used for txs in this test.
@@ -431,20 +435,27 @@ pub fn invoke_tx(
     }
 }
 
-pub fn declare_tx(
-    class_hash: &str,
-    sender_address: ContractAddress,
-    max_fee: Fee,
-    signature: Option<TransactionSignature>,
-) -> DeclareTransactionV0V1 {
-    DeclareTransactionV0V1 {
-        max_fee,
-        class_hash: ClassHash(stark_felt!(class_hash)),
-        sender_address,
-        signature: signature.unwrap_or_default(),
-        ..Default::default()
-    }
+macro_rules! fn_declare_tx {
+    ($type:ident, $fn_name:ident) => {
+        pub fn $fn_name(
+            class_hash: &str,
+            sender_address: ContractAddress,
+            max_fee: Fee,
+            signature: Option<TransactionSignature>,
+        ) -> $type {
+            $type {
+                max_fee,
+                class_hash: ClassHash(stark_felt!(class_hash)),
+                sender_address,
+                signature: signature.unwrap_or_default(),
+                ..Default::default()
+            }
+        }
+    };
 }
+
+fn_declare_tx!(DeclareTransactionV0V1, declare_tx);
+fn_declare_tx!(DeclareTransactionV2, declare_tx_v2);
 
 // Contract loaders.
 
