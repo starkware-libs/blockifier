@@ -10,15 +10,15 @@ use super::account_transaction::AccountTransaction;
 use super::transaction_types::TransactionType;
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_faulty_account_balance_key, DictStateReader,
-    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE,
+    ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::constants;
 use crate::transaction::transactions::DeclareTransaction;
@@ -29,9 +29,9 @@ pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 
 pub fn create_account_tx_test_state(
+    account_class: ContractClass,
     account_class_hash: &str,
     account_address: &str,
-    account_path: &str,
     erc20_account_balance_key: StorageKey,
     initial_account_balance: u128,
 ) -> CachedState<DictStateReader> {
@@ -41,7 +41,7 @@ pub fn create_account_tx_test_state(
     let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(account_path).into()),
+        (test_account_class_hash, account_class),
         (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
@@ -73,9 +73,20 @@ pub fn create_account_tx_test_state(
 pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
+        ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_ACCOUNT_CONTRACT_ADDRESS,
-        ACCOUNT_CONTRACT_CAIRO0_PATH,
+        test_erc20_account_balance_key(),
+        account_balance,
+    )
+}
+
+pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
+    let account_balance = BALANCE;
+    create_account_tx_test_state(
+        ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_ACCOUNT_CONTRACT_ADDRESS,
         test_erc20_account_balance_key(),
         account_balance,
     )
@@ -84,9 +95,9 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
 pub fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
+        ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
         TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
         TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-        TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
         test_erc20_faulty_account_balance_key(),
         account_balance * 2,
     )
