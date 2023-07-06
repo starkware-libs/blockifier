@@ -28,6 +28,8 @@ use crate::state::state_api::State;
 
 // TODO(spapini): Try to refactor this file into a StarknetRunner struct.
 
+pub const PROGRAM_EXTRA_DATA_LENGTH: usize = 2;
+
 pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
@@ -169,7 +171,7 @@ fn prepare_builtin_costs(
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
-    Ok(contract_class.bytecode_length() + 2)
+    Ok(contract_class.bytecode_length() + PROGRAM_EXTRA_DATA_LENGTH)
 }
 
 pub fn prepare_call_arguments(
@@ -257,9 +259,15 @@ pub fn finalize_execution(
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
     // Close memory holes in segments (OS code touches those memory cells, we simulate it).
+    let program_start_ptr = runner
+        .program_base
+        .expect("The `program_base` field should be initialized after running the entry point.");
+    let program_end_ptr = (program_start_ptr + runner.get_program().data_len())?;
+    vm.mark_address_range_as_accessed(program_end_ptr, PROGRAM_EXTRA_DATA_LENGTH)?;
+
     let initial_fp = runner
         .get_initial_fp()
-        .expect("The initial_fp field should be initialized after running the entry point.");
+        .expect("The `initial_fp` field should be initialized after running the entry point.");
     // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
     let args_ptr = (initial_fp - (n_total_args + 2))?;
     vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
