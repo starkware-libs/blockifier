@@ -20,7 +20,7 @@ use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
-    let (storage_reader, mut storage_writer) = papyrus_storage::test_utils::get_test_storage();
+    let ((storage_reader, mut storage_writer), _) = papyrus_storage::test_utils::get_test_storage();
 
     // Initialize Storage: add test contract and class.
     let deployed_contracts = IndexMap::from([(

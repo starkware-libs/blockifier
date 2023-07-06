@@ -2126,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.1.0-alpha"
-source = "git+https://github.com/starkware-libs/papyrus?tag=v0.1.2-alpha#c78a938be2c8d4588326cfdc2b2031ae2558f5fb"
+source = "git+https://github.com/starkware-libs/papyrus?rev=d371b17#d371b17d283718c06520e5e48a1be17e7cc04510"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -3020,8 +3020,9 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=a4c78ff#a4c78ff11e8b661eb8824e6d5adb2cbd36e77a2a"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac39a98628f1eb5d004145a64df0f90ac40bb416f95003f7807edde91f8f913a"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",
@@ -3163,7 +3164,7 @@ dependencies = [
 [[package]]
 name = "test_utils"
 version = "0.1.0-alpha"
-source = "git+https://github.com/starkware-libs/papyrus?tag=v0.1.2-alpha#c78a938be2c8d4588326cfdc2b2031ae2558f5fb"
+source = "git+https://github.com/starkware-libs/papyrus?rev=d371b17#d371b17d283718c06520e5e48a1be17e7cc04510"
 dependencies = [
  "cairo-lang-casm",
  "cairo-lang-starknet",
