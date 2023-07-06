@@ -39,7 +39,7 @@ use crate::test_utils::{
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_CAIRO0_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -47,17 +47,14 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
-    CALL_CONTRACT, INVALID, VALID,
+    create_state_with_falliable_validation_account,
+    create_state_with_falliable_validation_cairo1_account,
+    create_state_with_trivial_validation_account, get_test_account_address_and_class_hash,
+    CairoVersion, CALL_CONTRACT, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
-
-enum CairoVersion {
-    Cairo0,
-    Cairo1,
-}
 
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
@@ -887,26 +884,50 @@ fn test_deploy_account_tx(
     );
 }
 
-#[test]
-fn test_validate_accounts_tx() {
-    fn test_validate_account_tx(tx_type: TransactionType) {
+#[test_case(
+    create_state_with_falliable_validation_account,
+    CairoVersion::Cairo0;
+    "With Cairo0 account")]
+#[test_case(
+    create_state_with_falliable_validation_cairo1_account,
+    CairoVersion::Cairo1;
+"With Cairo1 account")]
+fn test_validate_accounts_tx<F>(mut create_falliable_state: F, cairo_version: CairoVersion)
+where
+    F: FnMut() -> CachedState<DictStateReader>,
+{
+    fn test_validate_account_tx<F>(
+        tx_type: TransactionType,
+        mut create_falliable_state: F,
+        cairo_version: CairoVersion,
+    ) where
+        F: FnMut() -> CachedState<DictStateReader>,
+    {
         let block_context = &BlockContext::create_for_account_testing();
 
         // Positive flows.
         // Valid logic.
-        let state = &mut create_state_with_falliable_validation_account();
-        let account_tx =
-            create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
+        let state = &mut create_falliable_state();
+        let account_tx = create_account_tx_for_validate_test(
+            tx_type,
+            VALID,
+            None,
+            &mut NonceManager::default(),
+            cairo_version,
+        );
         account_tx.execute(state, block_context).unwrap();
+        let (account_contract_address, account_contract_class_hash) =
+            get_test_account_address_and_class_hash(cairo_version);
 
         if tx_type != TransactionType::DeployAccount {
             // Calling self (allowed).
-            let state = &mut create_state_with_falliable_validation_account();
+            let state = &mut create_falliable_state();
             let account_tx = create_account_tx_for_validate_test(
                 tx_type,
                 CALL_CONTRACT,
-                Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                Some(stark_felt!(account_contract_address)),
                 &mut NonceManager::default(),
+                cairo_version,
             );
             account_tx.execute(state, block_context).unwrap();
         }
@@ -914,12 +935,13 @@ fn test_validate_accounts_tx() {
         // Negative flows.
 
         // Logic failure.
-        let state = &mut create_state_with_falliable_validation_account();
+        let state = &mut create_falliable_state();
         let account_tx = create_account_tx_for_validate_test(
             tx_type,
             INVALID,
             None,
             &mut NonceManager::default(),
+            cairo_version,
         );
         let error = account_tx.execute(state, block_context).unwrap_err();
         // TODO(Noa,01/05/2023): Test the exact failure reason.
@@ -931,6 +953,7 @@ fn test_validate_accounts_tx() {
             CALL_CONTRACT,
             Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
             &mut NonceManager::default(),
+            cairo_version,
         );
         let error = account_tx.execute(state, block_context).unwrap_err();
         assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
@@ -943,13 +966,13 @@ fn test_validate_accounts_tx() {
             // constructor (forbidden).
 
             let deploy_account_tx = crate::test_utils::deploy_account_tx(
-                TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+                account_contract_class_hash,
                 Fee(0),
                 Some(calldata![stark_felt!(constants::FELT_TRUE)]),
                 // run faulty_validate() in the constructor.
                 Some(TransactionSignature(vec![
                     stark_felt!(CALL_CONTRACT),
-                    stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                    stark_felt!(account_contract_address),
                 ])),
                 &mut NonceManager::default(),
             );
@@ -960,9 +983,17 @@ fn test_validate_accounts_tx() {
         }
     }
 
-    test_validate_account_tx(TransactionType::InvokeFunction);
-    test_validate_account_tx(TransactionType::Declare);
-    test_validate_account_tx(TransactionType::DeployAccount);
+    test_validate_account_tx(
+        TransactionType::InvokeFunction,
+        &mut create_falliable_state,
+        cairo_version,
+    );
+    test_validate_account_tx(TransactionType::Declare, &mut create_falliable_state, cairo_version);
+    test_validate_account_tx(
+        TransactionType::DeployAccount,
+        &mut create_falliable_state,
+        cairo_version,
+    );
 }
 
 // Test that we exclude the fee token contract modification and adds the account’s balance change
@@ -993,7 +1024,7 @@ fn test_calculate_tx_gas_usage() {
 
     // A tx that changes the account and some other balance in execute.
     let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
-    let some_other_account_address = stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
+    let some_other_account_address = stark_felt!(TEST_FAULTY_CAIRO0_ACCOUNT_CONTRACT_ADDRESS);
     let execute_calldata = calldata![
         *block_context.fee_token_address.0.key(), // Contract address.
         entry_point_selector.0,                   // EP selector.
