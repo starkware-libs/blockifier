@@ -34,6 +34,7 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
+    #[args(path_prefix, chain_id, max_size)]
     pub fn new(
         path_prefix: PathBuf,
         chain_id: BigUint,
@@ -74,6 +75,7 @@ impl Storage {
         Ok(block_number.0)
     }
 
+    #[args(block_number)]
     /// Returns the unique identifier of the given block number in bytes.
     pub fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
         let block_number = BlockNumber(block_number);
@@ -85,6 +87,7 @@ impl Storage {
         Ok(block_hash)
     }
 
+    #[args(block_number)]
     /// Atomically reverts block header and state diff of given block number.
     /// If header exists without a state diff (usually the case), only the header is reverted.
     /// (this is true for every partial existence of information at tables).
@@ -98,7 +101,14 @@ impl Storage {
         revert_txn.commit()?;
         Ok(())
     }
-
+    #[args(
+        block_id,
+        previous_block_id,
+        py_block_info,
+        py_state_diff,
+        declared_class_hash_to_class,
+        deprecated_declared_class_hash_to_class
+    )]
     // TODO(Gilad): Refactor.
     /// Appends state diff and block header into Papyrus storage.
     // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
