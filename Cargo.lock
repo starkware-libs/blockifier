@@ -317,7 +317,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.1.0"
+version = "0.1.0-rc0"
 dependencies = [
  "ark-ff",
  "ark-secp256k1",
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.1.0"
+version = "0.1.0-rc0"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet",
