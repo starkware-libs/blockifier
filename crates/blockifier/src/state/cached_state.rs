@@ -519,7 +519,7 @@ pub struct CommitmentStateDiff {
 }
 
 /// Holds the number of state changes.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
     pub n_storage_updates: usize,
     pub n_class_hash_updates: usize,
