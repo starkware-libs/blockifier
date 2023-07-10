@@ -33,6 +33,7 @@ pub struct PyTransactionExecutor {
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
+    #[args(general_config, block_info, papyrus_storage)]
     pub fn create(
         papyrus_storage: &Storage,
         general_config: PyGeneralConfig,
@@ -51,6 +52,7 @@ impl PyTransactionExecutor {
         Ok(Self { executor: Some(executor) })
     }
 
+    #[args(tx, raw_contract_class, enough_room_for_tx)]
     pub fn execute(
         &mut self,
         tx: &PyAny,
@@ -73,6 +75,7 @@ impl PyTransactionExecutor {
         self.executor = None;
     }
 
+    #[args(old_block_number_and_hash)]
     pub fn pre_process_block(
         &mut self,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
