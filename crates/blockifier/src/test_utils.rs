@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{
@@ -354,7 +353,7 @@ impl BlockContext {
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
             fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
-            vm_resource_fee_cost: Default::default(),
+            vm_resource_fee_cost: HashMap::default(),
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
@@ -363,7 +362,7 @@ impl BlockContext {
     }
 
     pub fn create_for_account_testing() -> BlockContext {
-        let vm_resource_fee_cost = Arc::new(HashMap::from([
+        let vm_resource_fee_cost = HashMap::from([
             (constants::N_STEPS_RESOURCE.to_string(), 1_f64),
             (HASH_BUILTIN_NAME.to_string(), 1_f64),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 1_f64),
@@ -372,7 +371,7 @@ impl BlockContext {
             (POSEIDON_BUILTIN_NAME.to_string(), 1_f64),
             (OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
             (EC_OP_BUILTIN_NAME.to_string(), 1_f64),
-        ]));
+        ]);
         BlockContext { vm_resource_fee_cost, ..BlockContext::create_for_testing() }
     }
 }
