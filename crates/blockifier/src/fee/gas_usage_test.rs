@@ -18,14 +18,17 @@ use crate::state::cached_state::StateChanges;
 fn test_calculate_tx_gas_usage_basic() {
     // DeployAccount.
 
-    let state_changes =
-        StateChanges { n_storage_updates: 0, n_class_hash_updates: 1, n_modified_contracts: 1 };
+    let state_changes = StateChanges {
+        n_storage_updates: 0,
+        n_class_hash_updates: 1,
+        n_compiled_class_hash_updates: 0,
+        n_modified_contracts: 1,
+    };
     let deploy_account_gas_usage = calculate_tx_gas_usage(&[], state_changes, None);
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
     let onchain_data_segment_length = get_onchain_data_segment_length(state_changes);
-
     let manual_sharp_gas_usage =
         onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
@@ -42,18 +45,20 @@ fn test_calculate_tx_gas_usage_basic() {
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + eth_gas_constants::GAS_PER_COUNTER_DECREASE
         + get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size));
-    let onchain_data_segment_length = get_onchain_data_segment_length(StateChanges::default());
-    let manual_sharp_gas_usage = message_segment_length
-        * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
+    let manual_sharp_gas_usage =
+        message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
     assert_eq!(l1_handler_gas_usage, manual_starknet_gas_usage + manual_sharp_gas_usage);
 
     // Any transaction with L2-to-L1 messages.
 
     let l2_to_l1_payloads_length: [usize; 4] = [0, 1, 2, 3];
-    let state_changes =
-        StateChanges { n_storage_updates: 0, n_class_hash_updates: 0, n_modified_contracts: 1 };
+    let state_changes = StateChanges {
+        n_storage_updates: 0,
+        n_class_hash_updates: 0,
+        n_compiled_class_hash_updates: 0,
+        n_modified_contracts: 1,
+    };
     let l2_to_l1_messages_gas_usage =
         calculate_tx_gas_usage(&l2_to_l1_payloads_length, state_changes, None);
 
@@ -74,14 +79,17 @@ fn test_calculate_tx_gas_usage_basic() {
 
     let n_modified_contracts = 7;
     let n_storage_updates = 11;
-    let state_changes =
-        StateChanges { n_storage_updates, n_class_hash_updates: 0, n_modified_contracts };
+    let state_changes = StateChanges {
+        n_storage_updates,
+        n_class_hash_updates: 0,
+        n_compiled_class_hash_updates: 0,
+        n_modified_contracts,
+    };
     let storage_writings_gas_usage = calculate_tx_gas_usage(&[], state_changes, None);
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
     let onchain_data_segment_length = get_onchain_data_segment_length(state_changes);
-
     let manual_sharp_gas_usage =
         onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
@@ -92,6 +100,7 @@ fn test_calculate_tx_gas_usage_basic() {
     let state_changes = StateChanges {
         n_storage_updates,
         n_class_hash_updates: 0,
+        n_compiled_class_hash_updates: 0,
         n_modified_contracts: n_modified_contracts + 1,
     };
     let gas_usage = calculate_tx_gas_usage(
@@ -101,6 +110,7 @@ fn test_calculate_tx_gas_usage_basic() {
     );
 
     // Manual calculation.
+    // Reduce the duplication in the cost of number of declared classes.
     let expected_gas_usage =
         l1_handler_gas_usage + l2_to_l1_messages_gas_usage + storage_writings_gas_usage;
 
