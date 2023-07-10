@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
-use num_bigint::BigUint;
 use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
@@ -17,7 +16,7 @@ use starknet_api::state::{ContractClass, StateDiff, StateNumber};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_utils::{to_chain_id_enum, PyFelt};
+use crate::py_utils::PyFelt;
 use crate::PyStateDiff;
 
 const GENESIS_BLOCK_ID: u64 = u64::MAX;
@@ -34,15 +33,11 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    pub fn new(
-        path_prefix: PathBuf,
-        chain_id: BigUint,
-        max_size: usize,
-    ) -> NativeBlockifierResult<Storage> {
+    #[args(path, max_size)]
+    pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
-            path_prefix,
-            chain_id: to_chain_id_enum(chain_id)?,
+            path,
             min_size: 1 << 20, // 1MB.
             max_size,
             growth_step: 1 << 26, // 64MB.
@@ -74,6 +69,7 @@ impl Storage {
         Ok(block_number.0)
     }
 
+    #[args(block_number)]
     /// Returns the unique identifier of the given block number in bytes.
     pub fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
         let block_number = BlockNumber(block_number);
@@ -88,6 +84,7 @@ impl Storage {
     /// Atomically reverts block header and state diff of given block number.
     /// If header exists without a state diff (usually the case), only the header is reverted.
     /// (this is true for every partial existence of information at tables).
+    #[args(block_number)]
     pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
         log::debug!("Reverting state diff for {block_number:?}.");
         let block_number = BlockNumber(block_number);
@@ -100,6 +97,14 @@ impl Storage {
     }
 
     // TODO(Gilad): Refactor.
+    #[args(
+        block_id,
+        previous_block_id,
+        py_block_info,
+        py_state_diff,
+        declared_class_hash_to_class,
+        deprecated_declared_class_hash_to_class
+    )]
     /// Appends state diff and block header into Papyrus storage.
     // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
     // sequential ID (throughout sequencing).
