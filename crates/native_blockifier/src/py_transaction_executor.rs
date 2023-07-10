@@ -7,20 +7,19 @@ use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-use num_bigint::BigUint;
 use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{py_attr, py_enum_name, to_chain_id_enum, PyFelt};
+use crate::py_utils::{py_attr, py_enum_name, pyint_to_chain_id, PyFelt};
 use crate::storage::Storage;
 
 /// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
@@ -233,7 +232,8 @@ pub struct PyGeneralConfig {
 
 #[derive(FromPyObject)]
 pub struct PyOsConfig {
-    pub chain_id: BigUint,
+    #[pyo3(from_py_with = "pyint_to_chain_id")]
+    pub chain_id: ChainId,
     pub fee_token_address: PyFelt,
 }
 
@@ -245,7 +245,7 @@ pub fn py_block_context(
     let starknet_os_config = general_config.starknet_os_config;
     let block_number = BlockNumber(py_attr(block_info, "block_number")?);
     let block_context = BlockContext {
-        chain_id: to_chain_id_enum(starknet_os_config.chain_id)?,
+        chain_id: starknet_os_config.chain_id,
         block_number,
         block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
         sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
