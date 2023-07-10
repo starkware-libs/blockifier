@@ -11,8 +11,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeployAccountTransaction, EventContent, EventData, EventKey,
-    Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
+    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, DeployAccountTransaction, EventContent,
+    EventData, EventKey, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
@@ -22,7 +22,7 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
@@ -37,9 +37,9 @@ use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -315,7 +315,7 @@ fn test_invoke_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 2448),
+            (abi_constants::GAS_USAGE.to_string(), 3060),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 101),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 4135),
@@ -507,7 +507,7 @@ fn declare_tx(
     &mut create_state_with_trivial_validation_account(),
     Retdata::default(),
     ResourcesMapping(HashMap::from([
-        (abi_constants::GAS_USAGE.to_string(), 2448),
+        (abi_constants::GAS_USAGE.to_string(), 3060),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
@@ -521,7 +521,7 @@ fn declare_tx(
         "0x00000000000000000000000000000000000000000000000000000056414c4944"
     )),
     ResourcesMapping(HashMap::from([
-        (abi_constants::GAS_USAGE.to_string(), 2448),
+        (abi_constants::GAS_USAGE.to_string(), 3060),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 2757),
@@ -613,6 +613,53 @@ fn test_declare_tx(
         test_erc20_account_balance_key(),
         expected_account_balance,
     );
+
+    // Verify class declaration.
+    let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
+    assert_eq!(contract_class_from_state, contract_class);
+}
+
+// TODO(Noa, 01/07/23): Consider unify the decalre tx tests.
+#[test]
+fn test_declare_tx_v2() {
+    let state = &mut create_state_with_cairo1_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let declare_tx = DeclareTransactionV2 {
+        max_fee: Fee(MAX_FEE),
+        class_hash,
+        sender_address,
+        ..Default::default()
+    };
+
+    let contract_class =
+        ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH));
+    let account_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V2(declare_tx),
+        contract_class: contract_class.clone(),
+    });
+
+    // Check state before transaction application.
+    assert_matches!(
+        state.get_compiled_contract_class(&class_hash).unwrap_err(),
+        StateError::UndeclaredClassHash(undeclared_class_hash) if
+        undeclared_class_hash == class_hash
+    );
+    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+
+    let expected_actual_resources = ResourcesMapping(HashMap::from([
+        (abi_constants::GAS_USAGE.to_string(), 4284),
+        (HASH_BUILTIN_NAME.to_string(), 15),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2757),
+    ]));
+
+    let expected_actual_fee =
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
+
+    assert_eq!(expected_actual_resources, actual_execution_info.actual_resources);
+    assert_eq!(expected_actual_fee, actual_execution_info.actual_fee);
 
     // Verify class declaration.
     let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
@@ -713,7 +760,7 @@ fn test_deploy_account_tx() {
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), 3060),
+            (abi_constants::GAS_USAGE.to_string(), 3672),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
             (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
