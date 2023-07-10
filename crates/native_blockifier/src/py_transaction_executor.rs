@@ -20,7 +20,7 @@ use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{py_attr, py_enum_name, int_to_chain_id, PyFelt};
+use crate::py_utils::{int_to_chain_id, py_attr, py_enum_name, PyFelt};
 use crate::storage::Storage;
 
 /// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
