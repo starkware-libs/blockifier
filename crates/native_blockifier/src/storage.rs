@@ -33,13 +33,13 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    #[args(path, max_size)]
-    pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
+    #[args(config)]
+    pub fn new(config: StorageConfig) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
-            path,
+            path: config.path,
             min_size: 1 << 20, // 1MB.
-            max_size,
+            max_size: config.max_size,
             growth_step: 1 << 26, // 64MB.
         };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
@@ -218,6 +218,20 @@ impl Storage {
         append_txn.commit()?;
         Ok(())
     }
+
+    #[staticmethod]
+    #[args(path)]
+    pub fn new_for_testing(path: PathBuf) -> Storage {
+        let db_config = papyrus_storage::db::DbConfig {
+            path,
+            min_size: 1 << 20,    // 1MB
+            max_size: 1 << 35,    // 32GB
+            growth_step: 1 << 26, // 64MB
+        };
+        let (reader, writer) = papyrus_storage::open_storage(db_config).unwrap();
+
+        Storage { reader: Some(reader), writer: Some(writer) }
+    }
 }
 
 // Internal getters, Python should not have access to them, and only use the public API.
@@ -227,5 +241,20 @@ impl Storage {
     }
     pub fn writer(&mut self) -> &mut papyrus_storage::StorageWriter {
         self.writer.as_mut().expect("Storage should be initialized.")
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct StorageConfig {
+    path: PathBuf,
+    max_size: usize,
+}
+
+#[pymethods]
+impl StorageConfig {
+    #[new]
+    pub fn new(path: PathBuf, max_size: usize) -> Self {
+        Self { path, max_size }
     }
 }
