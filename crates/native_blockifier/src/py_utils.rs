@@ -77,8 +77,9 @@ where
     values.into_iter().map(converter).collect()
 }
 
-pub fn to_chain_id_enum(value: BigUint) -> NativeBlockifierResult<ChainId> {
-    Ok(ChainId(String::from_utf8_lossy(&value.to_bytes_be()).to_string()))
+pub fn pyint_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
+    let biguint: BigUint = int.extract()?;
+    Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
 }
 
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
