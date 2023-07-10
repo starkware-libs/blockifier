@@ -1,7 +1,11 @@
 [package]
 name = "blockifier"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license-file.workspace = true
+description = "The transaction-executing component in the StarkNet sequencer."
+
 
 [features]
 testing = []
