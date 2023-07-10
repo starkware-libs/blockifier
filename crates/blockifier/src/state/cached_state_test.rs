@@ -278,11 +278,6 @@ fn count_actual_state_changes() {
 
     assert_eq!(
         state_changes,
-        StateChanges {
-            n_storage_updates: 1,
-            n_modified_contracts: 2,
-            n_class_hash_updates: 1,
-            n_nonce_updates: 1
-        }
+        StateChanges { n_storage_updates: 1, n_modified_contracts: 2, n_class_hash_updates: 1 }
     );
 }

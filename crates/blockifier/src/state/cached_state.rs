@@ -64,7 +64,6 @@ impl<S: StateReader> CachedState<S> {
             n_storage_updates: storage_updates.len(),
             n_modified_contracts: modified_contracts.len(),
             n_class_hash_updates: class_hash_updates.len(),
-            n_nonce_updates: nonce_updates.len(),
         })
     }
 
@@ -519,10 +518,9 @@ pub struct CommitmentStateDiff {
 }
 
 /// Holds the number of state changes.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
     pub n_storage_updates: usize,
     pub n_class_hash_updates: usize,
-    pub n_nonce_updates: usize,
     pub n_modified_contracts: usize,
 }
