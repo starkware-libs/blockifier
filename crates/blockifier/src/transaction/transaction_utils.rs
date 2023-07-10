@@ -42,20 +42,16 @@ pub fn calculate_tx_resources<S: StateReader>(
     l1_handler_payload_size: Option<usize>,
     n_reverted_steps: usize,
 ) -> TransactionExecutionResult<ResourcesMapping> {
-    let state_changes = state.count_actual_state_changes()?;
+    let mut state_changes = state.count_actual_state_changes()?;
 
     let mut l2_to_l1_payloads_length = vec![];
     for call_info in call_infos {
         l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
     }
 
-    let l1_gas_usage = calculate_tx_gas_usage(
-        &l2_to_l1_payloads_length,
-        state_changes.n_modified_contracts,
-        state_changes.n_storage_updates + usize::from(FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE),
-        l1_handler_payload_size,
-        state_changes.n_class_hash_updates,
-    );
+    state_changes.n_storage_updates += usize::from(FEE_TRANSFER_N_STORAGE_CHANGES_TO_CHARGE);
+    let l1_gas_usage =
+        calculate_tx_gas_usage(&l2_to_l1_payloads_length, state_changes, l1_handler_payload_size);
 
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources

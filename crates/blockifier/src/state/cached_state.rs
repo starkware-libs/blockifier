@@ -60,11 +60,15 @@ impl<S: StateReader> CachedState<S> {
         let nonce_updates = &self.cache.get_nonce_updates();
         modified_contracts.extend(nonce_updates.keys());
 
+        // Compiled class hash updates (declare Cairo 1 contract).
+        let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
+
         Ok(StateChanges {
             n_storage_updates: storage_updates.len(),
             n_modified_contracts: modified_contracts.len(),
             n_class_hash_updates: class_hash_updates.len(),
             n_nonce_updates: nonce_updates.len(),
+            n_compiled_class_hash_updates: compiled_class_hash_updates.len(),
         })
     }
 
@@ -401,6 +405,13 @@ impl StateCache {
     fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
         subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
     }
+
+    fn get_compiled_class_hash_updates(&self) -> HashMap<ClassHash, CompiledClassHash> {
+        subtract_mappings(
+            &self.compiled_class_hash_writes,
+            &self.compiled_class_hash_initial_values,
+        )
+    }
 }
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
@@ -519,10 +530,11 @@ pub struct CommitmentStateDiff {
 }
 
 /// Holds the number of state changes.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
     pub n_storage_updates: usize,
     pub n_class_hash_updates: usize,
     pub n_nonce_updates: usize,
+    pub n_compiled_class_hash_updates: usize,
     pub n_modified_contracts: usize,
 }
