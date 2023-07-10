@@ -66,6 +66,9 @@ pub fn get_onchain_data_segment_length(state_changes: StateChanges) -> usize {
         state_changes.n_class_hash_updates * constants::CLASS_UPDATE_SIZE;
     // For each modified storage cell: key, new value.
     onchain_data_segment_length += state_changes.n_storage_updates * 2;
+    // For each compiled class updated (through declare): class_hash, compiled_class_hash + the
+    // number of classes that have been declared.
+    onchain_data_segment_length += state_changes.n_compiled_class_hash_updates * 2 + 1;
 
     onchain_data_segment_length
 }
@@ -149,12 +152,14 @@ pub fn estimate_minimal_fee(
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_nonce_updates: 1,
+            n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
         AccountTransaction::Invoke(_) => get_onchain_data_segment_length(StateChanges {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_nonce_updates: 1,
+            n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
         // DeployAccount also updates the address -> class hash mapping.
@@ -162,6 +167,7 @@ pub fn estimate_minimal_fee(
             n_storage_updates: 1,
             n_class_hash_updates: 1,
             n_nonce_updates: 1,
+            n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
     };

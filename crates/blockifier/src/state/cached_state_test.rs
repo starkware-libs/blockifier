@@ -260,6 +260,7 @@ fn count_actual_state_changes() {
     let contract_address = ContractAddress(patricia_key!("0x100"));
     let contract_address2 = ContractAddress(patricia_key!("0x101"));
     let class_hash = ClassHash(stark_felt!("0x10"));
+    let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");
 
@@ -267,6 +268,7 @@ fn count_actual_state_changes() {
     state.set_class_hash_at(contract_address, class_hash).unwrap();
     state.set_storage_at(contract_address, key, storage_val);
     state.increment_nonce(contract_address2).unwrap();
+    state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Assign the existing value to the storage (this shouldn't be considered a change).
     // As the first access:
@@ -282,7 +284,8 @@ fn count_actual_state_changes() {
             n_storage_updates: 1,
             n_modified_contracts: 2,
             n_class_hash_updates: 1,
-            n_nonce_updates: 1
+            n_nonce_updates: 1,
+            n_compiled_class_hash_updates: 1
         }
     );
 }
