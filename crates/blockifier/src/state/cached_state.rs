@@ -162,8 +162,9 @@ impl<S: StateReader> StateReader for CachedState<S> {
         let contract_class = self
             .class_hash_to_class
             .get(class_hash)
+            .cloned()
             .expect("The class hash must appear in the cache.");
-        Ok(contract_class.clone())
+        Ok(contract_class)
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {

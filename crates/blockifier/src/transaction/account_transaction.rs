@@ -15,7 +15,7 @@ use crate::execution::entry_point::{
 };
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
-use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
+use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
@@ -415,7 +415,7 @@ impl AccountTransaction {
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.validate_tx(state, resources, remaining_gas, block_context)?;
-        let mut execution_state = CachedState::new(MutRefState::new(state));
+        let mut execution_state = CachedState::create_transactional(state);
         match self.run_execute(&mut execution_state, resources, &mut context, remaining_gas) {
             Ok(execute_call_info) => {
                 execution_state.commit();
