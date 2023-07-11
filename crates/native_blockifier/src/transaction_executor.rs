@@ -1,5 +1,4 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
@@ -12,83 +11,17 @@ use ouroboros;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress};
+use starknet_api::block::{BlockHash, BlockNumber};
+use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::papyrus_state::{PapyrusReader, PapyrusStateReader};
-use crate::py_state_diff::PyStateDiff;
+use crate::py_block_executor::PyGeneralConfig;
+use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{int_to_chain_id, py_attr, py_enum_name, PyFelt};
+use crate::py_utils::{py_enum_name, PyFelt};
 use crate::storage::Storage;
-
-/// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
-/// The explicit deallocation is needed since PyO3 can't track lifetimes within Python.
-#[pyclass]
-pub struct PyTransactionExecutor {
-    pub executor: Option<TransactionExecutor>,
-}
-
-#[pymethods]
-impl PyTransactionExecutor {
-    #[new]
-    #[args(general_config, block_info, papyrus_storage)]
-    pub fn create(
-        papyrus_storage: &Storage,
-        general_config: PyGeneralConfig,
-        block_info: &PyAny,
-        max_recursion_depth: usize,
-    ) -> NativeBlockifierResult<Self> {
-        log::debug!("Initializing Transaction Executor...");
-        let executor = TransactionExecutor::create(
-            papyrus_storage,
-            general_config,
-            block_info,
-            max_recursion_depth,
-        )?;
-        log::debug!("Initialized Transaction Executor.");
-
-        Ok(Self { executor: Some(executor) })
-    }
-
-    #[args(tx, raw_contract_class, enough_room_for_tx)]
-    pub fn execute(
-        &mut self,
-        tx: &PyAny,
-        raw_contract_class: Option<&str>,
-        // This is functools.partial(bouncer.add, tw_written=tx_written).
-        enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
-        self.executor().execute(tx, raw_contract_class, enough_room_for_tx)
-    }
-
-    pub fn finalize(&mut self) -> PyStateDiff {
-        log::debug!("Finalizing execution...");
-        let finalized_state = self.executor().finalize();
-        log::debug!("Finalized execution.");
-
-        finalized_state
-    }
-
-    pub fn close(&mut self) {
-        self.executor = None;
-    }
-
-    #[args(old_block_number_and_hash)]
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        self.executor().pre_process_block(old_block_number_and_hash)
-    }
-}
-
-impl PyTransactionExecutor {
-    fn executor(&mut self) -> &mut TransactionExecutor {
-        self.executor.as_mut().expect("Transaction executor should be initialized.")
-    }
-}
 
 // To access a field you must use `self.borrow_{field_name}()`.
 // Alternately, you can borrow the whole object using `self.with[_mut]()`.
@@ -112,21 +45,22 @@ pub struct TransactionExecutor {
 
 impl TransactionExecutor {
     pub fn create(
-        papyrus_storage: &Storage,
-        general_config: PyGeneralConfig,
-        block_info: &PyAny,
+        storage: &Storage,
+        general_config: &PyGeneralConfig,
+        block_info: PyBlockInfo,
         max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
+        log::debug!("Initializing Transaction Executor...");
         // Assumption: storage is aligned.
-        let reader = papyrus_storage.reader().clone();
+        let reader = storage.reader().clone();
 
-        let block_context = py_block_context(general_config, block_info, max_recursion_depth)?;
-        build_tx_executor(block_context, reader)
+        let block_context = block_info.into_block_context(general_config, max_recursion_depth)?;
+        let tx_executor = build_tx_executor(block_context, reader);
+        log::debug!("Initialized Transaction Executor.");
+
+        tx_executor
     }
 
-    /// Executes the given transaction on the state maintained by the executor.
-    /// Returns the execution trace, together with the compiled class hashes of executed classes
-    /// (used for counting purposes).
     pub fn execute(
         &mut self,
         tx: &PyAny,
@@ -201,12 +135,10 @@ impl TransactionExecutor {
         })
     }
 
-    /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
         PyStateDiff::from(self.borrow_state().to_state_diff())
     }
 
-    // Block pre-processing; see `block_execution::pre_process_block` documentation.
     pub fn pre_process_block(
         &mut self,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
@@ -220,65 +152,6 @@ impl TransactionExecutor {
 
         Ok(())
     }
-}
-
-pub struct PyGeneralConfig {
-    pub starknet_os_config: PyOsConfig,
-    pub sequencer_address: PyFelt,
-    pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
-    pub invoke_tx_max_n_steps: u32,
-    pub validate_max_n_steps: u32,
-}
-
-impl FromPyObject<'_> for PyGeneralConfig {
-    fn extract(general_config: &PyAny) -> PyResult<Self> {
-        let starknet_os_config = general_config.getattr("starknet_os_config")?.extract()?;
-        let sequencer_address = general_config.getattr("sequencer_address")?.extract()?;
-        let cairo_resource_fee_weights: HashMap<String, f64> =
-            general_config.getattr("cairo_resource_fee_weights")?.extract()?;
-
-        let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
-        let invoke_tx_max_n_steps = general_config.getattr("invoke_tx_max_n_steps")?.extract()?;
-        let validate_max_n_steps = general_config.getattr("validate_max_n_steps")?.extract()?;
-
-        Ok(Self {
-            starknet_os_config,
-            sequencer_address,
-            cairo_resource_fee_weights,
-            invoke_tx_max_n_steps,
-            validate_max_n_steps,
-        })
-    }
-}
-
-#[derive(FromPyObject)]
-pub struct PyOsConfig {
-    #[pyo3(from_py_with = "int_to_chain_id")]
-    pub chain_id: ChainId,
-    pub fee_token_address: PyFelt,
-}
-
-pub fn py_block_context(
-    general_config: PyGeneralConfig,
-    block_info: &PyAny,
-    max_recursion_depth: usize,
-) -> NativeBlockifierResult<BlockContext> {
-    let starknet_os_config = general_config.starknet_os_config;
-    let block_number = BlockNumber(py_attr(block_info, "block_number")?);
-    let block_context = BlockContext {
-        chain_id: starknet_os_config.chain_id,
-        block_number,
-        block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
-        fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
-        vm_resource_fee_cost: general_config.cairo_resource_fee_weights,
-        gas_price: py_attr(block_info, "gas_price")?,
-        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-        validate_max_n_steps: general_config.validate_max_n_steps,
-        max_recursion_depth,
-    };
-
-    Ok(block_context)
 }
 
 pub fn build_tx_executor(

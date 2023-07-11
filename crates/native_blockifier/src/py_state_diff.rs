@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
+use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::py_block_executor::PyGeneralConfig;
 use crate::py_utils::PyFelt;
 
 #[pyclass]
@@ -120,4 +123,29 @@ pub struct PyBlockInfo {
     pub block_timestamp: u64,
     pub gas_price: u128,
     pub sequencer_address: PyFelt,
+}
+
+impl PyBlockInfo {
+    pub fn into_block_context(
+        self,
+        general_config: &PyGeneralConfig,
+        max_recursion_depth: usize,
+    ) -> NativeBlockifierResult<BlockContext> {
+        let starknet_os_config = &general_config.starknet_os_config;
+        let block_number = BlockNumber(self.block_number);
+        let block_context = BlockContext {
+            chain_id: starknet_os_config.chain_id.clone(),
+            block_number,
+            block_timestamp: BlockTimestamp(self.block_timestamp),
+            sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
+            fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
+            vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
+            gas_price: self.gas_price,
+            invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
+            validate_max_n_steps: general_config.validate_max_n_steps,
+            max_recursion_depth,
+        };
+
+        Ok(block_context)
+    }
 }
