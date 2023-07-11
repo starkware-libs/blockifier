@@ -59,9 +59,9 @@ impl From<CompiledClassHash> for PyFelt {
     }
 }
 
-fn int_to_stark_felt(int: &PyAny) -> PyResult<StarkFelt> {
+pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
     let biguint: BigUint = int.extract()?;
-    biguint_to_felt(biguint).map_err(|e| PyValueError::new_err(e.to_string()))
+    Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
 }
 
 // TODO: Convert to a `TryFrom` cast and put in starknet-api (In StarkFelt).
@@ -75,11 +75,6 @@ where
     F: FnMut(T) -> PyT,
 {
     values.into_iter().map(converter).collect()
-}
-
-pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
-    let biguint: BigUint = int.extract()?;
-    Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
 }
 
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
@@ -103,4 +98,9 @@ where
     T: ToString,
 {
     py_attr(obj.getattr(attr)?, "name")
+}
+
+fn int_to_stark_felt(int: &PyAny) -> PyResult<StarkFelt> {
+    let biguint: BigUint = int.extract()?;
+    biguint_to_felt(biguint).map_err(|e| PyValueError::new_err(e.to_string()))
 }
