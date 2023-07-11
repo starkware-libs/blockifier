@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::block_context::BlockContext;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
@@ -114,10 +115,26 @@ impl From<CommitmentStateDiff> for PyStateDiff {
     }
 }
 
+#[pyclass]
 #[derive(FromPyObject)]
 pub struct PyBlockInfo {
+    #[pyo3(get)]
     pub block_number: u64,
+    #[pyo3(get)]
     pub block_timestamp: u64,
+    #[pyo3(get)]
     pub gas_price: u128,
+    #[pyo3(get)]
     pub sequencer_address: PyFelt,
+}
+
+impl From<&BlockContext> for PyBlockInfo {
+    fn from(block_context: &BlockContext) -> Self {
+        Self {
+            block_number: block_context.block_number.0,
+            block_timestamp: block_context.block_timestamp.0,
+            gas_price: block_context.gas_price,
+            sequencer_address: block_context.sequencer_address.into(),
+        }
+    }
 }
