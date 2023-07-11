@@ -1,6 +1,6 @@
 [workspace]
 # Using version 2 to avoid unifying features. For more info, read:
-#   https://doc.rust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2
+#   https://doc.raust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2
 resolver = "2"
 
 members = ["crates/blockifier", "crates/native_blockifier"]
