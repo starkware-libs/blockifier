@@ -23,7 +23,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           components: rustfmt
-          toolchain: nightly-2022-11-03
+          toolchain: nightly-2023-07-05
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
         with:
@@ -32,4 +32,3 @@ jobs:
       - run:
           pip install -r crates/blockifier/tests/requirements.txt;
           cargo test verify_feature_contracts -- --include-ignored
-
