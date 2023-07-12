@@ -9,3 +9,7 @@ pub const TRANSFER_EVENT_NAME: &str = "Transfer";
 // Cairo constants.
 pub const FELT_FALSE: u64 = 0;
 pub const FELT_TRUE: u64 = 1;
+
+// Expected return values of a 'validate' entry point: "VALID".
+pub const VALIDATE_RETDATA: &str =
+    "0x00000000000000000000000000000000000000000000000000000056414c4944";

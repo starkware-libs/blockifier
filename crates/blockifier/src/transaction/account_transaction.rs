@@ -10,11 +10,13 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
+    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources, Retdata,
 };
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
+use crate::retdata;
 use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
@@ -239,6 +241,20 @@ impl AccountTransaction {
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
         )?;
+        let class_hash = state.get_class_hash_at(storage_address)?;
+        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+        if let ContractClass::V1(_contract_class) = contract_class {
+            // The account contract class is a Cairo 1.0 contract; the 'validate' entry point should
+            // return 'VALID'.
+            let expected_retdata = retdata![StarkFelt::try_from(constants::VALIDATE_RETDATA)?];
+            if validate_call_info.execution.retdata != expected_retdata {
+                return Err(TransactionExecutionError::InvalidValidateReturnData {
+                    expected: expected_retdata,
+                    actual: validate_call_info.execution.retdata,
+                });
+            }
+        }
+
         update_remaining_gas(remaining_gas, &validate_call_info);
 
         Ok(Some(validate_call_info))
