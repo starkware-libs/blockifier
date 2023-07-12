@@ -32,17 +32,13 @@ num-integer = "0.1.45"
 num-traits = "0.2"
 ouroboros = "0.15.6"
 rstest = "0.17.0"
-
-# IMPORTANT: next upgrade should delete replaced classes table handling.
-# https://github.com/starkware-libs/blockifier/blob/54002da4b11c3c839a1221122cc18330854f563c/crates/native_blockifier/src/storage.rs#L145-L164
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", tag = "v0.1.2-alpha" }
-
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "90ad4bc" }
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 serde = "1.0.130"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "a4c78ff" }
+starknet_api = "0.2.0"
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"

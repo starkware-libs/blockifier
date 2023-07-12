@@ -33,7 +33,7 @@ pub struct PyTransactionExecutor {
 #[pymethods]
 impl PyTransactionExecutor {
     #[new]
-    #[args(general_config, block_info, papyrus_storage)]
+    #[args(papyrus_storage, general_config, block_info, max_recursion_depth)]
     pub fn create(
         papyrus_storage: &Storage,
         general_config: PyGeneralConfig,

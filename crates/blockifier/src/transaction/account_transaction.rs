@@ -1,6 +1,6 @@
 use itertools::concat;
 use starknet_api::calldata;
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
@@ -151,8 +151,14 @@ impl AccountTransaction {
                     InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1_u8)),
                 },
                 signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.sender_address(),
+                nonce: match tx {
+                    InvokeTransaction::V0(_) => Nonce::default(),
+                    InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
+                },
+                sender_address: match tx {
+                    InvokeTransaction::V0(tx_v0) => tx_v0.contract_address,
+                    InvokeTransaction::V1(tx_v1) => tx_v1.sender_address,
+                },
             },
         }
     }
