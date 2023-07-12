@@ -15,6 +15,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClassV0;
+use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -213,7 +214,7 @@ fn test_infinite_recursion(
     mut block_context: BlockContext,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 1000;
+    block_context.invoke_tx_max_n_steps = 6000;
 
     let TestInitData {
         mut state,
@@ -406,7 +407,7 @@ fn test_reverted_reach_steps_limit(
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 1000;
+    block_context.invoke_tx_max_n_steps = 6000;
 
     let TestInitData {
         mut state,
@@ -593,4 +594,111 @@ fn test_n_reverted_steps(
     // Make sure that n_steps and actual_fee grew as expected.
     assert!(n_steps_100 - n_steps_0 == 100 * single_call_steps_delta);
     assert!(actual_fee_100 - actual_fee_0 == 100 * single_call_fee_delta);
+}
+
+#[rstest]
+/// Tests that steps are correctly limited based on max_fee.
+fn test_max_fee_to_max_steps_conversion(
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    let actual_fee = 657500000000000;
+    let execute_calldata = calldata![
+        *contract_address.0.key(),        // Contract address.
+        selector_from_name("with_arg").0, // EP selector.
+        stark_felt!(1_u8),                // Calldata length.
+        stark_felt!(25_u8)                // Calldata: arg.
+    ];
+
+    // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
+    let tx1 = invoke_tx(execute_calldata.clone(), account_address, Fee(actual_fee), None);
+    let account_tx1: AccountTransaction =
+        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+            nonce: nonce_manager.next(account_address),
+            ..tx1
+        }));
+    let execution_context1 = EntryPointExecutionContext::new_invoke(
+        &block_context,
+        &account_tx1.get_account_transaction_context(),
+    );
+    let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
+    let tx_execution_info1 = account_tx1.execute(&mut state, &block_context).unwrap();
+    let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
+
+    // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
+    let tx2 = invoke_tx(execute_calldata.clone(), account_address, Fee(2 * actual_fee), None);
+    let account_tx2: AccountTransaction =
+        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+            nonce: nonce_manager.next(account_address),
+            ..tx2
+        }));
+    let execution_context2 = EntryPointExecutionContext::new_invoke(
+        &block_context,
+        &account_tx2.get_account_transaction_context(),
+    );
+    let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
+    let tx_execution_info2 = account_tx2.execute(&mut state, &block_context).unwrap();
+    let n_steps2 = tx_execution_info2.actual_resources.0.get("n_steps").unwrap();
+
+    // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
+    assert!(max_steps_limit2.unwrap() == 2 * max_steps_limit1.unwrap());
+    assert!(tx_execution_info1.actual_fee.0 == tx_execution_info2.actual_fee.0);
+    assert!(actual_fee == tx_execution_info2.actual_fee.0);
+    assert!(n_steps1 == n_steps2);
+}
+
+#[rstest]
+/// Tests that steps are limited based on max_fee. Specifically, when a transaction reverts due to
+/// insufficient fee, which translated to insufficient steps, the correct revert_error is recorded
+/// and max_fee is charged.
+fn test_insufficient_max_fee_to_insufficient_steps(
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+
+    // Invoke the `recurse` function with depth 1 and MAX_FEE. This call should succeed.
+    let tx_execution_info1: TransactionExecutionInfo = run_recursive_function(
+        &mut state,
+        &block_context,
+        Fee(MAX_FEE),
+        &contract_address,
+        &account_address,
+        &mut nonce_manager,
+        "recurse",
+        1,
+    );
+    assert!(!tx_execution_info1.is_reverted());
+    let actual_fee_depth1 = tx_execution_info1.actual_fee;
+
+    // Invoke the `recurse` function with depth of 300 and actual_fee_depth1 as max fee.
+    // This call should fail due to no remaining steps.
+    let tx_execution_info2: TransactionExecutionInfo = run_recursive_function(
+        &mut state,
+        &block_context,
+        actual_fee_depth1,
+        &contract_address,
+        &account_address,
+        &mut nonce_manager,
+        "recurse",
+        300,
+    );
+    assert!(tx_execution_info2.is_reverted());
+    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(
+        tx_execution_info2.revert_error.unwrap().contains("RunResources has no remaining steps.")
+    );
 }
