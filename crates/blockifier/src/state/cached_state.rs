@@ -6,6 +6,8 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
+use crate::abi::abi_utils::get_erc20_balance_var_addresses;
+use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -44,11 +46,15 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the number of storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
-    pub fn count_actual_state_changes(&mut self) -> StateResult<StateChanges> {
+    pub fn count_actual_state_changes_for_fee_charge(
+        &mut self,
+        block_context: &BlockContext,
+        sender_address: Option<ContractAddress>,
+    ) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
 
         // Storage Update.
-        let storage_updates = &self.cache.get_storage_updates();
+        let storage_updates = &mut self.cache.get_storage_updates();
         let mut modified_contracts: HashSet<ContractAddress> =
             storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
 
@@ -62,6 +68,20 @@ impl<S: StateReader> CachedState<S> {
 
         // Compiled class hash updates (declare Cairo 1 contract).
         let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
+
+        // Calculated before executing fee transfer and therefore we add manually the fee transfer
+        // changes. Exclude the sequencer balance update and the fee token contract modification,
+        // since it’s charged once throughout the block.
+        if let Some(sender_address) = sender_address {
+            let (sender_low_key, _sender_high_key) =
+                get_erc20_balance_var_addresses(&sender_address)?;
+            storage_updates
+                .insert((block_context.fee_token_address, sender_low_key), StarkFelt::default());
+        }
+        let (sequencer_low_key, _sequencer_high_key) =
+            get_erc20_balance_var_addresses(&block_context.sequencer_address)?;
+        storage_updates.remove(&(block_context.fee_token_address, sequencer_low_key));
+        modified_contracts.remove(&block_context.fee_token_address);
 
         Ok(StateChanges {
             n_storage_updates: storage_updates.len(),
