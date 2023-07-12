@@ -337,10 +337,9 @@ impl CallEntryPoint {
     // Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new(
-            block_context.clone(),
-            AccountTransactionContext::default(),
-            block_context.invoke_tx_max_n_steps,
+        let mut context = EntryPointExecutionContext::new_invoke(
+            &block_context,
+            &AccountTransactionContext::default(),
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
