@@ -4,20 +4,19 @@ use std::path::PathBuf;
 
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
-use num_bigint::BigUint;
 use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockHeader, BlockNumber, BlockTimestamp, GasPrice};
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, GlobalRoot};
+use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, GlobalRoot};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff, StateNumber};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_utils::{to_chain_id_enum, PyFelt};
+use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::PyStateDiff;
 
 const GENESIS_BLOCK_ID: u64 = u64::MAX;
@@ -37,13 +36,13 @@ impl Storage {
     #[args(path_prefix, chain_id, max_size)]
     pub fn new(
         path_prefix: PathBuf,
-        chain_id: BigUint,
+        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
         max_size: usize,
     ) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
             path_prefix,
-            chain_id: to_chain_id_enum(chain_id)?,
+            chain_id,
             min_size: 1 << 20, // 1MB.
             max_size,
             growth_step: 1 << 26, // 64MB.
