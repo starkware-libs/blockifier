@@ -191,9 +191,9 @@ impl<'a> SyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
         hint: &StarknetHint,
     ) -> HintExecutionResult {
-        let StarknetHint::SystemCall{ system: syscall } = hint else {
+        let StarknetHint::SystemCall { system: syscall } = hint else {
             return Err(HintError::CustomHint(
-                "Test functions are unsupported on starknet.".into()
+                "Test functions are unsupported on starknet.".into(),
             ));
         };
         let initial_syscall_ptr = get_ptr_from_res_operand_unchecked(vm, syscall);

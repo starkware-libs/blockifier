@@ -85,10 +85,11 @@ impl DeclareTransaction {
         let declare_version = declare_tx.version();
         match declare_tx {
             starknet_api::transaction::DeclareTransaction::V0(tx) => {
-                let ContractClass::V0(contract_class) = contract_class
-                else {
-                    return Err(TransactionExecutionError::ContractClassVersionMismatch
-                        {declare_version, cairo_version: 0})
+                let ContractClass::V0(contract_class) = contract_class else {
+                    return Err(TransactionExecutionError::ContractClassVersionMismatch {
+                        declare_version,
+                        cairo_version: 0,
+                    });
                 };
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V0(tx),
@@ -96,11 +97,11 @@ impl DeclareTransaction {
                 })
             }
             starknet_api::transaction::DeclareTransaction::V1(tx) => {
-                let ContractClass::V0(contract_class) = contract_class
-                else {
-                    return Err(TransactionExecutionError::ContractClassVersionMismatch
-                        {declare_version, cairo_version: 0})
-
+                let ContractClass::V0(contract_class) = contract_class else {
+                    return Err(TransactionExecutionError::ContractClassVersionMismatch {
+                        declare_version,
+                        cairo_version: 0,
+                    });
                 };
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V1(tx),
@@ -108,11 +109,11 @@ impl DeclareTransaction {
                 })
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
-                let ContractClass::V1(contract_class) = contract_class
-                else {
-                    return Err(TransactionExecutionError::ContractClassVersionMismatch
-                        {declare_version, cairo_version: 1})
-
+                let ContractClass::V1(contract_class) = contract_class else {
+                    return Err(TransactionExecutionError::ContractClassVersionMismatch {
+                        declare_version,
+                        cairo_version: 1,
+                    });
                 };
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V2(tx),

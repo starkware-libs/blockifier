@@ -332,11 +332,10 @@ fn get_call_result(
     // TODO(spapini): Validate implicits.
 
     let gas = &return_result[0];
-    let MaybeRelocatable::Int(gas) = gas
-    else {
-        return
-        Err(PostExecutionError::MalformedReturnData {
-            error_message: "Error extracting return data.".to_string()});
+    let MaybeRelocatable::Int(gas) = gas else {
+        return Err(PostExecutionError::MalformedReturnData {
+            error_message: "Error extracting return data.".to_string(),
+        });
     };
     let gas = gas.to_u64().ok_or(PostExecutionError::MalformedReturnData {
         error_message: format!("Unexpected remaining gas: {gas}."),

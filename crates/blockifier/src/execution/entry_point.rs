@@ -340,7 +340,7 @@ pub fn execute_constructor_entry_point(
     let contract_class = state.get_compiled_contract_class(&ctor_context.class_hash)?;
     let Some(constructor_selector) = contract_class.constructor_selector() else {
         // Contract has no constructor.
-        return handle_empty_constructor(ctor_context, calldata,remaining_gas);
+        return handle_empty_constructor(ctor_context, calldata, remaining_gas);
     };
 
     let constructor_call = CallEntryPoint {
