@@ -22,8 +22,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
-    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
-    TransactionExecutionResult,
+    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -272,8 +271,8 @@ impl AccountTransaction {
         self.max_fee() != Fee(0)
     }
 
-    /// Handles nonce and checks that the account's balance covers max fee.
-    fn check_fee_balance_and_handle_nonce<S: StateReader>(
+    /// Checks that the account's balance covers max fee.
+    fn check_fee_balance<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
@@ -306,30 +305,7 @@ impl AccountTransaction {
             }
         }
 
-        // Handle nonce.
-        Self::handle_nonce(&account_tx_context, state)?;
-
         Ok(())
-    }
-
-    fn charge_fee(
-        &self,
-        state: &mut dyn State,
-        block_context: &BlockContext,
-        resources: &ResourcesMapping,
-    ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
-        let no_fee = Fee::default();
-        let account_tx_context = self.get_account_transaction_context();
-        if account_tx_context.max_fee == no_fee {
-            // Fee charging is not enforced in some tests.
-            return Ok((no_fee, None));
-        }
-
-        let actual_fee = calculate_tx_fee(resources, block_context)?;
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
-
-        Ok((actual_fee, Some(fee_transfer_call_info)))
     }
 
     fn execute_fee_transfer(
@@ -468,51 +444,78 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let account_tx_context = self.get_account_transaction_context();
-        self.verify_tx_version(account_tx_context.version)?;
-
-        let mut resources = ExecutionResources::default();
-        let mut remaining_gas = Transaction::initial_gas();
-
-        // Nonce and fee check should be done before running user code.
-        self.check_fee_balance_and_handle_nonce(state, block_context)?;
-
-        // Run validation and execution.
-        let ValidateExecuteCallInfo {
-            validate_call_info,
-            execute_call_info,
-            revert_error,
-            n_reverted_steps,
-        } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
-
-        // Handle fee.
-        let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage = calculate_l1_gas_usage(
-            &non_optional_call_infos,
-            state,
-            None,
-            block_context,
-            Some(account_tx_context.sender_address),
-        )?;
-        let actual_resources =
-            calculate_tx_resources(resources, l1_gas_usage, self.tx_type(), n_reverted_steps)?;
-
-        // Charge fee.
-        // Recreate the context to empty the execution resources.
-        let (actual_fee, fee_transfer_call_info) =
-            self.charge_fee(state, block_context, &actual_resources)?;
-
-        let tx_execution_info = TransactionExecutionInfo {
-            validate_call_info,
-            execute_call_info,
-            fee_transfer_call_info,
-            actual_fee,
-            actual_resources,
-            revert_error,
-        };
-        Ok(tx_execution_info)
+        execute_tx_raw(self, state, block_context, false)
     }
+}
+
+pub fn execute_tx_raw<S: StateReader>(
+    tx: AccountTransaction,
+    state: &mut TransactionalState<'_, S>,
+    block_context: &BlockContext,
+    skip_fee_charge: bool,
+) -> TransactionExecutionResult<TransactionExecutionInfo> {
+    let account_tx_context = tx.get_account_transaction_context();
+    tx.verify_tx_version(account_tx_context.version)?;
+
+    let mut resources = ExecutionResources::default();
+    let mut remaining_gas = Transaction::initial_gas();
+
+    // Nonce and fee check should be done before running user code.
+    if !skip_fee_charge {
+        tx.check_fee_balance(state, block_context)?;
+    }
+    // Handle nonce.
+    AccountTransaction::handle_nonce(&account_tx_context, state)?;
+
+    // Run validation and execution.
+    let ValidateExecuteCallInfo {
+        validate_call_info,
+        execute_call_info,
+        revert_error,
+        n_reverted_steps,
+    } = tx.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
+
+    // Handle fee.
+    let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&CallInfo>>();
+    let l1_gas_usage = calculate_l1_gas_usage(
+        &non_optional_call_infos,
+        state,
+        None,
+        block_context,
+        Some(account_tx_context.sender_address),
+    )?;
+    let actual_resources =
+        calculate_tx_resources(resources, l1_gas_usage, tx.tx_type(), n_reverted_steps)?;
+
+    // Charge fee.
+    let no_fee = Fee::default();
+    let actual_fee = if tx.enforce_fee() {
+        calculate_tx_fee(&actual_resources, block_context)?
+    } else {
+        // Fee charging is not enforced in some tests.
+        no_fee
+    };
+    let fee_transfer_call_info = if tx.enforce_fee() && !skip_fee_charge {
+        Some(AccountTransaction::execute_fee_transfer(
+            state,
+            block_context,
+            account_tx_context,
+            actual_fee,
+        )?)
+    } else {
+        None
+    };
+
+    let tx_execution_info = TransactionExecutionInfo {
+        validate_call_info,
+        execute_call_info,
+        fee_transfer_call_info,
+        actual_fee,
+        actual_resources,
+        revert_error,
+    };
+    Ok(tx_execution_info)
 }
