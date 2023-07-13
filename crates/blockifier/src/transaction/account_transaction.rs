@@ -419,7 +419,8 @@ impl AccountTransaction {
         }
 
         // V0 transactions do not have validation; we cannot deduct fee for execution.
-        if is_v0 {
+        // Reverting a Declare transaction is not currently supported in the OS.
+        if is_v0 || matches!(self, Self::Declare(_)) {
             let validate_call_info =
                 self.validate_tx(state, resources, remaining_gas, block_context)?;
             let execute_call_info =
