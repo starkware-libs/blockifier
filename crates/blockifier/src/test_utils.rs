@@ -20,8 +20,8 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
-    InvokeTransactionV1, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
+    DeployAccountTransaction, Fee, InvokeTransactionV1, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -73,6 +73,8 @@ pub const TEST_EMPTY_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/account_faulty_contract.casm.json";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
@@ -438,6 +440,21 @@ pub fn declare_tx(
     signature: Option<TransactionSignature>,
 ) -> DeclareTransactionV0V1 {
     DeclareTransactionV0V1 {
+        max_fee,
+        class_hash: ClassHash(stark_felt!(class_hash)),
+        sender_address,
+        signature: signature.unwrap_or_default(),
+        ..Default::default()
+    }
+}
+
+pub fn declare_tx_v2(
+    class_hash: &str,
+    sender_address: ContractAddress,
+    max_fee: Fee,
+    signature: Option<TransactionSignature>,
+) -> DeclareTransactionV2 {
+    DeclareTransactionV2 {
         max_fee,
         class_hash: ClassHash(stark_felt!(class_hash)),
         sender_address,

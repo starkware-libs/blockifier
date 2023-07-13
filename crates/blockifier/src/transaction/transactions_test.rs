@@ -46,9 +46,10 @@ use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
-    create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
-    CALL_CONTRACT, INVALID, VALID,
+    create_account_tx_cairo1_for_validate_test, create_account_tx_for_validate_test,
+    create_state_with_cairo1_account, create_state_with_falliable_validation_account,
+    create_state_with_falliable_validation_cairo1_account,
+    create_state_with_trivial_validation_account, CALL_CONTRACT, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -859,23 +860,40 @@ fn test_deploy_account_tx(
     );
 }
 
-#[test]
-fn test_validate_accounts_tx() {
-    fn test_validate_account_tx(tx_type: TransactionType) {
+#[test_case(
+    create_state_with_falliable_validation_account,
+    create_account_tx_for_validate_test;
+    "With Cairo0 account")]
+#[test_case(
+    create_state_with_falliable_validation_cairo1_account,
+    create_account_tx_cairo1_for_validate_test;
+"With Cairo1 account")]
+fn test_validate_accounts_tx<F, G>(mut create_state: F, mut create_account_tx: G)
+where
+    F: FnMut() -> CachedState<DictStateReader>,
+    G: FnMut(TransactionType, u64, Option<StarkFelt>, &mut NonceManager) -> AccountTransaction,
+{
+    fn test_validate_account_tx<F, G>(
+        tx_type: TransactionType,
+        mut create_state: F,
+        mut create_account_tx: G,
+    ) where
+        F: FnMut() -> CachedState<DictStateReader>,
+        G: FnMut(TransactionType, u64, Option<StarkFelt>, &mut NonceManager) -> AccountTransaction,
+    {
         let block_context = &BlockContext::create_for_testing();
 
         // Positive flows.
 
         // Valid logic.
-        let state = &mut create_state_with_falliable_validation_account();
-        let account_tx =
-            create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
+        let state = &mut create_state();
+        let account_tx = create_account_tx(tx_type, VALID, None, &mut NonceManager::default());
         account_tx.execute(state, block_context).unwrap();
 
         if tx_type != TransactionType::DeployAccount {
             // Calling self (allowed).
-            let state = &mut create_state_with_falliable_validation_account();
-            let account_tx = create_account_tx_for_validate_test(
+            let state = &mut create_state();
+            let account_tx = create_account_tx(
                 tx_type,
                 CALL_CONTRACT,
                 Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
@@ -887,19 +905,14 @@ fn test_validate_accounts_tx() {
         // Negative flows.
 
         // Logic failure.
-        let state = &mut create_state_with_falliable_validation_account();
-        let account_tx = create_account_tx_for_validate_test(
-            tx_type,
-            INVALID,
-            None,
-            &mut NonceManager::default(),
-        );
+        let state = &mut create_state();
+        let account_tx = create_account_tx(tx_type, INVALID, None, &mut NonceManager::default());
         let error = account_tx.execute(state, block_context).unwrap_err();
         // TODO(Noa,01/05/2023): Test the exact failure reason.
         assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
 
         // Trying to call another contract (forbidden).
-        let account_tx = create_account_tx_for_validate_test(
+        let account_tx = create_account_tx(
             tx_type,
             CALL_CONTRACT,
             Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
@@ -933,7 +946,15 @@ fn test_validate_accounts_tx() {
         }
     }
 
-    test_validate_account_tx(TransactionType::InvokeFunction);
-    test_validate_account_tx(TransactionType::Declare);
-    test_validate_account_tx(TransactionType::DeployAccount);
+    test_validate_account_tx(
+        TransactionType::InvokeFunction,
+        &mut create_state,
+        &mut create_account_tx,
+    );
+    test_validate_account_tx(TransactionType::Declare, &mut create_state, &mut create_account_tx);
+    test_validate_account_tx(
+        TransactionType::DeployAccount,
+        &mut create_state,
+        &mut create_account_tx,
+    );
 }
