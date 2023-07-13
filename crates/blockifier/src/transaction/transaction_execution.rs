@@ -99,7 +99,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             None,
         )?;
         let actual_resources =
-            calculate_tx_resources(resources, l1_gas_usage, TransactionType::L1Handler, 0)?;
+            calculate_tx_resources(resources, l1_gas_usage, TransactionType::L1Handler)?;
         let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.

@@ -497,8 +497,11 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             block_context,
             Some(account_tx_context.sender_address),
         )?;
-        let actual_resources =
-            calculate_tx_resources(resources, l1_gas_usage, self.tx_type(), n_reverted_steps)?;
+        let mut actual_resources = calculate_tx_resources(resources, l1_gas_usage, self.tx_type())?;
+
+        // Add reverted steps to actual_resources' n_steps for correct fee charge.
+        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
+            n_reverted_steps;
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
