@@ -7,14 +7,14 @@ use starknet_api::core::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransaction,
-    InvokeTransactionV1,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
+    InvokeTransaction, InvokeTransactionV1,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClassV0;
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -368,6 +368,47 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
+}
+
+#[rstest]
+/// Tests that a failing declare transaction should not change state (no fee charge or nonce bump).
+fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
+    let TestInitData { mut state, account_address, nonce_manager, block_context, .. } = init_data;
+    let class_hash = ClassHash(stark_felt!(0xdeadeadeaf72_u128));
+    let contract_class = ContractClass::V1(ContractClassV1::default());
+    let initial_balance = state.get_fee_token_balance(&block_context, &account_address).unwrap();
+
+    // Cannot fail executing a declare tx unless it's V2 or above, and already declared.
+    let declare_tx = DeclareTransactionV2 {
+        max_fee,
+        class_hash,
+        sender_address: account_address,
+        ..Default::default()
+    };
+    state.set_contract_class(&class_hash, contract_class.clone()).unwrap();
+    state.set_compiled_class_hash(class_hash, declare_tx.compiled_class_hash).unwrap();
+    let declare_account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
+                // Use the nonce without incrementing.
+                nonce: nonce_manager.view_next(account_address),
+                ..declare_tx
+            }),
+            contract_class,
+        )
+        .unwrap(),
+    );
+
+    // Fail execution, assert nonce and balance are unchanged.
+    declare_account_tx.execute(&mut state, &block_context).unwrap_err();
+    assert_eq!(
+        state.get_nonce_at(account_address).unwrap(),
+        nonce_manager.view_next(account_address)
+    );
+    assert_eq!(
+        state.get_fee_token_balance(&block_context, &account_address).unwrap(),
+        initial_balance
+    );
 }
 
 #[allow(clippy::too_many_arguments)]

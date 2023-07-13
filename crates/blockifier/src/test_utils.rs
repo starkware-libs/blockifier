@@ -168,6 +168,12 @@ impl NonceManager {
         self.next_nonce.insert(account_address, Felt252::one() + next_felt252);
         next
     }
+
+    pub fn view_next(&self, account_address: ContractAddress) -> Nonce {
+        let zero = Felt252::zero();
+        let next_felt252 = self.next_nonce.get(&account_address).unwrap_or(&zero);
+        Nonce(felt_to_stark_felt(next_felt252))
+    }
 }
 
 pub fn pad_address_to_64(address: &str) -> String {
