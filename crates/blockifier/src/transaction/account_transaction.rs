@@ -15,15 +15,9 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources, Retdata,
 };
 use crate::fee::fee_utils::calculate_tx_fee;
-<<<<<<< HEAD
 use crate::fee::gas_usage::estimate_minimal_fee;
-use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
-||||||| 30f5d31
-use crate::state::cached_state::TransactionalState;
-=======
 use crate::retdata;
-use crate::state::cached_state::TransactionalState;
->>>>>>> origin/main-v0.12.0
+use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
