@@ -100,7 +100,7 @@ fn create_test_init_data(
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    account_tx.execute(&mut state, &block_context).unwrap();
+    account_tx.execute(&mut state, &block_context, None).unwrap();
 
     // Declare a contract.
     let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
@@ -115,7 +115,7 @@ fn create_test_init_data(
         )
         .unwrap(),
     );
-    account_tx.execute(&mut state, &block_context).unwrap();
+    account_tx.execute(&mut state, &block_context, None).unwrap();
 
     // Deploy a contract using syscall deploy.
     let entry_point_selector = selector_from_name("deploy_contract");
@@ -136,7 +136,7 @@ fn create_test_init_data(
         nonce: nonce_manager.next(account_address),
         ..tx
     }));
-    account_tx.execute(&mut state, &block_context).unwrap();
+    account_tx.execute(&mut state, &block_context, None).unwrap();
 
     // Calculate the newly deployed contract address
     let contract_address = calculate_contract_address(
@@ -168,7 +168,7 @@ fn test_fee_enforcement(
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
         let enforce_fee = account_tx.enforce_fee();
-        let result = account_tx.execute(&mut state, &block_context);
+        let result = account_tx.execute(&mut state, &block_context, None);
         assert_eq!(result.is_err(), enforce_fee);
     }
 }
@@ -196,7 +196,7 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
         nonce: nonce_manager.next(account_address),
         ..tx
     }));
-    account_tx.execute(&mut state, &block_context).unwrap();
+    account_tx.execute(&mut state, &block_context, None).unwrap();
 }
 
 #[rstest]
@@ -255,7 +255,7 @@ fn test_infinite_recursion(
         nonce: nonce_manager.next(account_address),
         ..tx
     }));
-    let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
+    let tx_execution_info = account_tx.execute(&mut state, &block_context, None).unwrap();
     if success {
         assert!(tx_execution_info.revert_error.is_none());
     } else {
@@ -297,7 +297,7 @@ fn test_revert_invoke(
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let deploy_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
+    let deploy_execution_info = account_tx.execute(&mut state, &block_context, None).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.
     let storage_key = stark_felt!(9_u8);
@@ -314,7 +314,7 @@ fn test_revert_invoke(
         nonce: Nonce(stark_felt!(1_u8)),
         ..tx
     }));
-    let tx_execution_info = account_tx.execute(&mut state, &block_context).unwrap();
+    let tx_execution_info = account_tx.execute(&mut state, &block_context, None).unwrap();
 
     // TODO(Dori, 1/7/2023): Verify that the actual fee collected is exactly the fee computed for
     // the validate and fee transfer calls.
@@ -360,7 +360,7 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         &mut NonceManager::default(),
     );
     let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
-    deploy_account_tx.execute(&mut state, &block_context).unwrap_err();
+    deploy_account_tx.execute(&mut state, &block_context, None).unwrap_err();
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
@@ -402,7 +402,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     );
 
     // Fail execution, assert nonce and balance are unchanged.
-    declare_account_tx.execute(&mut state, &block_context).unwrap_err();
+    declare_account_tx.execute(&mut state, &block_context, None).unwrap_err();
     assert_eq!(state.get_nonce_at(account_address).unwrap(), next_nonce);
     assert_eq!(
         state.get_fee_token_balance(&block_context, &account_address).unwrap(),
@@ -433,7 +433,7 @@ fn run_recursive_function(
             nonce: nonce_manager.next(*account_address),
             ..tx
         }));
-    account_tx.execute(state, block_context).unwrap()
+    account_tx.execute(state, block_context, None).unwrap()
 }
 
 #[rstest]
@@ -668,7 +668,7 @@ fn test_max_fee_to_max_steps_conversion(
         &account_tx1.get_account_transaction_context(),
     );
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
-    let tx_execution_info1 = account_tx1.execute(&mut state, &block_context).unwrap();
+    let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, None).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
@@ -683,7 +683,7 @@ fn test_max_fee_to_max_steps_conversion(
         &account_tx2.get_account_transaction_context(),
     );
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
-    let tx_execution_info2 = account_tx2.execute(&mut state, &block_context).unwrap();
+    let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, None).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.0.get("n_steps").unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
