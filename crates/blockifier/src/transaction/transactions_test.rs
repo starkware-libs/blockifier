@@ -400,9 +400,13 @@ fn test_invoke_tx(
     );
 }
 
-#[test]
-fn test_state_get_fee_token_balance() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
@@ -451,9 +455,13 @@ fn assert_failure_if_max_fee_exceeds_balance(
     );
 }
 
-#[test]
-fn test_max_fee_exceeds_balance() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let invalid_max_fee = Fee(BALANCE + 1);
 
@@ -489,9 +497,13 @@ fn test_max_fee_exceeds_balance() {
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
 
-#[test]
-fn test_negative_invoke_tx_flows() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx = invoke_tx();
     let valid_account_tx =
