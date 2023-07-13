@@ -57,7 +57,6 @@ pub fn calculate_tx_resources(
     execution_resources: ExecutionResources,
     l1_gas_usage: usize,
     tx_type: TransactionType,
-    n_reverted_steps: usize,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
@@ -74,10 +73,7 @@ pub fn calculate_tx_resources(
 
     let mut tx_resources = HashMap::from([
         (constants::GAS_USAGE.to_string(), l1_gas_usage),
-        (
-            constants::N_STEPS_RESOURCE.to_string(),
-            n_steps + total_vm_usage.n_memory_holes + n_reverted_steps,
-        ),
+        (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);
 
