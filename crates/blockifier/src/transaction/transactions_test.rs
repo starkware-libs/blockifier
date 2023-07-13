@@ -295,7 +295,7 @@ fn test_invoke_tx(
     let sender_address = invoke_tx.sender_address;
 
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context, None).unwrap();
 
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
@@ -424,7 +424,7 @@ fn test_state_get_fee_token_balance() {
         None,
     );
     AccountTransaction::Invoke(InvokeTransaction::V1(mint_tx))
-        .execute(state, block_context)
+        .execute(state, block_context, None)
         .unwrap();
 
     // Get balance from state, and validate.
@@ -445,7 +445,7 @@ fn assert_failure_if_max_fee_exceeds_balance(
 
     // Test error.
     assert_matches!(
-        invalid_tx.execute(state, block_context).unwrap_err(),
+        invalid_tx.execute(state, block_context, None).unwrap_err(),
         TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
         if max_fee == sent_max_fee
     );
@@ -504,7 +504,7 @@ fn test_negative_invoke_tx_flows() {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
     }));
-    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
+    let execution_error = invalid_tx.execute(state, block_context, None).unwrap_err();
 
     // Test error.
     assert_matches!(
@@ -519,7 +519,7 @@ fn test_negative_invoke_tx_flows() {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
     }));
-    let execution_error = invalid_tx.execute(state, block_context).unwrap_err();
+    let execution_error = invalid_tx.execute(state, block_context, None).unwrap_err();
 
     // Test error.
     assert_matches!(
@@ -536,7 +536,7 @@ fn test_negative_invoke_tx_flows() {
         ..valid_invoke_tx
     }));
     let execution_error = invalid_tx
-        .execute(&mut create_state_with_trivial_validation_account(), block_context)
+        .execute(&mut create_state_with_trivial_validation_account(), block_context, None)
         .unwrap_err();
 
     // Test error.
@@ -601,7 +601,7 @@ fn test_declare_tx(
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context, None).unwrap();
 
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
@@ -698,7 +698,7 @@ fn test_declare_tx_v2() {
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context, None).unwrap();
 
     let expected_actual_resources = ResourcesMapping(HashMap::from([
         // 1 modified contract, 1 storage update (sender balance) + 1 compiled_class_hash update.
@@ -775,7 +775,7 @@ fn test_deploy_account_tx(
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx.clone());
-    let actual_execution_info = account_tx.execute(state, block_context).unwrap();
+    let actual_execution_info = account_tx.execute(state, block_context, None).unwrap();
 
     // Build expected validate call info.
     let validate_calldata =
@@ -866,7 +866,7 @@ fn test_deploy_account_tx(
         ..deploy_account_tx
     };
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let error = account_tx.execute(state, block_context).unwrap_err();
+    let error = account_tx.execute(state, block_context, None).unwrap_err();
     assert_matches!(
         error,
         TransactionExecutionError::ContractConstructorExecutionFailed(
@@ -886,7 +886,7 @@ fn test_validate_accounts_tx() {
         let state = &mut create_state_with_falliable_validation_account();
         let account_tx =
             create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
-        account_tx.execute(state, block_context).unwrap();
+        account_tx.execute(state, block_context, None).unwrap();
 
         if tx_type != TransactionType::DeployAccount {
             // Calling self (allowed).
@@ -897,7 +897,7 @@ fn test_validate_accounts_tx() {
                 Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
                 &mut NonceManager::default(),
             );
-            account_tx.execute(state, block_context).unwrap();
+            account_tx.execute(state, block_context, None).unwrap();
         }
 
         // Negative flows.
@@ -910,7 +910,7 @@ fn test_validate_accounts_tx() {
             None,
             &mut NonceManager::default(),
         );
-        let error = account_tx.execute(state, block_context).unwrap_err();
+        let error = account_tx.execute(state, block_context, None).unwrap_err();
         // TODO(Noa,01/05/2023): Test the exact failure reason.
         assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
 
@@ -921,7 +921,7 @@ fn test_validate_accounts_tx() {
             Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
             &mut NonceManager::default(),
         );
-        let error = account_tx.execute(state, block_context).unwrap_err();
+        let error = account_tx.execute(state, block_context, None).unwrap_err();
         assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
         entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
 
@@ -943,7 +943,7 @@ fn test_validate_accounts_tx() {
                 &mut NonceManager::default(),
             );
             let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-            let error = account_tx.execute(state, block_context).unwrap_err();
+            let error = account_tx.execute(state, block_context, None).unwrap_err();
             assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
         entry_point_kind == "an account constructor");
         }
@@ -963,7 +963,7 @@ fn test_calculate_tx_gas_usage() {
 
     let invoke_tx = invoke_tx();
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
-    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+    let tx_execution_info = account_tx.execute(state, block_context, None).unwrap();
 
     let n_storage_updates = 1; // For the account balance update.
     let n_modified_contracts = 1;
@@ -1003,9 +1003,9 @@ fn test_calculate_tx_gas_usage() {
         ..invoke_tx
     }));
 
-    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+    let tx_execution_info = account_tx.execute(state, block_context, None).unwrap();
     // For the sender balance update only (and not the sequencer balance).
-    let n_storage_updates = 1;
+    let n_storage_updates = 2;
     // Only the account contract modification (nonce update) excluding the fee token contract.
     let n_modified_contracts = 1;
     let state_changes = StateChanges {

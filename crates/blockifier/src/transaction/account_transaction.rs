@@ -272,8 +272,8 @@ impl AccountTransaction {
         self.max_fee() != Fee(0)
     }
 
-    /// Handles nonce and checks that the account's balance covers max fee.
-    fn check_fee_balance_and_handle_nonce<S: StateReader>(
+    /// Checks that the account's balance covers max fee.
+    fn check_fee_balance<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
@@ -306,9 +306,6 @@ impl AccountTransaction {
             }
         }
 
-        // Handle nonce.
-        Self::handle_nonce(&account_tx_context, state)?;
-
         Ok(())
     }
 
@@ -317,6 +314,7 @@ impl AccountTransaction {
         state: &mut dyn State,
         block_context: &BlockContext,
         resources: &ResourcesMapping,
+        skip_fee_charge: bool,
     ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
         let no_fee = Fee::default();
         let account_tx_context = self.get_account_transaction_context();
@@ -326,10 +324,17 @@ impl AccountTransaction {
         }
 
         let actual_fee = calculate_tx_fee(resources, block_context)?;
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
+        let mut fee_transfer_call_info = None;
+        if !skip_fee_charge {
+            fee_transfer_call_info = Some(Self::execute_fee_transfer(
+                state,
+                block_context,
+                account_tx_context,
+                actual_fee,
+            )?);
+        }
 
-        Ok((actual_fee, Some(fee_transfer_call_info)))
+        Ok((actual_fee, fee_transfer_call_info))
     }
 
     fn execute_fee_transfer(
@@ -467,7 +472,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
+        skip_fee_charge: Option<bool>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        let skip_fee_charge = skip_fee_charge.unwrap_or(false);
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
 
@@ -475,7 +482,11 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
-        self.check_fee_balance_and_handle_nonce(state, block_context)?;
+        if !skip_fee_charge {
+            self.check_fee_balance(state, block_context)?;
+        }
+        // Handle nonce.
+        Self::handle_nonce(&account_tx_context, state)?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {
