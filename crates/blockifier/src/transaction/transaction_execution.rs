@@ -78,11 +78,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             sender_address: tx.contract_address,
         };
         let mut resources = ExecutionResources::default();
-        let mut context = EntryPointExecutionContext::new(
-            block_context.clone(),
-            tx_context,
-            block_context.invoke_tx_max_n_steps,
-        );
+        let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
