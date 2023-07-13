@@ -4,6 +4,7 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::execution::entry_point::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::state::errors::StateError;
 
@@ -38,6 +39,8 @@ pub enum TransactionExecutionError {
          {max_order}."
     )]
     InvalidOrder { object: String, order: usize, max_order: usize },
+    #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
+    InvalidValidateReturnData { actual: Retdata },
     #[error(
         "Transaction version {version:?} is not supported. Supported versions: \
          {allowed_versions:?}."
