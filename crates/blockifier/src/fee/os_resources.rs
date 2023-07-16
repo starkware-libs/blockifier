@@ -130,7 +130,7 @@ fn os_resources() -> serde_json::Value {
             },
             "Secp256k1GetPointFromX": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 29
+                    "range_check_builtin": 30
                 },
                 "n_memory_holes": 0,
                 "n_steps": 360
