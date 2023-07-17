@@ -36,8 +36,10 @@ pub fn calculate_l1_gas_usage<S: StateReader>(
     block_context: &BlockContext,
     sender_address: Option<ContractAddress>,
 ) -> TransactionExecutionResult<usize> {
-    let state_changes =
-        state.count_actual_state_changes_for_fee_charge(block_context, sender_address)?;
+    let state_changes = state.count_actual_state_changes_for_fee_charge(
+        block_context.fee_token_address,
+        sender_address,
+    )?;
 
     let mut l2_to_l1_payloads_length = vec![];
     for call_info in call_infos {

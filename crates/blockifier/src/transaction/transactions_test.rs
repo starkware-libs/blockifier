@@ -940,8 +940,8 @@ fn test_calculate_tx_gas_usage() {
     }));
 
     let tx_execution_info = account_tx.execute(state, block_context).unwrap();
-    // For the sender balance update only (and not the sequencer balance).
-    let n_storage_updates = 1;
+    // For the balance update of the sender and the sequencer.
+    let n_storage_updates = 2;
     // Only the account contract modification (nonce update) excluding the fee token contract.
     let n_modified_contracts = 1;
     let state_changes = StateChanges {
