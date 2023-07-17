@@ -59,33 +59,56 @@ enum CairoVersion {
     Cairo1,
 }
 
+struct ExpectedResultTestInvokeTx {
+    range_check: usize,
+    n_steps: usize,
+    vm_resources: VmExecutionResources,
+    validate_gas_consumed: u64,
+    execute_gas_consumed: u64,
+    inner_call_initial_gas: u64,
+}
+
 fn expected_validate_call_info(
     class_hash: ClassHash,
     entry_point_selector_name: &str,
-    return_data: Retdata,
+    gas_consumed: u64,
     calldata: Calldata,
     storage_address: ContractAddress,
     cairo_version: CairoVersion,
 ) -> Option<CallInfo> {
+    let retdata = match cairo_version {
+        CairoVersion::Cairo0 => Retdata::default(),
+        CairoVersion::Cairo1 => retdata!(stark_felt!(constants::VALIDATE_RETDATA)),
+    };
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks = match cairo_version {
         CairoVersion::Cairo0 => {
             usize::from(entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME)
         }
-        CairoVersion::Cairo1 => 2,
+        CairoVersion::Cairo1 => {
+            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME { 7 } else { 2 }
+        }
+    };
+    let n_memory_holes = match cairo_version {
+        CairoVersion::Cairo1
+            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME =>
+        {
+            1
+        }
+        _ => 0,
     };
     let n_steps = match (entry_point_selector_name, cairo_version) {
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 13_usize,
-        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 13_usize,
+        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 73_usize,
         (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 12_usize,
         (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 54_usize,
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 21_usize,
-        (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 21_usize,
+        (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 192_usize,
         (selector, _) => panic!("Selector {selector} is not a known validate selector."),
     };
     let vm_resources = VmExecutionResources {
         n_steps,
-        n_memory_holes: 0,
+        n_memory_holes,
         builtin_instance_counter: HashMap::from([(
             RANGE_CHECK_BUILTIN_NAME.to_string(),
             n_range_checks,
@@ -106,8 +129,8 @@ fn expected_validate_call_info(
             initial_gas: Transaction::initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
-        execution: CallExecution { retdata: (return_data), ..Default::default() },
         vm_resources,
+        execution: CallExecution { retdata, gas_consumed, ..Default::default() },
         ..Default::default()
     })
 }
@@ -225,9 +248,44 @@ fn invoke_tx() -> InvokeTransactionV1 {
     )
 }
 
-#[test]
-fn test_invoke_tx() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account(),
+    ExpectedResultTestInvokeTx{
+        range_check: 101,
+        n_steps: 4135,
+        vm_resources: VmExecutionResources {
+            n_steps:  61,
+            n_memory_holes:  0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+        },
+        validate_gas_consumed: 0,
+        execute_gas_consumed: 0,
+        inner_call_initial_gas: abi_constants::INITIAL_GAS_COST,
+    },
+    CairoVersion::Cairo0;
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account(),
+    ExpectedResultTestInvokeTx{
+        range_check: 113,
+        n_steps: 4568,
+        vm_resources: VmExecutionResources {
+            n_steps: 292,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
+        },
+        validate_gas_consumed: 14760, // The gas consumption results from parsing the input
+            // arguments.
+        execute_gas_consumed: 104560,
+        inner_call_initial_gas: 9999680680,
+    },
+    CairoVersion::Cairo1;
+    "With Cairo1 account")]
+fn test_invoke_tx(
+    state: &mut CachedState<DictStateReader>,
+    expected_arguments: ExpectedResultTestInvokeTx,
+    cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let invoke_tx = invoke_tx();
 
@@ -241,15 +299,13 @@ fn test_invoke_tx() {
 
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-    let expected_return_data = Retdata::default();
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
-        expected_return_data,
+        expected_arguments.validate_gas_consumed,
         calldata,
-        expected_account_address,
-        CairoVersion::Cairo0,
+        sender_address,
+        cairo_version,
     );
 
     // Build expected execute call info.
@@ -262,23 +318,24 @@ fn test_invoke_tx() {
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
         storage_address,
-        caller_address: expected_account_address,
+        caller_address: sender_address,
         call_type: CallType::Call,
-        initial_gas: abi_constants::INITIAL_GAS_COST,
+        initial_gas: expected_arguments.inner_call_initial_gas,
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
+        initial_gas: Transaction::initial_gas() - expected_arguments.validate_gas_consumed,
         ..expected_validate_call_info.as_ref().unwrap().call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata);
     let expected_execute_call_info = Some(CallInfo {
         call: expected_execute_call,
-        execution: CallExecution::from_retdata(Retdata(expected_return_result_retdata.0.clone())),
-        vm_resources: VmExecutionResources {
-            n_steps: 61,
-            n_memory_holes: 0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+        execution: CallExecution {
+            retdata: Retdata(expected_return_result_retdata.0.clone()),
+            gas_consumed: expected_arguments.execute_gas_consumed,
+            ..Default::default()
         },
+        vm_resources: expected_arguments.vm_resources,
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
@@ -297,7 +354,7 @@ fn test_invoke_tx() {
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
-        expected_account_address,
+        sender_address,
         expected_actual_fee,
         VmExecutionResources {
             n_steps: 525,
@@ -318,8 +375,8 @@ fn test_invoke_tx() {
             // 1 modified contract, 1 storage update (sender balance).
             (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
             (HASH_BUILTIN_NAME.to_string(), 16),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 101),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 4135),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
         ])),
         revert_error: None,
     };
@@ -506,35 +563,20 @@ fn declare_tx(
 
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
-    Retdata::default(),
-    ResourcesMapping(HashMap::from([
-        // 1 modified contract, 1 storage update (sender balance).
-        (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
-        (HASH_BUILTIN_NAME.to_string(), 15),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2715),
-    ])),
+    63, // range_check_builtin
+    2715, // n_steps
     CairoVersion::Cairo0;
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
-    retdata!(stark_felt!(
-        // Return data is VALIDATED
-        "0x00000000000000000000000000000000000000000000000000000056414c4944"
-    )),
-    ResourcesMapping(HashMap::from([
-        // 1 modified contract, 1 storage update (sender balance).
-        (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
-        (HASH_BUILTIN_NAME.to_string(), 15),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2757),
-    ])),
+    65, // range_check_builtin
+    2757, // n_steps
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_declare_tx(
     state: &mut CachedState<DictStateReader>,
-    expected_return_data: Retdata,
-    expected_actual_resources: ResourcesMapping,
+    expected_range_check_builtin: usize,
+    expected_n_steps_resource: usize,
     cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
@@ -564,10 +606,11 @@ fn test_declare_tx(
     // Build expected validate call info.
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
-        expected_return_data,
+        expected_gas_consumed,
         calldata![class_hash.0],
         expected_account_address,
         cairo_version,
@@ -596,7 +639,13 @@ fn test_declare_tx(
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         revert_error: None,
-        actual_resources: expected_actual_resources,
+        actual_resources: ResourcesMapping(HashMap::from([
+            // 1 modified contract, 1 storage update (sender balance).
+            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+            (HASH_BUILTIN_NAME.to_string(), 15),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
+        ])),
     };
 
     // Test execution info result.
@@ -685,9 +734,24 @@ fn deploy_account_tx(
     )
 }
 
-#[test]
-fn test_deploy_account_tx() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account(),
+    83, // range_check_builtin
+    3625, // n_steps
+    CairoVersion::Cairo0;
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account(),
+    85, // range_check_builtin
+    3685, // n_steps
+    CairoVersion::Cairo1;
+    "With Cairo1 account")]
+fn test_deploy_account_tx(
+    state: &mut CachedState<DictStateReader>,
+    expected_range_check_builtin: usize,
+    expected_n_steps_resource: usize,
+    cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
     let deploy_account_tx =
@@ -717,14 +781,14 @@ fn test_deploy_account_tx() {
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
     let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let expected_return_data = Retdata::default();
+    let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
-        expected_return_data,
+        expected_gas_consumed,
         Calldata(validate_calldata.into()),
         deployed_account_address,
-        CairoVersion::Cairo0,
+        cairo_version,
     );
 
     // Build expected execute call info.
@@ -767,8 +831,8 @@ fn test_deploy_account_tx() {
             // 1 modified contract, 1 storage update (sender balance) + 1 class_hash update.
             (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 1) * 612),
             (HASH_BUILTIN_NAME.to_string(), 23),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), 3625),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
         ])),
         revert_error: None,
     };
