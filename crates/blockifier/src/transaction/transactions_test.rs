@@ -814,10 +814,9 @@ fn test_deploy_account_tx() {
 #[test]
 fn test_validate_accounts_tx() {
     fn test_validate_account_tx(tx_type: TransactionType) {
-        let block_context = &BlockContext::create_for_testing();
+        let block_context = &BlockContext::create_for_account_testing();
 
         // Positive flows.
-
         // Valid logic.
         let state = &mut create_state_with_falliable_validation_account();
         let account_tx =
