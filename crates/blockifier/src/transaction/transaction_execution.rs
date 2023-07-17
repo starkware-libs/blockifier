@@ -91,7 +91,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             &call_infos,
             state,
             l1_handler_payload_size,
-            block_context,
+            block_context.fee_token_address,
             None,
         )?;
         let actual_resources =
