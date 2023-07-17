@@ -494,7 +494,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             &non_optional_call_infos,
             state,
             None,
-            block_context,
+            block_context.fee_token_address,
             Some(account_tx_context.sender_address),
         )?;
         let mut actual_resources = calculate_tx_resources(resources, l1_gas_usage, self.tx_type())?;
