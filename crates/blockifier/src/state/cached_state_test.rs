@@ -8,6 +8,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
+use crate::block_context::BlockContext;
 use crate::test_utils::{
     deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
@@ -283,13 +284,17 @@ fn count_actual_state_changes() {
     state.set_storage_at(block_context.fee_token_address, low_key, storage_val);
 
     let state_changes = state
-        .count_actual_state_changes_for_fee_charge(&block_context, Some(contract_address))
+        .count_actual_state_changes_for_fee_charge(
+            block_context.fee_token_address,
+            Some(contract_address),
+        )
         .unwrap();
 
     assert_eq!(
         state_changes,
         StateChanges {
-            n_storage_updates: 2, // 1 for storage update + 1 for sender balance update.
+            // 1 for storage update + 1 for sender balance update + 1 for sequncer balance update.
+            n_storage_updates: 3,
             n_modified_contracts: 2,
             n_class_hash_updates: 1,
             n_compiled_class_hash_updates: 1
