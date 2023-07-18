@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::{
-    ExecutionResources as VmExecutionResources, RunResources,
+    ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
 };
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
