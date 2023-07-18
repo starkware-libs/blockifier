@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,

@@ -1,2 +1,5 @@
-#[contract]
-mod TestContract {}
+#[starknet::contract]
+mod TestContract {
+    #[storage]
+    struct Storage {}
+}

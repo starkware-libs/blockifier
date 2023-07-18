@@ -1,5 +1,6 @@
 use std::cmp::min;
 
+use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
