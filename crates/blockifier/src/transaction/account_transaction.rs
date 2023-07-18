@@ -311,24 +311,19 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         block_context: &BlockContext,
-        resources: &ResourcesMapping,
-        is_reverted: bool,
-    ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
-        let no_fee = Fee::default();
-        let account_tx_context = self.get_account_transaction_context();
-        if account_tx_context.max_fee == no_fee {
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        if actual_fee == Fee(0) {
             // Fee charging is not enforced in some tests.
-            return Ok((no_fee, None));
+            return Ok(None);
         }
 
-        let mut actual_fee = calculate_tx_fee(resources, block_context)?;
-        if is_reverted {
-            actual_fee = min(actual_fee, account_tx_context.max_fee);
-        }
+        // Charge fee.
+        let account_tx_context = self.get_account_transaction_context();
         let fee_transfer_call_info =
             Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
 
-        Ok((actual_fee, Some(fee_transfer_call_info)))
+        Ok(Some(fee_transfer_call_info))
     }
 
     fn execute_fee_transfer(
@@ -460,6 +455,47 @@ impl AccountTransaction {
             }
         }
     }
+
+    #[allow(clippy::too_many_arguments)]
+    fn calculate_actual_fee_and_resources<S: StateReader>(
+        &self,
+        state: &mut TransactionalState<'_, S>,
+        execute_call_info: &Option<CallInfo>,
+        validate_call_info: &Option<CallInfo>,
+        execution_resources: ExecutionResources,
+        block_context: &BlockContext,
+        is_reverted: bool,
+        n_reverted_steps: usize,
+    ) -> TransactionExecutionResult<(Fee, ResourcesMapping)> {
+        let account_tx_context = self.get_account_transaction_context();
+
+        let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&CallInfo>>();
+        let l1_gas_usage = calculate_l1_gas_usage(
+            &non_optional_call_infos,
+            state,
+            None,
+            block_context.fee_token_address,
+            Some(account_tx_context.sender_address),
+        )?;
+        let mut actual_resources =
+            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type())?;
+
+        // Add reverted steps to actual_resources' n_steps for correct fee charge.
+        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
+            n_reverted_steps;
+
+        let mut actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
+
+        if is_reverted || account_tx_context.max_fee == Fee(0) {
+            // is_reverted: we cannot charge more than max_fee for reverted txs.
+            // zero fee: fee charging is not enforced in some tests.
+            actual_fee = min(actual_fee, account_tx_context.max_fee);
+        }
+        Ok((actual_fee, actual_resources))
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
@@ -485,29 +521,18 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             n_reverted_steps,
         } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
-        // Handle fee.
-        let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage = calculate_l1_gas_usage(
-            &non_optional_call_infos,
+        let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
             state,
-            None,
-            block_context.fee_token_address,
-            Some(account_tx_context.sender_address),
+            &execute_call_info,
+            &validate_call_info,
+            resources,
+            block_context,
+            revert_error.is_some(),
+            n_reverted_steps,
         )?;
-        let mut actual_resources = calculate_tx_resources(resources, l1_gas_usage, self.tx_type())?;
-
-        // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            n_reverted_steps;
 
         // Charge fee.
-        // Recreate the context to empty the execution resources.
-        let is_reverted = revert_error.is_some();
-        let (actual_fee, fee_transfer_call_info) =
-            self.charge_fee(state, block_context, &actual_resources, is_reverted)?;
+        let fee_transfer_call_info = self.charge_fee(state, block_context, actual_fee)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
