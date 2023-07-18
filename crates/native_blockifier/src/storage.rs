@@ -33,31 +33,11 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-<<<<<<< HEAD
     #[args(config)]
     pub fn new(config: StorageConfig) -> NativeBlockifierResult<Storage> {
-||||||| 4b3273c
-    #[args(path_prefix, chain_id, max_size)]
-    pub fn new(
-        path_prefix: PathBuf,
-        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
-        max_size: usize,
-    ) -> NativeBlockifierResult<Storage> {
-=======
-    #[args(path, max_size)]
-    pub fn new(path: PathBuf, max_size: usize) -> NativeBlockifierResult<Storage> {
->>>>>>> origin/main-v0.12.1
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
-<<<<<<< HEAD
-            path_prefix: config.path,
-            chain_id: config.chain_id,
-||||||| 4b3273c
-            path_prefix,
-            chain_id,
-=======
-            path,
->>>>>>> origin/main-v0.12.1
+            path: config.path,
             min_size: 1 << 20, // 1MB.
             max_size: config.max_size,
             growth_step: 1 << 26, // 64MB.
@@ -243,8 +223,7 @@ impl Storage {
     #[args(path)]
     pub fn new_for_testing(path: PathBuf) -> Storage {
         let db_config = papyrus_storage::db::DbConfig {
-            path_prefix: path,
-            chain_id: ChainId("".to_string()),
+            path,
             min_size: 1 << 20,    // 1MB
             max_size: 1 << 35,    // 32GB
             growth_step: 1 << 26, // 64MB
@@ -269,18 +248,13 @@ impl Storage {
 #[derive(Clone)]
 pub struct StorageConfig {
     path: PathBuf,
-    chain_id: ChainId,
     max_size: usize,
 }
 
 #[pymethods]
 impl StorageConfig {
     #[new]
-    pub fn new(
-        path: PathBuf,
-        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
-        max_size: usize,
-    ) -> Self {
-        Self { path, chain_id, max_size }
+    pub fn new(path: PathBuf, max_size: usize) -> Self {
+        Self { path, max_size }
     }
 }
