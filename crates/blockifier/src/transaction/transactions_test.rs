@@ -980,13 +980,14 @@ fn test_calculate_tx_gas_usage() {
         l1_gas_usage
     );
 
-    // A tx that changes the account and sequencer balance in execute.
+    // A tx that changes the account and some other balance in execute.
     let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
+    let some_other_account_address = stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
     let execute_calldata = calldata![
         *block_context.fee_token_address.0.key(), // Contract address.
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
-        *block_context.sequencer_address.0.key(), // Calldata: recipient.
+        some_other_account_address,               // Calldata: recipient.
         stark_felt!(2_u8),                        // Calldata: lsb amount.
         stark_felt!(0_u8)                         // Calldata: msb amount.
     ];
@@ -1004,8 +1005,8 @@ fn test_calculate_tx_gas_usage() {
     }));
 
     let tx_execution_info = account_tx.execute(state, block_context).unwrap();
-    // For the sender balance update only (and not the sequencer balance).
-    let n_storage_updates = 1;
+    // For the balance update of the sender and the recipient.
+    let n_storage_updates = 2;
     // Only the account contract modification (nonce update) excluding the fee token contract.
     let n_modified_contracts = 1;
     let state_changes = StateChanges {
