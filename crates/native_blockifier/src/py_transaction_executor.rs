@@ -141,7 +141,7 @@ impl TransactionExecutor {
         self.with_mut(|executor| {
             let mut transactional_state = CachedState::create_transactional(executor.state);
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context, None)
+                .execute_raw(&mut transactional_state, executor.block_context, true)
                 .map_err(NativeBlockifierError::from);
             let (py_tx_execution_info, py_casm_hash_calculation_resources) =
                 match tx_execution_result {
