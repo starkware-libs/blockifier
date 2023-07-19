@@ -1,7 +1,8 @@
+use std::cmp::min;
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::{
-    ExecutionResources as VmExecutionResources, RunResources,
+    ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
 };
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -91,10 +92,10 @@ impl EntryPointExecutionContext {
     pub fn new(
         block_context: BlockContext,
         account_tx_context: AccountTransactionContext,
-        max_n_steps: u32,
+        max_n_steps: usize,
     ) -> Self {
         Self {
-            vm_run_resources: RunResources::new(max_n_steps as usize),
+            vm_run_resources: RunResources::new(max_n_steps),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
@@ -105,22 +106,57 @@ impl EntryPointExecutionContext {
         }
     }
 
+    pub fn new_validate(
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> Self {
+        Self::new(
+            block_context.clone(),
+            account_tx_context.clone(),
+            block_context.validate_max_n_steps as usize,
+        )
+    }
+
+    pub fn new_invoke(
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> Self {
+        Self::new(
+            block_context.clone(),
+            account_tx_context.clone(),
+            Self::max_invoke_steps(block_context, account_tx_context),
+        )
+    }
+
     /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
     /// If fee is disabled, returns the global maximum.
-    pub fn max_steps(&self) -> usize {
-        if self.account_tx_context.max_fee == Fee(0) {
-            constants::MAX_STEPS_PER_TX
+    pub fn max_invoke_steps(
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> usize {
+        if account_tx_context.max_fee == Fee(0) {
+            min(constants::MAX_STEPS_PER_TX, block_context.invoke_tx_max_n_steps as usize)
         } else {
-            let gas_per_step = self
-                .block_context
+            let gas_per_step = block_context
                 .vm_resource_fee_cost
                 .get(constants::N_STEPS_RESOURCE)
                 .unwrap_or_else(|| {
                     panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
                 });
-            let max_gas = self.account_tx_context.max_fee.0 / self.block_context.gas_price;
-            ((max_gas as f64 / gas_per_step).floor() as usize).min(constants::MAX_STEPS_PER_TX)
+            let max_gas = account_tx_context.max_fee.0 / block_context.gas_price;
+            ((max_gas as f64 / gas_per_step).floor() as usize)
+                .min(constants::MAX_STEPS_PER_TX)
+                .min(block_context.invoke_tx_max_n_steps as usize)
         }
+    }
+
+    /// Subtracts the given number of steps from the currently available run resources.
+    /// Used for limiting the number of steps available during the execution stage, to leave enough
+    /// steps available for the fee transfer stage.
+    pub fn subtract_steps(&mut self, steps_to_subtract: usize) {
+        let current_n_steps = self.vm_run_resources.get_n_steps().unwrap();
+        let steps_to_subtract = min(steps_to_subtract, current_n_steps);
+        self.vm_run_resources = RunResources::new(current_n_steps - steps_to_subtract);
     }
 
     /// Combines individual errors into a single stack trace string, with contract addresses printed
