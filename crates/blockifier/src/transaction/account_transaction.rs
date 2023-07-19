@@ -514,7 +514,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         // Charge fee.
         // Recreate the context to empty the execution resources.
         let (actual_fee, fee_transfer_call_info) =
-            self.charge_fee(state, block_context, &actual_resources)?;
+            self.charge_fee(state, block_context, &actual_resources, skip_fee_charge)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
