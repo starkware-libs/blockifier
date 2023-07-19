@@ -531,14 +531,13 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
         max_fee: invalid_max_fee,
         ..valid_invoke_tx.clone()
     }));
-    let execution_error = invalid_tx.execute(state, block_context, true).unwrap_err();
+    let execution_result = invalid_tx.execute(state, block_context, true).unwrap();
+    let execution_error = execution_result.revert_error.unwrap();
 
     // Test error.
-    assert_matches!(
-        execution_error,
-        TransactionExecutionError::FeeTransferError{ max_fee, .. }
-        if max_fee == invalid_max_fee
-    );
+    assert!(execution_error.contains("Insufficient max fee:"));
+    // Test that fee was charged.
+    assert_eq!(execution_result.actual_fee, invalid_max_fee);
 
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
