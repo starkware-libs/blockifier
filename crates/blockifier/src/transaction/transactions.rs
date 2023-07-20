@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
-use starknet_api::core::ContractAddress;
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Fee, InvokeTransaction, TransactionHash, TransactionSignature,
+    TransactionVersion,
+};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -25,6 +28,22 @@ use crate::transaction::transaction_utils::{
 #[cfg(test)]
 #[path = "transactions_test.rs"]
 mod test;
+
+macro_rules! implement_inner_tx_getters {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            self.tx.$field
+        })*
+    };
+}
+
+macro_rules! implement_clone_inner_tx_getters {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            self.tx.$field.clone()
+        })*
+    };
+}
 
 pub trait ExecutableTransaction<S: StateReader>: Sized {
     /// Executes the transaction in a transactional manner
@@ -172,6 +191,28 @@ impl<S: State> Executable<S> for DeclareTransaction {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DeployAccountTransaction {
+    pub tx: starknet_api::transaction::DeployAccountTransaction,
+    pub contract_address: ContractAddress,
+}
+
+impl DeployAccountTransaction {
+    implement_inner_tx_getters!(
+        (transaction_hash, TransactionHash),
+        (class_hash, ClassHash),
+        (contract_address_salt, ContractAddressSalt),
+        (max_fee, Fee),
+        (version, TransactionVersion),
+        (nonce, Nonce)
+    );
+
+    implement_clone_inner_tx_getters!(
+        (constructor_calldata, Calldata),
+        (signature, TransactionSignature)
+    );
+}
+
 impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
@@ -181,7 +222,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let ctor_context = ConstructorContext {
-            class_hash: self.class_hash,
+            class_hash: self.class_hash(),
             code_address: None,
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
@@ -191,7 +232,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             resources,
             context,
             ctor_context,
-            self.constructor_calldata.clone(),
+            self.constructor_calldata(),
             *remaining_gas,
         );
         let call_info = deployment_result
@@ -215,7 +256,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             InvokeTransaction::V0(tx) => tx.entry_point_selector,
             InvokeTransaction::V1(_) => selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         };
-        let storage_address = self.sender_address();
+        let storage_address = context.account_tx_context.sender_address;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector,
