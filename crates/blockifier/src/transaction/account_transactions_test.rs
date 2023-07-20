@@ -403,7 +403,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     );
 
     // Fail execution, assert nonce and balance are unchanged.
-    declare_account_tx.execute(&mut state, &block_context).unwrap_err();
+    declare_account_tx.execute(&mut state, &block_context, true).unwrap_err();
     assert_eq!(state.get_nonce_at(account_address).unwrap(), next_nonce);
     assert_eq!(
         state.get_fee_token_balance(&block_context, &account_address).unwrap(),
@@ -669,7 +669,7 @@ fn test_max_fee_to_max_steps_conversion(
         &account_tx1.get_account_transaction_context(),
     );
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
-    let tx_execution_info1 = account_tx1.execute(&mut state, &block_context).unwrap();
+    let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
@@ -684,7 +684,7 @@ fn test_max_fee_to_max_steps_conversion(
         &account_tx2.get_account_transaction_context(),
     );
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
-    let tx_execution_info2 = account_tx2.execute(&mut state, &block_context).unwrap();
+    let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.0.get("n_steps").unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
