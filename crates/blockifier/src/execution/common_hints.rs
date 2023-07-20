@@ -14,6 +14,7 @@ use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use num_traits::{Num, One, Zero};
@@ -87,5 +88,5 @@ pub fn extended_builtin_hint_processor() -> BuiltinHintProcessor {
             Rc::new(HintFunc(Box::new(normalize_address_set_is_250))),
         ),
     ]);
-    BuiltinHintProcessor::new(extra_hints)
+    BuiltinHintProcessor::new(extra_hints, RunResources::default())
 }

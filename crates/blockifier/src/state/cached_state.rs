@@ -7,7 +7,6 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::abi_utils::get_erc20_balance_var_addresses;
-use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -48,7 +47,7 @@ impl<S: StateReader> CachedState<S> {
     /// root); the state updates correspond to them.
     pub fn count_actual_state_changes_for_fee_charge(
         &mut self,
-        block_context: &BlockContext,
+        fee_token_address: ContractAddress,
         sender_address: Option<ContractAddress>,
     ) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
@@ -70,18 +69,14 @@ impl<S: StateReader> CachedState<S> {
         let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
 
         // Calculated before executing fee transfer and therefore we add manually the fee transfer
-        // changes. Exclude the sequencer balance update and the fee token contract modification,
-        // since it’s charged once throughout the block.
+        // changes. Exclude the fee token contract modification, since it’s charged once throughout
+        // the block.
         if let Some(sender_address) = sender_address {
             let (sender_low_key, _sender_high_key) =
                 get_erc20_balance_var_addresses(&sender_address)?;
-            storage_updates
-                .insert((block_context.fee_token_address, sender_low_key), StarkFelt::default());
+            storage_updates.insert((fee_token_address, sender_low_key), StarkFelt::default());
         }
-        let (sequencer_low_key, _sequencer_high_key) =
-            get_erc20_balance_var_addresses(&block_context.sequencer_address)?;
-        storage_updates.remove(&(block_context.fee_token_address, sequencer_low_key));
-        modified_contracts.remove(&block_context.fee_token_address);
+        modified_contracts.remove(&fee_token_address);
 
         Ok(StateChanges {
             n_storage_updates: storage_updates.len(),

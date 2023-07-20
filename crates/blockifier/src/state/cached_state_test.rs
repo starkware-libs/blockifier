@@ -8,6 +8,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
+use crate::block_context::BlockContext;
 use crate::test_utils::{
     deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
@@ -277,13 +278,11 @@ fn count_actual_state_changes() {
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val);
 
-    // Update the sequencer balance (should not be counted as a storage change).
-    let (low_key, _high_key) =
-        get_erc20_balance_var_addresses(&block_context.sequencer_address).unwrap();
-    state.set_storage_at(block_context.fee_token_address, low_key, storage_val);
-
     let state_changes = state
-        .count_actual_state_changes_for_fee_charge(&block_context, Some(contract_address))
+        .count_actual_state_changes_for_fee_charge(
+            block_context.fee_token_address,
+            Some(contract_address),
+        )
         .unwrap();
 
     assert_eq!(

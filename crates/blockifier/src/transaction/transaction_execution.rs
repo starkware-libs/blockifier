@@ -79,11 +79,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             sender_address: tx.contract_address,
         };
         let mut resources = ExecutionResources::default();
-        let mut context = EntryPointExecutionContext::new(
-            block_context.clone(),
-            tx_context,
-            block_context.invoke_tx_max_n_steps,
-        );
+        let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
@@ -96,11 +92,11 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             &call_infos,
             state,
             l1_handler_payload_size,
-            block_context,
+            block_context.fee_token_address,
             None,
         )?;
         let actual_resources =
-            calculate_tx_resources(resources, l1_gas_usage, TransactionType::L1Handler, 0)?;
+            calculate_tx_resources(resources, l1_gas_usage, TransactionType::L1Handler)?;
         let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.

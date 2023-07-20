@@ -13,7 +13,7 @@ mod TestContract {
     use option::OptionTrait;
     use starknet::{
     eth_address::U256IntoEthAddress, EthAddress,
-    secp256_trait::verify_eth_signature
+    secp256_trait::{Signature, verify_eth_signature},
 };
 
     const UNEXPECTED_ERROR: felt252 = 'UNEXPECTED ERROR';
@@ -226,7 +226,7 @@ mod TestContract {
             :y_parity
         );
         verify_eth_signature::<starknet::secp256k1::Secp256k1Point>(
-            :msg_hash, :r, :s, :y_parity, :eth_address);
+            :msg_hash, signature: Signature{ r, s, y_parity }, :eth_address);
     }
 
     /// Returns a golden valid message hash and its signature, for testing.
@@ -252,4 +252,3 @@ mod TestContract {
     }
 }
 
-  

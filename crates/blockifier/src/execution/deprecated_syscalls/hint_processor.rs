@@ -6,7 +6,7 @@ use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_def
     BuiltinHintProcessor, HintProcessorData,
 };
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::get_ptr_from_var_name;
-use cairo_vm::hint_processor::hint_processor_definition::{HintProcessor, HintReference};
+use cairo_vm::hint_processor::hint_processor_definition::{HintProcessorLogic, HintReference};
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
@@ -14,7 +14,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::RunResources;
+use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -323,32 +323,38 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     }
 }
 
-impl HintProcessor for DeprecatedSyscallHintProcessor<'_> {
+impl ResourceTracker for DeprecatedSyscallHintProcessor<'_> {
+    fn consumed(&self) -> bool {
+        self.context.vm_run_resources.consumed()
+    }
+
+    fn consume_step(&mut self) {
+        self.context.vm_run_resources.consume_step()
+    }
+
+    fn get_n_steps(&self) -> Option<usize> {
+        self.context.vm_run_resources.get_n_steps()
+    }
+
+    fn run_resources(&self) -> &RunResources {
+        self.context.vm_run_resources.run_resources()
+    }
+}
+
+impl HintProcessorLogic for DeprecatedSyscallHintProcessor<'_> {
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
         constants: &HashMap<String, Felt252>,
-        run_resources: &mut RunResources,
     ) -> HintExecutionResult {
-        self.context.vm_run_resources = run_resources.clone();
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {
-            let result = self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
-            *run_resources = self.context.vm_run_resources.clone();
-            return result;
+            return self.execute_next_syscall(vm, &hint.ids_data, &hint.ap_tracking);
         }
 
-        let result = self.builtin_hint_processor.execute_hint(
-            vm,
-            exec_scopes,
-            hint_data,
-            constants,
-            &mut self.context.vm_run_resources,
-        );
-        *run_resources = self.context.vm_run_resources.clone();
-        result
+        self.builtin_hint_processor.execute_hint(vm, exec_scopes, hint_data, constants)
     }
 }
 
