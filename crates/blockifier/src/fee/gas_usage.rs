@@ -7,7 +7,7 @@ use crate::block_context::BlockContext;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::os_resources::OS_RESOURCES;
-use crate::state::cached_state::StateChanges;
+use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
@@ -21,7 +21,7 @@ pub mod test;
 /// which requires gas.
 pub fn calculate_tx_gas_usage(
     l2_to_l1_payloads_length: &[usize],
-    state_changes: StateChanges,
+    state_changes: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> usize {
     // Calculate the addition of the transaction to the output messages segment.
@@ -58,7 +58,7 @@ pub fn calculate_tx_gas_usage(
 /// modified contracts - are not counted.
 /// This segment consists of deployment info (of contracts deployed by the transaction) and
 /// storage updates.
-pub fn get_onchain_data_segment_length(state_changes: StateChanges) -> usize {
+pub fn get_onchain_data_segment_length(state_changes: StateChangesCount) -> usize {
     // For each newly modified contract:
     // contract address (1 word).
     // + 1 word with the following info: A flag indicating whether the class hash was updated, the
@@ -150,25 +150,27 @@ pub fn estimate_minimal_fee(
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
         // contract modification since it occurs for every tx).
-        AccountTransaction::Declare(_) => get_onchain_data_segment_length(StateChanges {
+        AccountTransaction::Declare(_) => get_onchain_data_segment_length(StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
-        AccountTransaction::Invoke(_) => get_onchain_data_segment_length(StateChanges {
+        AccountTransaction::Invoke(_) => get_onchain_data_segment_length(StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
         // DeployAccount also updates the address -> class hash mapping.
-        AccountTransaction::DeployAccount(_) => get_onchain_data_segment_length(StateChanges {
-            n_storage_updates: 1,
-            n_class_hash_updates: 1,
-            n_compiled_class_hash_updates: 0,
-            n_modified_contracts: 1,
-        }),
+        AccountTransaction::DeployAccount(_) => {
+            get_onchain_data_segment_length(StateChangesCount {
+                n_storage_updates: 1,
+                n_class_hash_updates: 1,
+                n_compiled_class_hash_updates: 0,
+                n_modified_contracts: 1,
+            })
+        }
     };
     let resources = ResourcesMapping(HashMap::from([
         (

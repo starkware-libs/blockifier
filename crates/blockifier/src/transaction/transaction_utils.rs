@@ -7,7 +7,7 @@ use crate::abi::constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
-use crate::state::cached_state::TransactionalState;
+use crate::state::cached_state::{StateChangesCount, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
@@ -43,8 +43,11 @@ pub fn calculate_l1_gas_usage<S: StateReader>(
         l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
     }
 
-    let l1_gas_usage =
-        calculate_tx_gas_usage(&l2_to_l1_payloads_length, state_changes, l1_handler_payload_size);
+    let l1_gas_usage = calculate_tx_gas_usage(
+        &l2_to_l1_payloads_length,
+        StateChangesCount::from(state_changes),
+        l1_handler_payload_size,
+    );
 
     Ok(l1_gas_usage)
 }

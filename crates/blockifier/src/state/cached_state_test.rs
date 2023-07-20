@@ -286,8 +286,8 @@ fn count_actual_state_changes() {
         .unwrap();
 
     assert_eq!(
-        state_changes,
-        StateChanges {
+        StateChangesCount::from(state_changes),
+        StateChangesCount {
             n_storage_updates: 2, // 1 for storage update + 1 for sender balance update.
             n_modified_contracts: 2,
             n_class_hash_updates: 1,

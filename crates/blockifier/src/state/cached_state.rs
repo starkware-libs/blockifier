@@ -42,7 +42,7 @@ impl<S: StateReader> CachedState<S> {
         CachedState::new(MutRefState::new(state))
     }
 
-    /// Returns the number of storage changes done through this state.
+    /// Returns the storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
     pub fn count_actual_state_changes_for_fee_charge(
@@ -79,10 +79,10 @@ impl<S: StateReader> CachedState<S> {
         modified_contracts.remove(&fee_token_address);
 
         Ok(StateChanges {
-            n_storage_updates: storage_updates.len(),
-            n_modified_contracts: modified_contracts.len(),
-            n_class_hash_updates: class_hash_updates.len(),
-            n_compiled_class_hash_updates: compiled_class_hash_updates.len(),
+            storage_updates: storage_updates.clone(),
+            modified_contracts,
+            class_hash_updates: class_hash_updates.clone(),
+            compiled_class_hash_updates: compiled_class_hash_updates.clone(),
         })
     }
 
@@ -543,11 +543,31 @@ pub struct CommitmentStateDiff {
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
 }
 
+/// Holds the state changes.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct StateChanges {
+    pub storage_updates: HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
+    pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
+    pub modified_contracts: HashSet<ContractAddress>,
+}
+
 /// Holds the number of state changes.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct StateChanges {
+pub struct StateChangesCount {
     pub n_storage_updates: usize,
     pub n_class_hash_updates: usize,
     pub n_compiled_class_hash_updates: usize,
     pub n_modified_contracts: usize,
+}
+
+impl From<StateChanges> for StateChangesCount {
+    fn from(state_changes: StateChanges) -> Self {
+        Self {
+            n_storage_updates: state_changes.storage_updates.len(),
+            n_class_hash_updates: state_changes.class_hash_updates.len(),
+            n_compiled_class_hash_updates: state_changes.compiled_class_hash_updates.len(),
+            n_modified_contracts: state_changes.modified_contracts.len(),
+        }
+    }
 }

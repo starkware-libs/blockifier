@@ -30,7 +30,7 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::retdata;
-use crate::state::cached_state::{CachedState, StateChanges};
+use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -978,13 +978,13 @@ fn test_calculate_tx_gas_usage() {
 
     let n_storage_updates = 1; // For the account balance update.
     let n_modified_contracts = 1;
-    let state_changes = StateChanges {
+    let state_changes_count = StateChangesCount {
         n_storage_updates,
         n_class_hash_updates: 0,
         n_modified_contracts,
         n_compiled_class_hash_updates: 0,
     };
-    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes, None);
+    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
 
     assert_eq!(
         *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
@@ -1020,13 +1020,13 @@ fn test_calculate_tx_gas_usage() {
     let n_storage_updates = 2;
     // Only the account contract modification (nonce update) excluding the fee token contract.
     let n_modified_contracts = 1;
-    let state_changes = StateChanges {
+    let state_changes_count = StateChangesCount {
         n_storage_updates,
         n_class_hash_updates: 0,
         n_modified_contracts,
         n_compiled_class_hash_updates: 0,
     };
-    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes, None);
+    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
 
     assert_eq!(
         *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
