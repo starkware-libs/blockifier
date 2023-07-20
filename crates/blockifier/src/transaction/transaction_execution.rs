@@ -1,3 +1,4 @@
+use starknet_api::core::ContractAddress;
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
 
 use crate::abi::constants as abi_constants;
@@ -15,7 +16,8 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 use crate::transaction::transactions::{
-    DeclareTransaction, Executable, ExecutableTransaction, L1HandlerTransaction,
+    DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
+    L1HandlerTransaction,
 };
 
 #[derive(Debug)]
@@ -36,6 +38,7 @@ impl Transaction {
         tx: StarknetApiTransaction,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
+        deployed_contract_address: Option<ContractAddress>,
     ) -> TransactionExecutionResult<Self> {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => {
@@ -51,9 +54,14 @@ impl Transaction {
                     contract_class.expect("Declare should be created with a ContractClass"),
                 )?)))
             }
-            StarknetApiTransaction::DeployAccount(deploy_account) => {
-                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
-            }
+            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
+                AccountTransaction::DeployAccount(DeployAccountTransaction {
+                    tx: deploy_account,
+                    contract_address: deployed_contract_address.expect(
+                        "DeployAccount should be created the with deployed account's address",
+                    ),
+                }),
+            )),
             StarknetApiTransaction::Invoke(invoke) => {
                 Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke)))
             }

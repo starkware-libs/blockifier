@@ -9,14 +9,14 @@ use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockHeader, BlockNumber, BlockTimestamp, GasPrice};
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, GlobalRoot};
+use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, GlobalRoot};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff, StateNumber};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_utils::PyFelt;
+use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::PyStateDiff;
 
 const GENESIS_BLOCK_ID: u64 = u64::MAX;
@@ -33,11 +33,12 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    #[args(config)]
+    #[args(path_prefix, chain_id, max_size)]
     pub fn new(config: StorageConfig) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
-            path: config.path,
+            path_prefix: config.path_prefix,
+            chain_id: config.chain_id,
             min_size: 1 << 20, // 1MB.
             max_size: config.max_size,
             growth_step: 1 << 26, // 64MB.
@@ -221,9 +222,13 @@ impl Storage {
 
     #[staticmethod]
     #[args(path)]
-    pub fn new_for_testing(path: PathBuf) -> Storage {
+    pub fn new_for_testing(
+        path_prefix: PathBuf,
+        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
+    ) -> Storage {
         let db_config = papyrus_storage::db::DbConfig {
-            path,
+            path_prefix,
+            chain_id,
             min_size: 1 << 20,    // 1MB
             max_size: 1 << 35,    // 32GB
             growth_step: 1 << 26, // 64MB
@@ -247,14 +252,19 @@ impl Storage {
 #[pyclass]
 #[derive(Clone)]
 pub struct StorageConfig {
-    path: PathBuf,
+    path_prefix: PathBuf,
+    chain_id: ChainId,
     max_size: usize,
 }
 
 #[pymethods]
 impl StorageConfig {
     #[new]
-    pub fn new(path: PathBuf, max_size: usize) -> Self {
-        Self { path, max_size }
+    pub fn new(
+        path_prefix: PathBuf,
+        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
+        max_size: usize,
+    ) -> Self {
+        Self { path_prefix, chain_id, max_size }
     }
 }
