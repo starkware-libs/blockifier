@@ -305,61 +305,23 @@ impl AccountTransaction {
         Ok(())
     }
 
-    fn calculate_and_charge_fee(
+    fn charge_fee(
         &self,
         state: &mut dyn State,
         block_context: &BlockContext,
-<<<<<<< HEAD
-        resources: &ResourcesMapping,
-        charge_fee: bool,
-    ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
-        let no_fee = Fee::default();
-        let account_tx_context = self.get_account_transaction_context();
-        if account_tx_context.max_fee == no_fee {
-||||||| 4b3273c
-        resources: &ResourcesMapping,
-    ) -> TransactionExecutionResult<(Fee, Option<CallInfo>)> {
-        let no_fee = Fee::default();
-        let account_tx_context = self.get_account_transaction_context();
-        if account_tx_context.max_fee == no_fee {
-=======
         actual_fee: Fee,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if actual_fee == Fee(0) {
->>>>>>> origin/main-v0.12.1
             // Fee charging is not enforced in some tests.
             return Ok(None);
         }
 
-<<<<<<< HEAD
-        let actual_fee = calculate_tx_fee(resources, block_context)?;
-        let mut fee_transfer_call_info = None;
-        if charge_fee {
-            fee_transfer_call_info = Some(Self::execute_fee_transfer(
-                state,
-                block_context,
-                account_tx_context,
-                actual_fee,
-            )?);
-        }
-||||||| 4b3273c
-        let actual_fee = calculate_tx_fee(resources, block_context)?;
-        let fee_transfer_call_info =
-            Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
-=======
         // Charge fee.
         let account_tx_context = self.get_account_transaction_context();
         let fee_transfer_call_info =
             Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
->>>>>>> origin/main-v0.12.1
 
-<<<<<<< HEAD
-        Ok((actual_fee, fee_transfer_call_info))
-||||||| 4b3273c
-        Ok((actual_fee, Some(fee_transfer_call_info)))
-=======
         Ok(Some(fee_transfer_call_info))
->>>>>>> origin/main-v0.12.1
     }
 
     fn execute_fee_transfer(
@@ -500,6 +462,7 @@ impl AccountTransaction {
         validate_call_info: &Option<CallInfo>,
         execution_resources: ExecutionResources,
         block_context: &BlockContext,
+        charge_fee: bool,
         is_reverted: bool,
         n_reverted_steps: usize,
     ) -> TransactionExecutionResult<(Fee, ResourcesMapping)> {
@@ -525,10 +488,13 @@ impl AccountTransaction {
 
         let mut actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
 
-        if is_reverted || account_tx_context.max_fee == Fee(0) {
-            // is_reverted: we cannot charge more than max_fee for reverted txs.
-            // zero fee: fee charging is not enforced in some tests.
+        if is_reverted {
+            // We cannot charge more than max_fee for reverted txs.
             actual_fee = min(actual_fee, account_tx_context.max_fee);
+        }
+        if !charge_fee || account_tx_context.max_fee == Fee(0) {
+            // Fee charging is not enforced in some transaction simulations tests.
+            actual_fee = Fee(0);
         }
         Ok((actual_fee, actual_resources))
     }
@@ -568,22 +534,13 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             &validate_call_info,
             resources,
             block_context,
+            charge_fee,
             revert_error.is_some(),
             n_reverted_steps,
         )?;
 
         // Charge fee.
-<<<<<<< HEAD
-        // Recreate the context to empty the execution resources.
-        let (actual_fee, fee_transfer_call_info) =
-            self.calculate_and_charge_fee(state, block_context, &actual_resources, charge_fee)?;
-||||||| 4b3273c
-        // Recreate the context to empty the execution resources.
-        let (actual_fee, fee_transfer_call_info) =
-            self.charge_fee(state, block_context, &actual_resources)?;
-=======
         let fee_transfer_call_info = self.charge_fee(state, block_context, actual_fee)?;
->>>>>>> origin/main-v0.12.1
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
