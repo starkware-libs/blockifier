@@ -10,6 +10,7 @@ use super::account_transaction::AccountTransaction;
 use super::transaction_types::TransactionType;
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::contract_address;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
@@ -47,10 +48,10 @@ pub fn create_account_tx_test_state(
         (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
-    let test_contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let test_contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
-    let test_account_address = ContractAddress(patricia_key!(account_address));
+    let test_account_address = contract_address!(account_address);
     let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
@@ -125,7 +126,7 @@ pub fn create_account_tx_for_validate_test(
                 ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
             let declare_tx = crate::test_utils::declare_tx(
                 TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 Fee(0),
                 Some(signature),
             );
@@ -157,7 +158,7 @@ pub fn create_account_tx_for_validate_test(
             ];
             let invoke_tx = crate::test_utils::invoke_tx(
                 execute_calldata,
-                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 Fee(0),
                 Some(signature),
             );

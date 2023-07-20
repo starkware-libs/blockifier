@@ -25,13 +25,13 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
 };
-use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, trivial_external_entry_point,
     CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
+use crate::{contract_address, retdata};
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
@@ -388,7 +388,7 @@ fn test_replace_class() {
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 
     // Positive flow.
-    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
     let old_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let new_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
@@ -533,7 +533,7 @@ fn test_deploy(
         ContractAddressSalt::default(),
         class_hash,
         &constructor_calldata,
-        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+        contract_address!(TEST_CONTRACT_ADDRESS),
     )
     .unwrap();
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];

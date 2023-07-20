@@ -9,6 +9,7 @@ use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
 use crate::block_context::BlockContext;
+use crate::contract_address;
 use crate::test_utils::{
     deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
@@ -32,7 +33,7 @@ fn set_initial_state_values(
 #[test]
 fn get_uninitialized_storage_value() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let contract_address = ContractAddress(patricia_key!("0x1"));
+    let contract_address = contract_address!("0x1");
     let key = StorageKey(patricia_key!("0x10"));
 
     assert_eq!(state.get_storage_at(contract_address, key).unwrap(), StarkFelt::default());
@@ -40,8 +41,8 @@ fn get_uninitialized_storage_value() {
 
 #[test]
 fn get_and_set_storage_value() {
-    let contract_address0 = ContractAddress(patricia_key!("0x100"));
-    let contract_address1 = ContractAddress(patricia_key!("0x200"));
+    let contract_address0 = contract_address!("0x100");
+    let contract_address1 = contract_address!("0x200");
     let key0 = StorageKey(patricia_key!("0x10"));
     let key1 = StorageKey(patricia_key!("0x20"));
     let storage_val0: StarkFelt = stark_felt!("0x1");
@@ -73,8 +74,8 @@ fn cast_between_storage_mapping_types() {
     let empty_map: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> = IndexMap::default();
     assert_eq!(empty_map, IndexMap::from(StorageView::default()));
 
-    let contract_address0 = ContractAddress(patricia_key!("0x100"));
-    let contract_address1 = ContractAddress(patricia_key!("0x200"));
+    let contract_address0 = contract_address!("0x100");
+    let contract_address1 = contract_address!("0x200");
     let key0 = StorageKey(patricia_key!("0x10"));
     let key1 = StorageKey(patricia_key!("0x20"));
     let storage_val0: StarkFelt = stark_felt!("0x1");
@@ -97,15 +98,15 @@ fn cast_between_storage_mapping_types() {
 #[test]
 fn get_uninitialized_value() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let contract_address = ContractAddress(patricia_key!("0x1"));
+    let contract_address = contract_address!("0x1");
 
     assert_eq!(state.get_nonce_at(contract_address).unwrap(), Nonce::default());
 }
 
 #[test]
 fn get_and_increment_nonce() {
-    let contract_address1 = ContractAddress(patricia_key!("0x100"));
-    let contract_address2 = ContractAddress(patricia_key!("0x200"));
+    let contract_address1 = contract_address!("0x100");
+    let contract_address2 = contract_address!("0x200");
     let initial_nonce = Nonce(stark_felt!("0x1"));
 
     let mut state = CachedState::new(DictStateReader {
@@ -155,14 +156,14 @@ fn get_contract_class() {
 #[test]
 fn get_uninitialized_class_hash_value() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let valid_contract_address = ContractAddress(patricia_key!("0x1"));
+    let valid_contract_address = contract_address!("0x1");
 
     assert_eq!(state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
 }
 
 #[test]
 fn set_and_get_contract_hash() {
-    let contract_address = ContractAddress(patricia_key!("0x1"));
+    let contract_address = contract_address!("0x1");
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let class_hash = ClassHash(stark_felt!("0x10"));
 
@@ -196,9 +197,9 @@ fn cached_state_state_diff_conversion() {
     // (so should not appear in the diff).
     // contract_address2 to keys whose value changes to a different value (so should appear in the
     // diff).
-    let contract_address0 = ContractAddress(patricia_key!("0x100"));
-    let contract_address1 = ContractAddress(patricia_key!("0x200"));
-    let contract_address2 = ContractAddress(patricia_key!("0x300"));
+    let contract_address0 = contract_address!("0x100");
+    let contract_address1 = contract_address!("0x200");
+    let contract_address2 = contract_address!("0x300");
 
     // key_x will not be changed.
     // key_y will be changed, but only with contract_address2 the value ends up being different, so
@@ -259,8 +260,8 @@ fn cached_state_state_diff_conversion() {
 #[test]
 fn count_actual_state_changes() {
     let block_context = BlockContext::create_for_testing();
-    let contract_address = ContractAddress(patricia_key!("0x100"));
-    let contract_address2 = ContractAddress(patricia_key!("0x101"));
+    let contract_address = contract_address!("0x100");
+    let contract_address2 = contract_address!("0x101");
     let class_hash = ClassHash(stark_felt!("0x10"));
     let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
     let key = StorageKey(patricia_key!("0x10"));

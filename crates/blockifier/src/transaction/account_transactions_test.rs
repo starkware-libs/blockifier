@@ -15,6 +15,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::contract_address;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
@@ -336,7 +337,7 @@ fn test_revert_invoke(
         stark_felt!(0_u8),
         state
             .get_storage_at(
-                ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+                contract_address!(TEST_CONTRACT_ADDRESS),
                 StorageKey::try_from(storage_key).unwrap(),
             )
             .unwrap()

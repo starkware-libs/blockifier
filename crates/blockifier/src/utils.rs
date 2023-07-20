@@ -14,3 +14,10 @@ where
 {
     lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
+
+#[macro_export]
+macro_rules! contract_address {
+    ($val:expr) => {
+        ContractAddress(patricia_key!($val))
+    };
+}

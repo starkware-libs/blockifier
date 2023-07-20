@@ -12,13 +12,13 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
-use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
     trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
+use crate::{contract_address, retdata};
 
 #[test]
 fn test_storage_read_write() {
@@ -197,7 +197,7 @@ fn test_replace_class() {
     assert!(error.contains("is not declared"));
 
     // Positive flow.
-    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
     let old_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
     let new_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
@@ -314,7 +314,7 @@ fn test_deploy(
         ContractAddressSalt::default(),
         class_hash,
         &constructor_calldata,
-        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+        contract_address!(TEST_CONTRACT_ADDRESS),
     )
     .unwrap();
     assert_eq!(

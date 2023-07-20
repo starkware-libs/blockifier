@@ -28,6 +28,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::contract_address;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
@@ -199,7 +200,7 @@ pub fn get_test_contract_class() -> ContractClass {
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
-    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -215,7 +216,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
 
 pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     CallEntryPoint {
-        storage_address: ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
+        storage_address: contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
         ..trivial_external_entry_point()
     }
 }
@@ -255,16 +256,10 @@ pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
+        (contract_address!(TEST_CONTRACT_ADDRESS), ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        (contract_address!(TEST_CONTRACT_ADDRESS_2), ClassHash(stark_felt!(TEST_CLASS_HASH))),
         (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-        (
-            ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
+            contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
         ),
     ]);
@@ -281,14 +276,8 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
+        (contract_address!(TEST_CONTRACT_ADDRESS), ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        (contract_address!(TEST_CONTRACT_ADDRESS_2), ClassHash(stark_felt!(TEST_CLASS_HASH))),
     ]);
 
     CachedState::new(DictStateReader {
@@ -302,7 +291,7 @@ fn create_deploy_test_state_from_classes(
     class_hash_to_class: ContractClassMapping,
 ) -> CachedState<DictStateReader> {
     let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
     let another_contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash,
@@ -310,7 +299,7 @@ fn create_deploy_test_state_from_classes(
             stark_felt!(3_u8), // Calldata: address.
             stark_felt!(3_u8)  // Calldata: value.
         ],
-        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+        contract_address!(TEST_CONTRACT_ADDRESS),
     )
     .unwrap();
     let address_to_class_hash =
@@ -351,8 +340,8 @@ impl BlockContext {
             chain_id: ChainId("SN_GOERLI".to_string()),
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp::default(),
-            sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
-            fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
+            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
+            fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
             vm_resource_fee_cost: Default::default(),
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
