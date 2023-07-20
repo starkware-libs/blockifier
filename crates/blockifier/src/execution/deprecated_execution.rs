@@ -196,21 +196,18 @@ pub fn run_entry_point(
     entry_point_pc: usize,
     args: Args,
 ) -> Result<(), VirtualMachineExecutionError> {
-    let mut run_resources = hint_processor.context.vm_run_resources.clone();
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
     let result = runner.run_from_entrypoint(
         entry_point_pc,
         &args,
-        &mut run_resources,
         verify_secure,
         program_segment_size,
         vm,
         hint_processor,
     );
 
-    hint_processor.context.vm_run_resources = run_resources;
     Ok(result?)
 }
 

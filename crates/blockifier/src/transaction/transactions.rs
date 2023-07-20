@@ -215,7 +215,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             InvokeTransaction::V0(tx) => tx.entry_point_selector,
             InvokeTransaction::V1(_) => selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         };
-        let storage_address = context.account_tx_context.sender_address;
+        let storage_address = self.sender_address();
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector,

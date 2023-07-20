@@ -99,11 +99,23 @@ fn expected_validate_call_info(
     };
     let n_steps = match (entry_point_selector_name, cairo_version) {
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 13_usize,
+<<<<<<< HEAD
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 73_usize,
+||||||| 4b3273c
+        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 13_usize,
+=======
+        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 69_usize,
+>>>>>>> origin/main-v0.12.1
         (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 12_usize,
-        (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 54_usize,
+        (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 50_usize,
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 21_usize,
+<<<<<<< HEAD
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 192_usize,
+||||||| 4b3273c
+        (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 21_usize,
+=======
+        (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 188_usize,
+>>>>>>> origin/main-v0.12.1
         (selector, _) => panic!("Selector {selector} is not a known validate selector."),
     };
     let vm_resources = VmExecutionResources {
@@ -248,6 +260,7 @@ fn invoke_tx() -> InvokeTransactionV1 {
     )
 }
 
+<<<<<<< HEAD
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     ExpectedResultTestInvokeTx{
@@ -286,6 +299,50 @@ fn test_invoke_tx(
     expected_arguments: ExpectedResultTestInvokeTx,
     cairo_version: CairoVersion,
 ) {
+||||||| 4b3273c
+#[test]
+fn test_invoke_tx() {
+    let state = &mut create_state_with_trivial_validation_account();
+=======
+#[test_case(
+    &mut create_state_with_trivial_validation_account(),
+    ExpectedResultTestInvokeTx{
+        range_check: 101,
+        n_steps: 4135,
+        vm_resources: VmExecutionResources {
+            n_steps:  61,
+            n_memory_holes:  0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+        },
+        validate_gas_consumed: 0,
+        execute_gas_consumed: 0,
+        inner_call_initial_gas: abi_constants::INITIAL_GAS_COST,
+    },
+    CairoVersion::Cairo0;
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account(),
+    ExpectedResultTestInvokeTx{
+        range_check: 113,
+        n_steps: 4555,
+        vm_resources: VmExecutionResources {
+            n_steps: 283,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
+        },
+        validate_gas_consumed: 14360, // The gas consumption results from parsing the input
+            // arguments.
+        execute_gas_consumed: 103660,
+        inner_call_initial_gas: 9999681980,
+    },
+    CairoVersion::Cairo1;
+    "With Cairo1 account")]
+fn test_invoke_tx(
+    state: &mut CachedState<DictStateReader>,
+    expected_arguments: ExpectedResultTestInvokeTx,
+    cairo_version: CairoVersion,
+) {
+>>>>>>> origin/main-v0.12.1
     let block_context = &BlockContext::create_for_account_testing();
     let invoke_tx = invoke_tx();
 
@@ -400,9 +457,13 @@ fn test_invoke_tx(
     );
 }
 
-#[test]
-fn test_state_get_fee_token_balance() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
@@ -451,9 +512,13 @@ fn assert_failure_if_max_fee_exceeds_balance(
     );
 }
 
-#[test]
-fn test_max_fee_exceeds_balance() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let invalid_max_fee = Fee(BALANCE + 1);
 
@@ -489,9 +554,13 @@ fn test_max_fee_exceeds_balance() {
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
 
-#[test]
-fn test_negative_invoke_tx_flows() {
-    let state = &mut create_state_with_trivial_validation_account();
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx = invoke_tx();
     let valid_account_tx =
@@ -569,8 +638,25 @@ fn declare_tx(
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
+<<<<<<< HEAD
     65, // range_check_builtin
     2757, // n_steps
+||||||| 4b3273c
+    retdata!(stark_felt!(
+        // Return data is VALIDATED
+        "0x00000000000000000000000000000000000000000000000000000056414c4944"
+    )),
+    ResourcesMapping(HashMap::from([
+        // 1 modified contract, 1 storage update (sender balance).
+        (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+        (HASH_BUILTIN_NAME.to_string(), 15),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2757),
+    ])),
+=======
+    65, // range_check_builtin
+    2753, // n_steps
+>>>>>>> origin/main-v0.12.1
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_declare_tx(
@@ -705,7 +791,7 @@ fn test_declare_tx_v2() {
         (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 2) * 612),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2757),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2753),
     ]));
 
     let expected_actual_fee =
@@ -734,6 +820,7 @@ fn deploy_account_tx(
     )
 }
 
+<<<<<<< HEAD
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     83, // range_check_builtin
@@ -752,6 +839,30 @@ fn test_deploy_account_tx(
     expected_n_steps_resource: usize,
     cairo_version: CairoVersion,
 ) {
+||||||| 4b3273c
+#[test]
+fn test_deploy_account_tx() {
+    let state = &mut create_state_with_trivial_validation_account();
+=======
+#[test_case(
+    &mut create_state_with_trivial_validation_account(),
+    83, // range_check_builtin
+    3625, // n_steps
+    CairoVersion::Cairo0;
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account(),
+    85, // range_check_builtin
+    3681, // n_steps
+    CairoVersion::Cairo1;
+    "With Cairo1 account")]
+fn test_deploy_account_tx(
+    state: &mut CachedState<DictStateReader>,
+    expected_range_check_builtin: usize,
+    expected_n_steps_resource: usize,
+    cairo_version: CairoVersion,
+) {
+>>>>>>> origin/main-v0.12.1
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
     let deploy_account_tx =
@@ -878,10 +989,9 @@ fn test_deploy_account_tx(
 #[test]
 fn test_validate_accounts_tx() {
     fn test_validate_account_tx(tx_type: TransactionType) {
-        let block_context = &BlockContext::create_for_testing();
+        let block_context = &BlockContext::create_for_account_testing();
 
         // Positive flows.
-
         // Valid logic.
         let state = &mut create_state_with_falliable_validation_account();
         let account_tx =
@@ -980,13 +1090,14 @@ fn test_calculate_tx_gas_usage() {
         l1_gas_usage
     );
 
-    // A tx that changes the account and sequencer balance in execute.
+    // A tx that changes the account and some other balance in execute.
     let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
+    let some_other_account_address = stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
     let execute_calldata = calldata![
         *block_context.fee_token_address.0.key(), // Contract address.
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
-        *block_context.sequencer_address.0.key(), // Calldata: recipient.
+        some_other_account_address,               // Calldata: recipient.
         stark_felt!(2_u8),                        // Calldata: lsb amount.
         stark_felt!(0_u8)                         // Calldata: msb amount.
     ];
@@ -1003,9 +1114,19 @@ fn test_calculate_tx_gas_usage() {
         ..invoke_tx
     }));
 
+<<<<<<< HEAD
     let tx_execution_info = account_tx.execute(state, block_context, true).unwrap();
     // For the sender balance update only (and not the sequencer balance).
     let n_storage_updates = 1;
+||||||| 4b3273c
+    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+    // For the sender balance update only (and not the sequencer balance).
+    let n_storage_updates = 1;
+=======
+    let tx_execution_info = account_tx.execute(state, block_context).unwrap();
+    // For the balance update of the sender and the recipient.
+    let n_storage_updates = 2;
+>>>>>>> origin/main-v0.12.1
     // Only the account contract modification (nonce update) excluding the fee token contract.
     let n_modified_contracts = 1;
     let state_changes = StateChanges {

@@ -33,8 +33,8 @@ use crate::test_utils::{
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
-pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 35050;
-pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128880;
+pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
+pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
 pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
 
 #[test]
@@ -119,7 +119,7 @@ fn test_emit_event() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: 52970,
+            gas_consumed: 52570,
             ..Default::default()
         }
     );
@@ -148,7 +148,7 @@ fn test_get_block_hash() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 15650, ..CallExecution::from_retdata(retdata![block_hash]) }
+        CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
 
     // Negative flow.
@@ -178,7 +178,7 @@ fn test_keccak() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 339240_u64, ..CallExecution::from_retdata(retdata![]) }
+        CallExecution { gas_consumed: 354940, ..CallExecution::from_retdata(retdata![]) }
     );
 }
 
@@ -270,7 +270,7 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: 9999719920,
+        initial_gas: 9999720720,
         ..trivial_external_entry_point()
     };
     let library_entry_point = CallEntryPoint {
@@ -285,16 +285,16 @@ fn test_nested_library_call() {
         class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: 9999813750,
+        initial_gas: 9999814150,
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        initial_gas: 9999623870,
+        initial_gas: 9999625070,
         ..nested_storage_entry_point
     };
     let storage_entry_point_vm_resources = VmExecutionResources {
-        n_steps: 147,
+        n_steps: 143,
         n_memory_holes: 1,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
     };
@@ -311,7 +311,7 @@ fn test_nested_library_call() {
         ..Default::default()
     };
     let library_call_vm_resources = VmExecutionResources {
-        n_steps: 419,
+        n_steps: 411,
         n_memory_holes: 2,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 13)]),
     };
@@ -340,7 +340,7 @@ fn test_nested_library_call() {
     };
 
     let main_call_vm_resources = VmExecutionResources {
-        n_steps: 781,
+        n_steps: 765,
         n_memory_holes: 4,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
     };
@@ -348,7 +348,7 @@ fn test_nested_library_call() {
         call: main_entry_point.clone(),
         execution: CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: 317780,
+            gas_consumed: 316180,
             ..CallExecution::default()
         },
         vm_resources: main_call_vm_resources,
@@ -399,7 +399,7 @@ fn test_replace_class() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 14850, ..Default::default() }
+        CallExecution { gas_consumed: 14450, ..Default::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
@@ -417,7 +417,13 @@ fn test_secp256k1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
+<<<<<<< HEAD
         CallExecution { gas_consumed: 38870810_u64, ..Default::default() }
+||||||| 4b3273c
+        CallExecution { gas_consumed: 17056340_u64, ..Default::default() }
+=======
+        CallExecution { gas_consumed: 38330110_u64, ..Default::default() }
+>>>>>>> origin/main-v0.12.1
     );
 }
 
@@ -443,7 +449,7 @@ fn test_send_message_to_l1() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
-            gas_consumed: 38390,
+            gas_consumed: 37990,
             ..Default::default()
         }
     );
@@ -543,7 +549,7 @@ fn test_deploy(
         0
     } else {
         retdata.0.push(constructor_calldata.0[0]);
-        17040
+        16640
     };
     assert_eq!(
         deploy_call.execution,

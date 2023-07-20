@@ -4,7 +4,6 @@ use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use starknet_api::core::ContractAddress;
 
 use crate::abi::constants;
-use crate::block_context::BlockContext;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
@@ -33,11 +32,11 @@ pub fn calculate_l1_gas_usage<S: StateReader>(
     call_infos: &[&CallInfo],
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
-    block_context: &BlockContext,
+    fee_token_address: ContractAddress,
     sender_address: Option<ContractAddress>,
 ) -> TransactionExecutionResult<usize> {
     let state_changes =
-        state.count_actual_state_changes_for_fee_charge(block_context, sender_address)?;
+        state.count_actual_state_changes_for_fee_charge(fee_token_address, sender_address)?;
 
     let mut l2_to_l1_payloads_length = vec![];
     for call_info in call_infos {
@@ -57,7 +56,6 @@ pub fn calculate_tx_resources(
     execution_resources: ExecutionResources,
     l1_gas_usage: usize,
     tx_type: TransactionType,
-    n_reverted_steps: usize,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
@@ -74,10 +72,7 @@ pub fn calculate_tx_resources(
 
     let mut tx_resources = HashMap::from([
         (constants::GAS_USAGE.to_string(), l1_gas_usage),
-        (
-            constants::N_STEPS_RESOURCE.to_string(),
-            n_steps + total_vm_usage.n_memory_holes + n_reverted_steps,
-        ),
+        (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);
 
