@@ -33,14 +33,18 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    #[args(config)]
-    pub fn new(config: StorageConfig) -> NativeBlockifierResult<Storage> {
+    #[args(path_prefix, chain_id, max_size)]
+    pub fn new(
+        path_prefix: PathBuf,
+        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
+        max_size: usize,
+    ) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
-            path_prefix: config.path,
-            chain_id: config.chain_id,
+            path_prefix,
+            chain_id,
             min_size: 1 << 20, // 1MB.
-            max_size: config.max_size,
+            max_size,
             growth_step: 1 << 26, // 64MB.
         };
         let (reader, writer) = papyrus_storage::open_storage(db_config)?;
@@ -219,21 +223,6 @@ impl Storage {
         append_txn.commit()?;
         Ok(())
     }
-
-    #[staticmethod]
-    #[args(path)]
-    pub fn new_for_testing(path: PathBuf) -> Storage {
-        let db_config = papyrus_storage::db::DbConfig {
-            path_prefix: path,
-            chain_id: ChainId("".to_string()),
-            min_size: 1 << 20,    // 1MB
-            max_size: 1 << 35,    // 32GB
-            growth_step: 1 << 26, // 64MB
-        };
-        let (reader, writer) = papyrus_storage::open_storage(db_config).unwrap();
-
-        Storage { reader: Some(reader), writer: Some(writer) }
-    }
 }
 
 // Internal getters, Python should not have access to them, and only use the public API.
@@ -243,25 +232,5 @@ impl Storage {
     }
     pub fn writer(&mut self) -> &mut papyrus_storage::StorageWriter {
         self.writer.as_mut().expect("Storage should be initialized.")
-    }
-}
-
-#[pyclass]
-#[derive(Clone)]
-pub struct StorageConfig {
-    path: PathBuf,
-    chain_id: ChainId,
-    max_size: usize,
-}
-
-#[pymethods]
-impl StorageConfig {
-    #[new]
-    pub fn new(
-        path: PathBuf,
-        #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
-        max_size: usize,
-    ) -> Self {
-        Self { path, chain_id, max_size }
     }
 }
