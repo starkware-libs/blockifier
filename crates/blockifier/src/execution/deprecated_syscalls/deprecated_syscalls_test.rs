@@ -12,13 +12,13 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
-use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
     trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
+use crate::{class_hash, retdata};
 
 #[test]
 fn test_storage_read_write() {
@@ -56,7 +56,7 @@ fn test_library_call() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
-        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         ..trivial_external_entry_point()
     };
     assert_eq!(
@@ -84,13 +84,13 @@ fn test_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
-        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         ..trivial_external_entry_point()
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: inner_entry_point_selector,
         calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
-        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         code_address: None,
         call_type: CallType::Delegate,
         ..trivial_external_entry_point()
@@ -104,7 +104,7 @@ fn test_nested_library_call() {
             stark_felt!(key + 1),         // Calldata: address.
             stark_felt!(value + 1)        // Calldata: value.
         ],
-        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         code_address: None,
         call_type: CallType::Delegate,
         ..trivial_external_entry_point()
@@ -198,8 +198,8 @@ fn test_replace_class() {
 
     // Positive flow.
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let old_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let new_class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    let old_class_hash = class_hash!(TEST_CLASS_HASH);
+    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
@@ -211,7 +211,7 @@ fn test_replace_class() {
 }
 
 #[test_case(
-    ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
     calldata![
     stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
     ContractAddressSalt::default().0, // Contract_address_salt.
@@ -222,7 +222,7 @@ fn test_replace_class() {
     None ;
     "No constructor: Positive flow")]
 #[test_case(
-    ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
     calldata![
         stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
@@ -239,7 +239,7 @@ fn test_replace_class() {
     "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
     "No constructor: Negative flow: nonempty calldata")]
 #[test_case(
-    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    class_hash!(TEST_CLASS_HASH),
     calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
@@ -255,7 +255,7 @@ fn test_replace_class() {
     None;
     "With constructor: Positive flow")]
 #[test_case(
-    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    class_hash!(TEST_CLASS_HASH),
     calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
@@ -271,7 +271,7 @@ fn test_replace_class() {
     Some("is unavailable for deployment.");
     "With constructor: Negative flow: deploy to the same address")]
 #[test_case(
-    ClassHash(stark_felt!(TEST_CLASS_HASH)),
+    class_hash!(TEST_CLASS_HASH),
     calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.

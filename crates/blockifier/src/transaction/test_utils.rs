@@ -10,6 +10,7 @@ use super::account_transaction::AccountTransaction;
 use super::transaction_types::TransactionType;
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
+use crate::class_hash;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
@@ -37,9 +38,9 @@ pub fn create_account_tx_test_state(
 ) -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
-    let test_contract_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
-    let test_account_class_hash = ClassHash(stark_felt!(account_class_hash));
-    let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let test_contract_class_hash = class_hash!(TEST_CLASS_HASH);
+    let test_account_class_hash = class_hash!(account_class_hash);
+    let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, account_class),
         // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract when running Cairo 1 account

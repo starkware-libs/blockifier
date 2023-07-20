@@ -9,6 +9,7 @@ use starknet_api::{patricia_key, stark_felt};
 
 use super::*;
 use crate::block_context::BlockContext;
+use crate::class_hash;
 use crate::test_utils::{
     deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
@@ -137,7 +138,7 @@ fn get_and_increment_nonce() {
 #[test]
 fn get_contract_class() {
     // Positive flow.
-    let existing_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let existing_class_hash = class_hash!(TEST_CLASS_HASH);
     let mut state = deprecated_create_test_state();
     assert_eq!(
         state.get_compiled_contract_class(&existing_class_hash).unwrap(),
@@ -145,7 +146,7 @@ fn get_contract_class() {
     );
 
     // Negative flow.
-    let missing_class_hash = ClassHash(stark_felt!("0x101"));
+    let missing_class_hash = class_hash!("0x101");
     assert_matches!(
         state.get_compiled_contract_class(&missing_class_hash).unwrap_err(),
         StateError::UndeclaredClassHash(undeclared) if undeclared == missing_class_hash
@@ -164,7 +165,7 @@ fn get_uninitialized_class_hash_value() {
 fn set_and_get_contract_hash() {
     let contract_address = ContractAddress(patricia_key!("0x1"));
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let class_hash = ClassHash(stark_felt!("0x10"));
+    let class_hash = class_hash!("0x10");
 
     assert!(state.set_class_hash_at(contract_address, class_hash).is_ok());
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
@@ -175,7 +176,7 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
 
     let uninitialized_contract_address = ContractAddress::default();
-    let class_hash = ClassHash(stark_felt!("0x100"));
+    let class_hash = class_hash!("0x100");
     assert_matches!(
         state.set_class_hash_at(uninitialized_contract_address, class_hash).unwrap_err(),
         StateError::OutOfRangeContractAddress
@@ -186,7 +187,7 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
 fn cached_state_state_diff_conversion() {
     // This will not appear in the diff, since this mapping is immutable for the current version we
     // are aligned with.
-    let test_class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let test_class_hash = class_hash!(TEST_CLASS_HASH);
     let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class())]);
 
     let nonce_initial_values = HashMap::new();
@@ -230,7 +231,7 @@ fn cached_state_state_diff_conversion() {
     );
 
     // Declare a new class.
-    let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
     let compiled_class_hash = CompiledClassHash(stark_felt!(1_u8));
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
@@ -241,7 +242,7 @@ fn cached_state_state_diff_conversion() {
     let new_value = stark_felt!("0x12345678");
     state.set_storage_at(contract_address2, key_y, new_value);
     assert!(state.increment_nonce(contract_address2).is_ok());
-    let new_class_hash = ClassHash(stark_felt!("0x11111111"));
+    let new_class_hash = class_hash!("0x11111111");
     assert!(state.set_class_hash_at(contract_address2, new_class_hash).is_ok());
 
     // Only changes to contract_address2 should be shown, since contract_address_0 wasn't changed
@@ -261,7 +262,7 @@ fn count_actual_state_changes() {
     let block_context = BlockContext::create_for_testing();
     let contract_address = ContractAddress(patricia_key!("0x100"));
     let contract_address2 = ContractAddress(patricia_key!("0x101"));
-    let class_hash = ClassHash(stark_felt!("0x10"));
+    let class_hash = class_hash!("0x10");
     let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");

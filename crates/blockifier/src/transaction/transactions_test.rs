@@ -29,7 +29,6 @@ use crate::execution::entry_point::{
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
-use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -53,6 +52,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::{class_hash, retdata};
 
 enum CairoVersion {
     Cairo0,
@@ -141,7 +141,7 @@ fn expected_fee_transfer_call_info(
     actual_fee: Fee,
     vm_resources: VmExecutionResources,
 ) -> Option<CallInfo> {
-    let expected_fee_token_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let expected_fee_token_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0);
@@ -298,7 +298,7 @@ fn test_invoke_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
@@ -313,7 +313,7 @@ fn test_invoke_tx(
     let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
-        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         code_address: Some(storage_address),
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
@@ -616,7 +616,7 @@ fn test_declare_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
@@ -688,7 +688,7 @@ fn test_declare_tx(
 fn test_declare_tx_v2() {
     let state = &mut create_state_with_cairo1_account();
     let block_context = &BlockContext::create_for_account_testing();
-    let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
+    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
     let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let declare_tx = DeclareTransactionV2 {
         max_fee: Fee(MAX_FEE),
@@ -792,7 +792,7 @@ fn test_deploy_account_tx(
     // Build expected validate call info.
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
-    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,

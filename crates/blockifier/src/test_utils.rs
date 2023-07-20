@@ -28,6 +28,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::class_hash;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
@@ -223,15 +224,15 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
 fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
     HashMap::from([
         (
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+            class_hash!(TEST_CLASS_HASH),
             ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
         ),
         (
-            ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
+            class_hash!(SECURITY_TEST_CLASS_HASH),
             ContractClassV0::from_file(SECURITY_TEST_CONTRACT_CAIRO0_PATH).into(),
         ),
         (
-            ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+            class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into(),
         ),
     ])
@@ -240,11 +241,11 @@ fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
 fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
     HashMap::from([
         (
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
+            class_hash!(TEST_CLASS_HASH),
             ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
         ),
         (
-            ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
+            class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
         ),
     ])
@@ -255,17 +256,11 @@ pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
+        (ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)), class_hash!(TEST_CLASS_HASH)),
+        (ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)), class_hash!(TEST_CLASS_HASH)),
         (
             ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
+            class_hash!(SECURITY_TEST_CLASS_HASH),
         ),
     ]);
 
@@ -281,14 +276,8 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
-        (
-            ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)),
-            ClassHash(stark_felt!(TEST_CLASS_HASH)),
-        ),
+        (ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)), class_hash!(TEST_CLASS_HASH)),
+        (ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS_2)), class_hash!(TEST_CLASS_HASH)),
     ]);
 
     CachedState::new(DictStateReader {
@@ -301,7 +290,7 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 fn create_deploy_test_state_from_classes(
     class_hash_to_class: ContractClassMapping,
 ) -> CachedState<DictStateReader> {
-    let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let class_hash = class_hash!(TEST_CLASS_HASH);
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let another_contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
@@ -390,7 +379,7 @@ pub fn deploy_account_tx(
     signature: Option<TransactionSignature>,
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
-    let class_hash = ClassHash(stark_felt!(class_hash));
+    let class_hash = class_hash!(class_hash);
     let deployer_address = ContractAddress::default();
     let contract_address_salt = ContractAddressSalt::default();
     let constructor_calldata = constructor_calldata.unwrap_or_default();
@@ -438,7 +427,7 @@ pub fn declare_tx(
 ) -> DeclareTransactionV0V1 {
     DeclareTransactionV0V1 {
         max_fee,
-        class_hash: ClassHash(stark_felt!(class_hash)),
+        class_hash: class_hash!(class_hash),
         sender_address,
         signature: signature.unwrap_or_default(),
         ..Default::default()
