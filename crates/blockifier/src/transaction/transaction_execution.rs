@@ -1,3 +1,4 @@
+use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
 
 use crate::abi::constants as abi_constants;
@@ -15,7 +16,8 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 use crate::transaction::transactions::{
-    DeclareTransaction, Executable, ExecutableTransaction, L1HandlerTransaction,
+    DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
+    L1HandlerTransaction,
 };
 
 #[derive(Debug)]
@@ -52,7 +54,15 @@ impl Transaction {
                 )?)))
             }
             StarknetApiTransaction::DeployAccount(deploy_account) => {
-                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
+                let contract_address = calculate_contract_address(
+                    deploy_account.contract_address_salt,
+                    deploy_account.class_hash,
+                    &deploy_account.constructor_calldata,
+                    ContractAddress::default(),
+                )?;
+                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(
+                    DeployAccountTransaction { tx: deploy_account, contract_address },
+                )))
             }
             StarknetApiTransaction::Invoke(invoke) => {
                 Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke)))
