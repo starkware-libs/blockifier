@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use starknet_api::core::ContractAddress;
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
+use starknet_api::transaction::{Calldata, Fee, InvokeTransaction};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -172,6 +172,12 @@ impl<S: State> Executable<S> for DeclareTransaction {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DeployAccountTransaction {
+    pub tx: starknet_api::transaction::DeployAccountTransaction,
+    pub contract_address: ContractAddress,
+}
+
 impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
@@ -181,7 +187,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let ctor_context = ConstructorContext {
-            class_hash: self.class_hash,
+            class_hash: self.tx.class_hash,
             code_address: None,
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
@@ -191,7 +197,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             resources,
             context,
             ctor_context,
-            self.constructor_calldata.clone(),
+            self.tx.constructor_calldata.clone(),
             *remaining_gas,
         );
         let call_info = deployment_result
@@ -215,7 +221,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             InvokeTransaction::V0(tx) => tx.entry_point_selector,
             InvokeTransaction::V1(_) => selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         };
-        let storage_address = self.sender_address();
+        let storage_address = context.account_tx_context.sender_address;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector,

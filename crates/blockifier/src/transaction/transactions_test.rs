@@ -11,8 +11,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, DeployAccountTransaction, EventContent,
-    EventData, EventKey, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
+    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
+    InvokeTransaction, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
@@ -52,7 +52,9 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+};
 
 enum CairoVersion {
     Cairo0,
@@ -473,15 +475,12 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Deploy.
-    let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
-        max_fee: invalid_max_fee,
-        ..deploy_account_tx(
-            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-            None,
-            None,
-            &mut NonceManager::default(),
-        )
-    });
+    let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        None,
+        None,
+        &mut NonceManager::default(),
+    ));
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Declare.
@@ -766,15 +765,15 @@ fn test_deploy_account_tx(
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
-    let deploy_account_tx =
+    let deploy_account =
         deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
-    let class_hash = deploy_account_tx.class_hash;
-    let deployed_account_address = deploy_account_tx.contract_address;
-    let constructor_calldata = deploy_account_tx.constructor_calldata.clone();
-    let salt = deploy_account_tx.contract_address_salt;
+    let class_hash = deploy_account.tx.class_hash;
+    let deployed_account_address = deploy_account.contract_address;
+    let constructor_calldata = deploy_account.tx.constructor_calldata.clone();
+    let salt = deploy_account.tx.contract_address_salt;
 
     // Update the balance of the about to be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
@@ -786,7 +785,7 @@ fn test_deploy_account_tx(
         stark_felt!(BALANCE),
     );
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx.clone());
+    let account_tx = AccountTransaction::DeployAccount(deploy_account.clone());
     let actual_execution_info = account_tx.execute(state, block_context, true).unwrap();
 
     // Build expected validate call info.
@@ -873,11 +872,9 @@ fn test_deploy_account_tx(
 
     // Negative flow.
     // Deploy to an existing address.
-    let deploy_account_tx = DeployAccountTransaction {
-        nonce: nonce_manager.next(deployed_account_address),
-        ..deploy_account_tx
-    };
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let deploy_account =
+        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
+    let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true).unwrap_err();
     assert_matches!(
         error,

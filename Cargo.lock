@@ -2171,8 +2171,8 @@ dependencies = [
 
 [[package]]
 name = "papyrus_storage"
-version = "0.1.0-alpha"
-source = "git+https://github.com/starkware-libs/papyrus?rev=42ebef8#42ebef8c7f9e743cd1b8d718f1748f952568e483"
+version = "0.0.1"
+source = "git+https://github.com/starkware-libs/papyrus?rev=1fb9bdc#1fb9bdc142ff70f116db84dadc1898490487bf8f"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -2186,14 +2186,11 @@ dependencies = [
  "num-bigint",
  "parity-scale-codec",
  "primitive-types",
- "rand",
- "rand_chacha",
  "reqwest",
  "serde",
  "serde_json",
  "starknet_api",
  "tempfile",
- "test_utils",
  "thiserror",
  "tokio",
  "tracing",
@@ -3066,8 +3063,8 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=8f620bc#8f620bcec38b47ce0f2515f3ef158f4c6319608f"
+version = "0.2.0"
+source = "git+https://github.com/starkware-libs/starknet-api?rev=ecc9b6946ef13003da202838e4124a9ad2efabb0#ecc9b6946ef13003da202838e4124a9ad2efabb0"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",
@@ -3204,26 +3201,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "test_utils"
-version = "0.1.0-alpha"
-source = "git+https://github.com/starkware-libs/papyrus?rev=42ebef8#42ebef8c7f9e743cd1b8d718f1748f952568e483"
-dependencies = [
- "cairo-lang-casm",
- "cairo-lang-starknet",
- "cairo-lang-utils",
- "indexmap 1.9.3",
- "num-bigint",
- "primitive-types",
- "rand",
- "rand_chacha",
- "reqwest",
- "serde",
- "serde_json",
- "starknet_api",
- "tracing",
 ]
 
 [[package]]
