@@ -30,6 +30,73 @@ fn set_initial_state_values(
 }
 
 #[test]
+fn test_state_change_addition() {
+    let state_changes_0 = StateChanges {
+        storage_updates: HashMap::from([(
+            (ContractAddress(patricia_key!(1_u8)), StorageKey(patricia_key!(2_u8))),
+            stark_felt!(3_u8),
+        )]),
+        class_hash_updates: HashMap::from([(
+            ContractAddress(patricia_key!(4_u8)),
+            ClassHash(stark_felt!(5_u8)),
+        )]),
+        compiled_class_hash_updates: HashMap::from([
+            (ClassHash(stark_felt!(6_u8)), CompiledClassHash(stark_felt!(7_u8))),
+            (ClassHash(stark_felt!(8_u8)), CompiledClassHash(stark_felt!(9_u8))),
+        ]),
+        modified_contracts: HashSet::from([
+            ContractAddress(patricia_key!(10_u8)),
+            ContractAddress(patricia_key!(100_u8)),
+        ]),
+    };
+    let state_changes_1 = StateChanges {
+        storage_updates: HashMap::from([(
+            (ContractAddress(patricia_key!(11_u8)), StorageKey(patricia_key!(12_u8))),
+            stark_felt!(13_u8),
+        )]),
+        class_hash_updates: HashMap::from([
+            (ContractAddress(patricia_key!(4_u8)), ClassHash(stark_felt!(5_u8))),
+            (ContractAddress(patricia_key!(14_u8)), ClassHash(stark_felt!(15_u8))),
+        ]),
+        compiled_class_hash_updates: HashMap::from([
+            (ClassHash(stark_felt!(6_u8)), CompiledClassHash(stark_felt!(7_u8))),
+            (ClassHash(stark_felt!(18_u8)), CompiledClassHash(stark_felt!(19_u8))),
+        ]),
+        modified_contracts: HashSet::from([
+            ContractAddress(patricia_key!(10_u8)),
+            ContractAddress(patricia_key!(20_u8)),
+        ]),
+    };
+    let combined_changes = StateChanges {
+        storage_updates: HashMap::from([
+            (
+                (ContractAddress(patricia_key!(1_u8)), StorageKey(patricia_key!(2_u8))),
+                stark_felt!(3_u8),
+            ),
+            (
+                (ContractAddress(patricia_key!(11_u8)), StorageKey(patricia_key!(12_u8))),
+                stark_felt!(13_u8),
+            ),
+        ]),
+        class_hash_updates: HashMap::from([
+            (ContractAddress(patricia_key!(4_u8)), ClassHash(stark_felt!(5_u8))),
+            (ContractAddress(patricia_key!(14_u8)), ClassHash(stark_felt!(15_u8))),
+        ]),
+        compiled_class_hash_updates: HashMap::from([
+            (ClassHash(stark_felt!(6_u8)), CompiledClassHash(stark_felt!(7_u8))),
+            (ClassHash(stark_felt!(8_u8)), CompiledClassHash(stark_felt!(9_u8))),
+            (ClassHash(stark_felt!(18_u8)), CompiledClassHash(stark_felt!(19_u8))),
+        ]),
+        modified_contracts: HashSet::from([
+            ContractAddress(patricia_key!(10_u8)),
+            ContractAddress(patricia_key!(100_u8)),
+            ContractAddress(patricia_key!(20_u8)),
+        ]),
+    };
+    assert_eq!(combined_changes, state_changes_0.add(state_changes_1));
+}
+
+#[test]
 fn get_uninitialized_storage_value() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let contract_address = ContractAddress(patricia_key!("0x1"));

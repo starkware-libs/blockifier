@@ -552,6 +552,31 @@ pub struct StateChanges {
     pub modified_contracts: HashSet<ContractAddress>,
 }
 
+impl StateChanges {
+    /// Creates a new copy of a combination of both state changes.
+    pub fn add(self, rhs: Option<Self>) -> Self {
+        if let Some(Self {
+            mut storage_updates,
+            mut class_hash_updates,
+            mut compiled_class_hash_updates,
+            mut modified_contracts,
+        }) = rhs
+        {
+            storage_updates.extend(self.storage_updates);
+            class_hash_updates.extend(self.class_hash_updates);
+            compiled_class_hash_updates.extend(self.compiled_class_hash_updates);
+            modified_contracts.extend(self.modified_contracts);
+            return Self {
+                storage_updates,
+                class_hash_updates,
+                compiled_class_hash_updates,
+                modified_contracts,
+            };
+        }
+        self
+    }
+}
+
 /// Holds the number of state changes.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct StateChangesCount {
