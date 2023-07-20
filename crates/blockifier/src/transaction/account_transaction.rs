@@ -32,7 +32,7 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
-    calculate_l1_gas_usage, calculate_tx_resources, update_remaining_gas,
+    calculate_l1_gas_usage_from_state, calculate_tx_resources, update_remaining_gas,
     verify_no_calls_to_other_contracts,
 };
 use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
@@ -472,7 +472,7 @@ impl AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage = calculate_l1_gas_usage(
+        let l1_gas_usage = calculate_l1_gas_usage_from_state(
             &non_optional_call_infos,
             state,
             None,

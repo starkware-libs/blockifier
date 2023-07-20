@@ -28,7 +28,7 @@ pub fn verify_no_calls_to_other_contracts(
     Ok(())
 }
 
-pub fn calculate_l1_gas_usage<S: StateReader>(
+pub fn calculate_l1_gas_usage_from_state<S: StateReader>(
     call_infos: &[&CallInfo],
     state: &mut TransactionalState<'_, S>,
     l1_handler_payload_size: Option<usize>,
@@ -37,7 +37,18 @@ pub fn calculate_l1_gas_usage<S: StateReader>(
 ) -> TransactionExecutionResult<usize> {
     let state_changes =
         state.count_actual_state_changes_for_fee_charge(fee_token_address, sender_address)?;
+    calculate_l1_gas_usage(
+        call_infos,
+        StateChangesCount::from(state_changes),
+        l1_handler_payload_size,
+    )
+}
 
+pub fn calculate_l1_gas_usage(
+    call_infos: &[&CallInfo],
+    state_changes_count: StateChangesCount,
+    l1_handler_payload_size: Option<usize>,
+) -> TransactionExecutionResult<usize> {
     let mut l2_to_l1_payloads_length = vec![];
     for call_info in call_infos {
         l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
@@ -45,7 +56,7 @@ pub fn calculate_l1_gas_usage<S: StateReader>(
 
     let l1_gas_usage = calculate_tx_gas_usage(
         &l2_to_l1_payloads_length,
-        StateChangesCount::from(state_changes),
+        state_changes_count,
         l1_handler_payload_size,
     );
 

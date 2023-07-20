@@ -13,7 +13,9 @@ use crate::transaction::objects::{
     AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
+use crate::transaction::transaction_utils::{
+    calculate_l1_gas_usage_from_state, calculate_tx_resources,
+};
 use crate::transaction::transactions::{
     DeclareTransaction, Executable, ExecutableTransaction, L1HandlerTransaction,
 };
@@ -88,7 +90,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
-        let l1_gas_usage = calculate_l1_gas_usage(
+        let l1_gas_usage = calculate_l1_gas_usage_from_state(
             &call_infos,
             state,
             l1_handler_payload_size,
