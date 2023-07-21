@@ -22,7 +22,6 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-ouroboros.workspace = true
 papyrus_storage = { workspace = true, features = ["testing"] }
 pyo3 = { version = "0.17.3", features = [
     "extension-module",
