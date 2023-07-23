@@ -7,8 +7,9 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::errors::NativeBlockifierResult;
+use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction_executor::PyTransactionExecutor;
-use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
+use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::storage::Storage;
 
 #[pyclass]
@@ -35,7 +36,7 @@ impl PyBlockExecutor {
     fn initialize_tx_executor(
         &self,
         storage: &Storage,
-        block_info: &PyAny,
+        block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<PyTransactionExecutor> {
         PyTransactionExecutor::create(
             storage,
@@ -84,19 +85,19 @@ pub struct PyOsConfig {
 
 pub fn into_block_context(
     general_config: &PyGeneralConfig,
-    block_info: &PyAny,
+    block_info: PyBlockInfo,
     max_recursion_depth: usize,
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.starknet_os_config.clone();
-    let block_number = BlockNumber(py_attr(block_info, "block_number")?);
+    let block_number = BlockNumber(block_info.block_number);
     let block_context = BlockContext {
         chain_id: starknet_os_config.chain_id,
         block_number,
-        block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
+        block_timestamp: BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
         fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
-        gas_price: py_attr(block_info, "gas_price")?,
+        gas_price: block_info.gas_price,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
         max_recursion_depth,
