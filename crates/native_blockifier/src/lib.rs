@@ -16,7 +16,6 @@ use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
     PyVmExecutionResources,
 };
-use py_transaction_executor::PyTransactionExecutor;
 use pyo3::prelude::*;
 use storage::{Storage, StorageConfig};
 
@@ -35,7 +34,6 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutionInfo>()?;
-    py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<Storage>()?;
     py_module.add_class::<StorageConfig>()?;
