@@ -16,7 +16,7 @@ use py_transaction_execution_info::{
 };
 use py_transaction_executor::PyTransactionExecutor;
 use pyo3::prelude::*;
-use storage::{Storage, StorageConfig};
+use storage::Storage;
 
 use crate::py_state_diff::PyStateDiff;
 use crate::py_utils::raise_error_for_testing;
@@ -35,7 +35,6 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<Storage>()?;
-    py_module.add_class::<StorageConfig>()?;
     add_py_exceptions(py, py_module)?;
 
     // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, gate this code
