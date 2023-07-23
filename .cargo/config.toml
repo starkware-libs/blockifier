@@ -6,6 +6,7 @@ rustflags = [
     "-Dnonstandard-style",
     "-Drust-2018-idioms",
     "-Dunused",
+    # "-Wclippy::pedantic",
 ]
 
 [env]
