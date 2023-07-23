@@ -893,3 +893,57 @@ fn test_revert_on_overdraft(
         (final_received_amount, stark_felt!(0_u8))
     );
 }
+
+#[rstest]
+/// Tests that if the computed actual fee of a transaction goes over the max fee, the transaction is
+/// reverted.
+fn test_actual_over_max_fee_reverts(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
+
+    // Invoke the `recursive_syscall` function with enough iterations to hit max_fee, but not enough
+    // to run out of resources mid-run.
+    // To do so, first invoke the function with enough max_fee, then invoke again with max_fee
+    // slightly less than the actual fee.
+    let raw_contract_address = *contract_address.0.key();
+    let raw_entry_point_selector = selector_from_name("recursive_syscall").0;
+    let execute_calldata = calldata![
+        raw_contract_address,
+        raw_entry_point_selector,
+        stark_felt!(3_u8), // Calldata length.
+        raw_contract_address,
+        raw_entry_point_selector,
+        stark_felt!(10_u16)
+    ];
+
+    // First invoke: enough max fee.
+    let tx = invoke_tx(execute_calldata.clone(), account_address, max_fee, None);
+    let account_tx: AccountTransaction =
+        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+            nonce: nonce_manager.next(account_address),
+            ..tx
+        }));
+    let execution_info = account_tx.execute(&mut state, &block_context, true).unwrap();
+
+    // Second invoke: not enough max fee.
+    let new_max_fee = Fee(execution_info.actual_fee.0 - 1);
+    let tx = invoke_tx(execute_calldata, account_address, new_max_fee, None);
+    let account_tx: AccountTransaction =
+        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+            nonce: nonce_manager.next(account_address),
+            ..tx
+        }));
+    let execution_info = account_tx.execute(&mut state, &block_context, true).unwrap();
+
+    // Verify the transaction was reverted (and for the right reason).
+    assert!(execution_info.revert_error.unwrap().starts_with("Actual fee exceeds max fee"));
+}
