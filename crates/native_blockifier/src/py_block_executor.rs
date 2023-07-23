@@ -11,59 +11,58 @@ use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_transaction_executor::TransactionExecutor;
 use crate::py_utils::{int_to_chain_id, PyFelt};
-use crate::storage::Storage;
+use crate::storage::{Storage, StorageConfig};
 
 #[pyclass]
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
     pub tx_executor: Option<TransactionExecutor>,
-    // TODO: add TransactionExecutor and Storage as fields.
+    pub storage: Storage,
 }
 
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[args(general_config, max_recursion_depth)]
-    pub fn create(general_config: PyGeneralConfig, max_recursion_depth: usize) -> Self {
+    #[args(general_config, max_recursion_depth, target_storage_config)]
+    pub fn create(
+        general_config: PyGeneralConfig,
+        max_recursion_depth: usize,
+        target_storage_config: StorageConfig,
+    ) -> Self {
+        log::debug!("Initializing Block Executor...");
+        log::debug!("Initializing Blockifier Storage...");
         let tx_executor = None;
+        let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
+        log::debug!("Initialized Blockifier storage.");
+
         log::debug!("Initialized Block Executor.");
-        Self { general_config, max_recursion_depth, tx_executor }
+        Self { general_config, max_recursion_depth, tx_executor, storage }
     }
 
-    #[args(general_config)]
-    #[staticmethod]
-    fn create_for_testing(general_config: PyGeneralConfig) -> Self {
-        Self { general_config, max_recursion_depth: 50, tx_executor: None }
-    }
+    // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[args(storage, block_info)]
+    #[args(storage, next_block_info)]
     fn setup_block_execution(
         &mut self,
-        storage: &Storage,
-        block_info: PyBlockInfo,
+        next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<()> {
+        self.storage.validate_aligned(next_block_info.block_number);
+
         let tx_executor = TransactionExecutor::new(
-            storage,
+            &self.storage,
             &self.general_config,
-            block_info,
+            next_block_info,
             self.max_recursion_depth,
         )?;
         self.tx_executor = Some(tx_executor);
+
         Ok(())
     }
 
     fn teardown_block_execution(&mut self) {
         self.tx_executor = None;
-    }
-
-    /// Deallocate the transaction executor and close storage connections.
-    pub fn close(&mut self) {
-        log::debug!("Closing Block Executor.");
-        // If the block was not finalized (due to some exception occuring _in Python_), we need
-        // to deallocate the transaction executor here to prevent leaks.
-        self.teardown_block_execution();
     }
 
     #[args(tx, raw_contract_class, enough_room_for_tx)]
@@ -91,6 +90,90 @@ impl PyBlockExecutor {
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         self.tx_executor().pre_process_block(old_block_number_and_hash)
+    }
+
+    // Storage Alignment API.
+
+    /// Appends state diff and block header into Papyrus storage.
+    // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
+    // sequential ID (throughout sequencing).
+    #[args(
+        block_id,
+        previous_block_id,
+        py_block_info,
+        py_state_diff,
+        declared_class_hash_to_class,
+        deprecated_declared_class_hash_to_class
+    )]
+    pub fn append_block(
+        &mut self,
+        block_id: u64,
+        previous_block_id: Option<PyFelt>,
+        py_block_info: PyBlockInfo,
+        py_state_diff: PyStateDiff,
+        declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
+        deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
+    ) -> NativeBlockifierResult<()> {
+        self.storage.append_block(
+            block_id,
+            previous_block_id,
+            py_block_info,
+            py_state_diff,
+            declared_class_hash_to_class,
+            deprecated_declared_class_hash_to_class,
+        )
+    }
+
+    /// Returns the next block number, for which block header was not yet appended.
+    /// Block header stream is usually ahead of the state diff stream, so this is the indicative
+    /// marker.
+    pub fn get_header_marker(&self) -> NativeBlockifierResult<u64> {
+        self.storage.get_header_marker()
+    }
+
+    /// Returns the unique identifier of the given block number in bytes.
+    #[args(block_number)]
+    fn get_block_id_at_target(&self, block_number: u64) -> NativeBlockifierResult<Option<u64>> {
+        let block_id_bytes = self.storage.get_block_id(block_number)?;
+        let block_id_u64 = block_id_bytes.map(|block_id_bytes| {
+            u64::from_be_bytes(block_id_bytes[block_id_bytes.len() - 8..].try_into().unwrap())
+        });
+
+        Ok(block_id_u64)
+    }
+
+    #[args(source_block_number)]
+    pub fn validate_aligned(&self, source_block_number: u64) {
+        self.storage.validate_aligned(source_block_number);
+    }
+
+    /// Atomically reverts block header and state diff of given block number.
+    /// If header exists without a state diff (usually the case), only the header is reverted.
+    /// (this is true for every partial existence of information at tables).
+    #[args(block_number)]
+    pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        self.storage.revert_block(block_number)
+    }
+
+    /// Deallocate the transaction executor and close storage connections.
+    pub fn close(&mut self) {
+        log::debug!("Closing Block Executor.");
+        // If the block was not finalized (due to some exception occuring _in Python_), we need
+        // to deallocate the transaction executor here to prevent leaks.
+        self.teardown_block_execution();
+        log::debug!("Closing Blockifier storage.");
+        self.storage.close();
+    }
+
+    #[args(general_config)]
+    #[staticmethod]
+    fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
+        Self {
+            storage: Storage::new_for_testing(path, &general_config.starknet_os_config.chain_id),
+            general_config,
+            max_recursion_depth: 50,
+            tx_executor: None,
+        }
     }
 }
 
