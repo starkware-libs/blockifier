@@ -1,5 +1,4 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
@@ -9,15 +8,16 @@ use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress};
+use starknet_api::block::{BlockHash, BlockNumber};
+use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::papyrus_state::PapyrusReader;
+use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{int_to_chain_id, py_attr, py_enum_name, PyFelt};
+use crate::py_utils::{py_enum_name, PyFelt};
 use crate::storage::Storage;
 
 /// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
@@ -29,26 +29,6 @@ pub struct PyTransactionExecutor {
 
 #[pymethods]
 impl PyTransactionExecutor {
-    #[new]
-    #[args(papyrus_storage, general_config, block_info, max_recursion_depth)]
-    pub fn create(
-        papyrus_storage: &Storage,
-        general_config: PyGeneralConfig,
-        block_info: &PyAny,
-        max_recursion_depth: usize,
-    ) -> NativeBlockifierResult<Self> {
-        log::debug!("Initializing Transaction Executor...");
-        let executor = TransactionExecutor::new(
-            papyrus_storage,
-            general_config,
-            block_info,
-            max_recursion_depth,
-        )?;
-        log::debug!("Initialized Transaction Executor.");
-
-        Ok(Self { executor: Some(executor) })
-    }
-
     #[args(tx, raw_contract_class, enough_room_for_tx)]
     pub fn execute(
         &mut self,
@@ -82,6 +62,24 @@ impl PyTransactionExecutor {
 }
 
 impl PyTransactionExecutor {
+    pub fn create(
+        papyrus_storage: &Storage,
+        general_config: &PyGeneralConfig,
+        block_info: &PyAny,
+        max_recursion_depth: usize,
+    ) -> NativeBlockifierResult<Self> {
+        log::debug!("Initializing Transaction Executor...");
+        let executor = TransactionExecutor::new(
+            papyrus_storage,
+            general_config,
+            block_info,
+            max_recursion_depth,
+        )?;
+        log::debug!("Initialized Transaction Executor.");
+
+        Ok(Self { executor: Some(executor) })
+    }
+
     fn executor(&mut self) -> &mut TransactionExecutor {
         self.executor.as_mut().expect("Transaction executor should be initialized.")
     }
@@ -100,14 +98,14 @@ pub struct TransactionExecutor {
 impl TransactionExecutor {
     pub fn new(
         papyrus_storage: &Storage,
-        general_config: PyGeneralConfig,
+        general_config: &PyGeneralConfig,
         block_info: &PyAny,
         max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
 
-        let block_context = py_block_context(general_config, block_info, max_recursion_depth)?;
+        let block_context = general_config.into_block_context(block_info, max_recursion_depth)?;
         let state = CachedState::new(PapyrusReader::new(reader, block_context.block_number));
         let executed_class_hashes = HashSet::<ClassHash>::new();
         Ok(Self { block_context, executed_class_hashes, state })
@@ -203,65 +201,6 @@ impl TransactionExecutor {
 
         Ok(())
     }
-}
-
-pub struct PyGeneralConfig {
-    pub starknet_os_config: PyOsConfig,
-    pub sequencer_address: PyFelt,
-    pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
-    pub invoke_tx_max_n_steps: u32,
-    pub validate_max_n_steps: u32,
-}
-
-impl FromPyObject<'_> for PyGeneralConfig {
-    fn extract(general_config: &PyAny) -> PyResult<Self> {
-        let starknet_os_config = general_config.getattr("starknet_os_config")?.extract()?;
-        let sequencer_address = general_config.getattr("sequencer_address")?.extract()?;
-        let cairo_resource_fee_weights: HashMap<String, f64> =
-            general_config.getattr("cairo_resource_fee_weights")?.extract()?;
-
-        let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
-        let invoke_tx_max_n_steps = general_config.getattr("invoke_tx_max_n_steps")?.extract()?;
-        let validate_max_n_steps = general_config.getattr("validate_max_n_steps")?.extract()?;
-
-        Ok(Self {
-            starknet_os_config,
-            sequencer_address,
-            cairo_resource_fee_weights,
-            invoke_tx_max_n_steps,
-            validate_max_n_steps,
-        })
-    }
-}
-
-#[derive(FromPyObject)]
-pub struct PyOsConfig {
-    #[pyo3(from_py_with = "int_to_chain_id")]
-    pub chain_id: ChainId,
-    pub fee_token_address: PyFelt,
-}
-
-pub fn py_block_context(
-    general_config: PyGeneralConfig,
-    block_info: &PyAny,
-    max_recursion_depth: usize,
-) -> NativeBlockifierResult<BlockContext> {
-    let starknet_os_config = general_config.starknet_os_config;
-    let block_number = BlockNumber(py_attr(block_info, "block_number")?);
-    let block_context = BlockContext {
-        chain_id: starknet_os_config.chain_id,
-        block_number,
-        block_timestamp: BlockTimestamp(py_attr(block_info, "block_timestamp")?),
-        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
-        fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
-        vm_resource_fee_cost: general_config.cairo_resource_fee_weights,
-        gas_price: py_attr(block_info, "gas_price")?,
-        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-        validate_max_n_steps: general_config.validate_max_n_steps,
-        max_recursion_depth,
-    };
-
-    Ok(block_context)
 }
 
 fn unexpected_callback_error(error: &PyErr) -> bool {
