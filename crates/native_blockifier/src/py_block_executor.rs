@@ -7,8 +7,9 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction_executor::PyTransactionExecutor;
+use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
+use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
+use crate::py_transaction_executor::TransactionExecutor;
 use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::storage::Storage;
 
@@ -16,6 +17,7 @@ use crate::storage::Storage;
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
+    pub tx_executor: Option<TransactionExecutor>,
     // TODO: add TransactionExecutor and Storage as fields.
 }
 
@@ -24,26 +26,77 @@ impl PyBlockExecutor {
     #[new]
     #[args(general_config, max_recursion_depth)]
     pub fn create(general_config: PyGeneralConfig, max_recursion_depth: usize) -> Self {
-        Self { general_config, max_recursion_depth }
+        let tx_executor = None;
+        log::debug!("Initialized Block Executor.");
+        Self { general_config, max_recursion_depth, tx_executor }
     }
 
     #[args(general_config)]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig) -> Self {
-        Self { general_config, max_recursion_depth: 50 }
+        Self { general_config, max_recursion_depth: 50, tx_executor: None }
     }
 
-    fn initialize_tx_executor(
-        &self,
+    /// Initializes the transaction executor for the given block.
+    #[args(storage, block_info)]
+    fn setup_block_execution(
+        &mut self,
         storage: &Storage,
         block_info: PyBlockInfo,
-    ) -> NativeBlockifierResult<PyTransactionExecutor> {
-        PyTransactionExecutor::create(
+    ) -> NativeBlockifierResult<()> {
+        let tx_executor = TransactionExecutor::new(
             storage,
             &self.general_config,
             block_info,
             self.max_recursion_depth,
-        )
+        )?;
+        self.tx_executor = Some(tx_executor);
+        Ok(())
+    }
+
+    fn teardown_block_execution(&mut self) {
+        self.tx_executor = None;
+    }
+
+    /// Deallocate the transaction executor and close storage connections.
+    pub fn close(&mut self) {
+        log::debug!("Closing Block Executor.");
+        // If the block was not finalized (due to some exception occuring _in Python_), we need
+        // to deallocate the transaction executor here to prevent leaks.
+        self.teardown_block_execution();
+    }
+
+    #[args(tx, raw_contract_class, enough_room_for_tx)]
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+        // This is functools.partial(bouncer.add, tw_written=tx_written).
+        enough_room_for_tx: &PyAny,
+    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
+        self.tx_executor().execute(tx, raw_contract_class, enough_room_for_tx)
+    }
+
+    pub fn finalize(&mut self) -> PyStateDiff {
+        log::debug!("Finalizing execution...");
+        let finalized_state = self.tx_executor().finalize();
+        log::debug!("Finalized execution.");
+
+        finalized_state
+    }
+
+    #[args(old_block_number_and_hash)]
+    pub fn pre_process_block(
+        &mut self,
+        old_block_number_and_hash: Option<(u64, PyFelt)>,
+    ) -> NativeBlockifierResult<()> {
+        self.tx_executor().pre_process_block(old_block_number_and_hash)
+    }
+}
+
+impl PyBlockExecutor {
+    pub fn tx_executor(&mut self) -> &mut TransactionExecutor {
+        self.tx_executor.as_mut().expect("Transaction executor should be initialized")
     }
 }
 
