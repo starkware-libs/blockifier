@@ -14,7 +14,7 @@ use starknet_api::core::ClassHash;
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::papyrus_state::PapyrusReader;
 use crate::py_block_executor::PyGeneralConfig;
-use crate::py_state_diff::PyStateDiff;
+use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{py_enum_name, PyFelt};
@@ -65,7 +65,7 @@ impl PyTransactionExecutor {
     pub fn create(
         papyrus_storage: &Storage,
         general_config: &PyGeneralConfig,
-        block_info: &PyAny,
+        block_info: PyBlockInfo,
         max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
@@ -99,7 +99,7 @@ impl TransactionExecutor {
     pub fn new(
         papyrus_storage: &Storage,
         general_config: &PyGeneralConfig,
-        block_info: &PyAny,
+        block_info: PyBlockInfo,
         max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
         // Assumption: storage is aligned.
