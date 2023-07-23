@@ -22,68 +22,6 @@ use crate::storage::Storage;
 
 /// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
 /// The explicit deallocation is needed since PyO3 can't track lifetimes within Python.
-#[pyclass]
-pub struct PyTransactionExecutor {
-    pub executor: Option<TransactionExecutor>,
-}
-
-#[pymethods]
-impl PyTransactionExecutor {
-    #[args(tx, raw_contract_class, enough_room_for_tx)]
-    pub fn execute(
-        &mut self,
-        tx: &PyAny,
-        raw_contract_class: Option<&str>,
-        // This is functools.partial(bouncer.add, tw_written=tx_written).
-        enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
-        self.executor().execute(tx, raw_contract_class, enough_room_for_tx)
-    }
-
-    pub fn finalize(&mut self) -> PyStateDiff {
-        log::debug!("Finalizing execution...");
-        let finalized_state = self.executor().finalize();
-        log::debug!("Finalized execution.");
-
-        finalized_state
-    }
-
-    pub fn close(&mut self) {
-        self.executor = None;
-    }
-
-    #[args(old_block_number_and_hash)]
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        self.executor().pre_process_block(old_block_number_and_hash)
-    }
-}
-
-impl PyTransactionExecutor {
-    pub fn create(
-        papyrus_storage: &Storage,
-        general_config: &PyGeneralConfig,
-        block_info: PyBlockInfo,
-        max_recursion_depth: usize,
-    ) -> NativeBlockifierResult<Self> {
-        log::debug!("Initializing Transaction Executor...");
-        let executor = TransactionExecutor::new(
-            papyrus_storage,
-            general_config,
-            block_info,
-            max_recursion_depth,
-        )?;
-        log::debug!("Initialized Transaction Executor.");
-
-        Ok(Self { executor: Some(executor) })
-    }
-
-    fn executor(&mut self) -> &mut TransactionExecutor {
-        self.executor.as_mut().expect("Transaction executor should be initialized.")
-    }
-}
 
 pub struct TransactionExecutor {
     pub block_context: BlockContext,
@@ -102,12 +40,14 @@ impl TransactionExecutor {
         block_info: PyBlockInfo,
         max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
+        log::debug!("Initializing Transaction Executor...");
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
 
         let block_context = general_config.into_block_context(block_info, max_recursion_depth)?;
         let state = CachedState::new(PapyrusReader::new(reader, block_context.block_number));
         let executed_class_hashes = HashSet::<ClassHash>::new();
+        log::debug!("Initialized Transaction Executor.");
         Ok(Self { block_context, executed_class_hashes, state })
     }
 
