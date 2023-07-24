@@ -49,39 +49,41 @@ pub fn transfers_benchmark(c: &mut Criterion) {
     let block_context = &BlockContext::create_for_account_testing();
     let (accounts, mut nonces) = prepare_accounts(&mut state, block_context);
 
-    let mut account0 = 0;
+    let mut sender_account = 0;
     c.bench_function("transfers", |b| {
         b.iter(|| {
-            do_transfer(account0, &accounts, &mut nonces, block_context, &mut state);
-            account0 = (account0 + 1) % accounts.len();
+            do_transfer(sender_account, &accounts, &mut nonces, block_context, &mut state);
+            sender_account = (sender_account + 1) % accounts.len();
         })
     });
 }
 
 fn do_transfer(
-    account0: usize,
-    accounts: &[starknet_api::core::ContractAddress],
+    sender_account: usize,
+    accounts: &[ContractAddress],
     nonces: &mut [u64],
     block_context: &BlockContext,
     state: &mut CachedState<DictStateReader>,
 ) {
     let n_accounts = accounts.len();
-    let account1 = (account0 + 1) % n_accounts;
-    let addr0 = accounts[account0];
-    let addr1 = accounts[account1];
-    let nonce = nonces[account0];
-    nonces[account0] += 1;
+    let recipient_account = (sender_account + 1) % n_accounts;
+    let sender_account_address = accounts[sender_account];
+    let recipient_account_address = accounts[recipient_account];
+    let nonce = nonces[sender_account];
+    nonces[sender_account] += 1;
 
-    let entry_point_selector = selector_from_name("transfer");
+    let entry_point_selector =
+        selector_from_name(blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME);
     let execute_calldata = calldata![
-        *block_context.fee_token_address.0.key(),
-        entry_point_selector.0,
-        stark_felt!(3_u8),
-        *addr1.0.key(),
-        stark_felt!(1_u8),
-        stark_felt!(0_u8)
+        *block_context.fee_token_address.0.key(), // Contract address.
+        entry_point_selector.0,                   // EP selector.
+        stark_felt!(3_u8),                        // Calldata length.
+        *recipient_account_address.0.key(),       // Calldata: recipient.
+        stark_felt!(1_u8),                        // Calldata: lsb amount.
+        stark_felt!(0_u8)                         // Calldata: msb amount.
     ];
-    let tx = invoke_tx(execute_calldata, addr0, Fee(MAX_FEE), None);
+
+    let tx = invoke_tx(execute_calldata, sender_account_address, Fee(MAX_FEE), None);
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
         nonce: Nonce(stark_felt!(nonce)),
         ..tx
@@ -92,7 +94,7 @@ fn do_transfer(
 fn prepare_accounts(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
-) -> (Vec<starknet_api::core::ContractAddress>, Vec<u64>) {
+) -> (Vec<ContractAddress>, Vec<u64>) {
     // Prepare accounts.
     let mut addresses = vec![];
     let mut nonces = vec![];
