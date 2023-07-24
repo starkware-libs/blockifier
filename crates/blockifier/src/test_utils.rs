@@ -20,8 +20,8 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
-    InvokeTransactionV1, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -38,6 +38,7 @@ use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStor
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::transactions::DeployAccountTransaction;
 
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
@@ -402,17 +403,18 @@ pub fn deploy_account_tx(
     )
     .unwrap();
 
-    DeployAccountTransaction {
+    let tx = starknet_api::transaction::DeployAccountTransaction {
         max_fee,
         version: TransactionVersion(stark_felt!(1_u8)),
         signature: signature.unwrap_or_default(),
         class_hash,
-        contract_address,
         contract_address_salt,
         constructor_calldata,
         nonce: nonce_manager.next(contract_address),
         ..Default::default()
-    }
+    };
+
+    DeployAccountTransaction { tx, contract_address }
 }
 
 pub fn invoke_tx(
