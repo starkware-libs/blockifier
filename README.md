@@ -12,6 +12,7 @@
 <br />
 
 [![GitHub Workflow Status](https://github.com/starkware-libs/blockifier/actions/workflows/post-merge.yml/badge.svg)](https://github.com/starkware-libs/blockifier/actions/workflows/post-merge.yml)
+[![codecov](https://codecov.io/gh/starkware-libs/blockifier/branch/main/graph/badge.svg?token=Z5MXY45MR5)](https://codecov.io/gh/starkware-libs/blockifier)
 
 </div>
 
@@ -33,15 +34,16 @@
 Blockifier is a Rust implementation for the transaction-executing component in the StarkNet sequencer, in charge of creating state diffs and blocks.
 
 ## Roadmap
+
 The Blockifier will be a step towards a decentralized sequencer client for StarkNet, allowing anyone to run one.
 We'll add more milestones to this table once we finish the first one, where we blockify transactions sequentially, including all existing functionality.
 
-| name                   | status |
-|------------------------|:--------:|
-| Add the ability to execute a block and output a state diff.                                                                                       | ⏳ |
-| Integrate with the existing StarkNet Sequencer by replacing its current transaction-blockifying component, which is written in Python.            |    |
-| Implement optimistic concurrency of transaction execution.                                                                                        |    |
-| Extend the Blockifier into a full StarkNet sequencer, written in Rust, replacing the one currently in use.                                        |    |
+| name                                                                                                                                   | status |
+| -------------------------------------------------------------------------------------------------------------------------------------- | :----: |
+| Add the ability to execute a block and output a state diff.                                                                            |   ✅   |
+| Integrate with the existing StarkNet Sequencer by replacing its current transaction-blockifying component, which is written in Python. |   ⏳   |
+| Implement optimistic concurrency of transaction execution.                                                                             |        |
+| Extend the Blockifier into a full StarkNet sequencer, written in Rust, replacing the one currently in use.                             |        |
 
 ## Support
 
