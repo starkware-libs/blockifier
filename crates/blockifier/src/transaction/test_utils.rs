@@ -64,7 +64,7 @@ pub fn create_account_tx_test_state(
         // Give the account mint permission.
         ((test_erc20_address, minter_var_address), *test_account_address.0.key()),
     ]);
-    CachedState::new(DictStateReader {
+    CachedState::from(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
         storage_view,
