@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
+use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -19,6 +20,7 @@ pub struct PyBlockExecutor {
     pub max_recursion_depth: usize,
     pub tx_executor: Option<TransactionExecutor>,
     pub storage: Storage,
+    pub global_contract_cache: GlobalContractCache,
 }
 
 #[pymethods]
@@ -33,7 +35,13 @@ impl PyBlockExecutor {
         let tx_executor = None;
         let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
 
-        Self { general_config, max_recursion_depth, tx_executor, storage }
+        Self {
+            general_config,
+            max_recursion_depth,
+            tx_executor,
+            storage,
+            global_contract_cache: GlobalContractCache::default(),
+        }
     }
 
     // Transaction Execution API.
@@ -51,6 +59,7 @@ impl PyBlockExecutor {
             &self.general_config,
             next_block_info,
             self.max_recursion_depth,
+            self.global_contract_cache.clone(),
         )?;
         self.tx_executor = Some(tx_executor);
 
@@ -167,6 +176,7 @@ impl PyBlockExecutor {
             storage: Storage::new_for_testing(path),
             max_recursion_depth: 50,
             tx_executor: None,
+            global_contract_cache: GlobalContractCache::default(),
         }
     }
 }
