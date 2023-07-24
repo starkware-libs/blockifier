@@ -10,7 +10,7 @@ use starknet_api::core::{ChainId, ContractAddress};
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_transaction_executor::TransactionExecutor;
+use crate::transaction_executor::TransactionExecutor;
 use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::storage::{Storage, StorageConfig};
 

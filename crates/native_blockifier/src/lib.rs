@@ -6,7 +6,7 @@ pub mod py_state_diff;
 pub mod py_test_utils;
 pub mod py_transaction;
 pub mod py_transaction_execution_info;
-pub mod py_transaction_executor;
+pub mod transaction_executor;
 pub mod py_utils;
 pub mod storage;
 
