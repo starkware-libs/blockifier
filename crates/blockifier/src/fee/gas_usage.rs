@@ -144,7 +144,7 @@ pub fn estimate_minimal_fee(
     let os_steps_for_type = OS_RESOURCES
         .execute_txs_inner()
         .get(&tx.tx_type())
-        .expect("OS_RESOURCES must contain all transaction types.")
+        .expect("`OS_RESOURCES` must contain all transaction types.")
         .n_steps;
     let gas_for_type: usize = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce

@@ -51,6 +51,6 @@ pub fn get_additional_os_resources(
     let os_resources = OS_RESOURCES
         .execute_txs_inner
         .get(&tx_type)
-        .expect("OS_RESOURCES must contain all transaction types.");
+        .expect("`OS_RESOURCES` must contain all transaction types.");
     Ok(&os_additional_vm_resources + os_resources)
 }
