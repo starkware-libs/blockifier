@@ -269,7 +269,7 @@ pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
         ),
     ]);
 
-    CachedState::new(DictStateReader {
+    CachedState::from(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
         ..Default::default()
@@ -291,7 +291,7 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
         ),
     ]);
 
-    CachedState::new(DictStateReader {
+    CachedState::from(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
         ..Default::default()
@@ -316,7 +316,7 @@ fn create_deploy_test_state_from_classes(
     let address_to_class_hash =
         HashMap::from([(contract_address, class_hash), (another_contract_address, class_hash)]);
 
-    CachedState::new(DictStateReader {
+    CachedState::from(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
         ..Default::default()

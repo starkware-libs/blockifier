@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::state::cached_state::{CachedState, TransactionalState};
+use blockifier::state::cached_state::{CachedState, GlobalContractCache, TransactionalState};
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -39,13 +39,17 @@ impl TransactionExecutor {
         general_config: &PyGeneralConfig,
         block_info: PyBlockInfo,
         max_recursion_depth: usize,
+        global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         // Assumption: storage is aligned.
         let reader = papyrus_storage.reader().clone();
 
         let block_context = into_block_context(general_config, block_info, max_recursion_depth)?;
-        let state = CachedState::new(PapyrusReader::new(reader, block_context.block_number));
+        let state = CachedState::new(
+            PapyrusReader::new(reader, block_context.block_number),
+            global_contract_cache,
+        );
         let executed_class_hashes = HashSet::<ClassHash>::new();
         log::debug!("Initialized Transaction Executor.");
         Ok(Self { block_context, executed_class_hashes, state })
@@ -126,6 +130,8 @@ impl TransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
+        self.state.update_global_contract_cache();
+
         PyStateDiff::from(self.state.to_state_diff())
     }
 

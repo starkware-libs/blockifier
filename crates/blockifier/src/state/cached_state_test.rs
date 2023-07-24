@@ -47,7 +47,7 @@ fn get_and_set_storage_value() {
     let storage_val0: StarkFelt = stark_felt!("0x1");
     let storage_val1: StarkFelt = stark_felt!("0x5");
 
-    let mut state = CachedState::new(DictStateReader {
+    let mut state = CachedState::from(DictStateReader {
         storage_view: HashMap::from([
             ((contract_address0, key0), storage_val0),
             ((contract_address1, key1), storage_val1),
@@ -108,7 +108,7 @@ fn get_and_increment_nonce() {
     let contract_address2 = ContractAddress(patricia_key!("0x200"));
     let initial_nonce = Nonce(stark_felt!("0x1"));
 
-    let mut state = CachedState::new(DictStateReader {
+    let mut state = CachedState::from(DictStateReader {
         address_to_nonce: HashMap::from([
             (contract_address1, initial_nonce),
             (contract_address2, initial_nonce),
