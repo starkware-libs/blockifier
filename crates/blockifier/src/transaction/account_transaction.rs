@@ -19,7 +19,7 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
-use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
+use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
@@ -467,7 +467,7 @@ impl AccountTransaction {
             .get_n_steps()
             .expect("The number of steps must be initialized.");
 
-        let mut execution_state = CachedState::new(MutRefState::new(state));
+        let mut execution_state = CachedState::create_transactional(state);
         match self.run_execute(
             &mut execution_state,
             resources,

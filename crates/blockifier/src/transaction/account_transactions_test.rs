@@ -65,7 +65,7 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     let test_erc20_address = block_context.fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
-    CachedState::new(DictStateReader {
+    CachedState::from(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
         ..Default::default()

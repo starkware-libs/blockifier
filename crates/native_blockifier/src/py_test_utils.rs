@@ -19,5 +19,5 @@ pub fn create_py_test_state() -> CachedState<DictStateReader> {
         ClassHash(stark_felt!(TOKEN_FOR_TESTING_CLASS_HASH)),
         ContractClassV0::from_file(TOKEN_FOR_TESTING_CONTRACT_PATH).into(),
     )]);
-    CachedState::new(DictStateReader { class_hash_to_class, ..Default::default() })
+    CachedState::from(DictStateReader { class_hash_to_class, ..Default::default() })
 }
