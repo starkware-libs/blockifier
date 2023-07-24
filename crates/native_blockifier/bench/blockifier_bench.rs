@@ -8,20 +8,21 @@ use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::{
-    deploy_account_tx_with_salt, invoke_tx, DictStateReader, ACCOUNT_CONTRACT_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    deploy_account_tx_with_salt, invoke_tx, DictStateReader, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use criterion::{criterion_group, criterion_main, Criterion};
-use starknet_api::core::{ClassHash, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, InvokeTransaction, InvokeTransactionV1,
 };
 use starknet_api::{calldata, stark_felt};
 
-const N_ACCOUNTS: usize = 10;
+const N_ACCOUNTS: usize = 10000;
 
 fn create_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_account_testing();
@@ -30,7 +31,7 @@ fn create_state() -> CachedState<DictStateReader> {
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_PATH).into()),
+        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contract.
@@ -88,7 +89,7 @@ fn do_transfer(
         nonce: Nonce(stark_felt!(nonce)),
         ..tx
     }));
-    account_tx.execute(state, block_context).unwrap();
+    account_tx.execute(state, block_context, false).unwrap();
 }
 
 fn prepare_accounts(
@@ -106,6 +107,7 @@ fn prepare_accounts(
             None,
             ContractAddressSalt(stark_felt!(i as u64)),
             None,
+            &mut NonceManager::default(),
         );
 
         // Update the balance of the account.
@@ -122,7 +124,7 @@ fn prepare_accounts(
         );
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        account_tx.execute(state, block_context).unwrap();
+        account_tx.execute(state, block_context, false).unwrap();
     }
     (addresses, nonces)
 }
