@@ -3,12 +3,10 @@ use std::cmp::min;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{
-    Calldata, DeployAccountTransaction, Fee, InvokeTransaction, TransactionVersion,
-};
+use starknet_api::transaction::{Calldata, Fee, InvokeTransaction, TransactionVersion};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
@@ -37,7 +35,9 @@ use crate::transaction::transaction_utils::{
     calculate_l1_gas_usage, calculate_tx_resources, update_remaining_gas,
     verify_no_calls_to_other_contracts,
 };
-use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
+use crate::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
+};
 
 #[cfg(test)]
 #[path = "account_transactions_test.rs"]
@@ -110,7 +110,7 @@ impl AccountTransaction {
     pub fn max_fee(&self) -> Fee {
         match self {
             AccountTransaction::Declare(declare) => declare.tx().max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee,
+            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
             AccountTransaction::Invoke(invoke) => invoke.max_fee(),
         }
     }
@@ -131,8 +131,8 @@ impl AccountTransaction {
             Self::Declare(tx) => calldata![tx.tx().class_hash().0],
             Self::DeployAccount(tx) => {
                 let validate_calldata = concat(vec![
-                    vec![tx.class_hash.0, tx.contract_address_salt.0],
-                    (*tx.constructor_calldata.0).clone(),
+                    vec![tx.class_hash().0, tx.contract_address_salt().0],
+                    (*tx.constructor_calldata().0).clone(),
                 ]);
                 Calldata(validate_calldata.into())
             }
@@ -155,11 +155,11 @@ impl AccountTransaction {
                 }
             }
             Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash,
-                max_fee: tx.max_fee,
-                version: tx.version,
-                signature: tx.signature.clone(),
-                nonce: tx.nonce,
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: tx.version(),
+                signature: tx.signature(),
+                nonce: tx.nonce(),
                 sender_address: tx.contract_address,
             },
             Self::Invoke(tx) => AccountTransactionContext {
@@ -170,8 +170,14 @@ impl AccountTransaction {
                     InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1_u8)),
                 },
                 signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.sender_address(),
+                nonce: match tx {
+                    InvokeTransaction::V0(_) => Nonce::default(),
+                    InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
+                },
+                sender_address: match tx {
+                    InvokeTransaction::V0(tx_v0) => tx_v0.contract_address,
+                    InvokeTransaction::V1(tx_v1) => tx_v1.sender_address,
+                },
             },
         }
     }
