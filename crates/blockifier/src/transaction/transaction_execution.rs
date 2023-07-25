@@ -1,5 +1,7 @@
 use starknet_api::core::{calculate_contract_address, ContractAddress};
-use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionSignature};
+use starknet_api::transaction::{
+    Fee, Transaction as StarknetApiTransaction, TransactionHash, TransactionSignature,
+};
 
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -17,7 +19,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
-    L1HandlerTransaction,
+    InvokeTransaction, L1HandlerTransaction,
 };
 
 #[derive(Debug)]
@@ -36,6 +38,7 @@ impl Transaction {
 impl Transaction {
     pub fn from_api(
         tx: StarknetApiTransaction,
+        tx_hash: TransactionHash,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
         deployed_contract_address: Option<ContractAddress>,
@@ -44,6 +47,7 @@ impl Transaction {
             StarknetApiTransaction::L1Handler(l1_handler) => {
                 Ok(Self::L1HandlerTransaction(L1HandlerTransaction {
                     tx: l1_handler,
+                    tx_hash,
                     paid_fee_on_l1: paid_fee_on_l1
                         .expect("L1Handler should be created with the fee paid on L1"),
                 }))
@@ -51,6 +55,7 @@ impl Transaction {
             StarknetApiTransaction::Declare(declare) => {
                 Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
                     declare,
+                    tx_hash,
                     contract_class.expect("Declare should be created with a ContractClass"),
                 )?)))
             }
@@ -66,11 +71,14 @@ impl Transaction {
                 };
 
                 Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(
-                    DeployAccountTransaction { tx: deploy_account, contract_address },
+                    DeployAccountTransaction { tx: deploy_account, tx_hash, contract_address },
                 )))
             }
             StarknetApiTransaction::Invoke(invoke) => {
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke)))
+                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
+                    tx: invoke,
+                    tx_hash,
+                })))
             }
             _ => unimplemented!(),
         }
@@ -87,7 +95,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
-            transaction_hash: tx.transaction_hash,
+            transaction_hash: self.tx_hash,
             max_fee: Fee::default(),
             version: tx.version,
             signature: TransactionSignature::default(),
