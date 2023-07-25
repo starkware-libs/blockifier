@@ -28,14 +28,6 @@ use crate::transaction::transaction_utils::{
 #[path = "transactions_test.rs"]
 mod test;
 
-macro_rules! implement_inner_tx_getters {
-    ($(($field:ident, $field_type:ty)),*) => {
-        $(pub fn $field(&self) -> $field_type {
-            self.tx.$field.clone()
-        })*
-    };
-}
-
 macro_rules! implement_inner_tx_getter_calls {
     ($(($field:ident, $field_type:ty)),*) => {
         $(pub fn $field(&self) -> $field_type {
@@ -163,7 +155,12 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash), (max_fee, Fee));
+    implement_inner_tx_getter_calls!(
+        (class_hash, ClassHash),
+        (max_fee, Fee),
+        (nonce, Nonce),
+        (signature, TransactionSignature)
+    );
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {
@@ -211,7 +208,7 @@ pub struct DeployAccountTransaction {
 }
 
 impl DeployAccountTransaction {
-    implement_inner_tx_getters!(
+    implement_inner_tx_getter_calls!(
         (class_hash, ClassHash),
         (contract_address_salt, ContractAddressSalt),
         (max_fee, Fee),
