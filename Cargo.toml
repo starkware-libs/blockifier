@@ -31,13 +31,13 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 rstest = "0.17.0"
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "1fb9bdc" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "31f8cec" }
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 serde = "1.0.130"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "ecc9b6946ef13003da202838e4124a9ad2efabb0" }
+starknet_api = "0.3.0"
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
