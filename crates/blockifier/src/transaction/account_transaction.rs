@@ -6,7 +6,7 @@ use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, Fee, InvokeTransaction, TransactionVersion};
+use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
@@ -35,6 +35,7 @@ use crate::transaction::transaction_utils::{
 };
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
+    InvokeTransaction,
 };
 
 #[cfg(test)]
@@ -131,41 +132,52 @@ impl AccountTransaction {
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
             Self::Declare(tx) => {
-                let tx = &tx.tx();
+                let sn_api_tx = &tx.tx();
                 AccountTransactionContext {
-                    transaction_hash: tx.transaction_hash(),
-                    max_fee: tx.max_fee(),
-                    version: tx.version(),
-                    signature: tx.signature(),
-                    nonce: tx.nonce(),
-                    sender_address: tx.sender_address(),
+                    transaction_hash: tx.tx_hash(),
+                    max_fee: sn_api_tx.max_fee(),
+                    version: sn_api_tx.version(),
+                    signature: sn_api_tx.signature(),
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: sn_api_tx.sender_address(),
                 }
             }
             Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash(),
+                transaction_hash: tx.tx_hash,
                 max_fee: tx.max_fee(),
                 version: tx.version(),
                 signature: tx.signature(),
                 nonce: tx.nonce(),
                 sender_address: tx.contract_address,
             },
-            Self::Invoke(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
-                version: match tx {
-                    InvokeTransaction::V0(_) => TransactionVersion(StarkFelt::from(0_u8)),
-                    InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1_u8)),
-                },
-                signature: tx.signature(),
-                nonce: match tx {
-                    InvokeTransaction::V0(_) => Nonce::default(),
-                    InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
-                },
-                sender_address: match tx {
-                    InvokeTransaction::V0(tx_v0) => tx_v0.contract_address,
-                    InvokeTransaction::V1(tx_v1) => tx_v1.sender_address,
-                },
-            },
+            Self::Invoke(tx) => {
+                let sn_api_tx = &tx.tx;
+                AccountTransactionContext {
+                    transaction_hash: tx.tx_hash,
+                    max_fee: sn_api_tx.max_fee(),
+                    version: match sn_api_tx {
+                        starknet_api::transaction::InvokeTransaction::V0(_) => {
+                            TransactionVersion(StarkFelt::from(0_u8))
+                        }
+                        starknet_api::transaction::InvokeTransaction::V1(_) => {
+                            TransactionVersion(StarkFelt::from(1_u8))
+                        }
+                    },
+                    signature: sn_api_tx.signature(),
+                    nonce: match sn_api_tx {
+                        starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
+                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
+                    },
+                    sender_address: match sn_api_tx {
+                        starknet_api::transaction::InvokeTransaction::V0(tx_v0) => {
+                            tx_v0.contract_address
+                        }
+                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => {
+                            tx_v1.sender_address
+                        }
+                    },
+                }
+            }
         }
     }
 

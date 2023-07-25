@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, Fee, InvokeTransaction, TransactionSignature};
+use starknet_api::transaction::{Calldata, Fee, TransactionHash, TransactionSignature};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use super::account_transaction::AccountTransaction;
@@ -21,7 +21,7 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::constants;
-use crate::transaction::transactions::DeclareTransaction;
+use crate::transaction::transactions::{DeclareTransaction, InvokeTransaction};
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
@@ -133,6 +133,7 @@ pub fn create_account_tx_for_validate_test(
             AccountTransaction::Declare(
                 DeclareTransaction::new(
                     starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+                    TransactionHash::default(),
                     contract_class,
                 )
                 .unwrap(),
@@ -161,7 +162,10 @@ pub fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(signature),
             );
-            AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx))
+            AccountTransaction::Invoke(InvokeTransaction {
+                tx: starknet_api::transaction::InvokeTransaction::V1(invoke_tx),
+                tx_hash: TransactionHash::default(),
+            })
         }
         TransactionType::L1Handler => unimplemented!(),
     }
