@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
@@ -214,11 +214,8 @@ impl DeployAccountTransaction {
     implement_inner_tx_getters!(
         (class_hash, ClassHash),
         (contract_address_salt, ContractAddressSalt),
-        (max_fee, Fee),
         (version, TransactionVersion),
-        (nonce, Nonce),
-        (constructor_calldata, Calldata),
-        (signature, TransactionSignature)
+        (constructor_calldata, Calldata)
     );
 }
 

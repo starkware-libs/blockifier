@@ -26,6 +26,15 @@ impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version == TransactionVersion(stark_felt!(0_u8))
     }
+    pub fn max_fee(&self) -> Fee {
+        self.max_fee
+    }
+    pub fn nonce(&self) -> Nonce {
+        self.nonce
+    }
+    pub fn signature(&self) -> TransactionSignature {
+        self.signature.clone()
+    }
 }
 
 /// Contains the information gathered by the execution of a transaction.
