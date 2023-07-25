@@ -4,7 +4,7 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature,
+    AccountParams, Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -190,7 +190,14 @@ pub fn account_invoke_tx(
 ) -> AccountTransaction {
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
     AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(account_address),
+                ..tx.account_params
+            },
+            ..tx
+        }
+        .into(),
     )
 }
 
