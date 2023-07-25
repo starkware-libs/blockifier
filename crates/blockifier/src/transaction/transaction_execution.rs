@@ -1,6 +1,7 @@
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{
-    Fee, Transaction as StarknetApiTransaction, TransactionHash, TransactionSignature,
+    AccountParams, Fee, Transaction as StarknetApiTransaction, TransactionHash,
+    TransactionSignature,
 };
 
 use crate::abi::constants as abi_constants;
@@ -96,10 +97,8 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
             transaction_hash: self.tx_hash,
-            max_fee: Fee::default(),
+            account_params: AccountParams { nonce: tx.nonce, ..Default::default() },
             version: tx.version,
-            signature: TransactionSignature::default(),
-            nonce: tx.nonce,
             sender_address: tx.contract_address,
         };
         let mut resources = ExecutionResources::default();

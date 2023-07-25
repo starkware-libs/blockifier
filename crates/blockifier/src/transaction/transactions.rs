@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
+    AccountParams, Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -214,11 +215,9 @@ impl DeployAccountTransaction {
     implement_inner_tx_getters!(
         (class_hash, ClassHash),
         (contract_address_salt, ContractAddressSalt),
-        (max_fee, Fee),
+        (account_params, AccountParams),
         (version, TransactionVersion),
-        (nonce, Nonce),
-        (constructor_calldata, Calldata),
-        (signature, TransactionSignature)
+        (constructor_calldata, Calldata)
     );
 }
 
