@@ -673,7 +673,7 @@ fn test_max_fee_to_max_steps_conversion(
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
-    let tx2 = invoke_tx(execute_calldata.clone(), account_address, Fee(2 * actual_fee), None);
+    let tx2 = invoke_tx(execute_calldata, account_address, Fee(2 * actual_fee), None);
     let account_tx2: AccountTransaction =
         AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
             nonce: nonce_manager.next(account_address),

@@ -16,16 +16,26 @@ on:
       - auto_merge_enabled
 
 jobs:
-  checks:
+  format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@master
         with:
-          components: rustfmt, clippy
+          components: rustfmt
           toolchain: nightly-2023-07-05
       - uses: Swatinem/rust-cache@v2
       - run: scripts/rust_fmt.sh --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          components: clippy
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
       - run: scripts/clippy.sh
 
   run-tests:
