@@ -6,7 +6,9 @@ use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, Fee, InvokeTransaction, TransactionVersion};
+use starknet_api::transaction::{
+    AccountParams, Calldata, Fee, InvokeTransaction, TransactionVersion,
+};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
@@ -97,7 +99,7 @@ impl AccountTransaction {
     pub fn max_fee(&self) -> Fee {
         match self {
             AccountTransaction::Declare(declare) => declare.tx().max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
+            AccountTransaction::DeployAccount(deploy_account) => deploy_account.tx.max_fee(),
             AccountTransaction::Invoke(invoke) => invoke.max_fee(),
         }
     }
@@ -134,33 +136,28 @@ impl AccountTransaction {
                 let tx = &tx.tx();
                 AccountTransactionContext {
                     transaction_hash: tx.transaction_hash(),
-                    max_fee: tx.max_fee(),
+                    account_params: tx.account_params(),
                     version: tx.version(),
-                    signature: tx.signature(),
-                    nonce: tx.nonce(),
                     sender_address: tx.sender_address(),
                 }
             }
             Self::DeployAccount(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
+                account_params: tx.account_params(),
                 version: tx.version(),
-                signature: tx.signature(),
-                nonce: tx.nonce(),
                 sender_address: tx.contract_address,
             },
             Self::Invoke(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
-                version: match tx {
-                    InvokeTransaction::V0(_) => TransactionVersion(StarkFelt::from(0_u8)),
-                    InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1_u8)),
+                account_params: match tx {
+                    InvokeTransaction::V0(tx_v0) => AccountParams {
+                        nonce: Nonce::default(),
+                        max_fee: tx_v0.max_fee,
+                        signature: tx_v0.signature,
+                    },
+                    InvokeTransaction::V1(tx_v1) => tx_v1.account_params,
                 },
-                signature: tx.signature(),
-                nonce: match tx {
-                    InvokeTransaction::V0(_) => Nonce::default(),
-                    InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
-                },
+                version: tx.version(),
                 sender_address: match tx {
                     InvokeTransaction::V0(tx_v0) => tx_v0.contract_address,
                     InvokeTransaction::V1(tx_v1) => tx_v1.sender_address,
@@ -204,11 +201,11 @@ impl AccountTransaction {
 
         let address = account_tx_context.sender_address;
         let current_nonce = state.get_nonce_at(address)?;
-        if current_nonce != account_tx_context.nonce {
+        if current_nonce != account_tx_context.nonce() {
             return Err(TransactionExecutionError::InvalidNonce {
                 address,
                 expected_nonce: current_nonce,
-                actual_nonce: account_tx_context.nonce,
+                actual_nonce: account_tx_context.nonce(),
             });
         }
 
@@ -301,10 +298,10 @@ impl AccountTransaction {
         if self.enforce_fee() {
             // Check max fee is at least the estimated constant overhead.
             let minimal_fee = estimate_minimal_fee(block_context, self)?;
-            if minimal_fee > account_tx_context.max_fee {
+            if minimal_fee > account_tx_context.max_fee() {
                 return Err(TransactionExecutionError::MaxFeeTooLow {
                     min_fee: minimal_fee,
-                    max_fee: account_tx_context.max_fee,
+                    max_fee: account_tx_context.max_fee(),
                 });
             }
 
@@ -313,10 +310,10 @@ impl AccountTransaction {
             // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
             //   should be updated.
             if balance_high == StarkFelt::from(0_u8)
-                && balance_low < StarkFelt::from(account_tx_context.max_fee.0)
+                && balance_low < StarkFelt::from(account_tx_context.max_fee().0)
             {
                 return Err(TransactionExecutionError::MaxFeeExceedsBalance {
-                    max_fee: account_tx_context.max_fee,
+                    max_fee: account_tx_context.max_fee(),
                     balance_low,
                     balance_high,
                 });
@@ -352,7 +349,7 @@ impl AccountTransaction {
         account_tx_context: AccountTransactionContext,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
-        let max_fee = account_tx_context.max_fee;
+        let max_fee = account_tx_context.max_fee();
         if actual_fee > max_fee {
             return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
         }
@@ -528,9 +525,9 @@ impl AccountTransaction {
 
         let mut actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
 
-        if is_reverted || account_tx_context.max_fee == Fee(0) {
+        if is_reverted || account_tx_context.max_fee() == Fee(0) {
             // We cannot charge more than max_fee for reverted txs.
-            actual_fee = min(actual_fee, account_tx_context.max_fee);
+            actual_fee = min(actual_fee, account_tx_context.max_fee());
         }
 
         Ok((actual_fee, actual_resources))

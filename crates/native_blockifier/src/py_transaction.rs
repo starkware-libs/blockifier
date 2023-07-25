@@ -17,7 +17,7 @@ use starknet_api::core::{
 };
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
+    AccountParams, Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
     InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
@@ -43,10 +43,12 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
     let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
-        max_fee: Fee(py_attr(tx, "max_fee")?),
+        account_params: AccountParams {
+            max_fee: Fee(py_attr(tx, "max_fee")?),
+            signature: TransactionSignature(py_felt_sequence_attr(tx, "signature")?),
+            nonce,
+        },
         version: TransactionVersion(py_felt_attr(tx, "version")?),
-        signature: TransactionSignature(py_felt_sequence_attr(tx, "signature")?),
-        nonce,
         sender_address: ContractAddress::try_from(py_felt_attr(tx, "sender_address")?)?,
     })
 }
@@ -63,9 +65,7 @@ pub fn py_declare(
         0 => {
             let declare_tx = DeclareTransactionV0V1 {
                 transaction_hash: account_data_context.transaction_hash,
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                account_params: account_data_context.account_params,
                 class_hash,
                 sender_address: account_data_context.sender_address,
             };
@@ -74,9 +74,7 @@ pub fn py_declare(
         1 => {
             let declare_tx = DeclareTransactionV0V1 {
                 transaction_hash: account_data_context.transaction_hash,
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                account_params: account_data_context.account_params,
                 class_hash,
                 sender_address: account_data_context.sender_address,
             };
@@ -86,9 +84,7 @@ pub fn py_declare(
             let compiled_class_hash = CompiledClassHash(py_felt_attr(tx, "compiled_class_hash")?);
             let declare_tx = DeclareTransactionV2 {
                 transaction_hash: account_data_context.transaction_hash,
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                account_params: account_data_context.account_params,
                 class_hash,
                 sender_address: account_data_context.sender_address,
                 compiled_class_hash,
@@ -108,10 +104,8 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
 
     let tx = starknet_api::transaction::DeployAccountTransaction {
         transaction_hash: account_data_context.transaction_hash,
-        max_fee: account_data_context.max_fee,
+        account_params: account_data_context.account_params,
         version: account_data_context.version,
-        signature: account_data_context.signature,
-        nonce: account_data_context.nonce,
         class_hash: ClassHash(py_felt_attr(tx, "class_hash")?),
         contract_address_salt: ContractAddressSalt(py_felt_attr(tx, "contract_address_salt")?),
         constructor_calldata: py_calldata(tx, "constructor_calldata")?,
@@ -126,17 +120,14 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
     match version {
         0 => Ok(InvokeTransaction::V0(InvokeTransactionV0 {
             transaction_hash: account_data_context.transaction_hash,
-            max_fee: account_data_context.max_fee,
-            signature: account_data_context.signature,
+            account_params: account_data_context.account_params,
             contract_address: account_data_context.sender_address,
             entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
             calldata: py_calldata(tx, "calldata")?,
         })),
         1 => Ok(InvokeTransaction::V1(InvokeTransactionV1 {
             transaction_hash: account_data_context.transaction_hash,
-            max_fee: account_data_context.max_fee,
-            signature: account_data_context.signature,
-            nonce: account_data_context.nonce,
+            account_params: account_data_context.account_params,
             sender_address: account_data_context.sender_address,
             calldata: py_calldata(tx, "calldata")?,
         })),

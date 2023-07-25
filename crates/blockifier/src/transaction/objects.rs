@@ -4,7 +4,9 @@ use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
-use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
+use starknet_api::transaction::{
+    AccountParams, Fee, TransactionHash, TransactionSignature, TransactionVersion,
+};
 
 use crate::execution::entry_point::CallInfo;
 use crate::transaction::errors::TransactionExecutionError;
@@ -15,16 +17,23 @@ pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AccountTransactionContext {
     pub transaction_hash: TransactionHash,
-    pub max_fee: Fee,
+    pub account_params: AccountParams,
     pub version: TransactionVersion,
-    pub signature: TransactionSignature,
-    pub nonce: Nonce,
     pub sender_address: ContractAddress,
 }
 
 impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version == TransactionVersion(stark_felt!(0_u8))
+    }
+    pub fn max_fee(&self) -> Fee {
+        self.account_params.max_fee
+    }
+    pub fn nonce(&self) -> Nonce {
+        self.account_params.nonce
+    }
+    pub fn signature(&self) -> TransactionSignature {
+        self.account_params.signature
     }
 }
 
