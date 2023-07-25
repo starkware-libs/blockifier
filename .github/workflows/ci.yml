@@ -26,7 +26,7 @@ jobs:
           toolchain: nightly-2023-07-05
       - uses: Swatinem/rust-cache@v2
       - run: scripts/rust_fmt.sh --check
-      - run: scripts/clippy.sh
+      - run: echo cargo clippy --version && exit 1
 
   run-tests:
     runs-on: ubuntu-latest
