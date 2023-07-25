@@ -11,8 +11,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    InvokeTransaction, InvokeTransactionV1, TransactionSignature,
+    AccountParams, Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData,
+    EventKey, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
@@ -469,7 +469,10 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
 
     // Invoke.
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
+        account_params: AccountParams{
+            max_fee: invalid_max_fee,
+            ..invoke_tx().account_params
+        },
         ..invoke_tx()
     }));
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
@@ -486,7 +489,11 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     // Declare.
     let invalid_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-            max_fee: invalid_max_fee,
+            account_params: AccountParams {
+                max_fee: invalid_max_fee,
+                ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
+                    .account_params
+            },
             ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
         }),
         contract_class: ContractClass::V0(ContractClassV0::from_file(
@@ -512,7 +519,10 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let minimal_fee = estimate_minimal_fee(block_context, &valid_account_tx).unwrap();
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
+        account_params: AccountParams{
+            max_fee: invalid_max_fee,
+            ..valid_invoke_tx.clone().account_params
+        },
         ..valid_invoke_tx.clone()
     }));
     let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
@@ -527,7 +537,10 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Insufficient fee.
     let invalid_max_fee = minimal_fee;
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
+        account_params: AccountParams{
+            max_fee: invalid_max_fee,
+            ..valid_invoke_tx.clone().account_params
+        },
         ..valid_invoke_tx.clone()
     }));
     let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
@@ -543,7 +556,10 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Use a fresh state to facilitate testing.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: invalid_nonce,
+        account_params: AccountParams{
+            nonce: invalid_nonce,
+            ..valid_invoke_tx.account_params
+        },
         ..valid_invoke_tx
     }));
     let execution_error = invalid_tx
@@ -690,7 +706,7 @@ fn test_declare_tx_v2() {
     let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
     let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
     let declare_tx = DeclareTransactionV2 {
-        max_fee: Fee(MAX_FEE),
+        account_params: AccountParams { max_fee: Fee(MAX_FEE), ..Default::default() },
         class_hash,
         sender_address,
         ..Default::default()
@@ -1008,7 +1024,10 @@ fn test_calculate_tx_gas_usage() {
     );
 
     let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(StarkFelt::from(1_u8)),
+        account_params: AccountParams{
+            nonce: Nonce(StarkFelt::from(1_u8)),
+            ..invoke_tx.account_params
+        },
         ..invoke_tx
     }));
 

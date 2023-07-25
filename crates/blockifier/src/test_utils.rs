@@ -20,7 +20,7 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
+    AccountParams, Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
     TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
@@ -404,13 +404,16 @@ pub fn deploy_account_tx(
     .unwrap();
 
     let tx = starknet_api::transaction::DeployAccountTransaction {
-        max_fee,
+        account_params: AccountParams {
+            max_fee,
+            signature: signature.unwrap_or_default(),
+            nonce: nonce_manager.next(contract_address),
+        },
         version: TransactionVersion(stark_felt!(1_u8)),
-        signature: signature.unwrap_or_default(),
         class_hash,
         contract_address_salt,
         constructor_calldata,
-        nonce: nonce_manager.next(contract_address),
+
         ..Default::default()
     };
 
@@ -424,10 +427,13 @@ pub fn invoke_tx(
     signature: Option<TransactionSignature>,
 ) -> InvokeTransactionV1 {
     InvokeTransactionV1 {
-        max_fee,
+        account_params: AccountParams {
+            max_fee,
+            signature: signature.unwrap_or_default(),
+            ..Default::default()
+        },
         sender_address,
         calldata,
-        signature: signature.unwrap_or_default(),
         ..Default::default()
     }
 }
@@ -439,10 +445,13 @@ pub fn declare_tx(
     signature: Option<TransactionSignature>,
 ) -> DeclareTransactionV0V1 {
     DeclareTransactionV0V1 {
-        max_fee,
+        account_params: AccountParams {
+            max_fee,
+            signature: signature.unwrap_or_default(),
+            ..Default::default()
+        },
         class_hash: ClassHash(stark_felt!(class_hash)),
         sender_address,
-        signature: signature.unwrap_or_default(),
         ..Default::default()
     }
 }
