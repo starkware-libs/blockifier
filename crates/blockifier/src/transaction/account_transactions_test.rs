@@ -8,8 +8,8 @@ use starknet_api::core::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    InvokeTransaction, InvokeTransactionV1,
+    AccountParams, Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
+    Fee, InvokeTransactionV1, TransactionHash,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -109,9 +109,13 @@ fn create_test_init_data(
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-                nonce: nonce_manager.next(account_address),
+                account_params: AccountParams {
+                    nonce: nonce_manager.next(account_address),
+                    ..declare_tx.account_params
+                },
                 ..declare_tx
             }),
+            TransactionHash::default(),
             contract_class,
         )
         .unwrap(),
@@ -133,10 +137,16 @@ fn create_test_init_data(
         stark_felt!(1_u8)         // Constructor calldata: value.
     ];
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    }));
+    let account_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(account_address),
+                ..tx.account_params
+            },
+            ..tx
+        }
+        .into(),
+    );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Calculate the newly deployed contract address
@@ -193,10 +203,16 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
         stark_felt!(2_u8)          // Calldata: num.
     ];
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    }));
+    let account_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(account_address),
+                ..tx.account_params
+            },
+            ..tx
+        }
+        .into(),
+    );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 }
 
@@ -252,10 +268,16 @@ fn test_infinite_recursion(
     };
 
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    }));
+    let account_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(account_address),
+                ..tx.account_params
+            },
+            ..tx
+        }
+        .into(),
+    );
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
     if success {
         assert!(tx_execution_info.revert_error.is_none());
@@ -311,10 +333,13 @@ fn test_revert_invoke(
         stark_felt!(99_u8) // Dummy, non-zero value.
     ];
     let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(1_u8)),
-        ..tx
-    }));
+    let account_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams { nonce: Nonce(stark_felt!(1_u8)), ..tx.account_params },
+            ..tx
+        }
+        .into(),
+    );
     let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // TODO(Dori, 1/7/2023): Verify that the actual fee collected is exactly the fee computed for
@@ -384,7 +409,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
 
     // Cannot fail executing a declare tx unless it's V2 or above, and already declared.
     let declare_tx = DeclareTransactionV2 {
-        max_fee,
+        account_params: AccountParams { max_fee, ..Default::default() },
         class_hash,
         sender_address: account_address,
         ..Default::default()
@@ -394,9 +419,10 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     let declare_account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
-                nonce: next_nonce,
+                account_params: AccountParams { nonce: next_nonce, ..declare_tx.account_params },
                 ..declare_tx
             }),
+            TransactionHash::default(),
             contract_class,
         )
         .unwrap(),
@@ -429,11 +455,16 @@ fn run_recursive_function(
         stark_felt!(depth)                   // Calldata: recursion depth.
     ];
     let tx = invoke_tx(execute_calldata, *account_address, max_fee, None);
-    let account_tx: AccountTransaction =
-        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-            nonce: nonce_manager.next(*account_address),
+    let account_tx: AccountTransaction = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(*account_address),
+                ..tx.account_params
+            },
             ..tx
-        }));
+        }
+        .into(),
+    );
     account_tx.execute(state, block_context, true, true).unwrap()
 }
 
@@ -659,11 +690,16 @@ fn test_max_fee_to_max_steps_conversion(
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
     let tx1 = invoke_tx(execute_calldata.clone(), account_address, Fee(actual_fee), None);
-    let account_tx1: AccountTransaction =
-        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-            nonce: nonce_manager.next(account_address),
+    let account_tx1: AccountTransaction = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(account_address),
+                ..tx1.account_params
+            },
             ..tx1
-        }));
+        }
+        .into(),
+    );
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
         &account_tx1.get_account_transaction_context(),
@@ -674,11 +710,16 @@ fn test_max_fee_to_max_steps_conversion(
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let tx2 = invoke_tx(execute_calldata, account_address, Fee(2 * actual_fee), None);
-    let account_tx2: AccountTransaction =
-        AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-            nonce: nonce_manager.next(account_address),
+    let account_tx2: AccountTransaction = AccountTransaction::Invoke(
+        InvokeTransactionV1 {
+            account_params: AccountParams {
+                nonce: nonce_manager.next(account_address),
+                ..tx2.account_params
+            },
             ..tx2
-        }));
+        }
+        .into(),
+    );
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
         &account_tx2.get_account_transaction_context(),
