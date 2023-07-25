@@ -8,8 +8,8 @@ use starknet_api::core::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash,
+    AccountParams, Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
+    Fee, TransactionHash,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -109,7 +109,10 @@ fn create_test_init_data(
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-                nonce: nonce_manager.next(account_address),
+                account_params: AccountParams {
+                    nonce: nonce_manager.next(account_address),
+                    ..declare_tx.account_params
+                },
                 ..declare_tx
             }),
             TransactionHash::default(),
@@ -398,7 +401,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
 
     // Cannot fail executing a declare tx unless it's V2 or above, and already declared.
     let declare_tx = DeclareTransactionV2 {
-        max_fee,
+        account_params: AccountParams { max_fee, ..Default::default() },
         class_hash,
         sender_address: account_address,
         ..Default::default()
@@ -408,7 +411,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     let declare_account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
-                nonce: next_nonce,
+                account_params: AccountParams { nonce: next_nonce, ..declare_tx.account_params },
                 ..declare_tx
             }),
             TransactionHash::default(),
