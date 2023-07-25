@@ -33,7 +33,7 @@ pub struct Storage {
 #[pymethods]
 impl Storage {
     #[new]
-    #[args(path_prefix, chain_id, max_size)]
+    #[args(config)]
     pub fn new(config: StorageConfig) -> NativeBlockifierResult<Storage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
