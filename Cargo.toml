@@ -43,3 +43,7 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 test-case = "2.2.2"
 thiserror = "1.0.37"
+
+[patch.crates-io]
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "d34e997" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", branch = "mohammad/SN_API_new_version" }

@@ -98,7 +98,7 @@ impl AccountTransaction {
     pub fn max_fee(&self) -> Fee {
         match self {
             AccountTransaction::Declare(declare) => declare.max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
+            AccountTransaction::DeployAccount(deploy_account) => deploy_account.tx.max_fee(),
             AccountTransaction::Invoke(invoke) => invoke.max_fee(),
         }
     }
@@ -136,46 +136,37 @@ impl AccountTransaction {
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
                     max_fee: sn_api_tx.max_fee(),
-                    version: sn_api_tx.version(),
                     signature: sn_api_tx.signature(),
+                    version: sn_api_tx.version(),
                     nonce: sn_api_tx.nonce(),
                     sender_address: sn_api_tx.sender_address(),
                 }
             }
-            Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.tx_hash,
-                max_fee: tx.max_fee(),
-                version: tx.version(),
-                signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.contract_address,
-            },
+            Self::DeployAccount(tx) => {
+                let sn_api_tx = &tx.tx;
+                AccountTransactionContext {
+                    transaction_hash: tx.tx_hash,
+                    max_fee: sn_api_tx.max_fee(),
+                    version: tx.version(),
+                    signature: sn_api_tx.signature(),
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: tx.contract_address,
+                }
+            }
             Self::Invoke(tx) => {
                 let sn_api_tx = &tx.tx;
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash,
                     max_fee: sn_api_tx.max_fee(),
-                    version: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => {
-                            TransactionVersion(StarkFelt::from(0_u8))
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(_) => {
-                            TransactionVersion(StarkFelt::from(1_u8))
-                        }
-                    },
                     signature: sn_api_tx.signature(),
                     nonce: match sn_api_tx {
                         starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
-                    },
-                    sender_address: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(tx_v0) => {
-                            tx_v0.contract_address
-                        }
                         starknet_api::transaction::InvokeTransaction::V1(tx_v1) => {
-                            tx_v1.sender_address
+                            tx_v1.account_params.nonce()
                         }
                     },
+                    version: sn_api_tx.version(),
+                    sender_address: sn_api_tx.sender_address(),
                 }
             }
         }

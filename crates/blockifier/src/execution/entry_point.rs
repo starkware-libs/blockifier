@@ -4,13 +4,11 @@ use std::collections::HashSet;
 use cairo_vm::vm::runners::cairo_runner::{
     ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
 };
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{
-    Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
-};
+use starknet_api::transaction::{Calldata, EventContent, Fee, L2ToL1Payload, TransactionVersion};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
