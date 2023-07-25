@@ -21,7 +21,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
-    TransactionSignature, TransactionVersion,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
@@ -411,10 +411,9 @@ pub fn deploy_account_tx(
         contract_address_salt,
         constructor_calldata,
         nonce: nonce_manager.next(contract_address),
-        ..Default::default()
     };
 
-    DeployAccountTransaction { tx, contract_address }
+    DeployAccountTransaction { tx, tx_hash: TransactionHash::default(), contract_address }
 }
 
 pub fn invoke_tx(
