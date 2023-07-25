@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
-use starknet_api::core::ContractAddress;
 
 use crate::abi::constants;
 use crate::execution::entry_point::{CallInfo, ExecutionResources};
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
-use crate::state::cached_state::{StateChangesCount, TransactionalState};
-use crate::state::state_api::StateReader;
+use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
@@ -28,16 +26,11 @@ pub fn verify_no_calls_to_other_contracts(
     Ok(())
 }
 
-pub fn calculate_l1_gas_usage<S: StateReader>(
+pub fn calculate_l1_gas_usage(
     call_infos: &[&CallInfo],
-    state: &mut TransactionalState<'_, S>,
+    state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
-    fee_token_address: ContractAddress,
-    sender_address: Option<ContractAddress>,
 ) -> TransactionExecutionResult<usize> {
-    let state_changes =
-        state.get_actual_state_changes_for_fee_charge(fee_token_address, sender_address)?;
-
     let mut l2_to_l1_payloads_length = vec![];
     for call_info in call_infos {
         l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
@@ -45,7 +38,7 @@ pub fn calculate_l1_gas_usage<S: StateReader>(
 
     let l1_gas_usage = calculate_tx_gas_usage(
         &l2_to_l1_payloads_length,
-        StateChangesCount::from(&state_changes),
+        state_changes_count,
         l1_handler_payload_size,
     );
 

@@ -5,7 +5,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::state::cached_state::TransactionalState;
+use crate::state::cached_state::{StateChangesCount, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
@@ -88,12 +88,12 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
+        let state_changes =
+            state.get_actual_state_changes_for_fee_charge(block_context.fee_token_address, None)?;
         let l1_gas_usage = calculate_l1_gas_usage(
             &call_infos,
-            state,
+            StateChangesCount::from(&state_changes),
             l1_handler_payload_size,
-            block_context.fee_token_address,
-            None,
         )?;
         let actual_resources =
             calculate_tx_resources(resources, l1_gas_usage, TransactionType::L1Handler)?;
