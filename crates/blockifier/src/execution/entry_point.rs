@@ -162,7 +162,8 @@ impl EntryPointExecutionContext {
     /// Used for limiting the number of steps available during the execution stage, to leave enough
     /// steps available for the fee transfer stage.
     pub fn subtract_steps(&mut self, steps_to_subtract: usize) {
-        let current_n_steps = self.vm_run_resources.get_n_steps().unwrap();
+        let current_n_steps =
+            self.vm_run_resources.get_n_steps().expect("The number of steps must be initialized.");
         let steps_to_subtract = min(steps_to_subtract, current_n_steps);
         self.vm_run_resources = RunResources::new(current_n_steps - steps_to_subtract);
     }
