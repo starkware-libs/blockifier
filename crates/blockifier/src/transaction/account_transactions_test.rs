@@ -636,12 +636,27 @@ fn test_n_reverted_steps(
     assert!(actual_fee_100 - actual_fee_0 == 100 * single_call_fee_delta);
 }
 
-#[rstest]
+#[test]
 /// Tests that steps are correctly limited based on max_fee.
-fn test_max_fee_to_max_steps_conversion(
-    block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
-) {
+fn test_max_fee_to_max_steps_conversion() {
+    let block_context = BlockContext::create_for_account_testing();
+
+    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let class_hash_to_class = HashMap::from([
+        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
+        (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
+    ]);
+    // Deploy the erc20 contract.
+    let test_erc20_address = block_context.fee_token_address;
+    let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
+
+    let state = CachedState::new(DictStateReader {
+        address_to_class_hash,
+        class_hash_to_class,
+        ..Default::default()
+    });
+
     let TestInitData {
         mut state,
         account_address,
@@ -673,7 +688,7 @@ fn test_max_fee_to_max_steps_conversion(
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
-    let tx2 = invoke_tx(execute_calldata, account_address, Fee(2 * actual_fee), None);
+    let tx2 = invoke_tx(execute_calldata.clone(), account_address, Fee(2 * actual_fee), None);
     let account_tx2: AccountTransaction =
         AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
             nonce: nonce_manager.next(account_address),
