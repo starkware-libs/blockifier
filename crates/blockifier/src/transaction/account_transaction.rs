@@ -56,7 +56,7 @@ struct ValidateExecuteCallInfo {
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
     n_reverted_steps: usize,
-    out_of_gas: bool,
+    insufficient_fee: bool,
 }
 
 impl ValidateExecuteCallInfo {
@@ -69,7 +69,7 @@ impl ValidateExecuteCallInfo {
             execute_call_info,
             revert_error: None,
             n_reverted_steps: 0,
-            out_of_gas: false,
+            insufficient_fee: false,
         }
     }
 
@@ -77,14 +77,14 @@ impl ValidateExecuteCallInfo {
         validate_call_info: Option<CallInfo>,
         revert_error: String,
         n_reverted_steps: usize,
-        out_of_gas: bool,
+        insufficient_fee: bool,
     ) -> Self {
         Self {
             validate_call_info,
             execute_call_info: None,
             revert_error: Some(revert_error),
             n_reverted_steps,
-            out_of_gas,
+            insufficient_fee,
         }
     }
 }
@@ -487,7 +487,10 @@ impl AccountTransaction {
                 if actual_fee > self.max_fee() {
                     // Insufficient fee. Revert the execution.
                     execution_state.abort();
-                    let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
+                    let remaining_steps = execution_context
+                        .vm_run_resources
+                        .get_n_steps()
+                        .expect("Invalid remaining steps in RunResources.");
                     let reverted_steps = allotted_steps - remaining_steps;
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
@@ -512,13 +515,12 @@ impl AccountTransaction {
                 execution_state.abort();
                 let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
                 let reverted_steps = allotted_steps - remaining_steps;
-                let out_of_gas = allotted_steps == reverted_steps;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
                     execution_context.error_trace(),
                     reverted_steps,
-                    out_of_gas,
+                    false,
                 ))
             }
         }
@@ -626,7 +628,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             execute_call_info,
             revert_error,
             n_reverted_steps,
-            out_of_gas,
+            insufficient_fee,
         } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
         let state_changes = state.get_actual_state_changes_for_fee_charge(
@@ -643,7 +645,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             n_reverted_steps,
         )?;
 
-        if out_of_gas {
+        if insufficient_fee {
             actual_fee = account_tx_context.max_fee;
         }
         let fee_transfer_call_info =

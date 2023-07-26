@@ -751,7 +751,7 @@ fn test_insufficient_max_fee_to_insufficient_steps(
     );
     assert!(tx_execution_info2.is_reverted());
     assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
-    assert!(tx_execution_info2.revert_error.unwrap().contains("Insufficient max fee"));
+    assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
 
     // Invoke the `recurse` function with depth of 800 and actual_fee_depth1 as max fee.
     // This call should fail due to no remaining steps.

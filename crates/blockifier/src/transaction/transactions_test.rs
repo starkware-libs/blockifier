@@ -535,7 +535,7 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let execution_error = execution_result.revert_error.unwrap();
 
     // Test error.
-    assert!(execution_error.contains("Insufficient max fee:"));
+    assert!(execution_error.starts_with("Insufficient max fee:"));
     // Test that fee was charged.
     assert_eq!(execution_result.actual_fee, invalid_max_fee);
 
