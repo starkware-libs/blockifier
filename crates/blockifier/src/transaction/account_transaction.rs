@@ -21,7 +21,7 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
-use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
+use crate::state::cached_state::{CachedState, MutRefState, StateChangesCount, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
@@ -456,9 +456,9 @@ impl AccountTransaction {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn calculate_actual_fee_and_resources<S: StateReader>(
+    fn calculate_actual_fee_and_resources(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state_changes_count: StateChangesCount,
         execute_call_info: &Option<CallInfo>,
         validate_call_info: &Option<CallInfo>,
         execution_resources: ExecutionResources,
@@ -472,13 +472,8 @@ impl AccountTransaction {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage = calculate_l1_gas_usage(
-            &non_optional_call_infos,
-            state,
-            None,
-            block_context.fee_token_address,
-            Some(account_tx_context.sender_address),
-        )?;
+        let l1_gas_usage =
+            calculate_l1_gas_usage(&non_optional_call_infos, state_changes_count, None)?;
         let mut actual_resources =
             calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type())?;
 
@@ -525,8 +520,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             n_reverted_steps,
         } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
+        let state_changes = state.get_actual_state_changes_for_fee_charge(
+            block_context.fee_token_address,
+            Some(account_tx_context.sender_address),
+        )?;
         let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
-            state,
+            StateChangesCount::from(&state_changes),
             &execute_call_info,
             &validate_call_info,
             resources,
