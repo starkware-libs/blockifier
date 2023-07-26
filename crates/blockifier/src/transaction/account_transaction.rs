@@ -487,7 +487,10 @@ impl AccountTransaction {
                 if actual_fee > self.max_fee() {
                     // Insufficient fee. Revert the execution.
                     execution_state.abort();
-                    let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
+                    let remaining_steps = execution_context
+                        .vm_run_resources
+                        .get_n_steps()
+                        .expect("Invalid remaining steps in RunResources.");
                     let reverted_steps = allotted_steps - remaining_steps;
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
@@ -512,13 +515,12 @@ impl AccountTransaction {
                 execution_state.abort();
                 let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
                 let reverted_steps = allotted_steps - remaining_steps;
-                let out_of_gas = allotted_steps == reverted_steps;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
                     execution_context.error_trace(),
                     reverted_steps,
-                    out_of_gas,
+                    false,
                 ))
             }
         }
