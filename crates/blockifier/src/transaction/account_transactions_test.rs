@@ -9,6 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
+    TransactionHash,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -112,6 +113,7 @@ fn create_test_init_data(
                 nonce: nonce_manager.next(account_address),
                 ..declare_tx
             }),
+            TransactionHash::default(),
             contract_class,
         )
         .unwrap(),
@@ -410,6 +412,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
                 nonce: next_nonce,
                 ..declare_tx
             }),
+            TransactionHash::default(),
             contract_class,
         )
         .unwrap(),

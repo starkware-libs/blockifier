@@ -3,14 +3,13 @@ use std::collections::HashMap;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
-};
+use starknet_api::transaction::{Calldata, Fee, TransactionHash, TransactionSignature, InvokeTransactionV1};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use super::account_transaction::AccountTransaction;
 use super::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use super::transaction_types::TransactionType;
+use super::transactions::ExecutableTransaction;
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -24,7 +23,7 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::constants;
-use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::transaction::transactions::{DeclareTransaction, InvokeTransaction};
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
@@ -136,6 +135,7 @@ pub fn create_account_tx_for_validate_test(
             AccountTransaction::Declare(
                 DeclareTransaction::new(
                     starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+                    TransactionHash::default(),
                     contract_class,
                 )
                 .unwrap(),
@@ -164,7 +164,10 @@ pub fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(signature),
             );
-            AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx))
+            AccountTransaction::Invoke(InvokeTransaction {
+                tx: starknet_api::transaction::InvokeTransaction::V1(invoke_tx),
+                tx_hash: TransactionHash::default(),
+            })
         }
         TransactionType::L1Handler => unimplemented!(),
     }
@@ -177,10 +180,16 @@ pub fn account_invoke_tx(
     max_fee: Fee,
 ) -> AccountTransaction {
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+    let tx = InvokeTransactionV1 {
         nonce: nonce_manager.next(account_address),
         ..tx
-    }))
+    };
+    let invoke_tx = InvokeTransaction {
+        tx: starknet_api::transaction::InvokeTransaction::V1(tx),
+        tx_hash: TransactionHash::default(),
+    };
+
+    AccountTransaction::Invoke(invoke_tx)
 }
 
 pub fn run_invoke_tx(
