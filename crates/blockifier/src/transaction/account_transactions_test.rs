@@ -460,7 +460,7 @@ fn test_reverted_reach_steps_limit(
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 4000;
+    block_context.invoke_tx_max_n_steps = 5000;
 
     let TestInitData {
         mut state,
@@ -737,9 +737,25 @@ fn test_insufficient_max_fee_to_insufficient_steps(
     assert!(!tx_execution_info1.is_reverted());
     let actual_fee_depth1 = tx_execution_info1.actual_fee;
 
-    // Invoke the `recurse` function with depth of 300 and actual_fee_depth1 as max fee.
-    // This call should fail due to no remaining steps.
+    // Invoke the `recurse` function with depth of 2 and actual_fee_depth1 as max fee.
+    // This call should fail due to insufficient max fee.
     let tx_execution_info2: TransactionExecutionInfo = run_recursive_function(
+        &mut state,
+        &block_context,
+        actual_fee_depth1,
+        &contract_address,
+        &account_address,
+        &mut nonce_manager,
+        "recurse",
+        2,
+    );
+    assert!(tx_execution_info2.is_reverted());
+    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
+
+    // Invoke the `recurse` function with depth of 800 and actual_fee_depth1 as max fee.
+    // This call should fail due to no remaining steps.
+    let tx_execution_info3: TransactionExecutionInfo = run_recursive_function(
         &mut state,
         &block_context,
         actual_fee_depth1,
@@ -749,9 +765,9 @@ fn test_insufficient_max_fee_to_insufficient_steps(
         "recurse",
         800,
     );
-    assert!(tx_execution_info2.is_reverted());
-    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info3.is_reverted());
+    assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
     assert!(
-        tx_execution_info2.revert_error.unwrap().contains("RunResources has no remaining steps.")
+        tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
     );
 }
