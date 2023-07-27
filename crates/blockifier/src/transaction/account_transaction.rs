@@ -457,7 +457,10 @@ impl AccountTransaction {
             remaining_gas,
         );
 
-        match execution_result {
+        // Depending on the result, and subsequent fee computation, decide whether to commit or
+        // revert.
+        let (revert_error, charge_max_fee, execute_call_info) = match execution_result {
+            Err(_) => (Some(execution_context.error_trace()), false, None),
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
@@ -482,45 +485,38 @@ impl AccountTransaction {
                     0,
                 )?;
 
-                if actual_fee > self.max_fee() {
-                    // Insufficient fee. Revert the execution.
-                    execution_state.abort();
-                    let remaining_steps = execution_context
-                        .vm_run_resources
-                        .get_n_steps()
-                        .expect("Invalid remaining steps in RunResources.");
-                    let reverted_steps = allotted_steps - remaining_steps;
-
-                    return Ok(ValidateExecuteCallInfo::new_reverted(
-                        validate_call_info,
-                        format!(
-                            "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
-                            self.max_fee(),
-                            actual_fee
-                        ),
-                        reverted_steps,
-                        true,
-                    ));
-                }
-
-                // Commit the execution.
-                resources.clone_from(&execution_resources);
-                execution_state.commit();
-                Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
+                // Possible revert, if actual computed fee exceeds max fee (run limit estimation
+                // error).
+                let can_pay = actual_fee <= self.max_fee();
+                let revert_error = if can_pay {
+                    None
+                } else {
+                    Some(format!(
+                        "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
+                        self.max_fee(),
+                        actual_fee
+                    ))
+                };
+                (revert_error, !can_pay, execute_call_info)
             }
-            Err(_) => {
-                // Error during execution. Revert.
-                execution_state.abort();
-                let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
-                let reverted_steps = allotted_steps - remaining_steps;
+        };
 
-                Ok(ValidateExecuteCallInfo::new_reverted(
-                    validate_call_info,
-                    execution_context.error_trace(),
-                    reverted_steps,
-                    false,
-                ))
-            }
+        if let Some(revert_error) = revert_error {
+            // Revert.
+            execution_state.abort();
+            let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
+            let reverted_steps = allotted_steps - remaining_steps;
+            Ok(ValidateExecuteCallInfo::new_reverted(
+                validate_call_info,
+                revert_error,
+                reverted_steps,
+                charge_max_fee,
+            ))
+        } else {
+            // Commit.
+            resources.clone_from(&execution_resources);
+            execution_state.commit();
+            Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
         }
     }
 
