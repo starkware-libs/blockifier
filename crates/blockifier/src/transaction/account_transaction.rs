@@ -113,6 +113,10 @@ impl AccountTransaction {
         }
     }
 
+    pub fn revertible(&self) -> bool {
+        !self.get_account_transaction_context().is_v0() && matches!(self, Self::Invoke(_))
+    }
+
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
             Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
@@ -390,21 +394,6 @@ impl AccountTransaction {
         }
     }
 
-    fn run_deploy_account<S: StateReader>(
-        &self,
-        state: &mut TransactionalState<'_, S>,
-        resources: &mut ExecutionResources,
-        remaining_gas: &mut u64,
-        block_context: &BlockContext,
-        mut execution_context: EntryPointExecutionContext,
-    ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
-        let execute_call_info =
-            self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-        let validate_call_info =
-            self.validate_tx(state, resources, remaining_gas, block_context)?;
-        Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
-    }
-
     fn run_not_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
@@ -413,10 +402,19 @@ impl AccountTransaction {
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
-        let validate_call_info =
-            self.validate_tx(state, resources, remaining_gas, block_context)?;
-        let execute_call_info =
-            self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
+        let (validate_call_info, execute_call_info) = if matches!(self, Self::DeployAccount(_)) {
+            let execute_call_info =
+                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
+            let validate_call_info =
+                self.validate_tx(state, resources, remaining_gas, block_context)?;
+            (validate_call_info, execute_call_info)
+        } else {
+            let validate_call_info =
+                self.validate_tx(state, resources, remaining_gas, block_context)?;
+            let execute_call_info =
+                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
+            (validate_call_info, execute_call_info)
+        };
         Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
     }
 
@@ -535,13 +533,11 @@ impl AccountTransaction {
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
-        let is_v0 = account_tx_context.is_v0();
         let execution_context =
             EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
 
-        // Handle `DeployAccount` transactions separately, due to different order of things.
-        if matches!(self, Self::DeployAccount(_)) {
-            return self.run_deploy_account(
+        if self.revertible() {
+            return self.run_revertible(
                 state,
                 resources,
                 remaining_gas,
@@ -550,19 +546,7 @@ impl AccountTransaction {
             );
         }
 
-        // V0 transactions do not have validation; we cannot deduct fee for execution.
-        // Reverting a Declare transaction is not currently supported in the OS.
-        if is_v0 || matches!(self, Self::Declare(_)) {
-            return self.run_not_revertible(
-                state,
-                resources,
-                remaining_gas,
-                block_context,
-                execution_context,
-            );
-        }
-
-        self.run_revertible(state, resources, remaining_gas, block_context, execution_context)
+        self.run_not_revertible(state, resources, remaining_gas, block_context, execution_context)
     }
 
     #[allow(clippy::too_many_arguments)]
