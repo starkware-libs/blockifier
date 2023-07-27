@@ -14,7 +14,7 @@ use starknet_api::transaction::{
     Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
     InvokeTransactionV1, TransactionHash, TransactionSignature,
 };
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::{
@@ -152,7 +152,7 @@ fn expected_fee_transfer_call_info(
     actual_fee: Fee,
     vm_resources: VmExecutionResources,
 ) -> Option<CallInfo> {
-    let expected_fee_token_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let expected_fee_token_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0);
@@ -253,7 +253,7 @@ fn invoke_tx() -> InvokeTransactionV1 {
 
     crate::test_utils::invoke_tx(
         execute_calldata,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         Fee(MAX_FEE),
         None,
     )
@@ -309,7 +309,7 @@ fn test_invoke_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
@@ -321,10 +321,10 @@ fn test_invoke_tx(
 
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2_u8)];
-    let storage_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let storage_address = contract_address!(TEST_CONTRACT_ADDRESS);
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
-        class_hash: Some(ClassHash(stark_felt!(TEST_CLASS_HASH))),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         code_address: Some(storage_address),
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
@@ -434,16 +434,15 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     ];
     let mint_tx = crate::test_utils::invoke_tx(
         execute_calldata,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         Fee(MAX_FEE),
         None,
     );
     AccountTransaction::Invoke(mint_tx.into()).execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
-    let (low, high) = state
-        .get_fee_token_balance(block_context, &ContractAddress(patricia_key!(recipient)))
-        .unwrap();
+    let (low, high) =
+        state.get_fee_token_balance(block_context, &contract_address!(recipient)).unwrap();
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);
@@ -569,7 +568,7 @@ fn declare_tx(
 ) -> DeclareTransactionV0V1 {
     crate::test_utils::declare_tx(
         class_hash,
-        ContractAddress(patricia_key!(sender_address)),
+        contract_address!(sender_address),
         Fee(MAX_FEE),
         signature,
     )
@@ -619,8 +618,8 @@ fn test_declare_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let expected_account_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
+    let expected_account_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
@@ -691,8 +690,8 @@ fn test_declare_tx(
 fn test_declare_tx_v2() {
     let state = &mut create_state_with_cairo1_account();
     let block_context = &BlockContext::create_for_account_testing();
-    let class_hash = ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH));
-    let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
     let declare_tx = DeclareTransactionV2 {
         max_fee: Fee(MAX_FEE),
         class_hash,
@@ -796,7 +795,7 @@ fn test_deploy_account_tx(
     // Build expected validate call info.
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
-    let expected_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
@@ -1007,7 +1006,7 @@ fn test_calculate_tx_gas_usage() {
 
     let invoke_tx = crate::test_utils::invoke_tx(
         execute_calldata,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
+        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         Fee(MAX_FEE),
         None,
     );

@@ -11,7 +11,7 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
     InvokeTransactionV1, TransactionHash,
 };
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
@@ -55,8 +55,8 @@ fn block_context() -> BlockContext {
 #[fixture]
 fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
-    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let test_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
+    let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
@@ -122,7 +122,7 @@ fn create_test_init_data(
     // Deploy a contract using syscall deploy.
     let entry_point_selector = selector_from_name("deploy_contract");
     let salt = ContractAddressSalt::default();
-    let class_hash = ClassHash(stark_felt!(TEST_CLASS_HASH));
+    let class_hash = class_hash!(TEST_CLASS_HASH);
     let execute_calldata = calldata![
         *account_address.0.key(), // Contract address.
         entry_point_selector.0,   // EP selector.
@@ -333,7 +333,7 @@ fn test_revert_invoke(
         stark_felt!(0_u8),
         state
             .get_storage_at(
-                ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
+                contract_address!(TEST_CONTRACT_ADDRESS),
                 StorageKey::try_from(storage_key).unwrap(),
             )
             .unwrap()
@@ -374,7 +374,7 @@ fn test_fail_deploy_account(block_context: BlockContext) {
 fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
     let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
         init_data;
-    let class_hash = ClassHash(stark_felt!(0xdeadeadeaf72_u128));
+    let class_hash = class_hash!(0xdeadeadeaf72_u128);
     let contract_class = ContractClass::V1(ContractClassV1::default());
     let initial_balance = state.get_fee_token_balance(&block_context, &account_address).unwrap();
     let next_nonce = nonce_manager.next(account_address);
