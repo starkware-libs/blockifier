@@ -83,9 +83,9 @@ impl PyBlockExecutor {
         self.tx_executor().execute(tx, raw_contract_class, enough_room_for_tx)
     }
 
-    pub fn finalize(&mut self) -> PyStateDiff {
+    pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
         log::debug!("Finalizing execution...");
-        let finalized_state = self.tx_executor().finalize();
+        let finalized_state = self.tx_executor().finalize(is_pending_block);
         log::debug!("Finalized execution.");
 
         finalized_state

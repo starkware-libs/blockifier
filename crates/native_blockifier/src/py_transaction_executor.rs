@@ -131,8 +131,10 @@ impl TransactionExecutor {
     }
 
     /// Returns the state diff resulting in executing transactions.
-    pub fn finalize(&mut self) -> PyStateDiff {
-        self.state.move_classes_to_global_cache();
+    pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
+        if !is_pending_block {
+            self.state.move_classes_to_global_cache();
+        }
         PyStateDiff::from(self.state.to_state_diff())
     }
 
