@@ -55,38 +55,8 @@ struct ValidateExecuteCallInfo {
     validate_call_info: Option<CallInfo>,
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
-    n_reverted_steps: usize,
-    charge_max_fee_for_reverted: bool,
-}
-
-impl ValidateExecuteCallInfo {
-    pub fn new_accepted(
-        validate_call_info: Option<CallInfo>,
-        execute_call_info: Option<CallInfo>,
-    ) -> Self {
-        Self {
-            validate_call_info,
-            execute_call_info,
-            revert_error: None,
-            n_reverted_steps: 0,
-            charge_max_fee_for_reverted: false,
-        }
-    }
-
-    pub fn new_reverted(
-        validate_call_info: Option<CallInfo>,
-        revert_error: String,
-        n_reverted_steps: usize,
-        charge_max_fee_for_reverted: bool,
-    ) -> Self {
-        Self {
-            validate_call_info,
-            execute_call_info: None,
-            revert_error: Some(revert_error),
-            n_reverted_steps,
-            charge_max_fee_for_reverted,
-        }
-    }
+    final_fee: Fee,
+    final_resources: ResourcesMapping,
 }
 
 impl AccountTransaction {
@@ -415,7 +385,22 @@ impl AccountTransaction {
                 self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
             (validate_call_info, execute_call_info)
         };
-        Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
+        let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources_from_state(
+            state,
+            block_context,
+            &execute_call_info,
+            &validate_call_info,
+            resources.clone(),
+            false,
+            0,
+        )?;
+        Ok(ValidateExecuteCallInfo {
+            validate_call_info,
+            execute_call_info,
+            final_fee: actual_fee,
+            final_resources: actual_resources,
+            revert_error: None,
+        })
     }
 
     fn run_revertible<S: StateReader>(
@@ -459,7 +444,7 @@ impl AccountTransaction {
 
         // Depending on the result, and subsequent fee computation, decide whether to commit or
         // revert.
-        let (revert_error, charge_max_fee, execute_call_info) = match execution_result {
+        let (revert_error, force_charge_max_fee, execute_call_info) = match execution_result {
             Err(_) => (Some(execution_context.error_trace()), false, None),
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
@@ -501,23 +486,37 @@ impl AccountTransaction {
             }
         };
 
-        if let Some(revert_error) = revert_error {
-            // Revert.
+        let revert = revert_error.is_some();
+        let n_reverted_steps = if revert {
             execution_state.abort();
             let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
-            let reverted_steps = allotted_steps - remaining_steps;
-            Ok(ValidateExecuteCallInfo::new_reverted(
-                validate_call_info,
-                revert_error,
-                reverted_steps,
-                charge_max_fee,
-            ))
+            allotted_steps - remaining_steps
         } else {
-            // Commit.
             resources.clone_from(&execution_resources);
             execution_state.commit();
-            Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
-        }
+            0
+        };
+
+        // Compute final fee and resources.
+        let (computed_fee, final_resources) = self.calculate_actual_fee_and_resources_from_state(
+            state,
+            block_context,
+            &execute_call_info,
+            &validate_call_info,
+            resources.clone(),
+            revert,
+            n_reverted_steps,
+        )?;
+        let final_fee =
+            if force_charge_max_fee { self.max_fee() } else { min(self.max_fee(), computed_fee) };
+
+        Ok(ValidateExecuteCallInfo {
+            validate_call_info,
+            execute_call_info,
+            revert_error,
+            final_fee,
+            final_resources,
+        })
     }
 
     /// Runs validation and execution.
@@ -632,35 +631,19 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate_call_info,
             execute_call_info,
             revert_error,
-            n_reverted_steps,
-            charge_max_fee_for_reverted,
+            final_fee,
+            final_resources,
         } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
-        let is_reverted = revert_error.is_some();
-        let (mut actual_fee, actual_resources) = self
-            .calculate_actual_fee_and_resources_from_state(
-                state,
-                block_context,
-                &execute_call_info,
-                &validate_call_info,
-                resources,
-                is_reverted,
-                n_reverted_steps,
-            )?;
-
-        // Charge max fee when a transaction reverts due to insufficient max fee.
-        if charge_max_fee_for_reverted && is_reverted {
-            actual_fee = account_tx_context.max_fee;
-        }
         let fee_transfer_call_info =
-            self.handle_fee(state, block_context, actual_fee, charge_fee)?;
+            self.handle_fee(state, block_context, final_fee, charge_fee)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
             execute_call_info,
             fee_transfer_call_info,
-            actual_fee,
-            actual_resources,
+            actual_fee: final_fee,
+            actual_resources: final_resources,
             revert_error,
         };
         Ok(tx_execution_info)
