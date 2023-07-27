@@ -14,7 +14,7 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::papyrus_state::PapyrusReader;
 
@@ -23,15 +23,13 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let ((storage_reader, mut storage_writer), _) = papyrus_storage::test_utils::get_test_storage();
 
     // Initialize Storage: add test contract and class.
-    let deployed_contracts = IndexMap::from([(
-        ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
-        ClassHash(stark_felt!(TEST_CLASS_HASH)),
-    )]);
+    let deployed_contracts =
+        IndexMap::from([(contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH))]);
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
 
     let test_contract = get_deprecated_contract_class(TEST_CONTRACT_CAIRO0_PATH);
     let deprecated_declared_classes =
-        IndexMap::from([(ClassHash(stark_felt!(TEST_CLASS_HASH)), test_contract)]);
+        IndexMap::from([(class_hash!(TEST_CLASS_HASH), test_contract)]);
     storage_writer
         .begin_rw_txn()?
         .append_state_diff(BlockNumber::default(), state_diff, deprecated_declared_classes)?
