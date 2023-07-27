@@ -580,6 +580,31 @@ impl AccountTransaction {
 
         Ok((actual_fee, actual_resources))
     }
+
+    fn calculate_actual_fee_and_resources_from_state<S: StateReader>(
+        &self,
+        state: &mut TransactionalState<'_, S>,
+        block_context: &BlockContext,
+        execute_call_info: &Option<CallInfo>,
+        validate_call_info: &Option<CallInfo>,
+        execution_resources: ExecutionResources,
+        is_reverted: bool,
+        n_reverted_steps: usize,
+    ) -> TransactionExecutionResult<(Fee, ResourcesMapping)> {
+        let state_changes = state.get_actual_state_changes_for_fee_charge(
+            block_context.fee_token_address,
+            Some(self.get_account_transaction_context().sender_address),
+        )?;
+        self.calculate_actual_fee_and_resources(
+            StateChangesCount::from(&state_changes),
+            &execute_call_info,
+            &validate_call_info,
+            execution_resources,
+            block_context,
+            is_reverted,
+            n_reverted_steps,
+        )
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
@@ -612,19 +637,16 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
         let is_reverted = revert_error.is_some();
-        let state_changes = state.get_actual_state_changes_for_fee_charge(
-            block_context.fee_token_address,
-            Some(account_tx_context.sender_address),
-        )?;
-        let (mut actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
-            StateChangesCount::from(&state_changes),
-            &execute_call_info,
-            &validate_call_info,
-            resources,
-            block_context,
-            is_reverted,
-            n_reverted_steps,
-        )?;
+        let (mut actual_fee, actual_resources) = self
+            .calculate_actual_fee_and_resources_from_state(
+                state,
+                block_context,
+                &execute_call_info,
+                &validate_call_info,
+                resources,
+                is_reverted,
+                n_reverted_steps,
+            )?;
 
         // Charge max fee when a transaction reverts due to insufficient max fee.
         if charge_max_fee_for_reverted && is_reverted {
