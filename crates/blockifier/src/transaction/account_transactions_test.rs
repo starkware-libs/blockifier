@@ -708,10 +708,9 @@ fn test_max_fee_to_max_steps_conversion(
 }
 
 #[rstest]
-/// Tests that steps are limited based on max_fee. Specifically, when a transaction reverts due to
-/// insufficient fee, which translated to insufficient steps, the correct revert_error is recorded
-/// and max_fee is charged.
-fn test_insufficient_max_fee_to_insufficient_steps(
+/// Tests that transactions with insufficient max_fee are reverted, the correct revert_error is
+/// recorded and max_fee is charged.
+fn test_insufficient_max_fee_reverts(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
@@ -737,8 +736,9 @@ fn test_insufficient_max_fee_to_insufficient_steps(
     assert!(!tx_execution_info1.is_reverted());
     let actual_fee_depth1 = tx_execution_info1.actual_fee;
 
-    // Invoke the `recurse` function with depth of 2 and actual_fee_depth1 as max fee.
-    // This call should fail due to insufficient max fee.
+    // Invoke the `recurse` function with depth of 2 and the actual fee of depth 1 as max_fee.
+    // This call should fail due to insufficient max fee (steps bound based on max_fee is not so
+    // tight as to stop execution between iterations 1 and 2).
     let tx_execution_info2: TransactionExecutionInfo = run_recursive_function(
         &mut state,
         &block_context,
@@ -753,8 +753,9 @@ fn test_insufficient_max_fee_to_insufficient_steps(
     assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
     assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
 
-    // Invoke the `recurse` function with depth of 800 and actual_fee_depth1 as max fee.
-    // This call should fail due to no remaining steps.
+    // Invoke the `recurse` function with depth of 800 and the actual fee of depth 1 as max_fee.
+    // This call should fail due to no remaining steps (execution steps based on max_fee are bounded
+    // well enough to catch this mid-execution).
     let tx_execution_info3: TransactionExecutionInfo = run_recursive_function(
         &mut state,
         &block_context,
