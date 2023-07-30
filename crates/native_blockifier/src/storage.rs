@@ -216,15 +216,13 @@ impl Storage {
 
         assert_eq!(
             header_marker, state_marker,
-            "Block header marker ({}) must be aligned to block state diff marker ({}) before \
-             sequencing starts.",
-            header_marker, state_marker
+            "Block header marker ({header_marker}) must be aligned to block state diff marker ({state_marker}) before \
+             sequencing starts."
         );
 
         assert_eq!(
             state_marker, source_block_number,
-            "Target storage (block number {}) should have been aligned to block number {}.",
-            state_marker, source_block_number
+            "Target storage (block number {state_marker}) should have been aligned to block number {source_block_number}."
         );
     }
 
