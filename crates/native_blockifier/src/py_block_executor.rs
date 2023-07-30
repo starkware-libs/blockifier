@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
+use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -19,6 +20,7 @@ pub struct PyBlockExecutor {
     pub max_recursion_depth: usize,
     pub tx_executor: Option<TransactionExecutor>,
     pub storage: Storage,
+    pub global_contract_cache: GlobalContractCache,
 }
 
 #[pymethods]
@@ -35,7 +37,13 @@ impl PyBlockExecutor {
         let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
 
         log::debug!("Initialized Block Executor.");
-        Self { general_config, max_recursion_depth, tx_executor, storage }
+        Self {
+            general_config,
+            max_recursion_depth,
+            tx_executor,
+            storage,
+            global_contract_cache: GlobalContractCache::default(),
+        }
     }
 
     // Transaction Execution API.
@@ -53,6 +61,7 @@ impl PyBlockExecutor {
             &self.general_config,
             next_block_info,
             self.max_recursion_depth,
+            self.global_contract_cache.clone(),
         )?;
         self.tx_executor = Some(tx_executor);
 
@@ -74,9 +83,9 @@ impl PyBlockExecutor {
         self.tx_executor().execute(tx, raw_contract_class, enough_room_for_tx)
     }
 
-    pub fn finalize(&mut self) -> PyStateDiff {
+    pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
         log::debug!("Finalizing execution...");
-        let finalized_state = self.tx_executor().finalize();
+        let finalized_state = self.tx_executor().finalize(is_pending_block);
         log::debug!("Finalized execution.");
 
         finalized_state
@@ -170,6 +179,7 @@ impl PyBlockExecutor {
             general_config,
             max_recursion_depth: 50,
             tx_executor: None,
+            global_contract_cache: GlobalContractCache::default(),
         }
     }
 }
