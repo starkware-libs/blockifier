@@ -14,6 +14,10 @@ use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::storage::{Storage, StorageConfig};
 use crate::transaction_executor::TransactionExecutor;
 
+#[cfg(test)]
+#[path = "py_block_executor_test.rs"]
+mod py_block_executor_test;
+
 #[pyclass]
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
@@ -190,6 +194,7 @@ impl PyBlockExecutor {
     }
 }
 
+#[derive(Default)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
     pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
@@ -222,6 +227,16 @@ pub struct PyOsConfig {
     pub chain_id: ChainId,
     pub fee_token_address: PyFelt,
     pub deprecated_fee_token_address: PyFelt,
+}
+
+impl Default for PyOsConfig {
+    fn default() -> Self {
+        Self {
+            deprecated_fee_token_address: Default::default(),
+            chain_id: ChainId("".to_string()),
+            fee_token_address: Default::default(),
+        }
+    }
 }
 
 pub fn into_block_context(
