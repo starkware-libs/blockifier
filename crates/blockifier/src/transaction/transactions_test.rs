@@ -53,7 +53,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, InvokeTransaction,
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
 };
 
 enum CairoVersion {
@@ -68,15 +68,6 @@ struct ExpectedResultTestInvokeTx {
     validate_gas_consumed: u64,
     execute_gas_consumed: u64,
     inner_call_initial_gas: u64,
-}
-
-impl From<InvokeTransactionV1> for InvokeTransaction {
-    fn from(tx: InvokeTransactionV1) -> Self {
-        InvokeTransaction {
-            tx: starknet_api::transaction::InvokeTransaction::V1(tx),
-            tx_hash: TransactionHash::default(),
-        }
-    }
 }
 
 fn expected_validate_call_info(
@@ -533,14 +524,13 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let invalid_tx = AccountTransaction::Invoke(
         InvokeTransactionV1 { max_fee: invalid_max_fee, ..valid_invoke_tx.clone() }.into(),
     );
-    let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
+    let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
+    let execution_error = execution_result.revert_error.unwrap();
 
     // Test error.
-    assert_matches!(
-        execution_error,
-        TransactionExecutionError::FeeTransferError{ max_fee, .. }
-        if max_fee == invalid_max_fee
-    );
+    assert!(execution_error.starts_with("Insufficient max fee:"));
+    // Test that fee was charged.
+    assert_eq!(execution_result.actual_fee, invalid_max_fee);
 
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
@@ -789,7 +779,7 @@ fn test_deploy_account_tx(
         stark_felt!(BALANCE),
     );
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account.clone());
+    let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.

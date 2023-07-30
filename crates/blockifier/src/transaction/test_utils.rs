@@ -3,30 +3,44 @@ use std::collections::HashMap;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, Fee, TransactionHash, TransactionSignature};
+use starknet_api::transaction::{
+    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature,
+};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-use super::account_transaction::AccountTransaction;
-use super::transaction_types::TransactionType;
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    test_erc20_account_balance_key, test_erc20_faulty_account_balance_key, DictStateReader,
-    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    invoke_tx, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
+    DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
     TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
     TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::transactions::{DeclareTransaction, InvokeTransaction};
+use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
+use crate::transaction::transaction_types::TransactionType;
+use crate::transaction::transactions::{
+    DeclareTransaction, ExecutableTransaction, InvokeTransaction,
+};
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+
+impl From<InvokeTransactionV1> for InvokeTransaction {
+    fn from(tx: InvokeTransactionV1) -> Self {
+        InvokeTransaction {
+            tx: starknet_api::transaction::InvokeTransaction::V1(tx),
+            tx_hash: TransactionHash::default(),
+        }
+    }
+}
 
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
@@ -162,11 +176,36 @@ pub fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(signature),
             );
-            AccountTransaction::Invoke(InvokeTransaction {
-                tx: starknet_api::transaction::InvokeTransaction::V1(invoke_tx),
-                tx_hash: TransactionHash::default(),
-            })
+            AccountTransaction::Invoke(invoke_tx.into())
         }
         TransactionType::L1Handler => unimplemented!(),
     }
+}
+
+pub fn account_invoke_tx(
+    execute_calldata: Calldata,
+    account_address: ContractAddress,
+    nonce_manager: &mut NonceManager,
+    max_fee: Fee,
+) -> AccountTransaction {
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    AccountTransaction::Invoke(
+        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
+    )
+}
+
+pub fn run_invoke_tx(
+    execute_calldata: Calldata,
+    state: &mut CachedState<DictStateReader>,
+    account_address: ContractAddress,
+    block_context: &BlockContext,
+    nonce_manager: &mut NonceManager,
+    max_fee: Fee,
+) -> TransactionExecutionResult<TransactionExecutionInfo> {
+    account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee).execute(
+        state,
+        block_context,
+        true,
+        true,
+    )
 }

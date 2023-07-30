@@ -9,7 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    InvokeTransactionV1, TransactionHash,
+    TransactionHash,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -20,16 +20,16 @@ use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, invoke_tx, DictStateReader, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::TransactionExecutionInfo;
 use crate::transaction::test_utils::{
-    create_account_tx_for_validate_test, create_state_with_falliable_validation_account, INVALID,
+    account_invoke_tx, create_account_tx_for_validate_test,
+    create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -123,21 +123,24 @@ fn create_test_init_data(
     let entry_point_selector = selector_from_name("deploy_contract");
     let salt = ContractAddressSalt::default();
     let class_hash = class_hash!(TEST_CLASS_HASH);
-    let execute_calldata = calldata![
-        *account_address.0.key(), // Contract address.
-        entry_point_selector.0,   // EP selector.
-        stark_felt!(5_u8),        // Calldata length.
-        class_hash.0,             // Calldata: class_hash.
-        salt.0,                   // Contract_address_salt.
-        stark_felt!(2_u8),        // Constructor calldata length.
-        stark_felt!(1_u8),        // Constructor calldata: address.
-        stark_felt!(1_u8)         // Constructor calldata: value.
-    ];
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
-    );
-    account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    run_invoke_tx(
+        calldata![
+            *account_address.0.key(), // Contract address.
+            entry_point_selector.0,   // EP selector.
+            stark_felt!(5_u8),        // Calldata length.
+            class_hash.0,             // Calldata: class_hash.
+            salt.0,                   // Contract_address_salt.
+            stark_felt!(2_u8),        // Constructor calldata length.
+            stark_felt!(1_u8),        // Constructor calldata: address.
+            stark_felt!(1_u8)         // Constructor calldata: value.
+        ],
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
 
     // Calculate the newly deployed contract address
     let contract_address = calculate_contract_address(
@@ -186,17 +189,20 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
 
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
-    let execute_calldata = calldata![
-        *contract_address.0.key(), // Contract address.
-        entry_point_selector.0,    // EP selector.
-        stark_felt!(1_u8),         // Calldata length.
-        stark_felt!(2_u8)          // Calldata: num.
-    ];
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
-    );
-    account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    run_invoke_tx(
+        calldata![
+            *contract_address.0.key(), // Contract address.
+            entry_point_selector.0,    // EP selector.
+            stark_felt!(1_u8),         // Calldata length.
+            stark_felt!(2_u8)          // Calldata: num.
+        ],
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
 }
 
 #[rstest]
@@ -250,11 +256,15 @@ fn test_infinite_recursion(
         ]
     };
 
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
-    );
-    let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let tx_execution_info = run_invoke_tx(
+        execute_calldata,
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
     if success {
         assert!(tx_execution_info.revert_error.is_none());
     } else {
@@ -275,13 +285,14 @@ fn test_revert_invoke(
     max_fee: Fee,
     #[from(create_state)] mut state: CachedState<DictStateReader>,
 ) {
+    let mut nonce_manager = NonceManager::default();
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         max_fee,
         None,
         None,
-        &mut NonceManager::default(),
+        &mut nonce_manager,
     );
     let deployed_account_address = deploy_account_tx.contract_address;
 
@@ -301,18 +312,21 @@ fn test_revert_invoke(
     // Invoke a function from the newly deployed contract, that changes the state.
     let storage_key = stark_felt!(9_u8);
     let entry_point_selector = selector_from_name("write_and_revert");
-    let execute_calldata = calldata![
-        *deployed_account_address.0.key(), // Contract address.
-        entry_point_selector.0,            // EP selector.
-        stark_felt!(2_u8),                 // Calldata length.
-        storage_key,
-        stark_felt!(99_u8) // Dummy, non-zero value.
-    ];
-    let tx = invoke_tx(execute_calldata, deployed_account_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: Nonce(stark_felt!(1_u8)), ..tx }.into(),
-    );
-    let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let tx_execution_info = run_invoke_tx(
+        calldata![
+            *deployed_account_address.0.key(), // Contract address.
+            entry_point_selector.0,            // EP selector.
+            stark_felt!(2_u8),                 // Calldata length.
+            storage_key,
+            stark_felt!(99_u8) // Dummy, non-zero value.
+        ],
+        &mut state,
+        deployed_account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
 
     // TODO(Dori, 1/7/2023): Verify that the actual fee collected is exactly the fee computed for
     // the validate and fee transfer calls.
@@ -326,7 +340,10 @@ fn test_revert_invoke(
         state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap(),
         (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
     );
-    assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(2_u8)));
+    assert_eq!(
+        state.get_nonce_at(deployed_account_address).unwrap(),
+        nonce_manager.next(deployed_account_address)
+    );
 
     // Check that execution state changes were reverted.
     assert_eq!(
@@ -420,17 +437,20 @@ fn run_recursive_function(
     function_name: &str,
     depth: u32,
 ) -> TransactionExecutionInfo {
-    let execute_calldata = calldata![
-        *contract_address.0.key(),           // Contract address.
-        selector_from_name(function_name).0, // EP selector.
-        stark_felt!(1_u8),                   // Calldata length.
-        stark_felt!(depth)                   // Calldata: recursion depth.
-    ];
-    let tx = invoke_tx(execute_calldata, *account_address, max_fee, None);
-    let account_tx: AccountTransaction = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(*account_address), ..tx }.into(),
-    );
-    account_tx.execute(state, block_context, true, true).unwrap()
+    run_invoke_tx(
+        calldata![
+            *contract_address.0.key(),           // Contract address.
+            selector_from_name(function_name).0, // EP selector.
+            stark_felt!(1_u8),                   // Calldata length.
+            stark_felt!(depth)                   // Calldata: recursion depth.
+        ],
+        state,
+        *account_address,
+        block_context,
+        nonce_manager,
+        max_fee,
+    )
+    .unwrap()
 }
 
 #[rstest]
@@ -443,7 +463,7 @@ fn test_reverted_reach_steps_limit(
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 4000;
+    block_context.invoke_tx_max_n_steps = 5000;
 
     let TestInitData {
         mut state,
@@ -654,9 +674,11 @@ fn test_max_fee_to_max_steps_conversion(
     ];
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
-    let tx1 = invoke_tx(execute_calldata.clone(), account_address, Fee(actual_fee), None);
-    let account_tx1: AccountTransaction = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx1 }.into(),
+    let account_tx1 = account_invoke_tx(
+        execute_calldata.clone(),
+        account_address,
+        &mut nonce_manager,
+        Fee(actual_fee),
     );
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -667,9 +689,11 @@ fn test_max_fee_to_max_steps_conversion(
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
-    let tx2 = invoke_tx(execute_calldata, account_address, Fee(2 * actual_fee), None);
-    let account_tx2: AccountTransaction = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx2 }.into(),
+    let account_tx2 = account_invoke_tx(
+        execute_calldata,
+        account_address,
+        &mut nonce_manager,
+        Fee(2 * actual_fee),
     );
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -687,10 +711,9 @@ fn test_max_fee_to_max_steps_conversion(
 }
 
 #[rstest]
-/// Tests that steps are limited based on max_fee. Specifically, when a transaction reverts due to
-/// insufficient fee, which translated to insufficient steps, the correct revert_error is recorded
-/// and max_fee is charged.
-fn test_insufficient_max_fee_to_insufficient_steps(
+/// Tests that transactions with insufficient max_fee are reverted, the correct revert_error is
+/// recorded and max_fee is charged.
+fn test_insufficient_max_fee_reverts(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
@@ -716,9 +739,27 @@ fn test_insufficient_max_fee_to_insufficient_steps(
     assert!(!tx_execution_info1.is_reverted());
     let actual_fee_depth1 = tx_execution_info1.actual_fee;
 
-    // Invoke the `recurse` function with depth of 300 and actual_fee_depth1 as max fee.
-    // This call should fail due to no remaining steps.
+    // Invoke the `recurse` function with depth of 2 and the actual fee of depth 1 as max_fee.
+    // This call should fail due to insufficient max fee (steps bound based on max_fee is not so
+    // tight as to stop execution between iterations 1 and 2).
     let tx_execution_info2: TransactionExecutionInfo = run_recursive_function(
+        &mut state,
+        &block_context,
+        actual_fee_depth1,
+        &contract_address,
+        &account_address,
+        &mut nonce_manager,
+        "recurse",
+        2,
+    );
+    assert!(tx_execution_info2.is_reverted());
+    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
+
+    // Invoke the `recurse` function with depth of 800 and the actual fee of depth 1 as max_fee.
+    // This call should fail due to no remaining steps (execution steps based on max_fee are bounded
+    // well enough to catch this mid-execution).
+    let tx_execution_info3: TransactionExecutionInfo = run_recursive_function(
         &mut state,
         &block_context,
         actual_fee_depth1,
@@ -728,9 +769,9 @@ fn test_insufficient_max_fee_to_insufficient_steps(
         "recurse",
         800,
     );
-    assert!(tx_execution_info2.is_reverted());
-    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info3.is_reverted());
+    assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
     assert!(
-        tx_execution_info2.revert_error.unwrap().contains("RunResources has no remaining steps.")
+        tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
     );
 }
