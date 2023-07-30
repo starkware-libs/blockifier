@@ -10,7 +10,7 @@ use starknet_api::transaction::EthAddress;
 
 use crate::errors::NativeBlockifierResult;
 
-#[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Default, Eq, FromPyObject, Hash, PartialEq)]
 pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub StarkFelt);
 
 impl IntoPy<PyObject> for PyFelt {
