@@ -19,15 +19,9 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
-<<<<<<< HEAD
-use crate::state::cached_state::{CachedState, TransactionalState};
-||||||| merged common ancestors
-use crate::state::cached_state::{CachedState, MutRefState, TransactionalState};
-=======
 use crate::state::cached_state::{
     CachedState, StateChanges, StateChangesCount, TransactionalState,
 };
->>>>>>> origin/main-v0.12.2
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
@@ -435,83 +429,16 @@ impl AccountTransaction {
         resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-<<<<<<< HEAD
-        validate: bool,
-||||||| merged common ancestors
-=======
         mut execution_context: EntryPointExecutionContext,
->>>>>>> origin/main-v0.12.2
+        validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
-<<<<<<< HEAD
-        let account_tx_context = self.get_account_transaction_context();
-        let is_v0 = account_tx_context.is_v0();
-        let mut execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
-
-        // Handle `DeployAccount` transactions separately, due to different order of things.
-        if matches!(self, Self::DeployAccount(_)) {
-            let execute_call_info =
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            let validate_call_info =
-                self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
-            return Ok(ValidateExecuteCallInfo::new_accepted(
-                validate_call_info,
-                execute_call_info,
-            ));
-        }
-||||||| merged common ancestors
-        let account_tx_context = self.get_account_transaction_context();
-        let is_v0 = account_tx_context.is_v0();
-        let mut execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
-
-        // Handle `DeployAccount` transactions separately, due to different order of things.
-        if matches!(self, Self::DeployAccount(_)) {
-            let execute_call_info =
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            let validate_call_info =
-                self.validate_tx(state, resources, remaining_gas, block_context)?;
-            return Ok(ValidateExecuteCallInfo::new_accepted(
-                validate_call_info,
-                execute_call_info,
-            ));
-        }
-=======
         let execute_call_info =
             self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
         let validate_call_info =
-            self.validate_tx(state, resources, remaining_gas, block_context)?;
+            self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
         Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
     }
->>>>>>> origin/main-v0.12.2
 
-<<<<<<< HEAD
-        // V0 transactions are not revertible;
-        // Reverting a Declare transaction is not currently supported in the OS.
-        if is_v0 || matches!(self, Self::Declare(_)) {
-            let validate_call_info =
-                self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
-            let execute_call_info =
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            return Ok(ValidateExecuteCallInfo::new_accepted(
-                validate_call_info,
-                execute_call_info,
-            ));
-        }
-||||||| merged common ancestors
-        // V0 transactions do not have validation; we cannot deduct fee for execution.
-        // Reverting a Declare transaction is not currently supported in the OS.
-        if is_v0 || matches!(self, Self::Declare(_)) {
-            let validate_call_info =
-                self.validate_tx(state, resources, remaining_gas, block_context)?;
-            let execute_call_info =
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            return Ok(ValidateExecuteCallInfo::new_accepted(
-                validate_call_info,
-                execute_call_info,
-            ));
-        }
-=======
     fn run_not_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
@@ -519,14 +446,14 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
+        validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let validate_call_info =
-            self.validate_tx(state, resources, remaining_gas, block_context)?;
+            self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
         let execute_call_info =
             self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
         Ok(ValidateExecuteCallInfo::new_accepted(validate_call_info, execute_call_info))
     }
->>>>>>> origin/main-v0.12.2
 
     fn run_revertible<S: StateReader>(
         &self,
@@ -535,6 +462,7 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
+        validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
         // Run the validation, and if execution later fails, only keep the validation diff.
@@ -563,13 +491,6 @@ impl AccountTransaction {
             .get_n_steps()
             .expect("The number of steps must be initialized.");
 
-<<<<<<< HEAD
-        let mut execution_state = CachedState::create_transactional(state);
-        match self.run_execute(
-||||||| merged common ancestors
-        let mut execution_state = CachedState::new(MutRefState::new(state));
-        match self.run_execute(
-=======
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
         let validate_state_changes = state.get_actual_state_changes_for_fee_charge(
@@ -583,7 +504,6 @@ impl AccountTransaction {
         let mut execution_state = CachedState::create_transactional(state);
 
         let execution_result = self.run_execute(
->>>>>>> origin/main-v0.12.2
             &mut execution_state,
             &mut execution_resources,
             &mut execution_context,
@@ -644,19 +564,11 @@ impl AccountTransaction {
             Err(_) => {
                 // Error during execution. Revert.
                 execution_state.abort();
-<<<<<<< HEAD
                 let remaining_steps = execution_context
                     .vm_run_resources
                     .get_n_steps()
                     .expect("The number of steps must be initialized.");
-                let n_reverted_steps = allotted_steps - remaining_steps;
-||||||| merged common ancestors
-                let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
-                let n_reverted_steps = allotted_steps - remaining_steps;
-=======
-                let remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
                 let reverted_steps = allotted_steps - remaining_steps;
->>>>>>> origin/main-v0.12.2
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
@@ -675,6 +587,7 @@ impl AccountTransaction {
         resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
+        validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
         let is_v0 = account_tx_context.is_v0();
@@ -689,6 +602,7 @@ impl AccountTransaction {
                 remaining_gas,
                 block_context,
                 execution_context,
+                validate,
             );
         }
 
@@ -701,10 +615,18 @@ impl AccountTransaction {
                 remaining_gas,
                 block_context,
                 execution_context,
+                validate,
             );
         }
 
-        self.run_revertible(state, resources, remaining_gas, block_context, execution_context)
+        self.run_revertible(
+            state,
+            resources,
+            remaining_gas,
+            block_context,
+            execution_context,
+            validate,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -771,15 +693,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             execute_call_info,
             revert_error,
             n_reverted_steps,
-<<<<<<< HEAD
+            charge_max_fee_for_reverted,
         } =
             self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context, validate)?;
-||||||| merged common ancestors
-        } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
-=======
-            charge_max_fee_for_reverted,
-        } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
->>>>>>> origin/main-v0.12.2
 
         let is_reverted = revert_error.is_some();
         let state_changes = state.get_actual_state_changes_for_fee_charge(
