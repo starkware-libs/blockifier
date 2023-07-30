@@ -26,7 +26,7 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[args(general_config, max_recursion_depth, target_storage_config)]
+    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
         max_recursion_depth: usize,
@@ -49,7 +49,7 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[args(storage, next_block_info)]
+    #[pyo3(signature = (next_block_info))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
@@ -72,7 +72,7 @@ impl PyBlockExecutor {
         self.tx_executor = None;
     }
 
-    #[args(tx, raw_contract_class, enough_room_for_tx)]
+    #[pyo3(signature = (tx, raw_contract_class, enough_room_for_tx))]
     pub fn execute(
         &mut self,
         tx: &PyAny,
@@ -91,7 +91,7 @@ impl PyBlockExecutor {
         finalized_state
     }
 
-    #[args(old_block_number_and_hash)]
+    #[pyo3(signature = (old_block_number_and_hash))]
     pub fn pre_process_block(
         &mut self,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
@@ -104,14 +104,14 @@ impl PyBlockExecutor {
     /// Appends state diff and block header into Papyrus storage.
     // Previous block ID can either be a block hash (starting from a Papyrus snapshot), or a
     // sequential ID (throughout sequencing).
-    #[args(
+    #[pyo3(signature = (
         block_id,
         previous_block_id,
         py_block_info,
         py_state_diff,
         declared_class_hash_to_class,
         deprecated_declared_class_hash_to_class
-    )]
+    ))]
     pub fn append_block(
         &mut self,
         block_id: u64,
@@ -139,7 +139,7 @@ impl PyBlockExecutor {
     }
 
     /// Returns the unique identifier of the given block number in bytes.
-    #[args(block_number)]
+    #[pyo3(signature = (block_number))]
     fn get_block_id_at_target(&self, block_number: u64) -> NativeBlockifierResult<Option<u64>> {
         let block_id_bytes = self.storage.get_block_id(block_number)?;
         let block_id_u64 = block_id_bytes.map(|block_id_bytes| {
@@ -149,7 +149,7 @@ impl PyBlockExecutor {
         Ok(block_id_u64)
     }
 
-    #[args(source_block_number)]
+    #[pyo3(signature = (source_block_number))]
     pub fn validate_aligned(&self, source_block_number: u64) {
         self.storage.validate_aligned(source_block_number);
     }
@@ -157,7 +157,7 @@ impl PyBlockExecutor {
     /// Atomically reverts block header and state diff of given block number.
     /// If header exists without a state diff (usually the case), only the header is reverted.
     /// (this is true for every partial existence of information at tables).
-    #[args(block_number)]
+    #[pyo3(signature = (block_number))]
     pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
         self.storage.revert_block(block_number)
     }
@@ -171,7 +171,7 @@ impl PyBlockExecutor {
         self.storage.close();
     }
 
-    #[args(general_config)]
+    #[pyo3(signature = (general_config, path))]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
         Self {

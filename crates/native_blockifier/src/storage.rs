@@ -248,7 +248,7 @@ pub struct StorageConfig {
 #[pymethods]
 impl StorageConfig {
     #[new]
-    #[args(path_prefix, chain_id, max_size)]
+    #[pyo3(signature = (path_prefix, chain_id, max_size))]
     pub fn new(
         path_prefix: PathBuf,
         #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
