@@ -687,7 +687,7 @@ fn test_max_fee_to_max_steps_conversion(
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let account_tx2 = account_invoke_tx(
-        execute_calldata.clone(),
+        execute_calldata,
         account_address,
         &mut nonce_manager,
         Fee(2 * actual_fee),
