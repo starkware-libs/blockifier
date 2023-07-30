@@ -295,3 +295,32 @@ fn count_actual_state_changes() {
         }
     );
 }
+
+#[test]
+fn global_contract_cache_is_used() {
+    // Initialize the global cache with a single class, and initialize an empty state with this
+    // cache.
+    let global_cache = GlobalContractCache::default();
+    let class_hash = class_hash!(TEST_CLASS_HASH);
+    let contract_class = get_test_contract_class();
+    global_cache.lock().unwrap().cache_set(class_hash, contract_class.clone());
+    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
+    let mut state = CachedState::new(DictStateReader::default(), global_cache.clone());
+
+    // class_hash_to_class is initialized empty even if global cache is not empty.
+    assert!(state.class_hash_to_class.get(&class_hash).is_none());
+
+    // state uses the global cache.
+    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
+    assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
+    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
+    // class_hash_to_class is updated.
+    assert_eq!(state.class_hash_to_class.get(&class_hash).unwrap(), &contract_class);
+
+    // Idempotency: Getting the same class again uses class_hash_to_class.
+    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
+    assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
+    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
+    // class_hash_to_class is updated.
+    assert_eq!(state.class_hash_to_class.get(&class_hash).unwrap(), &contract_class);
+}
