@@ -192,7 +192,6 @@ impl PyBlockExecutor {
 
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
-    pub sequencer_address: PyFelt,
     pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
@@ -201,7 +200,6 @@ pub struct PyGeneralConfig {
 impl FromPyObject<'_> for PyGeneralConfig {
     fn extract(general_config: &PyAny) -> PyResult<Self> {
         let starknet_os_config = general_config.getattr("starknet_os_config")?.extract()?;
-        let sequencer_address = general_config.getattr("sequencer_address")?.extract()?;
         let cairo_resource_fee_weights: HashMap<String, f64> =
             general_config.getattr("cairo_resource_fee_weights")?.extract()?;
 
@@ -211,7 +209,6 @@ impl FromPyObject<'_> for PyGeneralConfig {
 
         Ok(Self {
             starknet_os_config,
-            sequencer_address,
             cairo_resource_fee_weights,
             invoke_tx_max_n_steps,
             validate_max_n_steps,
@@ -237,7 +234,7 @@ pub fn into_block_context(
         chain_id: starknet_os_config.chain_id,
         block_number,
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress::try_from(general_config.sequencer_address.0)?,
+        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
         gas_price: block_info.gas_price,
