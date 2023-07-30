@@ -530,17 +530,30 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
 
     // Insufficient fee.
     let invalid_max_fee = minimal_fee;
+<<<<<<< HEAD
     let invalid_tx = AccountTransaction::Invoke(
         InvokeTransactionV1 { max_fee: invalid_max_fee, ..valid_invoke_tx.clone() }.into(),
     );
     let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
+||||||| merged common ancestors
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        max_fee: invalid_max_fee,
+        ..valid_invoke_tx.clone()
+    }));
+    let execution_error = invalid_tx.execute(state, block_context, true).unwrap_err();
+=======
+    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+        max_fee: invalid_max_fee,
+        ..valid_invoke_tx.clone()
+    }));
+    let execution_result = invalid_tx.execute(state, block_context, true).unwrap();
+    let execution_error = execution_result.revert_error.unwrap();
+>>>>>>> origin/main-v0.12.2
 
     // Test error.
-    assert_matches!(
-        execution_error,
-        TransactionExecutionError::FeeTransferError{ max_fee, .. }
-        if max_fee == invalid_max_fee
-    );
+    assert!(execution_error.starts_with("Insufficient max fee:"));
+    // Test that fee was charged.
+    assert_eq!(execution_result.actual_fee, invalid_max_fee);
 
     // Invalid nonce.
     // Use a fresh state to facilitate testing.

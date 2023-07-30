@@ -1,4 +1,4 @@
-use ark_ff::BigInteger;
+use ark_ff::{BigInteger, PrimeField};
 use ark_secp256k1 as secp256k1;
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
@@ -136,7 +136,7 @@ pub fn secp256k1_get_point_from_x(
     let maybe_ec_point = secp256k1::Affine::get_ys_from_x_unchecked(x)
         .map(|(smaller, greater)| {
             // Return the correct y coordinate based on the parity.
-            if smaller.0.is_odd() == request.y_parity { smaller } else { greater }
+            if smaller.into_bigint().is_odd() == request.y_parity { smaller } else { greater }
         })
         .map(|y| secp256k1::Affine::new_unchecked(x, y))
         .filter(|p| p.is_in_correct_subgroup_assuming_on_curve());

@@ -21,7 +21,7 @@ pub mod test;
 /// which requires gas.
 pub fn calculate_tx_gas_usage(
     l2_to_l1_payloads_length: &[usize],
-    state_changes: StateChangesCount,
+    state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> usize {
     // Calculate the addition of the transaction to the output messages segment.
@@ -29,7 +29,7 @@ pub fn calculate_tx_gas_usage(
         get_message_segment_length(l2_to_l1_payloads_length, l1_handler_payload_size);
 
     // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_segment_length = get_onchain_data_segment_length(state_changes);
+    let residual_onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
 
     let n_l2_to_l1_messages = l2_to_l1_payloads_length.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
@@ -58,19 +58,19 @@ pub fn calculate_tx_gas_usage(
 /// modified contracts - are not counted.
 /// This segment consists of deployment info (of contracts deployed by the transaction) and
 /// storage updates.
-pub fn get_onchain_data_segment_length(state_changes: StateChangesCount) -> usize {
+pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
     // For each newly modified contract:
     // contract address (1 word).
     // + 1 word with the following info: A flag indicating whether the class hash was updated, the
     // number of entry updates, and the new nonce.
-    let mut onchain_data_segment_length = state_changes.n_modified_contracts * 2;
+    let mut onchain_data_segment_length = state_changes_count.n_modified_contracts * 2;
     // For each class updated (through a deploy or a class replacement).
     onchain_data_segment_length +=
-        state_changes.n_class_hash_updates * constants::CLASS_UPDATE_SIZE;
+        state_changes_count.n_class_hash_updates * constants::CLASS_UPDATE_SIZE;
     // For each modified storage cell: key, new value.
-    onchain_data_segment_length += state_changes.n_storage_updates * 2;
+    onchain_data_segment_length += state_changes_count.n_storage_updates * 2;
     // For each compiled class updated (through declare): class_hash, compiled_class_hash
-    onchain_data_segment_length += state_changes.n_compiled_class_hash_updates * 2;
+    onchain_data_segment_length += state_changes_count.n_compiled_class_hash_updates * 2;
 
     onchain_data_segment_length
 }

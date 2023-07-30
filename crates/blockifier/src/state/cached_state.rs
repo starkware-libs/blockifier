@@ -55,7 +55,7 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
-    pub fn count_actual_state_changes_for_fee_charge(
+    pub fn get_actual_state_changes_for_fee_charge(
         &mut self,
         fee_token_address: ContractAddress,
         sender_address: Option<ContractAddress>,
@@ -600,6 +600,24 @@ pub struct StateChanges {
     pub modified_contracts: HashSet<ContractAddress>,
 }
 
+impl StateChanges {
+    /// Merges the given state changes into a single one. Note that the order of the state changes
+    /// is important. The state changes are merged in the order they appear in the given vector.
+    pub fn merge(state_changes: Vec<Self>) -> Self {
+        let mut merged_state_changes = Self::default();
+        for state_change in state_changes {
+            merged_state_changes.storage_updates.extend(state_change.storage_updates);
+            merged_state_changes.class_hash_updates.extend(state_change.class_hash_updates);
+            merged_state_changes
+                .compiled_class_hash_updates
+                .extend(state_change.compiled_class_hash_updates);
+            merged_state_changes.modified_contracts.extend(state_change.modified_contracts);
+        }
+
+        merged_state_changes
+    }
+}
+
 /// Holds the number of state changes.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct StateChangesCount {
@@ -609,8 +627,8 @@ pub struct StateChangesCount {
     pub n_modified_contracts: usize,
 }
 
-impl From<StateChanges> for StateChangesCount {
-    fn from(state_changes: StateChanges) -> Self {
+impl From<&StateChanges> for StateChangesCount {
+    fn from(state_changes: &StateChanges) -> Self {
         Self {
             n_storage_updates: state_changes.storage_updates.len(),
             n_class_hash_updates: state_changes.class_hash_updates.len(),
