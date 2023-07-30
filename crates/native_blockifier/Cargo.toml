@@ -6,6 +6,13 @@ repository.workspace = true
 license-file.workspace = true
 description = "A Bridge between the Rust blockifier crate and Python."
 
+# Required for `cargo test` to work with pyo3.
+# On python, make sure to compile this with the extension-module feature enabled.
+# https://pyo3.rs/v0.19.1/faq#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
+[features]
+extension-module = ["pyo3/extension-module"]
+
+
 [lib]
 name = "native_blockifier"
 # "cdylib" is necessary to produce a shared library for Python to import from.
@@ -25,11 +32,7 @@ indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 papyrus_storage = { workspace = true, features = ["testing"] }
-pyo3 = { version = "0.17.3", features = [
-    "extension-module",
-    "num-bigint",
-    "hashbrown",
-] }
+pyo3 = { version = "0.17.3", features = ["num-bigint", "hashbrown"] }
 pyo3-log = "0.8.1"
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
@@ -37,3 +40,7 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 starknet_api = { workspace = true, features = ["testing"] }
 
 thiserror.workspace = true
+
+[dev-dependencies]
+cached.workspace = true
+tempfile.workspace = true

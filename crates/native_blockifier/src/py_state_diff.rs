@@ -114,7 +114,7 @@ impl From<CommitmentStateDiff> for PyStateDiff {
     }
 }
 
-#[derive(FromPyObject)]
+#[derive(FromPyObject, Default)]
 pub struct PyBlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
