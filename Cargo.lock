@@ -2092,6 +2092,7 @@ name = "native_blockifier"
 version = "0.2.0-rc0"
 dependencies = [
  "blockifier",
+ "cached",
  "cairo-lang-starknet",
  "cairo-vm",
  "indexmap 1.9.3",
@@ -2102,6 +2103,7 @@ dependencies = [
  "pyo3-log",
  "serde_json",
  "starknet_api",
+ "tempfile",
  "thiserror",
 ]
 
