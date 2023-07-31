@@ -94,7 +94,7 @@ impl VirtualMachineExecutionError {
                 let outer_call_prefix = "Got an exception while executing a hint: Custom Hint \
                                          Error: Error in the called contract";
                 if inner_exc_string.starts_with(outer_call_prefix) {
-                    trace_string += "Got an exception while executing a hint.";
+                    trace_string += "Got an exception while executing a syscall.";
                 } else if let Some(error_attribute) = &exception.error_attr_value {
                     trace_string += error_attribute;
                 } else {
