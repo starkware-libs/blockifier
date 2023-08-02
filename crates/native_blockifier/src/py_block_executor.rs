@@ -221,6 +221,7 @@ pub struct PyOsConfig {
     #[pyo3(from_py_with = "int_to_chain_id")]
     pub chain_id: ChainId,
     pub fee_token_address: PyFelt,
+    pub deprecated_fee_token_address: PyFelt,
 }
 
 pub fn into_block_context(
@@ -236,6 +237,9 @@ pub fn into_block_context(
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
+        deprecated_fee_token_address: ContractAddress::try_from(
+            starknet_os_config.deprecated_fee_token_address.0,
+        )?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
         gas_price: block_info.gas_price,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
