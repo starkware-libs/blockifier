@@ -49,13 +49,13 @@ pub fn calculate_l1_gas_usage(
 /// most-recent (recent w.r.t. application on the given state).
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(
-    execution_resources: ExecutionResources,
+    execution_resources: &ExecutionResources,
     l1_gas_usage: usize,
     tx_type: TransactionType,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
-        + &get_additional_os_resources(execution_resources.syscall_counter, tx_type)?;
+        + &get_additional_os_resources(&execution_resources.syscall_counter, tx_type)?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.
