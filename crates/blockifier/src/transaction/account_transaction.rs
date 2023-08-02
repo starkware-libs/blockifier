@@ -501,10 +501,29 @@ impl AccountTransaction {
                     0,
                 )?;
 
+                // Check if as a result of tx execution the sender's fee token balance is maxed out,
+                // so that they can't pay fee. If so, the transaction must be reverted.
+                let (balance_low, balance_high) = execution_state
+                    .get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
+                let is_maxed_out = balance_high == StarkFelt::from(0_u8)
+                    && balance_low < StarkFelt::from(actual_fee.0);
+
                 let max_fee = account_tx_context.max_fee;
-                if actual_fee > max_fee {
-                    // Insufficient max fee. Revert the execution and charge what is available.
-                    let final_fee = max_fee;
+                if actual_fee > max_fee || is_maxed_out {
+                    // Insufficient fee. Revert the execution and charge what is available.
+                    let final_fee: Fee;
+                    let revert_error: String;
+                    if actual_fee > max_fee {
+                        final_fee = max_fee;
+                        revert_error = format!(
+                            "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
+                            max_fee, actual_fee
+                        );
+                    } else {
+                        final_fee = actual_fee;
+                        revert_error = String::from("Insufficient fee token balance.");
+                    }
+
                     execution_state.abort();
                     let n_remaining_steps = execution_context
                         .vm_run_resources
@@ -526,10 +545,7 @@ impl AccountTransaction {
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
-                        format!(
-                            "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
-                            max_fee, actual_fee
-                        ),
+                        revert_error,
                         final_fee,
                         final_resources,
                     ));
