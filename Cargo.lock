@@ -476,9 +476,9 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 
 [[package]]
 name = "cairo-felt"
-version = "0.8.4"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e94302e7afa60e9f6999ed4f2d6dcf0aacac726648e342a42e7f29a0c7db4eed"
+checksum = "0f8de851723a7d13ed8b0b588a78ffa6b38d8e1f3eb4b6e71a96376510e5504a"
 dependencies = [
  "lazy_static",
  "num-bigint",
