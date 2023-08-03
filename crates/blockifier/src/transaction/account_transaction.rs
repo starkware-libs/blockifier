@@ -521,7 +521,7 @@ impl AccountTransaction {
                         );
                     } else {
                         final_fee = actual_fee;
-                        revert_error = String::from("Insufficient fee token balance.");
+                        revert_error = String::from("Insufficient fee token balance");
                     }
 
                     execution_state.abort();
