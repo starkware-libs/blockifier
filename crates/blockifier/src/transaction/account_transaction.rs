@@ -281,6 +281,16 @@ impl AccountTransaction {
         self.max_fee() != Fee(0)
     }
 
+    // TODO(Dori,1/10/2023): If/when Fees can be more than 128 bit integers, this should be updated.
+    fn is_sufficient_fee_balance(
+        balance_low: StarkFelt,
+        balance_high: StarkFelt,
+        fee: Fee,
+    ) -> bool {
+        // The fee is at most 128 bits, while balance is 256 bits (split into two 128 bit words).
+        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0)
+    }
+
     /// Checks that the account's balance covers max fee.
     fn check_fee_balance<S: StateReader>(
         &self,
@@ -288,27 +298,24 @@ impl AccountTransaction {
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<()> {
         let account_tx_context = self.get_account_transaction_context();
+        let max_fee = account_tx_context.max_fee;
 
         // Check fee balance.
         if self.enforce_fee() {
             // Check max fee is at least the estimated constant overhead.
             let minimal_fee = estimate_minimal_fee(block_context, self)?;
-            if minimal_fee > account_tx_context.max_fee {
+            if minimal_fee > max_fee {
                 return Err(TransactionExecutionError::MaxFeeTooLow {
                     min_fee: minimal_fee,
-                    max_fee: account_tx_context.max_fee,
+                    max_fee,
                 });
             }
 
             let (balance_low, balance_high) =
                 state.get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
-            // TODO(Dori, 1/7/2023): If and when Fees can be more than 128 bit integers, this check
-            //   should be updated.
-            if balance_high == StarkFelt::from(0_u8)
-                && balance_low < StarkFelt::from(account_tx_context.max_fee.0)
-            {
+            if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
                 return Err(TransactionExecutionError::MaxFeeExceedsBalance {
-                    max_fee: account_tx_context.max_fee,
+                    max_fee,
                     balance_low,
                     balance_high,
                 });
@@ -501,10 +508,28 @@ impl AccountTransaction {
                     0,
                 )?;
 
+                // Check if as a result of tx execution the sender's fee token balance is maxed out,
+                // so that they can't pay fee. If so, the transaction must be reverted.
+                let (balance_low, balance_high) = execution_state
+                    .get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
+                let is_maxed_out =
+                    !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
                 let max_fee = account_tx_context.max_fee;
-                if actual_fee > max_fee {
-                    // Insufficient max fee. Revert the execution and charge what is available.
-                    let final_fee = max_fee;
+
+                if actual_fee > max_fee || is_maxed_out {
+                    // Insufficient fee. Revert the execution and charge what is available.
+                    let (final_fee, revert_error) = if actual_fee > max_fee {
+                        (
+                            max_fee,
+                            format!(
+                                "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
+                                max_fee, actual_fee
+                            ),
+                        )
+                    } else {
+                        (actual_fee, String::from("Insufficient fee token balance"))
+                    };
+
                     execution_state.abort();
                     let n_remaining_steps = execution_context
                         .vm_run_resources
@@ -526,10 +551,7 @@ impl AccountTransaction {
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
-                        format!(
-                            "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
-                            max_fee, actual_fee
-                        ),
+                        revert_error,
                         final_fee,
                         final_resources,
                     ));
