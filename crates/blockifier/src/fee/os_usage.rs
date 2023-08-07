@@ -32,16 +32,16 @@ impl OsResources {
 /// Calculates the additional resources needed for the OS to run the given syscalls;
 /// i.e., the resources of the StarkNet OS function `execute_syscalls`.
 pub fn get_additional_os_resources(
-    syscall_counter: SyscallCounter,
+    syscall_counter: &SyscallCounter,
     tx_type: TransactionType,
 ) -> Result<VmExecutionResources, TransactionExecutionError> {
     let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
-            OS_RESOURCES.execute_syscalls.get(&syscall_selector).unwrap_or_else(|| {
+            OS_RESOURCES.execute_syscalls.get(syscall_selector).unwrap_or_else(|| {
                 panic!("OS resources of syscall '{syscall_selector:?}' are unknown.")
             });
-        os_additional_vm_resources += &(syscall_resources * count);
+        os_additional_vm_resources += &(syscall_resources * *count);
     }
 
     // Calculates the additional resources needed for the OS to run the given transaction;

@@ -12,6 +12,7 @@ use starknet_api::transaction::{
     TransactionHash,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_crypto::FieldElement;
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
@@ -773,5 +774,137 @@ fn test_insufficient_max_fee_reverts(
     assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
     assert!(
         tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+/// Calls `test_write_and_transfer` with the given parameters.
+fn write_and_transfer(
+    storage_address: StarkFelt,
+    storage_value: StarkFelt,
+    recipient: StarkFelt,
+    transfer_amount: StarkFelt,
+    account_address: ContractAddress,
+    test_contract_address: ContractAddress,
+    block_context: &BlockContext,
+    nonce_manager: &mut NonceManager,
+    max_fee: Fee,
+    state: &mut CachedState<DictStateReader>,
+) -> TransactionExecutionInfo {
+    let execute_calldata = calldata![
+        *test_contract_address.0.key(),                  // Contract address.
+        selector_from_name("test_write_and_transfer").0, // EP selector.
+        stark_felt!(5_u8),                               // Calldata length.
+        storage_address,                                 // Calldata: storage address.
+        storage_value,                                   // Calldata: storage value.
+        recipient,                                       // Calldata: to.
+        transfer_amount,                                 // Calldata: amount.
+        *block_context.fee_token_address.0.key()
+    ];
+    let account_tx = account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee);
+    account_tx.execute(state, block_context, true, true).unwrap()
+}
+
+/// Tests that when a transaction drains an account's balance before fee transfer, the execution is
+/// reverted.
+#[rstest]
+fn test_revert_on_overdraft(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    // An address to be written into to observe state changes.
+    let storage_address = stark_felt!(10_u8);
+    let storage_key = StorageKey::try_from(storage_address).unwrap();
+    // Final storage value expected in the address at the end of this test.
+    let expected_final_value = stark_felt!(77_u8);
+    // An address to be used as recipient of a transfer.
+    let recipient = stark_felt!(7_u8);
+    let recipient_address = ContractAddress(patricia_key!(recipient));
+    // Amount expected to be transferred successfully.
+    let final_received_amount = stark_felt!(80_u8);
+
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
+
+    // Verify the contract's storage key initial value is empty.
+    assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
+
+    // Approve the test contract to transfer funds.
+    let approve_calldata = calldata![
+        *block_context.fee_token_address.0.key(), // Contract address.
+        selector_from_name("approve").0,          // EP selector.
+        stark_felt!(3_u8),                        // Calldata length.
+        *contract_address.0.key(),                // Calldata: to.
+        stark_felt!(BALANCE),
+        stark_felt!(0_u8)
+    ];
+
+    let approve_tx: AccountTransaction =
+        account_invoke_tx(approve_calldata, account_address, &mut nonce_manager, max_fee);
+    let approval_execution_info =
+        approve_tx.execute(&mut state, &block_context, true, true).unwrap();
+    assert!(!approval_execution_info.is_reverted());
+
+    // Transfer a valid amount of funds to compute the cost of a successful
+    // `test_write_and_transfer` operation. This operation should succeed.
+    let execution_info = write_and_transfer(
+        storage_address,
+        expected_final_value,
+        recipient,
+        final_received_amount,
+        account_address,
+        contract_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+        &mut state,
+    );
+    assert!(!execution_info.is_reverted());
+    let transfer_tx_fee = execution_info.actual_fee;
+
+    // Check the current balance, before next transaction.
+    let (balance, _) = state.get_fee_token_balance(&block_context, &account_address).unwrap();
+
+    // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
+    // This operation should revert.
+    let execution_info = write_and_transfer(
+        storage_address,
+        stark_felt!(0_u8), // erase current storage value.
+        recipient,         // same recipient as before.
+        balance,           // transfer the entire balance.
+        account_address,
+        contract_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+        &mut state,
+    );
+
+    // Compute the expected balance after the reverted write+transfer (tx fee should be charged).
+    let expected_new_balance: StarkFelt =
+        StarkFelt::from(FieldElement::from(balance) - FieldElement::from(transfer_tx_fee.0));
+
+    // Verify the execution was reverted (including nonce bump) with the correct error.
+    assert!(execution_info.is_reverted());
+    assert!(execution_info.revert_error.unwrap().starts_with("Insufficient fee token balance"));
+    assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
+
+    // Verify the storage key/value were not updated in the last tx.
+    assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), expected_final_value);
+
+    // Verify balances of both sender and recipient are as expected.
+    assert_eq!(
+        state.get_fee_token_balance(&block_context, &account_address).unwrap(),
+        (expected_new_balance, stark_felt!(0_u8))
+    );
+    assert_eq!(
+        state.get_fee_token_balance(&block_context, &recipient_address).unwrap(),
+        (final_received_amount, stark_felt!(0_u8))
     );
 }
