@@ -11,6 +11,7 @@ use crate::state::errors::StateError;
 pub type StateResult<T> = Result<T, StateError>;
 
 // Temporarily placed here until bumping starknet_api crate version.
+#[derive(Clone, Copy, Debug)]
 pub enum DataAvailabilityMode {
     L1 = 0,
     L2 = 1,
@@ -28,6 +29,7 @@ pub trait StateReader {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> StateResult<StarkFelt>;
 
     /// Returns the nonce of the given contract instance.
@@ -56,8 +58,18 @@ pub trait StateReader {
         contract_address: &ContractAddress,
     ) -> Result<(StarkFelt, StarkFelt), StateError> {
         let (low_key, high_key) = get_erc20_balance_var_addresses(contract_address)?;
-        let low = self.get_storage_at(block_context.deprecated_fee_token_address, low_key)?;
-        let high = self.get_storage_at(block_context.deprecated_fee_token_address, high_key)?;
+        // TODO(barak, 01/10/2023): Pass data_availability_mode parameter from the function
+        // parameters.
+        let low = self.get_storage_at(
+            block_context.deprecated_fee_token_address,
+            low_key,
+            DataAvailabilityMode::L1,
+        )?;
+        let high = self.get_storage_at(
+            block_context.deprecated_fee_token_address,
+            high_key,
+            DataAvailabilityMode::L1,
+        )?;
 
         Ok((low, high))
     }

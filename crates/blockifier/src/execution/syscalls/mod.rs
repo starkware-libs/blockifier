@@ -378,8 +378,12 @@ pub fn get_block_hash(
     let key = StorageKey::try_from(StarkFelt::from(requested_block_number))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
-    let block_hash =
-        BlockHash(syscall_handler.state.get_storage_at(block_hash_contract_address, key)?);
+    let block_hash = BlockHash(syscall_handler.state.get_storage_at(
+        block_hash_contract_address,
+        key,
+        // We store the block_number:block_hash dictionary in the L1 storage.
+        DataAvailabilityMode::L1,
+    )?);
     Ok(GetBlockHashResponse { block_hash })
 }
 
@@ -585,7 +589,10 @@ pub fn storage_read(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<StorageReadResponse> {
-    syscall_handler.get_contract_storage_at(request.address)
+    syscall_handler.get_contract_storage_at(
+        request.address,
+        DataAvailabilityMode::try_from(request.address_domain).unwrap(),
+    )
 }
 
 // StorageWrite syscall.

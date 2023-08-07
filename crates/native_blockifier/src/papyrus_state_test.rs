@@ -3,7 +3,7 @@ use blockifier::execution::call_info::{CallExecution, Retdata};
 use blockifier::execution::entry_point::CallEntryPoint;
 use blockifier::retdata;
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::StateReader;
+use blockifier::state::state_api::{DataAvailabilityMode, StateReader};
 use blockifier::test_utils::{
     get_deprecated_contract_class, trivial_external_entry_point, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
@@ -43,6 +43,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
 
     // Call entrypoint that want to write to storage, which updates the cached state's write cache.
     let key = stark_felt!(1234_u16);
+    let data_availability_mode = DataAvailabilityMode::L1;
     let value = stark_felt!(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
@@ -58,7 +59,8 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
 
     // Verify that the state has changed.
     let storage_key = StorageKey::try_from(key).unwrap();
-    let value_from_state = state.get_storage_at(storage_address, storage_key).unwrap();
+    let value_from_state =
+        state.get_storage_at(storage_address, storage_key, data_availability_mode).unwrap();
     assert_eq!(value_from_state, value);
 
     Ok(())

@@ -11,7 +11,7 @@ use starknet_api::state::StorageKey;
 use crate::abi::abi_utils::get_erc20_balance_var_addresses;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader, StateResult};
+use crate::state::state_api::{DataAvailabilityMode, State, StateReader, StateResult};
 use crate::utils::subtract_mappings;
 
 #[cfg(test)]
@@ -145,7 +145,13 @@ impl<S: StateReader> CachedState<S> {
                 // First access to this cell was write; cache initial value.
                 self.cache.storage_initial_values.insert(
                     *contract_storage_key,
-                    self.state.get_storage_at(contract_storage_key.0, contract_storage_key.1)?,
+                    self.state.get_storage_at(
+                        contract_storage_key.0,
+                        contract_storage_key.1,
+                        // TODO(barak, 01/10/2023): Pass data_availability_mode parameter from the
+                        // cached dictionaries.
+                        DataAvailabilityMode::L1,
+                    )?,
                 );
             }
         }
@@ -183,15 +189,23 @@ impl<S: StateReader> StateReader for CachedState<S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> StateResult<StarkFelt> {
-        if self.cache.get_storage_at(contract_address, key).is_none() {
-            let storage_value = self.state.get_storage_at(contract_address, key)?;
+        if self.cache.get_storage_at(contract_address, key, data_availability_mode).is_none() {
+            let storage_value =
+                self.state.get_storage_at(contract_address, key, data_availability_mode)?;
             self.cache.set_storage_initial_value(contract_address, key, storage_value);
         }
 
-        let value = self.cache.get_storage_at(contract_address, key).unwrap_or_else(|| {
-            panic!("Cannot retrieve '{contract_address:?}' and '{key:?}' from the cache.")
-        });
+        let value = self
+            .cache
+            .get_storage_at(contract_address, key, data_availability_mode)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Cannot retrieve '{contract_address:?}', '{data_availability_mode:?}' and \
+                     '{key:?}' from the cache."
+                )
+            });
         Ok(*value)
     }
 
@@ -392,7 +406,11 @@ impl StateCache {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> Option<&StarkFelt> {
+        // TODO(barak, 01/10/2023): Use data_availability_mode to pull from storage_writes.
+        let _ = data_availability_mode;
+
         let contract_storage_key = (contract_address, key);
         self.storage_writes
             .get(&contract_storage_key)
@@ -509,8 +527,9 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> StateResult<StarkFelt> {
-        self.0.get_storage_at(contract_address, key)
+        self.0.get_storage_at(contract_address, key, data_availability_mode)
     }
 
     fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {

@@ -37,7 +37,7 @@ use crate::execution::entry_point::{
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader, StateResult};
+use crate::state::state_api::{DataAvailabilityMode, State, StateReader, StateResult};
 use crate::transaction::objects::AccountTransactionContext;
 use crate::transaction::transactions::DeployAccountTransaction;
 
@@ -120,7 +120,11 @@ impl StateReader for DictStateReader {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> StateResult<StarkFelt> {
+        // TODO(barak, 01/10/2023): Use data_availability_mode to pull from storage_view.
+        let _ = data_availability_mode;
+
         let contract_storage_key = (contract_address, key);
         let value = self.storage_view.get(&contract_storage_key).copied().unwrap_or_default();
         Ok(value)
