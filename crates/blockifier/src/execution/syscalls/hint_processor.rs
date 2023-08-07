@@ -45,7 +45,7 @@ use crate::execution::syscalls::{
     SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
-use crate::state::state_api::{DataAvailabilityError, State};
+use crate::state::state_api::{DataAvailabilityError, DataAvailabilityMode, State};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -410,9 +410,11 @@ impl<'a> SyscallHintProcessor<'a> {
     pub fn get_contract_storage_at(
         &mut self,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> SyscallResult<StorageReadResponse> {
         self.accessed_keys.insert(key);
-        let value = self.state.get_storage_at(self.storage_address(), key)?;
+        let value =
+            self.state.get_storage_at(self.storage_address(), key, data_availability_mode)?;
         self.read_values.push(value);
 
         Ok(StorageReadResponse { value })

@@ -5,7 +5,7 @@ use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
 use crate::block_execution::pre_process_block;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{DataAvailabilityMode, StateReader};
 use crate::test_utils::create_test_state;
 
 #[test]
@@ -19,6 +19,7 @@ fn test_pre_process_block() {
     let written_hash = state.get_storage_at(
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap(),
         StorageKey::try_from(StarkFelt::from(block_number)).unwrap(),
+        DataAvailabilityMode::L1,
     );
     assert_eq!(written_hash.unwrap(), block_hash);
 }

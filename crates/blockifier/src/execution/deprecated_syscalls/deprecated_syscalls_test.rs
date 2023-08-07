@@ -14,7 +14,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::retdata;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{DataAvailabilityMode, StateReader};
 use crate::test_utils::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
     trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
@@ -38,8 +38,13 @@ fn test_storage_read_write() {
         CallExecution::from_retdata(retdata![stark_felt!(value)])
     );
     // Verify that the state has changed.
-    let value_from_state =
-        state.get_storage_at(storage_address, StorageKey::try_from(key).unwrap()).unwrap();
+    let value_from_state = state
+        .get_storage_at(
+            storage_address,
+            StorageKey::try_from(key).unwrap(),
+            DataAvailabilityMode::L1,
+        )
+        .unwrap();
     assert_eq!(value_from_state, value);
 }
 

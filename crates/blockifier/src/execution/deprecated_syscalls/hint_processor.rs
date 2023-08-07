@@ -44,7 +44,7 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::hint_code;
 use crate::state::errors::StateError;
-use crate::state::state_api::State;
+use crate::state::state_api::{DataAvailabilityMode, State};
 
 pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
 
@@ -303,9 +303,10 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     pub fn get_contract_storage_at(
         &mut self,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> DeprecatedSyscallResult<StorageReadResponse> {
         self.accessed_keys.insert(key);
-        let value = self.state.get_storage_at(self.storage_address, key)?;
+        let value = self.state.get_storage_at(self.storage_address, key, data_availability_mode)?;
         self.read_values.push(value);
 
         Ok(StorageReadResponse { value })

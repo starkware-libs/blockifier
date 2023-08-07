@@ -28,7 +28,7 @@ use crate::execution::execution_utils::{
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
-use crate::state::state_api::DataAvailabilityError;
+use crate::state::state_api::{DataAvailabilityError, DataAvailabilityMode};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub mod hint_processor;
@@ -353,8 +353,12 @@ pub fn get_block_hash(
     let key = StorageKey::try_from(StarkFelt::from(requested_block_number))?;
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
-    let block_hash =
-        BlockHash(syscall_handler.state.get_storage_at(block_hash_contract_address, key)?);
+    let block_hash = BlockHash(syscall_handler.state.get_storage_at(
+        block_hash_contract_address,
+        key,
+        // We store the block_number-to-block_hash mapping in the L1 storage.
+        DataAvailabilityMode::L1,
+    )?);
     Ok(GetBlockHashResponse { block_hash })
 }
 
@@ -562,7 +566,10 @@ pub fn storage_read(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<StorageReadResponse> {
-    syscall_handler.get_contract_storage_at(request.address)
+    syscall_handler.get_contract_storage_at(
+        request.address,
+        DataAvailabilityMode::try_from(request.data_availability_mode)?,
+    )
 }
 
 // StorageWrite syscall.

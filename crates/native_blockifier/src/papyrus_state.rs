@@ -1,6 +1,6 @@
 use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{StateReader, StateResult};
+use blockifier::state::state_api::{DataAvailabilityMode, StateReader, StateResult};
 use papyrus_storage::compiled_class::CasmStorageReader;
 use papyrus_storage::db::RO;
 use papyrus_storage::state::StateStorageReader;
@@ -39,7 +39,12 @@ impl StateReader for PapyrusReader {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
+        data_availability_mode: DataAvailabilityMode,
     ) -> StateResult<StarkFelt> {
+        // TODO(barak, 01/10/2023): Use data_availability_mode to pull from the papyrus state
+        // reader.
+        let _ = data_availability_mode;
+
         let state_number = StateNumber(self.latest_block);
         self.reader()?
             .get_state_reader()
