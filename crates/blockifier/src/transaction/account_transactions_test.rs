@@ -11,14 +11,8 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
     TransactionHash,
 };
-<<<<<<< HEAD
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
-||||||| 1a5864b
-use starknet_api::{calldata, patricia_key, stark_felt};
-=======
-use starknet_api::{calldata, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
->>>>>>> origin/main-v0.12.2
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
@@ -808,7 +802,7 @@ fn write_and_transfer(
         *block_context.fee_token_address.0.key()
     ];
     let account_tx = account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee);
-    account_tx.execute(state, block_context, true).unwrap()
+    account_tx.execute(state, block_context, true, true).unwrap()
 }
 
 /// Tests that when a transaction drains an account's balance before fee transfer, the execution is
@@ -853,7 +847,8 @@ fn test_revert_on_overdraft(
 
     let approve_tx: AccountTransaction =
         account_invoke_tx(approve_calldata, account_address, &mut nonce_manager, max_fee);
-    let approval_execution_info = approve_tx.execute(&mut state, &block_context, true).unwrap();
+    let approval_execution_info =
+        approve_tx.execute(&mut state, &block_context, true, true).unwrap();
     assert!(!approval_execution_info.is_reverted());
 
     // Transfer a valid amount of funds to compute the cost of a successful
