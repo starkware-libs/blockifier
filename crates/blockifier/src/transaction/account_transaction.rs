@@ -3,7 +3,7 @@ use std::cmp::min;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
-use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
@@ -109,11 +109,13 @@ impl AccountTransaction {
     }
 
     pub fn max_fee(&self) -> Fee {
-        match self {
+        let optional_max_fee = match self {
             AccountTransaction::Declare(declare) => declare.max_fee(),
             AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
             AccountTransaction::Invoke(invoke) => invoke.max_fee(),
-        }
+        };
+
+        optional_max_fee.expect("V3 is unsupported; `max_fee` must be set.")
     }
 
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
@@ -143,12 +145,14 @@ impl AccountTransaction {
     }
 
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
+        let max_fee = self.max_fee();
+
         match self {
             Self::Declare(tx) => {
                 let sn_api_tx = &tx.tx();
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
-                    max_fee: sn_api_tx.max_fee(),
+                    max_fee,
                     version: sn_api_tx.version(),
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),
@@ -157,7 +161,7 @@ impl AccountTransaction {
             }
             Self::DeployAccount(tx) => AccountTransactionContext {
                 transaction_hash: tx.tx_hash,
-                max_fee: tx.max_fee(),
+                max_fee,
                 version: tx.version(),
                 signature: tx.signature(),
                 nonce: tx.nonce(),
@@ -167,7 +171,7 @@ impl AccountTransaction {
                 let sn_api_tx = &tx.tx;
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash,
-                    max_fee: sn_api_tx.max_fee(),
+                    max_fee,
                     version: match sn_api_tx {
                         starknet_api::transaction::InvokeTransaction::V0(_) => {
                             TransactionVersion(StarkFelt::from(0_u8))
@@ -175,20 +179,13 @@ impl AccountTransaction {
                         starknet_api::transaction::InvokeTransaction::V1(_) => {
                             TransactionVersion(StarkFelt::from(1_u8))
                         }
+                        starknet_api::transaction::InvokeTransaction::V3(_) => {
+                            TransactionVersion(StarkFelt::from(3_u8))
+                        }
                     },
                     signature: sn_api_tx.signature(),
-                    nonce: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
-                    },
-                    sender_address: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(tx_v0) => {
-                            tx_v0.contract_address
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => {
-                            tx_v1.sender_address
-                        }
-                    },
+                    nonce: sn_api_tx.nonce().unwrap_or_default(),
+                    sender_address: sn_api_tx.sender_address(),
                 }
             }
         }

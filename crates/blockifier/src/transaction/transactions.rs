@@ -28,14 +28,6 @@ use crate::transaction::transaction_utils::{
 #[path = "transactions_test.rs"]
 mod test;
 
-macro_rules! implement_inner_tx_getters {
-    ($(($field:ident, $field_type:ty)),*) => {
-        $(pub fn $field(&self) -> $field_type {
-            self.tx.$field.clone()
-        })*
-    };
-}
-
 macro_rules! implement_inner_tx_getter_calls {
     ($(($field:ident, $field_type:ty)),*) => {
         $(pub fn $field(&self) -> $field_type {
@@ -148,6 +140,7 @@ impl DeclareTransaction {
                     contract_class: contract_class.into(),
                 })
             }
+            starknet_api::transaction::DeclareTransaction::V3(_) => unimplemented!(),
         }
     }
 
@@ -163,7 +156,14 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash), (max_fee, Fee));
+    implement_inner_tx_getter_calls!(
+        (class_hash, ClassHash),
+        (max_fee, Option<Fee>),
+        (nonce, Nonce),
+        (signature, TransactionSignature),
+        (version, TransactionVersion),
+        (sender_address, ContractAddress)
+    );
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {
@@ -199,6 +199,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
                     }
                 }
             }
+            starknet_api::transaction::DeclareTransaction::V3(_) => unimplemented!(),
         }
     }
 }
@@ -211,10 +212,10 @@ pub struct DeployAccountTransaction {
 }
 
 impl DeployAccountTransaction {
-    implement_inner_tx_getters!(
+    implement_inner_tx_getter_calls!(
         (class_hash, ClassHash),
         (contract_address_salt, ContractAddressSalt),
-        (max_fee, Fee),
+        (max_fee, Option<Fee>),
         (version, TransactionVersion),
         (nonce, Nonce),
         (constructor_calldata, Calldata),
@@ -261,7 +262,7 @@ pub struct InvokeTransaction {
 
 impl InvokeTransaction {
     implement_inner_tx_getter_calls!(
-        (max_fee, Fee),
+        (max_fee, Option<Fee>),
         (calldata, Calldata),
         (signature, TransactionSignature)
     );
@@ -277,7 +278,8 @@ impl<S: State> Executable<S> for InvokeTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match &self.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => tx.entry_point_selector,
-            starknet_api::transaction::InvokeTransaction::V1(_) => {
+            starknet_api::transaction::InvokeTransaction::V1(_)
+            | starknet_api::transaction::InvokeTransaction::V3(_) => {
                 selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME)
             }
         };

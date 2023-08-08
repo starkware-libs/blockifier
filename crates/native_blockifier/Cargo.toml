@@ -24,7 +24,7 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { workspace = true, features = ["testing"] }
+papyrus_storage = {git = "https://github.com/starkware-libs/papyrus", rev = "aeccd5c", features = ["testing"] }
 pyo3 = { version = "0.17.3", features = [
     "extension-module",
     "num-bigint",
