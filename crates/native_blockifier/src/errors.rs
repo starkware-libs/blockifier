@@ -8,6 +8,8 @@ use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::py_utils::py_enum_name;
+
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
 /// Defines `NativeBlockifierError` variants, their respective Python types, and implements a
@@ -73,4 +75,18 @@ pub enum NativeBlockifierInputError {
     ProgramError(#[from] ProgramError),
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+    #[error("Contract class of version {version} is unsupported.")]
+    UnsupportedContractClassVersion { version: usize },
+}
+
+pyo3::import_exception!(starkware.starkware_utils.error_handling, StarkException);
+
+pub fn is_undeclared_class_error(err: &PyErr) -> bool {
+    Python::with_gil(|py| {
+        if err.is_instance_of::<StarkException>(py) {
+            let err_code = py_enum_name::<String>(err.value(py), "code").unwrap_or_default();
+            return err_code == "UNDECLARED_CLASS";
+        }
+        false
+    })
 }

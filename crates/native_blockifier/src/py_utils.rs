@@ -6,6 +6,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, EthAddress};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 
 use crate::errors::NativeBlockifierResult;
 
@@ -58,6 +59,12 @@ impl From<CompiledClassHash> for PyFelt {
     }
 }
 
+impl From<StorageKey> for PyFelt {
+    fn from(value: StorageKey) -> Self {
+        Self(*value.0.key())
+    }
+}
+
 fn int_to_stark_felt(int: &PyAny) -> PyResult<StarkFelt> {
     let biguint: BigUint = int.extract()?;
     biguint_to_felt(biguint).map_err(|e| PyValueError::new_err(e.to_string()))
@@ -79,6 +86,11 @@ where
 pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
     let biguint: BigUint = int.extract()?;
     Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
+}
+
+pub fn on_chain_storage_domain(py: Python<'_>) -> PyResult<&PyAny> {
+    PyModule::import(py, "starkware.starknet.business_logic.state.storage_domain")?
+        .call_method1("StorageDomain", (0,))
 }
 
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
