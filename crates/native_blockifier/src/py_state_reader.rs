@@ -1,0 +1,99 @@
+use blockifier::execution::contract_class::ContractClass;
+use blockifier::state::errors::StateError;
+use blockifier::state::state_api::{StateReader, StateResult};
+use pyo3::{PyAny, PyErr, PyObject, PyResult, Python};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
+
+use crate::errors::UndeclaredClassHashError;
+use crate::py_contract_class::PyRawCompiledClass;
+use crate::py_utils::PyFelt;
+
+// TODO(Dafna, 30/9/2023): Add tests.
+
+// The value of Python StorageDomain.ON_CHAIN enum.
+const ON_CHAIN_STORAGE_DOMAIN: u8 = 0;
+
+pub struct PyStateReader {
+    // A reference to an RsStateReaderProxy Python object.
+    //
+    // This is a reference to memory allocated on Python's heap and can outlive the GIL.
+    // Once PyObject is instantiated, the underlying Python object ref count is increased.
+    // Once it is dropped, the ref count is decreased the next time the GIL is acquired in pyo3.
+    state_reader_proxy: PyObject,
+}
+
+impl PyStateReader {
+    pub fn new(state_reader_proxy: &PyAny) -> Self {
+        Self { state_reader_proxy: PyObject::from(state_reader_proxy) }
+    }
+}
+
+impl StateReader for PyStateReader {
+    fn get_storage_at(
+        &mut self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        Python::with_gil(|py| -> PyResult<PyFelt> {
+            let args = (ON_CHAIN_STORAGE_DOMAIN, PyFelt::from(contract_address), PyFelt::from(key));
+            self.state_reader_proxy.as_ref(py).call_method1("get_storage_at", args)?.extract()
+        })
+        .map(|felt| felt.0)
+        .map_err(|err| StateError::StateReadError(err.to_string()))
+    }
+
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        Python::with_gil(|py| -> PyResult<PyFelt> {
+            let args = (ON_CHAIN_STORAGE_DOMAIN, PyFelt::from(contract_address));
+            self.state_reader_proxy.as_ref(py).call_method1("get_nonce_at", args)?.extract()
+        })
+        .map(|nonce| Nonce(nonce.0))
+        .map_err(|err| StateError::StateReadError(err.to_string()))
+    }
+
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        Python::with_gil(|py| -> PyResult<PyFelt> {
+            let args = (PyFelt::from(contract_address),);
+            self.state_reader_proxy.as_ref(py).call_method1("get_class_hash_at", args)?.extract()
+        })
+        .map(|felt| ClassHash(felt.0))
+        .map_err(|err| StateError::StateReadError(err.to_string()))
+    }
+
+    fn get_compiled_contract_class(
+        &mut self,
+        class_hash: &ClassHash,
+    ) -> StateResult<ContractClass> {
+        Python::with_gil(|py| -> Result<ContractClass, PyErr> {
+            let args = (PyFelt::from(*class_hash),);
+            let py_raw_compiled_class: PyRawCompiledClass = self
+                .state_reader_proxy
+                .as_ref(py)
+                .call_method1("get_raw_compiled_class", args)?
+                .extract()?;
+
+            Ok(ContractClass::try_from(py_raw_compiled_class)?)
+        })
+        .map_err(|err| {
+            if Python::with_gil(|py| err.is_instance_of::<UndeclaredClassHashError>(py)) {
+                StateError::UndeclaredClassHash(*class_hash)
+            } else {
+                StateError::StateReadError(err.to_string())
+            }
+        })
+    }
+
+    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        Python::with_gil(|py| -> PyResult<PyFelt> {
+            let args = (PyFelt::from(class_hash),);
+            self.state_reader_proxy
+                .as_ref(py)
+                .call_method1("get_compiled_class_hash", args)?
+                .extract()
+        })
+        .map(|felt| CompiledClassHash(felt.0))
+        .map_err(|err| StateError::StateReadError(err.to_string()))
+    }
+}

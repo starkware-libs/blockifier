@@ -6,6 +6,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, EthAddress};
 use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
 
 use crate::errors::NativeBlockifierResult;
 
@@ -55,6 +56,12 @@ impl From<ClassHash> for PyFelt {
 impl From<CompiledClassHash> for PyFelt {
     fn from(compiled_class_hash: CompiledClassHash) -> Self {
         Self(compiled_class_hash.0)
+    }
+}
+
+impl From<StorageKey> for PyFelt {
+    fn from(value: StorageKey) -> Self {
+        Self(*value.0.key())
     }
 }
 
