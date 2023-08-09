@@ -16,7 +16,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", version = "0.1.0-rc2", features = [
+blockifier = { path = "../blockifier", version = "0.2.0-rc0", features = [
     "testing",
 ] }
 cairo-lang-starknet.workspace = true
@@ -31,9 +31,7 @@ pyo3 = { version = "0.19.1", features = [
     "extension-module",
 ] }
 pyo3-log = "0.8.1"
-# We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-# Should match the commit `papyrus_storage` is using.
 starknet_api = { workspace = true, features = ["testing"] }
 
 thiserror.workspace = true
