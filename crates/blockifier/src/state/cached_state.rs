@@ -89,7 +89,7 @@ impl<S: StateReader> CachedState<S> {
     /// Updates cache with initial cell values for write-only access.
     /// If written values match the original, the cell is unchanged and not counted as a
     /// storage-change for fee calculation.
-    /// Same for class hash, nonce and compiled class hash writes.
+    /// Same for class hash and nonce writes.
     // TODO(Noa, 30/07/23): Consider adding DB getters in bulk (via a DB read transaction).
     fn update_initial_values_of_write_only_access(&mut self) -> StateResult<()> {
         // Eliminate storage writes that are identical to the initial value (no change). Assumes
@@ -119,15 +119,6 @@ impl<S: StateReader> CachedState<S> {
                 self.cache
                     .nonce_initial_values
                     .insert(*contract_address, self.state.get_nonce_at(*contract_address)?);
-            }
-        }
-
-        for class_hash in self.cache.compiled_class_hash_writes.keys() {
-            if !self.cache.compiled_class_hash_initial_values.contains_key(class_hash) {
-                // First access to this cell was write; cache initial value.
-                self.cache
-                    .compiled_class_hash_initial_values
-                    .insert(*class_hash, self.state.get_compiled_class_hash(*class_hash)?);
             }
         }
 
