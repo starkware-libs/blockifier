@@ -11,10 +11,10 @@ use num_traits::ToPrimitive;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
+use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
-    ExecutionResources, Retdata,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
 use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,

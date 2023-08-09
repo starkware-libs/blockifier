@@ -19,9 +19,8 @@ use self::hint_processor::{
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
 use crate::abi::constants;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, ConstructorContext, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
-};
+use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
+use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
     ReadOnlySegment,

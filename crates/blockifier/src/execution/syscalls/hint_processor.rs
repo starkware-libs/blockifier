@@ -25,10 +25,10 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
+use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
-    OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
