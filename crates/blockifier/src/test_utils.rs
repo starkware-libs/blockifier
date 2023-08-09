@@ -48,7 +48,6 @@ pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
-pub const TEST_ERC20_CONTRACT_ADDRESS_2: &str = "0x1002";
 
 // Class hashes.
 pub const TEST_CLASS_HASH: &str = "0x110";
@@ -340,7 +339,6 @@ impl BlockContext {
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
-            deprecated_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS_2),
             vm_resource_fee_cost: Default::default(),
             gas_price: DEFAULT_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
