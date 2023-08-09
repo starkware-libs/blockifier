@@ -1,7 +1,9 @@
 pub mod errors;
 pub mod papyrus_state;
 pub mod py_block_executor;
+pub mod py_contract_class;
 pub mod py_state_diff;
+pub mod py_state_reader;
 #[cfg(any(feature = "testing", test))]
 pub mod py_test_utils;
 pub mod py_transaction;
