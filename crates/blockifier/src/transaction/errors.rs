@@ -4,7 +4,7 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::execution::entry_point::Retdata;
+use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::state::errors::StateError;
 

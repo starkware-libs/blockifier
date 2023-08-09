@@ -10,11 +10,11 @@ use starknet_api::hash::StarkHash;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
+use crate::execution::call_info::{CallExecution, CallInfo};
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, EntryPointExecutionContext, EntryPointExecutionResult,
-    ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,

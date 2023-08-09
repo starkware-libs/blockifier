@@ -11,9 +11,10 @@ use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
+use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources, Retdata,
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
@@ -52,6 +53,7 @@ pub enum AccountTransaction {
     Invoke(InvokeTransaction),
 }
 
+/// Represents a bundle of validate-execute stage execution effects.
 struct ValidateExecuteCallInfo {
     validate_call_info: Option<CallInfo>,
     execute_call_info: Option<CallInfo>,

@@ -10,7 +10,8 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, Retdata};
+use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;

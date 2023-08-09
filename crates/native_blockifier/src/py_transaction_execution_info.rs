@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::entry_point::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;

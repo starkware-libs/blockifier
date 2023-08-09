@@ -28,10 +28,11 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
-    EntryPointExecutionResult, ExecutionResources, Retdata,
+    CallEntryPoint, CallType, EntryPointExecutionContext, EntryPointExecutionResult,
+    ExecutionResources,
 };
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};

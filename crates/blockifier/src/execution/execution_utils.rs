@@ -18,10 +18,11 @@ use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    execute_constructor_entry_point, CallEntryPoint, CallInfo, ConstructorContext,
-    EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources, Retdata,
+    execute_constructor_entry_point, CallEntryPoint, ConstructorContext,
+    EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
 use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};

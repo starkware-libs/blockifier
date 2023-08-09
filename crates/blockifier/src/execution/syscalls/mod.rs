@@ -19,11 +19,10 @@ use self::hint_processor::{
     SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
 use crate::abi::constants;
+use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, ConstructorContext, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
     execute_deployment, felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
