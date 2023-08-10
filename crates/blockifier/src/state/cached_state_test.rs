@@ -264,6 +264,7 @@ fn create_state_changes_for_test<S: StateReader>(state: &mut CachedState<S>) -> 
     let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");
+    let fee_token_address = block_context.deprecated_fee_token_address;
 
     state.set_class_hash_at(contract_address, class_hash).unwrap();
     state.set_storage_at(contract_address, key, storage_val);
@@ -278,10 +279,7 @@ fn create_state_changes_for_test<S: StateReader>(state: &mut CachedState<S>) -> 
 
     // Return the resulting state changes.
     state
-        .get_actual_state_changes_for_fee_charge(
-            block_context.fee_token_address,
-            Some(contract_address),
-        )
+        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(contract_address))
         .unwrap()
 }
 
@@ -312,12 +310,13 @@ fn test_state_changes_merge() {
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
     let block_context = BlockContext::create_for_testing();
+    let fee_token_address = block_context.deprecated_fee_token_address;
     let mut transactional_state = CachedState::create_transactional(&mut state);
     // Make sure that `get_actual_state_changes_for_fee_charge` on a newly created transactional
     // state returns null state changes and that merging null state changes with non-null state
     // changes results in the non-null state changes, no matter the order.
     let state_changes2 = transactional_state
-        .get_actual_state_changes_for_fee_charge(block_context.fee_token_address, None)
+        .get_actual_state_changes_for_fee_charge(fee_token_address, None)
         .unwrap();
     assert_eq!(state_changes2, StateChanges::default());
     assert_eq!(
@@ -343,16 +342,15 @@ fn test_state_changes_merge() {
     transactional_state.increment_nonce(contract_address).unwrap();
     // Get the new state changes and then commit the transactional state.
     let state_changes3 = transactional_state
-        .get_actual_state_changes_for_fee_charge(block_context.fee_token_address, None)
+        .get_actual_state_changes_for_fee_charge(fee_token_address, None)
         .unwrap();
     transactional_state.commit();
 
     // Get the total state changes of the CachedState underlying all the temporary transactional
     // states. We expect the state_changes to match the merged state_changes of the transactional
     // states, but only when done in the right order.
-    let state_changes_final = state
-        .get_actual_state_changes_for_fee_charge(block_context.fee_token_address, None)
-        .unwrap();
+    let state_changes_final =
+        state.get_actual_state_changes_for_fee_charge(fee_token_address, None).unwrap();
     assert_eq!(
         StateChanges::merge(vec![
             state_changes1.clone(),

@@ -93,6 +93,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        let fee_token_address = block_context.deprecated_fee_token_address;
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
             transaction_hash: self.tx_hash,
@@ -113,7 +114,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         // The calldata includes the "from" field, which is not a part of the payload.
         let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
         let state_changes =
-            state.get_actual_state_changes_for_fee_charge(block_context.fee_token_address, None)?;
+            state.get_actual_state_changes_for_fee_charge(fee_token_address, None)?;
         let l1_gas_usage = calculate_l1_gas_usage(
             &call_infos,
             StateChangesCount::from(&state_changes),

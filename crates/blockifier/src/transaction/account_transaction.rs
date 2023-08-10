@@ -396,7 +396,7 @@ impl AccountTransaction {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
 
-        let storage_address = block_context.fee_token_address;
+        let storage_address = block_context.deprecated_fee_token_address;
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,
@@ -445,6 +445,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
+        let fee_token_address = block_context.deprecated_fee_token_address;
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
             execute_call_info =
@@ -458,7 +459,7 @@ impl AccountTransaction {
                 self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
         }
         let state_changes = state.get_actual_state_changes_for_fee_charge(
-            block_context.fee_token_address,
+            fee_token_address,
             Some(self.get_account_transaction_context().sender_address),
         )?;
         let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
@@ -488,6 +489,7 @@ impl AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
+        let fee_token_address = block_context.deprecated_fee_token_address;
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
@@ -517,7 +519,7 @@ impl AccountTransaction {
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
         let validate_state_changes = state.get_actual_state_changes_for_fee_charge(
-            block_context.fee_token_address,
+            fee_token_address,
             Some(account_tx_context.sender_address),
         )?;
 
@@ -539,7 +541,7 @@ impl AccountTransaction {
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
                 let execute_state_changes = execution_state
                     .get_actual_state_changes_for_fee_charge(
-                        block_context.fee_token_address,
+                        fee_token_address,
                         Some(account_tx_context.sender_address),
                     )?;
                 // Fee is determined by the sum of `validate` and `execute` state changes.
