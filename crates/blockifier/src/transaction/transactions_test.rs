@@ -149,7 +149,7 @@ fn expected_fee_transfer_call_info(
     let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
-    let storage_address = block_context.fee_token_address;
+    let storage_address = block_context.deprecated_fee_token_address;
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
         code_address: None,
@@ -221,14 +221,13 @@ fn validate_final_balances(
     erc20_account_balance_key: StorageKey,
     expected_account_balance: u128,
 ) {
+    let fee_token_address = block_context.deprecated_fee_token_address;
     let account_balance =
-        state.get_storage_at(block_context.fee_token_address, erc20_account_balance_key).unwrap();
+        state.get_storage_at(fee_token_address, erc20_account_balance_key).unwrap();
     assert_eq!(account_balance, stark_felt!(expected_account_balance));
 
     assert_eq!(
-        state
-            .get_storage_at(block_context.fee_token_address, test_erc20_sequencer_balance_key())
-            .unwrap(),
+        state.get_storage_at(fee_token_address, test_erc20_sequencer_balance_key()).unwrap(),
         stark_felt!(expected_sequencer_balance)
     );
 }
@@ -758,6 +757,7 @@ fn test_deploy_account_tx(
     cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
+    let fee_token_address = block_context.deprecated_fee_token_address;
     let mut nonce_manager = NonceManager::default();
     let deploy_account =
         deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
@@ -773,11 +773,7 @@ fn test_deploy_account_tx(
     // can pay for the transaction execution.
     let deployed_account_balance_key =
         get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]).unwrap();
-    state.set_storage_at(
-        block_context.fee_token_address,
-        deployed_account_balance_key,
-        stark_felt!(BALANCE),
-    );
+    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
@@ -962,6 +958,7 @@ fn test_validate_accounts_tx() {
 fn test_calculate_tx_gas_usage() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
+    let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
 
     let invoke_tx = invoke_tx();
     let account_tx = AccountTransaction::Invoke(invoke_tx.into());
@@ -986,12 +983,12 @@ fn test_calculate_tx_gas_usage() {
     let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
     let some_other_account_address = stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
     let execute_calldata = calldata![
-        *block_context.fee_token_address.0.key(), // Contract address.
-        entry_point_selector.0,                   // EP selector.
-        stark_felt!(3_u8),                        // Calldata length.
-        some_other_account_address,               // Calldata: recipient.
-        stark_felt!(2_u8),                        // Calldata: lsb amount.
-        stark_felt!(0_u8)                         // Calldata: msb amount.
+        fee_token_address,          // Contract address.
+        entry_point_selector.0,     // EP selector.
+        stark_felt!(3_u8),          // Calldata length.
+        some_other_account_address, // Calldata: recipient.
+        stark_felt!(2_u8),          // Calldata: lsb amount.
+        stark_felt!(0_u8)           // Calldata: msb amount.
     ];
 
     let invoke_tx = crate::test_utils::invoke_tx(

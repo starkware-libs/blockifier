@@ -63,7 +63,7 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contract.
-    let test_erc20_address = block_context.fee_token_address;
+    let test_erc20_address = block_context.deprecated_fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
     CachedState::from(DictStateReader {
@@ -80,6 +80,7 @@ fn create_test_init_data(
     #[from(create_state)] mut state: CachedState<DictStateReader>,
 ) -> TestInitData {
     let mut nonce_manager = NonceManager::default();
+    let fee_token_address = block_context.deprecated_fee_token_address;
 
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
@@ -95,11 +96,7 @@ fn create_test_init_data(
     // can pay for the transaction execution.
     let deployed_account_balance_key =
         get_storage_var_address("ERC20_balances", &[*account_address.0.key()]).unwrap();
-    state.set_storage_at(
-        block_context.fee_token_address,
-        deployed_account_balance_key,
-        stark_felt!(BALANCE),
-    );
+    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
@@ -287,6 +284,7 @@ fn test_revert_invoke(
     #[from(create_state)] mut state: CachedState<DictStateReader>,
 ) {
     let mut nonce_manager = NonceManager::default();
+    let fee_token_address = block_context.deprecated_fee_token_address;
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -301,11 +299,7 @@ fn test_revert_invoke(
     // can pay for the transaction execution.
     let deployed_account_balance_key =
         get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]).unwrap();
-    state.set_storage_at(
-        block_context.fee_token_address,
-        deployed_account_balance_key,
-        stark_felt!(BALANCE),
-    );
+    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
@@ -791,6 +785,7 @@ fn write_and_transfer(
     max_fee: Fee,
     state: &mut CachedState<DictStateReader>,
 ) -> TransactionExecutionInfo {
+    let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
     let execute_calldata = calldata![
         *test_contract_address.0.key(),                  // Contract address.
         selector_from_name("test_write_and_transfer").0, // EP selector.
@@ -799,7 +794,7 @@ fn write_and_transfer(
         storage_value,                                   // Calldata: storage value.
         recipient,                                       // Calldata: to.
         transfer_amount,                                 // Calldata: amount.
-        *block_context.fee_token_address.0.key()
+        fee_token_address                                // Calldata: fee token address.
     ];
     let account_tx = account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee);
     account_tx.execute(state, block_context, true, true).unwrap()
@@ -813,6 +808,7 @@ fn test_revert_on_overdraft(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
+    let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();
@@ -837,10 +833,10 @@ fn test_revert_on_overdraft(
 
     // Approve the test contract to transfer funds.
     let approve_calldata = calldata![
-        *block_context.fee_token_address.0.key(), // Contract address.
-        selector_from_name("approve").0,          // EP selector.
-        stark_felt!(3_u8),                        // Calldata length.
-        *contract_address.0.key(),                // Calldata: to.
+        fee_token_address,               // Contract address.
+        selector_from_name("approve").0, // EP selector.
+        stark_felt!(3_u8),               // Calldata length.
+        *contract_address.0.key(),       // Calldata: to.
         stark_felt!(BALANCE),
         stark_felt!(0_u8)
     ];
