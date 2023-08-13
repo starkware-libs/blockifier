@@ -18,11 +18,11 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
-use crate::execution::contract_class::ContractClassV0;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
-    OrderedL2ToL1Message, Retdata,
+use crate::execution::call_info::{
+    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
+use crate::execution::contract_class::ContractClassV0;
+use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,

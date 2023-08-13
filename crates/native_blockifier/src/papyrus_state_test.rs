@@ -1,5 +1,6 @@
 use blockifier::abi::abi_utils::selector_from_name;
-use blockifier::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use blockifier::execution::call_info::{CallExecution, Retdata};
+use blockifier::execution::entry_point::CallEntryPoint;
 use blockifier::retdata;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;

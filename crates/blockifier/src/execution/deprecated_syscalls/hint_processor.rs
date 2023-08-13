@@ -25,6 +25,7 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
+use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
 use crate::execution::deprecated_syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
@@ -35,8 +36,7 @@ use crate::execution::deprecated_syscalls::{
     SyscallResponse,
 };
 use crate::execution::entry_point::{
-    CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
-    OrderedEvent, OrderedL2ToL1Message,
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{

@@ -4,7 +4,8 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, class_hash, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use crate::execution::call_info::{CallExecution, Retdata};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{

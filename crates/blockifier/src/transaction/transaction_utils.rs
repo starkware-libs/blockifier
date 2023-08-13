@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 
 use crate::abi::constants;
-use crate::execution::entry_point::{CallInfo, ExecutionResources};
+use crate::execution::call_info::CallInfo;
+use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::StateChangesCount;
