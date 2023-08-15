@@ -284,7 +284,7 @@ fn create_state_changes_for_test<S: StateReader>(state: &mut CachedState<S>) -> 
 }
 
 #[test]
-fn count_actual_state_changes() {
+fn test_get_actual_state_changes_for_fee_charge() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let state_changes = create_state_changes_for_test(&mut state);
     assert_eq!(

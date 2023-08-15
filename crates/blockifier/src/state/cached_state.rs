@@ -296,7 +296,7 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
-    // Assumes calling to `count_actual_state_changes` before. See its documentation.
+    // Assumes calling to `get_actual_state_changes_for_fee_charge` before. See its documentation.
     fn to_state_diff(&self) -> CommitmentStateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
 
