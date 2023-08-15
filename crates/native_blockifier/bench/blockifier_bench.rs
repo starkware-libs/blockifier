@@ -13,12 +13,13 @@ use blockifier::test_utils::{
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, InvokeTransaction};
 use criterion::{criterion_group, criterion_main, Criterion};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, InvokeTransaction, InvokeTransactionV1,
+    Calldata, ContractAddressSalt, Fee, InvokeTransaction as StarknetInvokeTransaction,
+    InvokeTransactionV1, TransactionHash,
 };
 use starknet_api::{calldata, stark_felt};
 
@@ -35,10 +36,10 @@ fn create_state() -> CachedState<DictStateReader> {
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contract.
-    let test_erc20_address = block_context.fee_token_address;
+    let test_erc20_address = block_context.deprecated_fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
-    CachedState::new(DictStateReader {
+    CachedState::from(DictStateReader {
         address_to_class_hash,
         class_hash_to_class,
         ..Default::default()
@@ -76,20 +77,26 @@ fn do_transfer(
     let entry_point_selector =
         selector_from_name(blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME);
     let execute_calldata = calldata![
-        *block_context.fee_token_address.0.key(), // Contract address.
-        entry_point_selector.0,                   // EP selector.
-        stark_felt!(3_u8),                        // Calldata length.
-        *recipient_account_address.0.key(),       // Calldata: recipient.
-        stark_felt!(1_u8),                        // Calldata: lsb amount.
-        stark_felt!(0_u8)                         // Calldata: msb amount.
+        *block_context.deprecated_fee_token_address.0.key(), // Contract address.
+        entry_point_selector.0,                              // EP selector.
+        stark_felt!(3_u8),                                   // Calldata length.
+        *recipient_account_address.0.key(),                  // Calldata: recipient.
+        stark_felt!(1_u8),                                   // Calldata: lsb amount.
+        stark_felt!(0_u8)                                    // Calldata: msb amount.
     ];
 
     let tx = invoke_tx(execute_calldata, sender_account_address, Fee(MAX_FEE), None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
+    let sn_api_tx = StarknetInvokeTransaction::V1(InvokeTransactionV1 {
         nonce: Nonce(stark_felt!(nonce)),
         ..tx
-    }));
-    account_tx.execute(state, block_context, false).unwrap();
+    });
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        tx: sn_api_tx,
+        tx_hash: TransactionHash::default(),
+    });
+    let charge_fee = false;
+    let validate = false;
+    account_tx.execute(state, block_context, charge_fee, validate).unwrap();
 }
 
 fn prepare_accounts(
@@ -118,13 +125,15 @@ fn prepare_accounts(
             get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()])
                 .unwrap();
         state.set_storage_at(
-            block_context.fee_token_address,
+            block_context.deprecated_fee_token_address,
             deployed_account_balance_key,
             stark_felt!(BALANCE * 1000),
         );
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        account_tx.execute(state, block_context, false).unwrap();
+        let charge_fee = false;
+        let validate = false;
+        account_tx.execute(state, block_context, charge_fee, validate).unwrap();
     }
     (addresses, nonces)
 }
