@@ -23,29 +23,28 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
-use crate::py_utils::{biguint_to_felt, py_attr};
+use crate::py_utils::{biguint_to_felt, py_attr, PyFelt};
 
 fn py_felt_attr(obj: &PyAny, attr: &str) -> NativeBlockifierResult<StarkFelt> {
     biguint_to_felt(py_attr(obj, attr)?)
 }
 
-fn py_felt_sequence_attr(obj: &PyAny, attr: &str) -> NativeBlockifierResult<Vec<StarkFelt>> {
-    let raw_felts: Vec<BigUint> = py_attr(obj, attr)?;
-    raw_felts.into_iter().map(biguint_to_felt).collect()
-}
-
 fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
-    Ok(Calldata(Arc::from(py_felt_sequence_attr(tx, attr)?)))
+    let py_call: Vec<PyFelt> = py_attr(tx, attr)?;
+    let call: Vec<StarkFelt> = py_call.into_iter().map(|felt| felt.0).collect();
+    Ok(Calldata(Arc::from(call)))
 }
 
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
     let nonce: Option<BigUint> = py_attr(tx, "nonce")?;
     let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
+    let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
+    let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
         max_fee: Fee(py_attr(tx, "max_fee")?),
         version: TransactionVersion(py_felt_attr(tx, "version")?),
-        signature: TransactionSignature(py_felt_sequence_attr(tx, "signature")?),
+        signature: TransactionSignature(signature),
         nonce,
         sender_address: ContractAddress::try_from(py_felt_attr(tx, "sender_address")?)?,
     })
