@@ -148,6 +148,7 @@ fn expected_fee_transfer_call_info(
     let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT storage address should depend on tx version(s).
     let storage_address = block_context.deprecated_fee_token_address;
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
@@ -220,6 +221,8 @@ fn validate_final_balances(
     erc20_account_balance_key: StorageKey,
     expected_account_balance: u128,
 ) {
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT this function should probably accept fee token
+    //   address (or at least, tx version) as input.
     let fee_token_address = block_context.deprecated_fee_token_address;
     let account_balance =
         state.get_storage_at(fee_token_address, erc20_account_balance_key).unwrap();
@@ -756,6 +759,7 @@ fn test_deploy_account_tx(
     cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT fee token address should depend on tx version.
     let fee_token_address = block_context.deprecated_fee_token_address;
     let mut nonce_manager = NonceManager::default();
     let deploy_account =
@@ -957,6 +961,7 @@ fn test_validate_accounts_tx() {
 fn test_calculate_tx_gas_usage() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT fee token address should depend on tx version.
     let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
 
     let invoke_tx = invoke_tx();

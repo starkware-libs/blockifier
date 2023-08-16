@@ -396,6 +396,7 @@ impl AccountTransaction {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
 
+        // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT address depends on tx version.
         let storage_address = block_context.deprecated_fee_token_address;
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
@@ -445,6 +446,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
+        // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
         let fee_token_address = block_context.deprecated_fee_token_address;
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
@@ -489,6 +491,7 @@ impl AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
+        // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
         let fee_token_address = block_context.deprecated_fee_token_address;
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =

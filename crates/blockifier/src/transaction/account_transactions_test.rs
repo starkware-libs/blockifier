@@ -63,6 +63,7 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contract.
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT consider deploying and using an extra token.
     let test_erc20_address = block_context.deprecated_fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
@@ -80,6 +81,8 @@ fn create_test_init_data(
     #[from(create_state)] mut state: CachedState<DictStateReader>,
 ) -> TestInitData {
     let mut nonce_manager = NonceManager::default();
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the versions of txs
+    //   used to init.
     let fee_token_address = block_context.deprecated_fee_token_address;
 
     // Deploy an account contract.
@@ -284,6 +287,7 @@ fn test_revert_invoke(
     #[from(create_state)] mut state: CachedState<DictStateReader>,
 ) {
     let mut nonce_manager = NonceManager::default();
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
     let fee_token_address = block_context.deprecated_fee_token_address;
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
@@ -785,6 +789,7 @@ fn write_and_transfer(
     max_fee: Fee,
     state: &mut CachedState<DictStateReader>,
 ) -> TransactionExecutionInfo {
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
     let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
     let execute_calldata = calldata![
         *test_contract_address.0.key(),                  // Contract address.
@@ -808,6 +813,7 @@ fn test_revert_on_overdraft(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
     let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);

@@ -65,6 +65,7 @@ pub fn create_account_tx_test_state(
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
     let test_account_address = contract_address!(account_address);
+    // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT add another fee token to the initial state.
     let test_erc20_address = block_context.deprecated_fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),

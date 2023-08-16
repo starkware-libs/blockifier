@@ -93,6 +93,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT token address should depend on tx version.
         let fee_token_address = block_context.deprecated_fee_token_address;
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {

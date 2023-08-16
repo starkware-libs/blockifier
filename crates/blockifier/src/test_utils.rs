@@ -339,6 +339,7 @@ impl BlockContext {
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
+            // TODO(Zuphit, 1/9/2023): NEW_TOKEN_SUPPORT add new token address.
             deprecated_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
             vm_resource_fee_cost: Default::default(),
             gas_price: DEFAULT_GAS_PRICE,
