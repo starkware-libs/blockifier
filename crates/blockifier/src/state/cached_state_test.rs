@@ -264,6 +264,7 @@ fn create_state_changes_for_test<S: StateReader>(state: &mut CachedState<S>) -> 
     let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");
+    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT take correct token address by tx version.
     let fee_token_address = block_context.deprecated_fee_token_address;
 
     state.set_class_hash_at(contract_address, class_hash).unwrap();
@@ -310,6 +311,8 @@ fn test_state_changes_merge() {
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
     let block_context = BlockContext::create_for_testing();
+    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT consider generalizing test for multiple tx versions
+    //   and taking correct fee token address.
     let fee_token_address = block_context.deprecated_fee_token_address;
     let mut transactional_state = CachedState::create_transactional(&mut state);
     // Make sure that `get_actual_state_changes_for_fee_charge` on a newly created transactional

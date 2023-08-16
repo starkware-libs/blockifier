@@ -42,7 +42,8 @@ pub trait StateReader {
     /// Returns the storage value representing the balance (in fee token) at the given address.
     // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, change the
     //    return type to that.
-    // TODO(Zuphit): Determine fee token address based on tx version, once v3 is introduced.
+    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT Determine fee token address based on tx version,
+    //   once v3 is introduced.
     fn get_fee_token_balance(
         &mut self,
         block_context: &BlockContext,
