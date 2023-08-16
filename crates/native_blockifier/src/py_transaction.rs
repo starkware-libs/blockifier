@@ -106,25 +106,45 @@ pub fn py_declare(
     Ok(DeclareTransaction::new(sn_api_tx, account_data_context.transaction_hash, contract_class)?)
 }
 
-pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
-    let account_data_context = py_account_data_context(tx)?;
+#[derive(FromPyObject)]
+pub struct PyDeployAccountTransaction {
+    pub nonce: PyFelt,
+    pub hash_value: PyFelt,
+    pub max_fee: BigUint,
+    pub version: PyFelt,
+    pub signature: Vec<PyFelt>,
+    pub sender_address: PyFelt,
+    pub class_hash: PyFelt,
+    pub contract_address_salt: PyFelt,
+    pub constructor_calldata: Vec<PyFelt>,
+}
 
-    let tx = starknet_api::transaction::DeployAccountTransaction {
-        max_fee: account_data_context.max_fee,
-        version: account_data_context.version,
-        signature: account_data_context.signature,
-        nonce: account_data_context.nonce,
-        class_hash: ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0),
-        contract_address_salt: ContractAddressSalt(
-            py_attr::<PyFelt>(tx, "contract_address_salt")?.0,
-        ),
-        constructor_calldata: py_calldata(tx, "constructor_calldata")?,
-    };
-    Ok(DeployAccountTransaction {
-        tx,
-        tx_hash: account_data_context.transaction_hash,
-        contract_address: account_data_context.sender_address,
-    })
+impl From<PyDeployAccountTransaction> for DeployAccountTransaction {
+    fn from(py_deploy_account_tx: PyDeployAccountTransaction) -> Self {
+        let tx = starknet_api::transaction::DeployAccountTransaction {
+            max_fee: Fee(u128::try_from(py_deploy_account_tx.max_fee).unwrap()),
+            version: TransactionVersion(py_deploy_account_tx.version.0),
+            signature: TransactionSignature(
+                py_deploy_account_tx.signature.into_iter().map(|felt| felt.0).collect(),
+            ),
+            nonce: Nonce(py_deploy_account_tx.nonce.0),
+            class_hash: ClassHash(py_deploy_account_tx.class_hash.0),
+            contract_address_salt: ContractAddressSalt(
+                py_deploy_account_tx.contract_address_salt.0,
+            ),
+            constructor_calldata: Calldata(Arc::from(
+                py_deploy_account_tx
+                    .constructor_calldata
+                    .into_iter()
+                    .map(|felt| felt.0)
+                    .collect::<Vec<_>>(),
+            )),
+        };
+        let tx_hash = TransactionHash(py_deploy_account_tx.hash_value.0);
+        let contract_address =
+            ContractAddress::try_from(py_deploy_account_tx.sender_address.0).unwrap();
+        Self { tx, tx_hash, contract_address }
+    }
 }
 
 pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
@@ -182,7 +202,10 @@ pub fn py_tx(
             Ok(Transaction::AccountTransaction(declare_tx))
         }
         "DEPLOY_ACCOUNT" => {
-            let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(tx)?);
+            let py_deploy_account_tx: PyDeployAccountTransaction = tx.extract()?;
+            let deploy_account_tx = AccountTransaction::DeployAccount(
+                DeployAccountTransaction::from(py_deploy_account_tx),
+            );
             Ok(Transaction::AccountTransaction(deploy_account_tx))
         }
         "INVOKE_FUNCTION" => {
