@@ -25,10 +25,6 @@ use starknet_api::transaction::{
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_utils::{biguint_to_felt, py_attr, PyFelt};
 
-fn py_felt_attr(obj: &PyAny, attr: &str) -> NativeBlockifierResult<StarkFelt> {
-    biguint_to_felt(py_attr(obj, attr)?)
-}
-
 fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
     let py_call: Vec<PyFelt> = py_attr(tx, attr)?;
     let call: Vec<StarkFelt> = py_call.into_iter().map(|felt| felt.0).collect();
@@ -41,12 +37,12 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
     let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
     let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
     Ok(AccountTransactionContext {
-        transaction_hash: TransactionHash(py_felt_attr(tx, "hash_value")?),
+        transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
         max_fee: Fee(py_attr(tx, "max_fee")?),
-        version: TransactionVersion(py_felt_attr(tx, "version")?),
         signature: TransactionSignature(signature),
+        version: TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0),
         nonce,
-        sender_address: ContractAddress::try_from(py_felt_attr(tx, "sender_address")?)?,
+        sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
     })
 }
 
@@ -55,10 +51,8 @@ pub fn py_declare(
     raw_contract_class: &str,
 ) -> NativeBlockifierResult<DeclareTransaction> {
     let account_data_context = py_account_data_context(tx)?;
-    let class_hash = ClassHash(py_felt_attr(tx, "class_hash")?);
-
+    let class_hash = ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0);
     let version = usize::try_from(account_data_context.version.0)?;
-
     let sn_api_tx = match version {
         0 => {
             let declare_tx = DeclareTransactionV0V1 {
@@ -81,7 +75,8 @@ pub fn py_declare(
             Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
         }
         2 => {
-            let compiled_class_hash = CompiledClassHash(py_felt_attr(tx, "compiled_class_hash")?);
+            let compiled_class_hash =
+                CompiledClassHash(py_attr::<PyFelt>(tx, "compiled_class_hash")?.0);
             let declare_tx = DeclareTransactionV2 {
                 max_fee: account_data_context.max_fee,
                 signature: account_data_context.signature,
@@ -119,8 +114,10 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
         version: account_data_context.version,
         signature: account_data_context.signature,
         nonce: account_data_context.nonce,
-        class_hash: ClassHash(py_felt_attr(tx, "class_hash")?),
-        contract_address_salt: ContractAddressSalt(py_felt_attr(tx, "contract_address_salt")?),
+        class_hash: ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0),
+        contract_address_salt: ContractAddressSalt(
+            py_attr::<PyFelt>(tx, "contract_address_salt")?.0,
+        ),
         constructor_calldata: py_calldata(tx, "constructor_calldata")?,
     };
     Ok(DeployAccountTransaction {
@@ -139,7 +136,9 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
             max_fee: account_data_context.max_fee,
             signature: account_data_context.signature,
             contract_address: account_data_context.sender_address,
-            entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
+            entry_point_selector: EntryPointSelector(
+                py_attr::<PyFelt>(tx, "entry_point_selector")?.0,
+            ),
             calldata: py_calldata(tx, "calldata")?,
         })),
         1 => Ok(starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
@@ -163,9 +162,9 @@ pub fn py_l1_handler(
 ) -> NativeBlockifierResult<starknet_api::transaction::L1HandlerTransaction> {
     Ok(starknet_api::transaction::L1HandlerTransaction {
         version: TransactionVersion(StarkFelt::from(L1_HANDLER_VERSION)),
-        nonce: Nonce(py_felt_attr(tx, "nonce")?),
-        contract_address: ContractAddress::try_from(py_felt_attr(tx, "contract_address")?)?,
-        entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
+        nonce: Nonce(py_attr::<PyFelt>(tx, "nonce")?.0),
+        contract_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "contract_address")?.0)?,
+        entry_point_selector: EntryPointSelector(py_attr::<PyFelt>(tx, "entry_point_selector")?.0),
         calldata: py_calldata(tx, "calldata")?,
     })
 }
@@ -194,7 +193,7 @@ pub fn py_tx(
             let paid_fee_on_l1: Option<u128> = py_attr(tx, "paid_fee_on_l1")?;
             let paid_fee_on_l1 = Fee(paid_fee_on_l1.unwrap_or_default());
             let l1_handler_tx = py_l1_handler(tx)?;
-            let tx_hash = TransactionHash(py_felt_attr(tx, "hash_value")?);
+            let tx_hash = TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0);
             Ok(Transaction::L1HandlerTransaction(L1HandlerTransaction {
                 tx: l1_handler_tx,
                 tx_hash,
