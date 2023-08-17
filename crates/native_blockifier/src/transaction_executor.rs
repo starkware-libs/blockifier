@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::state::cached_state::{CachedState, GlobalContractCache, TransactionalState};
+use blockifier::state::cached_state::{
+    CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
+};
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -31,6 +33,10 @@ pub struct TransactionExecutor {
 
     // State-related fields.
     pub state: CachedState<PapyrusReader>,
+    // Transactional state, awaiting commit/abort call.
+    // Is `Some` only after transaction has finished executing, and before commit/revert have been
+    // called. `None` while a transaction is being executed and in between transactions.
+    pub staged_for_commit_state: Option<StagedTransactionalState>,
 }
 
 impl TransactionExecutor {
@@ -52,7 +58,7 @@ impl TransactionExecutor {
         );
         let executed_class_hashes = HashSet::<ClassHash>::new();
         log::debug!("Initialized Transaction Executor.");
-        Ok(Self { block_context, executed_class_hashes, state })
+        Ok(Self { block_context, executed_class_hashes, state, staged_for_commit_state: None })
     }
 
     /// Executes the given transaction on the state maintained by the executor.
@@ -62,9 +68,7 @@ impl TransactionExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-        // This is functools.partial(bouncer.add, tw_written=tx_written).
-        enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
@@ -75,57 +79,24 @@ impl TransactionExecutor {
         let tx_execution_result = tx
             .execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate)
             .map_err(NativeBlockifierError::from);
-        let (py_tx_execution_info, py_casm_hash_calculation_resources) = match tx_execution_result {
+        match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
 
-                let py_tx_execution_info = Python::with_gil(|py| {
-                    // Allocate this instance on the Python heap.
-                    // This is necessary in order to pass a reference to it to the callback
-                    // (otherwise, if it were allocated on Rust's heap/stack, giving Python
-                    // a reference to the objects will not
-                    // work).
-                    Py::new(py, PyTransactionExecutionInfo::from(tx_execution_info))
-                        .expect("Should be able to allocate on Python heap")
-                });
-
+                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
                     &tx_executed_class_hashes,
                 )?;
 
-                (py_tx_execution_info, py_casm_hash_calculation_resources)
+                self.staged_for_commit_state =
+                    Some(transactional_state.stage(tx_executed_class_hashes));
+                Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
             }
             Err(error) => {
                 transactional_state.abort();
-                return Err(error);
-            }
-        };
-
-        let has_enough_room_for_tx = Python::with_gil(|py| {
-            // Can be done because `py_tx_execution_info` is a `Py<PyTransactionExecutionInfo>`,
-            // hence is allocated on the Python heap.
-            let args =
-                (py_tx_execution_info.borrow(py), py_casm_hash_calculation_resources.clone());
-            enough_room_for_tx.call1(args) // Callback to Python code.
-        });
-
-        match has_enough_room_for_tx {
-            Ok(_) => {
-                transactional_state.commit();
-                self.executed_class_hashes.extend(&tx_executed_class_hashes);
-                Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
-            }
-            // Unexpected error, abort and let caller know.
-            Err(error) if unexpected_callback_error(&error) => {
-                transactional_state.abort();
-                Err(error.into())
-            }
-            // Not enough room in batch, abort and let caller verify on its own.
-            Err(_not_enough_weight_error) => {
-                transactional_state.abort();
-                Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
+                Err(error)
             }
         }
     }
@@ -154,11 +125,27 @@ impl TransactionExecutor {
 
         Ok(())
     }
-}
 
-fn unexpected_callback_error(error: &PyErr) -> bool {
-    let error_string = error.to_string();
-    !(error_string.contains("BatchFull") || error_string.contains("TransactionBiggerThanBatch"))
+    pub fn commit(&mut self) {
+        let Some(finalized_transactional_state) = self.staged_for_commit_state.take() else {
+            panic!("commit called without a transactional state")
+        };
+
+        let child_cache = finalized_transactional_state.cache;
+        self.state.update_cache(child_cache);
+        self.state.update_contract_class_caches(
+            finalized_transactional_state.class_hash_to_class,
+            finalized_transactional_state.global_class_hash_to_class,
+        );
+
+        self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
+
+        self.staged_for_commit_state = None
+    }
+
+    pub fn abort(&mut self) {
+        self.staged_for_commit_state = None
+    }
 }
 
 /// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
