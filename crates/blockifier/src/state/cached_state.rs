@@ -669,3 +669,21 @@ impl Default for GlobalContractCache {
         Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
     }
 }
+
+pub struct StagedTransactionalState {
+    pub cache: StateCache,
+    pub class_hash_to_class: ContractClassMapping,
+    pub global_class_hash_to_class: GlobalContractCache,
+    pub tx_executed_class_hashes: HashSet<ClassHash>,
+}
+
+impl StagedTransactionalState {
+    pub fn finalize_transaction_state(
+        state: TransactionalState<'_, impl StateReader>,
+        tx_executed_class_hashes: HashSet<ClassHash>,
+    ) -> Self {
+        let TransactionalState { state: _, cache, class_hash_to_class, global_class_hash_to_class } =
+            state;
+        Self { cache, class_hash_to_class, global_class_hash_to_class, tx_executed_class_hashes }
+    }
+}
