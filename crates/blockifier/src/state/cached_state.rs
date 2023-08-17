@@ -580,6 +580,18 @@ pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>
 
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
+    // Detach `state`, moving the instance to a pending state, which can be committed or aborted.
+    pub fn stage(self, tx_executed_class_hashes: HashSet<ClassHash>) -> StagedTransactionalState {
+        let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
+            self;
+        StagedTransactionalState {
+            cache,
+            class_hash_to_class,
+            global_class_hash_to_class,
+            tx_executed_class_hashes,
+        }
+    }
+
     /// Commits changes in the child (wrapping) state to its parent.
     pub fn commit(self) {
         let state = self.state.0;
@@ -591,6 +603,13 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
+}
+
+pub struct StagedTransactionalState {
+    pub cache: StateCache,
+    pub class_hash_to_class: ContractClassMapping,
+    pub global_class_hash_to_class: GlobalContractCache,
+    pub tx_executed_class_hashes: HashSet<ClassHash>,
 }
 
 /// Holds uncommitted changes induced on StarkNet contracts.
