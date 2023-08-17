@@ -98,6 +98,42 @@ impl<S: StateReader> CachedState<S> {
         })
     }
 
+    /// Drains contract-class cache collected during execution and updates the global cache.
+    pub fn move_classes_to_global_cache(&mut self) {
+        let contract_class_updates: Vec<_> = self.class_hash_to_class.drain().collect();
+        for (key, value) in contract_class_updates {
+            self.global_class_hash_to_class().cache_set(key, value);
+        }
+    }
+
+    // Locks the Mutex and unwraps the MutexGuard, thus exposing the internal cache
+    // store. The Guard will panic only if the Mutex panics during the lock operation, but
+    // this shouldn't happen in our flow.
+    // Note: `&mut` is used since the LRU cache updates internal counters on reads.
+    pub fn global_class_hash_to_class(
+        &mut self,
+    ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
+        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
+    }
+
+    pub fn update_cache(&mut self, cache_updates: StateCache) {
+        self.cache.nonce_writes.extend(cache_updates.nonce_writes.into_iter());
+        self.cache.class_hash_writes.extend(cache_updates.class_hash_writes.into_iter());
+        self.cache.storage_writes.extend(cache_updates.storage_writes.into_iter());
+        self.cache
+            .compiled_class_hash_writes
+            .extend(cache_updates.compiled_class_hash_writes.into_iter());
+    }
+
+    pub fn update_contract_class_caches(
+        &mut self,
+        local_contract_cache_updates: ContractClassMapping,
+        global_contract_cache: GlobalContractCache,
+    ) {
+        self.class_hash_to_class.extend(local_contract_cache_updates);
+        self.global_class_hash_to_class = global_contract_cache;
+    }
+
     /// Updates cache with initial cell values for write-only access.
     /// If written values match the original, the cell is unchanged and not counted as a
     /// storage-change for fee calculation.
@@ -135,24 +171,6 @@ impl<S: StateReader> CachedState<S> {
         }
 
         Ok(())
-    }
-
-    /// Drains contract-class cache collected during execution and updates the global cache.
-    pub fn move_classes_to_global_cache(&mut self) {
-        let contract_class_updates: Vec<_> = self.class_hash_to_class.drain().collect();
-        for (key, value) in contract_class_updates {
-            self.global_class_hash_to_class().cache_set(key, value);
-        }
-    }
-
-    // Locks the Mutex and unwraps the MutexGuard, thus exposing the internal cache
-    // store. The Guard will panic only if the Mutex panics during the lock operation, but
-    // this shouldn't happen in our flow.
-    // Note: `&mut` is used since the LRU cache updates internal counters on reads.
-    pub fn global_class_hash_to_class(
-        &mut self,
-    ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
-        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
     }
 }
 
@@ -357,7 +375,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 
 // Invariant: keys cannot be deleted from fields (only used internally by the cached state).
 #[derive(Debug, Default, PartialEq)]
-struct StateCache {
+pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
@@ -567,14 +585,11 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
     /// Commits changes in the child (wrapping) state to its parent.
     pub fn commit(self) {
         let child_cache = self.cache;
-        let parent_cache = &mut self.state.0.cache;
+        self.state.0.update_cache(child_cache);
 
-        parent_cache.nonce_writes.extend(child_cache.nonce_writes);
-        parent_cache.class_hash_writes.extend(child_cache.class_hash_writes);
-        parent_cache.storage_writes.extend(child_cache.storage_writes);
-        parent_cache.compiled_class_hash_writes.extend(child_cache.compiled_class_hash_writes);
-        self.state.0.class_hash_to_class.extend(self.class_hash_to_class);
-        self.state.0.global_class_hash_to_class = self.global_class_hash_to_class;
+        self.state
+            .0
+            .update_contract_class_caches(self.class_hash_to_class, self.global_class_hash_to_class)
     }
 
     /// Drops `self`.
