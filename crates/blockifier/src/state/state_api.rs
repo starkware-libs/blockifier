@@ -5,10 +5,41 @@ use starknet_api::state::StorageKey;
 use crate::abi::abi_utils::get_erc20_balance_var_addresses;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
+use crate::execution::syscalls::hint_processor::SyscallExecutionError;
 use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
 
 pub type StateResult<T> = Result<T, StateError>;
+
+// Temporarily placed here until bumping starknet_api crate version.
+pub enum DataAvailabilityMode {
+    L1 = 0,
+    L2 = 1,
+}
+
+impl TryFrom<StarkFelt> for DataAvailabilityMode {
+    type Error = SyscallExecutionError;
+
+    fn try_from(felt: StarkFelt) -> Result<Self, Self::Error> {
+        let zero = StarkFelt::new([
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        ])
+        .unwrap();
+        let one = StarkFelt::new([
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
+        ])
+        .unwrap();
+        if felt == zero {
+            Ok(DataAvailabilityMode::L1)
+        } else if felt == one {
+            Ok(DataAvailabilityMode::L2)
+        } else {
+            Err(SyscallExecutionError::InvalidAddressDomain { address_domain: felt })
+        }
+    }
+}
 
 /// A read-only API for accessing StarkNet global state.
 ///
