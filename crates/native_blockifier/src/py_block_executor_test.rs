@@ -34,7 +34,7 @@ fn global_contract_cache_update() {
     block_executor
         .tx_executor()
         .state
-        .set_contract_class(&class_hash, contract_class.clone())
+        .set_contract_class(&class_hash, contract_class)
         .unwrap();
     let is_pending_block = false;
     block_executor.finalize(is_pending_block);

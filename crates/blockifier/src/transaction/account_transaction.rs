@@ -24,7 +24,6 @@ use crate::state::cached_state::{
     CachedState, StateChanges, StateChangesCount, TransactionalState,
 };
 use crate::state::state_api::{State, StateReader};
-use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
@@ -40,6 +39,7 @@ use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
     InvokeTransaction,
 };
+use crate::transaction::{account_executable, constants};
 
 #[cfg(test)]
 #[path = "account_transactions_test.rs"]
@@ -505,11 +505,7 @@ impl AccountTransaction {
         } else {
             0
         };
-        let overhead_steps = OS_RESOURCES
-            .execute_txs_inner()
-            .get(&self.tx_type())
-            .expect("`OS_RESOURCES` must contain all transaction types.")
-            .n_steps;
+        let overhead_steps = OS_RESOURCES.execute_txs_inner(&self.tx_type()).n_steps;
 
         // Subtract the actual steps used for validate_tx and estimated steps required for fee
         // transfer from the steps available to the run_execute context.

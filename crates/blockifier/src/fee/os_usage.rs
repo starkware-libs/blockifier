@@ -24,8 +24,10 @@ pub struct OsResources {
 }
 
 impl OsResources {
-    pub fn execute_txs_inner(&self) -> &HashMap<TransactionType, VmExecutionResources> {
-        &self.execute_txs_inner
+    pub fn execute_txs_inner(&self, tx_type: &TransactionType) -> &VmExecutionResources {
+        self.execute_txs_inner
+            .get(tx_type)
+            .expect("`OS_RESOURCES` must contain all transaction types.")
     }
 }
 
