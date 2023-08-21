@@ -10,6 +10,12 @@ use crate::state::errors::StateError;
 
 pub type StateResult<T> = Result<T, StateError>;
 
+// Temporarily placed here until bumping starknet_api crate version.
+pub enum DataAvailabilityMode {
+    L1 = 0,
+    L2 = 1,
+}
+
 /// A read-only API for accessing StarkNet global state.
 ///
 /// The `self` argument is mutable for flexibility during reads (for example, caching reads),
