@@ -45,7 +45,7 @@ use crate::execution::syscalls::{
     SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
-use crate::state::state_api::State;
+use crate::state::state_api::{DataAvailabilityMode, State};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -76,6 +76,31 @@ pub enum SyscallExecutionError {
     VirtualMachineError(#[from] VirtualMachineError),
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<StarkFelt> },
+}
+
+// Needed to convert the syscall output to an enum variant.
+impl TryFrom<StarkFelt> for DataAvailabilityMode {
+    type Error = SyscallExecutionError;
+
+    fn try_from(felt: StarkFelt) -> Result<Self, Self::Error> {
+        let zero = StarkFelt::new([
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        ])
+        .unwrap();
+        let one = StarkFelt::new([
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
+        ])
+        .unwrap();
+        if felt == zero {
+            Ok(DataAvailabilityMode::L1)
+        } else if felt == one {
+            Ok(DataAvailabilityMode::L2)
+        } else {
+            Err(SyscallExecutionError::InvalidAddressDomain { address_domain: felt })
+        }
+    }
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
