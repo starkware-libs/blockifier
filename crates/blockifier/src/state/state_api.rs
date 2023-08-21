@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -9,6 +10,16 @@ use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
 
 pub type StateResult<T> = Result<T, StateError>;
+
+/// Temporarily placed here until bumping starknet_api crate version.
+#[derive(
+    Copy, Debug, Clone, Default, Eq, PartialEq, Hash, Deserialize, Serialize, PartialOrd, Ord,
+)]
+pub enum DataAvailabilityMode {
+    #[default]
+    L1 = 0,
+    L2 = 1,
+}
 
 /// A read-only API for accessing StarkNet global state.
 ///
