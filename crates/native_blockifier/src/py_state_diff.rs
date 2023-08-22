@@ -118,6 +118,7 @@ impl From<CommitmentStateDiff> for PyStateDiff {
 pub struct PyBlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
+    // TODO(Dori, 15/9/2023): (V3_TX_USAGE) rename to eth_l1_gas_price.
     pub gas_price: u128,
     pub strk_l1_gas_price: u128,
     pub sequencer_address: PyFelt,
