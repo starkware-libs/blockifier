@@ -11,7 +11,7 @@ pub mod py_transaction_executor;
 pub mod py_utils;
 pub mod storage;
 
-use errors::add_py_exceptions;
+use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_state_reader::PyStateReader;
 use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
@@ -39,6 +39,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyTransactionExecutor>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<Storage>()?;
+    py_module.add("UndeclaredClassHashError", py.get_type::<UndeclaredClassHashError>())?;
     add_py_exceptions(py, py_module)?;
 
     // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, gate this code

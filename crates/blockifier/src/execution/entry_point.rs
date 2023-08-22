@@ -154,7 +154,7 @@ impl CallEntryPoint {
         }
 
         // Validate contract is deployed.
-        log::debug!("Validate contract is deployed.");
+        log::debug!("Validate contract is deployed. {:?}", self.entry_point_type);
         let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
@@ -178,9 +178,10 @@ impl CallEntryPoint {
         }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
+        log::debug!("-----------Call get_compiled_contract_class");
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        log::debug!("execute_entry_point_call");
+        log::debug!("-----------Call execute_entry_point_call");
         let result = execute_entry_point_call(self, contract_class, state, resources, context)
             .map_err(|error| {
                 match error {
@@ -201,6 +202,7 @@ impl CallEntryPoint {
                 }
             });
 
+        log::debug!("-----------execute done");
         context.current_recursion_depth -= 1;
         result
     }

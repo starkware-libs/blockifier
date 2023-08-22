@@ -142,15 +142,19 @@ impl<S: StateReader> StateReader for CachedState<S> {
     }
 
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        log::debug!("Rust CachedState get_class_hash_at, contract address: {:?}", contract_address);
         if self.cache.get_class_hash_at(contract_address).is_none() {
+            log::debug!("not in cache. Read from state");
             let class_hash = self.state.get_class_hash_at(contract_address)?;
             self.cache.set_class_hash_initial_value(contract_address, class_hash);
         }
 
+        log::debug!("In cache! Read it");
         let class_hash = self
             .cache
             .get_class_hash_at(contract_address)
             .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        log::debug!("Done!");
         Ok(*class_hash)
     }
 

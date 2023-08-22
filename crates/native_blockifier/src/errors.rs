@@ -75,4 +75,12 @@ pub enum NativeBlockifierInputError {
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
     #[error("Unexpected transaction of type {tx_type:?}")]
     UnexpectedTransactionType { tx_type: String },
+    #[error("Invalid input")]
+    InvalidInput,
+}
+
+create_exception!(native_blockifier, UndeclaredClassHashError, PyException);
+
+pub fn is_undeclared_class_error(err: &PyErr) -> bool {
+    Python::with_gil(|py| err.is_instance_of::<UndeclaredClassHashError>(py))
 }

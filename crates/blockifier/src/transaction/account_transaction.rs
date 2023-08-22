@@ -211,12 +211,14 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        log::debug!("Inside validate...");
         let mut context = EntryPointExecutionContext::new(
             block_context.clone(),
             self.get_account_transaction_context(),
             block_context.validate_max_n_steps,
         );
         if context.account_tx_context.is_v0() {
+            log::debug!("V0. Return.");
             return Ok(None);
         }
 
@@ -233,13 +235,16 @@ impl AccountTransaction {
             initial_gas: *remaining_gas,
         };
 
+        log::debug!("-----------Call execute");
         let validate_call_info = validate_call
             .execute(state, resources, &mut context)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
+        log::debug!("-----------Call verify_no_calls_to_other_contracts");
         verify_no_calls_to_other_contracts(
             &validate_call_info,
             String::from(constants::VALIDATE_ENTRY_POINT_NAME),
         )?;
+        log::debug!("-----------done validate");
         update_remaining_gas(remaining_gas, &validate_call_info);
 
         Ok(Some(validate_call_info))
@@ -391,8 +396,13 @@ impl AccountTransaction {
 
         // Handle `DeployAccount` transactions separately, due to different order of things.
         if matches!(self, Self::DeployAccount(_)) {
+            log::debug!("-----------Executing DepolyAccount transaction");
             let execute_call_info =
                 self.run_execute(state, resources, &mut context, remaining_gas)?;
+            log::debug!(
+                "-----------Finished run_execute. StateDiff is: {:?}",
+                state.to_state_diff()
+            );
             let validate_call_info =
                 self.validate_tx(state, resources, remaining_gas, block_context)?;
             return Ok(ValidateExecuteCallInfo::new_accepted(
@@ -445,6 +455,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        log::debug!("Inside execute_raw");
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
 
@@ -455,6 +466,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.check_fee_balance_and_handle_nonce(state, block_context)?;
 
         // Run validation and execution.
+        log::debug!("Call run_or_revert");
         let ValidateExecuteCallInfo {
             validate_call_info,
             execute_call_info,
@@ -463,6 +475,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
 
         // Handle fee.
+        log::debug!("finish run_or_revert. Handle fee");
         let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
             .into_iter()
             .flatten()
@@ -478,8 +491,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Charge fee.
         // Recreate the context to empty the execution resources.
+        log::debug!("charge fee");
         let (actual_fee, fee_transfer_call_info) =
             self.charge_fee(state, block_context, &actual_resources)?;
+
+        // let actual_fee = Fee::default();
+        // let fee_transfer_call_info = None;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
@@ -489,6 +506,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             actual_resources,
             revert_error,
         };
+        log::debug!("Finish execute_raw");
         Ok(tx_execution_info)
     }
 }

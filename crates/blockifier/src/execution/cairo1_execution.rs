@@ -52,6 +52,8 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
+    log::debug!("-----------------Inside execute_entry_point_call V1");
+    log::debug!("-----------------Call initialize_execution_context");
     let VmExecutionContext {
         mut runner,
         mut vm,
@@ -61,6 +63,7 @@ pub fn execute_entry_point_call(
         program_extra_data_length,
     } = initialize_execution_context(call, &contract_class, state, resources, context)?;
 
+    log::debug!("-----------------Call prepare_call_arguments");
     let args = prepare_call_arguments(
         &syscall_handler.call,
         &mut vm,
@@ -74,6 +77,7 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
+    log::debug!("-----------------Call run_entry_point");
     let program_segment_size = contract_class.bytecode_length() + program_extra_data_length;
     run_entry_point(
         &mut vm,
@@ -84,6 +88,7 @@ pub fn execute_entry_point_call(
         program_segment_size,
     )?;
 
+    log::debug!("-----------------Call finalize_execution");
     let call_info = finalize_execution(
         vm,
         runner,
@@ -93,6 +98,7 @@ pub fn execute_entry_point_call(
         program_extra_data_length,
     )?;
     if call_info.execution.failed {
+        log::debug!("-----------------Execution failed");
         return Err(EntryPointExecutionError::ExecutionFailed {
             error_data: call_info.execution.retdata.0,
         });
@@ -267,31 +273,43 @@ pub fn finalize_execution(
     program_extra_data_length: usize,
 ) -> Result<CallInfo, PostExecutionError> {
     // Close memory holes in segments (OS code touches those memory cells, we simulate it).
+    log::debug!("-----------------program_start_ptr");
     let program_start_ptr = runner
         .program_base
         .expect("The `program_base` field should be initialized after running the entry point.");
+    log::debug!("-----------------program_end_ptr");
     let program_end_ptr = (program_start_ptr + runner.get_program().data_len())?;
+    log::debug!("-----------------mark_address_range_as_accessed 1");
     vm.mark_address_range_as_accessed(program_end_ptr, program_extra_data_length)?;
 
+    log::debug!("-----------------initial_fp");
     let initial_fp = runner
         .get_initial_fp()
         .expect("The `initial_fp` field should be initialized after running the entry point.");
     // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
+    log::debug!("-----------------args_ptr");
     let args_ptr = (initial_fp - (n_total_args + 2))?;
+    log::debug!("-----------------mark_address_range_as_accessed 2");
     vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
+    log::debug!("-----------------read_only_segments.mark_as_accessed");
     syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
 
+    log::debug!("-----------------get_call_result");
     let call_result = get_call_result(&vm, &syscall_handler)?;
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
+    log::debug!("-----------------vm_resources_without_inner_calls");
     let vm_resources_without_inner_calls = runner
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::TracerError)?
         .filter_unused_builtins();
+    log::debug!("-----------------vm_resources");
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
 
+    log::debug!("-----------------full_call_vm_resources");
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    log::debug!("-----------------Returning......");
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {

@@ -4,14 +4,18 @@ use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use pyo3::types::PyModule;
-use pyo3::{pyclass, pymethods, PyAny, PyErr, PyObject, Python};
+use pyo3::exceptions::PyBaseException;
+use pyo3::types::{PyModule, PyType};
+use pyo3::{pyclass, pymethods, PyAny, PyErr, PyObject, PyResult, Python};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::py_contract_class::PyCompiledClassBase;
-use crate::py_utils::PyFelt;
+use crate::errors::{is_undeclared_class_error, UndeclaredClassHashError};
+use crate::py_contract_class::PyRawCompiledClass;
+use crate::py_utils::{py_enum_name, PyFelt};
+
+pyo3::import_exception!(starkware.starkware_utils.error_handling, StarkException);
 
 #[pyclass]
 pub struct PyStateReader {
@@ -28,9 +32,31 @@ impl PyStateReader {
     }
 }
 
-fn to_state_read_error(e: impl Error) -> StateError {
+fn to_state_read_error(e: PyErr) -> StateError {
+    // if e.to_string().contains("UNDECLARED_CLASS") {
+    //     return StateError::UndeclaredClassHash(ClassHash::default());
+    // }
     StateError::StateReadError(e.to_string())
 }
+
+// fn to_state_read_error_with_py(e: PyErr, py: Python<'_>) -> PyErr {
+//     // let e_type = e.get_type(py).is(PyType::new::<StarkException>(py));
+//     // let is_ins = e.is_instance_of::<StarkException>(py);
+//     let val = e.value(py).getattr("code").unwrap().getattr("name");
+//     // let is_st_e = e.is_instance_of::<StarkException>(py);
+//     // let cause = e.cause(py);
+//     panic!("string: {:?}, value name: {:?}", e.to_string(), val);
+// }
+
+// fn is_undeclared_class_error(err: &PyErr) -> bool {
+//     Python::with_gil(|py| {
+//         if err.is_instance_of::<StarkException>(py) {
+//             let err_code = py_enum_name::<String>(err.value(py), "code").unwrap_or_default();
+//             return err_code == "UNDECALRED_CLASS";
+//         }
+//         false
+//     })
+// }
 
 impl StateReader for PyStateReader {
     fn get_storage_at(
@@ -39,7 +65,7 @@ impl StateReader for PyStateReader {
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
         Python::with_gil(|py| -> Result<StarkFelt, PyErr> {
-            let args = (PyFelt::from(contract_address), PyFelt(*key.0.key())); // TODO: implement PyFelt::from<StorageKey>
+            let args = (0, PyFelt::from(contract_address), PyFelt(*key.0.key())); // TODO: implement PyFelt::from<StorageKey>
             let result: PyFelt =
                 self.py_state_reader.as_ref(py).call_method1("get_storage_at", args)?.extract()?;
 
@@ -52,8 +78,7 @@ impl StateReader for PyStateReader {
         Python::with_gil(|py| -> Result<Nonce, PyErr> {
             let args = (
                 // TODO: is there a better way?
-                PyModule::import(py, "starkware.starknet.business_logic.state.storage_domain")?
-                    .call_method1("StorageDomain", (0,))?,
+                0,
                 PyFelt::from(contract_address),
             );
             let result: PyFelt =
@@ -66,7 +91,6 @@ impl StateReader for PyStateReader {
 
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         Python::with_gil(|py| -> Result<ClassHash, PyErr> {
-            log::debug!("PyState get_class_hash_at...");
             let args = (PyFelt::from(contract_address),);
             let result: PyFelt = self
                 .py_state_reader
@@ -83,17 +107,26 @@ impl StateReader for PyStateReader {
         &mut self,
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
-        Python::with_gil(|py| -> Result<ContractClass, PyErr> {
+        Python::with_gil(|py| -> StateResult<ContractClass> {
             let args = (PyFelt::from(*class_hash),);
-            let result: PyCompiledClassBase = self
+            let result: PyRawCompiledClass = self
                 .py_state_reader
                 .as_ref(py)
-                .call_method1("get_compiled_class", args)?
-                .extract()?;
+                .call_method1("get_raw_compiled_class", args)
+                .map_err(|err| {
+                    if err.is_instance_of::<UndeclaredClassHashError>(py) {
+                        StateError::UndeclaredClassHash(*class_hash)
+                    } else {
+                        StateError::StateReadError(err.to_string())
+                    }
+                })?
+                .extract()
+                .map_err(|err| StateError::StateReadError(err.to_string()))?;
+            // .map_err(|e| to_state_read_error_with_py(e, py))?
 
-            Ok(ContractClass::try_from(result)?)
+            ContractClass::try_from(result)
+                .map_err(|err| StateError::StateReadError(err.to_string()))
         })
-        .map_err(to_state_read_error)
     }
 
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
@@ -110,26 +143,26 @@ impl StateReader for PyStateReader {
         .map_err(to_state_read_error)
     }
 
-    fn get_fee_token_balance(
-        &mut self,
-        block_context: &BlockContext,
-        contract_address: &ContractAddress,
-    ) -> Result<(StarkFelt, StarkFelt), StateError> {
-        Python::with_gil(|py| -> Result<(StarkFelt, StarkFelt), PyErr> {
-            let args = (
-                PyModule::import(py, "starkware.starknet.business_logic.state.storage_domain")?
-                    .call_method1("StorageDomain", (0,))?,
-                PyFelt::from(*contract_address),
-                PyFelt::from(block_context.fee_token_address),
-            );
-            let result: (PyFelt, PyFelt) = self
-                .py_state_reader
-                .as_ref(py)
-                .call_method1("get_fee_token_balance", args)?
-                .extract()?;
+    // fn get_fee_token_balance(
+    //     &mut self,
+    //     block_context: &BlockContext,
+    //     contract_address: &ContractAddress,
+    // ) -> Result<(StarkFelt, StarkFelt), StateError> {
+    //     Python::with_gil(|py| -> Result<(StarkFelt, StarkFelt), PyErr> {
+    //         let args = (
+    //             PyModule::import(py, "starkware.starknet.business_logic.state.storage_domain")?
+    //                 .call_method1("StorageDomain", (0,))?,
+    //             PyFelt::from(*contract_address),
+    //             PyFelt::from(block_context.fee_token_address),
+    //         );
+    //         let result: (PyFelt, PyFelt) = self
+    //             .py_state_reader
+    //             .as_ref(py)
+    //             .call_method1("get_fee_token_balance", args)?
+    //             .extract()?;
 
-            Ok((result.0.0, result.1.0))
-        })
-        .map_err(to_state_read_error)
-    }
+    //         Ok((result.0.0, result.1.0))
+    //     })
+    //     .map_err(to_state_read_error)
+    // }
 }

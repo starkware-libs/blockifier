@@ -73,10 +73,10 @@ impl PyTransactionExecutor {
     pub fn validate_tx(
         &mut self,
         tx: &PyAny,
+        // TODO: remove argument
         raw_contract_class: Option<&str>,
         remaining_gas: u64,
     ) -> NativeBlockifierResult<Option<PyCallInfo>> {
-        log::debug!("Running validate_tx...");
         self.executor().validate_tx(tx, raw_contract_class, remaining_gas)
     }
 
@@ -160,7 +160,7 @@ impl TransactionExecutor {
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         self.with_mut(|executor| {
-            let mut transactional_state = CachedState::create_transactional(executor.state);
+            let mut transactional_state = CachedState::create_transactional(executor.py_state);
             let tx_execution_result = tx
                 .execute_raw(&mut transactional_state, executor.block_context)
                 .map_err(NativeBlockifierError::from);
@@ -179,14 +179,14 @@ impl TransactionExecutor {
                                 .expect("Should be able to allocate on Python heap")
                         });
 
-                        let py_casm_hash_calculation_resources =
-                            get_casm_hash_calculation_resources(
-                                &mut transactional_state,
-                                executor.executed_class_hashes,
-                                &tx_executed_class_hashes,
-                            )?;
+                        // let py_casm_hash_calculation_resources =
+                        //     get_casm_hash_calculation_resources(
+                        //         &mut transactional_state,
+                        //         executor.executed_class_hashes,
+                        //         &tx_executed_class_hashes,
+                        //     )?;
 
-                        (py_tx_execution_info, py_casm_hash_calculation_resources)
+                        (py_tx_execution_info, PyVmExecutionResources::default())
                     }
                     Err(error) => {
                         transactional_state.abort();
@@ -229,13 +229,11 @@ impl TransactionExecutor {
         mut remaining_gas: u64,
     ) -> NativeBlockifierResult<Option<PyCallInfo>> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
-        log::debug!("Transaction type is: {tx_type}");
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
         self.with_mut(|executor| {
             let mut resources = ExecutionResources::default();
             if let Transaction::AccountTransaction(account_tx) = tx {
-                log::debug!("Executing validate...");
                 Ok(account_tx
                     .validate(
                         executor.py_state,
@@ -246,7 +244,6 @@ impl TransactionExecutor {
                     .map_err(NativeBlockifierError::from)?
                     .map(PyCallInfo::from))
             } else {
-                log::debug!("Failed to get AccountTransaction.");
                 Err(NativeBlockifierError::NativeBlockifierInputError(
                     NativeBlockifierInputError::UnexpectedTransactionType { tx_type },
                 ))
@@ -256,7 +253,7 @@ impl TransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.borrow_state().to_state_diff())
+        PyStateDiff::from(self.borrow_py_state().to_state_diff())
     }
 
     // Block pre-processing; see `block_execution::pre_process_block` documentation.

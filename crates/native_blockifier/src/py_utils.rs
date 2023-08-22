@@ -1,14 +1,16 @@
 use std::convert::TryFrom;
 
 use blockifier::transaction::errors::TransactionExecutionError;
+use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigUint;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::EthAddress;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 
 #[derive(Eq, FromPyObject, Hash, PartialEq, Clone, Copy)]
 pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub StarkFelt);
@@ -80,6 +82,33 @@ where
 pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
     let biguint: BigUint = int.extract()?;
     Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
+}
+
+pub fn to_entry_point_type(value: &PyAny) -> PyResult<EntryPointType> {
+    let value: u8 = value.getattr("value")?.extract()?;
+    match value {
+        0 => Ok(EntryPointType::External),
+        1 => Ok(EntryPointType::L1Handler),
+        2 => Ok(EntryPointType::Constructor),
+        _ => Err(PyTypeError::new_err("Invalid EntryPointType")),
+    }
+}
+
+pub fn builtin_name_from_str(s: String) -> NativeBlockifierResult<BuiltinName> {
+    match s.as_str() {
+        "output" => Ok(BuiltinName::output),
+        "range_check" => Ok(BuiltinName::range_check),
+        "pedersen" => Ok(BuiltinName::pedersen),
+        "ecdsa" => Ok(BuiltinName::ecdsa),
+        "keccak" => Ok(BuiltinName::keccak),
+        "bitwise" => Ok(BuiltinName::bitwise),
+        "ec_op" => Ok(BuiltinName::ec_op),
+        "poseidon" => Ok(BuiltinName::poseidon),
+        "segment_arena" => Ok(BuiltinName::segment_arena),
+        _ => Err(NativeBlockifierError::NativeBlockifierInputError(
+            NativeBlockifierInputError::InvalidInput,
+        )),
+    }
 }
 
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].

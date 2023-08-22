@@ -1,3 +1,4 @@
+use core::panic;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -201,6 +202,6 @@ pub fn py_tx(
                 paid_fee_on_l1,
             }))
         }
-        _ => unimplemented!(),
+        _ => unimplemented!("@@@@@@@@@@@@@ Got tx type: {:?}", tx_type),
     }
 }
