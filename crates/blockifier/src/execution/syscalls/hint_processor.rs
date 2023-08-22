@@ -45,7 +45,7 @@ use crate::execution::syscalls::{
     SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
-use crate::state::state_api::{DataAvailabilityMode, State};
+use crate::state::state_api::State;
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;

@@ -28,6 +28,7 @@ use crate::execution::execution_utils::{
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
+use crate::state::state_api::DataAvailabilityMode;
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub mod hint_processor;
@@ -98,6 +99,31 @@ impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
                 write_maybe_relocatable(vm, ptr, revert_reason_end)?;
                 Ok(())
             }
+        }
+    }
+}
+
+// Needed to convert the syscall output to an enum variant.
+impl TryFrom<StarkFelt> for DataAvailabilityMode {
+    type Error = SyscallExecutionError;
+
+    fn try_from(felt: StarkFelt) -> Result<Self, Self::Error> {
+        let zero = StarkFelt::new([
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        ])
+        .unwrap();
+        let one = StarkFelt::new([
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
+        ])
+        .unwrap();
+        if felt == zero {
+            Ok(DataAvailabilityMode::L1)
+        } else if felt == one {
+            Ok(DataAvailabilityMode::L2)
+        } else {
+            Err(SyscallExecutionError::InvalidAddressDomain { address_domain: felt })
         }
     }
 }
