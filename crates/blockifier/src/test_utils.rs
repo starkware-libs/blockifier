@@ -95,12 +95,12 @@ pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
 }
 
 // The max_fee used for txs in this test.
-pub const MAX_FEE: u128 = 1000000 * 100000000000; // 1000000 * min_gas_price.
+pub const MAX_FEE: u128 = 1000000 * 100000000000; // 1000000 * min_eth_l1_gas_price.
 
 // The amount of test-token allocated to the account in this test.
 pub const BALANCE: u128 = 10 * MAX_FEE;
 
-pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
+pub const DEFAULT_ETH_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
@@ -343,7 +343,7 @@ impl BlockContext {
             deprecated_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
             fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
             vm_resource_fee_cost: Default::default(),
-            gas_price: DEFAULT_GAS_PRICE,
+            eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
             max_recursion_depth: 50,

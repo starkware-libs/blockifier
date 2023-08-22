@@ -15,7 +15,8 @@ pub struct BlockContext {
     pub deprecated_fee_token_address: ContractAddress,
     pub fee_token_address: ContractAddress,
     pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
-    pub gas_price: u128, // In wei.
+    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT add l1_gas_price.
+    pub eth_l1_gas_price: u128, // In wei.
 
     // Limits.
     pub invoke_tx_max_n_steps: u32,
