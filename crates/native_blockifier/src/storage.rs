@@ -186,7 +186,8 @@ impl Storage {
             block_hash: BlockHash(StarkHash::from(block_id)),
             parent_hash: BlockHash(previous_block_id.0),
             block_number,
-            gas_price: GasPrice(py_block_info.gas_price),
+            // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT need to add l1_gas_price to block header?
+            gas_price: GasPrice(py_block_info.deprecated_l1_gas_price),
             state_root: GlobalRoot::default(),
             sequencer: ContractAddress::try_from(py_block_info.sequencer_address.0)?,
             timestamp: BlockTimestamp(py_block_info.block_timestamp),
