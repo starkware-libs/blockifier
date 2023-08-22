@@ -256,7 +256,7 @@ pub fn into_block_context(
         )?,
         fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
-        gas_price: block_info.gas_price,
+        deprecated_l1_gas_price: block_info.deprecated_l1_gas_price,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
         max_recursion_depth,
