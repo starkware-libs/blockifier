@@ -8,8 +8,8 @@ use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
 use pyo3::prelude::*;
-use starknet_api::block::{BlockHash, BlockHeader, BlockNumber, BlockTimestamp, GasPrice};
-use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, GlobalRoot};
+use starknet_api::block::{BlockHash, BlockHeader, BlockNumber};
+use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff, StateNumber};
@@ -185,11 +185,7 @@ impl Storage {
         let block_header = BlockHeader {
             block_hash: BlockHash(StarkHash::from(block_id)),
             parent_hash: BlockHash(previous_block_id.0),
-            block_number,
-            gas_price: GasPrice(py_block_info.gas_price),
-            state_root: GlobalRoot::default(),
-            sequencer: ContractAddress::try_from(py_block_info.sequencer_address.0)?,
-            timestamp: BlockTimestamp(py_block_info.block_timestamp),
+            ..Default::default()
         };
         append_txn = append_txn.append_header(block_number, &block_header)?;
 
