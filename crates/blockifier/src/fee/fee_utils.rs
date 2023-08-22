@@ -55,5 +55,6 @@ pub fn calculate_tx_fee(
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
 
-    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_price))
+    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
+    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.deprecated_l1_gas_price))
 }
