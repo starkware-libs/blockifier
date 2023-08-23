@@ -8,6 +8,8 @@ use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
     POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
 };
+use num_bigint::BigUint;
+use num_integer::Integer;
 use num_traits::{One, Zero};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
@@ -465,4 +467,13 @@ impl ContractClassV1 {
         let raw_contract_class = get_raw_contract_class(contract_path);
         Self::try_from_json_string(&raw_contract_class).unwrap()
     }
+}
+
+// TODO(barak, 01/10/2023): Move to the StarkFelt implementation in starknet_api.
+pub fn biguint_to_stark_felt(biguint: &BigUint) -> (StarkFelt, StarkFelt) {
+    let (high, low) = biguint.div_rem(&BigUint::from(2_u8).pow(128));
+    let low_as_hex = format!("{low:#x}");
+    let high_as_hex = format!("{high:#x}");
+
+    (stark_felt!(low_as_hex.as_str()), stark_felt!(high_as_hex.as_str()))
 }

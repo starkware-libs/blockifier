@@ -21,9 +21,10 @@ use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    biguint_to_stark_felt, declare_tx, deploy_account_tx, DictStateReader, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -336,7 +337,9 @@ fn test_revert_invoke(
     // Check that the nonce was increased and the fee was deducted.
     let total_deducted_fee = deploy_execution_info.actual_fee.0 + tx_execution_info.actual_fee.0;
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap(),
+        biguint_to_stark_felt(
+            &state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap()
+        ),
         (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
     );
     assert_eq!(
@@ -871,7 +874,9 @@ fn test_revert_on_overdraft(
     let transfer_tx_fee = execution_info.actual_fee;
 
     // Check the current balance, before next transaction.
-    let (balance, _) = state.get_fee_token_balance(&block_context, &account_address).unwrap();
+    let (balance, _) = biguint_to_stark_felt(
+        &state.get_fee_token_balance(&block_context, &account_address).unwrap(),
+    );
 
     // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
     // This operation should revert.
@@ -902,11 +907,15 @@ fn test_revert_on_overdraft(
 
     // Verify balances of both sender and recipient are as expected.
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &account_address).unwrap(),
+        biguint_to_stark_felt(
+            &state.get_fee_token_balance(&block_context, &account_address).unwrap()
+        ),
         (expected_new_balance, stark_felt!(0_u8))
     );
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &recipient_address).unwrap(),
+        biguint_to_stark_felt(
+            &state.get_fee_token_balance(&block_context, &recipient_address).unwrap()
+        ),
         (final_received_amount, stark_felt!(0_u8))
     );
 }

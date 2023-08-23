@@ -33,8 +33,8 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    biguint_to_stark_felt, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
+    DictStateReader, NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -433,8 +433,9 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     AccountTransaction::Invoke(mint_tx.into()).execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
-    let (low, high) =
-        state.get_fee_token_balance(block_context, &contract_address!(recipient)).unwrap();
+    let (low, high) = biguint_to_stark_felt(
+        &state.get_fee_token_balance(block_context, &contract_address!(recipient)).unwrap(),
+    );
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);
