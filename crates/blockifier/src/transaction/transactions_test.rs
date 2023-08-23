@@ -9,7 +9,6 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
     InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
@@ -26,18 +25,19 @@ use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    InvokeTxArgs, NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    DictStateReader, InvokeTxArgs, NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -224,7 +224,7 @@ fn validate_final_balances(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
     expected_actual_fee: Fee,
-    erc20_account_balance_key: StorageKey,
+    account_contract_address: ContractAddress,
     fee_type: &FeeType,
     initial_account_balance_eth: u128,
     initial_account_balance_strk: u128,
@@ -245,15 +245,24 @@ fn validate_final_balances(
     // Verify balances of both accounts, of both fee types, are as expected.
     let eth_fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     let strk_fee_token_address = block_context.fee_token_addresses.strk_fee_token_address;
-    for (fee_address, expected_account_balance, expected_sequencer_balance) in [
+    for (fee_token_address, expected_account_balance, expected_sequencer_balance) in [
         (eth_fee_token_address, expected_account_balance_eth, expected_sequencer_balance_eth),
         (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
     ] {
-        let account_balance = state.get_storage_at(fee_address, erc20_account_balance_key).unwrap();
-        assert_eq!(account_balance, stark_felt!(expected_account_balance));
+        let account_balance = state
+            .get_fee_token_balance(&account_contract_address, &fee_token_address)
+            .unwrap()
+            .to_biguint();
+        assert_eq!(account_balance, expected_account_balance.into());
         assert_eq!(
-            state.get_storage_at(fee_address, test_erc20_sequencer_balance_key()).unwrap(),
-            stark_felt!(expected_sequencer_balance)
+            state
+                .get_fee_token_balance(
+                    &contract_address!(TEST_SEQUENCER_ADDRESS),
+                    &fee_token_address
+                )
+                .unwrap()
+                .to_biguint(),
+            stark_felt_to_felt(expected_sequencer_balance).to_biguint()
         );
     }
 }
@@ -425,7 +434,7 @@ fn test_invoke_tx(
         state,
         block_context,
         expected_actual_fee,
-        test_erc20_account_balance_key(),
+        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         fee_type,
         BALANCE,
         BALANCE,
@@ -698,7 +707,7 @@ fn test_declare_tx(
         state,
         block_context,
         expected_actual_fee,
-        test_erc20_account_balance_key(),
+        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         fee_type,
         BALANCE,
         BALANCE,
@@ -892,7 +901,7 @@ fn test_deploy_account_tx(
         state,
         block_context,
         expected_actual_fee,
-        deployed_account_balance_key,
+        deployed_account_address,
         fee_type,
         BALANCE,
         BALANCE,
