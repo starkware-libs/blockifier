@@ -65,19 +65,23 @@ pub fn create_account_tx_test_state(
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
     let test_account_address = contract_address!(account_address);
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT add another fee token to the initial state.
-    let test_erc20_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let test_strk_token_address = block_context.fee_token_addresses.strk_fee_token_address;
+    let test_eth_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_address, test_account_class_hash),
-        (test_erc20_address, test_erc20_class_hash),
+        (test_strk_token_address, test_erc20_class_hash),
+        (test_eth_token_address, test_erc20_class_hash),
     ]);
     let minter_var_address = get_storage_var_address("permitted_minter", &[])
         .expect("Failed to get permitted_minter storage address.");
+    let initial_balance_felt = stark_felt!(initial_account_balance);
     let storage_view = HashMap::from([
-        ((test_erc20_address, erc20_account_balance_key), stark_felt!(initial_account_balance)),
+        ((test_strk_token_address, erc20_account_balance_key), initial_balance_felt),
+        ((test_eth_token_address, erc20_account_balance_key), initial_balance_felt),
         // Give the account mint permission.
-        ((test_erc20_address, minter_var_address), *test_account_address.0.key()),
+        ((test_strk_token_address, minter_var_address), *test_account_address.0.key()),
+        ((test_eth_token_address, minter_var_address), *test_account_address.0.key()),
     ]);
     CachedState::from(DictStateReader {
         address_to_class_hash,
