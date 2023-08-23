@@ -221,6 +221,17 @@ impl AccountTransaction {
         }
     }
 
+    fn fee_token_address(&self, block_context: &BlockContext) -> ContractAddress {
+        let version_felt = self.get_account_transaction_context().version.0;
+        if version_felt < StarkFelt::from(3_u8){
+            block_context.deprecated_fee_token_address
+        }
+        else {
+            assert_eq!(version_felt, StarkFelt::from(3_u8));
+            block_context.fee_token_address
+        }
+    }
+
     fn handle_nonce(
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
@@ -491,8 +502,7 @@ impl AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
-        let fee_token_address = block_context.deprecated_fee_token_address;
+        let fee_token_address = self.fee_token_address(block_context);
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
