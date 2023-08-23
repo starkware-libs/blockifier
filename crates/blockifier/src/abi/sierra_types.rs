@@ -1,10 +1,8 @@
-use cairo_felt::Felt252;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::{BigUint, ToBigUint};
-use num_traits::ToPrimitive;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -15,13 +13,12 @@ use thiserror::Error;
 use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::state::errors::StateError;
 use crate::state::state_api::StateReader;
+use crate::utils::{felt_to_u128, UtilError};
 
 pub type SierraTypeResult<T> = Result<T, SierraTypeError>;
 
 #[derive(Debug, Error)]
 pub enum SierraTypeError {
-    #[error("Felt {val} is too big to convert to '{ty}'.")]
-    ValueTooLargeForType { val: Felt252, ty: &'static str },
     #[error(transparent)]
     MemoryError(#[from] MemoryError),
     #[error(transparent)]
@@ -30,6 +27,8 @@ pub enum SierraTypeError {
     StateError(#[from] StateError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error(transparent)]
+    UtilError(#[from] UtilError),
 }
 
 pub trait SierraType: Sized {
@@ -40,12 +39,6 @@ pub trait SierraType: Sized {
         contract_address: &ContractAddress,
         key: &StorageKey,
     ) -> SierraTypeResult<Self>;
-}
-
-// Utils.
-pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
-    felt.to_u128()
-        .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
 }
 
 // TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.
@@ -87,6 +80,7 @@ impl SierraType for SierraU128 {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SierraU256 {
     pub low_val: u128,
     pub high_val: u128,

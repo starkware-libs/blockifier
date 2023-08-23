@@ -6,8 +6,8 @@ use starknet_api::stark_felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
-use crate::abi::sierra_types::felt_to_u128;
 use crate::transaction::constants as transaction_constants;
+use crate::utils::felt_to_u128;
 
 #[test]
 fn test_selector_from_name() {
