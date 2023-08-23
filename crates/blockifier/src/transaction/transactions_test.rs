@@ -19,7 +19,7 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
-use crate::abi::sierra_types::next_storage_key;
+use crate::abi::sierra_types::{next_storage_key, SierraU256};
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -418,7 +418,7 @@ fn test_invoke_tx(
     "With Cairo1 account")]
 fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
-    let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
+    let (mint_high, mint_low) = (54_u8, 39_u8);
     let recipient = stark_felt!(10_u8);
 
     // Mint some tokens.
@@ -428,8 +428,8 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
         recipient,
-        mint_low,
-        mint_high
+        stark_felt!(mint_low),
+        stark_felt!(mint_high)
     ];
     let mint_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
@@ -443,11 +443,10 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     account_tx.execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
-    let (low, high) =
+    let balance =
         state.get_fee_token_balance(&contract_address!(recipient), &fee_token_address).unwrap();
-
-    assert_eq!(low, mint_low);
-    assert_eq!(high, mint_high);
+    let minted = SierraU256 { low_val: mint_low.into(), high_val: mint_high.into() };
+    assert_eq!(balance, minted);
 }
 
 fn assert_failure_if_max_fee_exceeds_balance(

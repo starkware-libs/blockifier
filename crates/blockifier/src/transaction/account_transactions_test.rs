@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
 use starknet_api::core::{
@@ -12,7 +13,6 @@ use starknet_api::transaction::{
     TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
-use starknet_crypto::FieldElement;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
@@ -20,6 +20,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::invoke_tx_args;
+use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -367,8 +368,9 @@ fn test_revert_invoke(
                 &deployed_account_address,
                 &block_context.fee_token_address(&account_tx_context.fee_type())
             )
-            .unwrap(),
-        (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
+            .unwrap()
+            .to_biguint(),
+        (BALANCE - total_deducted_fee).into()
     );
     assert_eq!(
         state.get_nonce_at(deployed_account_address).unwrap(),
@@ -880,7 +882,7 @@ fn test_revert_on_overdraft(
     let recipient = stark_felt!(7_u8);
     let recipient_address = ContractAddress(patricia_key!(recipient));
     // Amount expected to be transferred successfully.
-    let final_received_amount = stark_felt!(80_u8);
+    let final_received_amount = 80_u8;
 
     let TestInitData {
         mut state,
@@ -921,7 +923,7 @@ fn test_revert_on_overdraft(
         storage_address,
         expected_final_value,
         recipient,
-        final_received_amount,
+        stark_felt!(final_received_amount),
         account_address,
         contract_address,
         &block_context,
@@ -933,12 +935,13 @@ fn test_revert_on_overdraft(
     let transfer_tx_fee = execution_info.actual_fee;
 
     // Check the current balance, before next transaction.
-    let (balance, _) = state
+    let balance = state
         .get_fee_token_balance(
             &account_address,
             &block_context.fee_token_address(&account_tx_context.fee_type()),
         )
-        .unwrap();
+        .unwrap()
+        .to_biguint();
 
     // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
     // This operation should revert.
@@ -946,7 +949,7 @@ fn test_revert_on_overdraft(
         storage_address,
         stark_felt!(0_u8), // erase current storage value.
         recipient,         // same recipient as before.
-        balance,           // transfer the entire balance.
+        felt_to_stark_felt(&Felt252::from(&balance)), // transfer the entire balance.
         account_address,
         contract_address,
         &block_context,
@@ -956,8 +959,7 @@ fn test_revert_on_overdraft(
     );
 
     // Compute the expected balance after the reverted write+transfer (tx fee should be charged).
-    let expected_new_balance: StarkFelt =
-        StarkFelt::from(FieldElement::from(balance) - FieldElement::from(transfer_tx_fee.0));
+    let expected_new_balance = balance - transfer_tx_fee.0;
 
     // Verify the execution was reverted (including nonce bump) with the correct error.
     assert!(execution_info.is_reverted());
@@ -972,10 +974,11 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 &account_address,
-                &block_context.fee_token_address(&account_tx_context.fee_type()),
+                &block_context.fee_token_address(&account_tx_context.fee_type())
             )
-            .unwrap(),
-        (expected_new_balance, stark_felt!(0_u8))
+            .unwrap()
+            .to_biguint(),
+        expected_new_balance
     );
     assert_eq!(
         state
@@ -983,7 +986,8 @@ fn test_revert_on_overdraft(
                 &recipient_address,
                 &block_context.fee_token_address(&account_tx_context.fee_type())
             )
-            .unwrap(),
-        (final_received_amount, stark_felt!(0_u8))
+            .unwrap()
+            .to_biguint(),
+        final_received_amount.into()
     );
 }
