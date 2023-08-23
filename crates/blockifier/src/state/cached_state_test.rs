@@ -256,16 +256,16 @@ fn cached_state_state_diff_conversion() {
     assert_eq!(expected_state_diff, state.to_state_diff());
 }
 
-fn create_state_changes_for_test<S: StateReader>(state: &mut CachedState<S>) -> StateChanges {
-    let block_context = BlockContext::create_for_testing();
+fn create_state_changes_for_test<S: StateReader>(
+    state: &mut CachedState<S>,
+    fee_token_address: ContractAddress,
+) -> StateChanges {
     let contract_address = contract_address!("0x100");
     let contract_address2 = contract_address!("0x101");
     let class_hash = class_hash!("0x10");
     let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT take correct token address by tx version.
-    let fee_token_address = block_context.deprecated_fee_token_address;
 
     state.set_class_hash_at(contract_address, class_hash).unwrap();
     state.set_storage_at(contract_address, key, storage_val);
@@ -287,7 +287,7 @@ fn create_state_changes_for_test<S: StateReader>(state: &mut CachedState<S>) -> 
 #[test]
 fn test_get_actual_state_changes_for_fee_charge() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let state_changes = create_state_changes_for_test(&mut state);
+    let state_changes = create_state_changes_for_test(&mut state, contract_address!("0x17"));
     assert_eq!(
         StateChangesCount::from(&state_changes),
         StateChangesCount {
@@ -305,15 +305,13 @@ fn test_state_changes_merge() {
     // state changes and then commit.
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let mut transactional_state = CachedState::create_transactional(&mut state);
-    let state_changes1 = create_state_changes_for_test(&mut transactional_state);
+    let block_context = BlockContext::create_for_testing();
+    let fee_token_address = block_context.deprecated_fee_token_address;
+    let state_changes1 = create_state_changes_for_test(&mut transactional_state, fee_token_address);
     transactional_state.commit();
 
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
-    let block_context = BlockContext::create_for_testing();
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT consider generalizing test for multiple tx versions
-    //   and taking correct fee token address.
-    let fee_token_address = block_context.deprecated_fee_token_address;
     let mut transactional_state = CachedState::create_transactional(&mut state);
     // Make sure that `get_actual_state_changes_for_fee_charge` on a newly created transactional
     // state returns null state changes and that merging null state changes with non-null state
