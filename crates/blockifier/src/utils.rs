@@ -1,5 +1,10 @@
 use std::collections::HashMap;
 
+use cairo_felt::Felt252;
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
+use thiserror::Error;
+
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
@@ -13,4 +18,18 @@ where
     V: Clone + PartialEq,
 {
     lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
+}
+
+#[derive(Debug, Error)]
+pub enum UtilError {
+    #[error("Felt {0:?} is too big to convert to u128.")]
+    UnconvertibleFeltToU128(Felt252),
+}
+
+pub fn felt_to_u128(felt: &Felt252) -> Result<u128, UtilError> {
+    felt.to_u128().ok_or_else(|| UtilError::UnconvertibleFeltToU128(felt.clone()))
+}
+
+pub fn two_u128_to_biguint(low: &u128, high: &u128) -> BigUint {
+    (BigUint::from(*high) << 128) + BigUint::from(*low)
 }

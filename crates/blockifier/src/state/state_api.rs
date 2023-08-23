@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -5,8 +6,10 @@ use starknet_api::state::StorageKey;
 use crate::abi::abi_utils::get_erc20_balance_var_addresses;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
+use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
+use crate::utils::{felt_to_u128, two_u128_to_biguint};
 
 pub type StateResult<T> = Result<T, StateError>;
 
@@ -54,12 +57,16 @@ pub trait StateReader {
         &mut self,
         block_context: &BlockContext,
         contract_address: &ContractAddress,
-    ) -> Result<(StarkFelt, StarkFelt), StateError> {
+    ) -> Result<BigUint, StateError> {
         let (low_key, high_key) = get_erc20_balance_var_addresses(contract_address)?;
-        let low = self.get_storage_at(block_context.deprecated_fee_token_address, low_key)?;
-        let high = self.get_storage_at(block_context.deprecated_fee_token_address, high_key)?;
+        let low_as_felt = stark_felt_to_felt(
+            self.get_storage_at(block_context.deprecated_fee_token_address, low_key)?,
+        );
+        let high_as_felt = stark_felt_to_felt(
+            self.get_storage_at(block_context.deprecated_fee_token_address, high_key)?,
+        );
 
-        Ok((low, high))
+        Ok(two_u128_to_biguint(&felt_to_u128(&low_as_felt)?, &felt_to_u128(&high_as_felt)?))
     }
 }
 

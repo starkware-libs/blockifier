@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
+use num_bigint::BigUint;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -316,14 +317,8 @@ impl AccountTransaction {
         self.max_fee() != Fee(0)
     }
 
-    // TODO(Dori,1/10/2023): If/when Fees can be more than 128 bit integers, this should be updated.
-    fn is_sufficient_fee_balance(
-        balance_low: StarkFelt,
-        balance_high: StarkFelt,
-        fee: Fee,
-    ) -> bool {
-        // The fee is at most 128 bits, while balance is 256 bits (split into two 128 bit words).
-        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0)
+    fn is_sufficient_fee_balance(balance: &BigUint, fee: &Fee) -> bool {
+        *balance >= fee.0.into()
     }
 
     /// Checks that the account's balance covers max fee.
@@ -346,14 +341,10 @@ impl AccountTransaction {
                 });
             }
 
-            let (balance_low, balance_high) =
+            let balance =
                 state.get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
-            if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
-                return Err(TransactionExecutionError::MaxFeeExceedsBalance {
-                    max_fee,
-                    balance_low,
-                    balance_high,
-                });
+            if !Self::is_sufficient_fee_balance(&balance, &max_fee) {
+                return Err(TransactionExecutionError::MaxFeeExceedsBalance { max_fee, balance });
             }
         }
 
@@ -567,10 +558,9 @@ impl AccountTransaction {
 
                 // Check if as a result of tx execution the sender's fee token balance is maxed out,
                 // so that they can't pay fee. If so, the transaction must be reverted.
-                let (balance_low, balance_high) = execution_state
+                let balance = execution_state
                     .get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
-                let is_maxed_out =
-                    !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
+                let is_maxed_out = !Self::is_sufficient_fee_balance(&balance, &actual_fee);
                 let max_fee = account_tx_context.max_fee;
 
                 if actual_fee > max_fee || is_maxed_out {

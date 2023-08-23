@@ -28,6 +28,7 @@ use crate::execution::errors::PostExecutionError;
 use crate::execution::{cairo1_execution, deprecated_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::utils::{felt_to_u128, two_u128_to_biguint};
 
 pub type Args = Vec<CairoArg>;
 
@@ -106,11 +107,17 @@ pub fn u256_from_ptr(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
 ) -> Result<BigUint, VirtualMachineError> {
-    let low = vm.get_integer(*ptr)?;
+    let low_as_felt = vm.get_integer(*ptr)?;
     *ptr = (*ptr + 1)?;
-    let high = vm.get_integer(*ptr)?;
+    let high_as_felt = vm.get_integer(*ptr)?;
     *ptr = (*ptr + 1)?;
-    Ok((high.to_biguint() << 128) + low.to_biguint())
+
+    let low =
+        felt_to_u128(&low_as_felt).expect("Unreachable convertion error, sierra is type-safe");
+    let high =
+        felt_to_u128(&high_as_felt).expect("Unreachable convertion error, sierra is type-safe");
+
+    Ok(two_u128_to_biguint(&low, &high))
 }
 
 pub fn write_u256(

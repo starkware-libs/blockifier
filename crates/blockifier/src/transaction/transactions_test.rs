@@ -54,6 +54,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
 };
+use crate::utils::two_u128_to_biguint;
 
 enum CairoVersion {
     Cairo0,
@@ -411,7 +412,7 @@ fn test_invoke_tx(
     "With Cairo1 account")]
 fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
-    let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
+    let (mint_high, mint_low) = (54_u128, 39_u128);
     let recipient = stark_felt!(10_u8);
 
     // Mint some tokens.
@@ -421,8 +422,8 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
         recipient,
-        mint_low,
-        mint_high
+        stark_felt!(mint_low),
+        stark_felt!(mint_high)
     ];
     let mint_tx = crate::test_utils::invoke_tx(
         execute_calldata,
@@ -433,11 +434,11 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     AccountTransaction::Invoke(mint_tx.into()).execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
-    let (low, high) =
+    let balance =
         state.get_fee_token_balance(block_context, &contract_address!(recipient)).unwrap();
 
-    assert_eq!(low, mint_low);
-    assert_eq!(high, mint_high);
+    let minted = two_u128_to_biguint(&mint_low, &mint_high);
+    assert_eq!(balance, minted);
 }
 
 fn assert_failure_if_max_fee_exceeds_balance(
