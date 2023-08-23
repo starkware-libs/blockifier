@@ -7,8 +7,8 @@ use starknet_api::stark_felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
-use crate::abi::sierra_types::{felt_to_u128, SierraTypeError};
 use crate::transaction::constants as transaction_constants;
+use crate::utils::{felt_to_u128, UtilError};
 
 #[test]
 fn test_selector_from_name() {
@@ -53,7 +53,7 @@ fn test_value_too_large_for_type() {
     let error = felt_to_u128(&overflowed_u128_as_felt).unwrap_err();
     assert_matches!(
         error,
-        SierraTypeError::ValueTooLargeForType { val: expected_val, ty: "u128"}
+        UtilError::ValueTooLargeForType { val: expected_val, ty: "u128"}
         if expected_val == overflowed_u128_as_felt
     )
 }
