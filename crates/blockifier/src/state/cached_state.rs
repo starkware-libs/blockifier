@@ -81,8 +81,6 @@ impl<S: StateReader> CachedState<S> {
         // Calculated before executing fee transfer and therefore we add manually the fee transfer
         // changes. Exclude the fee token contract modification, since it’s charged once throughout
         // the block.
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT verify no changes required for multiple fee
-        //   token scenario.
         if let Some(sender_address) = sender_address {
             let (sender_low_key, _sender_high_key) =
                 get_erc20_balance_var_addresses(&sender_address)?;
