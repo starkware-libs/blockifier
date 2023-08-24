@@ -28,7 +28,7 @@ use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{DataAvailabilityMode, State, StateReader};
 use crate::test_utils::{
     create_deploy_test_state, create_test_state, trivial_external_entry_point,
     CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
@@ -61,8 +61,15 @@ fn test_storage_read_write() {
         }
     );
     // Verify that the state has changed.
-    let value_from_state =
-        state.get_storage_at(storage_address, StorageKey::try_from(key).unwrap()).unwrap();
+    let value_from_state = state
+        .get_storage_at(
+            storage_address,
+            StorageKey::try_from(key).unwrap(),
+            // TODO(barak, 01/10/2023): Pass data_availability_mode parameter from
+            // entry_point_call.
+            DataAvailabilityMode::L1,
+        )
+        .unwrap();
     assert_eq!(value_from_state, value);
 }
 

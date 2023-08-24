@@ -25,6 +25,7 @@ use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
     ReadOnlySegment,
 };
+use crate::state::state_api::DataAvailabilityMode;
 
 #[cfg(test)]
 #[path = "deprecated_syscalls_test.rs"]
@@ -668,7 +669,7 @@ pub fn storage_read(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<StorageReadResponse> {
-    syscall_handler.get_contract_storage_at(request.address)
+    syscall_handler.get_contract_storage_at(request.address, DataAvailabilityMode::L1)
 }
 
 // StorageWrite syscall.
@@ -700,6 +701,6 @@ pub fn storage_write(
     // Read the value before the write operation in order to log it in the list of read·
     // values. This is needed to correctly build the `DictAccess` entry corresponding to·
     // `storage_write` syscall in the OS.
-    syscall_handler.get_contract_storage_at(request.address)?;
+    syscall_handler.get_contract_storage_at(request.address, DataAvailabilityMode::L1)?;
     syscall_handler.set_contract_storage_at(request.address, request.value)
 }

@@ -31,7 +31,7 @@ use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{DataAvailabilityMode, State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
@@ -224,12 +224,27 @@ fn validate_final_balances(
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this function should probably accept fee token
     //   address (or at least, tx version) as input.
     let fee_token_address = block_context.deprecated_fee_token_address;
-    let account_balance =
-        state.get_storage_at(fee_token_address, erc20_account_balance_key).unwrap();
+    let account_balance = state
+        .get_storage_at(
+            fee_token_address,
+            erc20_account_balance_key,
+            // TODO(barak, 01/10/2023): Pass data_availability_mode parameter from the function
+            // parameters.
+            DataAvailabilityMode::L1,
+        )
+        .unwrap();
     assert_eq!(account_balance, stark_felt!(expected_account_balance));
 
     assert_eq!(
-        state.get_storage_at(fee_token_address, test_erc20_sequencer_balance_key()).unwrap(),
+        state
+            .get_storage_at(
+                fee_token_address,
+                test_erc20_sequencer_balance_key(),
+                // TODO(barak, 01/10/2023): Pass data_availability_mode parameter from the function
+                // parameters.
+                DataAvailabilityMode::L1,
+            )
+            .unwrap(),
         stark_felt!(expected_sequencer_balance)
     );
 }

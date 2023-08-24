@@ -19,7 +19,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{DataAvailabilityMode, State, StateReader};
 use crate::test_utils::{
     declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
     BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
@@ -310,6 +310,7 @@ fn test_revert_invoke(
 
     // Invoke a function from the newly deployed contract, that changes the state.
     let storage_key = stark_felt!(9_u8);
+    let data_availability_mode = DataAvailabilityMode::L1;
     let entry_point_selector = selector_from_name("write_and_revert");
     let tx_execution_info = run_invoke_tx(
         calldata![
@@ -351,6 +352,7 @@ fn test_revert_invoke(
             .get_storage_at(
                 contract_address!(TEST_CONTRACT_ADDRESS),
                 StorageKey::try_from(storage_key).unwrap(),
+                data_availability_mode,
             )
             .unwrap()
     );
@@ -818,6 +820,7 @@ fn test_revert_on_overdraft(
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();
+    let data_availability_mode = DataAvailabilityMode::L1;
     // Final storage value expected in the address at the end of this test.
     let expected_final_value = stark_felt!(77_u8);
     // An address to be used as recipient of a transfer.
@@ -835,7 +838,10 @@ fn test_revert_on_overdraft(
     } = create_test_init_data(max_fee, block_context, state);
 
     // Verify the contract's storage key initial value is empty.
-    assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
+    assert_eq!(
+        state.get_storage_at(contract_address, storage_key, data_availability_mode).unwrap(),
+        stark_felt!(0_u8)
+    );
 
     // Approve the test contract to transfer funds.
     let approve_calldata = calldata![
@@ -898,7 +904,10 @@ fn test_revert_on_overdraft(
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
     // Verify the storage key/value were not updated in the last tx.
-    assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), expected_final_value);
+    assert_eq!(
+        state.get_storage_at(contract_address, storage_key, data_availability_mode).unwrap(),
+        expected_final_value
+    );
 
     // Verify balances of both sender and recipient are as expected.
     assert_eq!(

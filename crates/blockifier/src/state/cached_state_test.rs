@@ -34,8 +34,12 @@ fn get_uninitialized_storage_value() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let contract_address = contract_address!("0x1");
     let key = StorageKey(patricia_key!("0x10"));
+    let data_availability_mode = DataAvailabilityMode::L1;
 
-    assert_eq!(state.get_storage_at(contract_address, key).unwrap(), StarkFelt::default());
+    assert_eq!(
+        state.get_storage_at(contract_address, key, data_availability_mode).unwrap(),
+        StarkFelt::default()
+    );
 }
 
 #[test]
@@ -44,9 +48,12 @@ fn get_and_set_storage_value() {
     let contract_address1 = contract_address!("0x200");
     let key0 = StorageKey(patricia_key!("0x10"));
     let key1 = StorageKey(patricia_key!("0x20"));
+    let data_availability_mode0 = DataAvailabilityMode::L1;
+    let data_availability_mode1 = DataAvailabilityMode::L1;
     let storage_val0: StarkFelt = stark_felt!("0x1");
     let storage_val1: StarkFelt = stark_felt!("0x5");
 
+    // TODO(barak, 01/10/2023): Use data_availability_mode to form the state.
     let mut state = CachedState::from(DictStateReader {
         storage_view: HashMap::from([
             ((contract_address0, key0), storage_val0),
@@ -54,18 +61,36 @@ fn get_and_set_storage_value() {
         ]),
         ..Default::default()
     });
-    assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), storage_val0);
-    assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
+    assert_eq!(
+        state.get_storage_at(contract_address0, key0, data_availability_mode0).unwrap(),
+        storage_val0
+    );
+    assert_eq!(
+        state.get_storage_at(contract_address1, key1, data_availability_mode1).unwrap(),
+        storage_val1
+    );
 
     let modified_storage_value0 = stark_felt!("0xA");
     state.set_storage_at(contract_address0, key0, modified_storage_value0);
-    assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
-    assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
+    assert_eq!(
+        state.get_storage_at(contract_address0, key0, data_availability_mode0).unwrap(),
+        modified_storage_value0
+    );
+    assert_eq!(
+        state.get_storage_at(contract_address1, key1, data_availability_mode1).unwrap(),
+        storage_val1
+    );
 
     let modified_storage_value1 = stark_felt!("0x7");
     state.set_storage_at(contract_address1, key1, modified_storage_value1);
-    assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
-    assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
+    assert_eq!(
+        state.get_storage_at(contract_address0, key0, data_availability_mode0).unwrap(),
+        modified_storage_value0
+    );
+    assert_eq!(
+        state.get_storage_at(contract_address1, key1, data_availability_mode1).unwrap(),
+        modified_storage_value1
+    );
 }
 
 #[test]
