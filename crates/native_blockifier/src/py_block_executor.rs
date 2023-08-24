@@ -76,15 +76,13 @@ impl PyBlockExecutor {
         self.tx_executor = None;
     }
 
-    #[pyo3(signature = (tx, raw_contract_class, enough_room_for_tx))]
+    #[pyo3(signature = (tx, raw_contract_class))]
     pub fn execute(
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-        // This is functools.partial(bouncer.add, tw_written=tx_written).
-        enough_room_for_tx: &PyAny,
-    ) -> NativeBlockifierResult<(Py<PyTransactionExecutionInfo>, PyVmExecutionResources)> {
-        self.tx_executor().execute(tx, raw_contract_class, enough_room_for_tx)
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+        self.tx_executor().execute(tx, raw_contract_class)
     }
 
     pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
@@ -101,6 +99,14 @@ impl PyBlockExecutor {
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         self.tx_executor().pre_process_block(old_block_number_and_hash)
+    }
+
+    pub fn commit_tx(&mut self) {
+        self.tx_executor().commit()
+    }
+
+    pub fn abort_tx(&mut self) {
+        self.tx_executor().abort()
     }
 
     // Storage Alignment API.
