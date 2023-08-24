@@ -24,6 +24,23 @@ pub enum DataAvailabilityError {
     InvalidDataAvailabilityMode { data_availability_mode: StarkFelt },
 }
 
+// Needed to convert the syscall output to an enum variant.
+impl TryFrom<StarkFelt> for DataAvailabilityMode {
+    type Error = DataAvailabilityError;
+
+    fn try_from(felt: StarkFelt) -> Result<Self, Self::Error> {
+        let zero = StarkFelt::from(0_u8);
+        let one = StarkFelt::from(1_u8);
+        if felt == zero {
+            Ok(DataAvailabilityMode::L1)
+        } else if felt == one {
+            Ok(DataAvailabilityMode::L2)
+        } else {
+            Err(DataAvailabilityError::InvalidDataAvailabilityMode { data_availability_mode: felt })
+        }
+    }
+}
+
 /// A read-only API for accessing StarkNet global state.
 ///
 /// The `self` argument is mutable for flexibility during reads (for example, caching reads),
