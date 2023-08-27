@@ -102,17 +102,6 @@ pub fn felt_from_ptr(
     Ok(felt)
 }
 
-pub fn u256_from_ptr(
-    vm: &VirtualMachine,
-    ptr: &mut Relocatable,
-) -> Result<BigUint, VirtualMachineError> {
-    let low = vm.get_integer(*ptr)?;
-    *ptr = (*ptr + 1)?;
-    let high = vm.get_integer(*ptr)?;
-    *ptr = (*ptr + 1)?;
-    Ok((high.to_biguint() << 128) + low.to_biguint())
-}
-
 pub fn write_u256(
     vm: &mut VirtualMachine,
     ptr: &mut Relocatable,
