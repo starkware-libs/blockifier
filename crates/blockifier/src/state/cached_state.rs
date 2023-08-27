@@ -8,7 +8,8 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::abi::abi_utils::get_erc20_balance_var_addresses;
+use crate::abi::abi_utils::get_erc20_balances_var_address;
+use crate::abi::sierra_types::SierraU256;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -82,8 +83,9 @@ impl<S: StateReader> CachedState<S> {
         // changes. Exclude the fee token contract modification, since it’s charged once throughout
         // the block.
         if let Some(sender_address) = sender_address {
-            let (sender_low_key, _sender_high_key) =
-                get_erc20_balance_var_addresses(&sender_address)?;
+            let (sender_low_key, _sender_high_key) = SierraU256::get_explicit_storage_keys(
+                get_erc20_balances_var_address(&sender_address)?,
+            )?;
             storage_updates.insert((fee_token_address, sender_low_key), StarkFelt::default());
         }
         modified_contracts.remove(&fee_token_address);
