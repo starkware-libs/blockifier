@@ -1,15 +1,18 @@
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use cached::{Cached, SizedCache};
+use cairo_felt::Felt252;
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::abi::abi_utils::get_erc20_balance_var_addresses;
+use crate::abi::abi_utils::get_erc20_balance_var_address;
 use crate::execution::contract_class::ContractClass;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::utils::subtract_mappings;
@@ -78,14 +81,22 @@ impl<S: StateReader> CachedState<S> {
         // Compiled class hash updates (declare Cairo 1 contract).
         let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
 
-        // Calculated before executing fee transfer and therefore we add manually the fee transfer
-        // changes. Exclude the fee token contract modification, since it’s charged once throughout
-        // the block.
+        // `sender_address` is None for L1Handler and Deploy transactions.
         if let Some(sender_address) = sender_address {
-            let (sender_low_key, _sender_high_key) =
-                get_erc20_balance_var_addresses(&sender_address)?;
-            storage_updates.insert((fee_token_address, sender_low_key), StarkFelt::default());
+            let sender_balance_key = get_erc20_balance_var_address(&sender_address)?;
+            // Take into account the future change in the fee_token contract, which takes place
+            // becasue of the fee transfer.
+            match storage_updates.entry((fee_token_address, sender_balance_key)) {
+                // The only requirement for the value is to be different from the previous one so we
+                // add 1 to the value.
+                Entry::Occupied(mut entry) => entry.insert(felt_to_stark_felt(
+                    &(stark_felt_to_felt(*entry.get()) + Felt252::from(1_u8)),
+                )),
+                Entry::Vacant(entry) => *entry.insert(felt_to_stark_felt(&Felt252::from(1_u8))),
+            };
         }
+        // Exclude the fee token contract modification, since it’s charged once throughout the
+        // block.
         modified_contracts.remove(&fee_token_address);
 
         Ok(StateChanges {
