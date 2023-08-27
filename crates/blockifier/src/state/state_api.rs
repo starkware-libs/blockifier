@@ -2,7 +2,8 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::abi::abi_utils::get_erc20_balance_var_addresses;
+use crate::abi::abi_utils::get_fee_token_var_address;
+use crate::abi::sierra_types::next_storage_key;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
@@ -54,7 +55,8 @@ pub trait StateReader {
         contract_address: &ContractAddress,
         fee_token_address: &ContractAddress,
     ) -> Result<(StarkFelt, StarkFelt), StateError> {
-        let (low_key, high_key) = get_erc20_balance_var_addresses(contract_address)?;
+        let low_key = get_fee_token_var_address(contract_address);
+        let high_key = next_storage_key(&low_key)?;
         let low = self.get_storage_at(*fee_token_address, low_key)?;
         let high = self.get_storage_at(*fee_token_address, high_key)?;
 

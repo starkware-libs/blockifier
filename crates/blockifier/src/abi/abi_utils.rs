@@ -1,13 +1,9 @@
 use cairo_felt::Felt252;
 use num_integer::Integer;
 use sha3::{Digest, Keccak256};
-use starknet_api::core::{
-    ContractAddress, EntryPointSelector, PatriciaKey, L2_ADDRESS_UPPER_BOUND,
-};
+use starknet_api::core::{ContractAddress, EntryPointSelector, L2_ADDRESS_UPPER_BOUND};
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::StarknetApiError;
-use starknet_crypto::FieldElement;
 
 use crate::abi::constants;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -56,22 +52,9 @@ pub fn get_storage_var_address(storage_var_name: &str, args: &[StarkFelt]) -> St
         .expect("Should be within bounds as retrieved mod L2_ADDRESS_UPPER_BOUND.")
 }
 
-/// Gets storage keys for a Uint256 storage variable.
-pub fn get_uint256_storage_var_addresses(
-    storage_var_name: &str,
-    args: &[StarkFelt],
-) -> Result<(StorageKey, StorageKey), StarknetApiError> {
-    let low_key = get_storage_var_address(storage_var_name, args);
-    // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, there may
-    //   be a better way to add 1 to the key.
-    let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
-        FieldElement::from(*low_key.0.key()) + FieldElement::ONE,
-    ))?);
-    Ok((low_key, high_key))
-}
-
-pub fn get_erc20_balance_var_addresses(
-    contract_address: &ContractAddress,
-) -> Result<(StorageKey, StorageKey), StarknetApiError> {
-    get_uint256_storage_var_addresses("ERC20_balances", &[*contract_address.0.key()])
+/// Returns the storage key inside the fee token corresponding to the first storage cell where the
+/// balance of contract_address is stored. Note that the reference implementation of an ERC20 stores
+/// the balance in two consecutive storage cells.
+pub fn get_fee_token_var_address(contract_address: &ContractAddress) -> StorageKey {
+    get_storage_var_address("ERC20_balances", &[*contract_address.0.key()])
 }

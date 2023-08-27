@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use blockifier::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use blockifier::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
@@ -22,13 +22,13 @@ use blockifier::test_utils::{
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, InvokeTransaction};
 use criterion::{criterion_group, criterion_main, Criterion};
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, InvokeTransaction as StarknetInvokeTransaction,
     InvokeTransactionV1, TransactionHash,
 };
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 const N_ACCOUNTS: usize = 10000;
 
@@ -146,7 +146,7 @@ fn prepare_accounts(
         addresses.push(deployed_account_address);
         nonces.push(1_u64);
         let deployed_account_balance_key =
-            get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]);
+            get_fee_token_var_address(&contract_address!(*deployed_account_address.0.key()));
         state.set_storage_at(
             block_context.fee_token_addresses.eth_fee_token_address,
             deployed_account_balance_key,
