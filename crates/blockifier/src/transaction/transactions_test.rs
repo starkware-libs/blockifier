@@ -18,9 +18,10 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use test_case::test_case;
 
 use crate::abi::abi_utils::{
-    get_erc20_balance_var_addresses, get_storage_var_address, selector_from_name,
+    get_erc20_balances_var_address, get_storage_var_address, selector_from_name,
 };
 use crate::abi::constants as abi_constants;
+use crate::abi::sierra_types::SierraU256;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -179,11 +180,15 @@ fn expected_fee_transfer_call_info(
         },
     };
 
-    let (sender_balance_key_low, sender_balance_key_high) =
-        get_erc20_balance_var_addresses(&account_address).expect("Cannot get sender balance keys.");
+    let (sender_balance_key_low, sender_balance_key_high) = SierraU256::get_storage_keys(
+        get_erc20_balances_var_address(&account_address).unwrap(),
+    )
+    .expect("Cannot get sender balance keys.");
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
-        get_erc20_balance_var_addresses(&block_context.sequencer_address)
-            .expect("Cannot get sequencer balance keys.");
+        SierraU256::get_storage_keys(
+            get_erc20_balances_var_address(&block_context.sequencer_address).unwrap(),
+        )
+        .expect("Cannot get sequencer balance keys.");
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
