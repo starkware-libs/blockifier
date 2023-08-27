@@ -17,10 +17,9 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
 
-use crate::abi::abi_utils::{
-    get_erc20_balance_var_addresses, get_storage_var_address, selector_from_name,
-};
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
+use crate::abi::sierra_types::next_storage_key;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -181,11 +180,12 @@ fn expected_fee_transfer_call_info(
         },
     };
 
-    let (sender_balance_key_low, sender_balance_key_high) =
-        get_erc20_balance_var_addresses(&account_address).expect("Cannot get sender balance keys.");
-    let (sequencer_balance_key_low, sequencer_balance_key_high) =
-        get_erc20_balance_var_addresses(&block_context.sequencer_address)
-            .expect("Cannot get sequencer balance keys.");
+    let sender_balance_key_low = get_fee_token_var_address(&account_address);
+    let sender_balance_key_high =
+        next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
+    let sequencer_balance_key_low = get_fee_token_var_address(&block_context.sequencer_address);
+    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
+        .expect("Cannot get sequencer balance high key.");
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
@@ -788,8 +788,7 @@ fn test_deploy_account_tx(
 
     // Update the balance of the about to be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
-    let deployed_account_balance_key =
-        get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]);
+    let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);

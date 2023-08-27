@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use blockifier::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use blockifier::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
@@ -136,8 +136,7 @@ fn prepare_accounts(
         let deployed_account_address = deploy_account_tx.contract_address;
         addresses.push(deployed_account_address);
         nonces.push(1_u64);
-        let deployed_account_balance_key =
-            get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]);
+        let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
         state.set_storage_at(
             block_context.fee_token_addresses.eth_fee_token_address,
             deployed_account_balance_key,
