@@ -5,7 +5,18 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::ToPrimitive;
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
+use starknet_api::StarknetApiError;
+use starknet_crypto::FieldElement;
 use thiserror::Error;
+
+use crate::execution::execution_utils::stark_felt_to_felt;
+use crate::state::errors::StateError;
+use crate::state::state_api::StateReader;
+
+pub type SierraTypeResult<T> = Result<T, SierraTypeError>;
 
 #[derive(Debug, Error)]
 pub enum SierraTypeError {
@@ -15,10 +26,19 @@ pub enum SierraTypeError {
     MemoryError(#[from] MemoryError),
     #[error(transparent)]
     MathError(#[from] MathError),
+    #[error(transparent)]
+    StateError(#[from] StateError),
+    #[error(transparent)]
+    StarknetApiError(#[from] StarknetApiError),
 }
 
 pub trait SierraType: Sized {
-    fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Self, SierraTypeError>;
+    fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> SierraTypeResult<Self>;
+    fn from_storage(
+        state: &mut dyn StateReader,
+        contract_address: &ContractAddress,
+        key: &StorageKey,
+    ) -> SierraTypeResult<Self>;
 }
 
 // Utils.
@@ -37,9 +57,18 @@ pub struct SierraU128 {
 }
 
 impl SierraType for SierraU128 {
-    fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Self, SierraTypeError> {
+    fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> SierraTypeResult<Self> {
         let val_as_felt = vm.get_integer(*ptr)?;
         *ptr = (*ptr + 1)?;
+        Ok(Self { val: felt_to_u128(&val_as_felt)? })
+    }
+
+    fn from_storage(
+        state: &mut dyn StateReader,
+        contract_address: &ContractAddress,
+        key: &StorageKey,
+    ) -> SierraTypeResult<Self> {
+        let val_as_felt = stark_felt_to_felt(state.get_storage_at(*contract_address, *key)?);
         Ok(Self { val: felt_to_u128(&val_as_felt)? })
     }
 }
@@ -65,6 +94,23 @@ impl SierraType for SierraU256 {
         *ptr = (*ptr + 1)?;
         let high_val_as_felt = vm.get_integer(*ptr)?;
         *ptr = (*ptr + 1)?;
+        Ok(Self {
+            low_val: felt_to_u128(&low_val_as_felt)?,
+            high_val: felt_to_u128(&high_val_as_felt)?,
+        })
+    }
+
+    fn from_storage(
+        state: &mut dyn StateReader,
+        contract_address: &ContractAddress,
+        key: &StorageKey,
+    ) -> SierraTypeResult<Self> {
+        let low_val_as_felt = stark_felt_to_felt(state.get_storage_at(*contract_address, *key)?);
+        let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
+            FieldElement::from(*key.0.key()) + FieldElement::ONE,
+        ))?);
+        let high_val_as_felt =
+            stark_felt_to_felt(state.get_storage_at(*contract_address, high_key)?);
         Ok(Self {
             low_val: felt_to_u128(&low_val_as_felt)?,
             high_val: felt_to_u128(&high_val_as_felt)?,
