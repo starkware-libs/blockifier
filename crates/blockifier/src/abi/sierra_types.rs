@@ -48,6 +48,13 @@ pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
         .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
 }
 
+// TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.
+pub fn next_storage_key(key: &StorageKey) -> Result<StorageKey, StarknetApiError> {
+    Ok(StorageKey(PatriciaKey::try_from(StarkFelt::from(
+        FieldElement::from(*key.0.key()) + FieldElement::ONE,
+    ))?))
+}
+
 // Implementations.
 
 // We implement the trait SierraType for SierraU128 and not for u128 since it's not guaranteed that
@@ -108,9 +115,7 @@ impl SierraType for SierraU256 {
         key: &StorageKey,
     ) -> SierraTypeResult<Self> {
         let low_val = SierraU128::from_storage(state, contract_address, key)?;
-        let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
-            FieldElement::from(*key.0.key()) + FieldElement::ONE,
-        ))?);
+        let high_key = next_storage_key(key)?;
         let high_val = SierraU128::from_storage(state, contract_address, &high_key)?;
         Ok(Self { low_val: low_val.as_value(), high_val: high_val.as_value() })
     }
