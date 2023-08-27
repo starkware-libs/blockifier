@@ -8,7 +8,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
-use crate::abi::abi_utils::get_erc20_balance_var_addresses;
+use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -78,14 +78,21 @@ impl<S: StateReader> CachedState<S> {
         // Compiled class hash updates (declare Cairo 1 contract).
         let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
 
-        // Calculated before executing fee transfer and therefore we add manually the fee transfer
-        // changes. Exclude the fee token contract modification, since it’s charged once throughout
-        // the block.
+        // For account transactions, we need to compute the transaction fee before we can execute
+        // the fee transfer, and the fee should cover the state changes that happen in the
+        // fee transfer. The fee transfer is going to update the balance of the sequencer
+        // and the balance of the sender contract, but we don't charge the sender for the
+        // sequencer balance change as it is amortized across the block.
         if let Some(sender_address) = sender_address {
-            let (sender_low_key, _sender_high_key) =
-                get_erc20_balance_var_addresses(&sender_address)?;
-            storage_updates.insert((fee_token_address, sender_low_key), StarkFelt::default());
+            let sender_balance_key = get_fee_token_var_address(&sender_address)?;
+            // StarkFelt::default() value is zero, which must be different from the initial balance,
+            // otherwise the transaction would have failed the "max fee lower than
+            // balance" validation.
+            storage_updates.insert((fee_token_address, sender_balance_key), StarkFelt::default());
         }
+
+        // Exclude the fee token contract modification, since it’s charged once throughout the
+        // block.
         modified_contracts.remove(&fee_token_address);
 
         Ok(StateChanges {
