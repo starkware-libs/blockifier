@@ -48,6 +48,13 @@ pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
         .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
 }
 
+// TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.
+pub fn increment_storage_key(key: &StorageKey) -> Result<StorageKey, StarknetApiError> {
+    Ok(StorageKey(PatriciaKey::try_from(StarkFelt::from(
+        FieldElement::from(*key.0.key()) + FieldElement::ONE,
+    ))?))
+}
+
 // Implementations.
 
 // We implement the trait SierraType for SierraU128 and not for u128 since it's not guaranteed that
@@ -93,6 +100,16 @@ impl SierraU256 {
             |val: u128| val.to_biguint().expect("u128 to BigUint conversion shouldn't fail.");
         (u128_to_biguint(self.high_val) << 128) + u128_to_biguint(self.low_val)
     }
+
+    /// This function retrieves the storage keys responsible for holding the u256 value based on the
+    /// provided key. An instance of SierraU256 is represented by two consecutive u128 values in
+    /// the storage.
+    pub fn get_storage_keys(key: StorageKey) -> Result<(StorageKey, StorageKey), StarknetApiError> {
+        // TODO(Dori, 1/10/2023): When a standard representation for large integers is set, there
+        // may be a better way to add 1 to the key.
+        let high_key = increment_storage_key(&key)?;
+        Ok((key, high_key))
+    }
 }
 
 impl SierraType for SierraU256 {
@@ -108,9 +125,7 @@ impl SierraType for SierraU256 {
         key: &StorageKey,
     ) -> SierraTypeResult<Self> {
         let low_val = SierraU128::from_storage(state, contract_address, key)?;
-        let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(
-            FieldElement::from(*key.0.key()) + FieldElement::ONE,
-        ))?);
+        let high_key = increment_storage_key(key)?;
         let high_val = SierraU128::from_storage(state, contract_address, &high_key)?;
         Ok(Self { low_val: low_val.as_value(), high_val: high_val.as_value() })
     }
