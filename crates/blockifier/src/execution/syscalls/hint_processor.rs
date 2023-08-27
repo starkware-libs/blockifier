@@ -25,6 +25,7 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
+use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
@@ -68,6 +69,8 @@ pub enum SyscallExecutionError {
     MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
     #[error(transparent)]
     MemoryError(#[from] MemoryError),
+    #[error(transparent)]
+    SierraTypeError(#[from] SierraTypeError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
