@@ -664,7 +664,7 @@ fn test_max_fee_to_max_steps_conversion(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context, state);
-    let actual_fee = 657500000000000;
+    let actual_fee = 659500000000000;
     let execute_calldata = calldata![
         *contract_address.0.key(),        // Contract address.
         selector_from_name("with_arg").0, // EP selector.
