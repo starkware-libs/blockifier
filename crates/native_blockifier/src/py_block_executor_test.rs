@@ -31,11 +31,7 @@ fn global_contract_cache_update() {
 
     // Finalizing a non-pending block does update the global cache.
     block_executor.setup_block_execution(PyBlockInfo::default()).unwrap();
-    block_executor
-        .tx_executor()
-        .state
-        .set_contract_class(&class_hash, contract_class.clone())
-        .unwrap();
+    block_executor.tx_executor().state.set_contract_class(&class_hash, contract_class).unwrap();
     let is_pending_block = false;
     block_executor.finalize(is_pending_block);
     assert_eq!(block_executor.global_contract_cache.lock().unwrap().cache_size(), 1);
