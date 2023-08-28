@@ -17,21 +17,21 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 19
                 },
                 "n_memory_holes": 0,
-                "n_steps": 690
+                "n_steps": 691
             },
             "DelegateCall": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 19
                 },
                 "n_memory_holes": 0,
-                "n_steps": 712
+                "n_steps": 713
             },
             "DelegateL1Handler": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 15
                 },
                 "n_memory_holes": 0,
-                "n_steps": 691
+                "n_steps": 692
             },
             "Deploy": {
                 "builtin_instance_counter": {
@@ -39,7 +39,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 18
                 },
                 "n_memory_holes": 0,
-                "n_steps": 936
+                "n_steps": 944
             },
             "EmitEvent": {
                 "builtin_instance_counter": {},
@@ -47,9 +47,11 @@ fn os_resources() -> serde_json::Value {
                 "n_steps": 19
             },
             "GetBlockHash": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 2
+                },
                 "n_memory_holes": 0,
-                "n_steps": 44
+                "n_steps": 74
             },
             "GetBlockNumber": {
                 "builtin_instance_counter": {},
@@ -107,14 +109,14 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 19
                 },
                 "n_memory_holes": 0,
-                "n_steps": 679
+                "n_steps": 680
             },
             "LibraryCallL1Handler": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 15
                 },
                 "n_memory_holes": 0,
-                "n_steps": 658
+                "n_steps": 659
             },
             "ReplaceClass": {
                 "builtin_instance_counter": {},
@@ -179,7 +181,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 63
                 },
                 "n_memory_holes": 0,
-                "n_steps": 2703
+                "n_steps": 2711
             },
             "DeployAccount": {
                 "builtin_instance_counter": {
@@ -187,7 +189,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 83
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3612
+                "n_steps": 3628
             },
             "InvokeFunction": {
                 "builtin_instance_counter": {
@@ -195,7 +197,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 80,
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3363
+                "n_steps": 3382
             },
             "L1Handler": {
                 "builtin_instance_counter": {
@@ -203,7 +205,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 17
                 },
                 "n_memory_holes": 0,
-                "n_steps": 1068
+                "n_steps": 1069
             }
         }
     })
