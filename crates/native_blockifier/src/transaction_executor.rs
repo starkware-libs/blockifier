@@ -14,48 +14,39 @@ use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::papyrus_state::PapyrusReader;
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{py_enum_name, PyFelt};
-use crate::storage::Storage;
 
-/// Wraps the transaction executor in an optional, to allow an explicit deallocation of it.
-/// The explicit deallocation is needed since PyO3 can't track lifetimes within Python.
-
-pub struct TransactionExecutor {
+pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
 
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
 
     // State-related fields.
-    pub state: CachedState<PapyrusReader>,
+    pub state: CachedState<S>,
+
     // Transactional state, awaiting commit/abort call.
     // Is `Some` only after transaction has finished executing, and before commit/revert have been
     // called. `None` while a transaction is being executed and in between transactions.
     pub staged_for_commit_state: Option<StagedTransactionalState>,
 }
 
-impl TransactionExecutor {
+impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
-        papyrus_storage: &Storage,
+        state_reader: S,
         general_config: &PyGeneralConfig,
         block_info: PyBlockInfo,
         max_recursion_depth: usize,
         global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
-        // Assumption: storage is aligned.
-        let reader = papyrus_storage.reader().clone();
 
         let block_context = into_block_context(general_config, block_info, max_recursion_depth)?;
-        let state = CachedState::new(
-            PapyrusReader::new(reader, block_context.block_number),
-            global_contract_cache,
-        );
+        let state = CachedState::new(state_reader, global_contract_cache);
         let executed_class_hashes = HashSet::<ClassHash>::new();
         log::debug!("Initialized Transaction Executor.");
         Ok(Self { block_context, executed_class_hashes, state, staged_for_commit_state: None })
@@ -150,8 +141,8 @@ impl TransactionExecutor {
 
 /// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
 /// executed classes by the current transaction.
-pub fn get_casm_hash_calculation_resources(
-    state: &mut TransactionalState<'_, PapyrusReader>,
+pub fn get_casm_hash_calculation_resources<S: StateReader>(
+    state: &mut TransactionalState<'_, S>,
     executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
 ) -> NativeBlockifierResult<PyVmExecutionResources> {

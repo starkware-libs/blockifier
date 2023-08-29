@@ -8,6 +8,7 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::errors::NativeBlockifierResult;
+use crate::papyrus_state::PapyrusReader;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{int_to_chain_id, PyFelt};
@@ -22,7 +23,7 @@ mod py_block_executor_test;
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
-    pub tx_executor: Option<TransactionExecutor>,
+    pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     pub storage: Storage,
     pub global_contract_cache: GlobalContractCache,
 }
@@ -58,10 +59,15 @@ impl PyBlockExecutor {
         &mut self,
         next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<()> {
+        // Full-node storage must be aligned to the Python storage before initializing a reader.
         self.storage.validate_aligned(next_block_info.block_number);
+        let papyrus_reader = PapyrusReader::new(
+            self.storage.reader().clone(),
+            BlockNumber(next_block_info.block_number),
+        );
 
         let tx_executor = TransactionExecutor::new(
-            &self.storage,
+            papyrus_reader,
             &self.general_config,
             next_block_info,
             self.max_recursion_depth,
@@ -195,7 +201,7 @@ impl PyBlockExecutor {
 }
 
 impl PyBlockExecutor {
-    pub fn tx_executor(&mut self) -> &mut TransactionExecutor {
+    pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PapyrusReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
     }
 }
