@@ -7,8 +7,9 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use starknet_api::hash::StarkFelt;
 
+use crate::abi::sierra_types::{SierraType, SierraU256};
 use crate::execution::execution_utils::{
-    felt_from_ptr, stark_felt_from_ptr, u256_from_ptr, write_maybe_relocatable, write_u256,
+    felt_from_ptr, stark_felt_from_ptr, write_maybe_relocatable, write_u256,
 };
 use crate::execution::syscalls::hint_processor::{
     felt_to_bool, SyscallHintProcessor, INVALID_ARGUMENT,
@@ -107,7 +108,7 @@ impl SyscallRequest for Secp256k1GetPointFromXRequest {
         vm: &VirtualMachine,
         ptr: &mut Relocatable,
     ) -> SyscallResult<Secp256k1GetPointFromXRequest> {
-        let x = u256_from_ptr(vm, ptr)?;
+        let x = SierraU256::from_memory(vm, ptr)?.to_biguint();
 
         let y_parity = felt_to_bool(stark_felt_from_ptr(vm, ptr)?, "Invalid y parity")?;
         Ok(Secp256k1GetPointFromXRequest { x, y_parity })
@@ -192,7 +193,7 @@ pub struct Secp256k1MulRequest {
 impl SyscallRequest for Secp256k1MulRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1MulRequest> {
         let ec_point_id = felt_from_ptr(vm, ptr)?;
-        let multiplier = u256_from_ptr(vm, ptr)?;
+        let multiplier = SierraU256::from_memory(vm, ptr)?.to_biguint();
         Ok(Secp256k1MulRequest { ec_point_id, multiplier })
     }
 }
@@ -217,8 +218,8 @@ type Secp256k1NewRequest = EcPointCoordinates;
 
 impl SyscallRequest for Secp256k1NewRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1NewRequest> {
-        let x = u256_from_ptr(vm, ptr)?;
-        let y = u256_from_ptr(vm, ptr)?;
+        let x = SierraU256::from_memory(vm, ptr)?.to_biguint();
+        let y = SierraU256::from_memory(vm, ptr)?.to_biguint();
         Ok(Secp256k1NewRequest { x, y })
     }
 }
