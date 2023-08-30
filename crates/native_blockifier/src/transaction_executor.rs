@@ -59,13 +59,13 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
+        charge_fee: bool,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
-        let charge_fee = true;
         let validate = true;
         let tx_execution_result = tx
             .execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate)
