@@ -84,6 +84,7 @@ pub fn secp256k1_add(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<Secp256k1AddResponse> {
     let lhs = syscall_handler.get_secp256k1_point_by_id(request.lhs_id)?;
     let rhs = syscall_handler.get_secp256k1_point_by_id(request.rhs_id)?;
@@ -121,6 +122,7 @@ pub fn secp256k1_get_point_from_x(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<Secp256k1GetPointFromXResponse> {
     let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
 
@@ -175,6 +177,7 @@ pub fn secp256k1_get_xy(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<Secp256k1GetXyResponse> {
     let ec_point = syscall_handler.get_secp256k1_point_by_id(request.ec_point_id)?;
 
@@ -204,6 +207,7 @@ pub fn secp256k1_mul(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<Secp256k1MulResponse> {
     let ep_point = syscall_handler.get_secp256k1_point_by_id(request.ec_point_id)?;
     let result = *ep_point * secp256k1::Fr::from(request.multiplier);
@@ -230,6 +234,7 @@ pub fn secp256k1_new(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<Secp256k1NewResponse> {
     let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
     let (x, y) = (request.x, request.y);

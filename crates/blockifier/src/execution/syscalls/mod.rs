@@ -159,6 +159,7 @@ pub fn call_contract(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
     let entry_point = CallEntryPoint {
@@ -224,6 +225,7 @@ pub fn deploy(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<DeployResponse> {
     let deployer_address = syscall_handler.storage_address();
     let deployer_address_for_calculation = match request.deploy_from_zero {
@@ -286,6 +288,7 @@ pub fn emit_event(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
     let ordered_event =
@@ -338,6 +341,7 @@ pub fn get_block_hash(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<GetBlockHashResponse> {
     let requested_block_number = request.block_number.0;
     let current_block_number = syscall_handler.context.block_context.block_number.0;
@@ -378,6 +382,7 @@ pub fn get_execution_info(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<GetExecutionInfoResponse> {
     let execution_info_ptr = syscall_handler.get_or_allocate_execution_info_segment(vm)?;
 
@@ -409,6 +414,7 @@ pub fn library_call(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = true;
     let retdata_segment = execute_library_call(
@@ -431,6 +437,7 @@ pub fn library_call_l1_handler(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<LibraryCallResponse> {
     let call_to_external = false;
     let retdata_segment = execute_library_call(
@@ -468,6 +475,7 @@ pub fn replace_class(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<ReplaceClassResponse> {
     // Ensure the class is declared (by reading it), and of type V1.
     let class_hash = request.class_hash;
@@ -510,6 +518,7 @@ pub fn send_message_to_l1(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<SendMessageToL1Response> {
     let execution_context = &mut syscall_handler.context;
     let ordered_message_to_l1 = OrderedL2ToL1Message {
@@ -559,6 +568,7 @@ pub fn storage_read(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<StorageReadResponse> {
     syscall_handler.get_contract_storage_at(request.address)
 }
@@ -591,6 +601,7 @@ pub fn storage_write(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<StorageWriteResponse> {
     syscall_handler.set_contract_storage_at(request.address, request.value)
 }
@@ -632,6 +643,7 @@ pub fn keccak(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
+    _aux_data: (),
 ) -> SyscallResult<KeccakResponse> {
     let input_length = (request.input_end - request.input_start)?;
 
