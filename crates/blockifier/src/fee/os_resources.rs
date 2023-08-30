@@ -158,6 +158,41 @@ fn os_resources() -> serde_json::Value {
                 "n_memory_holes": 0,
                 "n_steps": 440
             },
+            "Secp256r1Add": {
+                "builtin_instance_counter": {
+                    "range_check_builtin": 57
+                },
+                "n_memory_holes": 0,
+                "n_steps": 578
+            },
+            "Secp256r1GetPointFromX": {
+                "builtin_instance_counter": {
+                    "range_check_builtin": 44
+                },
+                "n_memory_holes": 0,
+                "n_steps": 535
+            },
+            "Secp256r1GetXy": {
+                "builtin_instance_counter": {
+                    "range_check_builtin": 9
+                },
+                "n_memory_holes": 0,
+                "n_steps": 159
+            },
+            "Secp256r1Mul": {
+                "builtin_instance_counter": {
+                    "range_check_builtin": 21477
+                },
+                "n_memory_holes": 0,
+                "n_steps": 196096
+            },
+            "Secp256r1New": {
+                "builtin_instance_counter": {
+                    "range_check_builtin": 49
+                },
+                "n_memory_holes": 0,
+                "n_steps": 616
+            },
             "SendMessageToL1": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
