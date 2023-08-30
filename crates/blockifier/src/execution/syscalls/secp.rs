@@ -4,11 +4,12 @@ use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
-use num_traits::Zero;
+use num_traits::{ToPrimitive, Zero};
 use starknet_api::hash::StarkFelt;
 
 use crate::execution::execution_utils::{
-    felt_from_ptr, stark_felt_from_ptr, u256_from_ptr, write_maybe_relocatable, write_u256,
+    felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, u256_from_ptr, write_maybe_relocatable,
+    write_u256,
 };
 use crate::execution::syscalls::hint_processor::{
     felt_to_bool, SyscallHintProcessor, INVALID_ARGUMENT,
@@ -16,6 +17,32 @@ use crate::execution::syscalls::hint_processor::{
 use crate::execution::syscalls::{
     SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
 };
+
+#[derive(Default, Debug, Eq, PartialEq)]
+pub struct SecpStorage {
+    secp256k1_points: Vec<secp256k1::Affine>,
+}
+
+impl SecpStorage {
+    pub fn allocate_secp256k1_point(&mut self, ec_point: ark_secp256k1::Affine) -> usize {
+        let points = &mut self.secp256k1_points;
+        let id = points.len();
+        points.push(ec_point);
+        id
+    }
+
+    pub fn get_secp256k1_point_by_id(
+        &self,
+        ec_point_id: Felt252,
+    ) -> SyscallResult<&ark_secp256k1::Affine> {
+        ec_point_id.to_usize().and_then(|id| self.secp256k1_points.get(id)).ok_or_else(|| {
+            SyscallExecutionError::InvalidSyscallInput {
+                input: felt_to_stark_felt(&ec_point_id),
+                info: "Invalid Secp256k1 point ID".to_string(),
+            }
+        })
+    }
+}
 
 // The x and y coordinates of an elliptic curve point.
 #[derive(Debug, Eq, PartialEq)]
@@ -79,17 +106,24 @@ impl SyscallRequest for Secp256k1AddRequest {
 
 type Secp256k1AddResponse = Secp256k1OpRespone;
 
+pub fn secp_add(
+    request: Secp256k1AddRequest,
+    secp_storage: &mut SecpStorage,
+) -> SyscallResult<Secp256k1AddResponse> {
+    let lhs = secp_storage.get_secp256k1_point_by_id(request.lhs_id)?;
+    let rhs = secp_storage.get_secp256k1_point_by_id(request.rhs_id)?;
+    let result = *lhs + *rhs;
+    let ec_point_id = secp_storage.allocate_secp256k1_point(result.into());
+    Ok(Secp256k1OpRespone { ec_point_id })
+}
+
 pub fn secp256k1_add(
     request: Secp256k1AddRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
-) -> SyscallResult<Secp256k1AddResponse> {
-    let lhs = syscall_handler.get_secp256k1_point_by_id(request.lhs_id)?;
-    let rhs = syscall_handler.get_secp256k1_point_by_id(request.rhs_id)?;
-    let result = *lhs + *rhs;
-    let ec_point_id = syscall_handler.allocate_secp256k1_point(result.into());
-    Ok(Secp256k1OpRespone { ec_point_id })
+) -> SyscallResult<Secp256k1OpRespone> {
+    secp_add(request, &mut syscall_handler.secp256k1_points)
 }
 
 // Secp256k1GetPointFromXRequest syscall.
@@ -116,11 +150,9 @@ impl SyscallRequest for Secp256k1GetPointFromXRequest {
 
 type Secp256k1GetPointFromXResponse = Secp256k1OptionalEcPointResponse;
 
-pub fn secp256k1_get_point_from_x(
+pub fn secp_get_point_from_x(
     request: Secp256k1GetPointFromXRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-    _remaining_gas: &mut u64,
+    secp_storage: &mut SecpStorage,
 ) -> SyscallResult<Secp256k1GetPointFromXResponse> {
     let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
 
@@ -143,8 +175,17 @@ pub fn secp256k1_get_point_from_x(
 
     Ok(Secp256k1GetPointFromXResponse {
         optional_ec_point_id: maybe_ec_point
-            .map(|ec_point| syscall_handler.allocate_secp256k1_point(ec_point)),
+            .map(|ec_point| secp_storage.allocate_secp256k1_point(ec_point)),
     })
+}
+
+pub fn secp256k1_get_point_from_x(
+    request: Secp256k1GetPointFromXRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1GetPointFromXResponse> {
+    secp_get_point_from_x(request, &mut syscall_handler.secp256k1_points)
 }
 
 // Secp256k1GetXy syscall.
@@ -170,15 +211,22 @@ impl SyscallResponse for Secp256k1GetXyResponse {
     }
 }
 
+pub fn secp_get_xy(
+    request: Secp256k1GetXyRequest,
+    secp_storage: &mut SecpStorage,
+) -> SyscallResult<Secp256k1GetXyResponse> {
+    let ec_point = secp_storage.get_secp256k1_point_by_id(request.ec_point_id)?;
+
+    Ok(Secp256k1GetXyResponse { x: ec_point.x.into(), y: ec_point.y.into() })
+}
+
 pub fn secp256k1_get_xy(
     request: Secp256k1GetXyRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<Secp256k1GetXyResponse> {
-    let ec_point = syscall_handler.get_secp256k1_point_by_id(request.ec_point_id)?;
-
-    Ok(Secp256k1GetXyResponse { x: ec_point.x.into(), y: ec_point.y.into() })
+    secp_get_xy(request, &mut syscall_handler.secp256k1_points)
 }
 
 // Secp256k1Mul syscall.
@@ -199,16 +247,23 @@ impl SyscallRequest for Secp256k1MulRequest {
 
 type Secp256k1MulResponse = Secp256k1OpRespone;
 
+pub fn secp_mul(
+    request: Secp256k1MulRequest,
+    secp_storage: &mut SecpStorage,
+) -> SyscallResult<Secp256k1MulResponse> {
+    let ep_point = secp_storage.get_secp256k1_point_by_id(request.ec_point_id)?;
+    let result = *ep_point * secp256k1::Fr::from(request.multiplier);
+    let ec_point_id = secp_storage.allocate_secp256k1_point(result.into());
+    Ok(Secp256k1OpRespone { ec_point_id })
+}
+
 pub fn secp256k1_mul(
     request: Secp256k1MulRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<Secp256k1MulResponse> {
-    let ep_point = syscall_handler.get_secp256k1_point_by_id(request.ec_point_id)?;
-    let result = *ep_point * secp256k1::Fr::from(request.multiplier);
-    let ec_point_id = syscall_handler.allocate_secp256k1_point(result.into());
-    Ok(Secp256k1OpRespone { ec_point_id })
+    secp_mul(request, &mut syscall_handler.secp256k1_points)
 }
 
 // Secp256k1New syscall.
@@ -225,11 +280,9 @@ impl SyscallRequest for Secp256k1NewRequest {
 
 type Secp256k1NewResponse = Secp256k1OptionalEcPointResponse;
 
-pub fn secp256k1_new(
+pub fn secp_new(
     request: Secp256k1NewRequest,
-    _vm: &mut VirtualMachine,
-    syscall_handler: &mut SyscallHintProcessor<'_>,
-    _remaining_gas: &mut u64,
+    secp_storage: &mut SecpStorage,
 ) -> SyscallResult<Secp256k1NewResponse> {
     let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
     let (x, y) = (request.x, request.y);
@@ -247,9 +300,18 @@ pub fn secp256k1_new(
     };
     let optional_ec_point_id =
         if ec_point.is_on_curve() && ec_point.is_in_correct_subgroup_assuming_on_curve() {
-            Some(syscall_handler.allocate_secp256k1_point(ec_point))
+            Some(secp_storage.allocate_secp256k1_point(ec_point))
         } else {
             None
         };
     Ok(Secp256k1NewResponse { optional_ec_point_id })
+}
+
+pub fn secp256k1_new(
+    request: Secp256k1NewRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1NewResponse> {
+    secp_new(request, &mut syscall_handler.secp256k1_points)
 }
