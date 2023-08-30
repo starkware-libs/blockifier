@@ -424,6 +424,23 @@ fn test_secp256k1() {
 }
 
 #[test]
+fn test_secp256r1() {
+    let mut state = create_test_state();
+
+    let calldata = Calldata(vec![].into());
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_secp256r1"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { gas_consumed: 55461640_u64, ..Default::default() }
+    );
+}
+
+#[test]
 fn test_send_message_to_l1() {
     let mut state = create_test_state();
 

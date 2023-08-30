@@ -37,6 +37,7 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::syscalls::secp::{
     secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
+    secp256r1_add, secp256r1_get_point_from_x, secp256r1_get_xy, secp256r1_mul, secp256r1_new,
     SecpHintProcessor,
 };
 use crate::execution::syscalls::{
@@ -129,6 +130,7 @@ pub struct SyscallHintProcessor<'a> {
 
     // Secp hint processors.
     pub secp256k1_hint_processor: super::secp::SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_hint_processor: super::secp::SecpHintProcessor<ark_secp256r1::Config>,
 
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
@@ -161,6 +163,7 @@ impl<'a> SyscallHintProcessor<'a> {
             hints,
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
+            secp256r1_hint_processor: SecpHintProcessor::default(),
         }
     }
 
@@ -250,6 +253,23 @@ impl<'a> SyscallHintProcessor<'a> {
             }
             SyscallSelector::Secp256k1New => {
                 self.execute_syscall(vm, secp256k1_new, constants::SECP256K1_NEW_GAS_COST)
+            }
+            SyscallSelector::Secp256r1Add => {
+                self.execute_syscall(vm, secp256r1_add, constants::SECP256R1_ADD_GAS_COST)
+            }
+            SyscallSelector::Secp256r1GetPointFromX => self.execute_syscall(
+                vm,
+                secp256r1_get_point_from_x,
+                constants::SECP256R1_GET_POINT_FROM_X_GAS_COST,
+            ),
+            SyscallSelector::Secp256r1GetXy => {
+                self.execute_syscall(vm, secp256r1_get_xy, constants::SECP256R1_GET_XY_GAS_COST)
+            }
+            SyscallSelector::Secp256r1Mul => {
+                self.execute_syscall(vm, secp256r1_mul, constants::SECP256R1_MUL_GAS_COST)
+            }
+            SyscallSelector::Secp256r1New => {
+                self.execute_syscall(vm, secp256r1_new, constants::SECP256R1_NEW_GAS_COST)
             }
             SyscallSelector::SendMessageToL1 => {
                 self.execute_syscall(vm, send_message_to_l1, constants::SEND_MESSAGE_TO_L1_GAS_COST)
