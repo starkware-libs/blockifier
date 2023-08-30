@@ -250,5 +250,25 @@ mod TestContract {
 
         (msg_hash, r, s, public_key_x, public_key_y, eth_address)
     }
-}
 
+
+    #[external(v0)]
+    fn test_secp256r1(ref self: ContractState) {
+        // Test a point not on the curve.
+        assert (starknet::secp256r1::secp256r1_new_syscall(
+            x: 0, y: 1).unwrap_syscall().is_none(), 'Should be none');
+
+        // Test a point with x == Secp_prime.
+        match starknet::secp256r1::secp256r1_new_syscall(
+            x: 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff, y: 1) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) =>
+                assert(*revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'),
+        }
+
+        // Test a point on the curve.
+        let x = 0x502A43CE77C6F5C736A82F847FA95F8C2D483FE223B12B91047D83258A958B0F;
+        let y = 0xDB0A2E6710C71BA80AFEB3ABDF69D306CE729C7704F4DDF2EAAF0B76209FE1B0;
+        let p0 = starknet::secp256r1::secp256r1_new_syscall(x, y).unwrap_syscall().unwrap();
+    }
+}

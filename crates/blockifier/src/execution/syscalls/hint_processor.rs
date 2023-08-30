@@ -24,6 +24,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use super::secp::secp256r1_new;
 use crate::abi::constants;
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
@@ -127,6 +128,9 @@ pub struct SyscallHintProcessor<'a> {
     // Secp256k1 points.
     pub secp256k1_points: Vec<ark_secp256k1::Affine>,
 
+    // Secp256r1 points.
+    pub secp256r1_points: Vec<ark_secp256r1::Affine>,
+
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
@@ -158,6 +162,7 @@ impl<'a> SyscallHintProcessor<'a> {
             hints,
             execution_info_ptr: None,
             secp256k1_points: vec![],
+            secp256r1_points: vec![],
         }
     }
 
@@ -247,6 +252,9 @@ impl<'a> SyscallHintProcessor<'a> {
             }
             SyscallSelector::Secp256k1New => {
                 self.execute_syscall(vm, secp256k1_new, constants::SECP256K1_NEW_GAS_COST)
+            }
+            SyscallSelector::Secp256r1New => {
+                self.execute_syscall(vm, secp256r1_new, constants::SECP256R1_NEW_GAS_COST)
             }
             SyscallSelector::SendMessageToL1 => {
                 self.execute_syscall(vm, send_message_to_l1, constants::SEND_MESSAGE_TO_L1_GAS_COST)
@@ -431,6 +439,13 @@ impl<'a> SyscallHintProcessor<'a> {
 
     pub fn allocate_secp256k1_point(&mut self, ec_point: ark_secp256k1::Affine) -> usize {
         let points = &mut self.secp256k1_points;
+        let id = points.len();
+        points.push(ec_point);
+        id
+    }
+
+    pub fn allocate_secp256r1_point(&mut self, ec_point: ark_secp256r1::Affine) -> usize {
+        let points = &mut self.secp256r1_points;
         let id = points.len();
         points.push(ec_point);
         id
