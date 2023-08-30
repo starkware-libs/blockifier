@@ -88,7 +88,8 @@ impl PyBlockExecutor {
         tx: &PyAny,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
-        self.tx_executor().execute(tx, raw_contract_class)
+        let charge_fee = true;
+        self.tx_executor().execute(tx, raw_contract_class, charge_fee)
     }
 
     pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
