@@ -222,7 +222,7 @@ mod TestContract {
 
         let y_parity = true;
         let (msg_hash, r, s, expected_public_key_x, expected_public_key_y, eth_address) =
-            get_message_and_signature(
+            get_message_and_secp256k1_signature(
             :y_parity
         );
         verify_eth_signature::<starknet::secp256k1::Secp256k1Point>(
@@ -230,7 +230,7 @@ mod TestContract {
     }
 
     /// Returns a golden valid message hash and its signature, for testing.
-    fn get_message_and_signature(y_parity: bool) -> (u256, u256, u256, u256, u256, EthAddress) {
+    fn get_message_and_secp256k1_signature(y_parity: bool) -> (u256, u256, u256, u256, u256, EthAddress) {
         let msg_hash = 0xe888fbb4cf9ae6254f19ba12e6d9af54788f195a6f509ca3e934f78d7a71dd85;
         let r = 0x4c8e4fbc1fbb1dece52185e532812c4f7a5f81cf3ee10044320a0d03b62d3e9a;
         let s = 0x4ac5e5c0c0e8a4871583cc131f35fb49c2b7f60e6a8b84965830658f08f7410c;
@@ -250,5 +250,49 @@ mod TestContract {
 
         (msg_hash, r, s, public_key_x, public_key_y, eth_address)
     }
-}
 
+
+    #[external(v0)]
+    fn test_secp256r1(ref self: ContractState) {
+        // Test a point not on the curve.
+        assert (starknet::secp256r1::secp256r1_new_syscall(
+            x: 0, y: 1).unwrap_syscall().is_none(), 'Should be none');
+
+        // Test a point with x == Secp_prime.
+        match starknet::secp256r1::secp256r1_new_syscall(
+            x: 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff, y: 1) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) =>
+                assert(*revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'),
+        }
+
+        // Test a point on the curve.
+        let x = 0x502A43CE77C6F5C736A82F847FA95F8C2D483FE223B12B91047D83258A958B0F;
+        let y = 0xDB0A2E6710C71BA80AFEB3ABDF69D306CE729C7704F4DDF2EAAF0B76209FE1B0;
+        let p0 = starknet::secp256r1::secp256r1_new_syscall(x, y).unwrap_syscall().unwrap();
+
+
+        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+            get_message_and_secp256r1_signature();
+        verify_eth_signature::<starknet::secp256r1::Secp256r1Point>(:msg_hash, :signature, :eth_address);
+    }
+
+
+    /// Returns a golden valid message hash and its signature, for testing.
+    fn get_message_and_secp256r1_signature() -> (u256, Signature, u256, u256, EthAddress) {
+        // msg = ""
+        // public key: (0x04aaec73635726f213fb8a9e64da3b8632e41495a944d0045b522eba7240fad5,
+        //              0x0087d9315798aaa3a5ba01775787ced05eaaf7b4e09fc81d6d1aa546e8365d525d).
+        let msg_hash = 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855;
+        let r = 0xb292a619339f6e567a305c951c0dcbcc42d16e47f219f9e98e76e09d8770b34a;
+        let s = 0x177e60492c5a8242f76f07bfe3661bde59ec2a17ce5bd2dab2abebdf89a62e2;
+
+        let (public_key_x, public_key_y) = (
+            0x04aaec73635726f213fb8a9e64da3b8632e41495a944d0045b522eba7240fad5,
+            0x0087d9315798aaa3a5ba01775787ced05eaaf7b4e09fc81d6d1aa546e8365d525d
+        );
+        let eth_address = 0x492882426e1cda979008bfaf874ff796eb3bb1c0_u256.into();
+
+        (msg_hash, Signature { r, s, y_parity: true }, public_key_x, public_key_y, eth_address)
+    }
+}
