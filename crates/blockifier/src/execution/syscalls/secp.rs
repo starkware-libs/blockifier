@@ -1,4 +1,6 @@
-use ark_ff::{BigInteger, PrimeField};
+use ark_ec::short_weierstrass::SWCurveConfig;
+use ark_ec::{short_weierstrass, CurveConfig};
+use ark_ff::{BigInteger, Field, PrimeField};
 use ark_secp256k1 as secp256k1;
 use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
@@ -225,13 +227,18 @@ impl SyscallRequest for Secp256k1NewRequest {
 
 type Secp256k1NewResponse = Secp256k1OptionalEcPointResponse;
 
-pub fn secp256k1_new(
+fn secp_new<Curve: CurveConfig + SWCurveConfig>(
     request: Secp256k1NewRequest,
     _vm: &mut VirtualMachine,
+    &mut
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
-) -> SyscallResult<Secp256k1NewResponse> {
-    let modulos = <secp256k1::Fq as ark_ff::PrimeField>::MODULUS.into();
+) -> SyscallResult<Secp256k1NewResponse>
+where
+    <Curve as CurveConfig>::BaseField: From<BigUint>,
+{
+    let modulos = <<Curve as ark_ec::CurveConfig>::BaseField as Field>::BasePrimeField::MODULUS;
+
     let (x, y) = (request.x, request.y);
     if x >= modulos || y >= modulos {
         return Err(SyscallExecutionError::SyscallError {
@@ -241,15 +248,24 @@ pub fn secp256k1_new(
         });
     }
     let ec_point = if x.is_zero() && y.is_zero() {
-        secp256k1::Affine::identity()
+        short_weierstrass::Affine::<Curve>::identity()
     } else {
-        secp256k1::Affine::new_unchecked(x.into(), y.into())
+        short_weierstrass::Affine::<Curve>::new_unchecked(x.into(), y.into())
     };
     let optional_ec_point_id =
         if ec_point.is_on_curve() && ec_point.is_in_correct_subgroup_assuming_on_curve() {
-            Some(syscall_handler.allocate_secp256k1_point(ec_point))
+            Some(HandlerEcSupport::allocate_secp256k1_point(ec_point))
         } else {
             None
         };
     Ok(Secp256k1NewResponse { optional_ec_point_id })
+}
+
+pub fn secp256k1_new(
+    request: Secp256k1NewRequest,
+    _vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Secp256k1NewResponse> {
+    secp_new::<ark_secp256k1::Config>(request, _vm, syscall_handler, _remaining_gas)
 }

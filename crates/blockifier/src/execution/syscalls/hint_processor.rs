@@ -101,6 +101,7 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
 
+
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
@@ -126,6 +127,9 @@ pub struct SyscallHintProcessor<'a> {
 
     // Secp256k1 points.
     pub secp256k1_points: Vec<ark_secp256k1::Affine>,
+
+    // Secp256r1 points.
+    pub secp256k1_points: Vec<ark_secp256r1::Affine>,
 
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
