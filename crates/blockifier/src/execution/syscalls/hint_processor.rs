@@ -15,7 +15,6 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
-use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -33,11 +32,12 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_range_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
-    write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
+    felt_range_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
+    ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::secp::{
     secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
+    SecpHintProcessor,
 };
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
@@ -127,8 +127,8 @@ pub struct SyscallHintProcessor<'a> {
     pub read_values: Vec<StarkFelt>,
     pub accessed_keys: HashSet<StorageKey>,
 
-    // Secp256k1 points.
-    pub secp256k1_points: Vec<ark_secp256k1::Affine>,
+    // Secp hint processors.
+    pub secp256k1_hint_processor: super::secp::SecpHintProcessor<ark_secp256k1::Config>,
 
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
@@ -160,7 +160,7 @@ impl<'a> SyscallHintProcessor<'a> {
             accessed_keys: HashSet::new(),
             hints,
             execution_info_ptr: None,
-            secp256k1_points: vec![],
+            secp256k1_hint_processor: SecpHintProcessor::default(),
         }
     }
 
@@ -430,25 +430,6 @@ impl<'a> SyscallHintProcessor<'a> {
         self.state.set_storage_at(self.storage_address(), key, value);
 
         Ok(StorageWriteResponse {})
-    }
-
-    pub fn allocate_secp256k1_point(&mut self, ec_point: ark_secp256k1::Affine) -> usize {
-        let points = &mut self.secp256k1_points;
-        let id = points.len();
-        points.push(ec_point);
-        id
-    }
-
-    pub fn get_secp256k1_point_by_id(
-        &self,
-        ec_point_id: Felt252,
-    ) -> SyscallResult<&ark_secp256k1::Affine> {
-        ec_point_id.to_usize().and_then(|id| self.secp256k1_points.get(id)).ok_or_else(|| {
-            SyscallExecutionError::InvalidSyscallInput {
-                input: felt_to_stark_felt(&ec_point_id),
-                info: "Invalid Secp256k1 point ID".to_string(),
-            }
-        })
     }
 }
 
