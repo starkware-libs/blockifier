@@ -150,7 +150,17 @@ impl AccountTransaction {
                 let sn_api_tx = &tx.tx();
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
-                    max_fee: sn_api_tx.max_fee(),
+                    max_fee: match sn_api_tx {
+                        starknet_api::transaction::DeclareTransaction::V0(tx) => tx.max_fee,
+                        starknet_api::transaction::DeclareTransaction::V1(tx) => tx.max_fee,
+                        starknet_api::transaction::DeclareTransaction::V2(tx) => tx.max_fee,
+                        starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                            // TODO(barak, 01/10/2023): Change to max_price_per_unit *
+                            // block_context.gas_price.
+                            Fee(tx.resource_bounds.max_price_per_unit
+                                * tx.resource_bounds.max_amount as u128)
+                        }
+                    },
                     version: sn_api_tx.version(),
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),

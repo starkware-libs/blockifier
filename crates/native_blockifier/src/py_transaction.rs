@@ -98,7 +98,8 @@ pub fn py_declare(
         | starknet_api::transaction::DeclareTransaction::V1(_) => {
             ContractClassV0::try_from_json_string(raw_contract_class)?.into()
         }
-        starknet_api::transaction::DeclareTransaction::V2(_) => {
+        starknet_api::transaction::DeclareTransaction::V2(_)
+        | starknet_api::transaction::DeclareTransaction::V3(_) => {
             ContractClassV1::try_from_json_string(raw_contract_class)?.into()
         }
     };
