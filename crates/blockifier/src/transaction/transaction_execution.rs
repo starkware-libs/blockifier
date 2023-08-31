@@ -20,7 +20,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
-    InvokeTransaction, L1HandlerTransaction,
+    InvokeTransaction, L1HandlerTransaction, ValidatableTransaction,
 };
 
 #[derive(Debug)]
@@ -34,9 +34,7 @@ impl Transaction {
     pub fn initial_gas() -> u64 {
         abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
     }
-}
 
-impl Transaction {
     pub fn from_api(
         tx: StarknetApiTransaction,
         tx_hash: TransactionHash,
@@ -82,23 +80,6 @@ impl Transaction {
                 })))
             }
             _ => unimplemented!(),
-        }
-    }
-
-    pub fn validate_tx(
-        &self,
-        state: &mut dyn State,
-        resources: &mut ExecutionResources,
-        remaining_gas: &mut u64,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<Option<CallInfo>> {
-        match self {
-            Self::AccountTransaction(account_tx) => {
-                account_tx.validate_tx(state, resources, remaining_gas, block_context)
-            }
-            Self::L1HandlerTransaction(_) => {
-                panic!("L1HandlerTransaction should not be validated here")
-            }
         }
     }
 }
@@ -174,6 +155,25 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
             }
             Self::L1HandlerTransaction(tx) => {
                 tx.execute_raw(state, block_context, charge_fee, validate)
+            }
+        }
+    }
+}
+
+impl ValidatableTransaction for Transaction {
+    fn validate_tx(
+        &self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        remaining_gas: &mut u64,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        match self {
+            Self::AccountTransaction(account_tx) => {
+                account_tx.validate_tx(state, resources, remaining_gas, block_context)
+            }
+            Self::L1HandlerTransaction(_) => {
+                panic!("L1HandlerTransaction should not be validated here")
             }
         }
     }

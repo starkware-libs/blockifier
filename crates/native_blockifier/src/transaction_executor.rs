@@ -9,7 +9,7 @@ use blockifier::state::cached_state::{
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};

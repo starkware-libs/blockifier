@@ -8,6 +8,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
+use super::transactions::ValidatableTransaction;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -116,60 +117,6 @@ impl AccountTransaction {
             AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
             AccountTransaction::Invoke(invoke) => invoke.max_fee(),
         }
-    }
-
-    pub fn validate_tx(
-        &self,
-        state: &mut dyn State,
-        resources: &mut ExecutionResources,
-        remaining_gas: &mut u64,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let account_tx_context = self.get_account_transaction_context();
-        let mut context =
-            EntryPointExecutionContext::new_validate(block_context, &account_tx_context);
-        if context.account_tx_context.is_v0() {
-            return Ok(None);
-        }
-
-        let storage_address = account_tx_context.sender_address;
-        let validate_call = CallEntryPoint {
-            entry_point_type: EntryPointType::External,
-            entry_point_selector: self.validate_entry_point_selector(),
-            calldata: self.validate_entrypoint_calldata(),
-            class_hash: None,
-            code_address: None,
-            storage_address,
-            caller_address: ContractAddress::default(),
-            call_type: CallType::Call,
-            initial_gas: *remaining_gas,
-        };
-
-        let validate_call_info = validate_call
-            .execute(state, resources, &mut context)
-            .map_err(TransactionExecutionError::ValidateTransactionError)?;
-        verify_no_calls_to_other_contracts(
-            &validate_call_info,
-            String::from(constants::VALIDATE_ENTRY_POINT_NAME),
-        )?;
-
-        // Validate return data.
-        let class_hash = state.get_class_hash_at(storage_address)?;
-        let contract_class = state.get_compiled_contract_class(&class_hash)?;
-        if let ContractClass::V1(_) = contract_class {
-            // The account contract class is a Cairo 1.0 contract; the `validate` entry point should
-            // return `VALID`.
-            let expected_retdata = retdata![StarkFelt::try_from(constants::VALIDATE_RETDATA)?];
-            if validate_call_info.execution.retdata != expected_retdata {
-                return Err(TransactionExecutionError::InvalidValidateReturnData {
-                    actual: validate_call_info.execution.retdata,
-                });
-            }
-        }
-
-        update_remaining_gas(remaining_gas, &validate_call_info);
-
-        Ok(Some(validate_call_info))
     }
 
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
@@ -781,5 +728,61 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
         };
         Ok(tx_execution_info)
+    }
+}
+
+impl ValidatableTransaction for AccountTransaction {
+    fn validate_tx(
+        &self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        remaining_gas: &mut u64,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let account_tx_context = self.get_account_transaction_context();
+        let mut context =
+            EntryPointExecutionContext::new_validate(block_context, &account_tx_context);
+        if context.account_tx_context.is_v0() {
+            return Ok(None);
+        }
+
+        let storage_address = account_tx_context.sender_address;
+        let validate_call = CallEntryPoint {
+            entry_point_type: EntryPointType::External,
+            entry_point_selector: self.validate_entry_point_selector(),
+            calldata: self.validate_entrypoint_calldata(),
+            class_hash: None,
+            code_address: None,
+            storage_address,
+            caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
+            initial_gas: *remaining_gas,
+        };
+
+        let validate_call_info = validate_call
+            .execute(state, resources, &mut context)
+            .map_err(TransactionExecutionError::ValidateTransactionError)?;
+        verify_no_calls_to_other_contracts(
+            &validate_call_info,
+            String::from(constants::VALIDATE_ENTRY_POINT_NAME),
+        )?;
+
+        // Validate return data.
+        let class_hash = state.get_class_hash_at(storage_address)?;
+        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+        if let ContractClass::V1(_) = contract_class {
+            // The account contract class is a Cairo 1.0 contract; the `validate` entry point should
+            // return `VALID`.
+            let expected_retdata = retdata![StarkFelt::try_from(constants::VALIDATE_RETDATA)?];
+            if validate_call_info.execution.retdata != expected_retdata {
+                return Err(TransactionExecutionError::InvalidValidateReturnData {
+                    actual: validate_call_info.execution.retdata,
+                });
+            }
+        }
+
+        update_remaining_gas(remaining_gas, &validate_call_info);
+
+        Ok(Some(validate_call_info))
     }
 }
