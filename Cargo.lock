@@ -3427,7 +3427,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.4.1"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=e572e2f#e572e2f6b3e7df0a83bdc53dc5f59a990564aa0a"
+source = "git+https://github.com/starkware-libs/starknet-api?rev=572042c#572042c83e04d4063d20d4114bde869f50ace8a1"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",

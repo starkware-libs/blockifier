@@ -3,7 +3,7 @@ use std::cmp::min;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
-use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
@@ -179,28 +179,20 @@ impl AccountTransaction {
                 let sn_api_tx = &tx.tx;
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash,
-                    max_fee: sn_api_tx.max_fee(),
-                    version: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => {
-                            TransactionVersion(StarkFelt::from(0_u8))
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(_) => {
-                            TransactionVersion(StarkFelt::from(1_u8))
+                    max_fee: match sn_api_tx {
+                        starknet_api::transaction::InvokeTransaction::V0(tx) => tx.max_fee,
+                        starknet_api::transaction::InvokeTransaction::V1(tx) => tx.max_fee,
+                        starknet_api::transaction::InvokeTransaction::V3(tx) => {
+                            // TODO(barak, 01/10/2023): Change to max_price_per_unit *
+                            // block_context.gas_price.
+                            Fee(tx.resource_bounds.max_price_per_unit
+                                * tx.resource_bounds.max_amount as u128)
                         }
                     },
+                    version: sn_api_tx.version(),
                     signature: sn_api_tx.signature(),
-                    nonce: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
-                    },
-                    sender_address: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(tx_v0) => {
-                            tx_v0.contract_address
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => {
-                            tx_v1.sender_address
-                        }
-                    },
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: sn_api_tx.sender_address(),
                 }
             }
         }
