@@ -90,6 +90,17 @@ pub trait Executable<S: State> {
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
+/// Intended for use in sequencer pre-execution flows, like in a gateway service.
+pub trait ValidatableTransaction {
+    fn validate_tx(
+        &self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        remaining_gas: &mut u64,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Option<CallInfo>>;
+}
+
 #[derive(Debug)]
 pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,

@@ -4,11 +4,10 @@ use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, Tran
 use super::objects::HasRelatedFeeType;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
 use crate::state::cached_state::{StateChangesCount, TransactionalState};
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
@@ -30,9 +29,7 @@ impl Transaction {
     pub fn initial_gas() -> u64 {
         abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
     }
-}
 
-impl Transaction {
     pub fn from_api(
         tx: StarknetApiTransaction,
         tx_hash: TransactionHash,
@@ -78,23 +75,6 @@ impl Transaction {
                 })))
             }
             _ => unimplemented!(),
-        }
-    }
-
-    pub fn validate_tx(
-        &self,
-        state: &mut dyn State,
-        resources: &mut ExecutionResources,
-        remaining_gas: &mut u64,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<Option<CallInfo>> {
-        match self {
-            Self::AccountTransaction(account_tx) => {
-                account_tx.validate_tx(state, resources, remaining_gas, block_context)
-            }
-            Self::L1HandlerTransaction(_) => {
-                panic!("L1HandlerTransaction should not be validated here")
-            }
         }
     }
 }

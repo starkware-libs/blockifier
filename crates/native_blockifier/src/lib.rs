@@ -10,6 +10,7 @@ pub mod py_test_utils;
 pub mod py_transaction;
 pub mod py_transaction_execution_info;
 pub mod py_utils;
+pub mod py_validator;
 pub mod storage;
 pub mod transaction_executor;
 
@@ -19,6 +20,7 @@ use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
     PyVmExecutionResources,
 };
+use py_validator::PyValidator;
 use pyo3::prelude::*;
 use storage::StorageConfig;
 
@@ -37,6 +39,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutionInfo>()?;
+    py_module.add_class::<PyValidator>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<StorageConfig>()?;
     add_py_exceptions(py, py_module)?;
