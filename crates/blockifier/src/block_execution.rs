@@ -4,6 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::state::state_api::State;
 
 #[cfg(test)]
@@ -16,6 +17,7 @@ pub mod test;
 pub fn pre_process_block(
     state: &mut dyn State,
     old_block_number_and_hash: Option<(BlockNumber, BlockHash)>,
+    block_context: &mut BlockContext,
 ) {
     if let Some((block_number, block_hash)) = old_block_number_and_hash {
         state.set_storage_at(
