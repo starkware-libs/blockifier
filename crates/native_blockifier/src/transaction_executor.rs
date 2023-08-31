@@ -9,7 +9,7 @@ use blockifier::state::cached_state::{
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};
@@ -101,9 +101,13 @@ impl<S: StateReader> TransactionExecutor<S> {
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<Option<CallInfo>> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
+        else {
+            panic!("L1 handlers should not be validated separately, only as part of execution")
+        };
+
         let mut resources = ExecutionResources::default();
-        Ok(tx.validate_tx(
+        Ok(account_tx.validate_tx(
             &mut self.state,
             &mut resources,
             &mut remaining_gas,
