@@ -102,6 +102,9 @@ pub const BALANCE: u128 = 10 * MAX_FEE;
 
 pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
 
+// TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use real value.
+pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 0; // Given in units of STRK.
+
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
 
@@ -344,6 +347,7 @@ impl BlockContext {
             fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
             vm_resource_fee_cost: Default::default(),
             gas_price: DEFAULT_GAS_PRICE,
+            strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
             max_recursion_depth: 50,
