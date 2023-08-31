@@ -337,6 +337,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-secp256k1",
+ "ark-secp256r1",
  "assert_matches",
  "cairo-felt",
  "cairo-lang-casm",
