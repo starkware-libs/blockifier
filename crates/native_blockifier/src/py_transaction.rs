@@ -15,15 +15,59 @@ use pyo3::prelude::*;
 use starknet_api::core::{
     ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
+    DeclareTransactionV3, Fee, InvokeTransactionV0, InvokeTransactionV1, ResourceBounds, Tip,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_utils::{biguint_to_felt, py_attr, PyFelt};
+
+// Structs.
+#[pyclass]
+#[derive(Clone)]
+pub struct PyResourceBounds {
+    pub max_amount: u64,
+    pub max_price_per_unit: u128,
+}
+
+impl From<PyResourceBounds> for starknet_api::transaction::ResourceBounds {
+    fn from(resource_bounds: PyResourceBounds) -> Self {
+        Self {
+            max_amount: resource_bounds.max_amount,
+            max_price_per_unit: resource_bounds.max_price_per_unit,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub enum PyDataAvailabilityMode {
+    L1 = 0,
+    L2 = 1,
+}
+
+impl TryFrom<PyDataAvailabilityMode> for starknet_api::data_availability::DataAvailabilityMode {
+    type Error = NativeBlockifierInputError;
+
+    fn try_from(
+        data_availability_mode: PyDataAvailabilityMode,
+    ) -> Result<Self, NativeBlockifierInputError> {
+        let data_availability_mode_u8 = data_availability_mode as u8;
+        match data_availability_mode_u8 {
+            0 => Ok(starknet_api::data_availability::DataAvailabilityMode::L1),
+            1 => Ok(starknet_api::data_availability::DataAvailabilityMode::L2),
+            _ => Err(NativeBlockifierInputError::StarknetApiError(
+                starknet_api::StarknetApiError::OutOfRange {
+                    string: format!("Invalid data availability mode: {data_availability_mode_u8}."),
+                },
+            )),
+        }
+    }
+}
 
 fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
     let py_call: Vec<PyFelt> = py_attr(tx, attr)?;
@@ -87,6 +131,33 @@ pub fn py_declare(
             };
             Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
         }
+        3 => {
+            let compiled_class_hash =
+                CompiledClassHash(py_attr::<PyFelt>(tx, "compiled_class_hash")?.0);
+            let tip = Tip(py_attr::<u64>(tx, "tip")?);
+            let py_resource_bounds: PyResourceBounds = py_attr(tx, "resource_bounds")?;
+            let resource_bounds = ResourceBounds::from(py_resource_bounds);
+            let py_nonce_data_availability_mode: PyDataAvailabilityMode =
+                py_attr(tx, "nonce_data_availability_mode")?;
+            let nonce_data_availability_mode =
+                DataAvailabilityMode::try_from(py_nonce_data_availability_mode)?;
+            let py_fee_data_availability_mode: PyDataAvailabilityMode =
+                py_attr(tx, "fee_data_availability_mode")?;
+            let fee_data_availability_mode =
+                DataAvailabilityMode::try_from(py_fee_data_availability_mode)?;
+            let declare_tx = DeclareTransactionV3 {
+                resource_bounds,
+                tip,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                compiled_class_hash,
+                sender_address: account_data_context.sender_address,
+                nonce_data_availability_mode,
+                fee_data_availability_mode,
+            };
+            Ok(starknet_api::transaction::DeclareTransaction::V3(declare_tx))
+        }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::Declare,
             version,
@@ -98,7 +169,8 @@ pub fn py_declare(
         | starknet_api::transaction::DeclareTransaction::V1(_) => {
             ContractClassV0::try_from_json_string(raw_contract_class)?.into()
         }
-        starknet_api::transaction::DeclareTransaction::V2(_) => {
+        starknet_api::transaction::DeclareTransaction::V2(_)
+        | starknet_api::transaction::DeclareTransaction::V3(_) => {
             ContractClassV1::try_from_json_string(raw_contract_class)?.into()
         }
     };
