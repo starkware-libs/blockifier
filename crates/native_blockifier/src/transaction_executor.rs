@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
+use blockifier::execution::call_info::CallInfo;
+use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
@@ -90,6 +92,23 @@ impl<S: StateReader> TransactionExecutor<S> {
                 Err(error)
             }
         }
+    }
+
+    pub fn validate(
+        &mut self,
+        tx: &PyAny,
+        mut remaining_gas: u64,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<Option<CallInfo>> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        let mut resources = ExecutionResources::default();
+        Ok(tx.validate_tx(
+            &mut self.state,
+            &mut resources,
+            &mut remaining_gas,
+            &self.block_context,
+        )?)
     }
 
     /// Returns the state diff resulting in executing transactions.
