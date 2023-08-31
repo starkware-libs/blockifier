@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -15,15 +16,106 @@ use pyo3::prelude::*;
 use starknet_api::core::{
     ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV0V1,
+    DeclareTransactionV2, DeclareTransactionV3, Fee, InvokeTransactionV0, InvokeTransactionV1,
+    PaymasterAddress, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_utils::{biguint_to_felt, py_attr, PyFelt};
+
+// Structs.
+#[pyclass]
+#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
+pub enum PyResource {
+    L1Gas,
+    L2Gas,
+}
+
+impl From<PyResource> for starknet_api::transaction::Resource {
+    fn from(py_resource: PyResource) -> Self {
+        match py_resource {
+            PyResource::L1Gas => starknet_api::transaction::Resource::L1Gas,
+            PyResource::L2Gas => starknet_api::transaction::Resource::L2Gas,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Copy, Default)]
+pub struct PyResourceBounds {
+    pub max_amount: u64,
+    pub max_price_per_unit: u128,
+}
+
+impl From<PyResourceBounds> for starknet_api::transaction::ResourceBounds {
+    fn from(py_resource_bounds: PyResourceBounds) -> Self {
+        Self {
+            max_amount: py_resource_bounds.max_amount,
+            max_price_per_unit: py_resource_bounds.max_price_per_unit,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyResourceBoundsMapping(pub BTreeMap<PyResource, PyResourceBounds>);
+
+impl From<PyResourceBoundsMapping> for starknet_api::transaction::ResourceBoundsMapping {
+    fn from(py_resource_bounds_mapping: PyResourceBoundsMapping) -> Self {
+        let mut resource_bounds_mapping = BTreeMap::new();
+        resource_bounds_mapping.insert(
+            Resource::L1Gas,
+            ResourceBounds::from(
+                py_resource_bounds_mapping
+                    .0
+                    .get(&PyResource::L1Gas)
+                    .map_or(PyResourceBounds::default(), |resource_bounds| *resource_bounds),
+            ),
+        );
+        resource_bounds_mapping.insert(
+            Resource::L2Gas,
+            ResourceBounds::from(
+                py_resource_bounds_mapping
+                    .0
+                    .get(&PyResource::L2Gas)
+                    .map_or(PyResourceBounds::default(), |resource_bounds| *resource_bounds),
+            ),
+        );
+        Self(resource_bounds_mapping)
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub enum PyDataAvailabilityMode {
+    L1 = 0,
+    L2 = 1,
+}
+
+pub struct V3NewParameters {
+    pub resource_bounds: ResourceBoundsMapping,
+    pub resource: Resource,
+    pub tip: Tip,
+    pub nonce_data_availability_mode: DataAvailabilityMode,
+    pub fee_data_availability_mode: DataAvailabilityMode,
+    pub paymaster_address: PaymasterAddress,
+}
+
+impl From<PyDataAvailabilityMode> for starknet_api::data_availability::DataAvailabilityMode {
+    fn from(py_data_availability_mode: PyDataAvailabilityMode) -> Self {
+        match py_data_availability_mode {
+            PyDataAvailabilityMode::L1 => starknet_api::data_availability::DataAvailabilityMode::L1,
+            PyDataAvailabilityMode::L2 => starknet_api::data_availability::DataAvailabilityMode::L2,
+        }
+    }
+}
+
+// Utils.
 
 fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
     let py_call: Vec<PyFelt> = py_attr(tx, attr)?;
@@ -45,6 +137,27 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
         sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
     })
 }
+
+fn get_v3_new_parameters(tx: &PyAny) -> NativeBlockifierResult<V3NewParameters> {
+    let py_resource_bounds: PyResourceBoundsMapping = py_attr(tx, "resource_bounds")?;
+    let py_resource: PyResource = py_attr(tx, "resource")?;
+    let py_nonce_data_availability_mode: PyDataAvailabilityMode =
+        py_attr(tx, "nonce_data_availability_mode")?;
+    let py_fee_data_availability_mode: PyDataAvailabilityMode =
+        py_attr(tx, "fee_data_availability_mode")?;
+    Ok(V3NewParameters {
+        resource_bounds: ResourceBoundsMapping::from(py_resource_bounds),
+        resource: Resource::from(py_resource),
+        tip: Tip(py_attr::<u64>(tx, "tip")?),
+        nonce_data_availability_mode: DataAvailabilityMode::from(py_nonce_data_availability_mode),
+        fee_data_availability_mode: DataAvailabilityMode::from(py_fee_data_availability_mode),
+        paymaster_address: PaymasterAddress(ContractAddress::try_from(
+            py_attr::<PyFelt>(tx, "paymaster_address")?.0,
+        )?),
+    })
+}
+
+// Transactions creation.
 
 pub fn py_declare(
     tx: &PyAny,
@@ -87,6 +200,28 @@ pub fn py_declare(
             };
             Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
         }
+        3 => {
+            let compiled_class_hash =
+                CompiledClassHash(py_attr::<PyFelt>(tx, "compiled_class_hash")?.0);
+            let v3_new_parameters = get_v3_new_parameters(tx)?;
+            let py_account_deployment_data: Vec<PyFelt> = py_attr(tx, "account_deployment_data")?;
+            let declare_tx = DeclareTransactionV3 {
+                resource_bounds: v3_new_parameters.resource_bounds,
+                tip: v3_new_parameters.tip,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                compiled_class_hash,
+                sender_address: account_data_context.sender_address,
+                nonce_data_availability_mode: v3_new_parameters.nonce_data_availability_mode,
+                fee_data_availability_mode: v3_new_parameters.fee_data_availability_mode,
+                paymaster_address: v3_new_parameters.paymaster_address,
+                account_deployment_data: AccountDeploymentData(
+                    py_account_deployment_data.into_iter().map(|felt| felt.0).collect(),
+                ),
+            };
+            Ok(starknet_api::transaction::DeclareTransaction::V3(declare_tx))
+        }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::Declare,
             version,
@@ -98,7 +233,8 @@ pub fn py_declare(
         | starknet_api::transaction::DeclareTransaction::V1(_) => {
             ContractClassV0::try_from_json_string(raw_contract_class)?.into()
         }
-        starknet_api::transaction::DeclareTransaction::V2(_) => {
+        starknet_api::transaction::DeclareTransaction::V2(_)
+        | starknet_api::transaction::DeclareTransaction::V3(_) => {
             ContractClassV1::try_from_json_string(raw_contract_class)?.into()
         }
     };

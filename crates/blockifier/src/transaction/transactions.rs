@@ -3,7 +3,8 @@ use std::sync::Arc;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV2, DeclareTransactionV3, Fee, Resource,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -148,8 +149,23 @@ impl DeclareTransaction {
                     contract_class: contract_class.into(),
                 })
             }
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                let ContractClass::V1(contract_class) = contract_class else {
+                    return Err(TransactionExecutionError::ContractClassVersionMismatch {
+                        declare_version,
+                        cairo_version: 1,
+                    });
+                };
+                Ok(Self {
+                    tx: starknet_api::transaction::DeclareTransaction::V3(tx),
+                    tx_hash,
+                    contract_class: contract_class.into(),
+                })
+            }
         }
     }
+
+    implement_inner_tx_getter_calls!((class_hash, ClassHash));
 
     pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
         &self.tx
@@ -163,7 +179,26 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash), (max_fee, Fee));
+    pub fn max_fee(&self) -> Fee {
+        match &self.tx {
+            starknet_api::transaction::DeclareTransaction::V0(tx) => tx.max_fee,
+            starknet_api::transaction::DeclareTransaction::V1(tx) => tx.max_fee,
+            starknet_api::transaction::DeclareTransaction::V2(tx) => tx.max_fee,
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
+                Fee(tx
+                    .resource_bounds
+                    .0
+                    .get(&Resource::L1Gas)
+                    .map_or(0_u64, |resource_bounds| resource_bounds.max_amount)
+                    as u128
+                    * tx.resource_bounds
+                        .0
+                        .get(&Resource::L1Gas)
+                        .map_or(0_u128, |resource_bounds| resource_bounds.max_price_per_unit))
+            }
+        }
+    }
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {
@@ -183,12 +218,19 @@ impl<S: State> Executable<S> for DeclareTransaction {
                 state.set_contract_class(&class_hash, self.contract_class.clone())?;
                 Ok(None)
             }
-            starknet_api::transaction::DeclareTransaction::V2(tx) => {
+            starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
+                compiled_class_hash,
+                ..
+            })
+            | starknet_api::transaction::DeclareTransaction::V3(DeclareTransactionV3 {
+                compiled_class_hash,
+                ..
+            }) => {
                 match state.get_compiled_contract_class(&class_hash) {
                     Err(StateError::UndeclaredClassHash(_)) => {
                         // Class is undeclared; declare it.
                         state.set_contract_class(&class_hash, self.contract_class.clone())?;
-                        state.set_compiled_class_hash(class_hash, tx.compiled_class_hash)?;
+                        state.set_compiled_class_hash(class_hash, *compiled_class_hash)?;
                         Ok(None)
                     }
                     Err(error) => Err(error).map_err(TransactionExecutionError::from),
