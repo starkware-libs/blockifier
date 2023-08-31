@@ -1,4 +1,5 @@
 pub mod errors;
+pub mod gateway;
 pub mod papyrus_state;
 pub mod py_block_executor;
 pub mod py_state_diff;
@@ -11,6 +12,7 @@ pub mod storage;
 pub mod transaction_executor;
 
 use errors::add_py_exceptions;
+use gateway::py_validator::PyValidator;
 use py_block_executor::PyBlockExecutor;
 use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
@@ -34,6 +36,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutionInfo>()?;
+    py_module.add_class::<PyValidator>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<StorageConfig>()?;
     add_py_exceptions(py, py_module)?;
