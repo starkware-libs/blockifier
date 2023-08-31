@@ -54,46 +54,6 @@ pub enum AccountTransaction {
 }
 
 /// Represents a bundle of validate-execute stage execution effects.
-struct ValidateExecuteCallInfo {
-    validate_call_info: Option<CallInfo>,
-    execute_call_info: Option<CallInfo>,
-    revert_error: Option<String>,
-    final_fee: Fee,
-    final_resources: ResourcesMapping,
-}
-
-impl ValidateExecuteCallInfo {
-    pub fn new_accepted(
-        validate_call_info: Option<CallInfo>,
-        execute_call_info: Option<CallInfo>,
-        final_fee: Fee,
-        final_resources: ResourcesMapping,
-    ) -> Self {
-        Self {
-            validate_call_info,
-            execute_call_info,
-            revert_error: None,
-            final_fee,
-            final_resources,
-        }
-    }
-
-    pub fn new_reverted(
-        validate_call_info: Option<CallInfo>,
-        revert_error: String,
-        final_fee: Fee,
-        final_resources: ResourcesMapping,
-    ) -> Self {
-        Self {
-            validate_call_info,
-            execute_call_info: None,
-            revert_error: Some(revert_error),
-            final_fee,
-            final_resources,
-        }
-    }
-}
-
 impl AccountTransaction {
     pub fn tx_type(&self) -> TransactionType {
         match self {
@@ -781,5 +741,45 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
         };
         Ok(tx_execution_info)
+    }
+}
+
+struct ValidateExecuteCallInfo {
+    validate_call_info: Option<CallInfo>,
+    execute_call_info: Option<CallInfo>,
+    revert_error: Option<String>,
+    final_fee: Fee,
+    final_resources: ResourcesMapping,
+}
+
+impl ValidateExecuteCallInfo {
+    pub fn new_accepted(
+        validate_call_info: Option<CallInfo>,
+        execute_call_info: Option<CallInfo>,
+        final_fee: Fee,
+        final_resources: ResourcesMapping,
+    ) -> Self {
+        Self {
+            validate_call_info,
+            execute_call_info,
+            revert_error: None,
+            final_fee,
+            final_resources,
+        }
+    }
+
+    pub fn new_reverted(
+        validate_call_info: Option<CallInfo>,
+        revert_error: String,
+        final_fee: Fee,
+        final_resources: ResourcesMapping,
+    ) -> Self {
+        Self {
+            validate_call_info,
+            execute_call_info: None,
+            revert_error: Some(revert_error),
+            final_fee,
+            final_resources,
+        }
     }
 }
