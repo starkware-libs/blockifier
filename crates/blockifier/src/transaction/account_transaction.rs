@@ -127,7 +127,7 @@ impl AccountTransaction {
                 let sn_api_tx = &tx.tx();
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
-                    max_fee: sn_api_tx.max_fee(),
+                    max_fee: tx.max_fee(),
                     version: self.version(),
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),
