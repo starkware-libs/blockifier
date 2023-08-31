@@ -148,8 +148,23 @@ impl DeclareTransaction {
                     contract_class: contract_class.into(),
                 })
             }
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                let ContractClass::V1(contract_class) = contract_class else {
+                    return Err(TransactionExecutionError::ContractClassVersionMismatch {
+                        declare_version,
+                        cairo_version: 1,
+                    });
+                };
+                Ok(Self {
+                    tx: starknet_api::transaction::DeclareTransaction::V3(tx),
+                    tx_hash,
+                    contract_class: contract_class.into(),
+                })
+            }
         }
     }
+
+    implement_inner_tx_getter_calls!((class_hash, ClassHash));
 
     pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
         &self.tx
@@ -163,7 +178,17 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash), (max_fee, Fee));
+    pub fn max_fee(&self) -> Fee {
+        match &self.tx {
+            starknet_api::transaction::DeclareTransaction::V0(tx) => tx.max_fee,
+            starknet_api::transaction::DeclareTransaction::V1(tx) => tx.max_fee,
+            starknet_api::transaction::DeclareTransaction::V2(tx) => tx.max_fee,
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
+                Fee(tx.resource_bounds.max_price_per_unit * tx.resource_bounds.max_amount as u128)
+            }
+        }
+    }
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {
@@ -184,6 +209,23 @@ impl<S: State> Executable<S> for DeclareTransaction {
                 Ok(None)
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
+                match state.get_compiled_contract_class(&class_hash) {
+                    Err(StateError::UndeclaredClassHash(_)) => {
+                        // Class is undeclared; declare it.
+                        state.set_contract_class(&class_hash, self.contract_class.clone())?;
+                        state.set_compiled_class_hash(class_hash, tx.compiled_class_hash)?;
+                        Ok(None)
+                    }
+                    Err(error) => Err(error).map_err(TransactionExecutionError::from),
+                    Ok(_) => {
+                        // Class is already declared, cannot redeclare
+                        // (i.e., make sure the leaf is uninitialized).
+                        Err(TransactionExecutionError::DeclareTransactionError { class_hash })
+                    }
+                }
+            }
+            // TODO(barak, 01/10/2023): Avoid code duplication.
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
                 match state.get_compiled_contract_class(&class_hash) {
                     Err(StateError::UndeclaredClassHash(_)) => {
                         // Class is undeclared; declare it.

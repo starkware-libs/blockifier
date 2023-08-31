@@ -45,3 +45,6 @@ strum_macros = "0.24.3"
 test-case = "2.2.2"
 tempfile = "3.7.0"
 thiserror = "1.0.37"
+
+[patch.crates-io]
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "7e33aae" }
