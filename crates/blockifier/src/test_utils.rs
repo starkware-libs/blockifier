@@ -20,8 +20,8 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransactionV1, Fee,
+    InvokeTransactionV1, TransactionHash, TransactionSignature,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -408,9 +408,8 @@ pub fn deploy_account_tx_with_salt(
     )
     .unwrap();
 
-    let tx = starknet_api::transaction::DeployAccountTransaction {
+    let tx = DeployAccountTransactionV1 {
         max_fee,
-        version: TransactionVersion(stark_felt!(1_u8)),
         signature: signature.unwrap_or_default(),
         class_hash,
         contract_address_salt,
@@ -418,7 +417,11 @@ pub fn deploy_account_tx_with_salt(
         nonce: nonce_manager.next(contract_address),
     };
 
-    DeployAccountTransaction { tx, tx_hash: TransactionHash::default(), contract_address }
+    DeployAccountTransaction {
+        tx: starknet_api::transaction::DeployAccountTransaction::V1(tx),
+        tx_hash: TransactionHash::default(),
+        contract_address,
+    }
 }
 
 pub fn invoke_tx(

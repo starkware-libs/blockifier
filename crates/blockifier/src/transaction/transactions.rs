@@ -28,14 +28,6 @@ use crate::transaction::transaction_utils::{
 #[path = "transactions_test.rs"]
 mod test;
 
-macro_rules! implement_inner_tx_getters {
-    ($(($field:ident, $field_type:ty)),*) => {
-        $(pub fn $field(&self) -> $field_type {
-            self.tx.$field.clone()
-        })*
-    };
-}
-
 macro_rules! implement_inner_tx_getter_calls {
     ($(($field:ident, $field_type:ty)),*) => {
         $(pub fn $field(&self) -> $field_type {
@@ -253,15 +245,24 @@ pub struct DeployAccountTransaction {
 }
 
 impl DeployAccountTransaction {
-    implement_inner_tx_getters!(
+    implement_inner_tx_getter_calls!(
         (class_hash, ClassHash),
         (contract_address_salt, ContractAddressSalt),
-        (max_fee, Fee),
         (version, TransactionVersion),
         (nonce, Nonce),
         (constructor_calldata, Calldata),
         (signature, TransactionSignature)
     );
+
+    pub fn max_fee(&self) -> Fee {
+        match &self.tx {
+            starknet_api::transaction::DeployAccountTransaction::V1(tx) => tx.max_fee,
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
+                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
+                Fee(tx.resource_bounds.max_price_per_unit * tx.resource_bounds.max_amount as u128)
+            }
+        }
+    }
 }
 
 impl<S: State> Executable<S> for DeployAccountTransaction {
