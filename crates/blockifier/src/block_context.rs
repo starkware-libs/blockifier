@@ -16,6 +16,8 @@ pub struct BlockContext {
     pub fee_token_address: ContractAddress,
     pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
     pub gas_price: u128, // In wei.
+    // TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use this for V3 txs.
+    pub strk_l1_gas_price: u128, // In STRK.
 
     // Limits.
     pub invoke_tx_max_n_steps: u32,
