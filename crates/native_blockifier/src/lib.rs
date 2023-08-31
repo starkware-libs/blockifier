@@ -9,10 +9,11 @@ pub mod py_test_utils;
 pub mod py_transaction;
 pub mod py_transaction_execution_info;
 pub mod py_utils;
+pub mod py_validator;
 pub mod storage;
 pub mod transaction_executor;
 
-use errors::add_py_exceptions;
+use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;
 use py_transaction_execution_info::{
     PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
@@ -23,6 +24,7 @@ use storage::StorageConfig;
 
 use crate::py_state_diff::PyStateDiff;
 use crate::py_utils::raise_error_for_testing;
+use crate::py_validator::PyValidator;
 
 #[pymodule]
 fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
@@ -36,8 +38,10 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyTransactionExecutionInfo>()?;
+    py_module.add_class::<PyValidator>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<StorageConfig>()?;
+    py_module.add("UndeclaredClassHashError", py.get_type::<UndeclaredClassHashError>())?;
     add_py_exceptions(py, py_module)?;
 
     // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, gate this code
