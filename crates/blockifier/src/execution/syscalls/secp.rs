@@ -212,22 +212,9 @@ pub struct SecpGetPointFromXRequest {
     y_parity: bool,
 }
 
-<<<<<<< HEAD
 impl SyscallRequest for SecpGetPointFromXRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpGetPointFromXRequest> {
         let x = SierraU256::from_memory(vm, ptr)?.to_biguint();
-||||||| e7cc94f
-impl SyscallRequest for Secp256k1GetPointFromXRequest {
-    fn read(
-        vm: &VirtualMachine,
-        ptr: &mut Relocatable,
-    ) -> SyscallResult<Secp256k1GetPointFromXRequest> {
-        let x = u256_from_ptr(vm, ptr)?;
-=======
-impl SyscallRequest for SecpGetPointFromXRequest {
-    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpGetPointFromXRequest> {
-        let x = SierraU256::from_memory(vm, ptr)?.to_biguint();
->>>>>>> origin/main-v0.12.3
 
         let y_parity = felt_to_bool(stark_felt_from_ptr(vm, ptr)?, "Invalid y parity")?;
         Ok(SecpGetPointFromXRequest { x, y_parity })
@@ -306,16 +293,8 @@ pub struct SecpMulRequest {
 impl SyscallRequest for SecpMulRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpMulRequest> {
         let ec_point_id = felt_from_ptr(vm, ptr)?;
-<<<<<<< HEAD
         let multiplier = SierraU256::from_memory(vm, ptr)?.to_biguint();
         Ok(SecpMulRequest { ec_point_id, multiplier })
-||||||| e7cc94f
-        let multiplier = u256_from_ptr(vm, ptr)?;
-        Ok(Secp256k1MulRequest { ec_point_id, multiplier })
-=======
-        let multiplier = u256_from_ptr(vm, ptr)?;
-        Ok(SecpMulRequest { ec_point_id, multiplier })
->>>>>>> origin/main-v0.12.3
     }
 }
 
@@ -343,25 +322,11 @@ pub fn secp256r1_mul(
 
 type SecpNewRequest = EcPointCoordinates;
 
-<<<<<<< HEAD
 impl SyscallRequest for SecpNewRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpNewRequest> {
         let x = SierraU256::from_memory(vm, ptr)?.to_biguint();
         let y = SierraU256::from_memory(vm, ptr)?.to_biguint();
         Ok(SecpNewRequest { x, y })
-||||||| e7cc94f
-impl SyscallRequest for Secp256k1NewRequest {
-    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<Secp256k1NewRequest> {
-        let x = u256_from_ptr(vm, ptr)?;
-        let y = u256_from_ptr(vm, ptr)?;
-        Ok(Secp256k1NewRequest { x, y })
-=======
-impl SyscallRequest for SecpNewRequest {
-    fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpNewRequest> {
-        let x = u256_from_ptr(vm, ptr)?;
-        let y = u256_from_ptr(vm, ptr)?;
-        Ok(SecpNewRequest { x, y })
->>>>>>> origin/main-v0.12.3
     }
 }
 
