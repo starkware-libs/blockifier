@@ -16,13 +16,8 @@ testing = []
 ark-ec.workspace = true
 ark-ff.workspace = true
 ark-secp256k1.workspace = true
-<<<<<<< HEAD
 ark-secp256r1.workspace = true
 cached.workspace = true
-||||||| e7cc94f
-=======
-ark-secp256r1.workspace = true
->>>>>>> origin/main-v0.12.3
 cairo-felt.workspace = true
 cairo-lang-casm.workspace = true
 cairo-lang-runner.workspace = true
