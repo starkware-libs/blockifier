@@ -226,7 +226,6 @@ impl AccountTransaction {
         if version_felt < StarkFelt::from(3_u8) {
             block_context.deprecated_fee_token_address
         } else {
-            assert_eq!(version_felt, StarkFelt::from(3_u8));
             block_context.fee_token_address
         }
     }
