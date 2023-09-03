@@ -222,11 +222,10 @@ impl AccountTransaction {
     }
 
     fn fee_token_address(&self, block_context: &BlockContext) -> ContractAddress {
-        let version_felt = self.get_account_transaction_context().version.0;
-        if version_felt < StarkFelt::from(3_u8) {
+        let version = self.get_account_transaction_context().version;
+        if version < TransactionVersion(StarkFelt::from(3_u8)) {
             block_context.deprecated_fee_token_address
         } else {
-            assert_eq!(version_felt, StarkFelt::from(3_u8));
             block_context.fee_token_address
         }
     }
