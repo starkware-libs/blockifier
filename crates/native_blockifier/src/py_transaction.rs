@@ -109,19 +109,27 @@ pub fn py_declare(
 pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
     let account_data_context = py_account_data_context(tx)?;
 
-    let tx = starknet_api::transaction::DeployAccountTransaction {
-        max_fee: account_data_context.max_fee,
-        version: account_data_context.version,
-        signature: account_data_context.signature,
-        nonce: account_data_context.nonce,
-        class_hash: ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0),
-        contract_address_salt: ContractAddressSalt(
-            py_attr::<PyFelt>(tx, "contract_address_salt")?.0,
-        ),
-        constructor_calldata: py_calldata(tx, "constructor_calldata")?,
-    };
+    let version = usize::try_from(account_data_context.version.0)?;
+    let sn_api_tx = match version {
+        1 => Ok(starknet_api::transaction::DeployAccountTransaction {
+            max_fee: account_data_context.max_fee,
+            version: account_data_context.version,
+            signature: account_data_context.signature,
+            nonce: account_data_context.nonce,
+            class_hash: ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0),
+            contract_address_salt: ContractAddressSalt(
+                py_attr::<PyFelt>(tx, "contract_address_salt")?.0,
+            ),
+            constructor_calldata: py_calldata(tx, "constructor_calldata")?,
+        }),
+        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+            tx_type: TransactionType::Declare,
+            version,
+        }),
+    }?;
+
     Ok(DeployAccountTransaction {
-        tx,
+        tx: sn_api_tx,
         tx_hash: account_data_context.transaction_hash,
         contract_address: account_data_context.sender_address,
     })
