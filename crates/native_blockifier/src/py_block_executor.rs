@@ -248,7 +248,7 @@ pub struct PyStrkL1GasPriceSourceConfig {
 pub struct PyOsConfig {
     #[pyo3(from_py_with = "int_to_chain_id")]
     pub chain_id: ChainId,
-    pub deprecated_fee_token_address: PyFelt,
+    pub eth_fee_token_address: PyFelt,
     pub fee_token_address: PyFelt,
 }
 
@@ -256,7 +256,7 @@ impl Default for PyOsConfig {
     fn default() -> Self {
         Self {
             chain_id: ChainId("".to_string()),
-            deprecated_fee_token_address: Default::default(),
+            eth_fee_token_address: Default::default(),
             fee_token_address: Default::default(),
         }
     }
@@ -274,10 +274,10 @@ pub fn into_block_context(
         block_number,
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-        deprecated_fee_token_address: ContractAddress::try_from(
-            starknet_os_config.deprecated_fee_token_address.0,
+        eth_fee_token_address: ContractAddress::try_from(
+            starknet_os_config.eth_fee_token_address.0,
         )?,
-        fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
+        strk_fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
         eth_l1_gas_price: block_info.eth_l1_gas_price,
         strk_l1_gas_price: block_info.strk_l1_gas_price,

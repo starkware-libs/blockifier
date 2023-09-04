@@ -12,8 +12,8 @@ pub struct BlockContext {
 
     // Fee-related.
     pub sequencer_address: ContractAddress,
-    pub deprecated_fee_token_address: ContractAddress,
-    pub fee_token_address: ContractAddress,
+    pub eth_fee_token_address: ContractAddress,
+    pub strk_fee_token_address: ContractAddress,
     pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
     pub eth_l1_gas_price: u128, // In wei.
     // TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use this gas price for V3 txs.
