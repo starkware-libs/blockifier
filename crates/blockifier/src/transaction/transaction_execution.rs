@@ -93,7 +93,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT token address should depend on tx version.
+        // L1 handler transactions never pay with STRK.
         let fee_token_address = block_context.deprecated_fee_token_address;
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
@@ -123,7 +123,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         )?;
         let actual_resources =
             calculate_tx_resources(&resources, l1_gas_usage, TransactionType::L1Handler)?;
-        let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
+        let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context, false)?;
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.

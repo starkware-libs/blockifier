@@ -698,7 +698,8 @@ impl AccountTransaction {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let mut actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
+        let mut actual_fee =
+            calculate_tx_fee(&actual_resources, block_context, self.pays_with_strk())?;
 
         if is_reverted || account_tx_context.max_fee == Fee(0) {
             // We cannot charge more than max_fee for reverted txs.
