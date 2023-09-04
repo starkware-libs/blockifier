@@ -43,6 +43,7 @@ use crate::transaction::transactions::DeployAccountTransaction;
 
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
+pub const TEST_CONTRACT_0_ADDRESS: &str = "0x101";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
 pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
@@ -53,6 +54,7 @@ pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
 
 // Class hashes.
 pub const TEST_CLASS_HASH: &str = "0x110";
+pub const TEST_CLASS_0_HASH: &str = "0x111";
 pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
@@ -253,6 +255,10 @@ fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
             class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
         ),
+        (
+            class_hash!(TEST_CLASS_0_HASH),
+            ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
+        ),
     ])
 }
 
@@ -278,6 +284,7 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
 
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
+        (contract_address!(TEST_CONTRACT_0_ADDRESS), class_hash!(TEST_CLASS_0_HASH)),
         (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
         (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
     ]);
