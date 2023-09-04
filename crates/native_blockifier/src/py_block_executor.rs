@@ -51,6 +51,13 @@ impl PyBlockExecutor {
         }
     }
 
+    #[pyo3(signature = (next_block_number))]
+    fn get_strk_gas_price(&self, next_block_number: u64) -> NativeBlockifierResult<u128> {
+        let _reader = self.get_aligned_reader(next_block_number);
+        // TODO(Amos, 15/9/2023): NEW_TOKEN_SUPPORT compute strk l1 gas price.
+        Ok(1_u128)
+    }
+
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
@@ -59,12 +66,7 @@ impl PyBlockExecutor {
         &mut self,
         next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<()> {
-        // Full-node storage must be aligned to the Python storage before initializing a reader.
-        self.storage.validate_aligned(next_block_info.block_number);
-        let papyrus_reader = PapyrusReader::new(
-            self.storage.reader().clone(),
-            BlockNumber(next_block_info.block_number),
-        );
+        let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
 
         let tx_executor = TransactionExecutor::new(
             papyrus_reader,
@@ -204,6 +206,12 @@ impl PyBlockExecutor {
 impl PyBlockExecutor {
     pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PapyrusReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+    fn get_aligned_reader(&self, next_block_number: u64) -> PapyrusReader {
+        // Full-node storage must be aligned to the Python storage before initializing a reader.
+        self.storage.validate_aligned(next_block_number);
+        PapyrusReader::new(self.storage.reader().clone(), BlockNumber(next_block_number))
     }
 }
 
