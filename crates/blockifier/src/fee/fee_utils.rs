@@ -50,11 +50,16 @@ pub fn calculate_l1_gas_by_vm_usage(
 pub fn calculate_tx_fee(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
+    pay_with_strk: bool,
 ) -> TransactionExecutionResult<Fee> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
 
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
-    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.eth_l1_gas_price))
+    let gas_price = if pay_with_strk {
+        block_context.strk_l1_gas_price
+    } else {
+        block_context.eth_l1_gas_price
+    };
+    Ok(Fee(total_l1_gas_usage.ceil() as u128 * gas_price))
 }
