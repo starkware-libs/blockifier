@@ -62,6 +62,21 @@ impl AccountTransaction {
         }
     }
 
+    pub fn version(&self) -> TransactionVersion {
+        match self {
+            Self::Declare(tx) => tx.tx().version(),
+            Self::DeployAccount(tx) => tx.version(),
+            Self::Invoke(tx) => match tx.tx {
+                starknet_api::transaction::InvokeTransaction::V0(_) => {
+                    TransactionVersion(StarkFelt::from(0_u8))
+                }
+                starknet_api::transaction::InvokeTransaction::V1(_) => {
+                    TransactionVersion(StarkFelt::from(1_u8))
+                }
+            },
+        }
+    }
+
     pub fn get_address_of_deploy(&self) -> Option<ContractAddress> {
         match self {
             AccountTransaction::DeployAccount(deploy_tx) => Some(deploy_tx.contract_address),
@@ -110,7 +125,7 @@ impl AccountTransaction {
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
                     max_fee: sn_api_tx.max_fee(),
-                    version: sn_api_tx.version(),
+                    version: self.version(),
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),
                     sender_address: sn_api_tx.sender_address(),
@@ -119,7 +134,7 @@ impl AccountTransaction {
             Self::DeployAccount(tx) => AccountTransactionContext {
                 transaction_hash: tx.tx_hash,
                 max_fee: tx.max_fee(),
-                version: tx.version(),
+                version: self.version(),
                 signature: tx.signature(),
                 nonce: tx.nonce(),
                 sender_address: tx.contract_address,
@@ -129,14 +144,7 @@ impl AccountTransaction {
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash,
                     max_fee: sn_api_tx.max_fee(),
-                    version: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => {
-                            TransactionVersion(StarkFelt::from(0_u8))
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(_) => {
-                            TransactionVersion(StarkFelt::from(1_u8))
-                        }
-                    },
+                    version: self.version(),
                     signature: sn_api_tx.signature(),
                     nonce: match sn_api_tx {
                         starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
@@ -153,6 +161,10 @@ impl AccountTransaction {
                 }
             }
         }
+    }
+
+    pub fn pays_with_strk(&self) -> bool {
+        self.version() >= TransactionVersion(StarkFelt::from(3_u8))
     }
 
     fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
