@@ -139,8 +139,12 @@ impl EntryPointExecutionContext {
                 .unwrap_or_else(|| {
                     panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
                 });
-            // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on tx version.
-            let max_gas = account_tx_context.max_fee.0 / block_context.eth_l1_gas_price;
+            let gas_price = if account_tx_context.pays_with_strk() {
+                block_context.strk_l1_gas_price
+            } else {
+                block_context.eth_l1_gas_price
+            };
+            let max_gas = account_tx_context.max_fee.0 / gas_price;
             ((max_gas as f64 / gas_per_step).floor() as usize)
                 .min(constants::MAX_STEPS_PER_TX)
                 .min(block_context.invoke_tx_max_n_steps as usize)
