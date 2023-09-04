@@ -26,6 +26,10 @@ impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version == TransactionVersion(stark_felt!(0_u8))
     }
+
+    pub fn pays_with_strk(&self) -> bool {
+        self.version >= TransactionVersion(StarkFelt::from(3_u8))
+    }
 }
 
 /// Contains the information gathered by the execution of a transaction.
