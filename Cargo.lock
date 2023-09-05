@@ -2236,7 +2236,7 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 [[package]]
 name = "papyrus_config"
 version = "0.0.4"
-source = "git+https://github.com/starkware-libs/papyrus?branch=barak/v3_adj_papyrus/declare#6ff202d52316f2fb81e181bd66925b36611da356"
+source = "git+https://github.com/starkware-libs/papyrus?branch=barak/v3_adj_papyrus/deploy_account#965227cfb1706c0ea4df9f980f3accdc8f305b80"
 dependencies = [
  "clap 4.3.19",
  "itertools 0.10.5",
@@ -2250,7 +2250,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.0.4"
-source = "git+https://github.com/starkware-libs/papyrus?branch=barak/v3_adj_papyrus/declare#6ff202d52316f2fb81e181bd66925b36611da356"
+source = "git+https://github.com/starkware-libs/papyrus?branch=barak/v3_adj_papyrus/deploy_account#965227cfb1706c0ea4df9f980f3accdc8f305b80"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -3127,7 +3127,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.4.1"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=7e33aae#7e33aae17ec4ec25d889f024d2ad1b554b1c8f28"
+source = "git+https://github.com/starkware-libs/starknet-api?rev=e572e2f#e572e2f6b3e7df0a83bdc53dc5f59a990564aa0a"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",
