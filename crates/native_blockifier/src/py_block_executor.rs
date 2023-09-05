@@ -275,10 +275,12 @@ pub fn into_block_context(
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         fee_token_addresses: FeeTokenAddresses {
-            deprecated_fee_token_address: ContractAddress::try_from(
+            eth_fee_token_address: ContractAddress::try_from(
                 starknet_os_config.deprecated_fee_token_address.0,
             )?,
-            fee_token_address: ContractAddress::try_from(starknet_os_config.fee_token_address.0)?,
+            strk_fee_token_address: ContractAddress::try_from(
+                starknet_os_config.fee_token_address.0,
+            )?,
         },
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
         eth_l1_gas_price: block_info.eth_l1_gas_price,

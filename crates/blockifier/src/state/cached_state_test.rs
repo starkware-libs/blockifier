@@ -306,7 +306,7 @@ fn test_state_changes_merge() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let mut transactional_state = CachedState::create_transactional(&mut state);
     let block_context = BlockContext::create_for_testing();
-    let fee_token_address = block_context.fee_token_addresses.deprecated_fee_token_address;
+    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     let state_changes1 = create_state_changes_for_test(&mut transactional_state, fee_token_address);
     transactional_state.commit();
 

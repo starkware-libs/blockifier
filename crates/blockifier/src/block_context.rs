@@ -36,16 +36,16 @@ impl BlockContext {
 
 #[derive(Clone, Debug)]
 pub struct FeeTokenAddresses {
-    pub fee_token_address: ContractAddress,
-    pub deprecated_fee_token_address: ContractAddress,
+    pub strk_fee_token_address: ContractAddress,
+    pub eth_fee_token_address: ContractAddress,
 }
 
 impl FeeTokenAddresses {
     pub fn get_for_version(&self, has_version: &dyn HasTransactionVersion) -> ContractAddress {
         if has_version.version() >= TransactionVersion(StarkFelt::from(3_u128)) {
-            self.fee_token_address
+            self.strk_fee_token_address
         } else {
-            self.deprecated_fee_token_address
+            self.eth_fee_token_address
         }
     }
 }
