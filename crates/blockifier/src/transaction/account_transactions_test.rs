@@ -9,7 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -306,6 +306,7 @@ fn test_revert_invoke(
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let account_tx_context = account_tx.get_account_transaction_context();
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.
@@ -336,7 +337,12 @@ fn test_revert_invoke(
     // Check that the nonce was increased and the fee was deducted.
     let total_deducted_fee = deploy_execution_info.actual_fee.0 + tx_execution_info.actual_fee.0;
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap(),
+        state
+            .get_fee_token_balance(
+                &deployed_account_address,
+                &block_context.fee_token_address(&account_tx_context)
+            )
+            .unwrap(),
         (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
     );
     assert_eq!(
@@ -363,8 +369,13 @@ fn test_fail_deploy_account(block_context: BlockContext) {
 
     let deployed_account_address =
         ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
-    let initial_balance =
-        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap();
+    let tx_version = TransactionVersion(stark_felt!(1_u8));
+    let initial_balance = state
+        .get_fee_token_balance(
+            &deployed_account_address,
+            &block_context.fee_token_address(&tx_version),
+        )
+        .unwrap();
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -379,7 +390,12 @@ fn test_fail_deploy_account(block_context: BlockContext) {
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &deployed_account_address).unwrap(),
+        state
+            .get_fee_token_balance(
+                &deployed_account_address,
+                &block_context.fee_token_address(&tx_version),
+            )
+            .unwrap(),
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
@@ -391,8 +407,11 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
         init_data;
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
+    let tx_version = TransactionVersion(stark_felt!(1_u8));
     let contract_class = ContractClass::V1(ContractClassV1::default());
-    let initial_balance = state.get_fee_token_balance(&block_context, &account_address).unwrap();
+    let initial_balance = state
+        .get_fee_token_balance(&account_address, &block_context.fee_token_address(&tx_version))
+        .unwrap();
     let next_nonce = nonce_manager.next(account_address);
 
     // Cannot fail executing a declare tx unless it's V2 or above, and already declared.
@@ -417,10 +436,16 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     );
 
     // Fail execution, assert nonce and balance are unchanged.
+    let account_tx_context = declare_account_tx.get_account_transaction_context();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
     assert_eq!(state.get_nonce_at(account_address).unwrap(), next_nonce);
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &account_address).unwrap(),
+        state
+            .get_fee_token_balance(
+                &account_address,
+                &block_context.fee_token_address(&account_tx_context)
+            )
+            .unwrap(),
         initial_balance
     );
 }
@@ -849,6 +874,7 @@ fn test_revert_on_overdraft(
 
     let approve_tx: AccountTransaction =
         account_invoke_tx(approve_calldata, account_address, &mut nonce_manager, max_fee);
+    let account_tx_context = approve_tx.get_account_transaction_context();
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();
     assert!(!approval_execution_info.is_reverted());
@@ -871,7 +897,12 @@ fn test_revert_on_overdraft(
     let transfer_tx_fee = execution_info.actual_fee;
 
     // Check the current balance, before next transaction.
-    let (balance, _) = state.get_fee_token_balance(&block_context, &account_address).unwrap();
+    let (balance, _) = state
+        .get_fee_token_balance(
+            &account_address,
+            &block_context.fee_token_address(&account_tx_context),
+        )
+        .unwrap();
 
     // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
     // This operation should revert.
@@ -902,11 +933,21 @@ fn test_revert_on_overdraft(
 
     // Verify balances of both sender and recipient are as expected.
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &account_address).unwrap(),
+        state
+            .get_fee_token_balance(
+                &account_address,
+                &block_context.fee_token_address(&account_tx_context),
+            )
+            .unwrap(),
         (expected_new_balance, stark_felt!(0_u8))
     );
     assert_eq!(
-        state.get_fee_token_balance(&block_context, &recipient_address).unwrap(),
+        state
+            .get_fee_token_balance(
+                &recipient_address,
+                &block_context.fee_token_address(&account_tx_context)
+            )
+            .unwrap(),
         (final_received_amount, stark_felt!(0_u8))
     );
 }

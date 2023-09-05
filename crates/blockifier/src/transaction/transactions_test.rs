@@ -12,7 +12,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    InvokeTransactionV1, TransactionHash, TransactionSignature,
+    InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -433,8 +433,12 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     AccountTransaction::Invoke(mint_tx.into()).execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
-    let (low, high) =
-        state.get_fee_token_balance(block_context, &contract_address!(recipient)).unwrap();
+    let (low, high) = state
+        .get_fee_token_balance(
+            &contract_address!(recipient),
+            &block_context.fee_token_address(&TransactionVersion(stark_felt!(1_u8))),
+        )
+        .unwrap();
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);

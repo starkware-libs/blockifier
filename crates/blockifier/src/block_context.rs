@@ -3,6 +3,10 @@ use std::sync::Arc;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
+use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::TransactionVersion;
+
+use crate::transaction::objects::HasTransactionVersion;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
@@ -24,8 +28,24 @@ pub struct BlockContext {
     pub max_recursion_depth: usize,
 }
 
+impl BlockContext {
+    pub fn fee_token_address(&self, version: &dyn HasTransactionVersion) -> ContractAddress {
+        self.fee_token_addresses.get_for_version(version)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct FeeTokenAddresses {
     pub fee_token_address: ContractAddress,
     pub deprecated_fee_token_address: ContractAddress,
+}
+
+impl FeeTokenAddresses {
+    pub fn get_for_version(&self, has_version: &dyn HasTransactionVersion) -> ContractAddress {
+        if has_version.version() >= TransactionVersion(StarkFelt::from(3_u128)) {
+            self.fee_token_address
+        } else {
+            self.deprecated_fee_token_address
+        }
+    }
 }
