@@ -1,6 +1,9 @@
+use num_bigint::BigUint;
+
+use super::PoolState;
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
+    calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost, get_estimated_strk_price,
     get_log_message_to_l1_emissions_cost, get_message_segment_length,
     get_onchain_data_segment_length,
 };
@@ -113,4 +116,28 @@ fn test_calculate_tx_gas_usage_basic() {
         l1_handler_gas_usage + l2_to_l1_messages_gas_usage + storage_writings_gas_usage;
 
     assert_eq!(gas_usage, expected_gas_usage);
+}
+
+/// Sanity tests for STRK<->ETH price computation.
+#[test]
+fn test_get_estimated_strk_price() {
+    let wei_price = 10_000_000_u128;
+    let (wei_0, wei_1) = (BigUint::from(10_u8), BigUint::from(2000_u16));
+    let (strk_0, strk_1) = (BigUint::from(15_u8), BigUint::from(300_u16));
+    let state_0 = PoolState { total_wei: wei_0.clone(), total_strk: strk_0.clone() };
+    let state_1 = PoolState { total_wei: wei_1.clone(), total_strk: strk_1.clone() };
+
+    // Ratio computation on single state.
+    assert_eq!(
+        get_estimated_strk_price(wei_price, &[state_0.clone()]),
+        wei_price * strk_0.clone() / wei_0.clone()
+    );
+    assert_eq!(
+        get_estimated_strk_price(wei_price, &[state_1.clone()]),
+        wei_price * strk_1.clone() / wei_1.clone()
+    );
+
+    // Weighted ratio.
+    let expected_price = wei_price * (strk_0 + strk_1) / (wei_0 + wei_1);
+    assert_eq!(get_estimated_strk_price(wei_price, &[state_0, state_1]), expected_price);
 }

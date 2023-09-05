@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use num_bigint::BigUint;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
@@ -14,6 +15,34 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
 pub mod test;
+
+/// Struct representing the current state of a STRK<->ETH AMM pool.
+#[derive(Clone, Debug)]
+pub struct PoolState {
+    pub total_wei: BigUint,
+    pub total_strk: BigUint,
+}
+
+impl PoolState {
+    pub fn tvl_in_wei(&self) -> BigUint {
+        // Assumption on pool is the two pools have the same total value.
+        self.total_wei.clone() << 1
+    }
+}
+
+// TODO(Amos, 1/10/2023): This should compute a weighted *median* price, not a weighted average.
+/// Returns the price in STRK, given a price in Wei and the states of a collection of pools.
+/// Pools are weighted by TVL in units of Wei.
+pub fn get_estimated_strk_price(wei_price: u128, pool_states: &[PoolState]) -> BigUint {
+    // Pool `P` contributes `P.total_strk / P.total_wei`, weighted by `P.tvl_in_wei()`.
+    // We use the fact that the total TVL is twice the total wei to simplify:
+    // `sum(P.total_strk * P.total_tvl / P.total_wei) / sum(P.total_tvl)`
+    // ` = sum(2 * P.total_strk) / (2 * sum(P.total_wei))`
+    // ` = sum(P.total_strk) / sum(P.total_wei)`
+    let total_strk: BigUint = pool_states.iter().map(|state| state.total_strk.clone()).sum();
+    let total_wei: BigUint = pool_states.iter().map(|state| state.total_wei.clone()).sum();
+    BigUint::from(wei_price) * total_strk / total_wei
+}
 
 /// Returns an estimation of the L1 gas amount that will be used (by StarkNet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
