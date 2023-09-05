@@ -412,8 +412,8 @@ impl AccountTransaction {
         let mut resources = ExecutionResources::default();
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
-        let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
+        let account_tx_context = self.get_account_transaction_context();
+        let fee_token_address = block_context.fee_token_address(&account_tx_context.fee_type());
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
             execute_call_info =
@@ -438,7 +438,7 @@ impl AccountTransaction {
         }
         let state_changes = state.get_actual_state_changes_for_fee_charge(
             fee_token_address,
-            Some(self.get_account_transaction_context().sender_address),
+            Some(account_tx_context.sender_address),
         )?;
         let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
             StateChangesCount::from(&state_changes),
@@ -468,8 +468,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let account_tx_context = self.get_account_transaction_context();
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
-        let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
+        let fee_token_address = block_context.fee_token_address(&account_tx_context.fee_type());
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.handle_validate_tx(state, &mut resources, remaining_gas, block_context, validate)?;
