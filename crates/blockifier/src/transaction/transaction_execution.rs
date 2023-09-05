@@ -63,9 +63,9 @@ impl Transaction {
                 let contract_address = match deployed_contract_address {
                     Some(address) => address,
                     None => calculate_contract_address(
-                        deploy_account.contract_address_salt,
-                        deploy_account.class_hash,
-                        &deploy_account.constructor_calldata,
+                        deploy_account.contract_address_salt(),
+                        deploy_account.class_hash(),
+                        &deploy_account.constructor_calldata(),
                         ContractAddress::default(),
                     )?,
                 };
