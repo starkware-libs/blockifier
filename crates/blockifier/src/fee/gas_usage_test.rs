@@ -1,3 +1,6 @@
+use std::f64;
+
+use super::{get_wei_to_strk_ratio_from_pool_states, PoolState};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
@@ -5,6 +8,21 @@ use crate::fee::gas_usage::{
     get_onchain_data_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
+
+macro_rules! assert_f64_eq {
+    ($left:expr, $right:expr) => {
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if (*left_val - *right_val).abs() >= f64::EPSILON {
+                    panic!(
+                        "assertion failed: `(left == right)`\n  left: `{:?}`,\n right: `{:?}`",
+                        &*left_val, &*right_val
+                    );
+                }
+            }
+        }
+    };
+}
 
 /// This test goes over five cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.
@@ -113,4 +131,29 @@ fn test_calculate_tx_gas_usage_basic() {
         l1_handler_gas_usage + l2_to_l1_messages_gas_usage + storage_writings_gas_usage;
 
     assert_eq!(gas_usage, expected_gas_usage);
+}
+
+/// Sanity tests for STRK<->ETH price computation.
+#[test]
+fn test_pool_state() {
+    let (wei_0, wei_1) = (10, 2000);
+    let (strk_0, strk_1) = (15, 300);
+    let state_0 = PoolState { total_wei: wei_0, total_strk: strk_0 };
+    let state_1 = PoolState { total_wei: wei_1, total_strk: strk_1 };
+
+    // Ratio computation on single state.
+    assert_f64_eq!(
+        get_wei_to_strk_ratio_from_pool_states(&[state_0.clone()]),
+        wei_0 as f64 / strk_0 as f64
+    );
+    assert_f64_eq!(
+        get_wei_to_strk_ratio_from_pool_states(&[state_1.clone()]),
+        wei_1 as f64 / strk_1 as f64
+    );
+
+    // Weighted ratio.
+    let expected_weighted: f64 = ((wei_0 as f64 * wei_0 as f64) / (strk_0 as f64)
+        + (wei_1 as f64 * wei_1 as f64) / (strk_1 as f64))
+        / ((wei_0 + wei_1) as f64);
+    assert_f64_eq!(get_wei_to_strk_ratio_from_pool_states(&[state_0, state_1]), expected_weighted);
 }

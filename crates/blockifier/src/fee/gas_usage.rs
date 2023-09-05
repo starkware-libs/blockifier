@@ -15,6 +15,34 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
+/// Struct representing the current state of a STRK<->ETH AMM pool.
+#[derive(Clone, Debug)]
+pub struct PoolState {
+    pub total_wei: u128,
+    pub total_strk: u128,
+}
+
+impl PoolState {
+    pub fn tvl_in_wei(&self) -> u128 {
+        // Assumption on pool is the two pools have the same total value.
+        self.total_wei * 2
+    }
+}
+
+// TODO(Amos, 1/10/2023): This should compute a weighted *median* ratio, not a weighted average.
+/// Returns the weighted average Wei / STRK ratio, given the states of a collection of pools.
+/// Pools are weighted by TVL in units of Wei.
+pub fn get_wei_to_strk_ratio_from_pool_states(pool_states: &[PoolState]) -> f64 {
+    // Each pool contributes `total_wei / total_strk`, weighted by `tvl_in_wei()`.
+    // Average is taken over the total TVL of all pools.
+    let total_tvl: f64 = pool_states.iter().map(|state| state.tvl_in_wei() as f64).sum::<f64>();
+    let total_weighted_wei_per_strk: f64 = pool_states
+        .iter()
+        .map(|state| (state.total_wei as f64 * state.tvl_in_wei() as f64) / state.total_strk as f64)
+        .sum::<f64>();
+    total_weighted_wei_per_strk / total_tvl
+}
+
 /// Returns an estimation of the L1 gas amount that will be used (by StarkNet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in StarkNet L1 contract
