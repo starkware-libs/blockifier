@@ -64,7 +64,7 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     ]);
     // Deploy the erc20 contract.
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT consider deploying and using an extra token.
-    let test_erc20_address = block_context.deprecated_fee_token_address;
+    let test_erc20_address = block_context.fee_token_addresses.deprecated_fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
     CachedState::from(DictStateReader {
@@ -83,7 +83,7 @@ fn create_test_init_data(
     let mut nonce_manager = NonceManager::default();
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the versions of txs
     //   used to init.
-    let fee_token_address = block_context.deprecated_fee_token_address;
+    let fee_token_address = block_context.fee_token_addresses.deprecated_fee_token_address;
 
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
@@ -288,7 +288,7 @@ fn test_revert_invoke(
 ) {
     let mut nonce_manager = NonceManager::default();
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = block_context.deprecated_fee_token_address;
+    let fee_token_address = block_context.fee_token_addresses.deprecated_fee_token_address;
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -790,7 +790,7 @@ fn write_and_transfer(
     state: &mut CachedState<DictStateReader>,
 ) -> TransactionExecutionInfo {
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
+    let fee_token_address = *block_context.fee_token_addresses.deprecated_fee_token_address.0.key();
     let execute_calldata = calldata![
         *test_contract_address.0.key(),                  // Contract address.
         selector_from_name("test_write_and_transfer").0, // EP selector.
@@ -814,7 +814,7 @@ fn test_revert_on_overdraft(
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = *block_context.deprecated_fee_token_address.0.key();
+    let fee_token_address = *block_context.fee_token_addresses.deprecated_fee_token_address.0.key();
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();

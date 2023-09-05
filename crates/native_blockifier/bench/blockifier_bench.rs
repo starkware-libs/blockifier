@@ -43,7 +43,7 @@ fn create_state() -> CachedState<DictStateReader> {
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the ERC20 contract.
-    let test_erc20_address = block_context.deprecated_fee_token_address;
+    let test_erc20_address = block_context.fee_token_addresses.deprecated_fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
     CachedState::from(DictStateReader {
@@ -85,13 +85,14 @@ fn do_transfer(
 
     let entry_point_selector =
         selector_from_name(blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME);
+    let contract_address = *block_context.fee_token_addresses.deprecated_fee_token_address.0.key();
     let execute_calldata = calldata![
-        *block_context.deprecated_fee_token_address.0.key(), // Contract address.
-        entry_point_selector.0,                              // EP selector.
-        stark_felt!(3_u8),                                   // Calldata length.
-        *recipient_account_address.0.key(),                  // Calldata: recipient.
-        stark_felt!(1_u8),                                   // Calldata: lsb amount.
-        stark_felt!(0_u8)                                    // Calldata: msb amount.
+        contract_address,                   // Contract address.
+        entry_point_selector.0,             // EP selector.
+        stark_felt!(3_u8),                  // Calldata length.
+        *recipient_account_address.0.key(), // Calldata: recipient.
+        stark_felt!(1_u8),                  // Calldata: lsb amount.
+        stark_felt!(0_u8)                   // Calldata: msb amount.
     ];
 
     let tx = invoke_tx(execute_calldata, sender_account_address, Fee(MAX_FEE), None);
@@ -140,7 +141,7 @@ fn prepare_accounts(
             get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()])
                 .unwrap();
         state.set_storage_at(
-            block_context.deprecated_fee_token_address,
+            block_context.fee_token_addresses.deprecated_fee_token_address,
             deployed_account_balance_key,
             stark_felt!(BALANCE * 1000),
         );

@@ -27,7 +27,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, FeeTokenAddresses};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -343,8 +343,10 @@ impl BlockContext {
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp::default(),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
-            deprecated_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
-            fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
+            fee_token_addresses: FeeTokenAddresses {
+                deprecated_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
+                fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
+            },
             vm_resource_fee_cost: Default::default(),
             eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
             strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,

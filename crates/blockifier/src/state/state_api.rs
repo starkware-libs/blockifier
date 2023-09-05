@@ -56,8 +56,14 @@ pub trait StateReader {
         contract_address: &ContractAddress,
     ) -> Result<(StarkFelt, StarkFelt), StateError> {
         let (low_key, high_key) = get_erc20_balance_var_addresses(contract_address)?;
-        let low = self.get_storage_at(block_context.deprecated_fee_token_address, low_key)?;
-        let high = self.get_storage_at(block_context.deprecated_fee_token_address, high_key)?;
+        let low = self.get_storage_at(
+            block_context.fee_token_addresses.deprecated_fee_token_address,
+            low_key,
+        )?;
+        let high = self.get_storage_at(
+            block_context.fee_token_addresses.deprecated_fee_token_address,
+            high_key,
+        )?;
 
         Ok((low, high))
     }
