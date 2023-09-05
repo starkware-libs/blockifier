@@ -70,6 +70,9 @@ pub fn execute_entry_point_call(
     )?;
     let n_total_args = args.len();
 
+    // dbg!(&args);
+    dbg!(args.len());
+
     // Fix the VM resources, in order to calculate the usage of this run at the end.
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 

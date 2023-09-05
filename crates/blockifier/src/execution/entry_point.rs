@@ -212,8 +212,18 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
+        match contract_class {
+            crate::execution::contract_class::ContractClass::V0(_) => println!("!!!!!!!!!!!! V0"),
+            crate::execution::contract_class::ContractClass::V1(_) => println!("!!!!!!!!!!!! V1"),
+        }
+
+        dbg!(class_hash);
+        // dbg!(&contract_class);
+        dbg!(&self.entry_point_selector);
+
         let result = execute_entry_point_call(self, contract_class, state, resources, context)
             .map_err(|error| {
+                dbg!(&error);
                 match error {
                     // On VM error, pack the stack trace into the propagated error.
                     EntryPointExecutionError::VirtualMachineExecutionError(error) => {

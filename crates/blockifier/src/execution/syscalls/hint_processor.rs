@@ -495,6 +495,7 @@ impl HintProcessorLogic for SyscallHintProcessor<'_> {
         hint_data: &Box<dyn Any>,
         _constants: &HashMap<String, Felt252>,
     ) -> HintExecutionResult {
+        println!("============= blockifier: Executing hint =================");
         let hint = hint_data.downcast_ref::<Hint>().ok_or(HintError::WrongHintData)?;
         match hint {
             Hint::Core(hint) => execute_core_hint_base(vm, exec_scopes, hint),
