@@ -32,6 +32,14 @@ impl BlockContext {
     pub fn fee_token_address(&self, version: &dyn HasTransactionVersion) -> ContractAddress {
         self.fee_token_addresses.get_for_version(version)
     }
+
+    pub fn tx_gas_price(&self, version: &dyn HasTransactionVersion) -> u128 {
+        if version.version() >= TransactionVersion(StarkFelt::from(3_u128)) {
+            self.strk_l1_gas_price
+        } else {
+            self.eth_l1_gas_price
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
