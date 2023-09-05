@@ -28,6 +28,12 @@ impl AccountTransactionContext {
     }
 }
 
+impl HasTransactionVersion for AccountTransactionContext {
+    fn version(&self) -> TransactionVersion {
+        self.version
+    }
+}
+
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionExecutionInfo {
@@ -76,3 +82,13 @@ impl TransactionExecutionInfo {
 /// A mapping from a transaction execution resource to its actual usage.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
+
+pub trait HasTransactionVersion {
+    fn version(&self) -> TransactionVersion;
+}
+
+impl HasTransactionVersion for TransactionVersion {
+    fn version(&self) -> TransactionVersion {
+        *self
+    }
+}

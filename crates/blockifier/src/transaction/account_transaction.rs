@@ -305,8 +305,10 @@ impl AccountTransaction {
                 });
             }
 
-            let (balance_low, balance_high) =
-                state.get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
+            let (balance_low, balance_high) = state.get_fee_token_balance(
+                &account_tx_context.sender_address,
+                &block_context.fee_token_address(&account_tx_context),
+            )?;
             if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
                 return Err(TransactionExecutionError::MaxFeeExceedsBalance {
                     max_fee,
@@ -356,7 +358,7 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT address depends on tx version.
-        let storage_address = block_context.deprecated_fee_token_address;
+        let storage_address = block_context.fee_token_addresses.eth_fee_token_address;
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,
@@ -406,7 +408,7 @@ impl AccountTransaction {
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
-        let fee_token_address = block_context.deprecated_fee_token_address;
+        let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
             execute_call_info =
@@ -451,7 +453,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
-        let fee_token_address = block_context.deprecated_fee_token_address;
+        let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
@@ -526,8 +528,10 @@ impl AccountTransaction {
 
                 // Check if as a result of tx execution the sender's fee token balance is maxed out,
                 // so that they can't pay fee. If so, the transaction must be reverted.
-                let (balance_low, balance_high) = execution_state
-                    .get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
+                let (balance_low, balance_high) = execution_state.get_fee_token_balance(
+                    &account_tx_context.sender_address,
+                    &block_context.fee_token_address(&account_tx_context),
+                )?;
                 let is_maxed_out =
                     !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
                 let max_fee = account_tx_context.max_fee;

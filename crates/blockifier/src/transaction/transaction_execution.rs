@@ -94,7 +94,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT token address should depend on tx version.
-        let fee_token_address = block_context.deprecated_fee_token_address;
+        let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
             transaction_hash: self.tx_hash,

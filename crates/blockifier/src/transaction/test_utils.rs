@@ -66,7 +66,7 @@ pub fn create_account_tx_test_state(
     // address.
     let test_account_address = contract_address!(account_address);
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT add another fee token to the initial state.
-    let test_erc20_address = block_context.deprecated_fee_token_address;
+    let test_erc20_address = block_context.fee_token_addresses.eth_fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_address, test_account_class_hash),
