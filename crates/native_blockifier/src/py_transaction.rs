@@ -19,8 +19,9 @@ use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
-    DeclareTransactionV3, Fee, InvokeTransactionV0, InvokeTransactionV1, ResourceBounds, Tip,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    DeclareTransactionV3, DeployAccountTransactionV1, DeployAccountTransactionV3, Fee, InvokeTransactionV0,
+    InvokeTransactionV1, ResourceBounds, Tip, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
@@ -180,26 +181,53 @@ pub fn py_declare(
 
 pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
     let account_data_context = py_account_data_context(tx)?;
-
+    let class_hash = ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0);
+    let constructor_calldata = py_calldata(tx, "constructor_calldata")?;
+    let contract_address_salt =
+        ContractAddressSalt(py_attr::<PyFelt>(tx, "contract_address_salt")?.0);
     let version = usize::try_from(account_data_context.version.0)?;
     let sn_api_tx = match version {
-        1 => Ok(starknet_api::transaction::DeployAccountTransaction {
-            max_fee: account_data_context.max_fee,
-            version: account_data_context.version,
-            signature: account_data_context.signature,
-            nonce: account_data_context.nonce,
-            class_hash: ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0),
-            contract_address_salt: ContractAddressSalt(
-                py_attr::<PyFelt>(tx, "contract_address_salt")?.0,
-            ),
-            constructor_calldata: py_calldata(tx, "constructor_calldata")?,
-        }),
+        1 => {
+            let deploy_account_tx = DeployAccountTransactionV1 {
+                max_fee: account_data_context.max_fee,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                contract_address_salt,
+                constructor_calldata,
+            };
+            Ok(starknet_api::transaction::DeployAccountTransaction::V1(deploy_account_tx))
+        }
+        3 => {
+            let tip = Tip(py_attr::<u64>(tx, "tip")?);
+            let py_resource_bounds: PyResourceBounds = py_attr(tx, "resource_bounds")?;
+            let resource_bounds = ResourceBounds::from(py_resource_bounds);
+            let py_nonce_data_availability_mode: PyDataAvailabilityMode =
+                py_attr(tx, "nonce_data_availability_mode")?;
+            let nonce_data_availability_mode =
+                DataAvailabilityMode::try_from(py_nonce_data_availability_mode)?;
+            let py_fee_data_availability_mode: PyDataAvailabilityMode =
+                py_attr(tx, "fee_data_availability_mode")?;
+            let fee_data_availability_mode =
+                DataAvailabilityMode::try_from(py_fee_data_availability_mode)?;
+            let deploy_account_tx = DeployAccountTransactionV3 {
+                resource_bounds,
+                tip,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                class_hash,
+                contract_address_salt,
+                constructor_calldata,
+                nonce_data_availability_mode,
+                fee_data_availability_mode,
+            };
+            Ok(starknet_api::transaction::DeployAccountTransaction::V3(deploy_account_tx))
+        }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::DeployAccount,
             version,
         }),
     }?;
-
     Ok(DeployAccountTransaction {
         tx: sn_api_tx,
         tx_hash: account_data_context.transaction_hash,
