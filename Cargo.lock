@@ -2236,7 +2236,7 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 [[package]]
 name = "papyrus_config"
 version = "0.0.4"
-source = "git+https://github.com/starkware-libs/papyrus?rev=69a43b6dffc9596c244c56ad70eca76148e00bce#69a43b6dffc9596c244c56ad70eca76148e00bce"
+source = "git+https://github.com/starkware-libs/papyrus?rev=784031b05f1c0bfde51de86015de7601d61a5dc6#784031b05f1c0bfde51de86015de7601d61a5dc6"
 dependencies = [
  "clap 4.3.19",
  "itertools 0.10.5",
@@ -2250,7 +2250,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.0.4"
-source = "git+https://github.com/starkware-libs/papyrus?rev=69a43b6dffc9596c244c56ad70eca76148e00bce#69a43b6dffc9596c244c56ad70eca76148e00bce"
+source = "git+https://github.com/starkware-libs/papyrus?rev=784031b05f1c0bfde51de86015de7601d61a5dc6#784031b05f1c0bfde51de86015de7601d61a5dc6"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -3127,7 +3127,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.4.1"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=0c828700d8ec9b6ef742ff4f8222e7a25b2916f9#0c828700d8ec9b6ef742ff4f8222e7a25b2916f9"
+source = "git+https://github.com/starkware-libs/starknet-api?rev=39ca3858e1146b8015c017bf0fc5618417ab8304#39ca3858e1146b8015c017bf0fc5618417ab8304"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",

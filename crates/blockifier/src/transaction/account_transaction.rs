@@ -58,7 +58,7 @@ impl HasRelatedFeeType for AccountTransaction {
     fn version(&self) -> TransactionVersion {
         match self {
             Self::Declare(tx) => tx.tx().version(),
-            Self::DeployAccount(tx) => tx.version(),
+            Self::DeployAccount(tx) => tx.tx().version(),
             Self::Invoke(tx) => match tx.tx {
                 starknet_api::transaction::InvokeTransaction::V0(_) => {
                     TransactionVersion(StarkFelt::from(0_u8))
@@ -138,14 +138,17 @@ impl AccountTransaction {
                     sender_address: sn_api_tx.sender_address(),
                 }
             }
-            Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.tx_hash,
-                max_fee: tx.max_fee(),
-                version: self.version(),
-                signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.contract_address,
-            },
+            Self::DeployAccount(tx) => {
+                let sn_api_tx = &tx.tx();
+                AccountTransactionContext {
+                    transaction_hash: tx.tx_hash,
+                    max_fee: tx.max_fee(),
+                    version: self.version(),
+                    signature: sn_api_tx.signature(),
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: tx.contract_address,
+                }
+            }
             Self::Invoke(tx) => {
                 let sn_api_tx = &tx.tx;
                 AccountTransactionContext {
@@ -181,13 +184,18 @@ impl AccountTransaction {
                     TransactionVersion(StarkFelt::from(3_u8)),
                 ]
             }
+            Self::DeployAccount(_) => {
+                vec![
+                    TransactionVersion(StarkFelt::from(1_u8)),
+                    TransactionVersion(StarkFelt::from(3_u8)),
+                ]
+            }
             Self::Invoke(_) => {
                 vec![
                     TransactionVersion(StarkFelt::from(0_u8)),
                     TransactionVersion(StarkFelt::from(1_u8)),
                 ]
             }
-            _ => vec![TransactionVersion(StarkFelt::from(1_u8))],
         };
         if allowed_versions.contains(&version) {
             Ok(())
