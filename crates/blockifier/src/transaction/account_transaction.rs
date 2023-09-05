@@ -362,8 +362,8 @@ impl AccountTransaction {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
 
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT address depends on tx version.
-        let storage_address = block_context.fee_token_addresses.eth_fee_token_address;
+        // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
+        let storage_address = block_context.fee_token_address(&account_tx_context.fee_type());
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,
