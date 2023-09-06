@@ -3,6 +3,7 @@ use starknet_api::transaction::{
     Fee, Transaction as StarknetApiTransaction, TransactionHash, TransactionSignature,
 };
 
+use super::objects::HasRelatedFeeType;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
@@ -123,7 +124,8 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         )?;
         let actual_resources =
             calculate_tx_resources(&resources, l1_gas_usage, TransactionType::L1Handler)?;
-        let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
+        let actual_fee =
+            calculate_tx_fee(&actual_resources, &context.block_context, &self.fee_type())?;
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.
