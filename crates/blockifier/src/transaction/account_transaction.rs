@@ -8,6 +8,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
+use super::objects::HasTransactionVersion;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -51,6 +52,23 @@ pub enum AccountTransaction {
     Declare(DeclareTransaction),
     DeployAccount(DeployAccountTransaction),
     Invoke(InvokeTransaction),
+}
+
+impl HasTransactionVersion for AccountTransaction {
+    fn version(&self) -> TransactionVersion {
+        match self {
+            Self::Declare(tx) => tx.tx().version(),
+            Self::DeployAccount(tx) => tx.version(),
+            Self::Invoke(tx) => match tx.tx {
+                starknet_api::transaction::InvokeTransaction::V0(_) => {
+                    TransactionVersion(StarkFelt::from(0_u8))
+                }
+                starknet_api::transaction::InvokeTransaction::V1(_) => {
+                    TransactionVersion(StarkFelt::from(1_u8))
+                }
+            },
+        }
+    }
 }
 
 impl AccountTransaction {
@@ -110,7 +128,7 @@ impl AccountTransaction {
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
                     max_fee: sn_api_tx.max_fee(),
-                    version: sn_api_tx.version(),
+                    version: self.version(),
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),
                     sender_address: sn_api_tx.sender_address(),
@@ -119,7 +137,7 @@ impl AccountTransaction {
             Self::DeployAccount(tx) => AccountTransactionContext {
                 transaction_hash: tx.tx_hash,
                 max_fee: tx.max_fee(),
-                version: tx.version(),
+                version: self.version(),
                 signature: tx.signature(),
                 nonce: tx.nonce(),
                 sender_address: tx.contract_address,
@@ -129,14 +147,7 @@ impl AccountTransaction {
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash,
                     max_fee: sn_api_tx.max_fee(),
-                    version: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => {
-                            TransactionVersion(StarkFelt::from(0_u8))
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(_) => {
-                            TransactionVersion(StarkFelt::from(1_u8))
-                        }
-                    },
+                    version: self.version(),
                     signature: sn_api_tx.signature(),
                     nonce: match sn_api_tx {
                         starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
