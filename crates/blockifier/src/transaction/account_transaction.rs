@@ -332,6 +332,14 @@ impl AccountTransaction {
         Ok(())
     }
 
+    fn calculate_tx_fee(
+        &self,
+        resources: &ResourcesMapping,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Fee> {
+        calculate_tx_fee(resources, block_context, self)
+    }
+
     fn handle_fee(
         &self,
         state: &mut dyn State,
@@ -701,7 +709,7 @@ impl AccountTransaction {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let mut actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
+        let mut actual_fee = self.calculate_tx_fee(&actual_resources, block_context)?;
 
         if is_reverted || account_tx_context.max_fee == Fee(0) {
             // We cannot charge more than max_fee for reverted txs.

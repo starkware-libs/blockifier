@@ -1,6 +1,8 @@
 use starknet_api::core::{calculate_contract_address, ContractAddress};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Fee, Transaction as StarknetApiTransaction, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 
 use crate::abi::constants as abi_constants;
@@ -123,7 +125,13 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         )?;
         let actual_resources =
             calculate_tx_resources(&resources, l1_gas_usage, TransactionType::L1Handler)?;
-        let actual_fee = calculate_tx_fee(&actual_resources, &context.block_context)?;
+        // TODO(Dori, 1/10/2023): NEW_TOKEN_SUPPORT Need a clearer way to indicate L1 handlers pay
+        //   fee in ETH.
+        let actual_fee = calculate_tx_fee(
+            &actual_resources,
+            &context.block_context,
+            &TransactionVersion(StarkFelt::from(1_u8)),
+        )?;
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.
