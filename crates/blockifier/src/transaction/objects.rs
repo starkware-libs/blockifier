@@ -11,6 +11,11 @@ use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
+pub enum FeeType {
+    Strk,
+    Eth,
+}
+
 /// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AccountTransactionContext {
@@ -91,4 +96,12 @@ pub trait HasRelatedFeeType {
     fn version(&self) -> TransactionVersion;
 
     fn is_l1_handler(&self) -> bool;
+
+    fn fee_type(&self) -> FeeType {
+        if self.is_l1_handler() || self.version() < TransactionVersion(StarkFelt::from(3_u128)) {
+            FeeType::Eth
+        } else {
+            FeeType::Strk
+        }
+    }
 }
