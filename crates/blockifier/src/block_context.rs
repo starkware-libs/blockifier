@@ -6,7 +6,7 @@ use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionVersion;
 
-use crate::transaction::objects::HasTransactionVersion;
+use crate::transaction::objects::HasRelatedFeeType;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
@@ -27,7 +27,7 @@ pub struct BlockContext {
 }
 
 impl BlockContext {
-    pub fn fee_token_address(&self, version: &dyn HasTransactionVersion) -> ContractAddress {
+    pub fn fee_token_address(&self, version: &dyn HasRelatedFeeType) -> ContractAddress {
         self.fee_token_addresses.get_for_version(version)
     }
 }
@@ -39,7 +39,7 @@ pub struct FeeTokenAddresses {
 }
 
 impl FeeTokenAddresses {
-    pub fn get_for_version(&self, has_version: &dyn HasTransactionVersion) -> ContractAddress {
+    pub fn get_for_version(&self, has_version: &dyn HasRelatedFeeType) -> ContractAddress {
         if is_strk_version(has_version) {
             self.strk_fee_token_address
         } else {
@@ -56,12 +56,12 @@ pub struct GasPrices {
 }
 
 impl GasPrices {
-    pub fn get_for_version(&self, has_version: &dyn HasTransactionVersion) -> u128 {
+    pub fn get_for_version(&self, has_version: &dyn HasRelatedFeeType) -> u128 {
         if is_strk_version(has_version) { self.strk_l1_gas_price } else { self.eth_l1_gas_price }
     }
 }
 
-fn is_strk_version(has_version: &dyn HasTransactionVersion) -> bool {
+fn is_strk_version(has_version: &dyn HasRelatedFeeType) -> bool {
     !has_version.is_l1_handler()
         && has_version.version() >= TransactionVersion(StarkFelt::from(3_u128))
 }
