@@ -43,7 +43,7 @@ use crate::test_utils::{
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::objects::{HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     create_account_tx_for_validate_test, create_state_with_cairo1_account,
     create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
@@ -431,7 +431,7 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         None,
     );
     let account_tx = AccountTransaction::Invoke(mint_tx.into());
-    let fee_token_address = block_context.fee_token_address(&account_tx);
+    let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.

@@ -16,7 +16,7 @@ use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::{AccountTransactionContext, HasRelatedFeeType};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -140,7 +140,7 @@ impl EntryPointExecutionContext {
                     panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
                 });
             let max_gas = account_tx_context.max_fee.0
-                / block_context.gas_prices.get_for_version(account_tx_context);
+                / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type());
             ((max_gas as f64 / gas_per_step).floor() as usize)
                 .min(constants::MAX_STEPS_PER_TX)
                 .min(block_context.invoke_tx_max_n_steps as usize)
