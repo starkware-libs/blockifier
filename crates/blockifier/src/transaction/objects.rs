@@ -28,7 +28,7 @@ impl AccountTransactionContext {
     }
 }
 
-impl HasTransactionVersion for AccountTransactionContext {
+impl HasRelatedFeeType for AccountTransactionContext {
     fn version(&self) -> TransactionVersion {
         self.version
     }
@@ -87,7 +87,7 @@ impl TransactionExecutionInfo {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
-pub trait HasTransactionVersion {
+pub trait HasRelatedFeeType {
     fn version(&self) -> TransactionVersion;
 
     fn is_l1_handler(&self) -> bool;
