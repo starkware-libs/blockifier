@@ -32,6 +32,10 @@ impl HasTransactionVersion for AccountTransactionContext {
     fn version(&self) -> TransactionVersion {
         self.version
     }
+
+    fn is_l1_handler(&self) -> bool {
+        false
+    }
 }
 
 /// Contains the information gathered by the execution of a transaction.
@@ -85,4 +89,6 @@ pub struct ResourcesMapping(pub HashMap<String, usize>);
 
 pub trait HasTransactionVersion {
     fn version(&self) -> TransactionVersion;
+
+    fn is_l1_handler(&self) -> bool;
 }

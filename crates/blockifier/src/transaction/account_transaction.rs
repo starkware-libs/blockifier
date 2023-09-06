@@ -69,6 +69,10 @@ impl HasTransactionVersion for AccountTransaction {
             },
         }
     }
+
+    fn is_l1_handler(&self) -> bool {
+        false
+    }
 }
 
 impl AccountTransaction {
