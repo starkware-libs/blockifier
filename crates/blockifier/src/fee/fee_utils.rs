@@ -56,5 +56,5 @@ pub fn calculate_tx_fee(
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
 
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
-    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.eth_l1_gas_price))
+    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.eth_l1_gas_price))
 }
