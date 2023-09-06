@@ -8,7 +8,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
-use super::objects::HasRelatedFeeTypeData;
+use super::objects::{HasRelatedFeeType, HasRelatedFeeTypeData};
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -322,7 +322,7 @@ impl AccountTransaction {
 
             let (balance_low, balance_high) = state.get_fee_token_balance(
                 &account_tx_context.sender_address,
-                &block_context.fee_token_address(&account_tx_context),
+                &block_context.fee_token_address(&account_tx_context.fee_type()),
             )?;
             if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
                 return Err(TransactionExecutionError::MaxFeeExceedsBalance {
@@ -545,7 +545,7 @@ impl AccountTransaction {
                 // so that they can't pay fee. If so, the transaction must be reverted.
                 let (balance_low, balance_high) = execution_state.get_fee_token_balance(
                     &account_tx_context.sender_address,
-                    &block_context.fee_token_address(&account_tx_context),
+                    &block_context.fee_token_address(&account_tx_context.fee_type()),
                 )?;
                 let is_maxed_out =
                     !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
