@@ -27,7 +27,7 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::objects::TransactionExecutionInfo;
+use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
     create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
@@ -340,7 +340,7 @@ fn test_revert_invoke(
         state
             .get_fee_token_balance(
                 &deployed_account_address,
-                &block_context.fee_token_address(&account_tx_context)
+                &block_context.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
@@ -377,7 +377,7 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         None,
         &mut NonceManager::default(),
     );
-    let fee_token_address = block_context.fee_token_addresses.get_for_version(&deploy_account_tx);
+    let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
     let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
 
     let initial_balance =
@@ -428,7 +428,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     let initial_balance = state
         .get_fee_token_balance(
             &account_address,
-            &block_context.fee_token_address(&account_tx_context),
+            &block_context.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
@@ -438,7 +438,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
         state
             .get_fee_token_balance(
                 &account_address,
-                &block_context.fee_token_address(&account_tx_context)
+                &block_context.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         initial_balance
@@ -895,7 +895,7 @@ fn test_revert_on_overdraft(
     let (balance, _) = state
         .get_fee_token_balance(
             &account_address,
-            &block_context.fee_token_address(&account_tx_context),
+            &block_context.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
 
@@ -931,7 +931,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 &account_address,
-                &block_context.fee_token_address(&account_tx_context),
+                &block_context.fee_token_address(&account_tx_context.fee_type()),
             )
             .unwrap(),
         (expected_new_balance, stark_felt!(0_u8))
@@ -940,7 +940,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 &recipient_address,
-                &block_context.fee_token_address(&account_tx_context)
+                &block_context.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         (final_received_amount, stark_felt!(0_u8))
