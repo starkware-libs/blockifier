@@ -6,7 +6,7 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
-use super::objects::HasRelatedFeeType;
+use super::objects::HasRelatedFeeTypeData;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -311,7 +311,7 @@ pub struct L1HandlerTransaction {
     pub paid_fee_on_l1: Fee,
 }
 
-impl HasRelatedFeeType for L1HandlerTransaction {
+impl HasRelatedFeeTypeData for L1HandlerTransaction {
     fn version(&self) -> TransactionVersion {
         self.tx.version
     }

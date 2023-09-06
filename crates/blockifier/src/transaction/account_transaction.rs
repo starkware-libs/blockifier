@@ -8,7 +8,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
-use super::objects::HasRelatedFeeType;
+use super::objects::HasRelatedFeeTypeData;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -54,7 +54,7 @@ pub enum AccountTransaction {
     Invoke(InvokeTransaction),
 }
 
-impl HasRelatedFeeType for AccountTransaction {
+impl HasRelatedFeeTypeData for AccountTransaction {
     fn version(&self) -> TransactionVersion {
         match self {
             Self::Declare(tx) => tx.tx().version(),

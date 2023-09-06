@@ -33,7 +33,7 @@ impl AccountTransactionContext {
     }
 }
 
-impl HasRelatedFeeType for AccountTransactionContext {
+impl HasRelatedFeeTypeData for AccountTransactionContext {
     fn version(&self) -> TransactionVersion {
         self.version
     }
@@ -92,11 +92,19 @@ impl TransactionExecutionInfo {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
-pub trait HasRelatedFeeType {
+pub trait HasRelatedFeeTypeData {
     fn version(&self) -> TransactionVersion;
 
     fn is_l1_handler(&self) -> bool;
+}
 
+pub trait HasRelatedFeeType {
+    fn fee_type(&self) -> FeeType;
+}
+impl<T> HasRelatedFeeType for T
+where
+    T: HasRelatedFeeTypeData,
+{
     fn fee_type(&self) -> FeeType {
         if self.is_l1_handler() || self.version() < TransactionVersion(StarkFelt::from(3_u128)) {
             FeeType::Eth
