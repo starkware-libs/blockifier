@@ -31,19 +31,19 @@
 
 ## About
 
-Blockifier is a Rust implementation for the transaction-executing component in the StarkNet sequencer, in charge of creating state diffs and blocks.
+Blockifier is a Rust implementation of the component in the Starknet sequencer that executes transactions, and is in charge of creating state diffs and blocks.
 
 ## Roadmap
 
-The Blockifier will be a step towards a decentralized sequencer client for StarkNet, allowing anyone to run one.
+The Blockifier is a step towards a decentralized sequencer client for Starknet, allowing anyone to run one.
 We'll add more milestones to this table once we finish the first one, where we blockify transactions sequentially, including all existing functionality.
 
 | name                                                                                                                                   | status |
 | -------------------------------------------------------------------------------------------------------------------------------------- | :----: |
 | Add the ability to execute a block and output a state diff.                                                                            |   ✅   |
-| Integrate with the existing StarkNet Sequencer by replacing its current transaction-blockifying component, which is written in Python. |   ⏳   |
+| Integrate with the existing Starknet Sequencer by replacing its current transaction-blockifying component, which is written in Python. |   ⏳   |
 | Implement optimistic concurrency of transaction execution.                                                                             |        |
-| Extend the Blockifier into a full StarkNet sequencer, written in Rust, replacing the one currently in use.                             |        |
+| Extend the Blockifier into a full Starknet sequencer, written in Rust, replacing the one currently in use.                             |        |
 
 ## Support
 
@@ -54,7 +54,7 @@ Reach out to the maintainer at one of the following places:
 
 ## Security
 
-Blockifier follows good practices of security, but 100% security cannot be assured.
+Blockifier follows good security practices, but 100% security cannot be assured.
 Blockifier is provided **"as is"** without any **warranty**. Use at your own risk.
 
 _For more information and to report security issues, please refer to our [security documentation](docs/SECURITY.md)._
