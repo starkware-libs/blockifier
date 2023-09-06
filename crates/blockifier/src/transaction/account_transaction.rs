@@ -17,7 +17,6 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
-use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
@@ -696,7 +695,7 @@ impl AccountTransaction {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let mut actual_fee = calculate_tx_fee(&actual_resources, block_context)?;
+        let mut actual_fee = self.calculate_tx_fee(&actual_resources, block_context)?;
 
         if is_reverted || account_tx_context.max_fee == Fee(0) {
             // We cannot charge more than max_fee for reverted txs.
