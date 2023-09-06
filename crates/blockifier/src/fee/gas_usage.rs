@@ -9,7 +9,9 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{
+    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -180,5 +182,5 @@ pub fn estimate_minimal_fee(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    calculate_tx_fee(&resources, block_context)
+    calculate_tx_fee(&resources, block_context, &tx.fee_type())
 }

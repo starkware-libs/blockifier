@@ -5,7 +5,7 @@ use starknet_api::transaction::Fee;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{FeeType, ResourcesMapping, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -50,11 +50,12 @@ pub fn calculate_l1_gas_by_vm_usage(
 pub fn calculate_tx_fee(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
+    fee_type: &FeeType,
 ) -> TransactionExecutionResult<Fee> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
 
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
-    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.eth_l1_gas_price))
+    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.get_by_fee_type(fee_type)))
 }
