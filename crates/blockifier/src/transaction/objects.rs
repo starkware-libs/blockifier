@@ -86,9 +86,3 @@ pub struct ResourcesMapping(pub HashMap<String, usize>);
 pub trait HasTransactionVersion {
     fn version(&self) -> TransactionVersion;
 }
-
-impl HasTransactionVersion for TransactionVersion {
-    fn version(&self) -> TransactionVersion {
-        *self
-    }
-}

@@ -9,7 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash, TransactionVersion,
+    TransactionHash,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -369,13 +369,6 @@ fn test_fail_deploy_account(block_context: BlockContext) {
 
     let deployed_account_address =
         ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
-    let tx_version = TransactionVersion(stark_felt!(1_u8));
-    let initial_balance = state
-        .get_fee_token_balance(
-            &deployed_account_address,
-            &block_context.fee_token_address(&tx_version),
-        )
-        .unwrap();
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -384,18 +377,17 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         None,
         &mut NonceManager::default(),
     );
+    let fee_token_address = block_context.fee_token_addresses.get_for_version(&deploy_account_tx);
     let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
+
+    let initial_balance =
+        state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap();
     deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
     assert_eq!(
-        state
-            .get_fee_token_balance(
-                &deployed_account_address,
-                &block_context.fee_token_address(&tx_version),
-            )
-            .unwrap(),
+        state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap(),
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
@@ -407,11 +399,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
         init_data;
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
-    let tx_version = TransactionVersion(stark_felt!(2_u8));
     let contract_class = ContractClass::V1(ContractClassV1::default());
-    let initial_balance = state
-        .get_fee_token_balance(&account_address, &block_context.fee_token_address(&tx_version))
-        .unwrap();
     let next_nonce = nonce_manager.next(account_address);
 
     // Cannot fail executing a declare tx unless it's V2 or above, and already declared.
@@ -437,7 +425,14 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
 
     // Fail execution, assert nonce and balance are unchanged.
     let account_tx_context = declare_account_tx.get_account_transaction_context();
+    let initial_balance = state
+        .get_fee_token_balance(
+            &account_address,
+            &block_context.fee_token_address(&account_tx_context),
+        )
+        .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
+
     assert_eq!(state.get_nonce_at(account_address).unwrap(), next_nonce);
     assert_eq!(
         state
