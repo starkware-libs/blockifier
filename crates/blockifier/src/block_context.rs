@@ -18,9 +18,7 @@ pub struct BlockContext {
     pub sequencer_address: ContractAddress,
     pub fee_token_addresses: FeeTokenAddresses,
     pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
-    pub eth_l1_gas_price: u128, // In wei.
-    // TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use this gas price for V3 txs.
-    pub strk_l1_gas_price: u128, // In STRK.
+    pub gas_prices: GasPrices,
 
     // Limits.
     pub invoke_tx_max_n_steps: u32,
@@ -34,11 +32,7 @@ impl BlockContext {
     }
 
     pub fn tx_gas_price(&self, version: &dyn HasTransactionVersion) -> u128 {
-        if version.version() >= TransactionVersion(StarkFelt::from(3_u128)) {
-            self.strk_l1_gas_price
-        } else {
-            self.eth_l1_gas_price
-        }
+        self.gas_prices.get_for_version(version)
     }
 }
 
@@ -50,10 +44,27 @@ pub struct FeeTokenAddresses {
 
 impl FeeTokenAddresses {
     pub fn get_for_version(&self, has_version: &dyn HasTransactionVersion) -> ContractAddress {
-        if has_version.version() >= TransactionVersion(StarkFelt::from(3_u128)) {
+        if is_strk_version(has_version) {
             self.strk_fee_token_address
         } else {
             self.eth_fee_token_address
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct GasPrices {
+    pub eth_l1_gas_price: u128, // In wei.
+    // TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use this gas price for V3 txs.
+    pub strk_l1_gas_price: u128, // In STRK.
+}
+
+impl GasPrices {
+    pub fn get_for_version(&self, has_version: &dyn HasTransactionVersion) -> u128 {
+        if is_strk_version(has_version) { self.strk_l1_gas_price } else { self.eth_l1_gas_price }
+    }
+}
+
+fn is_strk_version(has_version: &dyn HasTransactionVersion) -> bool {
+    has_version.version() >= TransactionVersion(StarkFelt::from(3_u128))
 }
