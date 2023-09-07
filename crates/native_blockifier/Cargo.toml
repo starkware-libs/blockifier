@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
-description = "Bridge between the Rust blockifier crate and Python."
+description = "A Bridge between the Rust blockifier crate and Python."
 
 [lib]
 name = "native_blockifier"
@@ -24,10 +24,10 @@ log.workspace = true
 num-bigint.workspace = true
 ouroboros.workspace = true
 papyrus_storage = { workspace = true, features = ["testing"] }
-pyo3 = { version = "0.17.3", features = [
-    "extension-module",
+pyo3 = { version = "0.19.1", features = [
     "num-bigint",
     "hashbrown",
+    "extension-module",
 ] }
 pyo3-log = "0.8.1"
 # We need this rev to be the same as in both `blockifier` and `papyrus_storage`.
