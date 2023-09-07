@@ -294,11 +294,20 @@ pub struct InvokeTransaction {
 }
 
 impl InvokeTransaction {
-    implement_inner_tx_getter_calls!(
-        (max_fee, Fee),
-        (calldata, Calldata),
-        (signature, TransactionSignature)
-    );
+    implement_inner_tx_getter_calls!((calldata, Calldata), (signature, TransactionSignature));
+
+    pub fn max_fee(&self) -> Fee {
+        match &self.tx {
+            starknet_api::transaction::InvokeTransaction::V0(tx) => tx.max_fee,
+            starknet_api::transaction::InvokeTransaction::V1(tx) => tx.max_fee,
+            starknet_api::transaction::InvokeTransaction::V3(tx) => {
+                let l1_resource_bounds =
+                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
+                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
+                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+            }
+        }
+    }
 }
 
 impl<S: State> Executable<S> for InvokeTransaction {
@@ -311,7 +320,8 @@ impl<S: State> Executable<S> for InvokeTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match &self.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => tx.entry_point_selector,
-            starknet_api::transaction::InvokeTransaction::V1(_) => {
+            starknet_api::transaction::InvokeTransaction::V1(_)
+            | starknet_api::transaction::InvokeTransaction::V3(_) => {
                 selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME)
             }
         };
