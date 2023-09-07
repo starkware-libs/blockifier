@@ -19,9 +19,9 @@ use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
-    DeclareTransactionV3, DeployAccountTransactionV1, DeployAccountTransactionV3, Fee, InvokeTransactionV0,
-    InvokeTransactionV1, ResourceBounds, Tip, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    DeclareTransactionV3, DeployAccountTransactionV1, DeployAccountTransactionV3, Fee,
+    InvokeTransactionV0, InvokeTransactionV1, ResourceBounds, Tip, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
