@@ -5,11 +5,13 @@ use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, EthAddress, PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
+    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, L2ToL1Payload,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;

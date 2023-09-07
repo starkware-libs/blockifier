@@ -67,6 +67,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 
 [[package]]
+name = "anstream"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f58811cfac344940f1a400b6e6231ce35171f614f26439e80f8c1465c5cc0c"
+dependencies = [
+ "anstyle",
+ "anstyle-parse",
+ "anstyle-query",
+ "anstyle-wincon",
+ "colorchoice",
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15c4c2c83f81532e5845a733998b6971faca23490340a418e9b72a3ec9de12ea"
+
+[[package]]
+name = "anstyle-parse"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "938874ff5980b03a87c5524b3ae5b59cf99b1d6bc836848df7bc5ada9643c333"
+dependencies = [
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle-query"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ca11d4be1bab0c8bc8734a9aa7bf4ee8316d462a08c6ac5052f888fef5b494b"
+dependencies = [
+ "windows-sys",
+]
+
+[[package]]
+name = "anstyle-wincon"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58f54d10c6dfa51283a066ceab3ec1ab78d13fae00aa49243a45e4571fb79dfd"
+dependencies = [
+ "anstyle",
+ "windows-sys",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -265,11 +313,11 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.60.1"
+version = "0.66.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "062dddbc1ba4aca46de6338e2bf87771414c335f7b2f2036e8f3e9befebf88e6"
+checksum = "f2b84e06fc203107bfbad243f4aba2af864eb7db3b1cf46ea0a023b0b433d2a7"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.3.3",
  "cexpr",
  "clang-sys",
  "lazy_static",
@@ -280,6 +328,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
+ "syn 2.0.27",
 ]
 
 [[package]]
@@ -915,6 +964,39 @@ dependencies = [
  "libc",
  "libloading",
 ]
+
+[[package]]
+name = "clap"
+version = "4.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a13b88d2c62ff462f88e4a121f17a82c1af05693a2f192b5c38d14de73c19f6"
+dependencies = [
+ "clap_builder",
+]
+
+[[package]]
+name = "clap_builder"
+version = "4.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bb9faaa7c2ef94b2743a21f5a29e6f0010dff4caa69ac8e9d6cf8b6fa74da08"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "clap_lex",
+ "strsim",
+]
+
+[[package]]
+name = "clap_lex"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
+
+[[package]]
+name = "colorchoice"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "colored"
@@ -1758,11 +1840,11 @@ dependencies = [
 
 [[package]]
 name = "libmdbx"
-version = "0.1.7"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc7645d94f8ad38f2a67d8a6d4e5adb86a04aa88c0221361ceeb62690eec890e"
+checksum = "3f0bee397dc9a7003e7bd34fffc1dc2d4c4fdc96530a0c439a5f98c9402bc7bf"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.3.3",
  "byteorder",
  "derive_more",
  "indexmap 1.9.3",
@@ -1834,9 +1916,9 @@ dependencies = [
 
 [[package]]
 name = "mdbx-sys"
-version = "0.11.9-0"
+version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "652ada7dd2b8012698f20fca85665f84ab3a5d07eaec333535c82760e068f291"
+checksum = "21a329f8d655fb646cc9511c00886eefcddb6ef131869ef2d4b02c24c66825ac"
 dependencies = [
  "bindgen",
  "cc",
@@ -2152,9 +2234,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "papyrus_config"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcc10c06641f6dd17027c49adead2e4a4a35e86c638cce1fac47f78542424762"
+dependencies = [
+ "clap",
+ "itertools 0.10.5",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "papyrus_storage"
-version = "0.1.0-alpha"
-source = "git+https://github.com/starkware-libs/papyrus?rev=42ebef8#42ebef8c7f9e743cd1b8d718f1748f952568e483"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d6389a47b72ce37913c549fedbb3d1a94ee0f7bab31c1dc3f5df9cfab72a07b"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -2166,16 +2262,14 @@ dependencies = [
  "integer-encoding",
  "libmdbx",
  "num-bigint",
+ "papyrus_config",
  "parity-scale-codec",
  "primitive-types",
- "rand",
- "rand_chacha",
  "reqwest",
  "serde",
  "serde_json",
  "starknet_api",
  "tempfile",
- "test_utils",
  "thiserror",
  "tokio",
  "tracing",
@@ -3072,8 +3166,9 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.1.0"
-source = "git+https://github.com/starkware-libs/starknet-api?rev=8f620bc#8f620bcec38b47ce0f2515f3ef158f4c6319608f"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6e445fbd6bf3826dda26fd64aa5311353b4799c9bd1119d6ec1906be4c73bf"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",
@@ -3105,6 +3200,12 @@ dependencies = [
  "phf_shared 0.10.0",
  "precomputed-hash",
 ]
+
+[[package]]
+name = "strsim"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
@@ -3209,26 +3310,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "test_utils"
-version = "0.1.0-alpha"
-source = "git+https://github.com/starkware-libs/papyrus?rev=42ebef8#42ebef8c7f9e743cd1b8d718f1748f952568e483"
-dependencies = [
- "cairo-lang-casm",
- "cairo-lang-starknet",
- "cairo-lang-utils",
- "indexmap 1.9.3",
- "num-bigint",
- "primitive-types",
- "rand",
- "rand_chacha",
- "reqwest",
- "serde",
- "serde_json",
- "starknet_api",
- "tracing",
 ]
 
 [[package]]
@@ -3505,6 +3586,12 @@ dependencies = [
  "idna",
  "percent-encoding",
 ]
+
+[[package]]
+name = "utf8parse"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "vcpkg"
