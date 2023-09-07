@@ -21,9 +21,9 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV0V1,
     DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV1,
-    DeployAccountTransactionV3, Fee, InvokeTransactionV0, InvokeTransactionV1, PaymasterAddress,
-    Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    DeployAccountTransactionV3, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
+    PaymasterAddress, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
@@ -295,6 +295,25 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
             sender_address: account_data_context.sender_address,
             calldata: py_calldata(tx, "calldata")?,
         })),
+        3 => {
+            let common_tx_fields = build_common_tx_fields(tx)?;
+            let py_account_deployment_data: Vec<PyFelt> = py_attr(tx, "account_deployment_data")?;
+            let invoke_tx = InvokeTransactionV3 {
+                resource_bounds: common_tx_fields.resource_bounds,
+                tip: common_tx_fields.tip,
+                signature: account_data_context.signature,
+                nonce: account_data_context.nonce,
+                sender_address: account_data_context.sender_address,
+                calldata: py_calldata(tx, "calldata")?,
+                nonce_data_availability_mode: common_tx_fields.nonce_data_availability_mode,
+                fee_data_availability_mode: common_tx_fields.fee_data_availability_mode,
+                paymaster_address: common_tx_fields.paymaster_address,
+                account_deployment_data: AccountDeploymentData(
+                    py_account_deployment_data.into_iter().map(|felt| felt.0).collect(),
+                ),
+            };
+            Ok(starknet_api::transaction::InvokeTransaction::V3(invoke_tx))
+        }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::InvokeFunction,
             version,
