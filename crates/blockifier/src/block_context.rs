@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionVersion;
 
 use crate::transaction::objects::HasTransactionVersion;
@@ -62,5 +61,5 @@ impl GasPrices {
 }
 
 fn is_strk_version(has_version: &dyn HasTransactionVersion) -> bool {
-    has_version.version() >= TransactionVersion(StarkFelt::from(3_u128))
+    has_version.version() >= TransactionVersion::THREE
 }

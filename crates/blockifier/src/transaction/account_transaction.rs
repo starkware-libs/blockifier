@@ -60,15 +60,9 @@ impl HasTransactionVersion for AccountTransaction {
             Self::Declare(tx) => tx.tx().version(),
             Self::DeployAccount(tx) => tx.tx().version(),
             Self::Invoke(tx) => match tx.tx {
-                starknet_api::transaction::InvokeTransaction::V0(_) => {
-                    TransactionVersion(StarkFelt::from(0_u8))
-                }
-                starknet_api::transaction::InvokeTransaction::V1(_) => {
-                    TransactionVersion(StarkFelt::from(1_u8))
-                }
-                starknet_api::transaction::InvokeTransaction::V3(_) => {
-                    TransactionVersion(StarkFelt::from(3_u8))
-                }
+                starknet_api::transaction::InvokeTransaction::V0(_) => TransactionVersion::ZERO,
+                starknet_api::transaction::InvokeTransaction::V1(_) => TransactionVersion::ONE,
+                starknet_api::transaction::InvokeTransaction::V3(_) => TransactionVersion::THREE,
             },
         }
     }
@@ -167,24 +161,17 @@ impl AccountTransaction {
             // Support `Declare` of version 0 in order to allow bootstrapping of a new system.
             Self::Declare(_) => {
                 vec![
-                    TransactionVersion(StarkFelt::from(0_u8)),
-                    TransactionVersion(StarkFelt::from(1_u8)),
-                    TransactionVersion(StarkFelt::from(2_u8)),
-                    TransactionVersion(StarkFelt::from(3_u8)),
+                    TransactionVersion::ZERO,
+                    TransactionVersion::ONE,
+                    TransactionVersion::TWO,
+                    TransactionVersion::THREE,
                 ]
             }
             Self::DeployAccount(_) => {
-                vec![
-                    TransactionVersion(StarkFelt::from(1_u8)),
-                    TransactionVersion(StarkFelt::from(3_u8)),
-                ]
+                vec![TransactionVersion::ONE, TransactionVersion::THREE]
             }
             Self::Invoke(_) => {
-                vec![
-                    TransactionVersion(StarkFelt::from(0_u8)),
-                    TransactionVersion(StarkFelt::from(1_u8)),
-                    TransactionVersion(StarkFelt::from(3_u8)),
-                ]
+                vec![TransactionVersion::ZERO, TransactionVersion::ONE, TransactionVersion::THREE]
             }
         };
         if allowed_versions.contains(&version) {
@@ -198,7 +185,7 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
+        if account_tx_context.version == TransactionVersion::ZERO {
             return Ok(());
         }
 

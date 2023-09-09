@@ -436,7 +436,7 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let (low, high) = state
         .get_fee_token_balance(
             &contract_address!(recipient),
-            &block_context.fee_token_address(&TransactionVersion(stark_felt!(1_u8))),
+            &block_context.fee_token_address(&TransactionVersion::ONE),
         )
         .unwrap();
 

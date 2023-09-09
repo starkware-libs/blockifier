@@ -369,7 +369,7 @@ fn test_fail_deploy_account(block_context: BlockContext) {
 
     let deployed_account_address =
         ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
-    let tx_version = TransactionVersion(stark_felt!(1_u8));
+    let tx_version = TransactionVersion::ONE;
     let initial_balance = state
         .get_fee_token_balance(
             &deployed_account_address,
@@ -407,7 +407,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
         init_data;
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
-    let tx_version = TransactionVersion(stark_felt!(2_u8));
+    let tx_version = TransactionVersion::TWO;
     let contract_class = ContractClass::V1(ContractClassV1::default());
     let initial_balance = state
         .get_fee_token_balance(&account_address, &block_context.fee_token_address(&tx_version))
