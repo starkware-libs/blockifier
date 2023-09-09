@@ -49,5 +49,5 @@ tempfile = "3.7.0"
 thiserror = "1.0.37"
 
 [patch.crates-io]
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "06116f4e212215da253da865eb5ae778ace8b9cf" }
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "b240458c86288b9ac5d393fe48c1c6f5da1bb1f5" }
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "4788bccf34fe35bdc64e80a1be9321ec780bd4de" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "8a3233542d82d02cf19c6beaffd19f791cdbce8c" }
