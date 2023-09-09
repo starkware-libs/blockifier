@@ -100,17 +100,9 @@ fn verify_contract_class_version(
     contract_class: ContractClass,
     declare_version: TransactionVersion,
 ) -> Result<ContractClass, TransactionExecutionError> {
-    // TODO(barak, 01/11/2023): Remove once TransactionVersion has constants.
-    let ver = match declare_version {
-        v if v == TransactionVersion(StarkFelt::from(0_u8)) => 0,
-        v if v == TransactionVersion(StarkFelt::from(1_u8)) => 1,
-        v if v == TransactionVersion(StarkFelt::from(2_u8)) => 2,
-        v if v == TransactionVersion(StarkFelt::from(3_u8)) => 3,
-        _ => 4,
-    };
     match contract_class {
         ContractClass::V0(_) => {
-            if let 0 | 1 = ver {
+            if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
                 Ok(contract_class)
             } else {
                 Err(TransactionExecutionError::ContractClassVersionMismatch {
@@ -120,7 +112,7 @@ fn verify_contract_class_version(
             }
         }
         ContractClass::V1(_) => {
-            if let 2 | 3 = ver {
+            if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
                 Ok(contract_class)
             } else {
                 Err(TransactionExecutionError::ContractClassVersionMismatch {
