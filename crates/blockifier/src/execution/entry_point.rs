@@ -199,7 +199,7 @@ impl CallEntryPoint {
             None => storage_class_hash, // If not given, take the storage contract class hash.
         };
         // Hack to prevent version 0 attack on argent accounts.
-        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8))
+        if context.account_tx_context.version == TransactionVersion::ZERO
             && class_hash
                 == ClassHash(
                     StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
