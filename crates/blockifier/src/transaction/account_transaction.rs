@@ -410,12 +410,12 @@ impl AccountTransaction {
     fn run_non_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
-        resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
+        let mut resources = ExecutionResources::default();
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
@@ -423,14 +423,24 @@ impl AccountTransaction {
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
             execute_call_info =
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            validate_call_info =
-                self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
+                self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
+            validate_call_info = self.handle_validate_tx(
+                state,
+                &mut resources,
+                remaining_gas,
+                block_context,
+                validate,
+            )?;
         } else {
-            validate_call_info =
-                self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
+            validate_call_info = self.handle_validate_tx(
+                state,
+                &mut resources,
+                remaining_gas,
+                block_context,
+                validate,
+            )?;
             execute_call_info =
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
+                self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
         let state_changes = state.get_actual_state_changes_for_fee_charge(
             fee_token_address,
@@ -440,7 +450,7 @@ impl AccountTransaction {
             StateChangesCount::from(&state_changes),
             &execute_call_info,
             &validate_call_info,
-            resources,
+            &mut resources,
             block_context,
             false,
             0,
@@ -456,18 +466,18 @@ impl AccountTransaction {
     fn run_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
-        resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
+        let mut resources = ExecutionResources::default();
         let account_tx_context = self.get_account_transaction_context();
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee address depends on tx version.
         let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
-            self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
+            self.handle_validate_tx(state, &mut resources, remaining_gas, block_context, validate)?;
         let validate_steps = if validate {
             validate_call_info
                 .as_ref()
@@ -645,7 +655,6 @@ impl AccountTransaction {
     fn run_or_revert<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
-        resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         validate: bool,
@@ -657,7 +666,6 @@ impl AccountTransaction {
         if self.is_non_revertible() {
             return self.run_non_revertible(
                 state,
-                resources,
                 remaining_gas,
                 block_context,
                 execution_context,
@@ -665,14 +673,7 @@ impl AccountTransaction {
             );
         }
 
-        self.run_revertible(
-            state,
-            resources,
-            remaining_gas,
-            block_context,
-            execution_context,
-            validate,
-        )
+        self.run_revertible(state, remaining_gas, block_context, execution_context, validate)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -723,7 +724,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let account_tx_context = self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
 
-        let mut resources = ExecutionResources::default();
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
@@ -740,8 +740,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
             final_fee,
             final_resources,
-        } =
-            self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context, validate)?;
+        } = self.run_or_revert(state, &mut remaining_gas, block_context, validate)?;
 
         let fee_transfer_call_info =
             self.handle_fee(state, block_context, final_fee, charge_fee)?;
