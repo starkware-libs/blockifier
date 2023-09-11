@@ -11,6 +11,7 @@ use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
+#[derive(Eq, PartialEq)]
 pub enum FeeType {
     Strk,
     Eth,
