@@ -6,6 +6,7 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
+use super::objects::HasTransactionVersion;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -308,6 +309,16 @@ pub struct L1HandlerTransaction {
     pub tx: starknet_api::transaction::L1HandlerTransaction,
     pub tx_hash: TransactionHash,
     pub paid_fee_on_l1: Fee,
+}
+
+impl HasTransactionVersion for L1HandlerTransaction {
+    fn version(&self) -> TransactionVersion {
+        self.tx.version
+    }
+
+    fn is_l1_handler(&self) -> bool {
+        true
+    }
 }
 
 impl<S: State> Executable<S> for L1HandlerTransaction {

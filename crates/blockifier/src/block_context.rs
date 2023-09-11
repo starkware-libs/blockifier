@@ -62,5 +62,6 @@ impl GasPrices {
 }
 
 fn is_strk_version(has_version: &dyn HasTransactionVersion) -> bool {
-    has_version.version() >= TransactionVersion(StarkFelt::from(3_u128))
+    !has_version.is_l1_handler()
+        && has_version.version() >= TransactionVersion(StarkFelt::from(3_u128))
 }
