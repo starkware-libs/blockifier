@@ -216,24 +216,42 @@ fn expected_fee_transfer_call_info(
     })
 }
 
+/// Given the fee result of a single account transaction, verifies the final balances of the account
+/// and the sequencer (in both fee types) are as expected (assuming the initial sequencer balances
+/// are zero).
 fn validate_final_balances(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
-    expected_sequencer_balance: StarkFelt,
+    expected_actual_fee: Fee,
     erc20_account_balance_key: StorageKey,
-    expected_account_balance: u128,
+    fee_type: &FeeType,
 ) {
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this function should probably accept fee token
-    //   address (or at least, tx version) as input.
-    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
-    let account_balance =
-        state.get_storage_at(fee_token_address, erc20_account_balance_key).unwrap();
-    assert_eq!(account_balance, stark_felt!(expected_account_balance));
+    let initial_account_balance = BALANCE;
 
-    assert_eq!(
-        state.get_storage_at(fee_token_address, test_erc20_sequencer_balance_key()).unwrap(),
-        stark_felt!(expected_sequencer_balance)
-    );
+    // Fee expected balances of account and sequencer, per fee type.
+    let (expected_sequencer_balance_eth, expected_sequencer_balance_strk) = match fee_type {
+        FeeType::Eth => (stark_felt!(expected_actual_fee.0), StarkFelt::ZERO),
+        FeeType::Strk => (StarkFelt::ZERO, stark_felt!(expected_actual_fee.0)),
+    };
+    let (expected_account_balance_eth, expected_account_balance_strk) = match fee_type {
+        FeeType::Eth => (initial_account_balance - expected_actual_fee.0, 0_u128),
+        FeeType::Strk => (0_u128, initial_account_balance - expected_actual_fee.0),
+    };
+
+    // Verify balances of both accounts, of both fee types, are as expected.
+    let eth_fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let strk_fee_token_address = block_context.fee_token_addresses.strk_fee_token_address;
+    for (fee_address, expected_account_balance, expected_sequencer_balance) in [
+        (eth_fee_token_address, expected_account_balance_eth, expected_sequencer_balance_eth),
+        (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
+    ] {
+        let account_balance = state.get_storage_at(fee_address, erc20_account_balance_key).unwrap();
+        assert_eq!(account_balance, stark_felt!(expected_account_balance));
+        assert_eq!(
+            state.get_storage_at(fee_address, test_erc20_sequencer_balance_key()).unwrap(),
+            stark_felt!(expected_sequencer_balance)
+        );
+    }
 }
 
 fn invoke_tx() -> InvokeTransactionV1 {
@@ -396,14 +414,12 @@ fn test_invoke_tx(
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
-    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
-    let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
         block_context,
-        expected_sequencer_balance,
+        expected_actual_fee,
         test_erc20_account_balance_key(),
-        expected_account_balance,
+        fee_type,
     );
 }
 
@@ -669,14 +685,12 @@ fn test_declare_tx(
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
-    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
-    let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
         block_context,
-        expected_sequencer_balance,
+        expected_actual_fee,
         test_erc20_account_balance_key(),
-        expected_account_balance,
+        fee_type,
     );
 
     // Verify class declaration.
@@ -859,14 +873,12 @@ fn test_deploy_account_tx(
     assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
 
     // Test final balances.
-    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
-    let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
         block_context,
-        expected_sequencer_balance,
+        expected_actual_fee,
         deployed_account_balance_key,
-        expected_account_balance,
+        fee_type,
     );
 
     // Verify deployment.
