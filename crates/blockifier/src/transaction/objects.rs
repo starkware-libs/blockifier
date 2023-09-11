@@ -22,7 +22,7 @@ macro_rules! implement_inner_account_tx_context_getter_calls {
     };
 }
 
-#[derive(EnumIter)]
+#[derive(EnumIter, Eq, PartialEq)]
 pub enum FeeType {
     Strk,
     Eth,
