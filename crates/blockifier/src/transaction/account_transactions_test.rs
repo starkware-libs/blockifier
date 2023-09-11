@@ -62,10 +62,13 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
         (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
-    // Deploy the erc20 contract.
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT consider deploying and using an extra token.
-    let test_erc20_address = block_context.fee_token_addresses.eth_fee_token_address;
-    let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
+    // Deploy the erc20 contracts.
+    let test_eth_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let test_strk_address = block_context.fee_token_addresses.strk_fee_token_address;
+    let address_to_class_hash = HashMap::from([
+        (test_eth_address, test_erc20_class_hash),
+        (test_strk_address, test_erc20_class_hash),
+    ]);
 
     CachedState::from(DictStateReader {
         address_to_class_hash,
@@ -81,9 +84,6 @@ fn create_test_init_data(
     #[from(create_state)] mut state: CachedState<DictStateReader>,
 ) -> TestInitData {
     let mut nonce_manager = NonceManager::default();
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the versions of txs
-    //   used to init.
-    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
 
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
@@ -94,6 +94,8 @@ fn create_test_init_data(
         &mut nonce_manager,
     );
     let account_address = deploy_account_tx.contract_address;
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
 
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
@@ -101,7 +103,6 @@ fn create_test_init_data(
         get_storage_var_address("ERC20_balances", &[*account_address.0.key()]).unwrap();
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Declare a contract.
