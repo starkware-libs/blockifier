@@ -80,6 +80,30 @@ impl PyBlockExecutor {
         Ok(())
     }
 
+    /// Initializes the transaction executor without aligning the storage.
+    /// Used for testing.
+    #[pyo3(signature = (next_block_info))]
+    fn setup_block_execution_without_alignment(
+        &mut self,
+        next_block_info: PyBlockInfo,
+    ) -> NativeBlockifierResult<()> {
+        let papyrus_reader = PapyrusReader::new(
+            self.storage.reader().clone(),
+            BlockNumber(next_block_info.block_number),
+        );
+
+        let tx_executor = TransactionExecutor::new(
+            papyrus_reader,
+            &self.general_config,
+            next_block_info,
+            self.max_recursion_depth,
+            self.global_contract_cache.clone(),
+        )?;
+        self.tx_executor = Some(tx_executor);
+
+        Ok(())
+    }
+
     fn teardown_block_execution(&mut self) {
         self.tx_executor = None;
     }
