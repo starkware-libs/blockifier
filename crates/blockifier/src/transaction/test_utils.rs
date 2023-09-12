@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, Fee, TransactionHash, TransactionSignature, InvokeTransactionV1};
+use starknet_api::transaction::{
+    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature,
+};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use super::account_transaction::AccountTransaction;
@@ -180,10 +182,7 @@ pub fn account_invoke_tx(
     max_fee: Fee,
 ) -> AccountTransaction {
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    let tx = InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    };
+    let tx = InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx };
     let invoke_tx = InvokeTransaction {
         tx: starknet_api::transaction::InvokeTransaction::V1(tx),
         tx_hash: TransactionHash::default(),
