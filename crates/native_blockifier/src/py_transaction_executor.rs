@@ -203,7 +203,7 @@ impl TransactionExecutor {
 
     /// Returns the state diff resulting in executing transactions.
     pub fn finalize(&mut self) -> PyStateDiff {
-        PyStateDiff::from(self.borrow_state().to_state_diff())
+        PyStateDiff::from(self.with_state_mut(|state| state.to_state_diff()))
     }
 
     // Block pre-processing; see `block_execution::pre_process_block` documentation.

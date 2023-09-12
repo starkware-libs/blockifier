@@ -94,5 +94,5 @@ pub trait State: StateReader {
         compiled_class_hash: CompiledClassHash,
     ) -> StateResult<()>;
 
-    fn to_state_diff(&self) -> CommitmentStateDiff;
+    fn to_state_diff(&mut self) -> CommitmentStateDiff;
 }

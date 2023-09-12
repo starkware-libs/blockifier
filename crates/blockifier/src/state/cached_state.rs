@@ -250,9 +250,12 @@ impl<S: StateReader> State for CachedState<S> {
         Ok(())
     }
 
-    // Assumes calling to `count_actual_state_changes` before. See its documentation.
-    fn to_state_diff(&self) -> CommitmentStateDiff {
+    fn to_state_diff(&mut self) -> CommitmentStateDiff {
         type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
+
+        // TODO(Gilad): Consider returning an error here, would require changing the API though.
+        self.update_initial_values_of_write_only_access()
+            .unwrap_or_else(|_| panic!("Cannot convert stateDiff to CommitmentStateDiff."));
 
         let state_cache = &self.cache;
         let class_hash_updates = state_cache.get_class_hash_updates();
@@ -498,7 +501,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
         self.0.set_contract_class(class_hash, contract_class)
     }
 
-    fn to_state_diff(&self) -> CommitmentStateDiff {
+    fn to_state_diff(&mut self) -> CommitmentStateDiff {
         self.0.to_state_diff()
     }
 
