@@ -3,10 +3,10 @@
 #   https://doc.rust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2
 resolver = "2"
 
-members = ["crates/blockifier", "crates/native_blockifier"]
+members = ["crates/blockifier"]
 
 [workspace.package]
-version = "0.2.0-rc1"
+version = "0.3.0-rc0"
 edition = "2021"
 repository = "https://github.com/starkware-libs/blockifier/"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ cached = "0.44.0"
 cairo-felt = "0.8.2"
 cairo-lang-casm = "2.1.0"
 cairo-lang-runner = "2.1.0"
-cairo-lang-starknet = "2.1.0"
+cairo-lang-starknet = "2.2.0"
 cairo-vm = "0.8.2"
 ctor = "0.2.0"
 derive_more = "0.99.17"
@@ -40,7 +40,7 @@ pretty_assertions = "1.2.1"
 serde = "1.0.184"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = "0.4.1"
+starknet_api = "0.5.0-rc1"
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
