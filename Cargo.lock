@@ -429,6 +429,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "blockifier"
+version = "0.2.0-rc1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47cbbd13fa58c0ecacb365aaf7842cec601dd52a5c2632f76881e3f8d7f32a52"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-secp256k1",
+ "ark-secp256r1",
+ "cached",
+ "cairo-felt",
+ "cairo-lang-casm",
+ "cairo-lang-runner",
+ "cairo-lang-starknet",
+ "cairo-vm",
+ "ctor",
+ "derive_more",
+ "indexmap 1.9.3",
+ "itertools 0.10.5",
+ "keccak",
+ "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits 0.2.16",
+ "phf",
+ "serde",
+ "serde_json",
+ "sha3",
+ "starknet-crypto",
+ "starknet_api",
+ "strum",
+ "strum_macros",
+ "thiserror",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2227,7 +2263,7 @@ dependencies = [
 name = "native_blockifier"
 version = "0.2.0-rc1"
 dependencies = [
- "blockifier",
+ "blockifier 0.2.0-rc1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cached",
  "cairo-lang-starknet",
  "cairo-vm",
