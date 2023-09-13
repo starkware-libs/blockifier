@@ -3,7 +3,7 @@ use std::cmp::min;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
-use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
@@ -58,14 +58,11 @@ impl HasRelatedFeeType for AccountTransaction {
     fn version(&self) -> TransactionVersion {
         match self {
             Self::Declare(tx) => tx.tx().version(),
-            Self::DeployAccount(tx) => tx.version(),
+            Self::DeployAccount(tx) => tx.tx().version(),
             Self::Invoke(tx) => match tx.tx {
-                starknet_api::transaction::InvokeTransaction::V0(_) => {
-                    TransactionVersion(StarkFelt::from(0_u8))
-                }
-                starknet_api::transaction::InvokeTransaction::V1(_) => {
-                    TransactionVersion(StarkFelt::from(1_u8))
-                }
+                starknet_api::transaction::InvokeTransaction::V0(_) => TransactionVersion::ZERO,
+                starknet_api::transaction::InvokeTransaction::V1(_) => TransactionVersion::ONE,
+                starknet_api::transaction::InvokeTransaction::V3(_) => TransactionVersion::THREE,
             },
         }
     }
@@ -131,40 +128,33 @@ impl AccountTransaction {
                 let sn_api_tx = &tx.tx();
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash(),
-                    max_fee: sn_api_tx.max_fee(),
+                    max_fee: tx.max_fee(),
                     version: self.version(),
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),
                     sender_address: sn_api_tx.sender_address(),
                 }
             }
-            Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.tx_hash,
-                max_fee: tx.max_fee(),
-                version: self.version(),
-                signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.contract_address,
-            },
+            Self::DeployAccount(tx) => {
+                let sn_api_tx = &tx.tx();
+                AccountTransactionContext {
+                    transaction_hash: tx.tx_hash,
+                    max_fee: tx.max_fee(),
+                    version: self.version(),
+                    signature: sn_api_tx.signature(),
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: tx.contract_address,
+                }
+            }
             Self::Invoke(tx) => {
                 let sn_api_tx = &tx.tx;
                 AccountTransactionContext {
                     transaction_hash: tx.tx_hash,
-                    max_fee: sn_api_tx.max_fee(),
+                    max_fee: tx.max_fee(),
                     version: self.version(),
                     signature: sn_api_tx.signature(),
-                    nonce: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(_) => Nonce::default(),
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => tx_v1.nonce,
-                    },
-                    sender_address: match sn_api_tx {
-                        starknet_api::transaction::InvokeTransaction::V0(tx_v0) => {
-                            tx_v0.contract_address
-                        }
-                        starknet_api::transaction::InvokeTransaction::V1(tx_v1) => {
-                            tx_v1.sender_address
-                        }
-                    },
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: sn_api_tx.sender_address(),
                 }
             }
         }
@@ -175,18 +165,18 @@ impl AccountTransaction {
             // Support `Declare` of version 0 in order to allow bootstrapping of a new system.
             Self::Declare(_) => {
                 vec![
-                    TransactionVersion(StarkFelt::from(0_u8)),
-                    TransactionVersion(StarkFelt::from(1_u8)),
-                    TransactionVersion(StarkFelt::from(2_u8)),
+                    TransactionVersion::ZERO,
+                    TransactionVersion::ONE,
+                    TransactionVersion::TWO,
+                    TransactionVersion::THREE,
                 ]
+            }
+            Self::DeployAccount(_) => {
+                vec![TransactionVersion::ONE, TransactionVersion::THREE]
             }
             Self::Invoke(_) => {
-                vec![
-                    TransactionVersion(StarkFelt::from(0_u8)),
-                    TransactionVersion(StarkFelt::from(1_u8)),
-                ]
+                vec![TransactionVersion::ZERO, TransactionVersion::ONE, TransactionVersion::THREE]
             }
-            _ => vec![TransactionVersion(StarkFelt::from(1_u8))],
         };
         if allowed_versions.contains(&version) {
             Ok(())
@@ -199,7 +189,7 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8)) {
+        if account_tx_context.version == TransactionVersion::ZERO {
             return Ok(());
         }
 

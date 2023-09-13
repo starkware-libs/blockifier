@@ -2,8 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::call_info::CallInfo;
@@ -29,7 +27,7 @@ pub struct AccountTransactionContext {
 
 impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
-        self.version == TransactionVersion(stark_felt!(0_u8))
+        self.version == TransactionVersion::ZERO
     }
 }
 
@@ -98,7 +96,7 @@ pub trait HasRelatedFeeType {
     fn is_l1_handler(&self) -> bool;
 
     fn fee_type(&self) -> FeeType {
-        if self.is_l1_handler() || self.version() < TransactionVersion(StarkFelt::from(3_u128)) {
+        if self.is_l1_handler() || self.version() < TransactionVersion::THREE {
             FeeType::Eth
         } else {
             FeeType::Strk
