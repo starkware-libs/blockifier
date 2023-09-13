@@ -1,6 +1,6 @@
 [package]
 name = "native_blockifier"
-version.workspace = true
+version = "0.2.0-rc1"
 edition.workspace = true
 repository.workspace = true
 license-file.workspace = true
@@ -31,11 +31,11 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { workspace = true, features = ["testing"] }
+papyrus_storage = { version = "0.0.4", features = ["testing"] }
 pyo3 = { version = "0.19.1", features = ["num-bigint", "hashbrown"] }
 pyo3-log = "0.8.1"
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-starknet_api = { workspace = true, features = ["testing"] }
+starknet_api = { version = "0.4.1", features = ["testing"] }
 
 thiserror.workspace = true
 

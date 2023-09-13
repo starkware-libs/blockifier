@@ -3,7 +3,7 @@
 #   https://doc.rust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2
 resolver = "2"
 
-members = ["crates/blockifier"]
+members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.package]
 version = "0.3.0-rc0"
