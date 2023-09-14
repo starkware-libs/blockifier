@@ -1,6 +1,7 @@
 use std::f64;
 
 use super::{get_wei_to_strk_ratio_from_pool_states, PoolState};
+use crate::fee::errors::GasPriceQueryError;
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
@@ -136,24 +137,39 @@ fn test_calculate_tx_gas_usage_basic() {
 /// Sanity tests for STRK<->ETH price computation.
 #[test]
 fn test_pool_state() {
-    let (wei_0, wei_1) = (10, 2000);
-    let (strk_0, strk_1) = (15, 300);
-    let state_0 = PoolState { total_wei: wei_0, total_strk: strk_0 };
+    let (wei_1, wei_2, wei_3) = (10, 15, 12);
+    let (strk_1, strk_2, strk_3) = (50, 45, 24);
     let state_1 = PoolState { total_wei: wei_1, total_strk: strk_1 };
+    let state_2 = PoolState { total_wei: wei_2, total_strk: strk_2 };
+    let state_3 = PoolState { total_wei: wei_3, total_strk: strk_3 };
+    let state_4 = PoolState { total_wei: wei_1, total_strk: strk_1 + 10 };
 
-    // Ratio computation on single state.
+    // Bad flow: ratio computation on empty array.
+    assert!(matches!(
+        get_wei_to_strk_ratio_from_pool_states(&[]),
+        Err(GasPriceQueryError::NoPoolStatesError)
+    ));
+
+    // Ratio computation on a single pool state.
     assert_f64_eq!(
-        get_wei_to_strk_ratio_from_pool_states(&[state_0.clone()]),
-        wei_0 as f64 / strk_0 as f64
+        get_wei_to_strk_ratio_from_pool_states(&[state_1.clone()]).unwrap(),
+        state_1.get_wei_to_stark_ratio()
+    );
+
+    // Ratio computation on multiple pool states, no equal weight partition.
+    assert_f64_eq!(
+        get_wei_to_strk_ratio_from_pool_states(&[state_3.clone(), state_1.clone()]).unwrap(),
+        state_3.get_wei_to_stark_ratio()
     );
     assert_f64_eq!(
-        get_wei_to_strk_ratio_from_pool_states(&[state_1.clone()]),
-        wei_1 as f64 / strk_1 as f64
+        get_wei_to_strk_ratio_from_pool_states(&[state_3, state_1.clone(), state_2.clone()])
+            .unwrap(),
+        state_2.get_wei_to_stark_ratio()
     );
 
-    // Weighted ratio.
-    let expected_weighted: f64 = ((wei_0 as f64 * wei_0 as f64) / (strk_0 as f64)
-        + (wei_1 as f64 * wei_1 as f64) / (strk_1 as f64))
-        / ((wei_0 + wei_1) as f64);
-    assert_f64_eq!(get_wei_to_strk_ratio_from_pool_states(&[state_0, state_1]), expected_weighted);
+    // Ratio computation on multiple pool states with equal weight partition.
+    assert_f64_eq!(
+        get_wei_to_strk_ratio_from_pool_states(&[state_1.clone(), state_4.clone()]).unwrap(),
+        (state_1.get_wei_to_stark_ratio() + state_4.get_wei_to_stark_ratio()) / 2.0
+    );
 }

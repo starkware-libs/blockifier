@@ -4,6 +4,7 @@ use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::fee::errors::GasPriceQueryError;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::os_resources::OS_RESOURCES;
@@ -27,20 +28,53 @@ impl PoolState {
         // Assumption on pool is the two pools have the same total value.
         self.total_wei * 2
     }
+    pub fn get_wei_to_stark_ratio(&self) -> f64 {
+        self.total_wei as f64 / self.total_strk as f64
+    }
 }
 
-// TODO(Amos, 1/10/2023): This should compute a weighted *median* ratio, not a weighted average.
-/// Returns the weighted average Wei / STRK ratio, given the states of a collection of pools.
-/// Pools are weighted by TVL in units of Wei.
-pub fn get_wei_to_strk_ratio_from_pool_states(pool_states: &[PoolState]) -> f64 {
-    // Each pool contributes `total_wei / total_strk`, weighted by `tvl_in_wei()`.
-    // Average is taken over the total TVL of all pools.
-    let total_tvl: f64 = pool_states.iter().map(|state| state.tvl_in_wei() as f64).sum::<f64>();
-    let total_weighted_wei_per_strk: f64 = pool_states
-        .iter()
-        .map(|state| (state.total_wei as f64 * state.tvl_in_wei() as f64) / state.total_strk as f64)
-        .sum::<f64>();
-    total_weighted_wei_per_strk / total_tvl
+/// Returns the weighted median Wei / STRK ratio, given the states of a collection of  pools.
+/// Pools are weighted by TVL in units of Wei. for more info on weighted median see:
+/// https://en.wikipedia.org/wiki/Weighted_median
+pub fn get_wei_to_strk_ratio_from_pool_states(
+    pool_states: &[PoolState],
+) -> Result<f64, GasPriceQueryError> {
+    if pool_states.is_empty() {
+        return Err(GasPriceQueryError::NoPoolStatesError);
+    }
+
+    let half_total_weight: f64 =
+        pool_states.iter().map(|state| (state.tvl_in_wei())).sum::<u128>() as f64 / 2.0;
+    // Create vector of pool states sorted by Wei / STRK ratio.
+    let mut pool_states_sorted_by_weight: Vec<&PoolState> = pool_states.iter().collect();
+    pool_states_sorted_by_weight.sort_unstable_by(|state_a, state_b| {
+        state_a.get_wei_to_stark_ratio().partial_cmp(&state_b.get_wei_to_stark_ratio()).unwrap()
+    });
+
+    // Find idx of median Wei / STRK ratio.
+    let mut current_weight: f64 = 0.0;
+    let mut median_idx = 0;
+    let mut equal_weight_partition: bool = false;
+    loop {
+        current_weight += pool_states_sorted_by_weight[median_idx].tvl_in_wei() as f64;
+        if (current_weight - half_total_weight).abs() < f64::EPSILON {
+            equal_weight_partition = true;
+            break;
+        }
+        if current_weight > half_total_weight {
+            break;
+        }
+        median_idx += 1;
+    }
+
+    let res: f64 = if equal_weight_partition {
+        (pool_states_sorted_by_weight[median_idx].get_wei_to_stark_ratio()
+            + pool_states_sorted_by_weight[median_idx + 1].get_wei_to_stark_ratio())
+            / 2.0
+    } else {
+        pool_states_sorted_by_weight[median_idx].get_wei_to_stark_ratio()
+    };
+    Ok(res)
 }
 
 /// Returns an estimation of the L1 gas amount that will be used (by StarkNet's update state and
