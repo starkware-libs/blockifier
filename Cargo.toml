@@ -34,7 +34,7 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 rstest = "0.17.0"
-papyrus_storage = "0.0.4"
+papyrus_storage = "0.0.5"
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 serde = "1.0.184"
