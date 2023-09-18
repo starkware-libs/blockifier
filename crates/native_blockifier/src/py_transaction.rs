@@ -30,7 +30,6 @@ use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_utils::{biguint_to_felt, py_attr, PyFelt};
 
 // Structs.
-#[pyclass]
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PyResource {
     L1Gas,
@@ -42,6 +41,19 @@ impl From<PyResource> for starknet_api::transaction::Resource {
         match py_resource {
             PyResource::L1Gas => starknet_api::transaction::Resource::L1Gas,
             PyResource::L2Gas => starknet_api::transaction::Resource::L2Gas,
+        }
+    }
+}
+
+impl FromPyObject<'_> for PyResource {
+    fn extract(resource: &PyAny) -> PyResult<Self> {
+        // Check if the Python object is a string
+        let resource_str: String = py_attr(resource, "name")?;
+
+        // Convert the string to a PyResource enum variant
+        match resource_str.as_str() {
+            "L1Gas" => Ok(PyResource::L1Gas),
+            _ => Ok(PyResource::L2Gas),
         }
     }
 }
@@ -76,11 +88,24 @@ impl From<PyResourceBoundsMapping> for starknet_api::transaction::ResourceBounds
     }
 }
 
-#[pyclass]
 #[derive(Clone)]
 pub enum PyDataAvailabilityMode {
     L1 = 0,
     L2 = 1,
+}
+
+impl FromPyObject<'_> for PyDataAvailabilityMode {
+    fn extract(data_availability_mode: &PyAny) -> PyResult<Self> {
+        // Check if the Python object is a string
+        let data_availability_mode_str: i32 = data_availability_mode.extract()?;
+
+        // Convert the string to a PyDataAvailabilityMode enum variant
+        match data_availability_mode_str {
+            0 => Ok(PyDataAvailabilityMode::L1),
+            1 => Ok(PyDataAvailabilityMode::L2),
+            _ => panic!("Invalid data availability mode"),
+        }
+    }
 }
 
 pub struct CommonTransactionFields {
@@ -113,9 +138,24 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
     let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
     let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
     let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
+    let max_fee: Fee = if TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0)
+        != TransactionVersion(StarkFelt::from(3_u8))
+    {
+        // Use max_fee from tx when version is < 3
+        Fee(py_attr(tx, "max_fee")?) // Assuming max_fee is of type Fee
+    } else {
+        let py_resource_bounds: PyResourceBoundsMapping = py_attr(tx, "resource_bounds")?;
+        let resource_bounds: ResourceBoundsMapping =
+            ResourceBoundsMapping::from(py_resource_bounds);
+        let l1_resource_bounds =
+            resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
+        // Calculate max_fee when version is >= 3
+        Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+    };
+
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
-        max_fee: Fee(py_attr(tx, "max_fee")?),
+        max_fee,
         signature: TransactionSignature(signature),
         version: TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0),
         nonce,
