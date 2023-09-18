@@ -210,6 +210,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
         initial_gas: constants::INITIAL_GAS_COST,
+        ..Default::default()
     }
 }
 
