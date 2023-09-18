@@ -196,6 +196,7 @@ pub fn call_contract(
         caller_address: syscall_handler.storage_address,
         call_type: CallType::Call,
         initial_gas: constants::INITIAL_GAS_COST,
+        ..Default::default()
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 

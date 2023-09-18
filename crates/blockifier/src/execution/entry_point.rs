@@ -12,6 +12,7 @@ use starknet_api::transaction::{
     Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
 };
 
+use super::syscalls::hint_processor::ExecutionMode;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
@@ -55,6 +56,7 @@ pub struct CallEntryPoint {
     pub call_type: CallType,
     // We can assume that the initial gas is less than 2^64.
     pub initial_gas: u64,
+    pub execution_mode: ExecutionMode,
 }
 
 pub struct ConstructorContext {
@@ -389,6 +391,7 @@ pub fn execute_constructor_entry_point(
         caller_address: ctor_context.caller_address,
         call_type: CallType::Call,
         initial_gas: remaining_gas,
+        ..Default::default()
     };
 
     constructor_call.execute(state, resources, context)
@@ -418,6 +421,7 @@ pub fn handle_empty_constructor(
             caller_address: ctor_context.caller_address,
             call_type: CallType::Call,
             initial_gas: remaining_gas,
+            ..Default::default()
         },
         ..Default::default()
     };

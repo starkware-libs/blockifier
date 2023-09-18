@@ -428,6 +428,7 @@ pub fn execute_library_call(
         caller_address: syscall_handler.caller_address,
         call_type: CallType::Delegate,
         initial_gas: constants::INITIAL_GAS_COST,
+        ..Default::default()
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)
