@@ -15,8 +15,9 @@ use starknet_api::transaction::{
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
-    read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
-    SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
+    read_call_params, read_calldata, read_felt_array, write_segment, ExecutionMode,
+    SyscallExecutionError, SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
+    INVALID_IN_EXECUTION_MODE_ERROR,
 };
 use crate::abi::constants;
 use crate::execution::contract_class::ContractClass;
@@ -171,6 +172,7 @@ pub fn call_contract(
         caller_address: syscall_handler.storage_address(),
         call_type: CallType::Call,
         initial_gas: *remaining_gas,
+        execution_mode: syscall_handler.execution_mode,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)?;
 
@@ -339,6 +341,14 @@ pub fn get_block_hash(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<GetBlockHashResponse> {
+    if syscall_handler.execution_mode == ExecutionMode::Validate {
+        let invalid_in_execution_mode_error = StarkFelt::try_from(INVALID_IN_EXECUTION_MODE_ERROR)
+            .map_err(SyscallExecutionError::from)?;
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![invalid_in_execution_mode_error],
+        });
+    }
+
     let requested_block_number = request.block_number.0;
     let current_block_number = syscall_handler.context.block_context.block_number.0;
 

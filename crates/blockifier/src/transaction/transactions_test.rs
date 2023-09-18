@@ -27,6 +27,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::syscalls::hint_processor::ExecutionMode;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::retdata;
@@ -127,6 +128,7 @@ fn expected_validate_call_info(
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: Transaction::initial_gas(),
+            execution_mode: ExecutionMode::Validate,
         },
         // The account contract we use for testing has trivial `validate` functions.
         vm_resources,
@@ -162,6 +164,7 @@ fn expected_fee_transfer_call_info(
         caller_address: account_address,
         call_type: CallType::Call,
         initial_gas: abi_constants::INITIAL_GAS_COST,
+        ..Default::default()
     };
     let expected_fee_sender_address = *account_address.0.key();
     let expected_fee_transfer_event = OrderedEvent {
@@ -321,10 +324,12 @@ fn test_invoke_tx(
         caller_address: sender_address,
         call_type: CallType::Call,
         initial_gas: expected_arguments.inner_call_initial_gas,
+        ..Default::default()
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
         initial_gas: Transaction::initial_gas() - expected_arguments.validate_gas_consumed,
+        execution_mode: ExecutionMode::Default,
         ..expected_validate_call_info.as_ref().unwrap().call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata);
