@@ -111,6 +111,9 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+// "Execution mode Error";
+pub const EXECUTION_MODE_ERROR: &str =
+    "0x000000000000000000000000457865637574696f6e206d6f6465206572726f72";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -232,11 +235,6 @@ impl<'a> SyscallHintProcessor<'a> {
                 self.execute_syscall(vm, emit_event, constants::EMIT_EVENT_GAS_COST)
             }
             SyscallSelector::GetBlockHash => {
-                if let ExecutionMode::Validate = self.execution_mode {
-                    return HintExecutionResult::Err(HintError::CustomHint(
-                        "The system call get_block_hash is unsupported in validate mode.".into(),
-                    ));
-                }
                 self.execute_syscall(vm, get_block_hash, constants::GET_BLOCK_HASH_GAS_COST)
             }
             SyscallSelector::GetExecutionInfo => {
@@ -347,15 +345,30 @@ impl<'a> SyscallHintProcessor<'a> {
 
         // Execute.
         let mut remaining_gas = gas_counter - base_gas_cost;
-        let original_response = execute_callback(request, vm, self, &mut remaining_gas);
-        let response = match original_response {
-            Ok(response) => {
-                SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
+        let response = match self.execution_mode {
+            ExecutionMode::Default => {
+                let original_response = execute_callback(request, vm, self, &mut remaining_gas);
+                match original_response {
+                    Ok(response) => {
+                        SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
+                    }
+                    Err(SyscallExecutionError::SyscallError { error_data: data }) => {
+                        SyscallResponseWrapper::Failure {
+                            gas_counter: remaining_gas,
+                            error_data: data,
+                        }
+                    }
+                    Err(error) => return Err(error.into()),
+                }
             }
-            Err(SyscallExecutionError::SyscallError { error_data: data }) => {
-                SyscallResponseWrapper::Failure { gas_counter: remaining_gas, error_data: data }
+            ExecutionMode::Validate => {
+                let invalid_syscall_error = StarkFelt::try_from(EXECUTION_MODE_ERROR)
+                    .map_err(SyscallExecutionError::from)?;
+                SyscallResponseWrapper::Failure {
+                    gas_counter: remaining_gas,
+                    error_data: vec![invalid_syscall_error],
+                }
             }
-            Err(error) => return Err(error.into()),
         };
 
         response.write(vm, &mut self.syscall_ptr)?;
