@@ -226,6 +226,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: *remaining_gas,
+            ..Default::default()
         };
 
         let call_info = execute_call
@@ -263,6 +264,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: *remaining_gas,
+            ..Default::default()
         };
 
         execute_call

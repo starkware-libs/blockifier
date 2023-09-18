@@ -17,6 +17,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources, Retdata,
 };
+use crate::execution::syscalls::hint_processor::ExecutionMode;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
@@ -248,6 +249,7 @@ impl AccountTransaction {
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: *remaining_gas,
+            execution_mode: ExecutionMode::Validate,
         };
 
         let validate_call_info = validate_call
@@ -377,6 +379,7 @@ impl AccountTransaction {
             call_type: CallType::Call,
             // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
             initial_gas: abi_constants::INITIAL_GAS_COST,
+            ..Default::default()
         };
 
         let mut context =

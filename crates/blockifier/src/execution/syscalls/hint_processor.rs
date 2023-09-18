@@ -51,6 +51,16 @@ use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
+/// Transaction execution mode.
+#[derive(Debug, Clone, Default, Eq, PartialEq, Copy)]
+pub enum ExecutionMode {
+    /// Normal execution mode.
+    #[default]
+    Default,
+    /// Validate execution mode.
+    Validate,
+}
+
 #[derive(Debug, Error)]
 pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
@@ -133,6 +143,7 @@ pub struct SyscallHintProcessor<'a> {
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
     execution_info_ptr: Option<Relocatable>,
+    pub execution_mode: ExecutionMode,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -145,6 +156,7 @@ impl<'a> SyscallHintProcessor<'a> {
         hints: &'a HashMap<String, Hint>,
         read_only_segments: ReadOnlySegments,
     ) -> Self {
+        let execution_mode = call.execution_mode;
         SyscallHintProcessor {
             state,
             resources,
@@ -161,6 +173,7 @@ impl<'a> SyscallHintProcessor<'a> {
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
+            execution_mode,
         }
     }
 
@@ -219,6 +232,11 @@ impl<'a> SyscallHintProcessor<'a> {
                 self.execute_syscall(vm, emit_event, constants::EMIT_EVENT_GAS_COST)
             }
             SyscallSelector::GetBlockHash => {
+                if let ExecutionMode::Validate = self.execution_mode {
+                    return HintExecutionResult::Err(HintError::CustomHint(
+                        "The system call get_block_hash is unsupported in validate mode.".into(),
+                    ));
+                }
                 self.execute_syscall(vm, get_block_hash, constants::GET_BLOCK_HASH_GAS_COST)
             }
             SyscallSelector::GetExecutionInfo => {
@@ -597,6 +615,7 @@ pub fn execute_library_call(
         caller_address: syscall_handler.caller_address(),
         call_type: CallType::Delegate,
         initial_gas: *remaining_gas,
+        ..Default::default()
     };
 
     execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
