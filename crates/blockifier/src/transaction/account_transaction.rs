@@ -464,6 +464,7 @@ impl AccountTransaction {
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
         validate: bool,
+        charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let account_tx_context = self.get_account_transaction_context();
@@ -547,8 +548,9 @@ impl AccountTransaction {
                     &account_tx_context.sender_address,
                     &block_context.fee_token_address(&account_tx_context.fee_type()),
                 )?;
-                let is_maxed_out =
-                    !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
+                // If the fee is charged, the balance must be sufficient for the actual fee.
+                let is_maxed_out = charge_fee
+                    && !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
                 let max_fee = account_tx_context.max_fee;
 
                 if actual_fee > max_fee || is_maxed_out {
@@ -652,6 +654,7 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         validate: bool,
+        charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
         let execution_context =
@@ -667,7 +670,14 @@ impl AccountTransaction {
             );
         }
 
-        self.run_revertible(state, remaining_gas, block_context, execution_context, validate)
+        self.run_revertible(
+            state,
+            remaining_gas,
+            block_context,
+            execution_context,
+            validate,
+            charge_fee,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -734,7 +744,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
             final_fee,
             final_resources,
-        } = self.run_or_revert(state, &mut remaining_gas, block_context, validate)?;
+        } = self.run_or_revert(state, &mut remaining_gas, block_context, validate, charge_fee)?;
 
         let fee_transfer_call_info =
             self.handle_fee(state, block_context, final_fee, charge_fee)?;
