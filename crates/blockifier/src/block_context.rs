@@ -4,7 +4,7 @@ use std::sync::Arc;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
-use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::objects::FeeType;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
@@ -25,8 +25,8 @@ pub struct BlockContext {
 }
 
 impl BlockContext {
-    pub fn fee_token_address(&self, version: &dyn HasRelatedFeeType) -> ContractAddress {
-        self.fee_token_addresses.get_for_version(version)
+    pub fn fee_token_address(&self, fee_type: &FeeType) -> ContractAddress {
+        self.fee_token_addresses.get_by_fee_type(fee_type)
     }
 }
 
@@ -37,8 +37,8 @@ pub struct FeeTokenAddresses {
 }
 
 impl FeeTokenAddresses {
-    pub fn get_for_version(&self, has_version: &dyn HasRelatedFeeType) -> ContractAddress {
-        match has_version.fee_type() {
+    pub fn get_by_fee_type(&self, fee_type: &FeeType) -> ContractAddress {
+        match fee_type {
             FeeType::Strk => self.strk_fee_token_address,
             FeeType::Eth => self.eth_fee_token_address,
         }
@@ -53,8 +53,8 @@ pub struct GasPrices {
 }
 
 impl GasPrices {
-    pub fn get_for_version(&self, has_version: &dyn HasRelatedFeeType) -> u128 {
-        match has_version.fee_type() {
+    pub fn get_by_fee_type(&self, fee_type: &FeeType) -> u128 {
+        match fee_type {
             FeeType::Strk => self.strk_l1_gas_price,
             FeeType::Eth => self.eth_l1_gas_price,
         }
