@@ -23,7 +23,8 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::syscalls::hint_processor::{
-    ExecutionMode, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
+    ExecutionMode, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_IN_EXECUTION_MODE_ERROR,
+    OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
@@ -142,7 +143,7 @@ fn test_get_block_hash() {
     let calldata = calldata![block_number];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_get_block_hash"),
-        calldata,
+        calldata: calldata.clone(),
         ..trivial_external_entry_point()
     };
 
@@ -150,6 +151,16 @@ fn test_get_block_hash() {
         entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
+    // Negative flow. Execution mode is Validate.
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    let error = entry_point_call.execute_directly(&mut state, ExecutionMode::Validate).unwrap_err();
+    assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
+        if error_data == vec![stark_felt!(INVALID_IN_EXECUTION_MODE_ERROR)]);
 
     // Negative flow. Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;

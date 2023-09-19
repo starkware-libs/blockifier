@@ -111,6 +111,9 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+// "Invalid in execution mode";
+pub const INVALID_IN_EXECUTION_MODE_ERROR: &str =
+    "0x000000000000000000000000496e76616c696420696e20657865637574696f6e";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
