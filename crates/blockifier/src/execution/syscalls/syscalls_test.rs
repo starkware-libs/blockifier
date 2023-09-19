@@ -151,7 +151,7 @@ fn test_get_block_hash() {
         CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
 
-    // Negative flow.
+    // Negative flow. Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
     let block_number = stark_felt!(requested_block_number);
     let calldata = calldata![block_number];
