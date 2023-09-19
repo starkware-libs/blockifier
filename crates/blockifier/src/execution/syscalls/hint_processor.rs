@@ -51,6 +51,16 @@ use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
+/// Transaction execution mode.
+#[derive(Debug, Clone, Default, Eq, PartialEq, Copy)]
+pub enum ExecutionMode {
+    /// Normal execution mode.
+    #[default]
+    Default,
+    /// Validate execution mode.
+    Validate,
+}
+
 #[derive(Debug, Error)]
 pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
@@ -101,6 +111,9 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+// "Invalid in execution mode";
+pub const INVALID_IN_EXECUTION_MODE_ERROR: &str =
+    "0x000000000000000000000000496e76616c696420696e20657865637574696f6e";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -133,6 +146,7 @@ pub struct SyscallHintProcessor<'a> {
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
     execution_info_ptr: Option<Relocatable>,
+    pub execution_mode: ExecutionMode,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -145,6 +159,7 @@ impl<'a> SyscallHintProcessor<'a> {
         hints: &'a HashMap<String, Hint>,
         read_only_segments: ReadOnlySegments,
     ) -> Self {
+        let execution_mode = context.execution_mode;
         SyscallHintProcessor {
             state,
             resources,
@@ -161,6 +176,7 @@ impl<'a> SyscallHintProcessor<'a> {
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
+            execution_mode,
         }
     }
 

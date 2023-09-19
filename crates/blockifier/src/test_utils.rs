@@ -34,6 +34,7 @@ use crate::execution::entry_point::{
     EntryPointExecutionResult, ExecutionResources, Retdata,
 };
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::syscalls::hint_processor::ExecutionMode;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -334,13 +335,23 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 }
 
 impl CallEntryPoint {
-    // Executes the call directly, without account context.
-    pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
+    /// Executes the call directly, without account context.
+    pub fn execute_directly(
+        self,
+        state: &mut dyn State,
+        execution_mode: ExecutionMode,
+    ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_invoke(
-            &block_context,
-            &AccountTransactionContext::default(),
-        );
+        let mut context = match execution_mode {
+            ExecutionMode::Default => EntryPointExecutionContext::new_invoke(
+                &block_context,
+                &AccountTransactionContext::default(),
+            ),
+            ExecutionMode::Validate => EntryPointExecutionContext::new_validate(
+                &block_context,
+                &AccountTransactionContext::default(),
+            ),
+        };
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }

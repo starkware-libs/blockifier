@@ -1,5 +1,6 @@
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use blockifier::execution::syscalls::hint_processor::ExecutionMode;
 use blockifier::retdata;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
@@ -57,7 +58,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution::from_retdata(retdata![value])
     );
 
