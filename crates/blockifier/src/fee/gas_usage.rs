@@ -1,7 +1,11 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use num_bigint::BigUint;
+use num_traits::Zero;
 use starknet_api::transaction::Fee;
 
+use super::errors::GasPriceQueryError;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::fee::eth_gas_constants;
@@ -14,6 +18,133 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
 pub mod test;
+
+/// Struct representing the current state of a STRK<->ETH AMM pool.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PoolState {
+    pub total_wei: BigUint,
+    pub total_strk: BigUint,
+}
+
+impl PoolState {
+    pub fn tvl_in_wei(&self) -> BigUint {
+        // Assumption on pool is the two pools have the same total value.
+        self.total_wei.clone() * BigUint::from(2_u32)
+    }
+    pub fn compare_wei_to_strk_ratio(&self, other: &Self) -> Option<Ordering> {
+        if *self == *other {
+            return Some(Ordering::Equal);
+        };
+
+        let self_strk_to_wei_ratio = self.total_strk.clone() / self.total_wei.clone();
+        let other_strk_to_wei_ratio = other.total_strk.clone() / other.total_wei.clone();
+        let self_ratio_lt_one = self_strk_to_wei_ratio.is_zero();
+        let other_ratio_lt_one = other_strk_to_wei_ratio.is_zero();
+
+        // Compare the inverse ratio if the STRK / wei ratio is smaller than one.
+        if self_ratio_lt_one || other_ratio_lt_one {
+            if self_ratio_lt_one && !other_ratio_lt_one {
+                return Some(Ordering::Less);
+            }
+            if !self_ratio_lt_one && other_ratio_lt_one {
+                return Some(Ordering::Greater);
+            }
+
+            assert!(self_ratio_lt_one && other_ratio_lt_one);
+            let self_inverse_ratio = self.total_wei.clone() / self.total_strk.clone();
+            let other_inverse_ratio = other.total_wei.clone() / other.total_strk.clone();
+
+            // This happens if one (and only one, since self != other) of the inverse ratios was
+            // rounded down.
+            if self_inverse_ratio == other_inverse_ratio {
+                if self_inverse_ratio.clone() * self.total_strk.clone() < self.total_wei {
+                    return Some(Ordering::Less);
+                }
+                return Some(Ordering::Greater);
+            }
+
+            return Some(Ordering::reverse(self_inverse_ratio.cmp(&other_inverse_ratio)));
+        }
+
+        assert!(!self_ratio_lt_one && !other_ratio_lt_one);
+        // This happens if one (and only one, since self != other) of the inverse ratios was
+        // rounded down.
+        if self_strk_to_wei_ratio == other_strk_to_wei_ratio {
+            if self_strk_to_wei_ratio.clone() * self.total_wei.clone() < self.total_strk {
+                return Some(Ordering::Greater);
+            }
+            return Some(Ordering::Less);
+        }
+
+        return Some(self_strk_to_wei_ratio.cmp(&other_strk_to_wei_ratio));
+    }
+}
+
+/// Converts Wei to STRK at the ratio of the median STRK<->ETH AMM pool.
+#[derive(Clone, Debug)]
+pub struct PoolStateAggregator {
+    pub pool_states: Vec<PoolState>,
+    pub median_pool_strk_tvl: BigUint,
+    pub median_pool_wei_tvl: BigUint,
+}
+
+impl PoolStateAggregator {
+    pub fn new(pool_states: &Vec<PoolState>) -> Result<Self, GasPriceQueryError> {
+        if pool_states.is_empty() {
+            return Err(GasPriceQueryError::NoPoolStatesError);
+        }
+
+        // Create vector of pool states sorted by STRK / Wei ratio.
+        let mut sorted_pool_states: Vec<PoolState> = pool_states.clone();
+        sorted_pool_states.sort_unstable_by(|pool_state_a, pool_state_b| {
+            pool_state_a.compare_wei_to_strk_ratio(&pool_state_b).unwrap()
+        });
+
+        let (median_pool_strk_tvl, median_pool_wei_tvl) =
+            Self::get_median_values(&sorted_pool_states);
+
+        Ok(Self { pool_states: sorted_pool_states, median_pool_strk_tvl, median_pool_wei_tvl })
+    }
+    // Assumes pool_states is sorted by STRK to Wei ratio.
+    pub fn get_median_values(sorted_pool_states: &Vec<PoolState>) -> (BigUint, BigUint) {
+        let total_weight: BigUint =
+            sorted_pool_states.iter().map(|state| (state.tvl_in_wei())).sum::<BigUint>();
+
+        // Find idx of weighted median STRK / Wei ratio.
+        let mut current_weight: BigUint = BigUint::zero();
+        let mut median_idx = 0;
+        let mut equal_weight_partition: bool = false;
+        let two_biguint = BigUint::from(2_u32);
+        loop {
+            current_weight += sorted_pool_states[median_idx].tvl_in_wei().clone();
+            if current_weight.clone() * two_biguint.clone() == total_weight {
+                equal_weight_partition = true;
+                break;
+            }
+            if current_weight.clone() * two_biguint.clone() > total_weight {
+                break;
+            }
+            median_idx += 1;
+        }
+        let median_pool_strk_tvl: BigUint;
+        let median_pool_wei_tvl: BigUint;
+        if equal_weight_partition {
+            median_pool_strk_tvl = (sorted_pool_states[median_idx].total_strk.clone()
+                + sorted_pool_states[median_idx + 1].total_strk.clone())
+                / two_biguint.clone();
+            median_pool_wei_tvl = (sorted_pool_states[median_idx].total_wei.clone()
+                + sorted_pool_states[median_idx + 1].total_wei.clone()) / two_biguint;
+        } else {
+            median_pool_strk_tvl = sorted_pool_states[median_idx].total_strk.clone();
+            median_pool_wei_tvl = sorted_pool_states[median_idx].total_wei.clone();
+        }
+        (median_pool_strk_tvl, median_pool_wei_tvl)
+    }
+
+    pub fn convert_wei_to_strk(&self, wei_amount: BigUint) -> BigUint {
+        (wei_amount * self.median_pool_strk_tvl.clone()) / self.median_pool_wei_tvl.clone()
+    }
+}
 
 /// Returns an estimation of the L1 gas amount that will be used (by StarkNet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
