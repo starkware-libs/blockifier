@@ -12,6 +12,7 @@ use starknet_api::transaction::{
     Calldata, EthAddress, EventContent, Fee, L2ToL1Payload, TransactionVersion,
 };
 
+use super::syscalls::hint_processor::ExecutionMode;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
@@ -87,12 +88,16 @@ pub struct EntryPointExecutionContext {
     current_recursion_depth: usize,
     // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
     max_recursion_depth: usize,
+
+    // The execution mode affects the behavior of the hint processor.
+    pub execution_mode: ExecutionMode,
 }
 impl EntryPointExecutionContext {
     pub fn new(
         block_context: BlockContext,
         account_tx_context: AccountTransactionContext,
         max_n_steps: usize,
+        execution_mode: ExecutionMode,
     ) -> Self {
         Self {
             vm_run_resources: RunResources::new(max_n_steps),
@@ -103,6 +108,7 @@ impl EntryPointExecutionContext {
             current_recursion_depth: 0,
             max_recursion_depth: block_context.max_recursion_depth,
             block_context,
+            execution_mode,
         }
     }
 
@@ -114,6 +120,7 @@ impl EntryPointExecutionContext {
             block_context.clone(),
             account_tx_context.clone(),
             block_context.validate_max_n_steps as usize,
+            ExecutionMode::Validate,
         )
     }
 
@@ -125,6 +132,7 @@ impl EntryPointExecutionContext {
             block_context.clone(),
             account_tx_context.clone(),
             Self::max_invoke_steps(block_context, account_tx_context),
+            ExecutionMode::Default,
         )
     }
 

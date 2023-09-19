@@ -12,6 +12,7 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
+use crate::execution::syscalls::hint_processor::ExecutionMode;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -33,7 +34,7 @@ fn test_storage_read_write() {
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(value)])
     );
     // Verify that the state has changed.
@@ -60,7 +61,7 @@ fn test_library_call() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(91_u16)])
     );
 }
@@ -156,7 +157,10 @@ fn test_nested_library_call() {
         ..Default::default()
     };
 
-    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+    assert_eq!(
+        main_entry_point.execute_directly(&mut state, ExecutionMode::Default).unwrap(),
+        expected_call_info
+    );
 }
 
 #[test]
@@ -177,7 +181,7 @@ fn test_call_contract() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(48_u8)])
     );
 }
@@ -193,7 +197,10 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call
+        .execute_directly(&mut state, ExecutionMode::Default)
+        .unwrap_err()
+        .to_string();
     assert!(error.contains("is not declared"));
 
     // Positive flow.
@@ -206,7 +213,7 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    entry_point_call.execute_directly(&mut state).unwrap();
+    entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap();
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
 
@@ -304,7 +311,10 @@ fn test_deploy(
     };
 
     if let Some(expected_error) = expected_error {
-        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        let error = entry_point_call
+            .execute_directly(&mut state, ExecutionMode::Default)
+            .unwrap_err()
+            .to_string();
         assert!(error.contains(expected_error));
         return;
     }
@@ -318,7 +328,7 @@ fn test_deploy(
     )
     .unwrap();
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution::from_retdata(retdata![*contract_address.0.key()])
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);

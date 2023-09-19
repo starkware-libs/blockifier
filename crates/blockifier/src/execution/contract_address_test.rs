@@ -5,6 +5,7 @@ use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, Retdata};
+use crate::execution::syscalls::hint_processor::ExecutionMode;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
@@ -34,7 +35,7 @@ fn test_calculate_contract_address() {
                 .unwrap();
 
         assert_eq!(
-            entry_point_call.execute_directly(state).unwrap().execution,
+            entry_point_call.execute_directly(state, ExecutionMode::Default).unwrap().execution,
             CallExecution::from_retdata(retdata![*contract_address.0.key()])
         );
     }

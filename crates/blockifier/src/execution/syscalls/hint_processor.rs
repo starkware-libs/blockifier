@@ -51,6 +51,16 @@ use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 
+/// Transaction execution mode.
+#[derive(Debug, Clone, Default, Eq, PartialEq, Copy)]
+pub enum ExecutionMode {
+    /// Normal execution mode.
+    #[default]
+    Default,
+    /// Validate execution mode.
+    Validate,
+}
+
 #[derive(Debug, Error)]
 pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
@@ -133,6 +143,7 @@ pub struct SyscallHintProcessor<'a> {
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
     execution_info_ptr: Option<Relocatable>,
+    pub execution_mode: ExecutionMode,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -145,6 +156,7 @@ impl<'a> SyscallHintProcessor<'a> {
         hints: &'a HashMap<String, Hint>,
         read_only_segments: ReadOnlySegments,
     ) -> Self {
+        let execution_mode = context.execution_mode;
         SyscallHintProcessor {
             state,
             resources,
@@ -161,6 +173,7 @@ impl<'a> SyscallHintProcessor<'a> {
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
+            execution_mode,
         }
     }
 
