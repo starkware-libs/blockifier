@@ -33,6 +33,15 @@ impl Transaction {
     pub fn initial_gas() -> u64 {
         abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
     }
+
+    pub fn hash(&self) -> &TransactionHash {
+        match self {
+            Self::L1HandlerTransaction(L1HandlerTransaction { tx_hash, .. }) => tx_hash,
+            Self::AccountTransaction(AccountTransaction::Declare(declare)) => &declare.tx_hash,
+            Self::AccountTransaction(AccountTransaction::DeployAccount(deploy)) => &deploy.tx_hash,
+            Self::AccountTransaction(AccountTransaction::Invoke(invoke)) => &invoke.tx_hash,
+        }
+    }
 }
 
 impl Transaction {

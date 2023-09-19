@@ -90,9 +90,9 @@ pub trait Executable<S: State> {
 
 #[derive(Debug)]
 pub struct DeclareTransaction {
-    tx: starknet_api::transaction::DeclareTransaction,
-    tx_hash: TransactionHash,
-    contract_class: ContractClass,
+    pub tx: starknet_api::transaction::DeclareTransaction,
+    pub tx_hash: TransactionHash,
+    pub contract_class: ContractClass,
 }
 
 fn verify_contract_class_version(
@@ -135,14 +135,6 @@ impl DeclareTransaction {
     }
 
     implement_inner_tx_getter_calls!((class_hash, ClassHash));
-
-    pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
-        &self.tx
-    }
-
-    pub fn tx_hash(&self) -> TransactionHash {
-        self.tx_hash
-    }
 
     pub fn contract_class(&self) -> ContractClass {
         self.contract_class.clone()
@@ -229,10 +221,6 @@ impl DeployAccountTransaction {
         (nonce, Nonce),
         (signature, TransactionSignature)
     );
-
-    pub fn tx(&self) -> &starknet_api::transaction::DeployAccountTransaction {
-        &self.tx
-    }
 
     pub fn max_fee(&self) -> Fee {
         match &self.tx {
