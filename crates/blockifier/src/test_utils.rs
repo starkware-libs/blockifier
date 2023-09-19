@@ -28,6 +28,7 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use crate::abi::abi_utils::get_storage_var_address;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
@@ -334,13 +335,23 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 }
 
 impl CallEntryPoint {
-    // Executes the call directly, without account context.
-    pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
+    /// Executes the call directly, without account context.
+    pub fn execute_directly(
+        self,
+        state: &mut dyn State,
+        execution_mode: ExecutionMode,
+    ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_invoke(
-            &block_context,
-            &AccountTransactionContext::default(),
-        );
+        let mut context = match execution_mode {
+            ExecutionMode::Default => EntryPointExecutionContext::new_invoke(
+                &block_context,
+                &AccountTransactionContext::default(),
+            ),
+            ExecutionMode::Validate => EntryPointExecutionContext::new_validate(
+                &block_context,
+                &AccountTransactionContext::default(),
+            ),
+        };
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }

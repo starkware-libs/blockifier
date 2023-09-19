@@ -16,6 +16,7 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
@@ -51,7 +52,7 @@ fn test_storage_read_write() {
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(value)],
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
@@ -83,7 +84,7 @@ fn test_call_contract() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(48_u8)],
             gas_consumed: REQUIRED_GAS_CALL_CONTRACT_TEST,
@@ -116,7 +117,7 @@ fn test_emit_event() {
     let event =
         EventContent { keys: keys.into_iter().map(EventKey).collect(), data: EventData(data) };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution {
             events: vec![OrderedEvent { order: 0, event }],
             gas_consumed: 52570,
@@ -147,11 +148,11 @@ fn test_get_block_hash() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
 
-    // Negative flow.
+    // Negative flow. Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
     let block_number = stark_felt!(requested_block_number);
     let calldata = calldata![block_number];
@@ -160,7 +161,7 @@ fn test_get_block_hash() {
         calldata,
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
+    let error = entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap_err();
     assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
         if error_data == vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
 }
@@ -177,7 +178,7 @@ fn test_keccak() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution { gas_consumed: 354940, ..CallExecution::from_retdata(retdata![]) }
     );
 }
@@ -209,7 +210,7 @@ fn test_get_execution_info() {
     };
 
     // TODO(spapini): Fix the "UNEXPECTED ERROR".
-    entry_point_call.execute_directly(&mut state).unwrap_err();
+    entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap_err();
 }
 
 #[test]
@@ -232,7 +233,7 @@ fn test_library_call() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(91_u16)],
             gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
@@ -356,7 +357,10 @@ fn test_nested_library_call() {
         ..Default::default()
     };
 
-    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+    assert_eq!(
+        main_entry_point.execute_directly(&mut state, ExecutionMode::Default).unwrap(),
+        expected_call_info
+    );
 }
 
 #[test]
@@ -371,7 +375,10 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call
+        .execute_directly(&mut state, ExecutionMode::Default)
+        .unwrap_err()
+        .to_string();
     assert!(error.contains("is not declared"));
 
     // Replace with Cairo 0 class hash.
@@ -384,7 +391,10 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call
+        .execute_directly(&mut state, ExecutionMode::Default)
+        .unwrap_err()
+        .to_string();
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 
     // Positive flow.
@@ -398,7 +408,7 @@ fn test_replace_class() {
         ..trivial_external_entry_point()
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution { gas_consumed: 14450, ..Default::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
@@ -416,7 +426,7 @@ fn test_secp256k1() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution { gas_consumed: 38373130_u64, ..Default::default() }
     );
 }
@@ -433,7 +443,7 @@ fn test_secp256r1() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution { gas_consumed: 55409470_u64, ..Default::default() }
     );
 }
@@ -457,7 +467,7 @@ fn test_send_message_to_l1() {
     let message = MessageToL1 { to_address, payload: L2ToL1Payload(payload) };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
             gas_consumed: 37990,
@@ -540,7 +550,10 @@ fn test_deploy(
     };
 
     if let Some(expected_error) = expected_error {
-        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        let error = entry_point_call
+            .execute_directly(&mut state, ExecutionMode::Default)
+            .unwrap_err()
+            .to_string();
         assert!(error.contains(expected_error));
         return;
     }
@@ -553,7 +566,9 @@ fn test_deploy(
         ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS)),
     )
     .unwrap();
-    let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
+    let deploy_call =
+        &entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap().inner_calls
+            [0];
     assert_eq!(deploy_call.call.storage_address, contract_address);
     let mut retdata = retdata![];
     let gas_consumed = if constructor_calldata.0.is_empty() {
@@ -582,7 +597,7 @@ fn test_out_of_gas() {
         initial_gas: REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1,
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
+    let error = entry_point_call.execute_directly(&mut state, ExecutionMode::Default).unwrap_err();
     assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
         if error_data == vec![stark_felt!(OUT_OF_GAS_ERROR)]);
 }

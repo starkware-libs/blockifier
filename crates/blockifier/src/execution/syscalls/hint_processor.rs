@@ -24,7 +24,7 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
-use crate::execution::common_hints::HintExecutionResult;
+use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources,
     OrderedEvent, OrderedL2ToL1Message,
@@ -133,6 +133,7 @@ pub struct SyscallHintProcessor<'a> {
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
     execution_info_ptr: Option<Relocatable>,
+    pub execution_mode: ExecutionMode,
 }
 
 impl<'a> SyscallHintProcessor<'a> {
@@ -145,6 +146,7 @@ impl<'a> SyscallHintProcessor<'a> {
         hints: &'a HashMap<String, Hint>,
         read_only_segments: ReadOnlySegments,
     ) -> Self {
+        let execution_mode = context.execution_mode;
         SyscallHintProcessor {
             state,
             resources,
@@ -161,6 +163,7 @@ impl<'a> SyscallHintProcessor<'a> {
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
+            execution_mode,
         }
     }
 
