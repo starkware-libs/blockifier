@@ -43,7 +43,9 @@ use crate::test_utils::{
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::objects::{
+    FeeType, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
+};
 use crate::transaction::test_utils::{
     create_account_tx_for_validate_test, create_state_with_cairo1_account,
     create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
@@ -141,6 +143,7 @@ fn expected_fee_transfer_call_info(
     account_address: ContractAddress,
     actual_fee: Fee,
     vm_resources: VmExecutionResources,
+    fee_type: &FeeType,
 ) -> Option<CallInfo> {
     let expected_fee_token_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let expected_sequencer_address = *block_context.sequencer_address.0.key();
@@ -148,8 +151,7 @@ fn expected_fee_transfer_call_info(
     let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT storage address should depend on tx version(s).
-    let storage_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let storage_address = block_context.fee_token_address(fee_type);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
         code_address: None,
@@ -298,6 +300,7 @@ fn test_invoke_tx(
     let sender_address = invoke_tx.sender_address;
 
     let account_tx = AccountTransaction::Invoke(invoke_tx.into());
+    let fee_type = &account_tx.fee_type();
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -367,6 +370,7 @@ fn test_invoke_tx(
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
             ]),
         },
+        fee_type,
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -608,6 +612,7 @@ fn test_declare_tx(
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
+    let fee_type = &account_tx.fee_type();
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -638,6 +643,7 @@ fn test_declare_tx(
                 (HASH_BUILTIN_NAME.to_string(), 4),
             ]),
         },
+        fee_type,
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -781,6 +787,7 @@ fn test_deploy_account_tx(
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
+    let fee_type = &account_tx.fee_type();
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -826,6 +833,7 @@ fn test_deploy_account_tx(
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
             ]),
         },
+        fee_type,
     );
 
     let expected_execution_info = TransactionExecutionInfo {
