@@ -19,6 +19,7 @@ use self::hint_processor::{
     SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
 use crate::abi::constants;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{
@@ -339,6 +340,13 @@ pub fn get_block_hash(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<GetBlockHashResponse> {
+    if syscall_handler.context.execution_mode == ExecutionMode::Validate {
+        return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
+            syscall_name: "get_block_hash".to_owned(),
+            execution_mode: syscall_handler.context.execution_mode,
+        });
+    }
+
     let requested_block_number = request.block_number.0;
     let current_block_number = syscall_handler.context.block_context.block_number.0;
 

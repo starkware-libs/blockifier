@@ -1,6 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -21,7 +25,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
     OrderedL2ToL1Message, Retdata,
 };
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
 };
@@ -147,8 +151,27 @@ fn test_get_block_hash() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
         CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
+    );
+
+    // Negative flow. Execution mode is Validate.
+    let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+
+    assert_matches!(
+        error,
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+            source: VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
+                VmException { inner_exc: VirtualMachineError::Hint(hint), .. }
+            )),
+            ..
+        }
+        if matches!(
+            &hint.1,
+            HintError::CustomHint(custom_hint)
+            if *custom_hint == "Unauthorized syscall get_block_hash in execution mode Validate.".into()
+        )
+
     );
 
     // Negative flow: Block number out of range.
