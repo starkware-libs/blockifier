@@ -343,6 +343,15 @@ impl CallEntryPoint {
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
+    /// Executes the call directly, without account context in validate mode.
+    pub fn validate_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
+        let block_context = BlockContext::create_for_testing();
+        let mut context = EntryPointExecutionContext::new_validate(
+            &block_context,
+            &AccountTransactionContext::default(),
+        );
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
+    }
 }
 
 impl BlockContext {
