@@ -410,6 +410,7 @@ dependencies = [
  "phf",
  "pretty_assertions",
  "rstest",
+ "rstest_reuse",
  "serde",
  "serde_json",
  "sha3",
@@ -2800,6 +2801,18 @@ dependencies = [
  "rustc_version",
  "syn 1.0.109",
  "unicode-ident",
+]
+
+[[package]]
+name = "rstest_reuse"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88530b681abe67924d42cca181d070e3ac20e0740569441a9e35a7cedd2b34a4"
+dependencies = [
+ "quote",
+ "rand",
+ "rustc_version",
+ "syn 2.0.29",
 ]
 
 [[package]]

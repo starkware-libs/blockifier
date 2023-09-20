@@ -1,3 +1,5 @@
+pub use rstest_reuse;
+
 pub mod abi;
 pub mod block_context;
 pub mod block_execution;

@@ -9,7 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -18,6 +18,7 @@ use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::rstest_reuse::apply;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -29,7 +30,7 @@ use crate::test_utils::{
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test,
+    account_invoke_tx, all_tx_versions, create_account_tx_for_validate_test,
     create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
@@ -154,6 +155,11 @@ fn create_test_init_data(
     .unwrap();
 
     TestInitData { state, account_address, contract_address, nonce_manager, block_context }
+}
+
+#[apply(all_tx_versions)]
+fn test_all_versions(tx_version: TransactionVersion) {
+    println!("tx_version: {:?}", tx_version);
 }
 
 #[rstest]

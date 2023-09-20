@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 
+use rstest::rstest;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature,
+    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::rstest_reuse::*;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     invoke_tx, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
@@ -27,6 +29,25 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
     DeclareTransaction, ExecutableTransaction, InvokeTransaction,
 };
+
+// Template for testing all transaction versions.
+#[template]
+#[rstest]
+#[case::v0(TransactionVersion::ZERO)]
+#[case::v1(TransactionVersion::ONE)]
+fn all_tx_versions(#[case] tx_version: TransactionVersion) {}
+
+/// Dummy test to make sure the template is used (otherwise Cargo complains).
+#[apply(all_tx_versions)]
+fn __(tx_version: TransactionVersion) {
+    println!("tx_version: {:?}", tx_version);
+}
+
+/// Dummy function to make sure Cargo detects the usage of `TransactionVersion`, or it complains of
+/// an unused import.
+pub fn ___() -> TransactionVersion {
+    TransactionVersion::ZERO
+}
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
