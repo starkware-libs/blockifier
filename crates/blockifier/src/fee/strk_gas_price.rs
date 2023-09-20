@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use num_bigint::BigUint;
 use num_traits::Zero;
 
-use super::errors::GasPriceQueryError;
+use super::errors::StrkGasPriceCalcError;
 
 #[cfg(test)]
 #[path = "strk_gas_price_test.rs"]
@@ -42,9 +42,9 @@ pub struct PoolStateAggregator {
 }
 
 impl PoolStateAggregator {
-    pub fn new(pool_states: &[PoolState]) -> Result<Self, GasPriceQueryError> {
+    pub fn new(pool_states: &[PoolState]) -> Result<Self, StrkGasPriceCalcError> {
         if pool_states.is_empty() {
-            return Err(GasPriceQueryError::NoPoolStatesError);
+            return Err(StrkGasPriceCalcError::NoPoolStatesError);
         }
 
         let mut sorted_pool_states: Vec<PoolState> = pool_states.to_vec();
