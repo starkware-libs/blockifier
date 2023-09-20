@@ -1,6 +1,6 @@
 use num_bigint::BigUint;
 
-use crate::fee::errors::GasPriceQueryError;
+use crate::fee::errors::StrkGasPriceCalcError;
 use crate::fee::strk_gas_price::{PoolState, PoolStateAggregator};
 
 /// Sanity tests for STRK<->ETH price computation.
@@ -17,7 +17,7 @@ fn test_convert_wei_to_strk() {
     let wei_amount = BigUint::from(10_000_000_000_u64);
 
     // Bad flow: ratio computation on empty array.
-    assert!(matches!(PoolStateAggregator::new(&[]), Err(GasPriceQueryError::NoPoolStatesError)));
+    assert!(matches!(PoolStateAggregator::new(&[]), Err(StrkGasPriceCalcError::NoPoolStatesError)));
 
     // convert Wei -> STRK with a single pool state.
     assert_eq!(
