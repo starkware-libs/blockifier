@@ -48,17 +48,11 @@ impl From<PyResource> for starknet_api::transaction::Resource {
 
 impl FromPyObject<'_> for PyResource {
     fn extract(resource: &PyAny) -> PyResult<Self> {
-        // Check if the Python object is a string
         let resource_name: String = py_attr(resource, "name")?;
-
-        // Convert the string to a PyResource enum variant
-        match resource_name.as_str() {
-            "L1Gas" => Ok(PyResource::L1Gas),
-            "L2Gas" => Ok(PyResource::L2Gas),
-            _ => Err(PyValueError::new_err(format!(
-                "Invalid resource: {}",
-                resource_name
-            ))),
+        match &*resource_name {
+            "L1_GAS" => Ok(PyResource::L1Gas),
+            "L2_GAS" => Ok(PyResource::L2Gas),
+            _ => Err(PyValueError::new_err(format!("Invalid resource: {}", resource_name))),
         }
     }
 }
@@ -101,9 +95,7 @@ pub enum PyDataAvailabilityMode {
 
 impl FromPyObject<'_> for PyDataAvailabilityMode {
     fn extract(data_availability_mode: &PyAny) -> PyResult<Self> {
-        // Check if the Python object is a string
         let data_availability_mode: i32 = data_availability_mode.extract()?;
-
         match data_availability_mode {
             0 => Ok(PyDataAvailabilityMode::L1),
             1 => Ok(PyDataAvailabilityMode::L2),
@@ -140,38 +132,20 @@ fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
     Ok(Calldata(Arc::from(call)))
 }
 
-fn calculate_max_fee(
-    py_resource_bounds: PyResourceBoundsMapping,
-) -> Fee {
-    let resource_bounds: ResourceBoundsMapping =
-        ResourceBoundsMapping::from(py_resource_bounds);
-    let l1_resource_bounds =
-        resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-    // Calculate max_fee when version is >= 3
-    Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
-}
-
-
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
     let nonce: Option<BigUint> = py_attr(tx, "nonce")?;
     let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
     let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
     let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
-    let max_fee: Fee = if py_attr::<PyFelt>(tx, "version")?.0
-        < StarkFelt::from(3_u8)
-    {
-        // Use max_fee from tx when version is < 3
-        Fee(py_attr(tx, "max_fee")?) // Assuming max_fee is of type Fee
-    } else {
-        let py_resource_bounds: PyResourceBoundsMapping = py_attr(tx, "resource_bounds")?;
-        calculate_max_fee(py_resource_bounds.clone())
-    };
+    let version = TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0);
+    let max_fee: Fee =
+        if version < TransactionVersion::THREE { Fee(py_attr(tx, "max_fee")?) } else { Fee(0) };
 
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
         max_fee,
         signature: TransactionSignature(signature),
-        version: TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0),
+        version,
         nonce,
         sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
     })
