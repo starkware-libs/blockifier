@@ -18,13 +18,14 @@ use cairo_vm::vm::runners::cairo_runner::RunResources;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use num_traits::{Num, One, Zero};
+use strum_macros::Display;
 
 use crate::execution::hint_code::{
     NORMALIZE_ADDRESS_SET_IS_250_HINT, NORMALIZE_ADDRESS_SET_IS_SMALL_HINT,
 };
 
 /// Transaction execution mode.
-#[derive(Debug, Clone, Default, Eq, PartialEq, Copy)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Copy, Display)]
 pub enum ExecutionMode {
     /// Normal execution mode.
     #[default]

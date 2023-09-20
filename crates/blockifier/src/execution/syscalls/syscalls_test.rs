@@ -142,7 +142,7 @@ fn test_get_block_hash() {
     let calldata = calldata![block_number];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_get_block_hash"),
-        calldata,
+        calldata: calldata.clone(),
         ..trivial_external_entry_point()
     };
 
@@ -150,6 +150,18 @@ fn test_get_block_hash() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
+
+    // Negative flow. Execution mode is Validate.
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    let error = entry_point_call.validate_directly(&mut state).unwrap_err();
+
+    assert_matches!(error, EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace{ trace, source: _ }
+        if trace.contains("Unauthorized syscall GetBlockHash in execution mode Validate."));
 
     // Negative flow: Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
