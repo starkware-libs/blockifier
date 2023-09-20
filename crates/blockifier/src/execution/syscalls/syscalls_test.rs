@@ -147,9 +147,15 @@ fn test_get_block_hash() {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
         CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
+
+    // Negative flow. Execution mode is Validate.
+    let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+
+    assert_matches!(error, EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace{ trace, source: _ }
+        if trace.contains("Unauthorized syscall get_block_hash in execution mode Validate."));
 
     // Negative flow: Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
