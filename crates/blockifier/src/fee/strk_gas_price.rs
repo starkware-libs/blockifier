@@ -22,7 +22,7 @@ impl PoolState {
         self.total_wei.clone() << 1
     }
     /// Returns the result of comparing two pool states by STRK / Wei ratio.
-    pub fn compare_wei_to_strk_ratio(&self, other: &Self) -> Ordering {
+    pub fn compare_strk_to_wei_ratio(&self, other: &Self) -> Ordering {
         //  a / b < c / d <=> a * d < c * b. The same is true for the other orders.
         let lhs = self.total_strk.clone() * other.total_wei.clone();
         let rhs = other.total_strk.clone() * self.total_wei.clone();
@@ -49,7 +49,7 @@ impl PoolStateAggregator {
 
         let mut sorted_pool_states: Vec<PoolState> = pool_states.to_vec();
         sorted_pool_states.sort_unstable_by(|pool_state_a, pool_state_b| {
-            pool_state_a.compare_wei_to_strk_ratio(pool_state_b)
+            pool_state_a.compare_strk_to_wei_ratio(pool_state_b)
         });
 
         let (median_pool_strk_tvl, median_pool_wei_tvl) =
@@ -66,9 +66,9 @@ impl PoolStateAggregator {
     /// This function assumes the given slice is sorted by STRK / Wei ratio.
     pub fn calc_median_values(sorted_pool_states: &[PoolState]) -> (BigUint, BigUint) {
         let total_weight: BigUint =
-            sorted_pool_states.iter().map(|state| (state.tvl_in_wei())).sum::<BigUint>();
+            sorted_pool_states.iter().map(|state| state.tvl_in_wei()).sum::<BigUint>();
 
-        // Find idx of weighted median STRK / Wei ratio.
+        // Find index of weighted median STRK / Wei ratio.
         let mut current_weight: BigUint = BigUint::zero();
         let mut median_idx = 0;
         let equal_weight_partition: bool;
