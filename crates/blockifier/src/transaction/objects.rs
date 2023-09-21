@@ -4,7 +4,9 @@ use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
+use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
+use crate::fee::fee_utils::calculate_tx_fee;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
@@ -101,5 +103,13 @@ pub trait HasRelatedFeeType {
         } else {
             FeeType::Strk
         }
+    }
+
+    fn calculate_tx_fee(
+        &self,
+        resources: &ResourcesMapping,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<Fee> {
+        calculate_tx_fee(resources, block_context, &self.fee_type())
     }
 }

@@ -357,7 +357,7 @@ fn test_invoke_tx(
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         sender_address,
@@ -605,6 +605,7 @@ fn test_declare_tx(
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
     });
+    let fee_type = &account_tx.fee_type();
 
     // Check state before transaction application.
     assert_matches!(
@@ -630,7 +631,7 @@ fn test_declare_tx(
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         expected_account_address,
@@ -705,6 +706,7 @@ fn test_declare_tx_v2() {
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
     });
+    let fee_type = &account_tx.fee_type();
 
     // Check state before transaction application.
     assert_matches!(
@@ -723,7 +725,7 @@ fn test_declare_tx_v2() {
     ]));
 
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
 
     assert_eq!(expected_actual_resources, actual_execution_info.actual_resources);
     assert_eq!(expected_actual_fee, actual_execution_info.actual_fee);
@@ -820,7 +822,7 @@ fn test_deploy_account_tx(
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context).unwrap();
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         deployed_account_address,
