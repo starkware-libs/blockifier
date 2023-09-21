@@ -605,7 +605,6 @@ fn test_declare_tx(
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
     });
-    let fee_type = &account_tx.fee_type();
 
     // Check state before transaction application.
     assert_matches!(
