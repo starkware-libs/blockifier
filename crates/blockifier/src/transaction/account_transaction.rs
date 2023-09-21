@@ -614,10 +614,10 @@ impl AccountTransaction {
         resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
-        let account_tx_context = self.get_account_transaction_context();
         let execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
+            EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
 
         if self.is_non_revertible() {
             return self.run_non_revertible(
@@ -676,7 +676,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         block_context: &BlockContext,
         charge_fee: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let account_tx_context = self.get_account_transaction_context();
+        let account_tx_context = &self.get_account_transaction_context();
         self.verify_tx_version(account_tx_context.version)?;
 
         let mut resources = ExecutionResources::default();
@@ -687,7 +687,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             self.check_fee_balance(state, block_context)?;
         }
         // Handle nonce.
-        Self::handle_nonce(&account_tx_context, state)?;
+        Self::handle_nonce(account_tx_context, state)?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {
@@ -696,7 +696,13 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
             final_fee,
             final_resources,
-        } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
+        } = self.run_or_revert(
+            state,
+            &mut resources,
+            &mut remaining_gas,
+            block_context,
+            account_tx_context,
+        )?;
 
         let fee_transfer_call_info =
             self.handle_fee(state, block_context, final_fee, charge_fee)?;
