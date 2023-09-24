@@ -20,5 +20,8 @@
                 }
             }
         ]
-    }
+    },
+    "rust-analyzer.linkedProjects": [
+        "./crates/blockifier/blockifier_macros/Cargo.toml"
+    ]
 }
