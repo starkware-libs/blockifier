@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use blockifier_macros::vary_over_invoke_versions;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
 use starknet_api::core::{
@@ -188,15 +189,12 @@ fn test_fee_enforcement(
     }
 }
 
-// TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
-// TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
+#[vary_over_invoke_versions(tx_version)]
 #[rstest]
-#[case(TransactionVersion::ZERO)]
-#[case(TransactionVersion::ONE)]
 fn test_account_flow_test(
     max_fee: Fee,
     #[from(create_test_init_data)] init_data: TestInitData,
-    #[case] tx_version: TransactionVersion,
+    tx_version: TransactionVersion,
 ) {
     let TestInitData {
         mut state,
