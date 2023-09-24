@@ -28,6 +28,7 @@ indexmap.workspace = true
 itertools.workspace = true
 keccak.workspace = true
 log.workspace = true
+blockifier_macros = { path = "blockifier_macros" }
 num-bigint.workspace = true
 num-integer.workspace = true
 num-traits.workspace = true
