@@ -1,7 +1,7 @@
 use num_bigint::BigUint;
 
-use crate::fee::errors::StrkGasPriceCalcError;
-use crate::fee::strk_gas_price::{PoolState, PoolStateAggregator};
+use crate::fee::strk_gas_price::errors::StrkGasPriceCalcError;
+use crate::fee::strk_gas_price::gas_price::{PoolState, PoolStateAggregator};
 
 /// Sanity tests for STRK<->ETH price computation.
 #[test]
