@@ -136,6 +136,18 @@ impl EntryPointExecutionContext {
         )
     }
 
+    pub fn new_invoke_in_validate_mode(
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> Self {
+        Self::new(
+            block_context.clone(),
+            account_tx_context.clone(),
+            Self::max_invoke_steps(block_context, account_tx_context),
+            ExecutionMode::Validate,
+        )
+    }
+
     /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
     /// If fee is disabled, returns the global maximum.
     pub fn max_invoke_steps(

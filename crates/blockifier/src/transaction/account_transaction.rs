@@ -616,8 +616,14 @@ impl AccountTransaction {
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
-        let execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
+        let execution_context = if matches!(self, Self::DeployAccount(_)) {
+            EntryPointExecutionContext::new_invoke_in_validate_mode(
+                block_context,
+                &account_tx_context,
+            )
+        } else {
+            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context)
+        };
 
         if self.is_non_revertible() {
             return self.run_non_revertible(
