@@ -65,7 +65,7 @@ pub enum SyscallExecutionError {
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
-    #[error("Invalid syscall in execution mode error: {syscall_name} in {execution_mode}.")]
+    #[error("Unauthorized syscall {syscall_name} in execution mode {execution_mode}.")]
     InvalidSyscallInExecutionMode { syscall_name: String, execution_mode: ExecutionMode },
     #[error(transparent)]
     MathError(#[from] cairo_vm::types::errors::math_errors::MathError),

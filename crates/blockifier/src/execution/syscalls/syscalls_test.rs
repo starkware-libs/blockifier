@@ -161,7 +161,7 @@ fn test_get_block_hash() {
     let error = entry_point_call.validate_directly(&mut state).unwrap_err();
 
     assert_matches!(error, EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace{ trace, source: _ }
-        if trace.contains("Invalid syscall in execution mode error: GetBlockHash in Validate."));
+        if trace.contains("Unauthorized syscall GetBlockHash in execution mode Validate."));
 
     // Negative flow: Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;

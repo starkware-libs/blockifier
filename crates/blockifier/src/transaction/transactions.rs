@@ -197,6 +197,8 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         let call_info = deployment_result
             .map_err(TransactionExecutionError::ContractConstructorExecutionFailed)?;
         update_remaining_gas(remaining_gas, &call_info);
+        // TODO(Arni, 01/10/2023): Remove this check once this function is only run in validate
+        // mode.
         verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
 
         Ok(Some(call_info))
