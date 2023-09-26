@@ -13,6 +13,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallInfo, CallType, EntryPointExecutionContext, ExecutionResources, Retdata,
@@ -411,6 +412,7 @@ impl AccountTransaction {
         let execute_call_info: Option<CallInfo>;
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
+            execution_context.execution_mode = ExecutionMode::Validate;
             execute_call_info =
                 self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
             validate_call_info =
