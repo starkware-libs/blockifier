@@ -21,7 +21,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransactionV1, Fee,
-    InvokeTransactionV1, TransactionHash, TransactionSignature,
+    InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -39,7 +39,7 @@ use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStor
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::AccountTransactionContext;
-use crate::transaction::transactions::DeployAccountTransaction;
+use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
 
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
@@ -428,15 +428,33 @@ pub fn deploy_account_tx_with_salt(
     DeployAccountTransaction { tx, tx_hash: TransactionHash::default(), contract_address }
 }
 
+pub fn invoke_tx(
+    calldata: Calldata,
+    sender_address: ContractAddress,
+    nonce_manager: &mut NonceManager,
+    max_fee: Fee,
+    signature: Option<TransactionSignature>,
+    tx_version: TransactionVersion,
+) -> InvokeTransaction {
+    match tx_version {
+        TransactionVersion::ONE => {
+            invoke_tx_v1(calldata, sender_address, nonce_manager, max_fee, signature).into()
+        }
+        _ => panic!("Unsupported transaction version: {:?}.", tx_version),
+    }
+}
+
 pub fn invoke_tx_v1(
     calldata: Calldata,
     sender_address: ContractAddress,
+    nonce_manager: &mut NonceManager,
     max_fee: Fee,
     signature: Option<TransactionSignature>,
 ) -> InvokeTransactionV1 {
     InvokeTransactionV1 {
         max_fee,
         sender_address,
+        nonce: nonce_manager.next(sender_address),
         calldata,
         signature: signature.unwrap_or_default(),
         ..Default::default()
