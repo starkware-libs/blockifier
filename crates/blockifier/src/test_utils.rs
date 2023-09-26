@@ -428,7 +428,7 @@ pub fn deploy_account_tx_with_salt(
     DeployAccountTransaction { tx, tx_hash: TransactionHash::default(), contract_address }
 }
 
-pub fn invoke_tx(
+pub fn invoke_tx_v1(
     calldata: Calldata,
     sender_address: ContractAddress,
     max_fee: Fee,

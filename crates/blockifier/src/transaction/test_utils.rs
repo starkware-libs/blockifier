@@ -13,7 +13,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    invoke_tx, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
+    invoke_tx_v1, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
     BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
@@ -175,7 +175,7 @@ pub fn create_account_tx_for_validate_test(
                 entry_point_selector.0,                            // EP selector.
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
-            let invoke_tx = crate::test_utils::invoke_tx(
+            let invoke_tx = crate::test_utils::invoke_tx_v1(
                 execute_calldata,
                 contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 Fee(0),
@@ -193,7 +193,7 @@ pub fn account_invoke_tx(
     nonce_manager: &mut NonceManager,
     max_fee: Fee,
 ) -> AccountTransaction {
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let tx = invoke_tx_v1(execute_calldata, account_address, max_fee, None);
     AccountTransaction::Invoke(
         InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
     )
