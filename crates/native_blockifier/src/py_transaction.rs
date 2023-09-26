@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
+use blockifier::fee::fee_utils::l1_gas_max_fee;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -11,7 +12,6 @@ use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
 };
-use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::{
@@ -28,7 +28,7 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
-use crate::py_utils::{biguint_to_felt, py_attr, PyFelt};
+use crate::py_utils::{py_attr, PyFelt};
 
 // Structs.
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -48,11 +48,11 @@ impl From<PyResource> for starknet_api::transaction::Resource {
 
 impl FromPyObject<'_> for PyResource {
     fn extract(resource: &PyAny) -> PyResult<Self> {
-        let resource_name: String = py_attr(resource, "name")?;
-        match &*resource_name {
+        let resource_name: &str = resource.getattr("name")?.extract()?;
+        match resource_name {
             "L1_GAS" => Ok(PyResource::L1Gas),
             "L2_GAS" => Ok(PyResource::L2Gas),
-            _ => Err(PyValueError::new_err(format!("Invalid resource: {}", resource_name))),
+            _ => Err(PyValueError::new_err(format!("Invalid resource: {resource_name}"))),
         }
     }
 }
@@ -95,13 +95,12 @@ pub enum PyDataAvailabilityMode {
 
 impl FromPyObject<'_> for PyDataAvailabilityMode {
     fn extract(data_availability_mode: &PyAny) -> PyResult<Self> {
-        let data_availability_mode: i32 = data_availability_mode.extract()?;
+        let data_availability_mode: u8 = data_availability_mode.extract()?;
         match data_availability_mode {
             0 => Ok(PyDataAvailabilityMode::L1),
             1 => Ok(PyDataAvailabilityMode::L2),
             _ => Err(PyValueError::new_err(format!(
-                "Invalid data availability mode: {}",
-                data_availability_mode
+                "Invalid data availability mode: {data_availability_mode}"
             ))),
         }
     }
@@ -133,13 +132,17 @@ fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
 }
 
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
-    let nonce: Option<BigUint> = py_attr(tx, "nonce")?;
-    let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
+    let nonce = Nonce(py_attr::<PyFelt>(tx, "nonce")?.0);
     let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
     let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
     let version = TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0);
-    let max_fee: Fee =
-        if version < TransactionVersion::THREE { Fee(py_attr(tx, "max_fee")?) } else { Fee(0) };
+
+    let max_fee: Fee = if version < TransactionVersion::THREE {
+        Fee(py_attr(tx, "max_fee")?)
+    } else {
+        let resource_bounds_mapping: PyResourceBoundsMapping = py_attr(tx, "resource_bounds")?;
+        l1_gas_max_fee(resource_bounds_mapping.into())
+    };
 
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
