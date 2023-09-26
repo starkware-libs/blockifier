@@ -48,11 +48,11 @@ impl From<PyResource> for starknet_api::transaction::Resource {
 
 impl FromPyObject<'_> for PyResource {
     fn extract(resource: &PyAny) -> PyResult<Self> {
-        let resource_name: String = py_attr(resource, "name")?;
-        match &*resource_name {
+        let resource_name: &str = resource.getattr("name")?.extract()?;
+        match resource_name {
             "L1_GAS" => Ok(PyResource::L1Gas),
             "L2_GAS" => Ok(PyResource::L2Gas),
-            _ => Err(PyValueError::new_err(format!("Invalid resource: {}", resource_name))),
+            _ => Err(PyValueError::new_err(format!("Invalid resource: {resource_name}"))),
         }
     }
 }
@@ -95,13 +95,12 @@ pub enum PyDataAvailabilityMode {
 
 impl FromPyObject<'_> for PyDataAvailabilityMode {
     fn extract(data_availability_mode: &PyAny) -> PyResult<Self> {
-        let data_availability_mode: i32 = data_availability_mode.extract()?;
+        let data_availability_mode: u8 = data_availability_mode.extract()?;
         match data_availability_mode {
             0 => Ok(PyDataAvailabilityMode::L1),
             1 => Ok(PyDataAvailabilityMode::L2),
             _ => Err(PyValueError::new_err(format!(
-                "Invalid data availability mode: {}",
-                data_availability_mode
+                "Invalid data availability mode: {data_availability_mode}"
             ))),
         }
     }
@@ -133,13 +132,23 @@ fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
 }
 
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
-    let nonce: Option<BigUint> = py_attr(tx, "nonce")?;
-    let nonce = Nonce(biguint_to_felt(nonce.unwrap_or_default())?);
+    let nonce = Nonce(py_attr::<PyFelt>(tx, "nonce")?.0);
     let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
     let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
     let version = TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0);
-    let max_fee: Fee =
-        if version < TransactionVersion::THREE { Fee(py_attr(tx, "max_fee")?) } else { Fee(0) };
+
+    let max_fee: Fee = if version < TransactionVersion::THREE {
+        Fee(py_attr(tx, "max_fee")?)
+    } else {
+        let resource_bounds_mapping =
+            ResourceBoundsMapping::from(py_attr::<PyResourceBoundsMapping>(tx, "resource_bounds")?);
+        let l1_resource_bounds = resource_bounds_mapping
+            .0
+            .get(&Resource::L1Gas)
+            .expect("All resource bounds mapping should contain L1 resource bounds.");
+
+        Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+    };
 
     Ok(AccountTransactionContext {
         transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
