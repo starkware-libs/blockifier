@@ -1,11 +1,20 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
-use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::execution::entry_point::{
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
+};
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
+use blockifier::transaction::objects::AccountTransactionContext;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ContractAddress};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::EntryPointType;
+use starknet_api::hash::StarkHash;
+use starknet_api::transaction::Calldata;
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
 
 use crate::errors::NativeBlockifierResult;
 use crate::papyrus_state::PapyrusReader;
@@ -53,8 +62,54 @@ impl PyBlockExecutor {
 
     #[pyo3(signature = (next_block_number))]
     fn get_strk_gas_price(&self, next_block_number: u64) -> NativeBlockifierResult<u128> {
-        let _reader = self.get_aligned_reader(next_block_number);
-        // TODO(Amos, 15/9/2023): NEW_TOKEN_SUPPORT compute strk l1 gas price.
+        // TODO: execute a call to an L2 contract and populate the needed fields with real values.
+        let block_context = BlockContext {
+            chain_id: ChainId("".to_string()),
+            block_number: BlockNumber(next_block_number), /* should the previous block number be
+                                                           * used here? */
+            block_timestamp: BlockTimestamp::default(),
+            sequencer_address: contract_address!("0x0"),
+            fee_token_addresses: FeeTokenAddresses {
+                eth_fee_token_address: contract_address!("0x0"),
+                strk_fee_token_address: contract_address!("0x0"),
+            },
+            vm_resource_fee_cost: Default::default(),
+            gas_prices: GasPrices { eth_l1_gas_price: 0, strk_l1_gas_price: 0 },
+            invoke_tx_max_n_steps: 1_000_000,
+            validate_max_n_steps: 1_000_000,
+            max_recursion_depth: 50,
+        };
+        let mut execute_call_context = EntryPointExecutionContext::new_invoke(
+            &block_context,
+            &AccountTransactionContext::default(), // Is this correct?
+        );
+        // TODO: populate these with actual values
+        let class_hash = class_hash!("0x0");
+        let contract_address = contract_address!("0x0");
+        let entry_point_selector = selector_from_name("");
+        let calldata = calldata![];
+
+        // Is this the correct way to get the state?
+        let papyrus_reader = self.get_aligned_reader(next_block_number);
+        let mut state = CachedState::new(papyrus_reader, self.global_contract_cache.clone());
+
+        let _retdata = CallEntryPoint {
+            entry_point_type: EntryPointType::External, /* If the contract is in cairo 1 this may
+                                                         * be wrong */
+            entry_point_selector,
+            calldata,
+            class_hash: Some(class_hash),
+            code_address: Some(contract_address),
+            storage_address: contract_address,
+            caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
+            initial_gas: 0,
+        }
+        .execute(&mut state, &mut ExecutionResources::default(), &mut execute_call_context)
+        .unwrap()
+        .execution
+        .retdata;
+
         Ok(1_u128)
     }
 
