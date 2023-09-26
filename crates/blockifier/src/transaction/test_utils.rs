@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -32,6 +33,15 @@ use crate::transaction::transactions::{
 pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+
+impl From<InvokeTransactionV0> for InvokeTransaction {
+    fn from(tx: InvokeTransactionV0) -> Self {
+        InvokeTransaction {
+            tx: starknet_api::transaction::InvokeTransaction::V0(tx),
+            tx_hash: TransactionHash::default(),
+        }
+    }
+}
 
 impl From<InvokeTransactionV1> for InvokeTransaction {
     fn from(tx: InvokeTransactionV1) -> Self {
@@ -193,6 +203,7 @@ pub fn account_invoke_tx(
     account_address: ContractAddress,
     nonce_manager: &mut NonceManager,
     max_fee: Fee,
+    entry_point_selector: Option<EntryPointSelector>,
     tx_version: TransactionVersion,
 ) -> AccountTransaction {
     AccountTransaction::Invoke(invoke_tx(
@@ -201,10 +212,12 @@ pub fn account_invoke_tx(
         nonce_manager,
         max_fee,
         None,
+        entry_point_selector,
         tx_version,
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn run_invoke_tx(
     execute_calldata: Calldata,
     state: &mut CachedState<DictStateReader>,
@@ -212,8 +225,16 @@ pub fn run_invoke_tx(
     block_context: &BlockContext,
     nonce_manager: &mut NonceManager,
     max_fee: Fee,
+    entry_point_selector: Option<EntryPointSelector>,
     tx_version: TransactionVersion,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-    account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee, tx_version)
-        .execute(state, block_context, true, true)
+    account_invoke_tx(
+        execute_calldata,
+        account_address,
+        nonce_manager,
+        max_fee,
+        entry_point_selector,
+        tx_version,
+    )
+    .execute(state, block_context, true, true)
 }

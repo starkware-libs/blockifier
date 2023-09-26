@@ -27,6 +27,7 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
@@ -141,6 +142,7 @@ fn create_test_init_data(
         &block_context,
         &mut nonce_manager,
         max_fee,
+        None,
         TransactionVersion::ONE,
     )
     .unwrap();
@@ -180,8 +182,15 @@ fn test_fee_enforcement(
     }
 }
 
+// TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
 #[rstest]
-fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
+#[case(TransactionVersion::ZERO)]
+#[case(TransactionVersion::ONE)]
+fn test_account_flow_test(
+    max_fee: Fee,
+    #[from(create_test_init_data)] init_data: TestInitData,
+    #[case] tx_version: TransactionVersion,
+) {
     let TestInitData {
         mut state,
         account_address,
@@ -204,7 +213,8 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
         &block_context,
         &mut nonce_manager,
         max_fee,
-        TransactionVersion::ONE,
+        Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
+        tx_version,
     )
     .unwrap();
 }
@@ -267,6 +277,7 @@ fn test_infinite_recursion(
         &block_context,
         &mut nonce_manager,
         max_fee,
+        None,
         TransactionVersion::ONE,
     )
     .unwrap();
@@ -329,6 +340,7 @@ fn test_revert_invoke(
         &block_context,
         &mut nonce_manager,
         max_fee,
+        None,
         TransactionVersion::ONE,
     )
     .unwrap();
@@ -473,6 +485,7 @@ fn run_recursive_function(
         block_context,
         nonce_manager,
         max_fee,
+        None,
         TransactionVersion::ONE,
     )
     .unwrap()
@@ -704,6 +717,7 @@ fn test_max_fee_to_max_steps_conversion(
         account_address,
         &mut nonce_manager,
         Fee(actual_fee),
+        None,
         TransactionVersion::ONE,
     );
     let execution_context1 = EntryPointExecutionContext::new_invoke(
@@ -720,6 +734,7 @@ fn test_max_fee_to_max_steps_conversion(
         account_address,
         &mut nonce_manager,
         Fee(2 * actual_fee),
+        None,
         TransactionVersion::ONE,
     );
     let execution_context2 = EntryPointExecutionContext::new_invoke(
@@ -834,6 +849,7 @@ fn write_and_transfer(
         account_address,
         nonce_manager,
         max_fee,
+        None,
         TransactionVersion::ONE,
     );
     account_tx.execute(state, block_context, true, true).unwrap()
@@ -886,6 +902,7 @@ fn test_revert_on_overdraft(
         account_address,
         &mut nonce_manager,
         max_fee,
+        None,
         TransactionVersion::ONE,
     );
     let account_tx_context = approve_tx.get_account_transaction_context();
