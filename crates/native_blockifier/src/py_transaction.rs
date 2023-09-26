@@ -48,11 +48,11 @@ impl From<PyResource> for starknet_api::transaction::Resource {
 
 impl FromPyObject<'_> for PyResource {
     fn extract(resource: &PyAny) -> PyResult<Self> {
-        let resource_name: String = py_attr(resource, "name")?;
-        match &*resource_name {
+        let resource_name: &str = resource.getattr("name")?.extract()?;
+        match resource_name {
             "L1_GAS" => Ok(PyResource::L1Gas),
             "L2_GAS" => Ok(PyResource::L2Gas),
-            _ => Err(PyValueError::new_err(format!("Invalid resource: {}", resource_name))),
+            _ => Err(PyValueError::new_err(format!("Invalid resource: {resource_name}"))),
         }
     }
 }
@@ -95,13 +95,12 @@ pub enum PyDataAvailabilityMode {
 
 impl FromPyObject<'_> for PyDataAvailabilityMode {
     fn extract(data_availability_mode: &PyAny) -> PyResult<Self> {
-        let data_availability_mode: i32 = data_availability_mode.extract()?;
+        let data_availability_mode: u8 = data_availability_mode.extract()?;
         match data_availability_mode {
             0 => Ok(PyDataAvailabilityMode::L1),
             1 => Ok(PyDataAvailabilityMode::L2),
             _ => Err(PyValueError::new_err(format!(
-                "Invalid data availability mode: {}",
-                data_availability_mode
+                "Invalid data availability mode: {data_availability_mode}"
             ))),
         }
     }
