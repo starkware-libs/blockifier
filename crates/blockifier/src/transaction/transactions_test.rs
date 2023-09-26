@@ -886,6 +886,8 @@ fn test_deploy_account_tx(
     );
 }
 
+// TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
+// another contract flow.
 #[test]
 fn test_validate_accounts_tx() {
     fn test_validate_account_tx(tx_type: TransactionType) {
@@ -932,8 +934,15 @@ fn test_validate_accounts_tx() {
             &mut NonceManager::default(),
         );
         let error = account_tx.execute(state, block_context, true).unwrap_err();
-        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
+        assert_matches!(
+            error,
+            TransactionExecutionError::ValidateTransactionError(
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                    trace,
+                    source: _
+                }
+            ) if trace.contains("Unauthorized syscall call_contract in execution mode Validate.")
+        );
 
         // Verify that the contract does not call another contract in the constructor of deploy
         // account as well.
