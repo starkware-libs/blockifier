@@ -248,6 +248,7 @@ fn invoke_tx() -> InvokeTransactionV1 {
     crate::test_utils::invoke_tx_v1(
         execute_calldata,
         contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        &mut NonceManager::default(),
         Fee(MAX_FEE),
         None,
     )
@@ -431,6 +432,7 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let mint_tx = crate::test_utils::invoke_tx_v1(
         execute_calldata,
         contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        &mut NonceManager::default(),
         Fee(MAX_FEE),
         None,
     );
@@ -1009,6 +1011,7 @@ fn test_calculate_tx_gas_usage() {
     let invoke_tx = crate::test_utils::invoke_tx_v1(
         execute_calldata,
         contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        &mut NonceManager::default(),
         Fee(MAX_FEE),
         None,
     );

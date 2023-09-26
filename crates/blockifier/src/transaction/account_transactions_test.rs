@@ -9,7 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -141,6 +141,7 @@ fn create_test_init_data(
         &block_context,
         &mut nonce_manager,
         max_fee,
+        TransactionVersion::ONE,
     )
     .unwrap();
 
@@ -203,6 +204,7 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
         &block_context,
         &mut nonce_manager,
         max_fee,
+        TransactionVersion::ONE,
     )
     .unwrap();
 }
@@ -265,6 +267,7 @@ fn test_infinite_recursion(
         &block_context,
         &mut nonce_manager,
         max_fee,
+        TransactionVersion::ONE,
     )
     .unwrap();
     if success {
@@ -326,6 +329,7 @@ fn test_revert_invoke(
         &block_context,
         &mut nonce_manager,
         max_fee,
+        TransactionVersion::ONE,
     )
     .unwrap();
 
@@ -469,6 +473,7 @@ fn run_recursive_function(
         block_context,
         nonce_manager,
         max_fee,
+        TransactionVersion::ONE,
     )
     .unwrap()
 }
@@ -699,6 +704,7 @@ fn test_max_fee_to_max_steps_conversion(
         account_address,
         &mut nonce_manager,
         Fee(actual_fee),
+        TransactionVersion::ONE,
     );
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -714,6 +720,7 @@ fn test_max_fee_to_max_steps_conversion(
         account_address,
         &mut nonce_manager,
         Fee(2 * actual_fee),
+        TransactionVersion::ONE,
     );
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -822,7 +829,13 @@ fn write_and_transfer(
         transfer_amount,                                 // Calldata: amount.
         fee_token_address                                // Calldata: fee token address.
     ];
-    let account_tx = account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee);
+    let account_tx = account_invoke_tx(
+        execute_calldata,
+        account_address,
+        nonce_manager,
+        max_fee,
+        TransactionVersion::ONE,
+    );
     account_tx.execute(state, block_context, true, true).unwrap()
 }
 
@@ -868,8 +881,13 @@ fn test_revert_on_overdraft(
         stark_felt!(0_u8)
     ];
 
-    let approve_tx: AccountTransaction =
-        account_invoke_tx(approve_calldata, account_address, &mut nonce_manager, max_fee);
+    let approve_tx: AccountTransaction = account_invoke_tx(
+        approve_calldata,
+        account_address,
+        &mut nonce_manager,
+        max_fee,
+        TransactionVersion::ONE,
+    );
     let account_tx_context = approve_tx.get_account_transaction_context();
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();

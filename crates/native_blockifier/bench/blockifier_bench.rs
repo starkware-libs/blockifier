@@ -97,7 +97,13 @@ fn do_transfer(
         stark_felt!(0_u8)                   // Calldata: msb amount.
     ];
 
-    let tx = invoke_tx_v1(execute_calldata, sender_account_address, Fee(MAX_FEE), None);
+    let tx = invoke_tx_v1(
+        execute_calldata,
+        sender_account_address,
+        &mut NonceManager::default(),
+        Fee(MAX_FEE),
+        None,
+    );
     let sn_api_tx = StarknetInvokeTransaction::V1(InvokeTransactionV1 {
         nonce: Nonce(stark_felt!(nonce)),
         ..tx
