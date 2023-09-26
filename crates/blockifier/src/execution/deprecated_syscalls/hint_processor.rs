@@ -25,7 +25,9 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
-use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
+use crate::execution::common_hints::{
+    extended_builtin_hint_processor, ExecutionMode, HintExecutionResult,
+};
 use crate::execution::deprecated_syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
@@ -68,6 +70,8 @@ pub enum DeprecatedSyscallExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
+    #[error("Invalid syscall in execution mode error: {syscall_name} in {execution_mode}.")]
+    InvalidSyscallInExecutionMode { syscall_name: String, execution_mode: ExecutionMode },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the

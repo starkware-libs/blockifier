@@ -932,8 +932,15 @@ fn test_validate_accounts_tx() {
             &mut NonceManager::default(),
         );
         let error = account_tx.execute(state, block_context, true).unwrap_err();
-        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
+        assert_matches!(
+            error,
+            TransactionExecutionError::ValidateTransactionError(
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                    trace,
+                    source: _
+                }
+            ) if trace.contains("Invalid syscall in execution mode error: call_contract in Validate.")
+        );
 
         // Verify that the contract does not call another contract in the constructor of deploy
         // account as well.
