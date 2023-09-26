@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{Fee};
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
