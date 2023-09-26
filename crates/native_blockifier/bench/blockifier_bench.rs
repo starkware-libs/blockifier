@@ -15,7 +15,7 @@ use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::{
-    deploy_account_tx_with_salt, invoke_tx, DictStateReader, NonceManager,
+    deploy_account_tx_with_salt, invoke_tx_v1, DictStateReader, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
@@ -97,7 +97,7 @@ fn do_transfer(
         stark_felt!(0_u8)                   // Calldata: msb amount.
     ];
 
-    let tx = invoke_tx(execute_calldata, sender_account_address, Fee(MAX_FEE), None);
+    let tx = invoke_tx_v1(execute_calldata, sender_account_address, Fee(MAX_FEE), None);
     let sn_api_tx = StarknetInvokeTransaction::V1(InvokeTransactionV1 {
         nonce: Nonce(stark_felt!(nonce)),
         ..tx

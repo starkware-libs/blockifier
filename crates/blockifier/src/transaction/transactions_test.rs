@@ -245,7 +245,7 @@ fn invoke_tx() -> InvokeTransactionV1 {
         stark_felt!(2_u8)                   // Calldata: num.
     ];
 
-    crate::test_utils::invoke_tx(
+    crate::test_utils::invoke_tx_v1(
         execute_calldata,
         contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         Fee(MAX_FEE),
@@ -428,7 +428,7 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_low,
         mint_high
     ];
-    let mint_tx = crate::test_utils::invoke_tx(
+    let mint_tx = crate::test_utils::invoke_tx_v1(
         execute_calldata,
         contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         Fee(MAX_FEE),
@@ -1006,7 +1006,7 @@ fn test_calculate_tx_gas_usage() {
         stark_felt!(0_u8)           // Calldata: msb amount.
     ];
 
-    let invoke_tx = crate::test_utils::invoke_tx(
+    let invoke_tx = crate::test_utils::invoke_tx_v1(
         execute_calldata,
         contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         Fee(MAX_FEE),
