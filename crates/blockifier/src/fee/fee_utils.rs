@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{Fee, Resource, ResourceBoundsMapping};
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
@@ -57,4 +57,13 @@ pub fn calculate_tx_fee(
 
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
     Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.eth_l1_gas_price))
+}
+
+pub fn l1_gas_max_fee(resource_bounds_mapping: ResourceBoundsMapping) -> Fee {
+    let l1_resource_bounds = resource_bounds_mapping
+        .0
+        .get(&Resource::L1Gas)
+        .expect("All resource bounds mapping should contain L1 resource bounds.");
+
+    Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
 }
