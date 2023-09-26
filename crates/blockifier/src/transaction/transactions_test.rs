@@ -34,7 +34,7 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    InvokeTxArgs, NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -246,11 +246,13 @@ fn invoke_tx() -> InvokeTransactionV1 {
     ];
 
     crate::test_utils::invoke_tx_v1(
-        execute_calldata,
-        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         &mut NonceManager::default(),
-        Fee(MAX_FEE),
-        None,
+        InvokeTxArgs {
+            calldata: execute_calldata,
+            account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+            max_fee: Fee(MAX_FEE),
+            ..Default::default()
+        },
     )
 }
 
@@ -430,11 +432,13 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_high
     ];
     let mint_tx = crate::test_utils::invoke_tx_v1(
-        execute_calldata,
-        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         &mut NonceManager::default(),
-        Fee(MAX_FEE),
-        None,
+        InvokeTxArgs {
+            calldata: execute_calldata,
+            account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+            max_fee: Fee(MAX_FEE),
+            ..Default::default()
+        },
     );
     let account_tx = AccountTransaction::Invoke(mint_tx.into());
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
@@ -1009,11 +1013,13 @@ fn test_calculate_tx_gas_usage() {
     ];
 
     let invoke_tx = crate::test_utils::invoke_tx_v1(
-        execute_calldata,
-        contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         &mut NonceManager::default(),
-        Fee(MAX_FEE),
-        None,
+        InvokeTxArgs {
+            calldata: execute_calldata,
+            account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+            max_fee: Fee(MAX_FEE),
+            ..Default::default()
+        },
     );
 
     let account_tx = AccountTransaction::Invoke(

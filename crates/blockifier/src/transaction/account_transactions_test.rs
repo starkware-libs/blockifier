@@ -21,9 +21,10 @@ use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -127,23 +128,25 @@ fn create_test_init_data(
     let salt = ContractAddressSalt::default();
     let class_hash = class_hash!(TEST_CLASS_HASH);
     run_invoke_tx(
-        calldata![
-            *account_address.0.key(), // Contract address.
-            entry_point_selector.0,   // EP selector.
-            stark_felt!(5_u8),        // Calldata length.
-            class_hash.0,             // Calldata: class_hash.
-            salt.0,                   // Contract_address_salt.
-            stark_felt!(2_u8),        // Constructor calldata length.
-            stark_felt!(1_u8),        // Constructor calldata: address.
-            stark_felt!(1_u8)         // Constructor calldata: value.
-        ],
         &mut state,
-        account_address,
         &block_context,
         &mut nonce_manager,
-        max_fee,
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            account_address,
+            calldata: calldata![
+                *account_address.0.key(), // Contract address.
+                entry_point_selector.0,   // EP selector.
+                stark_felt!(5_u8),        // Calldata length.
+                class_hash.0,             // Calldata: class_hash.
+                salt.0,                   // Contract_address_salt.
+                stark_felt!(2_u8),        // Constructor calldata length.
+                stark_felt!(1_u8),        // Constructor calldata: address.
+                stark_felt!(1_u8)         // Constructor calldata: value.
+            ],
+            max_fee,
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     )
     .unwrap();
 
@@ -202,19 +205,22 @@ fn test_account_flow_test(
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
     run_invoke_tx(
-        calldata![
-            *contract_address.0.key(), // Contract address.
-            entry_point_selector.0,    // EP selector.
-            stark_felt!(1_u8),         // Calldata length.
-            stark_felt!(2_u8)          // Calldata: num.
-        ],
         &mut state,
-        account_address,
         &block_context,
         &mut nonce_manager,
-        max_fee,
-        Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
-        tx_version,
+        InvokeTxArgs {
+            account_address,
+            calldata: calldata![
+                *contract_address.0.key(), // Contract address.
+                entry_point_selector.0,    // EP selector.
+                stark_felt!(1_u8),         // Calldata length.
+                stark_felt!(2_u8)          // Calldata: num.
+            ],
+            max_fee,
+            tx_version,
+            entry_point_selector: Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
+            ..Default::default()
+        },
     )
     .unwrap();
 }
@@ -271,14 +277,16 @@ fn test_infinite_recursion(
     };
 
     let tx_execution_info = run_invoke_tx(
-        execute_calldata,
         &mut state,
-        account_address,
         &block_context,
         &mut nonce_manager,
-        max_fee,
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            account_address,
+            calldata: execute_calldata,
+            max_fee,
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     )
     .unwrap();
     if success {
@@ -328,20 +336,22 @@ fn test_revert_invoke(
     let storage_key = stark_felt!(9_u8);
     let entry_point_selector = selector_from_name("write_and_revert");
     let tx_execution_info = run_invoke_tx(
-        calldata![
-            *deployed_account_address.0.key(), // Contract address.
-            entry_point_selector.0,            // EP selector.
-            stark_felt!(2_u8),                 // Calldata length.
-            storage_key,
-            stark_felt!(99_u8) // Dummy, non-zero value.
-        ],
         &mut state,
-        deployed_account_address,
         &block_context,
         &mut nonce_manager,
-        max_fee,
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            account_address: deployed_account_address,
+            calldata: calldata![
+                *deployed_account_address.0.key(), // Contract address.
+                entry_point_selector.0,            // EP selector.
+                stark_felt!(2_u8),                 // Calldata length.
+                storage_key,
+                stark_felt!(99_u8) // Dummy, non-zero value.
+            ],
+            max_fee,
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     )
     .unwrap();
 
@@ -474,19 +484,21 @@ fn run_recursive_function(
     depth: u32,
 ) -> TransactionExecutionInfo {
     run_invoke_tx(
-        calldata![
-            *contract_address.0.key(),           // Contract address.
-            selector_from_name(function_name).0, // EP selector.
-            stark_felt!(1_u8),                   // Calldata length.
-            stark_felt!(depth)                   // Calldata: recursion depth.
-        ],
         state,
-        *account_address,
         block_context,
         nonce_manager,
-        max_fee,
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            account_address: *account_address,
+            calldata: calldata![
+                *contract_address.0.key(),           // Contract address.
+                selector_from_name(function_name).0, // EP selector.
+                stark_felt!(1_u8),                   // Calldata length.
+                stark_felt!(depth)                   // Calldata: recursion depth.
+            ],
+            max_fee,
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     )
     .unwrap()
 }
@@ -713,12 +725,14 @@ fn test_max_fee_to_max_steps_conversion(
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
     let account_tx1 = account_invoke_tx(
-        execute_calldata.clone(),
-        account_address,
         &mut nonce_manager,
-        Fee(actual_fee),
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            calldata: execute_calldata.clone(),
+            account_address,
+            max_fee: Fee(actual_fee),
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     );
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -730,12 +744,14 @@ fn test_max_fee_to_max_steps_conversion(
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let account_tx2 = account_invoke_tx(
-        execute_calldata,
-        account_address,
         &mut nonce_manager,
-        Fee(2 * actual_fee),
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            calldata: execute_calldata,
+            account_address,
+            max_fee: Fee(2 * actual_fee),
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     );
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -845,12 +861,14 @@ fn write_and_transfer(
         fee_token_address                                // Calldata: fee token address.
     ];
     let account_tx = account_invoke_tx(
-        execute_calldata,
-        account_address,
         nonce_manager,
-        max_fee,
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            calldata: execute_calldata,
+            account_address,
+            max_fee,
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     );
     account_tx.execute(state, block_context, true, true).unwrap()
 }
@@ -898,12 +916,14 @@ fn test_revert_on_overdraft(
     ];
 
     let approve_tx: AccountTransaction = account_invoke_tx(
-        approve_calldata,
-        account_address,
         &mut nonce_manager,
-        max_fee,
-        None,
-        TransactionVersion::ONE,
+        InvokeTxArgs {
+            calldata: approve_calldata,
+            account_address,
+            max_fee,
+            tx_version: TransactionVersion::ONE,
+            ..Default::default()
+        },
     );
     let account_tx_context = approve_tx.get_account_transaction_context();
     let approval_execution_info =

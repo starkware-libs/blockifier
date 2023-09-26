@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
-    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -15,11 +14,12 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     invoke_tx, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    DictStateReader, InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
+    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -186,11 +186,13 @@ pub fn create_account_tx_for_validate_test(
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
             let invoke_tx = crate::test_utils::invoke_tx_v1(
-                execute_calldata,
-                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 &mut NonceManager::default(),
-                Fee(0),
-                Some(signature),
+                InvokeTxArgs {
+                    calldata: execute_calldata,
+                    account_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                    signature: Some(signature),
+                    ..Default::default()
+                },
             );
             AccountTransaction::Invoke(invoke_tx.into())
         }
@@ -199,42 +201,17 @@ pub fn create_account_tx_for_validate_test(
 }
 
 pub fn account_invoke_tx(
-    execute_calldata: Calldata,
-    account_address: ContractAddress,
     nonce_manager: &mut NonceManager,
-    max_fee: Fee,
-    entry_point_selector: Option<EntryPointSelector>,
-    tx_version: TransactionVersion,
+    invoke_args: InvokeTxArgs,
 ) -> AccountTransaction {
-    AccountTransaction::Invoke(invoke_tx(
-        execute_calldata,
-        account_address,
-        nonce_manager,
-        max_fee,
-        None,
-        entry_point_selector,
-        tx_version,
-    ))
+    AccountTransaction::Invoke(invoke_tx(nonce_manager, invoke_args))
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn run_invoke_tx(
-    execute_calldata: Calldata,
     state: &mut CachedState<DictStateReader>,
-    account_address: ContractAddress,
     block_context: &BlockContext,
     nonce_manager: &mut NonceManager,
-    max_fee: Fee,
-    entry_point_selector: Option<EntryPointSelector>,
-    tx_version: TransactionVersion,
+    invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-    account_invoke_tx(
-        execute_calldata,
-        account_address,
-        nonce_manager,
-        max_fee,
-        entry_point_selector,
-        tx_version,
-    )
-    .execute(state, block_context, true, true)
+    account_invoke_tx(nonce_manager, invoke_args).execute(state, block_context, true, true)
 }
