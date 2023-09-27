@@ -477,7 +477,8 @@ fn assert_failure_if_max_fee_exceeds_balance(
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    let sent_max_fee = invalid_tx.max_fee();
+    let gas_price = block_context.gas_prices.get_by_fee_type(&invalid_tx.fee_type());
+    let sent_max_fee = invalid_tx.max_fee(gas_price);
 
     // Test error.
     assert_matches!(

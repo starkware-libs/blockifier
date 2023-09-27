@@ -88,11 +88,11 @@ impl AccountTransaction {
         }
     }
 
-    pub fn max_fee(&self) -> Fee {
+    pub fn max_fee(&self, gas_price: u128) -> Fee {
         match self {
-            AccountTransaction::Declare(declare) => declare.max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
-            AccountTransaction::Invoke(invoke) => invoke.max_fee(),
+            AccountTransaction::Declare(declare) => declare.max_fee(gas_price),
+            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(gas_price),
+            AccountTransaction::Invoke(invoke) => invoke.max_fee(gas_price),
         }
     }
 
@@ -122,11 +122,12 @@ impl AccountTransaction {
         }
     }
 
-    fn get_account_tx_context(&self) -> AccountTransactionContext {
+    fn get_account_tx_context(&self, block_context: &BlockContext) -> AccountTransactionContext {
+        let gas_price = block_context.gas_prices.get_by_fee_type(&self.fee_type());
         match self {
-            Self::Declare(tx) => tx.get_account_tx_context(),
-            Self::DeployAccount(tx) => tx.get_account_tx_context(),
-            Self::Invoke(tx) => tx.get_account_tx_context(),
+            Self::Declare(tx) => tx.get_account_tx_context(gas_price),
+            Self::DeployAccount(tx) => tx.get_account_tx_context(gas_price),
+            Self::Invoke(tx) => tx.get_account_tx_context(gas_price),
         }
     }
 
@@ -199,7 +200,7 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         let mut context =
             EntryPointExecutionContext::new_validate(block_context, &account_tx_context);
         if context.account_tx_context.is_v0() {
@@ -246,8 +247,9 @@ impl AccountTransaction {
         Ok(Some(validate_call_info))
     }
 
-    fn enforce_fee(&self) -> bool {
-        self.max_fee() != Fee(0)
+    fn enforce_fee(&self, block_context: &BlockContext) -> bool {
+        let gas_price = block_context.gas_prices.get_by_fee_type(&self.fee_type());
+        self.max_fee(gas_price) != Fee(0)
     }
 
     // TODO(Dori,1/10/2023): If/when Fees can be more than 128 bit integers, this should be updated.
@@ -266,11 +268,11 @@ impl AccountTransaction {
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<()> {
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         let max_fee = account_tx_context.max_fee();
 
         // Check fee balance.
-        if self.enforce_fee() {
+        if self.enforce_fee(block_context) {
             // Check max fee is at least the estimated constant overhead.
             let minimal_fee = estimate_minimal_fee(block_context, self)?;
             if minimal_fee > max_fee {
@@ -309,7 +311,7 @@ impl AccountTransaction {
         }
 
         // Charge fee.
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         let fee_transfer_call_info =
             Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
 
@@ -382,7 +384,7 @@ impl AccountTransaction {
         let mut resources = ExecutionResources::default();
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         let fee_token_address = block_context.fee_token_address(&account_tx_context.fee_type());
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
@@ -437,7 +439,7 @@ impl AccountTransaction {
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         let fee_token_address = block_context.fee_token_address(&account_tx_context.fee_type());
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
@@ -611,7 +613,7 @@ impl AccountTransaction {
             Self::Invoke(_) => {
                 // V0 transactions do not have validation; we cannot deduct fee for execution. Thus,
                 // invoke transactions of are non-revertible iff they are of version 0.
-                self.get_account_tx_context().is_v0()
+                self.version() == TransactionVersion::ZERO
             }
         }
     }
@@ -625,7 +627,7 @@ impl AccountTransaction {
         validate: bool,
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         let execution_context =
             EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
 
@@ -660,7 +662,7 @@ impl AccountTransaction {
         is_reverted: bool,
         n_reverted_steps: usize,
     ) -> TransactionExecutionResult<(Fee, ResourcesMapping)> {
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
 
         let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
             .into_iter()
@@ -694,7 +696,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let account_tx_context = self.get_account_tx_context();
+        let account_tx_context = self.get_account_tx_context(block_context);
         self.verify_tx_version(account_tx_context.version())?;
 
         let mut remaining_gas = Transaction::initial_gas();
