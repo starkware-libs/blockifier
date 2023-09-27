@@ -35,37 +35,69 @@ pub type DeprecatedSyscallResult<T> = Result<T, DeprecatedSyscallExecutionError>
 pub type WriteResponseResult = DeprecatedSyscallResult<()>;
 
 #[derive(Clone, Copy, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub enum DeprecatedSyscallSelector {
+    #[serde(rename = "call_contract")]
     CallContract,
+    #[serde(rename = "delegate_call")]
     DelegateCall,
+    #[serde(rename = "delegate_l1_handler")]
     DelegateL1Handler,
+    #[serde(rename = "deploy")]
     Deploy,
+    #[serde(rename = "emit_event")]
     EmitEvent,
+    #[serde(rename = "get_block_hash")]
     GetBlockHash,
+    #[serde(rename = "get_block_number")]
     GetBlockNumber,
+    #[serde(rename = "get_block_timestamp")]
     GetBlockTimestamp,
+    #[serde(rename = "get_caller_address")]
     GetCallerAddress,
+    #[serde(rename = "get_contract_address")]
     GetContractAddress,
+    #[serde(rename = "get_execution_info")]
     GetExecutionInfo,
+    #[serde(rename = "get_sequencer_address")]
     GetSequencerAddress,
+    #[serde(rename = "get_tx_info")]
     GetTxInfo,
+    #[serde(rename = "get_tx_signature")]
     GetTxSignature,
+    #[serde(rename = "keccak")]
     Keccak,
+    #[serde(rename = "library_call")]
     LibraryCall,
+    #[serde(rename = "library_call_l1_handler")]
     LibraryCallL1Handler,
+    #[serde(rename = "replace_class")]
     ReplaceClass,
+    #[serde(rename = "secp256k1_add")]
     Secp256k1Add,
+    #[serde(rename = "secp256k1_get_point_from_x")]
     Secp256k1GetPointFromX,
+    #[serde(rename = "secp256k1_get_xy")]
     Secp256k1GetXy,
+    #[serde(rename = "secp256k1_mul")]
     Secp256k1Mul,
+    #[serde(rename = "secp256k1_new")]
     Secp256k1New,
+    #[serde(rename = "secp256r1_add")]
     Secp256r1Add,
+    #[serde(rename = "secp256r1_get_point_from_x")]
     Secp256r1GetPointFromX,
+    #[serde(rename = "secp256r1_get_xy")]
     Secp256r1GetXy,
+    #[serde(rename = "secp256r1_mul")]
     Secp256r1Mul,
+    #[serde(rename = "secp256r1_new")]
     Secp256r1New,
+    #[serde(rename = "send_message_to_l1")]
     SendMessageToL1,
+    #[serde(rename = "storage_read")]
     StorageRead,
+    #[serde(rename = "storage_write")]
     StorageWrite,
 }
 

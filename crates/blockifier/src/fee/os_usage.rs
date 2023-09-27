@@ -1,17 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use cairo_vm::vm::runners::builtin_runner;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::Deserialize;
+use strum::IntoEnumIterator;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
-
-#[cfg(test)]
-#[path = "os_usage_test.rs"]
-pub mod test;
 
 #[derive(Debug, Deserialize)]
 pub struct OsResources {
@@ -26,6 +24,42 @@ pub struct OsResources {
 impl OsResources {
     pub fn execute_txs_inner(&self) -> &HashMap<TransactionType, VmExecutionResources> {
         &self.execute_txs_inner
+    }
+
+    pub fn new(os_resources: String) -> Self {
+        let os_resources_object: OsResources = serde_json::from_str(&os_resources)
+            .expect("os_resources string cannot be deserialized.");
+        os_resources_object._assert_resources_entries();
+        os_resources_object._assert_resource_name_consistency();
+        os_resources_object
+    }
+
+    fn _assert_resources_entries(&self) {
+        for tx_type in TransactionType::iter() {
+            assert!(self.execute_txs_inner.get(&tx_type).is_some());
+        }
+        for syscall_selector in DeprecatedSyscallSelector::iter() {
+            assert!(self.execute_syscalls.get(&syscall_selector).is_some());
+        }
+    }
+
+    fn _assert_resource_name_consistency(&self) {
+        let known_builtin_names: HashSet<&str> = HashSet::from([
+            builtin_runner::OUTPUT_BUILTIN_NAME,
+            builtin_runner::HASH_BUILTIN_NAME,
+            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
+            builtin_runner::SIGNATURE_BUILTIN_NAME,
+            builtin_runner::BITWISE_BUILTIN_NAME,
+            builtin_runner::EC_OP_BUILTIN_NAME,
+            builtin_runner::KECCAK_BUILTIN_NAME,
+            builtin_runner::POSEIDON_BUILTIN_NAME,
+            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
+        ]);
+        for resources in self.execute_syscalls.values().chain(self.execute_txs_inner.values()) {
+            for builtin_name in resources.builtin_instance_counter.keys() {
+                assert!(known_builtin_names.contains(builtin_name.as_str()));
+            }
+        }
     }
 }
 
