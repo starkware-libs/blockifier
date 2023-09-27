@@ -16,7 +16,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::execution::execution_utils::execute_deployment;
-use crate::fee::fee_utils::l1_gas_max_fee;
+use crate::fee::fee_utils::get_l1_gas_max_fee;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -149,7 +149,7 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    pub fn max_fee(&self) -> Fee {
+    pub fn max_fee(&self, gas_price: u128) -> Fee {
         match &self.tx {
             // TODO(Elin, 01/11/2023): Consider dividing the first arm into three similar arms.
             starknet_api::transaction::DeclareTransaction::V0(
@@ -162,7 +162,7 @@ impl DeclareTransaction {
                 starknet_api::transaction::DeclareTransactionV2 { max_fee, .. },
             ) => *max_fee,
             starknet_api::transaction::DeclareTransaction::V3(tx) => {
-                l1_gas_max_fee(&tx.resource_bounds)
+                get_l1_gas_max_fee(&tx.resource_bounds, gas_price)
             }
         }
     }
@@ -232,11 +232,11 @@ impl DeployAccountTransaction {
         &self.tx
     }
 
-    pub fn max_fee(&self) -> Fee {
+    pub fn max_fee(&self, gas_price: u128) -> Fee {
         match &self.tx {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => tx.max_fee,
             starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
-                l1_gas_max_fee(&tx.resource_bounds)
+                get_l1_gas_max_fee(&tx.resource_bounds, gas_price)
             }
         }
     }
@@ -282,12 +282,12 @@ pub struct InvokeTransaction {
 impl InvokeTransaction {
     implement_inner_tx_getter_calls!((calldata, Calldata), (signature, TransactionSignature));
 
-    pub fn max_fee(&self) -> Fee {
+    pub fn max_fee(&self, gas_price: u128) -> Fee {
         match &self.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => tx.max_fee,
             starknet_api::transaction::InvokeTransaction::V1(tx) => tx.max_fee,
             starknet_api::transaction::InvokeTransaction::V3(tx) => {
-                l1_gas_max_fee(&tx.resource_bounds)
+                get_l1_gas_max_fee(&tx.resource_bounds, gas_price)
             }
         }
     }

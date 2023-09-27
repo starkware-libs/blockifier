@@ -174,7 +174,7 @@ fn test_fee_enforcement(
         );
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        let enforce_fee = account_tx.enforce_fee();
+        let enforce_fee = account_tx.enforce_fee(&block_context);
         let result = account_tx.execute(&mut state, &block_context, true, true);
         assert_eq!(result.is_err(), enforce_fee);
     }
@@ -310,7 +310,7 @@ fn test_revert_invoke(
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let account_tx_context = account_tx.get_account_transaction_context();
+    let account_tx_context = account_tx.get_account_transaction_context(&block_context);
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.
@@ -429,7 +429,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     );
 
     // Fail execution, assert nonce and balance are unchanged.
-    let account_tx_context = declare_account_tx.get_account_transaction_context();
+    let account_tx_context = declare_account_tx.get_account_transaction_context(&block_context);
     let initial_balance = state
         .get_fee_token_balance(
             &account_address,
@@ -708,7 +708,7 @@ fn test_max_fee_to_max_steps_conversion(
     );
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
-        &account_tx1.get_account_transaction_context(),
+        &account_tx1.get_account_transaction_context(&block_context),
     );
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
@@ -724,7 +724,7 @@ fn test_max_fee_to_max_steps_conversion(
     );
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
-        &account_tx2.get_account_transaction_context(),
+        &account_tx2.get_account_transaction_context(&block_context),
     );
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
@@ -888,7 +888,7 @@ fn test_revert_on_overdraft(
         max_fee,
         TransactionVersion::ONE,
     );
-    let account_tx_context = approve_tx.get_account_transaction_context();
+    let account_tx_context = approve_tx.get_account_transaction_context(&block_context);
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();
     assert!(!approval_execution_info.is_reverted());
