@@ -4,6 +4,7 @@ use std::sync::Arc;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
+use crate::fee::os_usage::OsResources;
 use crate::transaction::objects::FeeType;
 
 #[derive(Clone, Debug)]
@@ -17,6 +18,7 @@ pub struct BlockContext {
     pub fee_token_addresses: FeeTokenAddresses,
     pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
     pub gas_prices: GasPrices,
+    pub os_resources: Arc<OsResources>,
 
     // Limits.
     pub invoke_tx_max_n_steps: u32,
