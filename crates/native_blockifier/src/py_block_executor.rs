@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+use blockifier::fee::os_resources;
+use blockifier::fee::os_usage::OsResources;
 use blockifier::state::cached_state::GlobalContractCache;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
@@ -9,7 +11,7 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
@@ -29,30 +31,35 @@ pub struct PyBlockExecutor {
     /// `Send` trait is required for `pyclass` compatibility as Python objects must be threadsafe.
     pub storage: Box<dyn Storage + Send>,
     pub global_contract_cache: GlobalContractCache,
+    pub os_resources: Arc<OsResources>,
 }
 
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
+    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config,os_resources))]
     pub fn create(
         general_config: PyGeneralConfig,
         max_recursion_depth: usize,
         target_storage_config: StorageConfig,
-    ) -> Self {
+        os_resources: String,
+    ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Block Executor...");
         let tx_executor = None;
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
 
+        let os_resources =
+            OsResources::new(os_resources).map_err(NativeBlockifierInputError::OsResourcesError)?;
         log::debug!("Initialized Block Executor.");
-        Self {
+        Ok(Self {
             general_config,
             max_recursion_depth,
             tx_executor,
             storage: Box::new(storage),
             global_contract_cache: GlobalContractCache::default(),
-        }
+            os_resources: Arc::new(os_resources),
+        })
     }
 
     #[pyo3(signature = (next_block_number))]
@@ -78,6 +85,7 @@ impl PyBlockExecutor {
             next_block_info,
             self.max_recursion_depth,
             self.global_contract_cache.clone(),
+            self.os_resources.clone(),
         )?;
         self.tx_executor = Some(tx_executor);
 
@@ -208,6 +216,9 @@ impl PyBlockExecutor {
             max_recursion_depth: 50,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
+            //  REMOVE ME! get this as a param.
+            os_resources: serde_json::from_value(os_resources::os_resources())
+                .expect("os_resources json does not exist or cannot be deserialized."),
         }
     }
 }
@@ -231,6 +242,8 @@ impl PyBlockExecutor {
             max_recursion_depth: 50,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
+            os_resources: serde_json::from_value(os_resources::os_resources())
+                .expect("os_resources json does not exist or cannot be deserialized."),
         }
     }
 }
@@ -289,6 +302,7 @@ pub fn into_block_context(
     general_config: &PyGeneralConfig,
     block_info: PyBlockInfo,
     max_recursion_depth: usize,
+    os_resources: Arc<OsResources>,
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.starknet_os_config.clone();
     let block_number = BlockNumber(block_info.block_number);
@@ -310,6 +324,7 @@ pub fn into_block_context(
             eth_l1_gas_price: block_info.eth_l1_gas_price,
             strk_l1_gas_price: block_info.strk_l1_gas_price,
         },
+        os_resources,
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,
         max_recursion_depth,

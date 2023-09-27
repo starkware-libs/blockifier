@@ -34,38 +34,73 @@ pub mod hint_processor;
 pub type DeprecatedSyscallResult<T> = Result<T, DeprecatedSyscallExecutionError>;
 pub type WriteResponseResult = DeprecatedSyscallResult<()>;
 
+// TODO: Replace repetitive aliases with alias_all='snake_case' if it ever gets implemented:
+// https://github.com/serde-rs/serde/issues/1530.
+// Another option is to use `rename_all='snake_case'`, but that will prevent deserde from loading
+// PascalCase, which is awkward for a Rust enum.
 #[derive(Clone, Copy, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq)]
 pub enum DeprecatedSyscallSelector {
+    #[serde(alias = "call_contract")]
     CallContract,
+    #[serde(alias = "delegate_call")]
     DelegateCall,
+    #[serde(alias = "delegate_l1_handler")]
     DelegateL1Handler,
+    #[serde(alias = "deploy")]
     Deploy,
+    #[serde(alias = "emit_event")]
     EmitEvent,
+    #[serde(alias = "get_block_hash")]
     GetBlockHash,
+    #[serde(alias = "get_block_number")]
     GetBlockNumber,
+    #[serde(alias = "get_block_timestamp")]
     GetBlockTimestamp,
+    #[serde(alias = "get_caller_address")]
     GetCallerAddress,
+    #[serde(alias = "get_contract_address")]
     GetContractAddress,
+    #[serde(alias = "get_execution_info")]
     GetExecutionInfo,
+    #[serde(alias = "get_sequencer_address")]
     GetSequencerAddress,
+    #[serde(alias = "get_tx_info")]
     GetTxInfo,
+    #[serde(alias = "get_tx_signature")]
     GetTxSignature,
+    #[serde(alias = "keccak")]
     Keccak,
+    #[serde(alias = "library_call")]
     LibraryCall,
+    #[serde(alias = "library_call_l1_handler")]
     LibraryCallL1Handler,
+    #[serde(alias = "replace_class")]
     ReplaceClass,
+    #[serde(alias = "secp256k1_add")]
     Secp256k1Add,
+    #[serde(alias = "secp256k1_get_point_from_x")]
     Secp256k1GetPointFromX,
+    #[serde(alias = "secp256k1_get_xy")]
     Secp256k1GetXy,
+    #[serde(alias = "secp256k1_mul")]
     Secp256k1Mul,
+    #[serde(alias = "secp256k1_new")]
     Secp256k1New,
+    #[serde(alias = "secp256r1_add")]
     Secp256r1Add,
+    #[serde(alias = "secp256r1_get_point_from_x")]
     Secp256r1GetPointFromX,
+    #[serde(alias = "secp256r1_get_xy")]
     Secp256r1GetXy,
+    #[serde(alias = "secp256r1_mul")]
     Secp256r1Mul,
+    #[serde(alias = "secp256r1_new")]
     Secp256r1New,
+    #[serde(alias = "send_message_to_l1")]
     SendMessageToL1,
+    #[serde(alias = "storage_read")]
     StorageRead,
+    #[serde(alias = "storage_write")]
     StorageWrite,
 }
 

@@ -23,6 +23,7 @@ use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
+use crate::fee::os_resources;
 use crate::state::state_api::State;
 use crate::test_utils::get_raw_contract_class;
 use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
@@ -102,6 +103,8 @@ impl BlockContext {
             },
             invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
             validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
+            os_resources: serde_json::from_value(os_resources::os_resources())
+                .expect("os_resources json does not exist or cannot be deserialized."),
             max_recursion_depth: 50,
         }
     }

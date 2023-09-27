@@ -1,5 +1,9 @@
+use std::sync::Arc;
+
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
+use blockifier::fee::os_resources;
+use blockifier::fee::os_usage::OsResources;
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -9,7 +13,7 @@ use pyo3::prelude::*;
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyActualCost};
@@ -28,28 +32,33 @@ pub struct PyValidator {
     pub max_nonce_for_validation_skip: Nonce,
     pub tx_executor: Option<TransactionExecutor<PyStateReader>>,
     pub global_contract_cache: GlobalContractCache,
+    pub os_resources: Arc<OsResources>,
 }
 
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, max_recursion_depth, max_nonce_for_validation_skip, os_resources))]
     pub fn create(
         general_config: PyGeneralConfig,
         max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
-    ) -> Self {
+        os_resources: String,
+    ) -> NativeBlockifierResult<Self> {
         let tx_executor = None;
+        let os_resources =
+            OsResources::new(os_resources).map_err(NativeBlockifierInputError::OsResourcesError)?;
         let validator = Self {
             general_config,
             max_recursion_depth,
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
             global_contract_cache: GlobalContractCache::default(),
+            os_resources: Arc::new(os_resources),
         };
         log::debug!("Initialized Validator.");
 
-        validator
+        Ok(validator)
     }
 
     // Transaction Execution API.
@@ -73,6 +82,7 @@ impl PyValidator {
             next_block_info,
             self.max_recursion_depth,
             self.global_contract_cache.clone(),
+            self.os_resources.clone(),
         )?);
 
         Ok(())
@@ -168,6 +178,8 @@ impl PyValidator {
             max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
+            os_resources: serde_json::from_value(os_resources::os_resources())
+                .expect("os_resources json does not exist or cannot be deserialized."),
         }
     }
 }

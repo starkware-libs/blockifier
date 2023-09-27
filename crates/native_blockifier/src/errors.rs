@@ -1,3 +1,4 @@
+use blockifier::fee::os_usage::OsResourcesError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
     ParseError, TransactionExecutionError, TransactionPreValidationError,
@@ -82,6 +83,8 @@ pub enum NativeBlockifierInputError {
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+    #[error(transparent)]
+    OsResourcesError(#[from] OsResourcesError),
 }
 
 create_exception!(native_blockifier, UndeclaredClassHashError, PyException);

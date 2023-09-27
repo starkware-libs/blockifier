@@ -18,7 +18,7 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
-use crate::fee::os_resources::OS_RESOURCES;
+use crate::fee::os_usage::OsResources;
 use crate::state::state_api::State;
 use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
@@ -278,13 +278,15 @@ impl EntryPointExecutionContext {
         &mut self,
         validate_call_info: &Option<CallInfo>,
         tx_type: &TransactionType,
+        os_resources: &OsResources,
     ) -> usize {
         let validate_steps = validate_call_info
             .as_ref()
             .map(|call_info| call_info.vm_resources.n_steps)
             .unwrap_or_default();
 
-        let overhead_steps = OS_RESOURCES.resources_for_tx_type(tx_type).n_steps;
+        let overhead_steps = os_resources.resources_for_tx_type(tx_type).n_steps;
+
         self.subtract_steps(validate_steps + overhead_steps)
     }
 
