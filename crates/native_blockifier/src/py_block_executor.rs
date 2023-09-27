@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+use blockifier::fee::os_resources;
+use blockifier::fee::os_usage::OsResources;
 use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -26,21 +28,24 @@ pub struct PyBlockExecutor {
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     pub storage: Storage,
     pub global_contract_cache: GlobalContractCache,
+    pub os_resources: OsResources,
 }
 
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
+    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config,os_resources))]
     pub fn create(
         general_config: PyGeneralConfig,
         max_recursion_depth: usize,
         target_storage_config: StorageConfig,
+        os_resources: String,
     ) -> Self {
         log::debug!("Initializing Block Executor...");
         let tx_executor = None;
         let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
 
+        let os_resources = OsResources::new(os_resources);
         log::debug!("Initialized Block Executor.");
         Self {
             general_config,
@@ -48,6 +53,7 @@ impl PyBlockExecutor {
             tx_executor,
             storage,
             global_contract_cache: GlobalContractCache::default(),
+            os_resources,
         }
     }
 
@@ -199,6 +205,8 @@ impl PyBlockExecutor {
             max_recursion_depth: 50,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
+            os_resources: serde_json::from_value(os_resources::os_resources())
+                .expect("os_resources json does not exist or cannot be deserialized."),
         }
     }
 }
