@@ -35,6 +35,7 @@ use crate::execution::entry_point::{
     ExecutionResources,
 };
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::fee::os_resources;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
@@ -350,6 +351,8 @@ impl BlockContext {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
                 strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
             },
+            os_resources: serde_json::from_value(os_resources::os_resources())
+                .expect("os_resources json does not exist or cannot be deserialized."),
             invoke_tx_max_n_steps: 1_000_000,
             validate_max_n_steps: 1_000_000,
             max_recursion_depth: 50,
