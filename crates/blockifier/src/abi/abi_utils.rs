@@ -42,10 +42,7 @@ pub fn selector_from_name(entry_point_name: &str) -> EntryPointSelector {
 }
 
 /// Returns the storage address of a StarkNet storage variable given its name and arguments.
-pub fn get_storage_var_address(
-    storage_var_name: &str,
-    args: &[StarkFelt],
-) -> Result<StorageKey, StarknetApiError> {
+pub fn get_storage_var_address(storage_var_name: &str, args: &[StarkFelt]) -> StorageKey {
     let storage_var_name_hash = starknet_keccak(storage_var_name.as_bytes());
     let storage_var_name_hash = felt_to_stark_felt(&storage_var_name_hash);
 
@@ -56,6 +53,7 @@ pub fn get_storage_var_address(
         .mod_floor(&Felt252::from_bytes_be(&L2_ADDRESS_UPPER_BOUND.to_bytes_be()));
 
     StorageKey::try_from(felt_to_stark_felt(&storage_key))
+        .expect("Should be within bounds as retrieved mod L2_ADDRESS_UPPER_BOUND.")
 }
 
 /// Gets storage keys for a Uint256 storage variable.
@@ -63,7 +61,7 @@ pub fn get_uint256_storage_var_addresses(
     storage_var_name: &str,
     args: &[StarkFelt],
 ) -> Result<(StorageKey, StorageKey), StarknetApiError> {
-    let low_key = get_storage_var_address(storage_var_name, args)?;
+    let low_key = get_storage_var_address(storage_var_name, args);
     // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, there may
     //   be a better way to add 1 to the key.
     let high_key = StorageKey(PatriciaKey::try_from(StarkFelt::from(

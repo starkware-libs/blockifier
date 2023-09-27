@@ -73,8 +73,8 @@ pub fn create_account_tx_test_state(
         (test_strk_token_address, test_erc20_class_hash),
         (test_eth_token_address, test_erc20_class_hash),
     ]);
-    let minter_var_address = get_storage_var_address("permitted_minter", &[])
-        .expect("Failed to get permitted_minter storage address.");
+    let minter_var_address = get_storage_var_address("permitted_minter", &[]);
+
     let initial_balance_felt = stark_felt!(initial_account_balance);
     let storage_view = HashMap::from([
         ((test_strk_token_address, erc20_account_balance_key), initial_balance_felt),
