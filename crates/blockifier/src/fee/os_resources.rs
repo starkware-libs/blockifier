@@ -9,7 +9,7 @@ pub static OS_RESOURCES: OsResources = {
 };
 
 // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
-fn os_resources() -> serde_json::Value {
+pub fn os_resources() -> serde_json::Value {
     json!({
         "execute_syscalls": {
             "CallContract": {

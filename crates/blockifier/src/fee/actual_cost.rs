@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
@@ -5,6 +7,7 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
+use crate::fee::os_usage::OsResources;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -26,9 +29,14 @@ impl ActualCost {
         tx_context: AccountTransactionContext,
         l1_handler_payload_size: usize,
     ) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(block_context, tx_context, TransactionType::L1Handler)
-            .without_sender_address()
-            .with_l1_payload_size(l1_handler_payload_size)
+        ActualCostBuilder::new(
+            block_context,
+            tx_context,
+            TransactionType::L1Handler,
+            block_context.os_resources.clone(),
+        )
+        .without_sender_address()
+        .with_l1_payload_size(l1_handler_payload_size)
     }
 }
 
@@ -44,6 +52,7 @@ pub struct ActualCostBuilder<'a> {
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
     n_reverted_steps: usize,
+    os_resources: Arc<OsResources>,
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -52,6 +61,7 @@ impl<'a> ActualCostBuilder<'a> {
         block_context: &BlockContext,
         account_tx_context: AccountTransactionContext,
         tx_type: TransactionType,
+        os_resources: Arc<OsResources>,
     ) -> Self {
         Self {
             block_context: block_context.clone(),
@@ -63,6 +73,7 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes: StateChanges::default(),
             l1_payload_size: None,
             n_reverted_steps: 0,
+            os_resources: os_resources.clone(),
         }
     }
 
@@ -133,8 +144,12 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             self.l1_payload_size,
         )?;
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage,
+            self.tx_type,
+            &self.os_resources,
+        )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=

@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_checks::FeeCheckError;
+use crate::fee::os_usage::OsResourcesError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -66,6 +67,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
+    #[error(transparent)]
+    OsResourcesError(#[from] OsResourcesError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]

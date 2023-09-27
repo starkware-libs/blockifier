@@ -432,8 +432,11 @@ impl AccountTransaction {
             charge_fee,
         )?;
 
-        let n_allotted_execution_steps = execution_context
-            .subtract_validation_and_overhead_steps(&validate_call_info, &self.tx_type());
+        let n_allotted_execution_steps = execution_context.subtract_validation_and_overhead_steps(
+            &validate_call_info,
+            &self.tx_type(),
+            &block_context.os_resources,
+        );
 
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
@@ -577,7 +580,12 @@ impl AccountTransaction {
     }
 
     pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
+        ActualCostBuilder::new(
+            block_context,
+            self.get_account_tx_context(),
+            self.tx_type(),
+            block_context.os_resources.clone(),
+        )
     }
 }
 
