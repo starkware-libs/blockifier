@@ -4,7 +4,7 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV2,
-    DeclareTransactionV3, Fee, Resource, TransactionHash, TransactionSignature, TransactionVersion,
+    DeclareTransactionV3, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use super::objects::{
@@ -19,6 +19,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::execution::execution_utils::execute_deployment;
+use crate::fee::fee_utils::l1_gas_max_fee;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -164,10 +165,7 @@ impl DeclareTransaction {
                 starknet_api::transaction::DeclareTransactionV2 { max_fee, .. },
             ) => *max_fee,
             starknet_api::transaction::DeclareTransaction::V3(tx) => {
-                let l1_resource_bounds =
-                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+                l1_gas_max_fee(&tx.resource_bounds)
             }
         }
     }
@@ -274,10 +272,7 @@ impl DeployAccountTransaction {
         match &self.tx {
             starknet_api::transaction::DeployAccountTransaction::V1(tx) => tx.max_fee,
             starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
-                let l1_resource_bounds =
-                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+                l1_gas_max_fee(&tx.resource_bounds)
             }
         }
     }
@@ -358,10 +353,7 @@ impl InvokeTransaction {
             starknet_api::transaction::InvokeTransaction::V0(tx) => tx.max_fee,
             starknet_api::transaction::InvokeTransaction::V1(tx) => tx.max_fee,
             starknet_api::transaction::InvokeTransaction::V3(tx) => {
-                let l1_resource_bounds =
-                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+                l1_gas_max_fee(&tx.resource_bounds)
             }
         }
     }
