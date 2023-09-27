@@ -1,7 +1,9 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
+use blockifier::fee::os_usage::OsResources;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
@@ -42,10 +44,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         block_info: PyBlockInfo,
         max_recursion_depth: usize,
         global_contract_cache: GlobalContractCache,
+        os_resources: Arc<OsResources>,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
 
-        let block_context = into_block_context(general_config, block_info, max_recursion_depth)?;
+        let block_context =
+            into_block_context(general_config, block_info, max_recursion_depth, os_resources)?;
         let state = CachedState::new(state_reader, global_contract_cache);
         let executed_class_hashes = HashSet::<ClassHash>::new();
         log::debug!("Initialized Transaction Executor.");
