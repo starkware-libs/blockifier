@@ -146,8 +146,7 @@ fn prepare_accounts(
         addresses.push(deployed_account_address);
         nonces.push(1_u64);
         let deployed_account_balance_key =
-            get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()])
-                .unwrap();
+            get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]);
         state.set_storage_at(
             block_context.fee_token_addresses.eth_fee_token_address,
             deployed_account_balance_key,

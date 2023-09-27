@@ -100,7 +100,7 @@ fn create_test_init_data(
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
     let deployed_account_balance_key =
-        get_storage_var_address("ERC20_balances", &[*account_address.0.key()]).unwrap();
+        get_storage_var_address("ERC20_balances", &[*account_address.0.key()]);
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
@@ -306,7 +306,7 @@ fn test_revert_invoke(
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
     let deployed_account_balance_key =
-        get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]).unwrap();
+        get_storage_var_address("ERC20_balances", &[*deployed_account_address.0.key()]);
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);

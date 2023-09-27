@@ -83,15 +83,13 @@ pub const ERC20_CONTRACT_PATH: &str =
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)]).unwrap()
+    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)])
 }
 pub fn test_erc20_account_balance_key() -> StorageKey {
     get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
-        .unwrap()
 }
 pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
     get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)])
-        .unwrap()
 }
 
 // The max_fee used for txs in this test.

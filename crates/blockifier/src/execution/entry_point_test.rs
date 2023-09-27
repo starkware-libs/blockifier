@@ -465,7 +465,7 @@ fn test_storage_related_members() {
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), stark_felt!(39_u8)]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
-        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1_u8)]).unwrap()])
+        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1_u8)])])
     );
 
     // Test raw storage read and write.
