@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::AccountTransactionContext;
+use blockifier::transaction::objects::{
+    AccountTransactionContext, DeprecatedAccountTransactionContext,
+};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::{InvokeTransaction, L1HandlerTransaction};
@@ -139,14 +141,15 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
         Fee::default()
     };
 
-    Ok(AccountTransactionContext {
+    // TODO(Nir, 01/11/2023): Add support in V3 transactions. (not Deprecated)
+    Ok(AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
         transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
         max_fee,
         signature: TransactionSignature(signature),
         version,
         nonce,
         sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
-    })
+    }))
 }
 
 fn build_common_tx_fields(tx: &PyAny) -> NativeBlockifierResult<CommonTransactionFields> {
@@ -171,22 +174,22 @@ fn build_common_tx_fields(tx: &PyAny) -> NativeBlockifierResult<CommonTransactio
 pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
     let account_data_context = py_account_data_context(tx)?;
 
-    let version = usize::try_from(account_data_context.version.0)?;
+    let version = usize::try_from(account_data_context.version().0)?;
     let sn_api_tx = match version {
         0 => Ok(starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
-            max_fee: account_data_context.max_fee,
-            signature: account_data_context.signature,
-            contract_address: account_data_context.sender_address,
+            max_fee: account_data_context.max_fee(),
+            signature: account_data_context.signature(),
+            contract_address: account_data_context.sender_address(),
             entry_point_selector: EntryPointSelector(
                 py_attr::<PyFelt>(tx, "entry_point_selector")?.0,
             ),
             calldata: py_calldata(tx, "calldata")?,
         })),
         1 => Ok(starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
-            max_fee: account_data_context.max_fee,
-            signature: account_data_context.signature,
-            nonce: account_data_context.nonce,
-            sender_address: account_data_context.sender_address,
+            max_fee: account_data_context.max_fee(),
+            signature: account_data_context.signature(),
+            nonce: account_data_context.nonce(),
+            sender_address: account_data_context.sender_address(),
             calldata: py_calldata(tx, "calldata")?,
         })),
         3 => {
@@ -195,9 +198,9 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
             let invoke_tx = InvokeTransactionV3 {
                 resource_bounds: common_tx_fields.resource_bounds,
                 tip: common_tx_fields.tip,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
-                sender_address: account_data_context.sender_address,
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
+                sender_address: account_data_context.sender_address(),
                 calldata: py_calldata(tx, "calldata")?,
                 nonce_data_availability_mode: common_tx_fields.nonce_data_availability_mode,
                 fee_data_availability_mode: common_tx_fields.fee_data_availability_mode,
@@ -214,7 +217,7 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
         }),
     }?;
 
-    Ok(InvokeTransaction { tx: sn_api_tx, tx_hash: account_data_context.transaction_hash })
+    Ok(InvokeTransaction { tx: sn_api_tx, tx_hash: account_data_context.transaction_hash() })
 }
 
 pub fn py_l1_handler(

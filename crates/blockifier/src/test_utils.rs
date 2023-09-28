@@ -39,7 +39,7 @@ use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
 use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
 
 // Addresses.
@@ -325,11 +325,12 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 
 impl CallEntryPoint {
     // Executes the call directly, without account context.
+    // TODO(Nir, 01/11/2023): adjust to V3, context as an arg or testing mode (<V3, V3).
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
         let mut context = EntryPointExecutionContext::new_invoke(
             &block_context,
-            &AccountTransactionContext::default(),
+            &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
