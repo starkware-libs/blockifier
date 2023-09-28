@@ -28,7 +28,6 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
-use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -56,6 +55,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
 };
+use crate::{invoke_tx_args, retdata};
 
 enum CairoVersion {
     Cairo0,
@@ -431,13 +431,12 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_low,
         mint_high
     ];
-    let mint_tx = crate::test_utils::invoke_tx(InvokeTxArgs {
+    let mint_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
         tx_version: TransactionVersion::ONE,
         calldata: execute_calldata,
         account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         max_fee: Fee(MAX_FEE),
         nonce: Nonce::default(),
-        ..Default::default()
     });
     let account_tx = AccountTransaction::Invoke(mint_tx);
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
@@ -1011,13 +1010,12 @@ fn test_calculate_tx_gas_usage() {
         stark_felt!(0_u8)           // Calldata: msb amount.
     ];
 
-    let invoke_tx = crate::test_utils::invoke_tx(InvokeTxArgs {
+    let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
         tx_version: TransactionVersion::ONE,
         calldata: execute_calldata,
         account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         max_fee: Fee(MAX_FEE),
         nonce: Nonce(stark_felt!(1_u8)),
-        ..Default::default()
     });
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);

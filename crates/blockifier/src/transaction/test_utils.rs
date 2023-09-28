@@ -12,6 +12,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
     invoke_tx, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
@@ -187,13 +188,12 @@ pub fn create_account_tx_for_validate_test(
                 entry_point_selector.0,                            // EP selector.
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
-            let invoke_tx = crate::test_utils::invoke_tx(InvokeTxArgs {
+            let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
                 tx_version: TransactionVersion::ONE,
                 calldata: execute_calldata,
                 account_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 signature: Some(signature),
                 nonce: Nonce::default(),
-                ..Default::default()
             });
             AccountTransaction::Invoke(invoke_tx)
         }
