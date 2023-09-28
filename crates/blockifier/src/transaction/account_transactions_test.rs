@@ -129,7 +129,6 @@ fn create_test_init_data(
     run_invoke_tx(
         &mut state,
         &block_context,
-        &mut nonce_manager,
         InvokeTxArgs {
             sender_address: account_address,
             calldata: calldata![
@@ -144,6 +143,7 @@ fn create_test_init_data(
             ],
             max_fee,
             version: TransactionVersion::ONE,
+            nonce: nonce_manager.next(account_address),
             ..Default::default()
         },
     )
@@ -207,7 +207,6 @@ fn test_account_flow_test(
     run_invoke_tx(
         &mut state,
         &block_context,
-        &mut nonce_manager,
         InvokeTxArgs {
             sender_address: account_address,
             calldata: calldata![
@@ -218,6 +217,7 @@ fn test_account_flow_test(
             ],
             max_fee,
             version: tx_version,
+            nonce: nonce_manager.next(account_address),
             ..Default::default()
         },
     )
@@ -278,12 +278,12 @@ fn test_infinite_recursion(
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
-        &mut nonce_manager,
         InvokeTxArgs {
             sender_address: account_address,
             calldata: execute_calldata,
             max_fee,
             version: TransactionVersion::ONE,
+            nonce: nonce_manager.next(account_address),
             ..Default::default()
         },
     )
@@ -337,7 +337,6 @@ fn test_revert_invoke(
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
-        &mut nonce_manager,
         InvokeTxArgs {
             sender_address: deployed_account_address,
             calldata: calldata![
@@ -349,6 +348,7 @@ fn test_revert_invoke(
             ],
             max_fee,
             version: TransactionVersion::ONE,
+            nonce: nonce_manager.next(deployed_account_address),
             ..Default::default()
         },
     )
@@ -485,7 +485,6 @@ fn run_recursive_function(
     run_invoke_tx(
         state,
         block_context,
-        nonce_manager,
         InvokeTxArgs {
             sender_address: *account_address,
             calldata: calldata![
@@ -496,6 +495,7 @@ fn run_recursive_function(
             ],
             max_fee,
             version: TransactionVersion::ONE,
+            nonce: nonce_manager.next(*account_address),
             ..Default::default()
         },
     )
@@ -723,16 +723,14 @@ fn test_max_fee_to_max_steps_conversion(
     ];
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
-    let account_tx1 = account_invoke_tx(
-        &mut nonce_manager,
-        InvokeTxArgs {
-            calldata: execute_calldata.clone(),
-            sender_address: account_address,
-            max_fee: Fee(actual_fee),
-            version: TransactionVersion::ONE,
-            ..Default::default()
-        },
-    );
+    let account_tx1 = account_invoke_tx(InvokeTxArgs {
+        calldata: execute_calldata.clone(),
+        sender_address: account_address,
+        max_fee: Fee(actual_fee),
+        version: TransactionVersion::ONE,
+        nonce: nonce_manager.next(account_address),
+        ..Default::default()
+    });
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
         &account_tx1.get_account_tx_context(),
@@ -742,16 +740,14 @@ fn test_max_fee_to_max_steps_conversion(
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
-    let account_tx2 = account_invoke_tx(
-        &mut nonce_manager,
-        InvokeTxArgs {
-            calldata: execute_calldata,
-            sender_address: account_address,
-            max_fee: Fee(2 * actual_fee),
-            version: TransactionVersion::ONE,
-            ..Default::default()
-        },
-    );
+    let account_tx2 = account_invoke_tx(InvokeTxArgs {
+        calldata: execute_calldata,
+        sender_address: account_address,
+        max_fee: Fee(2 * actual_fee),
+        version: TransactionVersion::ONE,
+        nonce: nonce_manager.next(account_address),
+        ..Default::default()
+    });
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
         &account_tx2.get_account_tx_context(),
@@ -859,16 +855,14 @@ fn write_and_transfer(
         transfer_amount,                                 // Calldata: amount.
         fee_token_address                                // Calldata: fee token address.
     ];
-    let account_tx = account_invoke_tx(
-        nonce_manager,
-        InvokeTxArgs {
-            calldata: execute_calldata,
-            sender_address: account_address,
-            max_fee,
-            version: TransactionVersion::ONE,
-            ..Default::default()
-        },
-    );
+    let account_tx = account_invoke_tx(InvokeTxArgs {
+        calldata: execute_calldata,
+        sender_address: account_address,
+        max_fee,
+        version: TransactionVersion::ONE,
+        nonce: nonce_manager.next(account_address),
+        ..Default::default()
+    });
     account_tx.execute(state, block_context, true, true).unwrap()
 }
 
@@ -914,16 +908,14 @@ fn test_revert_on_overdraft(
         stark_felt!(0_u8)
     ];
 
-    let approve_tx: AccountTransaction = account_invoke_tx(
-        &mut nonce_manager,
-        InvokeTxArgs {
-            calldata: approve_calldata,
-            sender_address: account_address,
-            max_fee,
-            version: TransactionVersion::ONE,
-            ..Default::default()
-        },
-    );
+    let approve_tx: AccountTransaction = account_invoke_tx(InvokeTxArgs {
+        calldata: approve_calldata,
+        sender_address: account_address,
+        max_fee,
+        version: TransactionVersion::ONE,
+        nonce: nonce_manager.next(account_address),
+        ..Default::default()
+    });
     let account_tx_context = approve_tx.get_account_tx_context();
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();

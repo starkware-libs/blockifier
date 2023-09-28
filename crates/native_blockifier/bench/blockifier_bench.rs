@@ -94,17 +94,14 @@ fn do_transfer(
         stark_felt!(0_u8)                   // Calldata: msb amount.
     ];
 
-    let tx = invoke_tx(
-        &mut NonceManager::default(),
-        InvokeTxArgs {
-            sender_address: sender_account_address,
-            version: TransactionVersion::ONE,
-            calldata: execute_calldata,
-            max_fee: Fee(MAX_FEE),
-            nonce: Some(Nonce(stark_felt!(nonce))),
-            ..Default::default()
-        },
-    );
+    let tx = invoke_tx(InvokeTxArgs {
+        version: TransactionVersion::ONE,
+        sender_address: sender_account_address,
+        calldata: execute_calldata,
+        max_fee: Fee(MAX_FEE),
+        nonce: Nonce(stark_felt!(nonce)),
+        ..Default::default()
+    });
     let account_tx = AccountTransaction::Invoke(tx);
     let charge_fee = false;
     let validate = false;
