@@ -188,6 +188,7 @@ fn test_fee_enforcement(
 #[rstest]
 #[case(TransactionVersion::ZERO)]
 #[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
 fn test_account_flow_test(
     max_fee: Fee,
     #[from(create_test_init_data)] init_data: TestInitData,
