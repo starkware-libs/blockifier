@@ -15,19 +15,16 @@ use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::{
-    deploy_account_tx_with_salt, invoke_tx_v1, DictStateReader, InvokeTxArgs, NonceManager,
+    deploy_account_tx_with_salt, invoke_tx, DictStateReader, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::transactions::{ExecutableTransaction, InvokeTransaction};
+use blockifier::transaction::transactions::ExecutableTransaction;
 use criterion::{criterion_group, criterion_main, Criterion};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, InvokeTransaction as StarknetInvokeTransaction,
-    InvokeTransactionV1, TransactionHash,
-};
+use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{calldata, stark_felt};
 
 const N_ACCOUNTS: usize = 10000;
@@ -97,23 +94,18 @@ fn do_transfer(
         stark_felt!(0_u8)                   // Calldata: msb amount.
     ];
 
-    let tx = invoke_tx_v1(
+    let tx = invoke_tx(
         &mut NonceManager::default(),
         InvokeTxArgs {
             sender_address: sender_account_address,
+            version: TransactionVersion::ONE,
             calldata: execute_calldata,
             max_fee: Fee(MAX_FEE),
+            nonce: Some(Nonce(stark_felt!(nonce))),
             ..Default::default()
         },
     );
-    let sn_api_tx = StarknetInvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(stark_felt!(nonce)),
-        ..tx
-    });
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction {
-        tx: sn_api_tx,
-        tx_hash: TransactionHash::default(),
-    });
+    let account_tx = AccountTransaction::Invoke(tx);
     let charge_fee = false;
     let validate = false;
     account_tx.execute(state, block_context, charge_fee, validate).unwrap();
