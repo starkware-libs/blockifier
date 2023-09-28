@@ -28,7 +28,6 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
@@ -132,6 +131,7 @@ fn create_test_init_data(
         &block_context,
         &mut nonce_manager,
         InvokeTxArgs {
+            max_fee,
             sender_address: account_address,
             calldata: calldata![
                 *account_address.0.key(), // Contract address.
@@ -143,7 +143,6 @@ fn create_test_init_data(
                 stark_felt!(1_u8),        // Constructor calldata: address.
                 stark_felt!(1_u8)         // Constructor calldata: value.
             ],
-            max_fee,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -209,6 +208,7 @@ fn test_account_flow_test(
         &block_context,
         &mut nonce_manager,
         InvokeTxArgs {
+            max_fee,
             sender_address: account_address,
             calldata: calldata![
                 *contract_address.0.key(), // Contract address.
@@ -216,9 +216,7 @@ fn test_account_flow_test(
                 stark_felt!(1_u8),         // Calldata length.
                 stark_felt!(2_u8)          // Calldata: num.
             ],
-            max_fee,
             version: tx_version,
-            entry_point_selector: Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
             ..Default::default()
         },
     )
@@ -281,9 +279,9 @@ fn test_infinite_recursion(
         &block_context,
         &mut nonce_manager,
         InvokeTxArgs {
+            max_fee,
             sender_address: account_address,
             calldata: execute_calldata,
-            max_fee,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -340,6 +338,7 @@ fn test_revert_invoke(
         &block_context,
         &mut nonce_manager,
         InvokeTxArgs {
+            max_fee,
             sender_address: deployed_account_address,
             calldata: calldata![
                 *deployed_account_address.0.key(), // Contract address.
@@ -348,7 +347,6 @@ fn test_revert_invoke(
                 storage_key,
                 stark_felt!(99_u8) // Dummy, non-zero value.
             ],
-            max_fee,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -488,6 +486,7 @@ fn run_recursive_function(
         block_context,
         nonce_manager,
         InvokeTxArgs {
+            max_fee,
             sender_address: *account_address,
             calldata: calldata![
                 *contract_address.0.key(),           // Contract address.
@@ -495,7 +494,6 @@ fn run_recursive_function(
                 stark_felt!(1_u8),                   // Calldata length.
                 stark_felt!(depth)                   // Calldata: recursion depth.
             ],
-            max_fee,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -727,9 +725,9 @@ fn test_max_fee_to_max_steps_conversion(
     let account_tx1 = account_invoke_tx(
         &mut nonce_manager,
         InvokeTxArgs {
-            calldata: execute_calldata.clone(),
-            sender_address: account_address,
             max_fee: Fee(actual_fee),
+            sender_address: account_address,
+            calldata: execute_calldata.clone(),
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -746,9 +744,9 @@ fn test_max_fee_to_max_steps_conversion(
     let account_tx2 = account_invoke_tx(
         &mut nonce_manager,
         InvokeTxArgs {
-            calldata: execute_calldata,
-            sender_address: account_address,
             max_fee: Fee(2 * actual_fee),
+            sender_address: account_address,
+            calldata: execute_calldata,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -863,9 +861,9 @@ fn write_and_transfer(
     let account_tx = account_invoke_tx(
         nonce_manager,
         InvokeTxArgs {
-            calldata: execute_calldata,
-            sender_address: account_address,
             max_fee,
+            sender_address: account_address,
+            calldata: execute_calldata,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
@@ -918,9 +916,9 @@ fn test_revert_on_overdraft(
     let approve_tx: AccountTransaction = account_invoke_tx(
         &mut nonce_manager,
         InvokeTxArgs {
-            calldata: approve_calldata,
-            sender_address: account_address,
             max_fee,
+            sender_address: account_address,
+            calldata: approve_calldata,
             version: TransactionVersion::ONE,
             ..Default::default()
         },
