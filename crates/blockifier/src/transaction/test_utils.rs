@@ -5,7 +5,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, TransactionHash,
-    TransactionSignature,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -187,9 +187,10 @@ pub fn create_account_tx_for_validate_test(
                 entry_point_selector.0,                            // EP selector.
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
-            let invoke_tx = crate::test_utils::invoke_tx_v1(
+            let invoke_tx = crate::test_utils::invoke_tx(
                 &mut NonceManager::default(),
                 InvokeTxArgs {
+                    tx_version: TransactionVersion::ONE,
                     calldata: execute_calldata,
                     account_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                     signature: Some(signature),

@@ -12,7 +12,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    InvokeTransactionV1, TransactionHash, TransactionSignature,
+    InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -236,6 +236,8 @@ fn validate_final_balances(
     );
 }
 
+// TODO(Dori, 1/10/2023): Remove this function in favor of the invoke_tx function in test_utils.
+//   This will require test refactoring (to use unversioned InvokeTransaction type).
 fn invoke_tx() -> InvokeTransactionV1 {
     let entry_point_selector = selector_from_name("return_result");
     let execute_calldata = calldata![
@@ -245,15 +247,13 @@ fn invoke_tx() -> InvokeTransactionV1 {
         stark_felt!(2_u8)                   // Calldata: num.
     ];
 
-    crate::test_utils::invoke_tx_v1(
-        &mut NonceManager::default(),
-        InvokeTxArgs {
-            calldata: execute_calldata,
-            account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
-            max_fee: Fee(MAX_FEE),
-            ..Default::default()
-        },
-    )
+    InvokeTransactionV1 {
+        max_fee: Fee(MAX_FEE),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        nonce: Nonce(stark_felt!(0_u8)),
+        calldata: execute_calldata,
+        signature: TransactionSignature::default(),
+    }
 }
 
 #[test_case(
@@ -431,16 +431,17 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_low,
         mint_high
     ];
-    let mint_tx = crate::test_utils::invoke_tx_v1(
+    let mint_tx = crate::test_utils::invoke_tx(
         &mut NonceManager::default(),
         InvokeTxArgs {
+            tx_version: TransactionVersion::ONE,
             calldata: execute_calldata,
             account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
             max_fee: Fee(MAX_FEE),
             ..Default::default()
         },
     );
-    let account_tx = AccountTransaction::Invoke(mint_tx.into());
+    let account_tx = AccountTransaction::Invoke(mint_tx);
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -1012,19 +1013,19 @@ fn test_calculate_tx_gas_usage() {
         stark_felt!(0_u8)           // Calldata: msb amount.
     ];
 
-    let invoke_tx = crate::test_utils::invoke_tx_v1(
+    let invoke_tx = crate::test_utils::invoke_tx(
         &mut NonceManager::default(),
         InvokeTxArgs {
+            tx_version: TransactionVersion::ONE,
             calldata: execute_calldata,
             account_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
             max_fee: Fee(MAX_FEE),
+            nonce: Some(Nonce(stark_felt!(1_u8))),
             ..Default::default()
         },
     );
 
-    let account_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: Nonce(StarkFelt::from(1_u8)), ..invoke_tx }.into(),
-    );
+    let account_tx = AccountTransaction::Invoke(invoke_tx);
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.

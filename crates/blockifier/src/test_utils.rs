@@ -397,6 +397,7 @@ pub struct InvokeTxArgs {
     pub fee_data_availability_mode: DataAvailabilityMode,
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
+    pub nonce: Option<Nonce>,
 }
 
 impl Default for InvokeTxArgs {
@@ -419,6 +420,7 @@ impl Default for InvokeTxArgs {
             fee_data_availability_mode: DataAvailabilityMode::L1,
             paymaster_data: PaymasterData::default(),
             account_deployment_data: AccountDeploymentData::default(),
+            nonce: None,
         }
     }
 }
@@ -472,24 +474,34 @@ pub fn deploy_account_tx_with_salt(
 }
 
 pub fn invoke_tx(nonce_manager: &mut NonceManager, invoke_args: InvokeTxArgs) -> InvokeTransaction {
+    let signature = invoke_args.signature.unwrap_or_default();
+    let nonce =
+        invoke_args.nonce.unwrap_or_else(|| nonce_manager.next(invoke_args.account_address));
     match invoke_args.tx_version {
         TransactionVersion::ZERO => InvokeTransactionV0 {
             max_fee: invoke_args.max_fee,
             calldata: invoke_args.calldata,
             contract_address: invoke_args.account_address,
-            signature: invoke_args.signature.unwrap_or_default(),
+            signature,
             entry_point_selector: invoke_args
                 .entry_point_selector
                 .expect("V0 transactions require an entry point selector."),
         }
         .into(),
-        TransactionVersion::ONE => invoke_tx_v1(nonce_manager, invoke_args).into(),
+        TransactionVersion::ONE => InvokeTransactionV1 {
+            max_fee: invoke_args.max_fee,
+            sender_address: invoke_args.account_address,
+            nonce,
+            calldata: invoke_args.calldata,
+            signature,
+        }
+        .into(),
         TransactionVersion::THREE => InvokeTransactionV3 {
             resource_bounds: invoke_args.resource_bounds,
             calldata: invoke_args.calldata,
             sender_address: invoke_args.account_address,
-            nonce: nonce_manager.next(invoke_args.account_address),
-            signature: invoke_args.signature.unwrap_or_default(),
+            nonce,
+            signature,
             tip: invoke_args.tip,
             nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
             fee_data_availability_mode: invoke_args.fee_data_availability_mode,
@@ -498,19 +510,6 @@ pub fn invoke_tx(nonce_manager: &mut NonceManager, invoke_args: InvokeTxArgs) ->
         }
         .into(),
         _ => panic!("Unsupported transaction version: {:?}.", invoke_args.tx_version),
-    }
-}
-
-pub fn invoke_tx_v1(
-    nonce_manager: &mut NonceManager,
-    invoke_args: InvokeTxArgs,
-) -> InvokeTransactionV1 {
-    InvokeTransactionV1 {
-        max_fee: invoke_args.max_fee,
-        sender_address: invoke_args.account_address,
-        nonce: nonce_manager.next(invoke_args.account_address),
-        calldata: invoke_args.calldata,
-        signature: invoke_args.signature.unwrap_or_default(),
     }
 }
 
