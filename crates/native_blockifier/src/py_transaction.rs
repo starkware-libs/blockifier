@@ -5,7 +5,9 @@ use std::sync::Arc;
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::AccountTransactionContext;
+use blockifier::transaction::objects::{
+    AccountTransactionContext, DeprecatedAccountTransactionContext,
+};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::{
@@ -144,14 +146,25 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
         Fee::default()
     };
 
-    Ok(AccountTransactionContext {
-        transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
-        max_fee,
-        signature: TransactionSignature(signature),
-        version,
-        nonce,
-        sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
-    })
+    match version {
+        TransactionVersion::ZERO | TransactionVersion::ONE | TransactionVersion::TWO => {
+            Ok(AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
+                max_fee,
+                signature: TransactionSignature(signature),
+                version,
+                nonce,
+                sender_address: ContractAddress::try_from(
+                    py_attr::<PyFelt>(tx, "sender_address")?.0,
+                )?,
+            }))
+        }
+
+        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+            tx_type: TransactionType::DeployAccount,
+            version: usize::try_from(version.0)?,
+        })?,
+    }
 }
 
 fn build_common_tx_fields(tx: &PyAny) -> NativeBlockifierResult<CommonTransactionFields> {
@@ -179,25 +192,25 @@ pub fn py_declare(
 ) -> NativeBlockifierResult<DeclareTransaction> {
     let account_data_context = py_account_data_context(tx)?;
     let class_hash = ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0);
-    let version = usize::try_from(account_data_context.version.0)?;
+    let version = usize::try_from(account_data_context.version().0)?;
     let sn_api_tx = match version {
         0 => {
             let declare_tx = DeclareTransactionV0V1 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                max_fee: account_data_context.max_fee(),
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
                 class_hash,
-                sender_address: account_data_context.sender_address,
+                sender_address: account_data_context.sender_address(),
             };
             Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx))
         }
         1 => {
             let declare_tx = DeclareTransactionV0V1 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                max_fee: account_data_context.max_fee(),
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
                 class_hash,
-                sender_address: account_data_context.sender_address,
+                sender_address: account_data_context.sender_address(),
             };
             Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
         }
@@ -205,11 +218,11 @@ pub fn py_declare(
             let compiled_class_hash =
                 CompiledClassHash(py_attr::<PyFelt>(tx, "compiled_class_hash")?.0);
             let declare_tx = DeclareTransactionV2 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                max_fee: account_data_context.max_fee(),
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
                 class_hash,
-                sender_address: account_data_context.sender_address,
+                sender_address: account_data_context.sender_address(),
                 compiled_class_hash,
             };
             Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
@@ -222,11 +235,11 @@ pub fn py_declare(
             let declare_tx = DeclareTransactionV3 {
                 resource_bounds: common_tx_fields.resource_bounds,
                 tip: common_tx_fields.tip,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
                 class_hash,
                 compiled_class_hash,
-                sender_address: account_data_context.sender_address,
+                sender_address: account_data_context.sender_address(),
                 nonce_data_availability_mode: common_tx_fields.nonce_data_availability_mode,
                 fee_data_availability_mode: common_tx_fields.fee_data_availability_mode,
                 paymaster_data: common_tx_fields.paymaster_data,
@@ -253,7 +266,7 @@ pub fn py_declare(
         }
     };
 
-    Ok(DeclareTransaction::new(sn_api_tx, account_data_context.transaction_hash, contract_class)?)
+    Ok(DeclareTransaction::new(sn_api_tx, account_data_context.transaction_hash(), contract_class)?)
 }
 
 pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
@@ -262,13 +275,13 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
     let constructor_calldata = py_calldata(tx, "constructor_calldata")?;
     let contract_address_salt =
         ContractAddressSalt(py_attr::<PyFelt>(tx, "contract_address_salt")?.0);
-    let version = usize::try_from(account_data_context.version.0)?;
+    let version = usize::try_from(account_data_context.version().0)?;
     let sn_api_tx = match version {
         1 => {
             let deploy_account_tx = DeployAccountTransactionV1 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                max_fee: account_data_context.max_fee(),
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
                 class_hash,
                 contract_address_salt,
                 constructor_calldata,
@@ -280,8 +293,8 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
             let deploy_account_tx = DeployAccountTransactionV3 {
                 resource_bounds: common_tx_fields.resource_bounds,
                 tip: common_tx_fields.tip,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
                 class_hash,
                 contract_address_salt,
                 constructor_calldata,
@@ -298,30 +311,30 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
     }?;
     Ok(DeployAccountTransaction {
         tx: sn_api_tx,
-        tx_hash: account_data_context.transaction_hash,
-        contract_address: account_data_context.sender_address,
+        tx_hash: account_data_context.transaction_hash(),
+        contract_address: account_data_context.sender_address(),
     })
 }
 
 pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
     let account_data_context = py_account_data_context(tx)?;
 
-    let version = usize::try_from(account_data_context.version.0)?;
+    let version = usize::try_from(account_data_context.version().0)?;
     let sn_api_tx = match version {
         0 => Ok(starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
-            max_fee: account_data_context.max_fee,
-            signature: account_data_context.signature,
-            contract_address: account_data_context.sender_address,
+            max_fee: account_data_context.max_fee(),
+            signature: account_data_context.signature(),
+            contract_address: account_data_context.sender_address(),
             entry_point_selector: EntryPointSelector(
                 py_attr::<PyFelt>(tx, "entry_point_selector")?.0,
             ),
             calldata: py_calldata(tx, "calldata")?,
         })),
         1 => Ok(starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
-            max_fee: account_data_context.max_fee,
-            signature: account_data_context.signature,
-            nonce: account_data_context.nonce,
-            sender_address: account_data_context.sender_address,
+            max_fee: account_data_context.max_fee(),
+            signature: account_data_context.signature(),
+            nonce: account_data_context.nonce(),
+            sender_address: account_data_context.sender_address(),
             calldata: py_calldata(tx, "calldata")?,
         })),
         3 => {
@@ -330,9 +343,9 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
             let invoke_tx = InvokeTransactionV3 {
                 resource_bounds: common_tx_fields.resource_bounds,
                 tip: common_tx_fields.tip,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
-                sender_address: account_data_context.sender_address,
+                signature: account_data_context.signature(),
+                nonce: account_data_context.nonce(),
+                sender_address: account_data_context.sender_address(),
                 calldata: py_calldata(tx, "calldata")?,
                 nonce_data_availability_mode: common_tx_fields.nonce_data_availability_mode,
                 fee_data_availability_mode: common_tx_fields.fee_data_availability_mode,
@@ -349,7 +362,7 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
         }),
     }?;
 
-    Ok(InvokeTransaction { tx: sn_api_tx, tx_hash: account_data_context.transaction_hash })
+    Ok(InvokeTransaction { tx: sn_api_tx, tx_hash: account_data_context.transaction_hash() })
 }
 
 pub fn py_l1_handler(

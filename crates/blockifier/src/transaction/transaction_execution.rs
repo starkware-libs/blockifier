@@ -3,7 +3,7 @@ use starknet_api::transaction::{
     Fee, Transaction as StarknetApiTransaction, TransactionHash, TransactionSignature,
 };
 
-use super::objects::HasRelatedFeeType;
+use super::objects::{DeprecatedAccountTransactionContext, HasRelatedFeeType};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
@@ -96,14 +96,16 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT token address should depend on tx version.
         let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
         let tx = &self.tx;
-        let tx_context = AccountTransactionContext {
-            transaction_hash: self.tx_hash,
-            max_fee: Fee::default(),
-            version: tx.version,
-            signature: TransactionSignature::default(),
-            nonce: tx.nonce,
-            sender_address: tx.contract_address,
-        };
+        let tx_context =
+            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                transaction_hash: self.tx_hash,
+                max_fee: Fee::default(),
+                version: self.version(),
+                signature: TransactionSignature::default(),
+                nonce: tx.nonce,
+                sender_address: tx.contract_address,
+            });
+
         let mut resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);
         let mut remaining_gas = Transaction::initial_gas();
