@@ -1,6 +1,7 @@
 pub mod errors;
 pub mod papyrus_state;
 pub mod py_block_executor;
+pub mod py_declare;
 pub mod py_state_diff;
 #[cfg(any(feature = "testing", test))]
 pub mod py_test_utils;
