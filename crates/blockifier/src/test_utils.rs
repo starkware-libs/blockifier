@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,15 +14,17 @@ use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, CompiledClassHash, ContractAddress,
     EntryPointSelector, Nonce, PatriciaKey,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransactionV1, Fee,
-    InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV0V1,
+    DeployAccountTransactionV1, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
+    PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -386,8 +388,13 @@ pub struct InvokeTxArgs {
     pub signature: TransactionSignature,
     pub sender_address: ContractAddress,
     pub calldata: Calldata,
-    pub entry_point_selector: Option<EntryPointSelector>,
     pub version: TransactionVersion,
+    pub resource_bounds: ResourceBoundsMapping,
+    pub tip: Tip,
+    pub nonce_data_availability_mode: DataAvailabilityMode,
+    pub fee_data_availability_mode: DataAvailabilityMode,
+    pub paymaster_data: PaymasterData,
+    pub account_deployment_data: AccountDeploymentData,
 }
 
 impl Default for InvokeTxArgs {
@@ -397,9 +404,20 @@ impl Default for InvokeTxArgs {
             signature: TransactionSignature::default(),
             sender_address: ContractAddress::default(),
             calldata: calldata![],
-            entry_point_selector: Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
             // TODO(Dori, 10/10/2023): Change to THREE when supported.
             version: TransactionVersion::ONE,
+            // TODO(Dori, 1/11/2023): Once `From` is implemented on `ResourceBoundsMapping`, use it.
+            resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+                // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
+                //   L2 gas.
+                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+            ])),
+            tip: Tip::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: PaymasterData::default(),
+            account_deployment_data: AccountDeploymentData::default(),
         }
     }
 }
@@ -459,12 +477,24 @@ pub fn invoke_tx(nonce_manager: &mut NonceManager, invoke_args: InvokeTxArgs) ->
             calldata: invoke_args.calldata,
             contract_address: invoke_args.sender_address,
             signature: invoke_args.signature,
-            entry_point_selector: invoke_args
-                .entry_point_selector
-                .expect("V0 transactions require an entry point selector."),
+            // V0 transactions should always select the `__execute__` entry point.
+            entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
         }
         .into(),
         TransactionVersion::ONE => invoke_tx_v1(nonce_manager, invoke_args).into(),
+        TransactionVersion::THREE => InvokeTransactionV3 {
+            resource_bounds: invoke_args.resource_bounds,
+            calldata: invoke_args.calldata,
+            sender_address: invoke_args.sender_address,
+            nonce: nonce_manager.next(invoke_args.sender_address),
+            signature: invoke_args.signature,
+            tip: invoke_args.tip,
+            nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
+            fee_data_availability_mode: invoke_args.fee_data_availability_mode,
+            paymaster_data: invoke_args.paymaster_data,
+            account_deployment_data: invoke_args.account_deployment_data,
+        }
+        .into(),
         _ => panic!("Unsupported transaction version: {:?}.", invoke_args.version),
     }
 }
