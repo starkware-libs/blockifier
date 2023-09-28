@@ -10,7 +10,7 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
-
+#[derive(Debug)]
 pub enum FeeType {
     Strk,
     Eth,

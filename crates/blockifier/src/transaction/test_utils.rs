@@ -4,7 +4,8 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, Fee, InvokeTransactionV1, InvokeTransactionV3, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -37,6 +38,17 @@ impl From<InvokeTransactionV1> for InvokeTransaction {
     fn from(tx: InvokeTransactionV1) -> Self {
         InvokeTransaction {
             tx: starknet_api::transaction::InvokeTransaction::V1(tx),
+            tx_hash: TransactionHash::default(),
+        }
+    }
+}
+
+// TODO(Noa, 10/10/23): Consider creating one `From` method for
+// `starknet_api::transaction::InvokeTransaction`.
+impl From<InvokeTransactionV3> for InvokeTransaction {
+    fn from(tx: InvokeTransactionV3) -> Self {
+        InvokeTransaction {
+            tx: starknet_api::transaction::InvokeTransaction::V3(tx),
             tx_hash: TransactionHash::default(),
         }
     }

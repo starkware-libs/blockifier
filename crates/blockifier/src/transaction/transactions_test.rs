@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
@@ -7,12 +7,14 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    InvokeTransactionV1, TransactionHash, TransactionSignature,
+    AccountDeploymentData, Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent,
+    EventData, EventKey, Fee, InvokeTransactionV1, InvokeTransactionV3, PaymasterData, Resource,
+    ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -34,7 +36,7 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -218,14 +220,11 @@ fn expected_fee_transfer_call_info(
 
 fn validate_final_balances(
     state: &mut CachedState<DictStateReader>,
-    block_context: &BlockContext,
+    fee_token_address: ContractAddress,
     expected_sequencer_balance: StarkFelt,
     erc20_account_balance_key: StorageKey,
     expected_account_balance: u128,
 ) {
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this function should probably accept fee token
-    //   address (or at least, tx version) as input.
-    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     let account_balance =
         state.get_storage_at(fee_token_address, erc20_account_balance_key).unwrap();
     assert_eq!(account_balance, stark_felt!(expected_account_balance));
@@ -401,7 +400,7 @@ fn test_invoke_tx(
     let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
-        block_context,
+        block_context.fee_token_address(fee_type),
         expected_sequencer_balance,
         test_erc20_account_balance_key(),
         expected_account_balance,
@@ -675,7 +674,7 @@ fn test_declare_tx(
     let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
-        block_context,
+        block_context.fee_token_address(fee_type),
         expected_sequencer_balance,
         test_erc20_account_balance_key(),
         expected_account_balance,
@@ -866,7 +865,7 @@ fn test_deploy_account_tx(
     let expected_account_balance = BALANCE - expected_actual_fee.0;
     validate_final_balances(
         state,
-        block_context,
+        block_context.fee_token_address(fee_type),
         expected_sequencer_balance,
         deployed_account_balance_key,
         expected_account_balance,
@@ -1036,5 +1035,163 @@ fn test_calculate_tx_gas_usage() {
     assert_eq!(
         *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
         l1_gas_usage
+    );
+}
+
+#[test]
+fn test_invoke_tx_v3() {
+    let state = &mut create_state_with_cairo1_account();
+    let expected_arguments = ExpectedResultTestInvokeTx {
+        range_check: 113,
+        n_steps: 4575,
+        vm_resources: VmExecutionResources {
+            n_steps: 283,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
+        },
+        validate_gas_consumed: 14360, // The gas consumption results from parsing the input
+        // arguments.
+        execute_gas_consumed: 103660,
+        inner_call_initial_gas: 9999681980,
+    };
+    let cairo_version = CairoVersion::Cairo1;
+    let block_context = &BlockContext::create_for_account_testing();
+    let entry_point_selector = selector_from_name("return_result");
+    let execute_calldata = calldata![
+        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
+        entry_point_selector.0,             // EP selector.
+        stark_felt!(1_u8),                  // Calldata length.
+        stark_felt!(2_u8)                   // Calldata: num.
+    ];
+    let resource_bounds = ResourceBoundsMapping(BTreeMap::from([
+        (
+            Resource::L1Gas,
+            ResourceBounds { max_amount: 1993000, max_price_per_unit: DEFAULT_STRK_L1_GAS_PRICE },
+        ),
+        (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+    ]));
+    let invoke_tx = InvokeTransactionV3 {
+        resource_bounds,
+        tip: Tip::default(),
+        signature: TransactionSignature::default(),
+        nonce: Nonce::default(),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        calldata: execute_calldata,
+        nonce_data_availability_mode: DataAvailabilityMode::L1,
+        fee_data_availability_mode: DataAvailabilityMode::L1,
+        paymaster_data: PaymasterData::default(),
+        account_deployment_data: AccountDeploymentData::default(),
+    };
+
+    // Extract invoke transaction fields for testing, as it is consumed when creating an account
+    // transaction.
+    let calldata = Calldata(Arc::clone(&invoke_tx.calldata.0));
+    let sender_address = invoke_tx.sender_address;
+
+    let account_tx = AccountTransaction::Invoke(invoke_tx.into());
+    let fee_type = &account_tx.fee_type();
+    let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+
+    // Build expected validate call info.
+    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
+    let expected_validate_call_info = expected_validate_call_info(
+        expected_account_class_hash,
+        constants::VALIDATE_ENTRY_POINT_NAME,
+        expected_arguments.validate_gas_consumed,
+        calldata,
+        sender_address,
+        cairo_version,
+    );
+
+    // Build expected execute call info.
+    let expected_return_result_calldata = vec![stark_felt!(2_u8)];
+    let storage_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    let expected_return_result_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("return_result"),
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        code_address: Some(storage_address),
+        entry_point_type: EntryPointType::External,
+        calldata: Calldata(expected_return_result_calldata.clone().into()),
+        storage_address,
+        caller_address: sender_address,
+        call_type: CallType::Call,
+        initial_gas: expected_arguments.inner_call_initial_gas,
+    };
+    let expected_execute_call = CallEntryPoint {
+        entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
+        initial_gas: Transaction::initial_gas() - expected_arguments.validate_gas_consumed,
+        ..expected_validate_call_info.as_ref().unwrap().call.clone()
+    };
+    let expected_return_result_retdata = Retdata(expected_return_result_calldata);
+    let expected_execute_call_info = Some(CallInfo {
+        call: expected_execute_call,
+        execution: CallExecution {
+            retdata: Retdata(expected_return_result_retdata.0.clone()),
+            gas_consumed: expected_arguments.execute_gas_consumed,
+            ..Default::default()
+        },
+        vm_resources: expected_arguments.vm_resources,
+        inner_calls: vec![CallInfo {
+            call: expected_return_result_call,
+            execution: CallExecution::from_retdata(expected_return_result_retdata),
+            vm_resources: VmExecutionResources {
+                n_steps: 22,
+                n_memory_holes: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+
+    // Build expected fee transfer call info.
+    let expected_actual_fee =
+        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
+    let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
+        block_context,
+        sender_address,
+        expected_actual_fee,
+        VmExecutionResources {
+            n_steps: 525,
+            n_memory_holes: 59,
+            builtin_instance_counter: HashMap::from([
+                (HASH_BUILTIN_NAME.to_string(), 4),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
+            ]),
+        },
+        fee_type,
+    );
+
+    let expected_execution_info = TransactionExecutionInfo {
+        validate_call_info: expected_validate_call_info,
+        execute_call_info: expected_execute_call_info,
+        fee_transfer_call_info: expected_fee_transfer_call_info,
+        actual_fee: expected_actual_fee,
+        actual_resources: ResourcesMapping(HashMap::from([
+            // 1 modified contract, 1 storage update (sender balance).
+            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+            (HASH_BUILTIN_NAME.to_string(), 16),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
+        ])),
+        revert_error: None,
+    };
+
+    // Test execution info result.
+    assert_eq!(actual_execution_info, expected_execution_info);
+
+    // Test nonce update.
+    let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
+    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
+
+    // Test final balances.
+    let expected_sequencer_balance = stark_felt!(expected_actual_fee.0);
+    let expected_account_balance = BALANCE - expected_actual_fee.0;
+    validate_final_balances(
+        state,
+        block_context.fee_token_address(fee_type),
+        expected_sequencer_balance,
+        test_erc20_account_balance_key(),
+        expected_account_balance,
     );
 }
