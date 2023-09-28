@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -187,34 +187,28 @@ pub fn create_account_tx_for_validate_test(
                 entry_point_selector.0,                            // EP selector.
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
-            let invoke_tx = crate::test_utils::invoke_tx(
-                &mut NonceManager::default(),
-                InvokeTxArgs {
-                    signature,
-                    sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-                    calldata: execute_calldata,
-                    version: TransactionVersion::ONE,
-                    ..Default::default()
-                },
-            );
+            let invoke_tx = crate::test_utils::invoke_tx(InvokeTxArgs {
+                signature,
+                sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                calldata: execute_calldata,
+                version: TransactionVersion::ONE,
+                nonce: Nonce::default(),
+                ..Default::default()
+            });
             AccountTransaction::Invoke(invoke_tx)
         }
         TransactionType::L1Handler => unimplemented!(),
     }
 }
 
-pub fn account_invoke_tx(
-    nonce_manager: &mut NonceManager,
-    invoke_args: InvokeTxArgs,
-) -> AccountTransaction {
-    AccountTransaction::Invoke(invoke_tx(nonce_manager, invoke_args))
+pub fn account_invoke_tx(invoke_args: InvokeTxArgs) -> AccountTransaction {
+    AccountTransaction::Invoke(invoke_tx(invoke_args))
 }
 
 pub fn run_invoke_tx(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
-    nonce_manager: &mut NonceManager,
     invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-    account_invoke_tx(nonce_manager, invoke_args).execute(state, block_context, true, true)
+    account_invoke_tx(invoke_args).execute(state, block_context, true, true)
 }

@@ -395,7 +395,7 @@ pub struct InvokeTxArgs {
     pub fee_data_availability_mode: DataAvailabilityMode,
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
-    pub nonce: Option<Nonce>,
+    pub nonce: Nonce,
 }
 
 impl Default for InvokeTxArgs {
@@ -419,7 +419,7 @@ impl Default for InvokeTxArgs {
             fee_data_availability_mode: DataAvailabilityMode::L1,
             paymaster_data: PaymasterData::default(),
             account_deployment_data: AccountDeploymentData::default(),
-            nonce: None,
+            nonce: Nonce::default(),
         }
     }
 }
@@ -472,8 +472,7 @@ pub fn deploy_account_tx_with_salt(
     DeployAccountTransaction { tx, tx_hash: TransactionHash::default(), contract_address }
 }
 
-pub fn invoke_tx(nonce_manager: &mut NonceManager, invoke_args: InvokeTxArgs) -> InvokeTransaction {
-    let nonce = invoke_args.nonce.unwrap_or_else(|| nonce_manager.next(invoke_args.sender_address));
+pub fn invoke_tx(invoke_args: InvokeTxArgs) -> InvokeTransaction {
     match invoke_args.version {
         TransactionVersion::ZERO => InvokeTransactionV0 {
             max_fee: invoke_args.max_fee,
@@ -487,7 +486,7 @@ pub fn invoke_tx(nonce_manager: &mut NonceManager, invoke_args: InvokeTxArgs) ->
         TransactionVersion::ONE => InvokeTransactionV1 {
             max_fee: invoke_args.max_fee,
             sender_address: invoke_args.sender_address,
-            nonce,
+            nonce: invoke_args.nonce,
             calldata: invoke_args.calldata,
             signature: invoke_args.signature,
         }
@@ -496,7 +495,7 @@ pub fn invoke_tx(nonce_manager: &mut NonceManager, invoke_args: InvokeTxArgs) ->
             resource_bounds: invoke_args.resource_bounds,
             calldata: invoke_args.calldata,
             sender_address: invoke_args.sender_address,
-            nonce,
+            nonce: invoke_args.nonce,
             signature: invoke_args.signature,
             tip: invoke_args.tip,
             nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,

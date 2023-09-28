@@ -431,16 +431,14 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_low,
         mint_high
     ];
-    let mint_tx = crate::test_utils::invoke_tx(
-        &mut NonceManager::default(),
-        InvokeTxArgs {
-            max_fee: Fee(MAX_FEE),
-            sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
-            calldata: execute_calldata,
-            version: TransactionVersion::ONE,
-            ..Default::default()
-        },
-    );
+    let mint_tx = crate::test_utils::invoke_tx(InvokeTxArgs {
+        max_fee: Fee(MAX_FEE),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        calldata: execute_calldata,
+        version: TransactionVersion::ONE,
+        nonce: Nonce::default(),
+        ..Default::default()
+    });
     let account_tx = AccountTransaction::Invoke(mint_tx);
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
@@ -1013,17 +1011,14 @@ fn test_calculate_tx_gas_usage() {
         stark_felt!(0_u8)           // Calldata: msb amount.
     ];
 
-    let invoke_tx = crate::test_utils::invoke_tx(
-        &mut NonceManager::default(),
-        InvokeTxArgs {
-            max_fee: Fee(MAX_FEE),
-            sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
-            calldata: execute_calldata,
-            version: TransactionVersion::ONE,
-            nonce: Some(Nonce(stark_felt!(1_u8))),
-            ..Default::default()
-        },
-    );
+    let invoke_tx = crate::test_utils::invoke_tx(InvokeTxArgs {
+        max_fee: Fee(MAX_FEE),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        calldata: execute_calldata,
+        version: TransactionVersion::ONE,
+        nonce: Nonce(stark_felt!(1_u8)),
+        ..Default::default()
+    });
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
 
