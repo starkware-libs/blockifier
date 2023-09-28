@@ -4,7 +4,8 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
+    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, TransactionHash,
+    TransactionSignature,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -34,23 +35,24 @@ pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 
-impl From<InvokeTransactionV0> for InvokeTransaction {
-    fn from(tx: InvokeTransactionV0) -> Self {
-        InvokeTransaction {
-            tx: starknet_api::transaction::InvokeTransaction::V0(tx),
-            tx_hash: TransactionHash::default(),
-        }
-    }
+macro_rules! impl_from_versioned_tx {
+    ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
+        $(impl From<$specified_tx_type> for InvokeTransaction {
+            fn from(tx: $specified_tx_type) -> Self {
+                Self {
+                    tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
+                    tx_hash: TransactionHash::default(),
+                }
+            }
+        })*
+    };
 }
 
-impl From<InvokeTransactionV1> for InvokeTransaction {
-    fn from(tx: InvokeTransactionV1) -> Self {
-        InvokeTransaction {
-            tx: starknet_api::transaction::InvokeTransaction::V1(tx),
-            tx_hash: TransactionHash::default(),
-        }
-    }
-}
+impl_from_versioned_tx!(
+    (InvokeTransactionV0, V0),
+    (InvokeTransactionV1, V1),
+    (InvokeTransactionV3, V3)
+);
 
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
