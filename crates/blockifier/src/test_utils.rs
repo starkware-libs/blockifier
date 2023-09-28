@@ -26,7 +26,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::get_storage_var_address;
+use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants;
 use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -39,6 +39,7 @@ use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
+use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::objects::AccountTransactionContext;
 use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
 
@@ -379,7 +380,6 @@ impl CallExecution {
 }
 
 // Transactions.
-#[derive(Default)]
 pub struct InvokeTxArgs {
     pub max_fee: Fee,
     pub signature: TransactionSignature,
@@ -387,6 +387,20 @@ pub struct InvokeTxArgs {
     pub calldata: Calldata,
     pub entry_point_selector: Option<EntryPointSelector>,
     pub version: TransactionVersion,
+}
+
+impl Default for InvokeTxArgs {
+    fn default() -> Self {
+        InvokeTxArgs {
+            calldata: calldata![],
+            sender_address: ContractAddress::default(),
+            max_fee: Fee::default(),
+            entry_point_selector: Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
+            signature: TransactionSignature::default(),
+            // TODO(Dori, 10/10/2023): Change to THREE when supported.
+            version: TransactionVersion::ONE,
+        }
+    }
 }
 
 pub fn deploy_account_tx(
