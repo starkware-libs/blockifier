@@ -19,6 +19,7 @@ use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -133,7 +134,7 @@ fn create_test_init_data(
     run_invoke_tx(
         &mut state,
         &block_context,
-        InvokeTxArgs {
+        invoke_tx_args! {
             sender_address: account_address,
             calldata: calldata![
                 *account_address.0.key(), // Contract address.
@@ -148,7 +149,6 @@ fn create_test_init_data(
             max_fee,
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -211,7 +211,7 @@ fn test_account_flow_test(
     run_invoke_tx(
         &mut state,
         &block_context,
-        InvokeTxArgs {
+        invoke_tx_args! {
             sender_address: account_address,
             calldata: calldata![
                 *contract_address.0.key(), // Contract address.
@@ -222,7 +222,6 @@ fn test_account_flow_test(
             max_fee,
             version: tx_version,
             nonce: nonce_manager.next(account_address),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -282,13 +281,12 @@ fn test_infinite_recursion(
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
-        InvokeTxArgs {
+        invoke_tx_args! {
             sender_address: account_address,
             calldata: execute_calldata,
             max_fee,
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -341,7 +339,7 @@ fn test_revert_invoke(
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
-        InvokeTxArgs {
+        invoke_tx_args! {
             sender_address: deployed_account_address,
             calldata: calldata![
                 *deployed_account_address.0.key(), // Contract address.
@@ -353,7 +351,6 @@ fn test_revert_invoke(
             max_fee,
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(deployed_account_address),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -489,7 +486,7 @@ fn run_recursive_function(
     run_invoke_tx(
         state,
         block_context,
-        InvokeTxArgs {
+        invoke_tx_args! {
             sender_address: *account_address,
             calldata: calldata![
                 *contract_address.0.key(),           // Contract address.
@@ -500,7 +497,6 @@ fn run_recursive_function(
             max_fee,
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(*account_address),
-            ..Default::default()
         },
     )
     .unwrap()
@@ -727,13 +723,13 @@ fn test_max_fee_to_max_steps_conversion(
     ];
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
-    let account_tx1 = account_invoke_tx(InvokeTxArgs {
+    let account_tx1 = account_invoke_tx(invoke_tx_args! {
+
         calldata: execute_calldata.clone(),
         sender_address: account_address,
         max_fee: Fee(actual_fee),
         version: TransactionVersion::ONE,
         nonce: nonce_manager.next(account_address),
-        ..Default::default()
     });
     let execution_context1 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -744,13 +740,13 @@ fn test_max_fee_to_max_steps_conversion(
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
-    let account_tx2 = account_invoke_tx(InvokeTxArgs {
+    let account_tx2 = account_invoke_tx(invoke_tx_args! {
+
         calldata: execute_calldata,
         sender_address: account_address,
         max_fee: Fee(2 * actual_fee),
         version: TransactionVersion::ONE,
         nonce: nonce_manager.next(account_address),
-        ..Default::default()
     });
     let execution_context2 = EntryPointExecutionContext::new_invoke(
         &block_context,
@@ -859,13 +855,13 @@ fn write_and_transfer(
         transfer_amount,                                 // Calldata: amount.
         fee_token_address                                // Calldata: fee token address.
     ];
-    let account_tx = account_invoke_tx(InvokeTxArgs {
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+
         calldata: execute_calldata,
         sender_address: account_address,
         max_fee,
         version: TransactionVersion::ONE,
         nonce: nonce_manager.next(account_address),
-        ..Default::default()
     });
     account_tx.execute(state, block_context, true, true).unwrap()
 }
@@ -912,13 +908,13 @@ fn test_revert_on_overdraft(
         stark_felt!(0_u8)
     ];
 
-    let approve_tx: AccountTransaction = account_invoke_tx(InvokeTxArgs {
+    let approve_tx: AccountTransaction = account_invoke_tx(invoke_tx_args! {
+
         calldata: approve_calldata,
         sender_address: account_address,
         max_fee,
         version: TransactionVersion::ONE,
         nonce: nonce_manager.next(account_address),
-        ..Default::default()
     });
     let account_tx_context = approve_tx.get_account_tx_context();
     let approval_execution_info =
