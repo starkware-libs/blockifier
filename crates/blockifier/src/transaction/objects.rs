@@ -11,36 +11,64 @@ use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
+macro_rules! implement_inner_account_tx_context_getter_calls {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            match self{
+                Self::Deprecated(context) => context.$field,
+            }
+        })*
+    };
+}
 pub enum FeeType {
     Strk,
     Eth,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AccountTransactionContext {
+    Deprecated(DeprecatedAccountTransactionContext),
+}
+
+impl AccountTransactionContext {
+    implement_inner_account_tx_context_getter_calls!(
+        (transaction_hash, TransactionHash),
+        (max_fee, Fee),
+        (version, TransactionVersion),
+        (nonce, Nonce),
+        (sender_address, ContractAddress)
+    );
+
+    pub fn signature(&self) -> TransactionSignature {
+        match self {
+            Self::Deprecated(context) => context.signature.clone(),
+        }
+    }
+
+    pub fn is_v0(&self) -> bool {
+        self.version() == TransactionVersion::ZERO
+    }
+}
+
+impl HasRelatedFeeType for AccountTransactionContext {
+    fn version(&self) -> TransactionVersion {
+        self.version()
+    }
+
+    fn is_l1_handler(&self) -> bool {
+        false
+    }
+}
+
 /// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct AccountTransactionContext {
+pub struct DeprecatedAccountTransactionContext {
     pub transaction_hash: TransactionHash,
     pub max_fee: Fee,
     pub version: TransactionVersion,
     pub signature: TransactionSignature,
     pub nonce: Nonce,
     pub sender_address: ContractAddress,
-}
-
-impl AccountTransactionContext {
-    pub fn is_v0(&self) -> bool {
-        self.version == TransactionVersion::ZERO
-    }
-}
-
-impl HasRelatedFeeType for AccountTransactionContext {
-    fn version(&self) -> TransactionVersion {
-        self.version
-    }
-
-    fn is_l1_handler(&self) -> bool {
-        false
-    }
 }
 
 /// Contains the information gathered by the execution of a transaction.
