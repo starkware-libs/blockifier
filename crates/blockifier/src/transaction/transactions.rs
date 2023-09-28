@@ -7,7 +7,9 @@ use starknet_api::transaction::{
     TransactionHash, TransactionSignature, TransactionVersion,
 };
 
-use super::objects::{AccountTransactionContext, HasRelatedFeeType};
+use super::objects::{
+    AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType,
+};
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -170,14 +172,14 @@ impl DeclareTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext {
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
             transaction_hash: self.tx_hash(),
             max_fee: self.max_fee(),
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
             sender_address: self.tx.sender_address(),
-        }
+        })
     }
 }
 
@@ -258,14 +260,14 @@ impl DeployAccountTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext {
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
             transaction_hash: self.tx_hash,
             max_fee: self.max_fee(),
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
             sender_address: self.contract_address,
-        }
+        })
     }
 }
 
@@ -323,14 +325,14 @@ impl InvokeTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext {
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
             transaction_hash: self.tx_hash,
             max_fee: self.max_fee(),
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
             sender_address: self.tx.sender_address(),
-        }
+        })
     }
 }
 
@@ -349,7 +351,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
                 selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME)
             }
         };
-        let storage_address = context.account_tx_context.sender_address;
+        let storage_address = context.account_tx_context.sender_address();
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector,
@@ -419,13 +421,13 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
 
 impl L1HandlerTransaction {
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext {
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
             transaction_hash: self.tx_hash,
             max_fee: Fee::default(),
             version: self.tx.version,
             signature: TransactionSignature::default(),
             nonce: self.tx.nonce,
             sender_address: self.tx.contract_address,
-        }
+        })
     }
 }

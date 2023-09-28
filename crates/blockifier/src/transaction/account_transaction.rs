@@ -158,17 +158,17 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version == TransactionVersion::ZERO {
+        if account_tx_context.version() == TransactionVersion::ZERO {
             return Ok(());
         }
 
-        let address = account_tx_context.sender_address;
+        let address = account_tx_context.sender_address();
         let current_nonce = state.get_nonce_at(address)?;
-        if current_nonce != account_tx_context.nonce {
+        if current_nonce != account_tx_context.nonce() {
             return Err(TransactionExecutionError::InvalidNonce {
                 address,
                 expected_nonce: current_nonce,
-                actual_nonce: account_tx_context.nonce,
+                actual_nonce: account_tx_context.nonce(),
             });
         }
 
@@ -205,7 +205,7 @@ impl AccountTransaction {
             return Ok(None);
         }
 
-        let storage_address = account_tx_context.sender_address;
+        let storage_address = account_tx_context.sender_address();
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: self.validate_entry_point_selector(),
@@ -266,7 +266,7 @@ impl AccountTransaction {
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<()> {
         let account_tx_context = self.get_account_tx_context();
-        let max_fee = account_tx_context.max_fee;
+        let max_fee = account_tx_context.max_fee();
 
         // Check fee balance.
         if self.enforce_fee() {
@@ -280,7 +280,7 @@ impl AccountTransaction {
             }
 
             let (balance_low, balance_high) = state.get_fee_token_balance(
-                &account_tx_context.sender_address,
+                &account_tx_context.sender_address(),
                 &block_context.fee_token_address(&account_tx_context.fee_type()),
             )?;
             if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
@@ -321,7 +321,7 @@ impl AccountTransaction {
         account_tx_context: AccountTransactionContext,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
-        let max_fee = account_tx_context.max_fee;
+        let max_fee = account_tx_context.max_fee();
         if actual_fee > max_fee {
             return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
         }
@@ -344,7 +344,7 @@ impl AccountTransaction {
                 msb_amount
             ],
             storage_address,
-            caller_address: account_tx_context.sender_address,
+            caller_address: account_tx_context.sender_address(),
             call_type: CallType::Call,
             // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
             initial_gas: abi_constants::INITIAL_GAS_COST,
@@ -407,7 +407,7 @@ impl AccountTransaction {
         }
         let state_changes = state.get_actual_state_changes_for_fee_charge(
             fee_token_address,
-            Some(account_tx_context.sender_address),
+            Some(account_tx_context.sender_address()),
         )?;
         let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
             StateChangesCount::from(&state_changes),
@@ -468,7 +468,7 @@ impl AccountTransaction {
         // resource and fee calculation.
         let validate_state_changes = state.get_actual_state_changes_for_fee_charge(
             fee_token_address,
-            Some(account_tx_context.sender_address),
+            Some(account_tx_context.sender_address()),
         )?;
 
         // Create copies of state and resources for the execution.
@@ -490,7 +490,7 @@ impl AccountTransaction {
                 let execute_state_changes = execution_state
                     .get_actual_state_changes_for_fee_charge(
                         fee_token_address,
-                        Some(account_tx_context.sender_address),
+                        Some(account_tx_context.sender_address()),
                     )?;
                 // Fee is determined by the sum of `validate` and `execute` state changes.
                 // Since `execute_state_changes` are not yet committed, we merge them manually with
@@ -513,13 +513,13 @@ impl AccountTransaction {
                 // Check if as a result of tx execution the sender's fee token balance is maxed out,
                 // so that they can't pay fee. If so, the transaction must be reverted.
                 let (balance_low, balance_high) = execution_state.get_fee_token_balance(
-                    &account_tx_context.sender_address,
+                    &account_tx_context.sender_address(),
                     &block_context.fee_token_address(&account_tx_context.fee_type()),
                 )?;
                 // If the fee is charged, the balance must be sufficient for the actual fee.
                 let is_maxed_out = charge_fee
                     && !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
-                let max_fee = account_tx_context.max_fee;
+                let max_fee = account_tx_context.max_fee();
 
                 if actual_fee > max_fee || is_maxed_out {
                     // Insufficient fee. Revert the execution and charge what is available.
@@ -602,15 +602,15 @@ impl AccountTransaction {
         }
     }
 
-    fn is_non_revertible(&self) -> bool {
+    fn is_non_revertible(&self) -> TransactionExecutionResult<bool> {
         // Reverting a Declare or Deploy transaction is not currently supported in the OS.
         match self {
-            Self::Declare(_) => true,
-            Self::DeployAccount(_) => true,
+            Self::Declare(_) => Ok(true),
+            Self::DeployAccount(_) => Ok(true),
             Self::Invoke(_) => {
                 // V0 transactions do not have validation; we cannot deduct fee for execution. Thus,
                 // invoke transactions of are non-revertible iff they are of version 0.
-                self.get_account_tx_context().is_v0()
+                Ok(self.get_account_tx_context().is_v0())
             }
         }
     }
@@ -628,7 +628,7 @@ impl AccountTransaction {
         let execution_context =
             EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
 
-        if self.is_non_revertible() {
+        if self.is_non_revertible()? {
             return self.run_non_revertible(
                 state,
                 remaining_gas,
@@ -676,9 +676,9 @@ impl AccountTransaction {
 
         let mut actual_fee = self.calculate_tx_fee(&actual_resources, block_context)?;
 
-        if is_reverted || account_tx_context.max_fee == Fee(0) {
+        if is_reverted || account_tx_context.max_fee() == Fee(0) {
             // We cannot charge more than max_fee for reverted txs.
-            actual_fee = min(actual_fee, account_tx_context.max_fee);
+            actual_fee = min(actual_fee, account_tx_context.max_fee());
         }
 
         Ok((actual_fee, actual_resources))
@@ -694,7 +694,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_tx_context();
-        self.verify_tx_version(account_tx_context.version)?;
+        self.verify_tx_version(account_tx_context.version())?;
 
         let mut remaining_gas = Transaction::initial_gas();
 

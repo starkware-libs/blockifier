@@ -270,7 +270,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
-        let signature = &self.context.account_tx_context.signature.0;
+        let signature = &self.context.account_tx_context.signature().0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -284,16 +284,16 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     ) -> DeprecatedSyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
         let account_tx_context = &self.context.account_tx_context;
-        let tx_signature_length = account_tx_context.signature.0.len();
+        let tx_signature_length = account_tx_context.signature().0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(account_tx_context.version.0).into(),
-            stark_felt_to_felt(*account_tx_context.sender_address.0.key()).into(),
-            Felt252::from(account_tx_context.max_fee.0).into(),
+            stark_felt_to_felt(account_tx_context.version().0).into(),
+            stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
+            Felt252::from(account_tx_context.max_fee().0).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash.0).into(),
+            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
             Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(account_tx_context.nonce.0).into(),
+            stark_felt_to_felt(account_tx_context.nonce().0).into(),
         ];
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
