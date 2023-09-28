@@ -28,7 +28,6 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
@@ -218,7 +217,6 @@ fn test_account_flow_test(
             ],
             max_fee,
             tx_version,
-            entry_point_selector: Some(selector_from_name(EXECUTE_ENTRY_POINT_NAME)),
             ..Default::default()
         },
     )
