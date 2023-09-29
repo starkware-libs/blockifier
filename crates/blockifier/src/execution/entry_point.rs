@@ -220,22 +220,8 @@ impl EntryPointExecutionContext {
     ) -> TransactionExecutionResult<usize> {
         let block_info = &block_context.block_info;
         let block_upper_bound = match mode {
-            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
-            // works.
-            ExecutionMode::Validate => min(
-                block_info
-                    .validate_max_n_steps
-                    .try_into()
-                    .expect("Failed to convert u32 to usize."),
-                constants::MAX_VALIDATE_STEPS_PER_TX,
-            ),
-            ExecutionMode::Execute => min(
-                block_info
-                    .invoke_tx_max_n_steps
-                    .try_into()
-                    .expect("Failed to convert u32 to usize."),
-                constants::MAX_STEPS_PER_TX,
-            ),
+            ExecutionMode::Validate => block_context.block_info.validate_max_n_steps as usize,
+            ExecutionMode::Execute => block_context.block_info.invoke_tx_max_n_steps as usize,
         };
 
         if !limit_steps_by_resources || !account_tx_context.enforce_fee()? {

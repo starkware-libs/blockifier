@@ -1,22 +1,22 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::sync::Arc;
 
 use cairo_felt::Felt252;
-use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
-use cairo_lang_starknet::NestedIntList;
+use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::{
-    ApTracking, FlowTrackingData, HintParams, ReferenceManager,
+    ApTracking, Attribute, BuiltinName, FlowTrackingData, HintParams, Identifier,
+    InstructionLocation, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
-use cairo_vm::types::program::Program;
+use cairo_vm::types::program::{HintsCollection, Program, SharedProgramData};
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-use serde::de::Error as DeserializationError;
-use serde::{Deserialize, Deserializer};
+use serde::de::{self, Error as DeserializationError};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
@@ -32,7 +32,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_p
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.
-#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::From, Serialize, Deserialize)]
 pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
@@ -49,13 +49,16 @@ impl ContractClass {
     pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
         match self {
             ContractClass::V0(class) => class.estimate_casm_hash_computation_resources(),
-            ContractClass::V1(class) => class.estimate_casm_hash_computation_resources(),
+            ContractClass::V1(_class) => {
+                let bytecode_len: usize = 1;
+                poseidon_hash_many_cost(bytecode_len)
+            }
         }
     }
 }
 
 // V0.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ContractClassV0(pub Arc<ContractClassV0Inner>);
 impl Deref for ContractClassV0 {
     type Target = ContractClassV0Inner;
@@ -106,9 +109,9 @@ impl ContractClassV0 {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
-    #[serde(deserialize_with = "deserialize_program")]
+    #[serde(with = "serde_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
 }
@@ -125,7 +128,7 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 }
 
 // V1.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
 impl Deref for ContractClassV1 {
     type Target = ContractClassV1Inner;
@@ -170,13 +173,6 @@ impl ContractClassV1 {
         }
     }
 
-    /// Returns the estimated VM resources required for computing Casm hash.
-    /// This is an empiric measurement of several bytecode lengths, which constitutes as the
-    /// dominant factor in it.
-    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
-        estimate_casm_hash_computation_resources(&self.bytecode_segment_lengths)
-    }
-
     pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV1, ProgramError> {
         let casm_contract_class: CasmContractClass = serde_json::from_str(raw_contract_class)?;
         let contract_class: ContractClassV1 = casm_contract_class.try_into()?;
@@ -191,52 +187,7 @@ impl ContractClassV1 {
             program: Default::default(),
             entry_points_by_type: Default::default(),
             hints: Default::default(),
-            bytecode_segment_lengths: NestedIntList::Leaf(0),
         }))
-    }
-}
-
-/// Returns the estimated VM resources required for computing Casm hash (for Cairo 1 contracts).
-///
-/// Note: the function focuses on the bytecode size, and currently ignores the cost handling the
-/// class entry points.
-pub fn estimate_casm_hash_computation_resources(
-    bytecode_segment_lengths: &NestedIntList,
-) -> VmExecutionResources {
-    // The constants in this function were computed by running the Casm code on a few values
-    // of `bytecode_segment_lengths`.
-    match bytecode_segment_lengths {
-        NestedIntList::Leaf(length) => {
-            // The entire contract is a single segment (old Sierra contracts).
-            &VmExecutionResources {
-                n_steps: 474,
-                n_memory_holes: 0,
-                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 10)]),
-            } + &poseidon_hash_many_cost(*length)
-        }
-        NestedIntList::Node(segments) => {
-            // The contract code is segmented by its functions.
-            let mut execution_resources = VmExecutionResources {
-                n_steps: 491,
-                n_memory_holes: 0,
-                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 11)]),
-            };
-            let base_segment_cost = VmExecutionResources {
-                n_steps: 24,
-                n_memory_holes: 1,
-                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 1)]),
-            };
-            for segment in segments {
-                let NestedIntList::Leaf(length) = segment else {
-                    panic!(
-                        "Estimating hash cost is only supported for segmentation depth at most 1."
-                    );
-                };
-                execution_resources += &poseidon_hash_many_cost(*length);
-                execution_resources += &base_segment_cost;
-            }
-            execution_resources
-        }
     }
 }
 
@@ -255,15 +206,14 @@ fn poseidon_hash_many_cost(data_length: usize) -> VmExecutionResources {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
-    bytecode_segment_lengths: NestedIntList,
 }
 
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct EntryPointV1 {
     pub selector: EntryPointSelector,
     pub offset: EntryPointOffset,
@@ -334,28 +284,137 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             convert_entry_points_v1(class.entry_points_by_type.l1_handler)?,
         );
 
-        let bytecode_segment_lengths = class
-            .bytecode_segment_lengths
-            .unwrap_or_else(|| NestedIntList::Leaf(program.data_len()));
-
         Ok(Self(Arc::new(ContractClassV1Inner {
             program,
             entry_points_by_type,
             hints: string_to_hint,
-            bytecode_segment_lengths,
         })))
     }
 }
 
 // V0 utilities.
 
-/// Converts the program type from SN API into a Cairo VM-compatible type.
-pub fn deserialize_program<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Program, D::Error> {
-    let deprecated_program = DeprecatedProgram::deserialize(deserializer)?;
-    sn_api_to_cairo_vm_program(deprecated_program)
-        .map_err(|err| DeserializationError::custom(err.to_string()))
+mod serde_program {
+    use super::*;
+
+    // We have this because `hints` field is a hashmap from <uisze, HintParams>
+    // When deserializing from JSON, for untagged enum it will only match for <string,
+    // HintParams>
+    #[derive(Deserialize, Serialize)]
+    struct TmpSharedProgram {
+        data: Vec<MaybeRelocatable>,
+        hints: BTreeMap<String, Vec<HintParams>>,
+        main: Option<usize>,
+        start: Option<usize>,
+        end: Option<usize>,
+        error_message_attributes: Vec<Attribute>,
+        instruction_locations: Option<HashMap<usize, InstructionLocation>>,
+        identifiers: HashMap<String, Identifier>,
+        reference_manager: Vec<HintReference>,
+    }
+
+    impl From<SharedProgramData> for TmpSharedProgram {
+        fn from(shared_program_data: SharedProgramData) -> Self {
+            Self {
+                data: shared_program_data.data,
+                hints: Into::<BTreeMap<usize, Vec<HintParams>>>::into(
+                    &shared_program_data.hints_collection,
+                )
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+                main: shared_program_data.main,
+                start: shared_program_data.start,
+                end: shared_program_data.end,
+                error_message_attributes: shared_program_data.error_message_attributes,
+                instruction_locations: shared_program_data.instruction_locations,
+                identifiers: shared_program_data.identifiers,
+                reference_manager: shared_program_data.reference_manager,
+            }
+        }
+    }
+
+    #[derive(Deserialize, Serialize)]
+    struct TmpProgram {
+        pub shared_program_data: TmpSharedProgram,
+        pub constants: HashMap<String, Felt252>,
+        pub builtins: Vec<BuiltinName>,
+    }
+
+    pub(crate) fn serialize<S>(program: &Program, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let shared_program_data = program.shared_program_data.as_ref().clone().into();
+        let constants = program.constants.clone();
+        let builtins = program.builtins.clone();
+
+        let tmp_program = TmpProgram { shared_program_data, constants, builtins };
+
+        tmp_program.serialize(serializer)
+    }
+
+    /// Converts the program type from SN API into a Cairo VM-compatible type.
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Program, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Tmp {
+            /// Box the variant in order to reduce the size of the enum (clippy suggestion).
+            CairoVM(Box<TmpProgram>),
+            SNProgram(DeprecatedProgram),
+        }
+
+        let program: Tmp = Tmp::deserialize(deserializer)?;
+
+        match program {
+            Tmp::CairoVM(tmp_program) => {
+                let hints: BTreeMap<usize, Vec<HintParams>> = tmp_program
+                    .shared_program_data
+                    .hints
+                    .into_iter()
+                    .map(|(k, v)| {
+                        let key = k.parse::<usize>().map_err(|error| {
+                            de::Error::custom(format!(
+                                "failed to convert value {} to usize, \n error {}",
+                                k, error
+                            ))
+                        })?;
+
+                        Ok((key, v))
+                    })
+                    .collect::<Result<_, D::Error>>()?;
+
+                let hints_collection =
+                    HintsCollection::new(&hints, tmp_program.shared_program_data.data.len())
+                        .map_err(|err| de::Error::custom(err.to_string()))?;
+
+                let shared_program_data = SharedProgramData {
+                    data: tmp_program.shared_program_data.data,
+                    hints_collection,
+                    main: tmp_program.shared_program_data.main,
+                    start: tmp_program.shared_program_data.start,
+                    end: tmp_program.shared_program_data.end,
+                    error_message_attributes: tmp_program
+                        .shared_program_data
+                        .error_message_attributes,
+                    identifiers: tmp_program.shared_program_data.identifiers,
+                    instruction_locations: tmp_program.shared_program_data.instruction_locations,
+                    reference_manager: tmp_program.shared_program_data.reference_manager,
+                };
+
+                let program = Program {
+                    shared_program_data: Arc::new(shared_program_data),
+                    constants: tmp_program.constants,
+                    builtins: tmp_program.builtins,
+                };
+                Ok(program)
+            }
+            Tmp::SNProgram(deprecated_program) => sn_api_to_cairo_vm_program(deprecated_program)
+                .map_err(|err| DeserializationError::custom(err.to_string())),
+        }
+    }
 }
 
 // V1 utilities.
@@ -385,4 +444,23 @@ fn convert_entry_points_v1(
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+
+    use crate::execution::contract_class::ContractClassV0;
+
+    #[test]
+    fn test_deserialization_of_contract_class_v_0() {
+        let contract_class = fs::read("./tests/counter.json").unwrap();
+        let contract_class: ContractClassV0 = serde_json::from_slice(&contract_class)
+            .expect("failed to deserialize contract class from file");
+
+        let serialized_contract_class = serde_json::to_string_pretty(&contract_class)
+            .expect("failed to serialize contract class");
+        let _: ContractClassV0 = serde_json::from_str(&serialized_contract_class)
+            .expect("failed to deserialize contract class from serialized string");
+    }
 }

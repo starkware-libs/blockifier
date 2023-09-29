@@ -13,9 +13,6 @@ description = "A Bridge between the Rust blockifier crate and Python."
 extension-module = ["pyo3/extension-module"]
 testing = []
 
-[lints]
-workspace = true
-
 [lib]
 name = "native_blockifier"
 # "cdylib" is necessary to produce a shared library for Python to import from.

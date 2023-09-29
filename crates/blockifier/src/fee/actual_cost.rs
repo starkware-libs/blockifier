@@ -152,8 +152,7 @@ impl<'a> ActualCostBuilder<'a> {
         )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            n_reverted_steps;
+        *actual_resources.0.get_mut(abi_constants::N_STEPS_RESOURCE).unwrap() += n_reverted_steps;
 
         let actual_fee = if self.account_tx_context.enforce_fee()?
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.

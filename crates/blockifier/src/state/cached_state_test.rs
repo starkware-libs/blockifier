@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use assert_matches::assert_matches;
 use indexmap::indexmap;
 use pretty_assertions::assert_eq;
@@ -383,7 +381,7 @@ fn global_contract_cache_is_used() {
     let mut state = CachedState::new(DictStateReader::default(), global_cache.clone());
 
     // Assert local cache is initialized empty even if global cache is not empty.
-    assert!(state.class_hash_to_class.get(&class_hash).is_none());
+    assert!(!state.class_hash_to_class.contains_key(&class_hash));
 
     // Check state uses the global cache.
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);

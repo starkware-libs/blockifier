@@ -6,9 +6,6 @@ repository.workspace = true
 license-file.workspace = true
 description = "The transaction-executing component in the Starknet sequencer."
 
-[lints]
-workspace = true
-
 [features]
 testing = ["rstest"]
 
