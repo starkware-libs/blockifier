@@ -13,6 +13,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
+use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
@@ -28,7 +29,7 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionInfo};
+use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
     create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
@@ -96,13 +97,16 @@ fn create_test_init_data(
     );
     let account_address = deploy_account_tx.contract_address;
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
 
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
+    // Set balance in all fee types.
     let deployed_account_balance_key =
         get_storage_var_address("ERC20_balances", &[*account_address.0.key()]).unwrap();
-    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
+    for fee_type in FeeType::iter() {
+        let fee_token_address = block_context.fee_token_address(&fee_type);
+        state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
+    }
 
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
