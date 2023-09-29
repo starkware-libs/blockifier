@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
+use strum_macros::EnumIter;
 
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -11,6 +12,7 @@ use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
+#[derive(EnumIter)]
 pub enum FeeType {
     Strk,
     Eth,
