@@ -102,10 +102,8 @@ pub const MAX_FEE: u128 = 1000000 * 100000000000; // 1000000 * min_eth_l1_gas_pr
 // The amount of test-token allocated to the account in this test.
 pub const BALANCE: u128 = 10 * MAX_FEE;
 
-pub const DEFAULT_ETH_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of wei.
-
-// TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use real value.
-pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 0; // Given in units of STRK.
+pub const DEFAULT_ETH_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of Wei.
+pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of STRK.
 
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
