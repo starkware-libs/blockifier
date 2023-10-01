@@ -172,14 +172,14 @@ impl DeclareTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            transaction_hash: self.tx_hash(),
-            max_fee: self.max_fee(),
-            version: self.tx.version(),
-            signature: self.tx.signature(),
-            nonce: self.tx.nonce(),
-            sender_address: self.tx.sender_address(),
-        })
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+            self.tx_hash(),
+            self.max_fee(),
+            self.tx.version(),
+            self.tx.signature(),
+            self.tx.nonce(),
+            self.tx.sender_address(),
+        ))
     }
 }
 
@@ -260,14 +260,14 @@ impl DeployAccountTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            transaction_hash: self.tx_hash,
-            max_fee: self.max_fee(),
-            version: self.tx.version(),
-            signature: self.tx.signature(),
-            nonce: self.tx.nonce(),
-            sender_address: self.contract_address,
-        })
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+            self.tx_hash,
+            self.max_fee(),
+            self.tx.version(),
+            self.tx.signature(),
+            self.tx.nonce(),
+            self.contract_address,
+        ))
     }
 }
 
@@ -325,14 +325,14 @@ impl InvokeTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            transaction_hash: self.tx_hash,
-            max_fee: self.max_fee(),
-            version: self.tx.version(),
-            signature: self.tx.signature(),
-            nonce: self.tx.nonce(),
-            sender_address: self.tx.sender_address(),
-        })
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+            self.tx_hash,
+            self.max_fee(),
+            self.tx.version(),
+            self.tx.signature(),
+            self.tx.nonce(),
+            self.tx.sender_address(),
+        ))
     }
 }
 
@@ -421,13 +421,13 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
 
 impl L1HandlerTransaction {
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            transaction_hash: self.tx_hash,
-            max_fee: Fee::default(),
-            version: self.tx.version,
-            signature: TransactionSignature::default(),
-            nonce: self.tx.nonce,
-            sender_address: self.tx.contract_address,
-        })
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+            self.tx_hash,
+            Fee::default(),
+            self.tx.version,
+            TransactionSignature::default(),
+            self.tx.nonce,
+            self.tx.contract_address,
+        ))
     }
 }

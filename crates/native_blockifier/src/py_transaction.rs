@@ -141,14 +141,14 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
         Fee::default()
     };
 
-    Ok(AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-        transaction_hash: TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
+    Ok(AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+        TransactionHash(py_attr::<PyFelt>(tx, "hash_value")?.0),
         max_fee,
-        signature: TransactionSignature(signature),
         version,
+        TransactionSignature(signature),
         nonce,
-        sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
-    }))
+        ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
+    )))
 }
 
 fn build_common_tx_fields(tx: &PyAny) -> NativeBlockifierResult<CommonTransactionFields> {
