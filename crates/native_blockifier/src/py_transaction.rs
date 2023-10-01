@@ -3,31 +3,28 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 
 use blockifier::abi::constants::L1_HANDLER_VERSION;
-use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
+    DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use starknet_api::core::{
-    ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector, Nonce,
-};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV0V1,
-    DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransactionV1,
+    AccountDeploymentData, Calldata, ContractAddressSalt, DeployAccountTransactionV1,
     DeployAccountTransactionV3, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
     PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
-use crate::py_utils::{py_attr, PyFelt};
+use crate::py_declare::py_declare;
+use crate::py_utils::{from_py_felts, py_attr, PyFelt};
 
 // Structs.
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -125,15 +122,15 @@ impl From<PyDataAvailabilityMode> for starknet_api::data_availability::DataAvail
 // Utils.
 
 fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
-    let py_call: Vec<PyFelt> = py_attr(tx, attr)?;
-    let call: Vec<StarkFelt> = py_call.into_iter().map(|felt| felt.0).collect();
-    Ok(Calldata(Arc::from(call)))
+    let py_calldata: Vec<PyFelt> = py_attr(tx, attr)?;
+    let calldata: Vec<StarkFelt> = from_py_felts(py_calldata);
+    Ok(Calldata(Arc::from(calldata)))
 }
 
 pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTransactionContext> {
     let nonce = Nonce(py_attr::<PyFelt>(tx, "nonce")?.0);
     let py_signature: Vec<PyFelt> = py_attr(tx, "signature")?;
-    let signature: Vec<StarkFelt> = py_signature.into_iter().map(|felt| felt.0).collect();
+    let signature: Vec<StarkFelt> = from_py_felts(py_signature);
     let version = TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0);
 
     let max_fee = if version < TransactionVersion::THREE {
@@ -161,7 +158,7 @@ fn build_common_tx_fields(tx: &PyAny) -> NativeBlockifierResult<CommonTransactio
     let py_fee_data_availability_mode: PyDataAvailabilityMode =
         py_attr(tx, "fee_data_availability_mode")?;
     let py_paymaster_data: Vec<PyFelt> = py_attr(tx, "paymaster_data")?;
-    let paymaster_data: Vec<StarkFelt> = py_paymaster_data.into_iter().map(|felt| felt.0).collect();
+    let paymaster_data: Vec<StarkFelt> = from_py_felts(py_paymaster_data);
     Ok(CommonTransactionFields {
         resource_bounds: ResourceBoundsMapping::from(py_resource_bounds),
         tip: Tip(py_attr::<u64>(tx, "tip")?),
@@ -172,89 +169,6 @@ fn build_common_tx_fields(tx: &PyAny) -> NativeBlockifierResult<CommonTransactio
 }
 
 // Transactions creation.
-
-pub fn py_declare(
-    tx: &PyAny,
-    raw_contract_class: &str,
-) -> NativeBlockifierResult<DeclareTransaction> {
-    let account_data_context = py_account_data_context(tx)?;
-    let class_hash = ClassHash(py_attr::<PyFelt>(tx, "class_hash")?.0);
-    let version = usize::try_from(account_data_context.version.0)?;
-    let sn_api_tx = match version {
-        0 => {
-            let declare_tx = DeclareTransactionV0V1 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
-                class_hash,
-                sender_address: account_data_context.sender_address,
-            };
-            Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx))
-        }
-        1 => {
-            let declare_tx = DeclareTransactionV0V1 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
-                class_hash,
-                sender_address: account_data_context.sender_address,
-            };
-            Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
-        }
-        2 => {
-            let compiled_class_hash =
-                CompiledClassHash(py_attr::<PyFelt>(tx, "compiled_class_hash")?.0);
-            let declare_tx = DeclareTransactionV2 {
-                max_fee: account_data_context.max_fee,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
-                class_hash,
-                sender_address: account_data_context.sender_address,
-                compiled_class_hash,
-            };
-            Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
-        }
-        3 => {
-            let compiled_class_hash =
-                CompiledClassHash(py_attr::<PyFelt>(tx, "compiled_class_hash")?.0);
-            let common_tx_fields = build_common_tx_fields(tx)?;
-            let py_account_deployment_data: Vec<PyFelt> = py_attr(tx, "account_deployment_data")?;
-            let declare_tx = DeclareTransactionV3 {
-                resource_bounds: common_tx_fields.resource_bounds,
-                tip: common_tx_fields.tip,
-                signature: account_data_context.signature,
-                nonce: account_data_context.nonce,
-                class_hash,
-                compiled_class_hash,
-                sender_address: account_data_context.sender_address,
-                nonce_data_availability_mode: common_tx_fields.nonce_data_availability_mode,
-                fee_data_availability_mode: common_tx_fields.fee_data_availability_mode,
-                paymaster_data: common_tx_fields.paymaster_data,
-                account_deployment_data: AccountDeploymentData(
-                    py_account_deployment_data.into_iter().map(|felt| felt.0).collect(),
-                ),
-            };
-            Ok(starknet_api::transaction::DeclareTransaction::V3(declare_tx))
-        }
-        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
-            tx_type: TransactionType::Declare,
-            version,
-        }),
-    }?;
-
-    let contract_class = match sn_api_tx {
-        starknet_api::transaction::DeclareTransaction::V0(_)
-        | starknet_api::transaction::DeclareTransaction::V1(_) => {
-            ContractClassV0::try_from_json_string(raw_contract_class)?.into()
-        }
-        starknet_api::transaction::DeclareTransaction::V2(_)
-        | starknet_api::transaction::DeclareTransaction::V3(_) => {
-            ContractClassV1::try_from_json_string(raw_contract_class)?.into()
-        }
-    };
-
-    Ok(DeclareTransaction::new(sn_api_tx, account_data_context.transaction_hash, contract_class)?)
-}
 
 pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
     let account_data_context = py_account_data_context(tx)?;
@@ -337,9 +251,9 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
                 nonce_data_availability_mode: common_tx_fields.nonce_data_availability_mode,
                 fee_data_availability_mode: common_tx_fields.fee_data_availability_mode,
                 paymaster_data: common_tx_fields.paymaster_data,
-                account_deployment_data: AccountDeploymentData(
-                    py_account_deployment_data.into_iter().map(|felt| felt.0).collect(),
-                ),
+                account_deployment_data: AccountDeploymentData(from_py_felts(
+                    py_account_deployment_data,
+                )),
             };
             Ok(starknet_api::transaction::InvokeTransaction::V3(invoke_tx))
         }
