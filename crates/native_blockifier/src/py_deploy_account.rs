@@ -30,7 +30,7 @@ impl From<PyDeployAccountTransactionV1> for DeployAccountTransactionV1 {
             nonce: Nonce(tx.nonce.0),
             class_hash: ClassHash(tx.class_hash.0),
             contract_address_salt: ContractAddressSalt(tx.contract_address_salt.0),
-            constructor_calldata: Calldata(from_py_felts(tx.constructor_calldata).into()),
+            constructor_calldata: Calldata(Arc::from(from_py_felts(tx.constructor_calldata))),
         }
     }
 }
@@ -58,7 +58,7 @@ impl From<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
             nonce: Nonce(tx.nonce.0),
             class_hash: ClassHash(tx.class_hash.0),
             contract_address_salt: ContractAddressSalt(tx.contract_address_salt.0),
-            constructor_calldata: Calldata(from_py_felts(tx.constructor_calldata).into()),
+            constructor_calldata: Calldata(Arc::from(from_py_felts(tx.constructor_calldata))),
             nonce_data_availability_mode: DataAvailabilityMode::from(
                 tx.nonce_data_availability_mode,
             ),
