@@ -428,6 +428,7 @@ version = "0.3.0-rc0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "starknet_api",
  "syn 2.0.37",
  "thiserror",
 ]

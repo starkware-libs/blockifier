@@ -1,8 +1,10 @@
+use std::fmt::Display;
 use std::str::FromStr;
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
+use starknet_api::transaction::TransactionVersion;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -10,10 +12,46 @@ use syn::{
     parse_macro_input, FnArg, Item, ItemFn, Pat, PatIdent, PatType, Path, Signature, Type, TypePath,
 };
 
+/// Wrapper around [`TransactionVersion`] that implements [`ToTokens`].
+pub struct TokenedTransactionVersion(pub TransactionVersion);
+
+fn tokened_tx_version_to_value(version: &TokenedTransactionVersion) -> u128 {
+    let TransactionVersion(felt) = version.0;
+    u128::from_str_radix(format!("{}", felt).trim_start_matches("0x"), 16).unwrap()
+}
+
+impl ToTokens for TokenedTransactionVersion {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let value = tokened_tx_version_to_value(self);
+        tokens.extend(quote! { TransactionVersion(StarkFelt::from(#value)) });
+    }
+}
+
+/// Only display the decimal integer part of the transaction version (for appending to function
+/// names).
+impl Display for TokenedTransactionVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", tokened_tx_version_to_value(self))
+    }
+}
+
 /// To add a new transaction version to tests, add it to the relevant array below.
-pub const INVOKE_VERSIONS: [u8; 3] = [0, 1, 3];
-pub const DECLARE_VERSIONS: [u8; 4] = [0, 1, 2, 3];
-pub const DEPLOY_ACCOUNT_VERSIONS: [u8; 3] = [0, 1, 3];
+pub const INVOKE_VERSIONS: [TokenedTransactionVersion; 3] = [
+    TokenedTransactionVersion(TransactionVersion::ZERO),
+    TokenedTransactionVersion(TransactionVersion::ONE),
+    TokenedTransactionVersion(TransactionVersion::THREE),
+];
+pub const DECLARE_VERSIONS: [TokenedTransactionVersion; 4] = [
+    TokenedTransactionVersion(TransactionVersion::ZERO),
+    TokenedTransactionVersion(TransactionVersion::ONE),
+    TokenedTransactionVersion(TransactionVersion::TWO),
+    TokenedTransactionVersion(TransactionVersion::THREE),
+];
+pub const DEPLOY_ACCOUNT_VERSIONS: [TokenedTransactionVersion; 3] = [
+    TokenedTransactionVersion(TransactionVersion::ZERO),
+    TokenedTransactionVersion(TransactionVersion::ONE),
+    TokenedTransactionVersion(TransactionVersion::THREE),
+];
 
 #[derive(Debug, thiserror::Error)]
 enum VaryVersionError {
@@ -117,7 +155,11 @@ fn extract_transaction_version_arg(
 ///     let invoke_version = TransactionVersion::from(StarkFelt::from(3));
 ///     println!("Invoke transaction version: {:?}", invoke_version);
 /// }
-pub fn vary_over_versions(args: TokenStream, stream: TokenStream, versions: &[u8]) -> TokenStream {
+pub fn vary_over_versions(
+    args: TokenStream,
+    stream: TokenStream,
+    versions: &[TokenedTransactionVersion],
+) -> TokenStream {
     // Argument to macro should match the name of the variable that will contain the transaction
     // version.
     let version_var_item = parse_macro_input!(args as Ident);
@@ -126,10 +168,10 @@ pub fn vary_over_versions(args: TokenStream, stream: TokenStream, versions: &[u8
         Item::Fn(ItemFn { attrs, vis, sig, block }) => {
             // Find and extract the invoke version argument from the function signature.
             match extract_transaction_version_arg(sig, &version_var_item) {
-                Ok(new_sig) => TokenStream2::from_iter(versions.iter().map(|i| {
+                Ok(new_sig) => TokenStream2::from_iter(versions.iter().map(|version| {
                     let renamed_sig = Signature {
                         ident: syn::Ident::new(
-                            &format!("{}_v{}", new_sig.ident, i),
+                            &format!("{}_v{}", new_sig.ident, version),
                             new_sig.ident.span(),
                         ),
                         ..new_sig.clone()
@@ -137,7 +179,7 @@ pub fn vary_over_versions(args: TokenStream, stream: TokenStream, versions: &[u8
                     quote! {
                         #(#attrs)*
                         #vis #renamed_sig {
-                            let #version_var_item = TransactionVersion(StarkFelt::from(#i));
+                            let #version_var_item = #version;
                             #block
                         }
                     }

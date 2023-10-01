@@ -14,3 +14,4 @@ syn.workspace = true
 thiserror.workspace = true
 quote.workspace = true
 proc-macro2 = "1.0.67"
+starknet_api = { workspace = true, features = ["testing"] }
