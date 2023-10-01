@@ -21,7 +21,8 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransactionV1, Fee,
-    InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
+    InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -432,9 +433,19 @@ pub fn invoke_tx(
     nonce_manager: &mut NonceManager,
     max_fee: Fee,
     signature: Option<TransactionSignature>,
+    entry_point_selector: Option<EntryPointSelector>,
     tx_version: TransactionVersion,
 ) -> InvokeTransaction {
     match tx_version {
+        TransactionVersion::ZERO => InvokeTransactionV0 {
+            max_fee,
+            calldata,
+            contract_address: sender_address,
+            signature: signature.unwrap_or_default(),
+            entry_point_selector: entry_point_selector
+                .expect("V0 transactions require an entry point selector."),
+        }
+        .into(),
         TransactionVersion::ONE => {
             invoke_tx_v1(calldata, sender_address, nonce_manager, max_fee, signature).into()
         }
