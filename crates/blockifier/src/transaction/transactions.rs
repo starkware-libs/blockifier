@@ -7,7 +7,7 @@ use starknet_api::transaction::{
     TransactionHash, TransactionSignature, TransactionVersion,
 };
 
-use super::objects::HasRelatedFeeType;
+use super::objects::{AccountTransactionContext, HasRelatedFeeType};
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -168,6 +168,17 @@ impl DeclareTransaction {
             }
         }
     }
+
+    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
+        AccountTransactionContext {
+            transaction_hash: self.tx_hash(),
+            max_fee: self.max_fee(),
+            version: self.tx.version(),
+            signature: self.tx.signature(),
+            nonce: self.tx.nonce(),
+            sender_address: self.tx.sender_address(),
+        }
+    }
 }
 
 impl<S: State> Executable<S> for DeclareTransaction {
@@ -245,6 +256,17 @@ impl DeployAccountTransaction {
             }
         }
     }
+
+    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
+        AccountTransactionContext {
+            transaction_hash: self.tx_hash,
+            max_fee: self.max_fee(),
+            version: self.tx.version(),
+            signature: self.tx.signature(),
+            nonce: self.tx.nonce(),
+            sender_address: self.contract_address,
+        }
+    }
 }
 
 impl<S: State> Executable<S> for DeployAccountTransaction {
@@ -297,6 +319,17 @@ impl InvokeTransaction {
                 // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
                 Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
             }
+        }
+    }
+
+    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
+        AccountTransactionContext {
+            transaction_hash: self.tx_hash,
+            max_fee: self.max_fee(),
+            version: self.tx.version(),
+            signature: self.tx.signature(),
+            nonce: self.tx.nonce(),
+            sender_address: self.tx.sender_address(),
         }
     }
 }
@@ -381,5 +414,18 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             .execute(state, resources, context)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
+    }
+}
+
+impl L1HandlerTransaction {
+    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
+        AccountTransactionContext {
+            transaction_hash: self.tx_hash,
+            max_fee: Fee::default(),
+            version: self.tx.version,
+            signature: TransactionSignature::default(),
+            nonce: self.tx.nonce,
+            sender_address: self.tx.contract_address,
+        }
     }
 }
