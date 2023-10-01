@@ -11,7 +11,7 @@ use crate::errors::NativeBlockifierResult;
 use crate::papyrus_state::PapyrusReader;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{int_to_chain_id, PyFelt};
+use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
 use crate::storage::{Storage, StorageConfig};
 use crate::transaction_executor::TransactionExecutor;
 
@@ -228,17 +228,16 @@ pub struct PyGeneralConfig {
 
 impl FromPyObject<'_> for PyGeneralConfig {
     fn extract(general_config: &PyAny) -> PyResult<Self> {
-        let starknet_os_config = general_config.getattr("starknet_os_config")?.extract()?;
+        let starknet_os_config: PyOsConfig = py_attr(general_config, "starknet_os_config")?;
         let cairo_resource_fee_weights: HashMap<String, f64> =
-            general_config.getattr("cairo_resource_fee_weights")?.extract()?;
-
-        let min_strk_l1_gas_price = general_config.getattr("min_strk_l1_gas_price")?.extract()?;
-        let max_strk_l1_gas_price = general_config.getattr("max_strk_l1_gas_price")?.extract()?;
+            py_attr(general_config, "cairo_resource_fee_weights")?;
         let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
-        let invoke_tx_max_n_steps = general_config.getattr("invoke_tx_max_n_steps")?.extract()?;
-        let validate_max_n_steps = general_config.getattr("validate_max_n_steps")?.extract()?;
-        let strk_l1_gas_price_source_config =
-            general_config.getattr("strk_l1_gas_price_source_config")?.extract()?;
+        let min_strk_l1_gas_price: u128 = py_attr(general_config, "min_strk_l1_gas_price")?;
+        let max_strk_l1_gas_price: u128 = py_attr(general_config, "max_strk_l1_gas_price")?;
+        let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
+        let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
+        let strk_l1_gas_price_source_config: PyStrkL1GasPriceSourceConfig =
+            py_attr(general_config, "strk_l1_gas_price_source_config")?;
 
         Ok(Self {
             starknet_os_config,
