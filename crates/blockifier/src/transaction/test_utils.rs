@@ -188,9 +188,9 @@ pub fn create_account_tx_for_validate_test(
             let invoke_tx = crate::test_utils::invoke_tx_v1(
                 &mut NonceManager::default(),
                 InvokeTxArgs {
-                    calldata: execute_calldata,
-                    sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                     signature,
+                    sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                    calldata: execute_calldata,
                     ..Default::default()
                 },
             );

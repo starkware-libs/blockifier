@@ -100,9 +100,9 @@ fn do_transfer(
     let tx = invoke_tx_v1(
         &mut NonceManager::default(),
         InvokeTxArgs {
+            max_fee: Fee(MAX_FEE),
             sender_address: sender_account_address,
             calldata: execute_calldata,
-            max_fee: Fee(MAX_FEE),
             ..Default::default()
         },
     );
