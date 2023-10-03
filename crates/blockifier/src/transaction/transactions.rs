@@ -3,12 +3,13 @@ use std::sync::Arc;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV2, DeclareTransactionV3, Fee, Resource,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV2,
+    DeclareTransactionV3, Fee, Resource, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use super::objects::{
-    AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType,
+    AccountTransactionContext, CurrentAccountTransactionContext,
+    DeprecatedAccountTransactionContext, HasRelatedFeeType,
 };
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -172,15 +173,33 @@ impl DeclareTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        match self.tx.version() {
-            TransactionVersion::ZERO | TransactionVersion::ONE | TransactionVersion::TWO => {
-                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+        if self.tx.version() <= TransactionVersion::TWO {
+            return AccountTransactionContext::Deprecated(
+                DeprecatedAccountTransactionContext::new(
                     self.tx_hash(),
                     self.max_fee(),
                     self.tx.version(),
                     self.tx.signature(),
                     self.tx.nonce(),
                     self.tx.sender_address(),
+                ),
+            );
+        }
+        match &self.tx {
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                AccountTransactionContext::Current(CurrentAccountTransactionContext::new(
+                    self.tx_hash(),
+                    self.max_fee(),
+                    self.tx.version(),
+                    self.tx.signature(),
+                    self.tx.nonce(),
+                    self.tx.sender_address(),
+                    tx.resource_bounds.clone(),
+                    tx.tip,
+                    tx.nonce_data_availability_mode,
+                    tx.fee_data_availability_mode,
+                    tx.paymaster_data.clone(),
+                    tx.account_deployment_data.clone(),
                 ))
             }
             _ => unreachable!("Not implemented for tx version {:?}", self.tx.version()),
@@ -265,15 +284,34 @@ impl DeployAccountTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        match self.tx.version() {
-            TransactionVersion::ONE => {
-                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+        if self.tx.version() == TransactionVersion::ONE {
+            return AccountTransactionContext::Deprecated(
+                DeprecatedAccountTransactionContext::new(
                     self.tx_hash,
                     self.max_fee(),
                     self.tx.version(),
                     self.tx.signature(),
                     self.tx.nonce(),
                     self.contract_address,
+                ),
+            );
+        }
+
+        match &self.tx {
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
+                AccountTransactionContext::Current(CurrentAccountTransactionContext::new(
+                    self.tx_hash,
+                    self.max_fee(),
+                    self.tx.version(),
+                    self.tx.signature(),
+                    self.tx.nonce(),
+                    self.contract_address,
+                    tx.resource_bounds.clone(),
+                    tx.tip,
+                    tx.nonce_data_availability_mode,
+                    tx.fee_data_availability_mode,
+                    tx.paymaster_data.clone(),
+                    AccountDeploymentData::default(),
                 ))
             }
             _ => unreachable!("Not implemented for tx version {:?}", self.tx.version()),
@@ -335,15 +373,34 @@ impl InvokeTransaction {
     }
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        match self.tx.version() {
-            TransactionVersion::ZERO | TransactionVersion::ONE => {
-                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::new(
+        if self.tx.version() <= TransactionVersion::ONE {
+            return AccountTransactionContext::Deprecated(
+                DeprecatedAccountTransactionContext::new(
                     self.tx_hash,
                     self.max_fee(),
                     self.tx.version(),
                     self.tx.signature(),
                     self.tx.nonce(),
                     self.tx.sender_address(),
+                ),
+            );
+        }
+
+        match &self.tx {
+            starknet_api::transaction::InvokeTransaction::V3(tx) => {
+                AccountTransactionContext::Current(CurrentAccountTransactionContext::new(
+                    self.tx_hash,
+                    self.max_fee(),
+                    self.tx.version(),
+                    self.tx.signature(),
+                    self.tx.nonce(),
+                    self.tx.sender_address(),
+                    tx.resource_bounds.clone(),
+                    tx.tip,
+                    tx.nonce_data_availability_mode,
+                    tx.fee_data_availability_mode,
+                    tx.paymaster_data.clone(),
+                    tx.account_deployment_data.clone(),
                 ))
             }
             _ => unreachable!("Not implemented for tx version {:?}", self.tx.version()),
