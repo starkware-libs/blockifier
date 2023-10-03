@@ -185,6 +185,7 @@ fn test_fee_enforcement(
 }
 
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
+// TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
 #[rstest]
 #[case(TransactionVersion::ZERO)]
 #[case(TransactionVersion::ONE)]
