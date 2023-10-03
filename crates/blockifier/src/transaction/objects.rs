@@ -2,7 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
+use starknet_api::data_availability::DataAvailabilityMode;
+use starknet_api::transaction::{
+    AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBoundsMapping, Tip,
+    TransactionHash, TransactionSignature, TransactionVersion,
+};
 use strum_macros::EnumIter;
 
 use crate::block_context::BlockContext;
@@ -11,16 +15,6 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
-
-macro_rules! implement_inner_account_tx_context_getter_calls {
-    ($(($field:ident, $field_type:ty)),*) => {
-        $(pub fn $field(&self) -> $field_type {
-            match self{
-                Self::Deprecated(context) => context.$field,
-            }
-        })*
-    };
-}
 
 #[derive(EnumIter)]
 pub enum FeeType {
@@ -31,12 +25,23 @@ pub enum FeeType {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccountTransactionContext {
     Deprecated(DeprecatedAccountTransactionContext),
+    Current(CurrentAccountTransactionContext),
+}
+
+macro_rules! implement_inner_account_tx_context_getter_calls {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            match self {
+                Self::Deprecated(context) => context.$field(),
+                Self::Current(context) => context.$field(),
+            }
+        })*
+    };
 }
 
 impl AccountTransactionContext {
     implement_inner_account_tx_context_getter_calls!(
         (transaction_hash, TransactionHash),
-        (max_fee, Fee),
         (version, TransactionVersion),
         (nonce, Nonce),
         (sender_address, ContractAddress)
@@ -45,6 +50,19 @@ impl AccountTransactionContext {
     pub fn signature(&self) -> TransactionSignature {
         match self {
             Self::Deprecated(context) => context.signature.clone(),
+            Self::Current(context) => context.signature.clone(),
+        }
+    }
+
+    pub fn max_fee(&self) -> Fee {
+        match self {
+            Self::Deprecated(context) => context.max_fee,
+            Self::Current(context) => {
+                let l1_resource_bounds =
+                    context.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
+                // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
+                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+            }
         }
     }
 
@@ -63,6 +81,13 @@ impl HasRelatedFeeType for AccountTransactionContext {
     }
 }
 
+macro_rules! implement_inner_deprecated_account_tx_context_getter_calls {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            self.$field
+        })*
+    };
+}
 /// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DeprecatedAccountTransactionContext {
@@ -85,8 +110,92 @@ impl DeprecatedAccountTransactionContext {
     ) -> Self {
         Self { transaction_hash, max_fee, version, signature, nonce, sender_address }
     }
+
+    implement_inner_deprecated_account_tx_context_getter_calls!(
+        (transaction_hash, TransactionHash),
+        (version, TransactionVersion),
+        (nonce, Nonce),
+        (sender_address, ContractAddress)
+    );
 }
 
+macro_rules! implement_inner_current_account_tx_context_getter_calls {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            self.$field
+        })*
+    };
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CurrentAccountTransactionContext {
+    transaction_hash: TransactionHash,
+    max_fee: Fee,
+    version: TransactionVersion,
+    signature: TransactionSignature,
+    nonce: Nonce,
+    sender_address: ContractAddress,
+    resource_bounds: ResourceBoundsMapping,
+    tip: Tip,
+    nonce_data_availability_mode: DataAvailabilityMode,
+    fee_data_availability_mode: DataAvailabilityMode,
+    paymaster_data: PaymasterData,
+    account_deployment_data: AccountDeploymentData,
+}
+
+#[allow(clippy::too_many_arguments)]
+impl CurrentAccountTransactionContext {
+    pub fn new(
+        transaction_hash: TransactionHash,
+        max_fee: Fee,
+        version: TransactionVersion,
+        signature: TransactionSignature,
+        nonce: Nonce,
+        sender_address: ContractAddress,
+        resource_bounds: ResourceBoundsMapping,
+        tip: Tip,
+        nonce_data_availability_mode: DataAvailabilityMode,
+        fee_data_availability_mode: DataAvailabilityMode,
+        paymaster_data: PaymasterData,
+        account_deployment_data: AccountDeploymentData,
+    ) -> Self {
+        Self {
+            transaction_hash,
+            max_fee,
+            version,
+            signature,
+            nonce,
+            sender_address,
+            resource_bounds,
+            tip,
+            nonce_data_availability_mode,
+            fee_data_availability_mode,
+            paymaster_data,
+            account_deployment_data,
+        }
+    }
+
+    implement_inner_current_account_tx_context_getter_calls!(
+        (transaction_hash, TransactionHash),
+        (version, TransactionVersion),
+        (nonce, Nonce),
+        (sender_address, ContractAddress),
+        (tip, Tip),
+        (nonce_data_availability_mode, DataAvailabilityMode),
+        (fee_data_availability_mode, DataAvailabilityMode)
+    );
+
+    pub fn resource_bounds(&self) -> ResourceBoundsMapping {
+        self.resource_bounds.clone()
+    }
+
+    pub fn paymaster_data(&self) -> PaymasterData {
+        self.paymaster_data.clone()
+    }
+
+    pub fn account_deployment_data(&self) -> AccountDeploymentData {
+        self.account_deployment_data.clone()
+    }
+}
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionExecutionInfo {
