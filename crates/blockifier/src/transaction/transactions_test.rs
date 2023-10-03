@@ -2,6 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -26,7 +30,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::execution::entry_point::{
     CallEntryPoint, CallExecution, CallInfo, CallType, OrderedEvent, Retdata,
 };
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::retdata;
@@ -886,6 +890,8 @@ fn test_deploy_account_tx(
     );
 }
 
+// TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
+// another contract flow.
 #[test]
 fn test_validate_accounts_tx() {
     fn test_validate_account_tx(tx_type: TransactionType) {
@@ -932,8 +938,23 @@ fn test_validate_accounts_tx() {
             &mut NonceManager::default(),
         );
         let error = account_tx.execute(state, block_context, true).unwrap_err();
-        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
+        assert_matches!(
+            error,
+            TransactionExecutionError::ValidateTransactionError(
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                    source: VirtualMachineExecutionError::CairoRunError(
+                        CairoRunError::VmException(
+                            VmException { inner_exc: VirtualMachineError::Hint(hint), .. }
+                )),
+                ..
+            })
+            if matches!(
+                &hint.1,
+                HintError::CustomHint(custom_hint)
+                if *custom_hint == "Unauthorized syscall call_contract in execution mode Validate.".into()
+            )
+
+        );
 
         // Verify that the contract does not call another contract in the constructor of deploy
         // account as well.

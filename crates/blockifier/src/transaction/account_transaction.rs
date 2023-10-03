@@ -35,7 +35,6 @@ use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
     calculate_l1_gas_usage, calculate_tx_resources, update_remaining_gas,
-    verify_no_calls_to_other_contracts,
 };
 use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
 
@@ -253,10 +252,6 @@ impl AccountTransaction {
         let validate_call_info = validate_call
             .execute(state, resources, &mut context)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
-        verify_no_calls_to_other_contracts(
-            &validate_call_info,
-            String::from(constants::VALIDATE_ENTRY_POINT_NAME),
-        )?;
 
         // Validate return data.
         let class_hash = state.get_class_hash_at(storage_address)?;
