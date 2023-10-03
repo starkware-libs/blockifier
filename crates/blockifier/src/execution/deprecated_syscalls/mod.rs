@@ -19,6 +19,7 @@ use self::hint_processor::{
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
 use crate::abi::constants;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
 };
@@ -186,6 +187,15 @@ pub fn call_contract(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    // Check that the call is legal if in Validate execution mode.
+    if syscall_handler.context.execution_mode == ExecutionMode::Validate
+        && syscall_handler.storage_address != storage_address
+    {
+        return Err(DeprecatedSyscallExecutionError::InvalidSyscallInExecutionMode {
+            syscall_name: "call_contract".to_string(),
+            execution_mode: syscall_handler.context.execution_mode,
+        });
+    }
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
