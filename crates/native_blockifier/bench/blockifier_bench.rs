@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use blockifier::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClassV0;
+use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::{
@@ -94,13 +95,12 @@ fn do_transfer(
         stark_felt!(0_u8)                   // Calldata: msb amount.
     ];
 
-    let tx = invoke_tx(InvokeTxArgs {
+    let tx = invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         sender_address,
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
         nonce: Nonce(stark_felt!(nonce)),
-        ..Default::default()
     });
     let account_tx = AccountTransaction::Invoke(tx);
     let charge_fee = false;

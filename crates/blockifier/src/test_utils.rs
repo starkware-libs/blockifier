@@ -422,6 +422,38 @@ impl Default for InvokeTxArgs {
     }
 }
 
+/// Utility macro for creating `InvokeTxArgs` with "smart" default values, kwarg-style notation.
+#[macro_export]
+macro_rules! invoke_tx_args {
+    ($($field:ident $(: $value:expr)?),* $(,)?) => {
+        {
+            // Fill in all fields + defaults for missing fields.
+            let mut _macro_invoke_tx_args = InvokeTxArgs {
+                $($field $(: $value)?,)*
+                ..Default::default()
+            };
+            // If resource bounds aren't explicitly passed, derive them from max_fee.
+            if _macro_invoke_tx_args.version >= TransactionVersion::THREE
+                && [$(stringify!($field) != "resource_bounds"),*].iter().all(|&x| x) {
+                // TODO(Dori, 1/11/2023): When `ResourceBoundsMapping` implements `TryFrom`, use it.
+                for resource in [
+                    starknet_api::transaction::Resource::L1Gas,
+                    starknet_api::transaction::Resource::L2Gas
+                ].into_iter() {
+                    _macro_invoke_tx_args.resource_bounds.0.insert(
+                        resource,
+                        starknet_api::transaction::ResourceBounds {
+                            max_amount: _macro_invoke_tx_args.max_fee.0 as u64,
+                            max_price_per_unit: 1
+                        },
+                    );
+                }
+            }
+            _macro_invoke_tx_args
+        }
+    };
+}
+
 pub fn deploy_account_tx(
     class_hash: &str,
     max_fee: Fee,
