@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use blockifier::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use blockifier::block_context::BlockContext;
 use blockifier::execution::contract_class::ContractClassV0;
-use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
 use blockifier::test_utils::{
@@ -22,6 +21,7 @@ use blockifier::test_utils::{
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
+use blockifier::{fill_invoke_tx_defaults, invoke_tx_args};
 use criterion::{criterion_group, criterion_main, Criterion};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;

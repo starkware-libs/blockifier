@@ -12,7 +12,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    InvokeTransactionV1, TransactionHash, TransactionSignature, TransactionVersion,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -32,7 +32,7 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
+    invoke_tx, test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     InvokeTxArgs, NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
@@ -46,7 +46,7 @@ use crate::transaction::objects::{
     FeeType, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
-    create_account_tx_for_validate_test, create_state_with_cairo1_account,
+    account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
     create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
     CALL_CONTRACT, INVALID, VALID,
 };
@@ -236,9 +236,7 @@ fn validate_final_balances(
     );
 }
 
-// TODO(Dori, 1/10/2023): Remove this function in favor of the invoke_tx function in test_utils.
-//   This will require test refactoring (to use unversioned InvokeTransaction type).
-fn invoke_tx() -> InvokeTransactionV1 {
+fn default_invoke_tx_args() -> InvokeTxArgs {
     let entry_point_selector = selector_from_name("return_result");
     let execute_calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
@@ -247,7 +245,7 @@ fn invoke_tx() -> InvokeTransactionV1 {
         stark_felt!(2_u8)                   // Calldata: num.
     ];
 
-    InvokeTransactionV1 {
+    invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         signature: TransactionSignature::default(),
         nonce: Nonce::default(),
@@ -295,12 +293,12 @@ fn test_invoke_tx(
     cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
-    let invoke_tx = invoke_tx();
+    let invoke_tx = invoke_tx(default_invoke_tx_args());
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
-    let calldata = Calldata(Arc::clone(&invoke_tx.calldata.0));
-    let sender_address = invoke_tx.sender_address;
+    let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
+    let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx.into());
     let fee_type = &account_tx.fee_type();
@@ -431,14 +429,13 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_low,
         mint_high
     ];
-    let mint_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
+    let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
         nonce: Nonce::default(),
     });
-    let account_tx = AccountTransaction::Invoke(mint_tx);
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -476,9 +473,8 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     let invalid_max_fee = Fee(BALANCE + 1);
 
     // Invoke.
-    let invalid_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { max_fee: invalid_max_fee, ..invoke_tx() }.into(),
-    );
+    let invalid_tx =
+        account_invoke_tx(invoke_tx_args! { max_fee: invalid_max_fee, ..default_invoke_tx_args() });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Deploy.
@@ -512,14 +508,14 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     "With Cairo1 account")]
 fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
-    let valid_invoke_tx = invoke_tx();
-    let valid_account_tx = AccountTransaction::Invoke(valid_invoke_tx.clone().into());
+    let valid_invoke_tx_args = default_invoke_tx_args();
+    let valid_account_tx = account_invoke_tx(valid_invoke_tx_args.clone());
 
     // Fee too low (lower than minimal estimated fee).
     let minimal_fee = estimate_minimal_fee(block_context, &valid_account_tx).unwrap();
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
-    let invalid_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { max_fee: invalid_max_fee, ..valid_invoke_tx.clone() }.into(),
+    let invalid_tx = account_invoke_tx(
+        invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
     );
     let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
 
@@ -532,8 +528,8 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
 
     // Insufficient fee.
     let invalid_max_fee = minimal_fee;
-    let invalid_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { max_fee: invalid_max_fee, ..valid_invoke_tx.clone() }.into(),
+    let invalid_tx = account_invoke_tx(
+        invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
     );
     let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
     let execution_error = execution_result.revert_error.unwrap();
@@ -546,9 +542,8 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
-    let invalid_tx = AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: invalid_nonce, ..valid_invoke_tx }.into(),
-    );
+    let invalid_tx =
+        account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
     let execution_error = invalid_tx
         .execute(&mut create_state_with_trivial_validation_account(), block_context, true, true)
         .unwrap_err();
@@ -558,7 +553,7 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
         execution_error,
         TransactionExecutionError::InvalidNonce { address, expected_nonce, actual_nonce }
         if (address, expected_nonce, actual_nonce) ==
-        (valid_invoke_tx.sender_address, Nonce::default(), invalid_nonce)
+        (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
     );
 }
 
@@ -979,8 +974,7 @@ fn test_calculate_tx_gas_usage() {
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee token address should depend on tx version.
     let fee_token_address = *block_context.fee_token_addresses.eth_fee_token_address.0.key();
 
-    let invoke_tx = invoke_tx();
-    let account_tx = AccountTransaction::Invoke(invoke_tx.into());
+    let account_tx = account_invoke_tx(default_invoke_tx_args());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     let n_storage_updates = 1; // For the account balance update.
@@ -1010,15 +1004,13 @@ fn test_calculate_tx_gas_usage() {
         stark_felt!(0_u8)           // Calldata: msb amount.
     ];
 
-    let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
+    let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
         nonce: Nonce(stark_felt!(1_u8)),
     });
-
-    let account_tx = AccountTransaction::Invoke(invoke_tx);
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.

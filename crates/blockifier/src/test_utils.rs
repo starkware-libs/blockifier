@@ -381,6 +381,7 @@ impl CallExecution {
 }
 
 // Transactions.
+#[derive(Clone)]
 pub struct InvokeTxArgs {
     pub max_fee: Fee,
     pub signature: TransactionSignature,
@@ -422,6 +423,34 @@ impl Default for InvokeTxArgs {
     }
 }
 
+/// Given an InvokeTxArgs struct instance and the explicit parameters used for initializtion, fills
+/// in the "smart" defaults.
+#[macro_export]
+macro_rules! fill_invoke_tx_defaults {
+    ($invoke_tx_args:ident, $($field:ident $(: $value:expr)?),*) => {
+        {
+            // If resource bounds aren't explicitly passed, derive them from max_fee.
+            if $invoke_tx_args.version >= TransactionVersion::THREE
+                && [$(stringify!($field) != "resource_bounds"),*].iter().all(|&x| x) {
+                // TODO(Dori, 1/11/2023): When `ResourceBoundsMapping` implements `TryFrom`, use it.
+                for resource in [
+                    starknet_api::transaction::Resource::L1Gas,
+                    starknet_api::transaction::Resource::L2Gas
+                ].into_iter() {
+                    $invoke_tx_args.resource_bounds.0.insert(
+                        resource,
+                        starknet_api::transaction::ResourceBounds {
+                            max_amount: $invoke_tx_args.max_fee.0 as u64,
+                            max_price_per_unit: 1
+                        },
+                    );
+                }
+            }
+            $invoke_tx_args
+        }
+    };
+}
+
 /// Utility macro for creating `InvokeTxArgs` with "smart" default values, kwarg-style notation.
 #[macro_export]
 macro_rules! invoke_tx_args {
@@ -432,24 +461,17 @@ macro_rules! invoke_tx_args {
                 $($field $(: $value)?,)*
                 ..Default::default()
             };
-            // If resource bounds aren't explicitly passed, derive them from max_fee.
-            if _macro_invoke_tx_args.version >= TransactionVersion::THREE
-                && [$(stringify!($field) != "resource_bounds"),*].iter().all(|&x| x) {
-                // TODO(Dori, 1/11/2023): When `ResourceBoundsMapping` implements `TryFrom`, use it.
-                for resource in [
-                    starknet_api::transaction::Resource::L1Gas,
-                    starknet_api::transaction::Resource::L2Gas
-                ].into_iter() {
-                    _macro_invoke_tx_args.resource_bounds.0.insert(
-                        resource,
-                        starknet_api::transaction::ResourceBounds {
-                            max_amount: _macro_invoke_tx_args.max_fee.0 as u64,
-                            max_price_per_unit: 1
-                        },
-                    );
-                }
-            }
-            _macro_invoke_tx_args
+            crate::fill_invoke_tx_defaults!(_macro_invoke_tx_args, $($field $(: $value)?),*)
+        }
+    };
+    ($($field:ident $(: $value:expr)?),* , ..$defaults:expr) => {
+        {
+            // Fill in all fields + use the provided defaults for missing fields.
+            let mut _macro_invoke_tx_args = InvokeTxArgs {
+                $($field $(: $value)?,)*
+                ..$defaults
+            };
+            crate::fill_invoke_tx_defaults!(_macro_invoke_tx_args, $($field $(: $value)?),*)
         }
     };
 }
