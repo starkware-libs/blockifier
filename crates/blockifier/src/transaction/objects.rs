@@ -12,7 +12,7 @@ use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
-macro_rules! implement_inner_account_tx_context_getter_calls {
+macro_rules! add_getters {
     ($(($field:ident, $field_type:ty)),*) => {
         $(pub fn $field(&self) -> $field_type {
             match self{
@@ -34,9 +34,8 @@ pub enum AccountTransactionContext {
 }
 
 impl AccountTransactionContext {
-    implement_inner_account_tx_context_getter_calls!(
+    add_getters!(
         (transaction_hash, TransactionHash),
-        (max_fee, Fee),
         (version, TransactionVersion),
         (nonce, Nonce),
         (sender_address, ContractAddress)
@@ -45,6 +44,12 @@ impl AccountTransactionContext {
     pub fn signature(&self) -> TransactionSignature {
         match self {
             Self::Deprecated(context) => context.signature.clone(),
+        }
+    }
+
+    pub fn max_fee(&self) -> Fee {
+        match self {
+            Self::Deprecated(context) => context.max_fee,
         }
     }
 
@@ -66,25 +71,12 @@ impl HasRelatedFeeType for AccountTransactionContext {
 /// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DeprecatedAccountTransactionContext {
-    transaction_hash: TransactionHash,
-    max_fee: Fee,
-    version: TransactionVersion,
-    signature: TransactionSignature,
-    nonce: Nonce,
-    sender_address: ContractAddress,
-}
-
-impl DeprecatedAccountTransactionContext {
-    pub fn new(
-        transaction_hash: TransactionHash,
-        max_fee: Fee,
-        version: TransactionVersion,
-        signature: TransactionSignature,
-        nonce: Nonce,
-        sender_address: ContractAddress,
-    ) -> Self {
-        Self { transaction_hash, max_fee, version, signature, nonce, sender_address }
-    }
+    pub transaction_hash: TransactionHash,
+    pub max_fee: Fee,
+    pub version: TransactionVersion,
+    pub signature: TransactionSignature,
+    pub nonce: Nonce,
+    pub sender_address: ContractAddress,
 }
 
 /// Contains the information gathered by the execution of a transaction.
