@@ -28,7 +28,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants;
 use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -87,13 +87,13 @@ pub const ERC20_CONTRACT_PATH: &str =
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_SEQUENCER_ADDRESS)])
+    get_fee_token_var_address(&contract_address!(TEST_SEQUENCER_ADDRESS))
 }
 pub fn test_erc20_account_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_ACCOUNT_CONTRACT_ADDRESS)])
+    get_fee_token_var_address(&contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
 }
 pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
-    get_storage_var_address("ERC20_balances", &[stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)])
+    get_fee_token_var_address(&contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
 }
 
 // The max_fee used for txs in this test.
