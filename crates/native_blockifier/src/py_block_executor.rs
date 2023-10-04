@@ -253,7 +253,8 @@ impl FromPyObject<'_> for PyGeneralConfig {
 
 #[derive(FromPyObject, Clone, Default)]
 pub struct PyStrkL1GasPriceSourceConfig {
-    pub l2_amm_addresses: Vec<PyFelt>,
+    pub oracle_address: PyFelt,
+    pub oracle_class_hash: PyFelt,
     pub override_gas_price: Option<PyFelt>,
 }
 
