@@ -2,7 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
+use starknet_api::data_availability::DataAvailabilityMode;
+use starknet_api::transaction::{
+    AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBoundsMapping, Tip,
+    TransactionHash, TransactionSignature, TransactionVersion,
+};
 use strum_macros::EnumIter;
 
 use crate::block_context::BlockContext;
@@ -16,7 +20,8 @@ macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
         $(pub fn $field(&self) -> $field_type {
             match self{
-                Self::Deprecated(context) => context.$field,
+                Self::Deprecated(context) => context.common_fields.$field,
+                Self::Current(context) => context.common_fields.$field,
             }
         })*
     };
@@ -28,8 +33,10 @@ pub enum FeeType {
     Eth,
 }
 
+/// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccountTransactionContext {
+    Current(CurrentAccountTransactionContext),
     Deprecated(DeprecatedAccountTransactionContext),
 }
 
@@ -43,13 +50,20 @@ impl AccountTransactionContext {
 
     pub fn signature(&self) -> TransactionSignature {
         match self {
-            Self::Deprecated(context) => context.signature.clone(),
+            Self::Deprecated(context) => context.common_fields.signature.clone(),
+            Self::Current(context) => context.common_fields.signature.clone(),
         }
     }
 
     pub fn max_fee(&self) -> Fee {
         match self {
             Self::Deprecated(context) => context.max_fee,
+            Self::Current(context) => {
+                let l1_resource_bounds =
+                    context.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
+                // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
+                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+            }
         }
     }
 
@@ -68,11 +82,26 @@ impl HasRelatedFeeType for AccountTransactionContext {
     }
 }
 
-/// Contains the account information of the transaction (outermost call).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CurrentAccountTransactionContext {
+    pub common_fields: CommonAccountFields,
+    pub resource_bounds: ResourceBoundsMapping,
+    pub tip: Tip,
+    pub nonce_data_availability_mode: DataAvailabilityMode,
+    pub fee_data_availability_mode: DataAvailabilityMode,
+    pub paymaster_data: PaymasterData,
+    pub account_deployment_data: AccountDeploymentData,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DeprecatedAccountTransactionContext {
-    pub transaction_hash: TransactionHash,
+    pub common_fields: CommonAccountFields,
     pub max_fee: Fee,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CommonAccountFields {
+    pub transaction_hash: TransactionHash,
     pub version: TransactionVersion,
     pub signature: TransactionSignature,
     pub nonce: Nonce,
