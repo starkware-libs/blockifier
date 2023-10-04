@@ -1,24 +1,16 @@
 use std::collections::BTreeMap;
-use std::convert::TryFrom;
-use std::sync::Arc;
 
-use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::L1HandlerTransaction;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
-use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{
-    Calldata, Fee, Resource, ResourceBounds, TransactionHash, TransactionVersion,
-};
+use starknet_api::transaction::{Resource, ResourceBounds};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_declare::py_declare;
 use crate::py_deploy_account::py_deploy_account;
 use crate::py_invoke_function::py_invoke_function;
-use crate::py_utils::{from_py_felts, py_attr, PyFelt};
+use crate::py_l1_handler::py_l1_handler;
 
 // Structs.
 
@@ -106,27 +98,7 @@ impl From<PyDataAvailabilityMode> for starknet_api::data_availability::DataAvail
     }
 }
 
-// Utils.
-
-fn py_calldata(tx: &PyAny, attr: &str) -> NativeBlockifierResult<Calldata> {
-    let py_calldata: Vec<PyFelt> = py_attr(tx, attr)?;
-    let calldata: Vec<StarkFelt> = from_py_felts(py_calldata);
-    Ok(Calldata(Arc::from(calldata)))
-}
-
 // Transactions creation.
-
-pub fn py_l1_handler(
-    tx: &PyAny,
-) -> NativeBlockifierResult<starknet_api::transaction::L1HandlerTransaction> {
-    Ok(starknet_api::transaction::L1HandlerTransaction {
-        version: TransactionVersion(StarkFelt::from(L1_HANDLER_VERSION)),
-        nonce: Nonce(py_attr::<PyFelt>(tx, "nonce")?.0),
-        contract_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "contract_address")?.0)?,
-        entry_point_selector: EntryPointSelector(py_attr::<PyFelt>(tx, "entry_point_selector")?.0),
-        calldata: py_calldata(tx, "calldata")?,
-    })
-}
 
 pub fn py_tx(
     tx_type: &str,
@@ -148,17 +120,7 @@ pub fn py_tx(
             let invoke_tx = AccountTransaction::Invoke(py_invoke_function(py_tx)?);
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
-        "L1_HANDLER" => {
-            let paid_fee_on_l1: Option<u128> = py_attr(py_tx, "paid_fee_on_l1")?;
-            let paid_fee_on_l1 = Fee(paid_fee_on_l1.unwrap_or_default());
-            let l1_handler_tx = py_l1_handler(py_tx)?;
-            let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);
-            Ok(Transaction::L1HandlerTransaction(L1HandlerTransaction {
-                tx: l1_handler_tx,
-                tx_hash,
-                paid_fee_on_l1,
-            }))
-        }
+        "L1_HANDLER" => Ok(Transaction::L1HandlerTransaction(py_l1_handler(py_tx)?)),
         _ => unimplemented!(),
     }
 }

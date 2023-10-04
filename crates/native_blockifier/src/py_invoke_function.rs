@@ -96,8 +96,6 @@ impl TryFrom<PyInvokeTransactionV3> for InvokeTransactionV3 {
     }
 }
 
-// Transactions creation.
-
 pub fn py_invoke_function(py_tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
     let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
     let tx = match version {
