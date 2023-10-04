@@ -3,13 +3,13 @@ use std::sync::Arc;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV2, DeclareTransactionV3, Fee, Resource,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV2,
+    DeclareTransactionV3, Fee, Resource, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use super::objects::{
     AccountTransactionContext, CommonAccountTransactionContextFields,
-    DeprecatedAccountTransactionContext, HasRelatedFeeType,
+    CurrentAccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType,
 };
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -180,13 +180,27 @@ impl DeclareTransaction {
             nonce: self.tx.nonce(),
             sender_address: self.tx.sender_address(),
         };
-        match self.tx.version() {
-            TransactionVersion::ZERO | TransactionVersion::ONE | TransactionVersion::TWO => {
-                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+
+        if self.tx.version() <= TransactionVersion::TWO {
+            return AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                common_fields,
+                max_fee: self.max_fee(),
+            });
+        }
+
+        match &self.tx {
+            starknet_api::transaction::DeclareTransaction::V3(tx) => {
+                AccountTransactionContext::Current(CurrentAccountTransactionContext {
                     common_fields,
-                    max_fee: self.max_fee(),
+                    resource_bounds: tx.resource_bounds.clone(),
+                    tip: tx.tip,
+                    nonce_data_availability_mode: tx.nonce_data_availability_mode,
+                    fee_data_availability_mode: tx.fee_data_availability_mode,
+                    paymaster_data: tx.paymaster_data.clone(),
+                    account_deployment_data: tx.account_deployment_data.clone(),
                 })
             }
+
             _ => unreachable!("Not implemented for tx version {:?}", self.tx.version()),
         }
     }
@@ -276,11 +290,22 @@ impl DeployAccountTransaction {
             nonce: self.tx.nonce(),
             sender_address: self.contract_address,
         };
-        match self.tx.version() {
-            TransactionVersion::ONE => {
-                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+        if self.tx.version() == TransactionVersion::ONE {
+            return AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                common_fields,
+                max_fee: self.max_fee(),
+            });
+        }
+        match &self.tx {
+            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
+                AccountTransactionContext::Current(CurrentAccountTransactionContext {
                     common_fields,
-                    max_fee: self.max_fee(),
+                    resource_bounds: tx.resource_bounds.clone(),
+                    tip: tx.tip,
+                    nonce_data_availability_mode: tx.nonce_data_availability_mode,
+                    fee_data_availability_mode: tx.fee_data_availability_mode,
+                    paymaster_data: tx.paymaster_data.clone(),
+                    account_deployment_data: AccountDeploymentData::default(),
                 })
             }
             _ => unreachable!("Not implemented for tx version {:?}", self.tx.version()),
@@ -349,11 +374,23 @@ impl InvokeTransaction {
             nonce: self.tx.nonce(),
             sender_address: self.tx.sender_address(),
         };
-        match self.tx.version() {
-            TransactionVersion::ZERO | TransactionVersion::ONE => {
-                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+
+        if self.tx.version() <= TransactionVersion::ONE {
+            return AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                common_fields,
+                max_fee: self.max_fee(),
+            });
+        }
+        match &self.tx {
+            starknet_api::transaction::InvokeTransaction::V3(tx) => {
+                AccountTransactionContext::Current(CurrentAccountTransactionContext {
                     common_fields,
-                    max_fee: self.max_fee(),
+                    resource_bounds: tx.resource_bounds.clone(),
+                    tip: tx.tip,
+                    nonce_data_availability_mode: tx.nonce_data_availability_mode,
+                    fee_data_availability_mode: tx.fee_data_availability_mode,
+                    paymaster_data: tx.paymaster_data.clone(),
+                    account_deployment_data: tx.account_deployment_data.clone(),
                 })
             }
             _ => unreachable!("Not implemented for tx version {:?}", self.tx.version()),
