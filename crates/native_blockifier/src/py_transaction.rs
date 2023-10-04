@@ -5,7 +5,7 @@ use std::sync::Arc;
 use blockifier::abi::constants::L1_HANDLER_VERSION;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::L1HandlerTransaction;
+use blockifier::transaction::transactions::{InvokeTransaction, L1HandlerTransaction};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
@@ -17,7 +17,7 @@ use starknet_api::transaction::{
 use crate::errors::NativeBlockifierResult;
 use crate::py_declare::py_declare;
 use crate::py_deploy_account::py_deploy_account;
-use crate::py_invoke_function::py_invoke_function;
+use crate::py_invoke_function::PyInvoke;
 use crate::py_utils::{from_py_felts, py_attr, PyFelt};
 
 // Structs.
@@ -145,7 +145,8 @@ pub fn py_tx(
             Ok(Transaction::AccountTransaction(deploy_account_tx))
         }
         "INVOKE_FUNCTION" => {
-            let invoke_tx = AccountTransaction::Invoke(py_invoke_function(py_tx)?);
+            let py_invoke_tx: PyInvoke = py_tx.extract()?;
+            let invoke_tx = AccountTransaction::Invoke(InvokeTransaction::try_from(py_invoke_tx)?);
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
         "L1_HANDLER" => {
