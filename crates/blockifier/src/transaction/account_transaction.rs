@@ -72,6 +72,7 @@ impl HasRelatedFeeType for AccountTransaction {
 }
 
 impl AccountTransaction {
+    // TODO(nir, 01/11/2023): Consider instantiating CommonAccountFields in AccountTransaction.
     pub fn tx_type(&self) -> TransactionType {
         match self {
             AccountTransaction::Declare(_) => TransactionType::Declare,
