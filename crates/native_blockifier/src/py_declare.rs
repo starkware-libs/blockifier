@@ -99,8 +99,6 @@ impl TryFrom<PyDeclareTransactionV3> for DeclareTransactionV3 {
     }
 }
 
-// Transactions creation.
-
 pub fn py_declare(
     py_tx: &PyAny,
     raw_contract_class: &str,
