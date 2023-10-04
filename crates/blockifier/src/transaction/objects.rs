@@ -27,7 +27,7 @@ macro_rules! implement_getters {
     };
 }
 
-#[derive(EnumIter)]
+#[derive(EnumIter, Eq, PartialEq)]
 pub enum FeeType {
     Strk,
     Eth,
