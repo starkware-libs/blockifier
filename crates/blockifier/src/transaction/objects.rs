@@ -20,8 +20,8 @@ macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
         $(pub fn $field(&self) -> $field_type {
             match self{
-                Self::Deprecated(context) => context.common_fields.$field,
                 Self::Current(context) => context.common_fields.$field,
+                Self::Deprecated(context) => context.common_fields.$field,
             }
         })*
     };
@@ -50,20 +50,20 @@ impl AccountTransactionContext {
 
     pub fn signature(&self) -> TransactionSignature {
         match self {
-            Self::Deprecated(context) => context.common_fields.signature.clone(),
             Self::Current(context) => context.common_fields.signature.clone(),
+            Self::Deprecated(context) => context.common_fields.signature.clone(),
         }
     }
 
     pub fn max_fee(&self) -> Fee {
         match self {
-            Self::Deprecated(context) => context.max_fee,
             Self::Current(context) => {
                 let l1_resource_bounds =
                     context.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
                 // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
                 Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
             }
+            Self::Deprecated(context) => context.max_fee,
         }
     }
 
