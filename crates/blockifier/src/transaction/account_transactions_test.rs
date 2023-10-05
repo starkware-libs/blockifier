@@ -227,6 +227,58 @@ fn test_account_flow_test(
     )
     .unwrap();
 }
+#[fixture]
+fn invoke_from_init_data(
+    #[default(TransactionVersion::ZERO)] tx_version: TransactionVersion,
+    #[from(create_test_init_data)] init_data: TestInitData,
+    max_fee: Fee,
+) -> TransactionExecutionInfo {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = init_data;
+
+    // Invoke a function from the newly deployed contract.
+
+    let entry_point_selector = selector_from_name("return_result");
+    run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            sender_address: account_address,
+            calldata: calldata![
+                *contract_address.0.key(), // Contract address.
+                entry_point_selector.0,    // EP selector.
+                stark_felt!(1_u8),         // Calldata length.
+                stark_felt!(2_u8)          // Calldata: num.
+            ],
+            version: tx_version,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap()
+}
+#[rstest]
+fn test_correct_fee_deducted(
+    #[from(invoke_from_init_data)]
+    #[with(TransactionVersion::ZERO)]
+    tx_v0_info: TransactionExecutionInfo,
+    #[from(invoke_from_init_data)]
+    #[with(TransactionVersion::ONE)]
+    tx_v1_info: TransactionExecutionInfo,
+    #[from(invoke_from_init_data)]
+    #[with(TransactionVersion::THREE)]
+    tx_v3_info: TransactionExecutionInfo,
+) {
+    // print!("{:?}", tx_v0_info);
+    // print!("{:?}", tx_v1_info);
+    print!("{:?}", tx_v3_info);
+    assert_eq!(tx_v0_info.actual_fee.0, tx_v1_info.actual_fee.0);
+}
 
 #[rstest]
 #[case(TransactionVersion::ZERO)]
