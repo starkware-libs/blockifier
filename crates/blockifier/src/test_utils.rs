@@ -28,7 +28,9 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::abi_utils::{
+    get_fee_token_var_address, get_storage_var_address, selector_from_name,
+};
 use crate::abi::constants;
 use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -54,6 +56,7 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
+pub const TEST_PAIR_SKELETON_CONTRACT_ADDRESS1: &str = "0x1003";
 
 // Class hashes.
 pub const TEST_CLASS_HASH: &str = "0x110";
@@ -64,6 +67,7 @@ pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
+pub const TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH: &str = "0x1011";
 
 // Paths.
 pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
@@ -84,6 +88,8 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+pub const TEST_PAIR_SKELETON_CONTRACT_PATH: &str =
+    "./feature_contracts/cairo0/compiled/test_pair_skeleton_compiled.json";
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
@@ -107,6 +113,10 @@ pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in 
 
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
+
+// The reserves values in the mocked STRK-ETH pair contract.
+pub const RESERVE_0: u32 = 100000;
+pub const RESERVE_1: u32 = 100;
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
@@ -240,6 +250,10 @@ fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
             class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into(),
         ),
+        (
+            class_hash!(TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH),
+            ContractClassV0::from_file(TEST_PAIR_SKELETON_CONTRACT_PATH).into(),
+        ),
     ])
 }
 
@@ -259,16 +273,30 @@ fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
 pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v0_class_mapping();
 
-    // Two instances of a test contract and one instance of another (different) test contract.
+    // Two instances of a test contract, one instance of another test contract and a pair contract.
     let address_to_class_hash = HashMap::from([
         (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
         (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
         (contract_address!(SECURITY_TEST_CONTRACT_ADDRESS), class_hash!(SECURITY_TEST_CLASS_HASH)),
+        (
+            contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1),
+            class_hash!(TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH),
+        ),
+    ]);
+
+    // Override the pair's reserves data, since the constructor is not called.
+    let pair_address = contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1);
+    let reserve0_address = get_storage_var_address("_reserve0", &[]);
+    let reserve1_address = get_storage_var_address("_reserve1", &[]);
+    let storage_view = HashMap::from([
+        ((pair_address, reserve0_address), stark_felt!(RESERVE_0)),
+        ((pair_address, reserve1_address), stark_felt!(RESERVE_1)),
     ]);
 
     CachedState::from(DictStateReader {
         class_hash_to_class,
         address_to_class_hash,
+        storage_view,
         ..Default::default()
     })
 }
@@ -280,6 +308,10 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     let address_to_class_hash = HashMap::from([
         (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
         (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
+        (
+            contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1),
+            class_hash!(TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH),
+        ),
     ]);
 
     CachedState::from(DictStateReader {
