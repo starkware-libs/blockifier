@@ -418,7 +418,7 @@ impl<'a> SyscallHintProcessor<'a> {
         let tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(account_tx_context.version().0).into(),
             stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            Felt252::from(account_tx_context.max_fee().0).into(),
+            Felt252::from(account_tx_context.max_fee(self.context.block_context.gas_prices).0).into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
             stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
