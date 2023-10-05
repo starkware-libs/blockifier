@@ -19,6 +19,7 @@ use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::execution::errors::EntryPointExecutionError;
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
@@ -30,6 +31,7 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
@@ -225,6 +227,61 @@ fn test_account_flow_test(
         },
     )
     .unwrap();
+}
+
+#[rstest]
+#[case(TransactionVersion::ZERO)]
+#[case(TransactionVersion::ONE)]
+// TODO(Nimrod, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
+fn test_invoke_tx_from_non_deployed_account(
+    max_fee: Fee,
+    #[from(create_test_init_data)] init_data: TestInitData,
+    #[case] tx_version: TransactionVersion,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address: _,
+        mut nonce_manager,
+        block_context,
+    } = init_data;
+    // Invoke a function from the newly deployed contract.
+    let entry_point_selector = selector_from_name("return_result");
+
+    let non_deployed_contract_address = StarkHash::TWO;
+
+    let tx_result = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            sender_address: account_address,
+            calldata: calldata![
+                non_deployed_contract_address, // Contract address.
+                entry_point_selector.0,    // EP selector.
+                stark_felt!(1_u8),         // Calldata length.
+                stark_felt!(2_u8)          // Calldata: num.
+            ],
+            version: tx_version,
+            nonce: nonce_manager.next(account_address),
+        },
+    );
+    let expected_error = "is not deployed.";
+    match tx_result {
+        Ok(info) => {
+            //  Make sure the error is because the account wasn't deployed.
+            assert!(info.revert_error.is_some_and(|err_str| err_str.contains(expected_error)));
+        }
+        Err(err) => {
+            //  Make sure the error is because the account wasn't deployed.
+            assert!(matches!(err, TransactionExecutionError::ExecutionError(
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. })
+                if trace.contains(expected_error)
+            ));
+            // We expect to get an error only when tx_version is 0, on other versions to revert.
+            assert!(matches!(tx_version, TransactionVersion::ZERO));
+        }
+    }
 }
 
 #[rstest]
