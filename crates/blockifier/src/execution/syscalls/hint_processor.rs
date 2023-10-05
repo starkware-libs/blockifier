@@ -413,12 +413,13 @@ impl<'a> SyscallHintProcessor<'a> {
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
         let account_tx_context = &self.context.account_tx_context;
+        let max_fee = account_tx_context.max_fee(self.context.block_context.gas_prices);
         let tx_signature_length = account_tx_context.signature().0.len();
         let tx_signature_end_ptr = (tx_signature_start_ptr + tx_signature_length)?;
         let tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(account_tx_context.version().0).into(),
             stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            Felt252::from(account_tx_context.max_fee().0).into(),
+            Felt252::from(max_fee.0).into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
             stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
