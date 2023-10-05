@@ -105,7 +105,7 @@ impl ContractClassV0 {
     }
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct ContractClassV0Inner {
     #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
@@ -202,7 +202,7 @@ pub struct ContractClassV1Inner {
     pub hints: HashMap<String, Hint>,
 }
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct EntryPointV1 {
     pub selector: EntryPointSelector,
     pub offset: EntryPointOffset,

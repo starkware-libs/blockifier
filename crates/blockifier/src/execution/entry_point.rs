@@ -40,7 +40,7 @@ pub enum CallType {
     Delegate = 1,
 }
 /// Represents a call to an entry point of a StarkNet contract.
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
@@ -66,13 +66,13 @@ pub struct ConstructorContext {
     pub caller_address: ContractAddress,
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct EntryPointExecutionContext {
     pub block_context: BlockContext,
     pub account_tx_context: AccountTransactionContext,
