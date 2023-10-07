@@ -34,10 +34,10 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
+    check_entry_point_execution_error_for_custom_hint, test_erc20_account_balance_key,
+    test_erc20_sequencer_balance_key, DictStateReader, NonceManager, BALANCE, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
@@ -886,6 +886,8 @@ fn test_deploy_account_tx(
     );
 }
 
+// TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
+// another contract flow.
 #[test]
 fn test_validate_accounts_tx() {
     fn test_validate_account_tx(tx_type: TransactionType) {
@@ -932,8 +934,14 @@ fn test_validate_accounts_tx() {
             &mut NonceManager::default(),
         );
         let error = account_tx.execute(state, block_context, true).unwrap_err();
-        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
+        if let TransactionExecutionError::ValidateTransactionError(error) = error {
+            check_entry_point_execution_error_for_custom_hint(
+                &error,
+                "Unauthorized syscall call_contract in execution mode Validate.",
+            );
+        } else {
+            panic!("Expected ValidateTransactionError.")
+        }
 
         // Verify that the contract does not call another contract in the constructor of deploy
         // account as well.
@@ -954,8 +962,14 @@ fn test_validate_accounts_tx() {
             );
             let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
             let error = account_tx.execute(state, block_context, true).unwrap_err();
-            assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == "an account constructor");
+            if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
+                check_entry_point_execution_error_for_custom_hint(
+                    &error,
+                    "Unauthorized syscall call_contract in execution mode Validate.",
+                );
+            } else {
+                panic!("Expected ContractConstructorExecutionFailed.")
+            }
         }
     }
 
