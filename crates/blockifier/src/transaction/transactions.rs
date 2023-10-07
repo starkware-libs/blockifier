@@ -18,9 +18,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use crate::transaction::transaction_utils::{
-    update_remaining_gas, verify_no_calls_to_other_contracts,
-};
+use crate::transaction::transaction_utils::update_remaining_gas;
 
 #[cfg(test)]
 #[path = "transactions_test.rs"]
@@ -197,7 +195,6 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         let call_info = deployment_result
             .map_err(TransactionExecutionError::ContractConstructorExecutionFailed)?;
         update_remaining_gas(remaining_gas, &call_info);
-        verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
 
         Ok(Some(call_info))
     }
