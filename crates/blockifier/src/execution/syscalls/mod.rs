@@ -161,6 +161,12 @@ pub fn call_contract(
     remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    if syscall_handler.is_validate_mode() && syscall_handler.storage_address() != storage_address {
+        return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
+            syscall_name: "call_contract".to_string(),
+            execution_mode: syscall_handler.execution_mode(),
+        });
+    }
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
