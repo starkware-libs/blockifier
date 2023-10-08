@@ -2,23 +2,20 @@ use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
-use crate::papyrus_state::PapyrusReader;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
-#[pyclass]
 /// Manages transaction validation for pre-execution flows.
+#[pyclass]
 pub struct PyValidator {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
-    // TODO: Once we decide on which state reader to use, replaced PapyrusReader below with that.
-    // Currently using PapyrusReader to appease the type checker and since pyclass doesn't support
-    // generics.
-    pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
+    pub tx_executor: Option<TransactionExecutor<PyStateReader>>,
     pub global_contract_cache: GlobalContractCache,
 }
 
@@ -27,10 +24,10 @@ impl PyValidator {
     #[new]
     #[pyo3(signature = (general_config, max_recursion_depth))]
     pub fn create(general_config: PyGeneralConfig, max_recursion_depth: usize) -> Self {
-        log::debug!("Initializing Block Executor...");
+        log::debug!("Initializing Validator...");
         let tx_executor = None;
 
-        log::debug!("Initialized Block Executor.");
+        log::debug!("Initialized Validator.");
         Self {
             general_config,
             max_recursion_depth,
@@ -42,25 +39,33 @@ impl PyValidator {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (_next_block_info, _state_reader_proxy))]
+    #[pyo3(signature = (next_block_info, state_reader_proxy))]
     fn setup_validation_context(
         &mut self,
-        _next_block_info: PyBlockInfo,
-        _state_reader_proxy: &PyAny,
+        next_block_info: PyBlockInfo,
+        state_reader_proxy: &PyAny,
     ) -> NativeBlockifierResult<()> {
-        unimplemented!(
-            "Once we decide on a state reader, initialize it here and initialize the transaction \
-             executor with it."
-        )
+        let reader = PyStateReader::new(state_reader_proxy);
+
+        let tx_executor = TransactionExecutor::new(
+            reader,
+            &self.general_config,
+            next_block_info,
+            self.max_recursion_depth,
+            self.global_contract_cache.clone(),
+        )?;
+        self.tx_executor = Some(tx_executor);
+
+        Ok(())
     }
 
     fn teardown_validation_context(&mut self) {
         self.tx_executor = None;
     }
 
-    #[pyo3(signature = (tx, raw_contract_class))]
     /// Applicable solely to account deployment transactions: the execution of the constructor
     // is required before they can be validated.
+    #[pyo3(signature = (tx, raw_contract_class))]
     pub fn execute(
         &mut self,
         tx: &PyAny,
@@ -99,8 +104,7 @@ impl PyValidator {
 }
 
 impl PyValidator {
-    // TODO: replace PapyrusReader with PyStateReader once it's in.
-    pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PapyrusReader> {
+    pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
     }
 }
