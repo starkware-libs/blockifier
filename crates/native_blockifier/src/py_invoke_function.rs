@@ -20,7 +20,7 @@ use crate::py_utils::{from_py_felts, py_attr, PyFelt};
 struct PyInvokeTransactionV0 {
     pub max_fee: u128,
     pub signature: Vec<PyFelt>,
-    pub contract_address: PyFelt,
+    pub sender_address: PyFelt,
     pub entry_point_selector: PyFelt,
     pub calldata: Vec<PyFelt>,
 }
@@ -31,7 +31,7 @@ impl TryFrom<PyInvokeTransactionV0> for InvokeTransactionV0 {
         Ok(Self {
             max_fee: Fee(tx.max_fee),
             signature: TransactionSignature(from_py_felts(tx.signature)),
-            contract_address: ContractAddress::try_from(tx.contract_address.0)?,
+            contract_address: ContractAddress::try_from(tx.sender_address.0)?,
             entry_point_selector: EntryPointSelector(tx.entry_point_selector.0),
             calldata: Calldata(Arc::from(from_py_felts(tx.calldata))),
         })
