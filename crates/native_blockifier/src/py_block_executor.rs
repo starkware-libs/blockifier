@@ -51,11 +51,15 @@ impl PyBlockExecutor {
         }
     }
 
-    #[pyo3(signature = (next_block_number))]
-    fn get_strk_gas_price(&self, next_block_number: u64) -> NativeBlockifierResult<u128> {
+    #[pyo3(signature = (next_block_number, eth_l1_gas_price))]
+    fn get_strk_gas_price(
+        &self,
+        next_block_number: u64,
+        eth_l1_gas_price: u128,
+    ) -> NativeBlockifierResult<u128> {
         let _reader = self.get_aligned_reader(next_block_number);
         // TODO(Amos, 15/9/2023): NEW_TOKEN_SUPPORT compute strk l1 gas price.
-        Ok(1_u128)
+        Ok(eth_l1_gas_price)
     }
 
     // Transaction Execution API.
