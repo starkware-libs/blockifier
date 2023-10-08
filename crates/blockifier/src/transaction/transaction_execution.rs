@@ -29,9 +29,7 @@ impl Transaction {
     pub fn initial_gas() -> u64 {
         abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
     }
-}
 
-impl Transaction {
     pub fn from_api(
         tx: StarknetApiTransaction,
         tx_hash: TransactionHash,
