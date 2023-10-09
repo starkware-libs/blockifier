@@ -24,7 +24,7 @@ use crate::execution::hint_code::{
 };
 
 /// Transaction execution mode.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, derive_more::Display)]
 pub enum ExecutionMode {
     /// Normal execution mode.
     #[default]
