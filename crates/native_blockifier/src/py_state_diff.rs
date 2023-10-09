@@ -9,6 +9,7 @@ use starknet_api::state::{StateDiff, StorageKey};
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
+use crate::storage::GENESIS_BLOCK_ID;
 
 #[pyclass]
 #[derive(FromPyObject)]
@@ -116,9 +117,21 @@ impl From<CommitmentStateDiff> for PyStateDiff {
 
 #[derive(Default, FromPyObject)]
 pub struct PyBlockInfo {
-    pub block_number: u64,
     pub block_timestamp: u64,
     pub eth_l1_gas_price: u128,
     pub strk_l1_gas_price: u128,
     pub sequencer_address: PyFelt,
+    block_number: i64,
+}
+
+impl PyBlockInfo {
+    /// The sentinel block_number in Python is a -1 int, in Rust we parse it as the maximal u64
+    /// number.
+    pub fn block_number(&self) -> u64 {
+        let block_number: i64 = self.block_number;
+
+        // Convert -1 to u64::MAX.
+        assert!(-1 <= block_number);
+        u64::try_from(block_number).unwrap_or(GENESIS_BLOCK_ID)
+    }
 }

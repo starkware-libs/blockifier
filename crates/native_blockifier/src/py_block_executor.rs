@@ -66,7 +66,7 @@ impl PyBlockExecutor {
         &mut self,
         next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<()> {
-        let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
+        let papyrus_reader = self.get_aligned_reader(next_block_info.block_number());
 
         let tx_executor = TransactionExecutor::new(
             papyrus_reader,
@@ -281,7 +281,7 @@ pub fn into_block_context(
     max_recursion_depth: usize,
 ) -> NativeBlockifierResult<BlockContext> {
     let starknet_os_config = general_config.starknet_os_config.clone();
-    let block_number = BlockNumber(block_info.block_number);
+    let block_number = BlockNumber(block_info.block_number());
     let block_context = BlockContext {
         chain_id: starknet_os_config.chain_id,
         block_number,

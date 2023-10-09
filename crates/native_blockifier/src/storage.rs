@@ -19,7 +19,7 @@ use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::PyStateDiff;
 
-const GENESIS_BLOCK_ID: u64 = u64::MAX;
+pub const GENESIS_BLOCK_ID: u64 = u64::MAX;
 
 // Invariant: Only one instance of this struct should exist.
 // Reader and writer fields must be cleared before the struct goes out of scope in Python;
@@ -97,9 +97,9 @@ impl Storage {
     ) -> NativeBlockifierResult<()> {
         log::debug!(
             "Appending state diff with {block_id:?} for block_number: {}.",
-            py_block_info.block_number
+            py_block_info.block_number()
         );
-        let block_number = BlockNumber(py_block_info.block_number);
+        let block_number = BlockNumber(py_block_info.block_number());
         let state_number = StateNumber(block_number);
 
         // Deserialize contract classes.
