@@ -2,12 +2,12 @@ use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
-use crate::papyrus_state::PapyrusReader;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::transaction_executor::TransactionExecutor;
 
 #[pyclass]

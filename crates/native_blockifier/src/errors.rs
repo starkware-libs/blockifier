@@ -73,6 +73,10 @@ pub enum NativeBlockifierInputError {
     ProgramError(#[from] ProgramError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error("Contract class of version {version} is unsupported.")]
+    UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
 }
+
+create_exception!(native_blockifier, UndeclaredClassHashError, PyException);

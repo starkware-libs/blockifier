@@ -8,10 +8,10 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::errors::NativeBlockifierResult;
-use crate::papyrus_state::PapyrusReader;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
+use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{Storage, StorageConfig};
 use crate::transaction_executor::TransactionExecutor;
 
