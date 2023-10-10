@@ -17,7 +17,7 @@ use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::papyrus_state::PapyrusReader;
+use crate::state_readers::papyrus_state::PapyrusReader;
 
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
