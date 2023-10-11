@@ -441,7 +441,7 @@ fn test_secp256r1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 55409470_u64, ..Default::default() }
+        CallExecution { gas_consumed: 55289070_u64, ..Default::default() }
     );
 }
 
