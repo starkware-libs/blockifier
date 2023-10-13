@@ -220,12 +220,13 @@ impl CallEntryPoint {
                     EntryPointExecutionError::VirtualMachineExecutionError(error) => {
                         context.error_stack.push((storage_address, error.try_to_vm_trace()));
                         // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
-                        // right now,  each intermediate VM error is wrapped
-                        // in a VirtualMachineExecutionErrorWithTrace  error
-                        // with the stringified trace of all errors below
-                        // it.
+                        //   right now, each intermediate VM error is wrapped in a
+                        //   VirtualMachineExecutionErrorWithTrace error with the stringified trace
+                        //   of all errors below it.
+                        //   When that's done, remove the 10000 character limitation.
+                        let error_trace = context.error_trace();
                         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                            trace: context.error_trace(),
+                            trace: error_trace[..min(10000, error_trace.len())].to_string(),
                             source: error,
                         }
                     }
