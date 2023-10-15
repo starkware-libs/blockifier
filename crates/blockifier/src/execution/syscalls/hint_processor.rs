@@ -108,8 +108,6 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
-// Each resource bound contains three felts; see struct `Resource`.
-pub const RESOURCE_BOUNDS_ELEMENT_SIZE: usize = 3;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -314,36 +312,31 @@ impl<'a> SyscallHintProcessor<'a> {
         }
     }
 
-    // TODO(Mohammad, 20/10/2023): Refactor to use allocate_data_segment method.
     fn allocate_tx_resource_bounds_segment(
         &mut self,
         vm: &mut VirtualMachine,
         context: &CurrentAccountTransactionContext,
-    ) -> SyscallResult<Relocatable> {
-        let flat_resource_bounds = &context
+    ) -> SyscallResult<(Relocatable, Relocatable)> {
+        let flat_resource_bounds = context
             .resource_bounds
             .0
             .iter()
             .flat_map(|(resource, resource_bounds)| {
-                let resource_as_int = match resource {
-                    Resource::L1Gas => 0,
-                    Resource::L2Gas => 1,
+                // Convert the key (resource) to an int.
+                let resource = match resource {
+                    Resource::L1Gas => StarkFelt::ZERO,
+                    Resource::L2Gas => StarkFelt::ONE,
                 };
 
                 vec![
-                    resource_as_int,
-                    resource_bounds.max_price_per_unit,
-                    resource_bounds.max_amount as u128,
+                    resource,
+                    StarkFelt::from(resource_bounds.max_price_per_unit),
+                    StarkFelt::from(resource_bounds.max_amount),
                 ]
-                .into_iter()
-                .map(|value| MaybeRelocatable::from(Felt252::from(value)))
             })
             .collect();
 
-        let resource_bounds_segment_start_ptr =
-            self.read_only_segments.allocate(vm, flat_resource_bounds)?;
-
-        Ok(resource_bounds_segment_start_ptr)
+        self.allocate_data_segment(vm, flat_resource_bounds)
     }
 
     fn execute_syscall<Request, Response, ExecuteCallback>(
@@ -409,7 +402,6 @@ impl<'a> SyscallHintProcessor<'a> {
         self.increment_syscall_count_by(selector, 1);
     }
 
-    // TODO(Mohammad, 20/10/2023): Refactor to use allocate_data_segment method.
     fn allocate_execution_info_segment(
         &mut self,
         vm: &mut VirtualMachine,
@@ -430,22 +422,21 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(execution_info_segment_start_ptr)
     }
 
-    // TODO(Mohammad, 20/10/2023): Refactor to use allocate_data_segment method.
     fn allocate_block_info_segment(
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
         let block_context = &self.context.block_context;
-        let block_info: Vec<MaybeRelocatable> = if self.is_validate_mode() {
-            vec![Felt252::zero().into(); 3]
+        let block_info: Vec<StarkFelt> = if self.is_validate_mode() {
+            vec![StarkFelt::ZERO; 3]
         } else {
             vec![
-                Felt252::from(block_context.block_number.0).into(),
-                Felt252::from(block_context.block_timestamp.0).into(),
-                stark_felt_to_felt(*block_context.sequencer_address.0.key()).into(),
+                StarkFelt::from(block_context.block_number.0),
+                StarkFelt::from(block_context.block_timestamp.0),
+                *block_context.sequencer_address.0.key(),
             ]
         };
-        let block_info_segment_start_ptr = self.read_only_segments.allocate(vm, &block_info)?;
+        let (block_info_segment_start_ptr, _) = self.allocate_data_segment(vm, block_info)?;
 
         Ok(block_info_segment_start_ptr)
     }
@@ -485,11 +476,8 @@ impl<'a> SyscallHintProcessor<'a> {
 
         match account_tx_context {
             AccountTransactionContext::Current(current_ctx) => {
-                let tx_resource_bounds_start_ptr =
+                let (tx_resource_bounds_start_ptr, tx_resource_bounds_end_ptr) =
                     &self.allocate_tx_resource_bounds_segment(vm, &current_ctx)?;
-                let tx_resource_bounds_length = current_ctx.resource_bounds.0.len();
-                let tx_resource_bounds_end_ptr = (*tx_resource_bounds_start_ptr
-                    + (RESOURCE_BOUNDS_ELEMENT_SIZE * tx_resource_bounds_length))?;
 
                 let (tx_paymaster_data_start_ptr, tx_paymaster_data_end_ptr) =
                     &self.allocate_data_segment(vm, current_ctx.paymaster_data.0)?;
