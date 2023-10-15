@@ -44,7 +44,10 @@ use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStor
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
-use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
+use crate::transaction::objects::{
+    AccountTransactionContext, CurrentAccountTransactionContext,
+    DeprecatedAccountTransactionContext,
+};
 use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
 
 // Addresses.
@@ -371,6 +374,19 @@ impl CallEntryPoint {
         let mut context = EntryPointExecutionContext::new_invoke(
             &block_context,
             &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+        );
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
+    }
+
+    pub fn execute_directly_with_custom_context(
+        self,
+        state: &mut dyn State,
+        current_context: CurrentAccountTransactionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        let block_context = BlockContext::create_for_testing();
+        let mut context = EntryPointExecutionContext::new_invoke(
+            &block_context,
+            &AccountTransactionContext::Current(current_context),
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }

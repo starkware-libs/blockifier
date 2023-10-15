@@ -19,7 +19,7 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -48,6 +48,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::objects::{AccountTransactionContext, CurrentAccountTransactionContext};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -410,21 +411,154 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(signature_segment_start_ptr)
     }
 
+    fn allocate_tx_resource_bounds_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+        context: &CurrentAccountTransactionContext,
+    ) -> SyscallResult<Relocatable> {
+        let resource_bounds = &context
+            .resource_bounds
+            .0
+            .iter()
+            .flat_map(|(resource, resource_bounds)| {
+                // Convert the key (resource) to an int.
+                let resource_int = match resource {
+                    Resource::L1Gas => 1,
+                    Resource::L2Gas => 2,
+                };
+
+                // Convert other fields as needed.
+                let max_amount = resource_bounds.max_amount;
+                let max_price_per_unit = resource_bounds.max_price_per_unit;
+
+                // Create a MaybeRelocatable from the fields.
+                let resource = MaybeRelocatable::from(Felt252::from(resource_int));
+                let max_price_per_unit = MaybeRelocatable::from(Felt252::from(max_price_per_unit));
+                let max_amount = MaybeRelocatable::from(Felt252::from(max_amount));
+
+                vec![resource, max_price_per_unit, max_amount]
+            })
+            .collect();
+
+        let resource_bounds_segment_start_ptr =
+            self.read_only_segments.allocate(vm, resource_bounds)?;
+
+        Ok(resource_bounds_segment_start_ptr)
+    }
+
+    fn allocate_tx_paymaster_data_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        let paymaster_data = &self.context.account_tx_context.signature().0;
+        let paymaster_data =
+            paymaster_data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let paymaster_data_segment_start_ptr =
+            self.read_only_segments.allocate(vm, &paymaster_data)?;
+
+        Ok(paymaster_data_segment_start_ptr)
+    }
+
+    fn allocate_tx_account_deployment_data_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+    ) -> SyscallResult<Relocatable> {
+        let account_deployment_data = &self.context.account_tx_context.signature().0;
+        let account_deployment_data = account_deployment_data
+            .iter()
+            .map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x)))
+            .collect();
+        let account_deployment_data_segment_start_ptr =
+            self.read_only_segments.allocate(vm, &account_deployment_data)?;
+
+        Ok(account_deployment_data_segment_start_ptr)
+    }
+
+    fn get_empty_array_pointer(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
+        // You can use any type for the array, e.g., u8, or your custom type.
+        // Here, we're using u8 as an example.
+        let empty_array: [StarkFelt; 0] = [];
+
+        let empty_array =
+            empty_array.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let empty_array_start_ptr = self.read_only_segments.allocate(vm, &empty_array)?;
+
+        Ok(empty_array_start_ptr)
+    }
+
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
-        let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
-        let account_tx_context = &self.context.account_tx_context;
+        let account_tx_context = self.context.account_tx_context.clone();
+        let tx_signature_start_ptr = &self.allocate_tx_signature_segment(vm)?;
         let tx_signature_length = account_tx_context.signature().0.len();
-        let tx_signature_end_ptr = (tx_signature_start_ptr + tx_signature_length)?;
-        let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(account_tx_context.version().0).into(),
-            stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            Felt252::from(account_tx_context.max_fee().0).into(),
-            tx_signature_start_ptr.into(),
-            tx_signature_end_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(account_tx_context.nonce().0).into(),
-        ];
+        let tx_signature_end_ptr = (*tx_signature_start_ptr + tx_signature_length)?;
+
+        let tx_info: Vec<MaybeRelocatable> = match account_tx_context {
+            AccountTransactionContext::Current(current_ctx) => {
+                // Here you have access to the fields of the CurrentAccountTransactionContext.
+                let tx_resource_bounds_start_ptr =
+                    &self.allocate_tx_resource_bounds_segment(vm, &current_ctx)?;
+                let tx_resource_bounds_length = current_ctx.resource_bounds.0.len();
+                let tx_resource_bounds_end_ptr =
+                    (*tx_resource_bounds_start_ptr + tx_resource_bounds_length)?;
+
+                let tx_paymaster_data_start_ptr = &self.allocate_tx_paymaster_data_segment(vm)?;
+                let tx_paymaster_data_length = current_ctx.paymaster_data.0.len();
+                let tx_paymaster_data_end_ptr =
+                    (*tx_paymaster_data_start_ptr + tx_paymaster_data_length)?;
+
+                let tx_account_deployment_data_start_ptr =
+                    &self.allocate_tx_account_deployment_data_segment(vm)?;
+                let tx_account_deployment_data_length = current_ctx.account_deployment_data.0.len();
+                let tx_account_deployment_data_end_ptr =
+                    (*tx_account_deployment_data_start_ptr + tx_account_deployment_data_length)?;
+
+                vec![
+                    stark_felt_to_felt(self.context.account_tx_context.version().0).into(),
+                    stark_felt_to_felt(*self.context.account_tx_context.sender_address().0.key())
+                        .into(),
+                    Felt252::from((self.context.account_tx_context).max_fee().0).into(),
+                    tx_signature_start_ptr.into(),
+                    tx_signature_end_ptr.into(),
+                    stark_felt_to_felt((self.context.account_tx_context).transaction_hash().0)
+                        .into(),
+                    Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+                    stark_felt_to_felt((self.context.account_tx_context).nonce().0).into(),
+                    tx_resource_bounds_start_ptr.into(),
+                    tx_resource_bounds_end_ptr.into(),
+                    Felt252::from(current_ctx.tip.0).into(),
+                    stark_felt_to_felt(current_ctx.nonce_data_availability_mode.into()).into(),
+                    stark_felt_to_felt(current_ctx.fee_data_availability_mode.into()).into(),
+                    tx_paymaster_data_start_ptr.into(),
+                    tx_paymaster_data_end_ptr.into(),
+                    tx_account_deployment_data_start_ptr.into(),
+                    tx_account_deployment_data_end_ptr.into(),
+                ]
+            }
+            AccountTransactionContext::Deprecated(_) => {
+                // Handle the DeprecatedAccountTransactionContext.
+                let empty_array_ptr = self.get_empty_array_pointer(vm)?;
+                vec![
+                    stark_felt_to_felt(self.context.account_tx_context.version().0).into(),
+                    stark_felt_to_felt(*self.context.account_tx_context.sender_address().0.key())
+                        .into(),
+                    Felt252::from(self.context.account_tx_context.max_fee().0).into(),
+                    tx_signature_start_ptr.into(),
+                    tx_signature_end_ptr.into(),
+                    stark_felt_to_felt(self.context.account_tx_context.transaction_hash().0).into(),
+                    Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+                    stark_felt_to_felt(self.context.account_tx_context.nonce().0).into(),
+                    empty_array_ptr.into(), // Empty list of ResourceBound
+                    empty_array_ptr.into(),
+                    Felt252::from(0).into(), // Tip
+                    Felt252::from(0).into(), // nonce_data_availability_mode
+                    Felt252::from(0).into(), // fee_data_availability_mode
+                    empty_array_ptr.into(),  // Empty list of paymaster_data
+                    empty_array_ptr.into(),
+                    empty_array_ptr.into(), // Empty list of account_deployment_data
+                    empty_array_ptr.into(),
+                ]
+            }
+        };
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
         Ok(tx_info_start_ptr)

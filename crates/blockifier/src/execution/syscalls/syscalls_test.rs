@@ -8,10 +8,12 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EthAddress, PatriciaKey,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, L2ToL1Payload,
+    AccountDeploymentData, Calldata, ContractAddressSalt, EventContent, EventData, EventKey,
+    L2ToL1Payload, PaymasterData, ResourceBoundsMapping, Tip,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -34,6 +36,7 @@ use crate::test_utils::{
     CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
+use crate::transaction::objects::{CommonAccountFields, CurrentAccountTransactionContext};
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
@@ -211,7 +214,20 @@ fn test_get_execution_info() {
     };
 
     // TODO(spapini): Fix the "UNEXPECTED ERROR".
-    entry_point_call.execute_directly(&mut state).unwrap_err();
+    entry_point_call.clone().execute_directly(&mut state).unwrap_err();
+    let default_current_context = CurrentAccountTransactionContext {
+        common_fields: CommonAccountFields::default(),
+        resource_bounds: ResourceBoundsMapping::default(),
+        tip: Tip::default(),
+        nonce_data_availability_mode: DataAvailabilityMode::L1,
+        fee_data_availability_mode: DataAvailabilityMode::L1,
+        paymaster_data: PaymasterData::default(),
+        account_deployment_data: AccountDeploymentData::default(),
+    };
+    entry_point_call
+        .clone()
+        .execute_directly_with_custom_context(&mut state, default_current_context)
+        .unwrap_err();
 }
 
 #[test]
