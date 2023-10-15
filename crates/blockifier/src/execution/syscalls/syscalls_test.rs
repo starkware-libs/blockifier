@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
@@ -10,10 +10,12 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, L2ToL1Payload,
+    AccountDeploymentData, Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee,
+    L2ToL1Payload, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
@@ -42,7 +44,8 @@ use crate::test_utils::{
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
-    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+    AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
+    DeprecatedAccountTransactionContext,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -259,7 +262,9 @@ fn test_get_execution_info(
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata: Calldata(
-            [expected_block_info.to_vec(), expected_tx_info, expected_call_info].concat().into(),
+            [expected_block_info.to_vec(), expected_tx_info.clone(), expected_call_info]
+                .concat()
+                .into(),
         ),
         ..trivial_external_entry_point()
     };
@@ -288,8 +293,53 @@ fn test_get_execution_info(
             entry_point_call.execute_directly_given_account_context(&mut state, account_tx_context)
         }
     };
+    assert!(!result.unwrap().execution.failed);
 
-    assert!(!result.unwrap().execution.failed)
+    // Test V3 transactions.
+    let entry_point_selector_v2 = selector_from_name("test_get_execution_info_v2");
+    let expected_call_info_v2 = vec![
+        stark_felt!(0_u16),                     // Caller address.
+        stark_felt!(TEST_CONTRACT_ADDRESS),     // Storage address.
+        stark_felt!(entry_point_selector_v2.0), // Entry point selector.
+    ];
+    let entry_point_call_v2 = CallEntryPoint {
+        entry_point_selector: entry_point_selector_v2,
+        calldata: Calldata(
+            [expected_block_info.to_vec(), expected_tx_info, expected_call_info_v2].concat().into(),
+        ),
+        ..trivial_external_entry_point()
+    };
+
+    let default_current_context =
+        AccountTransactionContext::Current(CurrentAccountTransactionContext {
+            common_fields: CommonAccountFields::default(),
+            resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+                // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
+                //   L2 gas.
+                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+            ])),
+            tip: Tip::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: PaymasterData::default(),
+            account_deployment_data: AccountDeploymentData::default(),
+        });
+    dbg!(&default_current_context);
+
+    let result = match execution_mode {
+        ExecutionMode::Validate => entry_point_call_v2
+            .execute_directly_given_account_context_in_validate_mode(
+                &mut state,
+                default_current_context,
+            ),
+        ExecutionMode::Execute => entry_point_call_v2
+            .execute_directly_given_account_context(&mut state, default_current_context),
+    };
+
+    dbg!(&result);
+
+    // assert!(!result.unwrap().execution.failed)
 }
 
 #[test]
