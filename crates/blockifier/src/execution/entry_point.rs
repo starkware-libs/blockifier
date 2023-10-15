@@ -53,6 +53,67 @@ pub struct CallEntryPoint {
     pub initial_gas: u64,
 }
 
+impl CallEntryPoint {
+    pub fn execute(
+        mut self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        context: &mut EntryPointExecutionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        context.current_recursion_depth += 1;
+        if context.current_recursion_depth > context.max_recursion_depth {
+            return Err(EntryPointExecutionError::RecursionDepthExceeded);
+        }
+
+        // Validate contract is deployed.
+        let storage_address = self.storage_address;
+        let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
+        if storage_class_hash == ClassHash::default() {
+            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
+        }
+
+        let class_hash = match self.class_hash {
+            Some(class_hash) => class_hash,
+            None => storage_class_hash, // If not given, take the storage contract class hash.
+        };
+        // Hack to prevent version 0 attack on argent accounts.
+        if context.account_tx_context.version() == TransactionVersion::ZERO
+            && class_hash
+                == ClassHash(
+                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
+                )
+        {
+            return Err(PreExecutionError::FraudAttempt.into());
+        }
+        // Add class hash to the call, that will appear in the output (call info).
+        self.class_hash = Some(class_hash);
+        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+
+        let result = execute_entry_point_call(self, contract_class, state, resources, context)
+            .map_err(|error| {
+                match error {
+                    // On VM error, pack the stack trace into the propagated error.
+                    EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                        context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                        // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
+                        // right now,  each intermediate VM error is wrapped
+                        // in a VirtualMachineExecutionErrorWithTrace  error
+                        // with the stringified trace of all errors below
+                        // it.
+                        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                            trace: context.error_trace(),
+                            source: error,
+                        }
+                    }
+                    other_error => other_error,
+                }
+            });
+
+        context.current_recursion_depth -= 1;
+        result
+    }
+}
+
 pub struct ConstructorContext {
     pub class_hash: ClassHash,
     // Only relevant in deploy syscall.
@@ -84,6 +145,7 @@ pub struct EntryPointExecutionContext {
     // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
     max_recursion_depth: usize,
 }
+
 impl EntryPointExecutionContext {
     pub fn new(
         block_context: BlockContext,
@@ -172,67 +234,6 @@ impl EntryPointExecutionContext {
             })
             .collect::<Vec<String>>()
             .join("\n")
-    }
-}
-
-impl CallEntryPoint {
-    pub fn execute(
-        mut self,
-        state: &mut dyn State,
-        resources: &mut ExecutionResources,
-        context: &mut EntryPointExecutionContext,
-    ) -> EntryPointExecutionResult<CallInfo> {
-        context.current_recursion_depth += 1;
-        if context.current_recursion_depth > context.max_recursion_depth {
-            return Err(EntryPointExecutionError::RecursionDepthExceeded);
-        }
-
-        // Validate contract is deployed.
-        let storage_address = self.storage_address;
-        let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
-        if storage_class_hash == ClassHash::default() {
-            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
-        }
-
-        let class_hash = match self.class_hash {
-            Some(class_hash) => class_hash,
-            None => storage_class_hash, // If not given, take the storage contract class hash.
-        };
-        // Hack to prevent version 0 attack on argent accounts.
-        if context.account_tx_context.version() == TransactionVersion::ZERO
-            && class_hash
-                == ClassHash(
-                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
-                )
-        {
-            return Err(PreExecutionError::FraudAttempt.into());
-        }
-        // Add class hash to the call, that will appear in the output (call info).
-        self.class_hash = Some(class_hash);
-        let contract_class = state.get_compiled_contract_class(&class_hash)?;
-
-        let result = execute_entry_point_call(self, contract_class, state, resources, context)
-            .map_err(|error| {
-                match error {
-                    // On VM error, pack the stack trace into the propagated error.
-                    EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                        context.error_stack.push((storage_address, error.try_to_vm_trace()));
-                        // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
-                        // right now,  each intermediate VM error is wrapped
-                        // in a VirtualMachineExecutionErrorWithTrace  error
-                        // with the stringified trace of all errors below
-                        // it.
-                        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                            trace: context.error_trace(),
-                            source: error,
-                        }
-                    }
-                    other_error => other_error,
-                }
-            });
-
-        context.current_recursion_depth -= 1;
-        result
     }
 }
 
