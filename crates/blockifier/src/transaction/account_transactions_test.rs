@@ -21,8 +21,9 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, SELF_PROXY_CLASS_HASH, SELF_PROXY_CONTRACT_PATH,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -57,9 +58,11 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let self_proxy_class_hash = ClassHash(stark_felt!(SELF_PROXY_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
+        (self_proxy_class_hash, ContractClassV0::from_file(SELF_PROXY_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contract.
     let test_erc20_address = block_context.fee_token_address;
@@ -903,4 +906,98 @@ fn test_revert_on_overdraft(
         state.get_fee_token_balance(&block_context, &recipient_address).unwrap(),
         (final_received_amount, stark_felt!(0_u8))
     );
+}
+
+#[rstest]
+fn test_trace_folding_on_recurse(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+) {
+    let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
+        create_test_init_data(Fee(MAX_FEE), block_context, state);
+
+    // Declare a contract.
+    let contract_class = ContractClassV0::from_file(SELF_PROXY_CONTRACT_PATH).into();
+    let declare_tx = declare_tx(SELF_PROXY_CLASS_HASH, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+                nonce: nonce_manager.next(account_address),
+                ..declare_tx
+            }),
+            contract_class,
+        )
+        .unwrap(),
+    );
+    account_tx.execute(&mut state, &block_context, true).unwrap();
+
+    // Deploy a contract using syscall deploy.
+    let entry_point_selector = selector_from_name("deploy_contract");
+    let salt = ContractAddressSalt::default();
+    let class_hash = ClassHash(stark_felt!(SELF_PROXY_CLASS_HASH));
+    run_invoke_tx(
+        calldata![
+            *account_address.0.key(), // Contract address.
+            entry_point_selector.0,   // EP selector.
+            stark_felt!(3_u8),        // Calldata length.
+            class_hash.0,             // Calldata: class_hash.
+            salt.0,                   // Contract_address_salt.
+            stark_felt!(0_u8)         // Constructor calldata length.
+        ],
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
+
+    // Calculate the newly deployed contract address
+    let self_proxy_address = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash,
+        &calldata![],
+        account_address,
+    )
+    .unwrap();
+
+    // Set implementation of self proxy.
+    run_invoke_tx(
+        calldata![
+            *self_proxy_address.0.key(),                // Contract address.
+            selector_from_name("set_implementation").0, // EP selector.
+            stark_felt!(1_u8),                          // Calldata length.
+            stark_felt!(SELF_PROXY_CLASS_HASH)          // Calldata: implementation.
+        ],
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
+
+    // Call any (nonexisting) endpoint.
+    let tx_execution_info = run_invoke_tx(
+        calldata![
+            *self_proxy_address.0.key(),   // Contract address.
+            selector_from_name("dummy").0, // EP selector.
+            stark_felt!(1_u8),             // Calldata length.
+            stark_felt!(7_u8)
+        ],
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
+    match tx_execution_info.revert_error {
+        None => panic!("Expected revert error."),
+        Some(err) => {
+            assert_eq!(49, err.match_indices("Unknown location (pc=0:149)").count());
+            assert_eq!(err, "");
+        }
+    }
 }

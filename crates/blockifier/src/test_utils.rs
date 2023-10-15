@@ -43,6 +43,7 @@ use crate::transaction::objects::AccountTransactionContext;
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
 pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
+pub const SELF_PROXY_ADDRESS: &str = "0x400";
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
@@ -54,6 +55,7 @@ pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
+pub const SELF_PROXY_CLASS_HASH: &str = "0x115";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -77,6 +79,8 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+pub const SELF_PROXY_CONTRACT_PATH: &str =
+    "./feature_contracts/cairo0/compiled/proxy_to_self_compiled.json";
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
@@ -234,6 +238,10 @@ fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
             ClassHash(stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH)),
             ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into(),
         ),
+        (
+            ClassHash(stark_felt!(SELF_PROXY_CLASS_HASH)),
+            ContractClassV0::from_file(SELF_PROXY_CONTRACT_PATH).into(),
+        ),
     ])
 }
 
@@ -266,6 +274,10 @@ pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
         (
             ContractAddress(patricia_key!(SECURITY_TEST_CONTRACT_ADDRESS)),
             ClassHash(stark_felt!(SECURITY_TEST_CLASS_HASH)),
+        ),
+        (
+            ContractAddress(patricia_key!(SELF_PROXY_ADDRESS)),
+            ClassHash(stark_felt!(SELF_PROXY_CLASS_HASH)),
         ),
     ]);
 
