@@ -477,7 +477,7 @@ fn assert_failure_if_max_fee_exceeds_balance(
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    let sent_max_fee = invalid_tx.max_fee();
+    let sent_max_fee = invalid_tx.get_account_tx_context().max_fee();
 
     // Test error.
     assert_matches!(
