@@ -25,7 +25,7 @@ use crate::execution::entry_point::{
     EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
 use crate::execution::errors::PostExecutionError;
-use crate::execution::{cairo1_execution, deprecated_execution};
+use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -53,14 +53,16 @@ pub fn execute_entry_point_call(
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
     match contract_class {
-        ContractClass::V0(contract_class) => deprecated_execution::execute_entry_point_call(
-            call,
-            contract_class,
-            state,
-            resources,
-            context,
-        ),
-        ContractClass::V1(contract_class) => cairo1_execution::execute_entry_point_call(
+        ContractClass::V0(contract_class) => {
+            deprecated_entry_point_execution::execute_entry_point_call(
+                call,
+                contract_class,
+                state,
+                resources,
+                context,
+            )
+        }
+        ContractClass::V1(contract_class) => entry_point_execution::execute_entry_point_call(
             call,
             contract_class,
             state,
