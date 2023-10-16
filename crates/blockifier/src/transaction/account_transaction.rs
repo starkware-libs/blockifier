@@ -89,14 +89,6 @@ impl AccountTransaction {
         }
     }
 
-    pub fn max_fee(&self) -> Fee {
-        match self {
-            AccountTransaction::Declare(declare) => declare.max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
-            AccountTransaction::Invoke(invoke) => invoke.max_fee(),
-        }
-    }
-
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
             Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
@@ -123,7 +115,7 @@ impl AccountTransaction {
         }
     }
 
-    fn get_account_tx_context(&self) -> AccountTransactionContext {
+    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         match self {
             Self::Declare(tx) => tx.get_account_tx_context(),
             Self::DeployAccount(tx) => tx.get_account_tx_context(),
@@ -193,10 +185,6 @@ impl AccountTransaction {
         }
     }
 
-    fn enforce_fee(&self) -> bool {
-        self.max_fee() != Fee(0)
-    }
-
     // TODO(Dori,1/10/2023): If/when Fees can be more than 128 bit integers, this should be updated.
     fn is_sufficient_fee_balance(
         balance_low: StarkFelt,
@@ -216,28 +204,26 @@ impl AccountTransaction {
         let account_tx_context = self.get_account_tx_context();
         let max_fee = account_tx_context.max_fee();
 
-        // Check fee balance.
-        if self.enforce_fee() {
-            // Check max fee is at least the estimated constant overhead.
-            let minimal_fee = estimate_minimal_fee(block_context, self)?;
-            if minimal_fee > max_fee {
-                return Err(TransactionExecutionError::MaxFeeTooLow {
-                    min_fee: minimal_fee,
-                    max_fee,
-                });
-            }
+        if !account_tx_context.enforce_fee() {
+            return Ok(());
+        }
 
-            let (balance_low, balance_high) = state.get_fee_token_balance(
-                &account_tx_context.sender_address(),
-                &block_context.fee_token_address(&account_tx_context.fee_type()),
-            )?;
-            if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
-                return Err(TransactionExecutionError::MaxFeeExceedsBalance {
-                    max_fee,
-                    balance_low,
-                    balance_high,
-                });
-            }
+        // Check max fee is at least the estimated constant overhead.
+        let minimal_fee = estimate_minimal_fee(block_context, self)?;
+        if minimal_fee > max_fee {
+            return Err(TransactionExecutionError::MaxFeeTooLow { min_fee: minimal_fee, max_fee });
+        }
+
+        let (balance_low, balance_high) = state.get_fee_token_balance(
+            &account_tx_context.sender_address(),
+            &block_context.fee_token_address(&account_tx_context.fee_type()),
+        )?;
+        if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
+            return Err(TransactionExecutionError::MaxFeeExceedsBalance {
+                max_fee,
+                balance_low,
+                balance_high,
+            });
         }
 
         Ok(())
@@ -624,7 +610,7 @@ impl AccountTransaction {
 
         let mut actual_fee = self.calculate_tx_fee(&actual_resources, block_context)?;
 
-        if is_reverted || account_tx_context.max_fee() == Fee(0) {
+        if is_reverted || !account_tx_context.enforce_fee() {
             // We cannot charge more than max_fee for reverted txs.
             actual_fee = min(actual_fee, account_tx_context.max_fee());
         }

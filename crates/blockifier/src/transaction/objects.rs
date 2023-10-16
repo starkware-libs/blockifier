@@ -70,6 +70,10 @@ impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version() == TransactionVersion::ZERO
     }
+
+    pub fn enforce_fee(&self) -> bool {
+        self.max_fee() != Fee(0)
+    }
 }
 
 impl HasRelatedFeeType for AccountTransactionContext {
