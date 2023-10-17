@@ -80,6 +80,8 @@ impl Transaction {
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
+    // TODO(Gilad): Use the actual cost metrics builder to calculate fees here, the logic below
+    // duplicates much of its internal logic.
     fn execute_raw(
         self,
         state: &mut TransactionalState<'_, S>,
