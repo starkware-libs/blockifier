@@ -548,6 +548,13 @@ impl AccountTransaction {
     pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
         ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
     }
+
+    pub fn into_actual_cost_builder(
+        &self,
+        block_context: &BlockContext,
+    ) -> ActualCostBuilder<'_> {
+        ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
