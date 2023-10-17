@@ -1,5 +1,3 @@
-use std::cmp::min;
-
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
@@ -21,9 +19,7 @@ use crate::execution::entry_point::{
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
-use crate::state::cached_state::{
-    CachedState, StateChanges, StateChangesCount, TransactionalState,
-};
+use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
@@ -34,8 +30,7 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{
-    calculate_l1_gas_usage, calculate_tx_resources, update_remaining_gas,
-    verify_no_calls_to_other_contracts,
+    update_remaining_gas, verify_no_calls_to_other_contracts,
 };
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
@@ -371,7 +366,6 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let account_tx_context = self.get_account_tx_context();
-        let fee_token_address = block_context.fee_token_address(&account_tx_context.fee_type());
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.handle_validate_tx(state, &mut resources, remaining_gas, block_context, validate)?;
@@ -397,10 +391,10 @@ impl AccountTransaction {
 
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
-        let validate_state_changes = state.get_actual_state_changes_for_fee_charge(
-            fee_token_address,
-            Some(account_tx_context.sender_address()),
-        )?;
+        let actual_cost_builder_with_validation_changes = self
+            .into_actual_cost_builder(block_context)
+            .with_validate_call_info(&validate_call_info)
+            .try_add_state_changes(state)?;
 
         // Create copies of state and resources for the execution.
         // Both will be rolled back if the execution is reverted or committed upon success.
@@ -418,28 +412,15 @@ impl AccountTransaction {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
-                let execute_state_changes = execution_state
-                    .get_actual_state_changes_for_fee_charge(
-                        fee_token_address,
-                        Some(account_tx_context.sender_address()),
-                    )?;
-                // Fee is determined by the sum of `validate` and `execute` state changes.
-                // Since `execute_state_changes` are not yet committed, we merge them manually with
-                // `validate_state_changes` to count correctly.
-                let state_changes = StateChanges::merge(vec![
-                    validate_state_changes.clone(),
-                    execute_state_changes,
-                ]);
-
-                let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
-                    StateChangesCount::from(&state_changes),
-                    &execute_call_info,
-                    &validate_call_info,
-                    &execution_resources,
-                    block_context,
-                    false,
-                    0,
-                )?;
+                let ActualCost { actual_fee, actual_resources } =
+                    actual_cost_builder_with_validation_changes
+                    .clone()
+                    .with_execute_call_info(&execute_call_info)
+                    // Fee is determined by the sum of `validate` and `execute` state changes.
+                    // Since `execute_state_changes` are not yet committed, we merge them manually
+                    // with `validate_state_changes` to count correctly.
+                    .try_add_state_changes(&mut execution_state)?
+                    .build_for_non_reverted_tx(&execution_resources)?;
 
                 // Check if as a result of tx execution the sender's fee token balance is maxed out,
                 // so that they can't pay fee. If so, the transaction must be reverted.
@@ -473,17 +454,11 @@ impl AccountTransaction {
                         .expect("Invalid remaining steps in RunResources.");
                     let n_reverted_steps = n_allotted_steps - n_remaining_steps;
 
-                    // Rerunning `calculate_actual_fee_and_resources` with only the `validate` state
-                    // changes in order to get the correct resources, as `execute` is reverted.
-                    let (_, final_resources) = self.calculate_actual_fee_and_resources(
-                        StateChangesCount::from(&validate_state_changes),
-                        &None,
-                        &validate_call_info,
-                        &execution_resources,
-                        block_context,
-                        true,
-                        n_reverted_steps,
-                    )?;
+                    // Recalculate based on the `validate` state only in order to get the correct
+                    // resources, as `execute` is reverted.
+                    let ActualCost { actual_resources: final_resources, .. } =
+                        actual_cost_builder_with_validation_changes
+                            .build_for_reverted_tx(&execution_resources, n_reverted_steps)?;
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
@@ -513,15 +488,9 @@ impl AccountTransaction {
                 let n_reverted_steps = n_allotted_steps - n_remaining_steps;
 
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
-                let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
-                    StateChangesCount::from(&validate_state_changes),
-                    &None,
-                    &validate_call_info,
-                    &execution_resources,
-                    block_context,
-                    true,
-                    n_reverted_steps,
-                )?;
+                let ActualCost { actual_fee, actual_resources } =
+                    actual_cost_builder_with_validation_changes
+                        .build_for_reverted_tx(&execution_resources, n_reverted_steps)?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
@@ -579,40 +548,8 @@ impl AccountTransaction {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn calculate_actual_fee_and_resources(
-        &self,
-        state_changes_count: StateChangesCount,
-        execute_call_info: &Option<CallInfo>,
-        validate_call_info: &Option<CallInfo>,
-        execution_resources: &ExecutionResources,
-        block_context: &BlockContext,
-        is_reverted: bool,
-        n_reverted_steps: usize,
-    ) -> TransactionExecutionResult<(Fee, ResourcesMapping)> {
-        let account_tx_context = self.get_account_tx_context();
-
-        let non_optional_call_infos = vec![validate_call_info.as_ref(), execute_call_info.as_ref()]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage =
-            calculate_l1_gas_usage(&non_optional_call_infos, state_changes_count, None)?;
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type())?;
-
-        // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            n_reverted_steps;
-
-        let mut actual_fee = self.calculate_tx_fee(&actual_resources, block_context)?;
-
-        if is_reverted || !account_tx_context.enforce_fee() {
-            // We cannot charge more than max_fee for reverted txs.
-            actual_fee = min(actual_fee, account_tx_context.max_fee());
-        }
-
-        Ok((actual_fee, actual_resources))
+    pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
+        ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
     }
 }
 
