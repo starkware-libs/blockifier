@@ -165,22 +165,59 @@ fn test_call_contract() {
     let mut state = deprecated_create_test_state();
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
+    let (key, value) = (stark_felt!(405_u16), stark_felt!(48_u8));
+    let inner_calldata = calldata![key, value];
     let calldata = calldata![
         stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
         inner_entry_point_selector.0,       // Function selector.
         stark_felt!(2_u8),                  // Calldata length.
-        stark_felt!(405_u16),               // Calldata: address.
-        stark_felt!(48_u8)                  // Calldata: value.
+        key,                                // Calldata: address.
+        value                               // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
-        calldata,
+        calldata: calldata.clone(),
         ..trivial_external_entry_point()
     };
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(48_u8)])
-    );
+    let call_info = entry_point_call.clone().execute_directly(&mut state).unwrap();
+
+    let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
+    let expected_inner_call_info = CallInfo {
+        call: CallEntryPoint {
+            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+            code_address: Some(contract_address!(TEST_CONTRACT_ADDRESS)),
+            entry_point_selector: inner_entry_point_selector,
+            calldata: inner_calldata,
+            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            caller_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            ..trivial_external_entry_point()
+        },
+        execution: expected_execution.clone(),
+        vm_resources: VmExecutionResources { n_steps: 41, ..Default::default() },
+        storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        ..Default::default()
+    };
+    let expected_call_info = CallInfo {
+        inner_calls: vec![expected_inner_call_info],
+        call: CallEntryPoint {
+            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+            code_address: Some(contract_address!(TEST_CONTRACT_ADDRESS)),
+            entry_point_selector: outer_entry_point_selector,
+            calldata,
+            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            ..trivial_external_entry_point()
+        },
+        execution: expected_execution,
+        vm_resources: VmExecutionResources {
+            n_steps: 79,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    assert_eq!(expected_call_info, call_info);
 }
 
 #[test]
