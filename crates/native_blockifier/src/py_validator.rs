@@ -80,9 +80,11 @@ impl PyValidator {
         tx: &PyAny,
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<Option<PyCallInfo>> {
-        let maybe_call_info = self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
-        Ok(maybe_call_info.map(PyCallInfo::from))
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
+        let (optional_call_info, actual_fee) =
+            self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
+        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
+        Ok((py_optional_call_info, actual_fee.0))
     }
 
     pub fn close(&mut self) {
