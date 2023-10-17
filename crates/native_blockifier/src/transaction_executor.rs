@@ -4,6 +4,7 @@ use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
+use blockifier::fee::actual_cost_metrics::ActualCostMetrics;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
@@ -14,6 +15,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
+use starknet_api::transaction::Fee;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
@@ -99,20 +101,27 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &PyAny,
         mut remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<Option<CallInfo>> {
+    ) -> NativeBlockifierResult<(Option<CallInfo>, Fee)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
         else {
             panic!("L1 handlers should not be validated separately, only as part of execution")
         };
 
-        let mut resources = ExecutionResources::default();
-        Ok(account_tx.validate_tx(
+        let mut execution_resources = ExecutionResources::default();
+        let validate_call_info = account_tx.validate_tx(
             &mut self.state,
-            &mut resources,
+            &mut execution_resources,
             &mut remaining_gas,
             &self.block_context,
-        )?)
+        )?;
+
+        let ActualCostMetrics { actual_fee, .. } = account_tx
+            .into_cost_metrics_builder(&self.block_context)
+            .try_add_state_changes(&mut self.state)?
+            .build_for_non_reverted_tx(&execution_resources)?;
+
+        Ok((validate_call_info, actual_fee))
     }
 
     /// Returns the state diff resulting in executing transactions.
