@@ -183,7 +183,7 @@ fn test_fee_enforcement(
         );
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        let enforce_fee = account_tx.enforce_fee();
+        let enforce_fee = account_tx.get_account_tx_context().enforce_fee();
         let result = account_tx.execute(&mut state, &block_context, true, true);
         assert_eq!(result.is_err(), enforce_fee);
     }
