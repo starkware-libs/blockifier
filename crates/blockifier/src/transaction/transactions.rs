@@ -4,7 +4,7 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV2,
-    DeclareTransactionV3, Fee, Resource, TransactionHash, TransactionSignature, TransactionVersion,
+    DeclareTransactionV3, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
 use super::objects::{
@@ -162,27 +162,6 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    pub fn max_fee(&self) -> Fee {
-        match &self.tx {
-            // TODO(Elin, 01/11/2023): Consider dividing the first arm into three similar arms.
-            starknet_api::transaction::DeclareTransaction::V0(
-                starknet_api::transaction::DeclareTransactionV0V1 { max_fee, .. },
-            )
-            | starknet_api::transaction::DeclareTransaction::V1(
-                starknet_api::transaction::DeclareTransactionV0V1 { max_fee, .. },
-            )
-            | starknet_api::transaction::DeclareTransaction::V2(
-                starknet_api::transaction::DeclareTransactionV2 { max_fee, .. },
-            ) => *max_fee,
-            starknet_api::transaction::DeclareTransaction::V3(tx) => {
-                let l1_resource_bounds =
-                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
-            }
-        }
-    }
-
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         // TODO(Nir, 01/11/2023): Consider to move this (from all get_account_tx_context methods).
         let common_fields = CommonAccountFields {
@@ -194,12 +173,17 @@ impl DeclareTransaction {
         };
 
         match &self.tx {
-            starknet_api::transaction::DeclareTransaction::V0(_)
-            | starknet_api::transaction::DeclareTransaction::V1(_)
-            | starknet_api::transaction::DeclareTransaction::V2(_) => {
+            starknet_api::transaction::DeclareTransaction::V0(tx)
+            | starknet_api::transaction::DeclareTransaction::V1(tx) => {
                 AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
                     common_fields,
-                    max_fee: self.max_fee(),
+                    max_fee: tx.max_fee,
+                })
+            }
+            starknet_api::transaction::DeclareTransaction::V2(tx) => {
+                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                    common_fields,
+                    max_fee: tx.max_fee,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V3(tx) => {
@@ -281,18 +265,6 @@ impl DeployAccountTransaction {
         &self.tx
     }
 
-    pub fn max_fee(&self) -> Fee {
-        match &self.tx {
-            starknet_api::transaction::DeployAccountTransaction::V1(tx) => tx.max_fee,
-            starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
-                let l1_resource_bounds =
-                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
-            }
-        }
-    }
-
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         let common_fields = CommonAccountFields {
             transaction_hash: self.tx_hash,
@@ -303,10 +275,10 @@ impl DeployAccountTransaction {
         };
 
         match &self.tx {
-            starknet_api::transaction::DeployAccountTransaction::V1(_) => {
+            starknet_api::transaction::DeployAccountTransaction::V1(tx) => {
                 AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
                     common_fields,
-                    max_fee: self.max_fee(),
+                    max_fee: tx.max_fee,
                 })
             }
             starknet_api::transaction::DeployAccountTransaction::V3(tx) => {
@@ -364,19 +336,6 @@ pub struct InvokeTransaction {
 impl InvokeTransaction {
     implement_inner_tx_getter_calls!((calldata, Calldata), (signature, TransactionSignature));
 
-    pub fn max_fee(&self) -> Fee {
-        match &self.tx {
-            starknet_api::transaction::InvokeTransaction::V0(tx) => tx.max_fee,
-            starknet_api::transaction::InvokeTransaction::V1(tx) => tx.max_fee,
-            starknet_api::transaction::InvokeTransaction::V3(tx) => {
-                let l1_resource_bounds =
-                    tx.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
-                // TODO(barak, 01/10/2023): Change to max_price_per_unit * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
-            }
-        }
-    }
-
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         let common_fields = CommonAccountFields {
             transaction_hash: self.tx_hash,
@@ -387,11 +346,16 @@ impl InvokeTransaction {
         };
 
         match &self.tx {
-            starknet_api::transaction::InvokeTransaction::V0(_)
-            | starknet_api::transaction::InvokeTransaction::V1(_) => {
+            starknet_api::transaction::InvokeTransaction::V0(tx) => {
                 AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
                     common_fields,
-                    max_fee: self.max_fee(),
+                    max_fee: tx.max_fee,
+                })
+            }
+            starknet_api::transaction::InvokeTransaction::V1(tx) => {
+                AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                    common_fields,
+                    max_fee: tx.max_fee,
                 })
             }
             starknet_api::transaction::InvokeTransaction::V3(tx) => {
