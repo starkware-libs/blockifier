@@ -375,15 +375,12 @@ impl AccountTransaction {
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
             self.handle_validate_tx(state, &mut resources, remaining_gas, block_context, validate)?;
-        let validate_steps = if validate {
-            validate_call_info
-                .as_ref()
-                .expect("`validate` call info cannot be `None`.")
-                .vm_resources
-                .n_steps
-        } else {
-            0
-        };
+
+        let validate_steps = validate_call_info
+            .as_ref()
+            .map(|call_info| call_info.vm_resources.n_steps)
+            .unwrap_or_default();
+
         let overhead_steps = OS_RESOURCES
             .execute_txs_inner()
             .get(&self.tx_type())
