@@ -18,6 +18,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
+use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
@@ -315,8 +316,6 @@ impl AccountTransaction {
         let mut resources = ExecutionResources::default();
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
-        let account_tx_context = self.get_account_tx_context();
-        let fee_token_address = block_context.fee_token_address(&account_tx_context.fee_type());
         if matches!(self, Self::DeployAccount(_)) {
             // Handle `DeployAccount` transactions separately, due to different order of things.
             execute_call_info =
@@ -339,19 +338,14 @@ impl AccountTransaction {
             execute_call_info =
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
-        let state_changes = state.get_actual_state_changes_for_fee_charge(
-            fee_token_address,
-            Some(account_tx_context.sender_address()),
-        )?;
-        let (actual_fee, actual_resources) = self.calculate_actual_fee_and_resources(
-            StateChangesCount::from(&state_changes),
-            &execute_call_info,
-            &validate_call_info,
-            &resources,
-            block_context,
-            false,
-            0,
-        )?;
+
+        let ActualCost { actual_fee, actual_resources } = self
+            .into_actual_cost_builder(block_context)
+            .with_validate_call_info(&validate_call_info)
+            .with_execute_call_info(&execute_call_info)
+            .try_add_state_changes(state)?
+            .build_for_non_reverted_tx(&resources)?;
+
         Ok(ValidateExecuteCallInfo::new_accepted(
             validate_call_info,
             execute_call_info,
@@ -613,6 +607,10 @@ impl AccountTransaction {
         }
 
         Ok((actual_fee, actual_resources))
+    }
+
+    pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
+        ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
     }
 }
 
