@@ -20,18 +20,21 @@ macro_rules! retdata {
     };
 }
 
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,
 }
 
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct MessageToL1 {
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
 }
 
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct OrderedL2ToL1Message {
     pub order: usize,
@@ -39,6 +42,7 @@ pub struct OrderedL2ToL1Message {
 }
 
 /// Represents the effects of executing a single entry point.
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallExecution {
     pub retdata: Retdata,
