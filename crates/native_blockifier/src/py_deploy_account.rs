@@ -70,8 +70,6 @@ impl From<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
     }
 }
 
-// Transactions creation.
-
 pub fn py_deploy_account(py_tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
     let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
     let tx = match version {
