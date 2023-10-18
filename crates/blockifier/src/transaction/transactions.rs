@@ -186,7 +186,7 @@ impl DeclareTransaction {
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         // TODO(Nir, 01/11/2023): Consider to move this (from all get_account_tx_context methods).
         let common_fields = CommonAccountFields {
-            transaction_hash: self.tx_hash(),
+            tx_hash: self.tx_hash(),
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
@@ -295,7 +295,7 @@ impl DeployAccountTransaction {
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         let common_fields = CommonAccountFields {
-            transaction_hash: self.tx_hash,
+            tx_hash: self.tx_hash,
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
@@ -379,7 +379,7 @@ impl InvokeTransaction {
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         let common_fields = CommonAccountFields {
-            transaction_hash: self.tx_hash,
+            tx_hash: self.tx_hash,
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
@@ -496,7 +496,7 @@ impl L1HandlerTransaction {
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
             common_fields: CommonAccountFields {
-                transaction_hash: self.tx_hash,
+                tx_hash: self.tx_hash,
                 version: self.tx.version,
                 signature: TransactionSignature::default(),
                 nonce: self.tx.nonce,

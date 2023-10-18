@@ -13,18 +13,24 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
+use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources, SegmentInfo};
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use num_traits::sign;
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce};
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{
+    AccountDeploymentData, Calldata, Fee, PaymasterData, ResourceBoundsMapping, Tip,
+    TransactionHash, TransactionSignature, TransactionVersion,
+};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
 use crate::abi::sierra_types::SierraTypeError;
+use crate::block_context::{self, BlockContext};
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::HintExecutionResult;
 use crate::execution::entry_point::{
@@ -48,6 +54,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::objects::{AccountTransactionContext, CommonAccountFields};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -104,6 +111,122 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RawExecutionInfo {
+    version: MaybeRelocatable,
+    sender_address: MaybeRelocatable,
+    max_fee: MaybeRelocatable,
+    signature: (Relocatable, Relocatable),
+    tx_hash: MaybeRelocatable,
+    chain_id: MaybeRelocatable,
+    nonce: MaybeRelocatable,
+    resource_bounds_segment: (Relocatable, Relocatable),
+    tip: MaybeRelocatable,
+    paymaster_data_segment: (Relocatable, Relocatable),
+    nonce_data_availability_mode: MaybeRelocatable,
+    fee_data_availability_mode: MaybeRelocatable,
+    account_deployment_data_segment: (Relocatable, Relocatable),
+}
+
+impl RawExecutionInfo {
+    pub fn new(account_tx_context: AccountTransactionContext, chain_id: ChainId) -> Self {
+        let CommonAccountFields { tx_hash, version, signature, nonce, sender_address } =
+            account_tx_context.common_fields();
+        let sender_address = *self.context.account_tx_context.sender_address().0.key();
+        let signature = signature.0.iter().map(|&x| StarkFelt::from(x)).collect();
+
+        match account_tx_context {
+            AccountTransactionContext::Current(context) => Self {
+                version: version.0,
+                sender_address,
+                max_fee: StarkFelt::ZERO,
+                signature,
+                tx_hash: tx_hash.0,
+                chain_id,
+                nonce: nonce.0,
+                resource_bounds: context.resource_bounds,
+                tip: StarkFelt::from(context.tip.0),
+                paymaster_data: context.paymaster_data.0,
+                nonce_data_availability_mode: StarkFelt::from(context.nonce_data_availability_mode),
+                fee_data_availability_mode: StarkFelt::from(context.fee_data_availability_mode),
+                account_deployment_data: context.account_deployment_data.0,
+            },
+            AccountTransactionContext::Deprecated(context) => Self {
+                version: version.0,
+                sender_address,
+                max_fee: StarkFelt::from(context.max_fee.0),
+                signature,
+                tx_hash: tx_hash.0,
+                chain_id,
+                nonce: nonce.0,
+                resource_bounds: StarkFelt::ZERO,
+                tip: StarkFelt::ZERO,
+                paymaster_data: StarkFelt::ZERO,
+                nonce_data_availability_mode: StarkFelt::from(DataAvailabilityMode::L1),
+                fee_data_availability_mode: StarkFelt::from(DataAvailabilityMode::L1),
+                account_deployment_data: StarkFelt::ZERO,
+            },
+        }
+    }
+
+    pub fn allocate_segment(
+        self,
+        vm: &mut VirtualMachine,
+        syscall_handler: &mut SyscallHintProcessor<'_>,
+    ) -> SyscallResult<Relocatable> {
+        let (signature_segment_start_ptr, signature_segment_end_ptr) = syscall_handler
+            .allocate_data_segment(
+                vm,
+                self.signature
+                    .0
+                    .iter()
+                    .map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x)))
+                    .collect(),
+            )?;
+        let (paymaster_data_segment_start_ptr, paymaster_data_segment_end_ptr) = syscall_handler
+            .allocate_data_segment(
+                vm,
+                self.paymaster_data
+                    .0
+                    .iter()
+                    .map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x)))
+                    .collect(),
+            )?;
+        let (account_deployment_data_segment_start_ptr, account_deployment_data_segment_end_ptr) =
+            syscall_handler.allocate_data_segment(
+                vm,
+                self.account_deployment_data
+                    .0
+                    .iter()
+                    .map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x)))
+                    .collect(),
+            )?;
+
+        let raw_execution_info: Vec<MaybeRelocatable> = vec![
+            stark_felt_to_felt(self.version.0).into(),
+            stark_felt_to_felt(*self.sender_address.0.key()).into(),
+            Felt252::from(self.max_fee.0).into(),
+            signature_segment_start_ptr.into(),
+            signature_segment_end_ptr.into(),
+            stark_felt_to_felt(self.tx_hash.0).into(),
+            Felt252::from_bytes_be(self.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(self.nonce.0).into(),
+            // Resources...
+            Felt252::from(self.tip.0).into(),
+            paymaster_data_segment_start_ptr.into(),
+            paymaster_data_segment_end_ptr.into(),
+            Felt252::from(self.nonce_data_availability_mode as u8).into(),
+            Felt252::from(self.fee_data_availability_mode as u8).into(),
+            account_deployment_data_segment_start_ptr.into(),
+            account_deployment_data_segment_end_ptr.into(),
+        ];
+
+        let (execution_info_segment_start_ptr, _execution_info_segment_end_ptr) =
+            syscall_handler.allocate_data_segment(vm, raw_execution_info)?;
+        Ok(execution_info_segment_start_ptr)
+    }
+}
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -165,6 +288,16 @@ impl<'a> SyscallHintProcessor<'a> {
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
         }
+    }
+
+    fn allocate_data_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+        data: Vec<MaybeRelocatable>,
+    ) -> SyscallResult<(Relocatable, Relocatable)> {
+        let data_segment_start_ptr = self.read_only_segments.allocate(vm, &data)?;
+        let data_segment_end_ptr = (data_segment_start_ptr + data.len())?;
+        Ok((data_segment_start_ptr, data_segment_end_ptr))
     }
 
     pub fn storage_address(&self) -> ContractAddress {
@@ -421,7 +554,7 @@ impl<'a> SyscallHintProcessor<'a> {
             Felt252::from(account_tx_context.max_fee().0).into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
+            stark_felt_to_felt(account_tx_context.tx_hash().0).into(),
             Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
             stark_felt_to_felt(account_tx_context.nonce().0).into(),
         ];

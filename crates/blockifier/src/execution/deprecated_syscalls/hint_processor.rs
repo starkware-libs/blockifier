@@ -291,7 +291,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             Felt252::from(account_tx_context.max_fee().0).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
+            stark_felt_to_felt(account_tx_context.tx_hash().0).into(),
             Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
             stark_felt_to_felt(account_tx_context.nonce().0).into(),
         ];

@@ -42,11 +42,18 @@ pub enum AccountTransactionContext {
 
 impl AccountTransactionContext {
     implement_getters!(
-        (transaction_hash, TransactionHash),
+        (tx_hash, TransactionHash),
         (version, TransactionVersion),
         (nonce, Nonce),
         (sender_address, ContractAddress)
     );
+
+    pub fn common_fields(&self) -> CommonAccountFields {
+        match self {
+            Self::Current(context) => context.common_fields.clone(),
+            Self::Deprecated(context) => context.common_fields.clone(),
+        }
+    }
 
     pub fn signature(&self) -> TransactionSignature {
         match self {
@@ -105,7 +112,7 @@ pub struct DeprecatedAccountTransactionContext {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CommonAccountFields {
-    pub transaction_hash: TransactionHash,
+    pub tx_hash: TransactionHash,
     pub version: TransactionVersion,
     pub signature: TransactionSignature,
     pub nonce: Nonce,
