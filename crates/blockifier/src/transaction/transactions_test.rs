@@ -5,6 +5,7 @@ use assert_matches::assert_matches;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
+use num_bigint::BigUint;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -440,7 +441,8 @@ fn test_invoke_tx(
     "With Cairo1 account")]
 fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
-    let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
+    let (mint_high, mint_low) = (54_u8, 39_u8);
+    let mint = BigUint::from(mint_low) + (BigUint::from(mint_high) << 128);
     let recipient = stark_felt!(10_u8);
 
     // Mint some tokens.
@@ -450,8 +452,8 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         entry_point_selector.0,                   // EP selector.
         stark_felt!(3_u8),                        // Calldata length.
         recipient,
-        mint_low,
-        mint_high
+        stark_felt!(mint_low),
+        stark_felt!(mint_high)
     ];
     let mint_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
@@ -465,11 +467,10 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     account_tx.execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
-    let (low, high) =
+    let new_balance =
         state.get_fee_token_balance(&contract_address!(recipient), &fee_token_address).unwrap();
 
-    assert_eq!(low, mint_low);
-    assert_eq!(high, mint_high);
+    assert_eq!(mint, new_balance);
 }
 
 fn assert_failure_if_max_fee_exceeds_balance(
