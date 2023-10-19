@@ -32,22 +32,10 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-<<<<<<< HEAD
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    InvokeTxArgs, NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-||||||| 5fa0ada
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-=======
     check_entry_point_execution_error_for_custom_hint, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, DictStateReader, NonceManager, BALANCE, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    test_erc20_sequencer_balance_key, DictStateReader, InvokeTxArgs, NonceManager, BALANCE,
+    MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
->>>>>>> origin/main-v0.12.3
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
@@ -976,16 +964,7 @@ fn test_validate_accounts_tx() {
             Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
             &mut NonceManager::default(),
         );
-<<<<<<< HEAD
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
-||||||| 5fa0ada
-        let error = account_tx.execute(state, block_context, true).unwrap_err();
-        assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == constants::VALIDATE_ENTRY_POINT_NAME);
-=======
-        let error = account_tx.execute(state, block_context, true).unwrap_err();
         if let TransactionExecutionError::ValidateTransactionError(error) = error {
             check_entry_point_execution_error_for_custom_hint(
                 &error,
@@ -994,7 +973,6 @@ fn test_validate_accounts_tx() {
         } else {
             panic!("Expected ValidateTransactionError.")
         }
->>>>>>> origin/main-v0.12.3
 
         // Verify that the contract does not call another contract in the constructor of deploy
         // account as well.
@@ -1014,16 +992,7 @@ fn test_validate_accounts_tx() {
                 &mut NonceManager::default(),
             );
             let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-<<<<<<< HEAD
             let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-            assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == "an account constructor");
-||||||| 5fa0ada
-            let error = account_tx.execute(state, block_context, true).unwrap_err();
-            assert_matches!(error, TransactionExecutionError::UnauthorizedInnerCall{entry_point_kind} if
-        entry_point_kind == "an account constructor");
-=======
-            let error = account_tx.execute(state, block_context, true).unwrap_err();
             if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
                 check_entry_point_execution_error_for_custom_hint(
                     &error,
@@ -1032,7 +1001,6 @@ fn test_validate_accounts_tx() {
             } else {
                 panic!("Expected ContractConstructorExecutionFailed.")
             }
->>>>>>> origin/main-v0.12.3
         }
     }
 

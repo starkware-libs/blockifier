@@ -10,6 +10,7 @@ use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::StateChangesCount;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 
