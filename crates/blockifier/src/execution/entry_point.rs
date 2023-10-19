@@ -11,12 +11,8 @@ use starknet_api::transaction::{Calldata, TransactionVersion};
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
-<<<<<<< HEAD
 use crate::execution::call_info::CallInfo;
-||||||| 5fa0ada
-=======
 use crate::execution::common_hints::ExecutionMode;
->>>>>>> origin/main-v0.12.3
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
