@@ -356,7 +356,7 @@ impl Default for CachedState<crate::test_utils::DictStateReader> {
 
 pub type ContractStorageKey = (ContractAddress, StorageKey);
 
-#[derive(IntoIterator, Debug, Default)]
+#[derive(Debug, Default, IntoIterator)]
 pub struct StorageView(pub HashMap<ContractStorageKey, StarkFelt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
@@ -624,7 +624,7 @@ pub struct StagedTransactionalState {
 }
 
 /// Holds uncommitted changes induced on StarkNet contracts.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitmentStateDiff {
     // Contract instance attributes (per address).
     pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,

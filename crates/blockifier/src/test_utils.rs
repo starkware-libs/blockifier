@@ -4,6 +4,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use cairo_felt::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
     POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
@@ -39,6 +43,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, EntryPointExecutionResult,
     ExecutionResources,
 };
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
 use crate::state::errors::StateError;
@@ -364,11 +369,23 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 }
 
 impl CallEntryPoint {
-    // Executes the call directly, without account context.
+    /// Executes the call directly, without account context.
     // TODO(Nir, 01/11/2023): adjust to V3, context as an arg or testing mode (<V3, V3).
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
         let mut context = EntryPointExecutionContext::new_invoke(
+            &block_context,
+            &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+        );
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
+    }
+    /// Executes the call directly in validate mode, without account context.
+    pub fn execute_directly_in_validate_mode(
+        self,
+        state: &mut dyn State,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        let block_context = BlockContext::create_for_testing();
+        let mut context = EntryPointExecutionContext::new_validate(
             &block_context,
             &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
         );
@@ -605,5 +622,29 @@ impl ContractClassV1 {
     pub fn from_file(contract_path: &str) -> ContractClassV1 {
         let raw_contract_class = get_raw_contract_class(contract_path);
         Self::try_from_json_string(&raw_contract_class).unwrap()
+    }
+}
+
+/// Checks that the given error is a `HintError::CustomHint` with the given hint.
+pub fn check_entry_point_execution_error_for_custom_hint(
+    error: &EntryPointExecutionError,
+    expected_hint: &str,
+) {
+    if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+        source:
+            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
+                inner_exc: VirtualMachineError::Hint(hint),
+                ..
+            })),
+        ..
+    } = error
+    {
+        if let HintError::CustomHint(custom_hint) = &hint.1 {
+            assert_eq!(custom_hint.as_ref(), expected_hint)
+        } else {
+            panic!("Unexpected hint: {:?}", hint);
+        }
+    } else {
+        panic!("Unexpected structure for error: {:?}", error);
     }
 }

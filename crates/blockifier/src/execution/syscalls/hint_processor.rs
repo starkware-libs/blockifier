@@ -26,7 +26,7 @@ use thiserror::Error;
 use crate::abi::constants;
 use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
-use crate::execution::common_hints::HintExecutionResult;
+use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
@@ -66,6 +66,8 @@ pub enum SyscallExecutionError {
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
     InvalidSyscallSelector(StarkFelt),
+    #[error("Unauthorized syscall {syscall_name} in execution mode {execution_mode}.")]
+    InvalidSyscallInExecutionMode { syscall_name: String, execution_mode: ExecutionMode },
     #[error(transparent)]
     MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
     #[error(transparent)]
@@ -177,6 +179,14 @@ impl<'a> SyscallHintProcessor<'a> {
 
     pub fn entry_point_selector(&self) -> EntryPointSelector {
         self.call.entry_point_selector
+    }
+
+    pub fn execution_mode(&self) -> ExecutionMode {
+        self.context.execution_mode
+    }
+
+    pub fn is_validate_mode(&self) -> bool {
+        self.execution_mode() == ExecutionMode::Validate
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> SyscallResult<()> {

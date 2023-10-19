@@ -30,9 +30,7 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::{
-    update_remaining_gas, verify_no_calls_to_other_contracts,
-};
+use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
     InvokeTransaction,
@@ -519,8 +517,13 @@ impl AccountTransaction {
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_tx_context();
-        let execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
+        let execution_context = if matches!(self, Self::DeployAccount(_)) {
+            // Run constructor in validate mode, since it is executed before the transaction is
+            // validated.
+            EntryPointExecutionContext::new_validate(block_context, &account_tx_context)
+        } else {
+            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context)
+        };
 
         if self.is_non_revertible() {
             return self.run_non_revertible(
@@ -663,10 +666,6 @@ impl ValidatableTransaction for AccountTransaction {
         let validate_call_info = validate_call
             .execute(state, resources, &mut context)
             .map_err(TransactionExecutionError::ValidateTransactionError)?;
-        verify_no_calls_to_other_contracts(
-            &validate_call_info,
-            String::from(constants::VALIDATE_ENTRY_POINT_NAME),
-        )?;
 
         // Validate return data.
         let class_hash = state.get_class_hash_at(storage_address)?;

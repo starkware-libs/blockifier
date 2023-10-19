@@ -12,6 +12,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -35,7 +36,7 @@ pub enum CallType {
     Delegate = 1,
 }
 /// Represents a call to an entry point of a StarkNet contract.
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
@@ -122,13 +123,13 @@ pub struct ConstructorContext {
     pub caller_address: ContractAddress,
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct EntryPointExecutionContext {
     pub block_context: BlockContext,
     pub account_tx_context: AccountTransactionContext,
@@ -144,6 +145,9 @@ pub struct EntryPointExecutionContext {
     current_recursion_depth: usize,
     // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
     max_recursion_depth: usize,
+
+    // The execution mode affects the behavior of the hint processor.
+    pub execution_mode: ExecutionMode,
 }
 
 impl EntryPointExecutionContext {
@@ -151,6 +155,7 @@ impl EntryPointExecutionContext {
         block_context: BlockContext,
         account_tx_context: AccountTransactionContext,
         max_n_steps: usize,
+        execution_mode: ExecutionMode,
     ) -> Self {
         Self {
             vm_run_resources: RunResources::new(max_n_steps),
@@ -161,6 +166,7 @@ impl EntryPointExecutionContext {
             current_recursion_depth: 0,
             max_recursion_depth: block_context.max_recursion_depth,
             block_context,
+            execution_mode,
         }
     }
 
@@ -172,6 +178,7 @@ impl EntryPointExecutionContext {
             block_context.clone(),
             account_tx_context.clone(),
             block_context.validate_max_n_steps as usize,
+            ExecutionMode::Validate,
         )
     }
 
@@ -183,6 +190,7 @@ impl EntryPointExecutionContext {
             block_context.clone(),
             account_tx_context.clone(),
             Self::max_invoke_steps(block_context, account_tx_context),
+            ExecutionMode::Execute,
         )
     }
 
