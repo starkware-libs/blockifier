@@ -54,8 +54,6 @@ pub enum TransactionExecutionError {
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
     StateError(#[from] StateError),
-    #[error("Calling other contracts during '{entry_point_kind}' execution is forbidden.")]
-    UnauthorizedInnerCall { entry_point_kind: String },
     #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
     #[error("Transaction validation has failed.")]

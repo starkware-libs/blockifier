@@ -160,6 +160,12 @@ pub fn call_contract(
     remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    if syscall_handler.is_validate_mode() && syscall_handler.storage_address() != storage_address {
+        return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
+            syscall_name: "call_contract".to_string(),
+            execution_mode: syscall_handler.execution_mode(),
+        });
+    }
     let entry_point = CallEntryPoint {
         class_hash: None,
         code_address: Some(storage_address),
@@ -338,6 +344,13 @@ pub fn get_block_hash(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<GetBlockHashResponse> {
+    if syscall_handler.is_validate_mode() {
+        return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
+            syscall_name: "get_block_hash".to_owned(),
+            execution_mode: syscall_handler.execution_mode(),
+        });
+    }
+
     let requested_block_number = request.block_number.0;
     let current_block_number = syscall_handler.context.block_context.block_number.0;
 

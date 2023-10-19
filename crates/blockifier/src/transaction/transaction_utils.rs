@@ -10,24 +10,8 @@ use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::StateChangesCount;
-use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
-
-pub fn verify_no_calls_to_other_contracts(
-    call_info: &CallInfo,
-    entry_point_kind: String,
-) -> TransactionExecutionResult<()> {
-    let invoked_contract_address = call_info.call.storage_address;
-    if call_info
-        .into_iter()
-        .any(|inner_call| inner_call.call.storage_address != invoked_contract_address)
-    {
-        return Err(TransactionExecutionError::UnauthorizedInnerCall { entry_point_kind });
-    }
-
-    Ok(())
-}
 
 pub fn calculate_l1_gas_usage(
     call_infos: &[&CallInfo],

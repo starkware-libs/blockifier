@@ -25,8 +25,16 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
+<<<<<<< HEAD
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
+||||||| 5fa0ada
+use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
+=======
+use crate::execution::common_hints::{
+    extended_builtin_hint_processor, ExecutionMode, HintExecutionResult,
+};
+>>>>>>> origin/main-v0.12.3
 use crate::execution::deprecated_syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
@@ -68,6 +76,8 @@ pub enum DeprecatedSyscallExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
+    #[error("Unauthorized syscall {syscall_name} in execution mode {execution_mode}.")]
+    InvalidSyscallInExecutionMode { syscall_name: String, execution_mode: ExecutionMode },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
@@ -136,6 +146,14 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
         }
+    }
+
+    pub fn execution_mode(&self) -> ExecutionMode {
+        self.context.execution_mode
+    }
+
+    pub fn is_validate_mode(&self) -> bool {
+        self.execution_mode() == ExecutionMode::Validate
     }
 
     pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> DeprecatedSyscallResult<()> {
