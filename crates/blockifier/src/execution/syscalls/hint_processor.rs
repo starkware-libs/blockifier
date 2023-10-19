@@ -24,15 +24,9 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
-<<<<<<< HEAD
 use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
-use crate::execution::common_hints::HintExecutionResult;
-||||||| 5fa0ada
-use crate::execution::common_hints::HintExecutionResult;
-=======
 use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
->>>>>>> origin/main-v0.12.3
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
