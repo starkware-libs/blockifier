@@ -369,14 +369,8 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 }
 
 impl CallEntryPoint {
-<<<<<<< HEAD
-    // Executes the call directly, without account context.
-    // TODO(Nir, 01/11/2023): adjust to V3, context as an arg or testing mode (<V3, V3).
-||||||| 5fa0ada
-    // Executes the call directly, without account context.
-=======
     /// Executes the call directly, without account context.
->>>>>>> origin/main-v0.12.3
+    // TODO(Nir, 01/11/2023): adjust to V3, context as an arg or testing mode (<V3, V3).
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
         let mut context = EntryPointExecutionContext::new_invoke(

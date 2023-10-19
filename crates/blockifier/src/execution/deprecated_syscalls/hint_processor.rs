@@ -25,16 +25,10 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
-<<<<<<< HEAD
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
-use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-||||||| 5fa0ada
-use crate::execution::common_hints::{extended_builtin_hint_processor, HintExecutionResult};
-=======
 use crate::execution::common_hints::{
     extended_builtin_hint_processor, ExecutionMode, HintExecutionResult,
 };
->>>>>>> origin/main-v0.12.3
 use crate::execution::deprecated_syscalls::{
     call_contract, delegate_call, delegate_l1_handler, deploy, emit_event, get_block_number,
     get_block_timestamp, get_caller_address, get_contract_address, get_sequencer_address,
