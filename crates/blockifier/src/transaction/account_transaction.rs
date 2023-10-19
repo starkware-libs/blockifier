@@ -7,7 +7,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
 use super::objects::HasRelatedFeeType;
-use super::transactions::ValidatableTransaction;
+use super::transactions::{NonceBehavior, ValidatableTransaction};
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
@@ -117,6 +117,15 @@ impl AccountTransaction {
             Self::DeployAccount(tx) => tx.get_account_tx_context(),
             Self::Invoke(tx) => tx.get_account_tx_context(),
         }
+    }
+
+    pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
+        ActualCostBuilder::new(
+            block_context,
+            self.get_account_tx_context(),
+            self.tx_type(),
+            self.is_incrementing_nonce(),
+        )
     }
 
     fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
@@ -541,10 +550,6 @@ impl AccountTransaction {
             charge_fee,
         )
     }
-
-    pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
-    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
@@ -685,5 +690,15 @@ impl ValidatableTransaction for AccountTransaction {
         update_remaining_gas(remaining_gas, &validate_call_info);
 
         Ok(Some(validate_call_info))
+    }
+}
+
+impl NonceBehavior for AccountTransaction {
+    fn is_incrementing_nonce(&self) -> bool {
+        match self {
+            Self::Declare(tx) => tx.is_incrementing_nonce(),
+            Self::DeployAccount(tx) => tx.is_incrementing_nonce(),
+            Self::Invoke(tx) => tx.is_incrementing_nonce(),
+        }
     }
 }

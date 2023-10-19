@@ -245,6 +245,12 @@ impl<S: State> Executable<S> for DeclareTransaction {
     }
 }
 
+impl NonceBehavior for DeclareTransaction {
+    fn is_incrementing_nonce(&self) -> bool {
+        self.tx.version() != TransactionVersion::ZERO
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DeployAccountTransaction {
     pub tx: starknet_api::transaction::DeployAccountTransaction,
@@ -324,6 +330,12 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         verify_no_calls_to_other_contracts(&call_info, String::from("an account constructor"))?;
 
         Ok(Some(call_info))
+    }
+}
+
+impl NonceBehavior for DeployAccountTransaction {
+    fn is_incrementing_nonce(&self) -> bool {
+        true
     }
 }
 
@@ -410,6 +422,12 @@ impl<S: State> Executable<S> for InvokeTransaction {
     }
 }
 
+impl NonceBehavior for InvokeTransaction {
+    fn is_incrementing_nonce(&self) -> bool {
+        self.tx.version() != TransactionVersion::ZERO
+    }
+}
+
 #[derive(Debug)]
 pub struct L1HandlerTransaction {
     pub tx: starknet_api::transaction::L1HandlerTransaction,
@@ -469,4 +487,8 @@ impl L1HandlerTransaction {
             max_fee: Fee::default(),
         })
     }
+}
+
+pub trait NonceBehavior {
+    fn is_incrementing_nonce(&self) -> bool;
 }

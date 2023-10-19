@@ -27,6 +27,7 @@ pub struct ActualCostBuilder<'a> {
     pub account_tx_context: AccountTransactionContext,
     pub tx_type: TransactionType,
     pub block_context: BlockContext,
+    pub include_nonce_increment_in_fee: bool,
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
@@ -38,11 +39,13 @@ impl<'a> ActualCostBuilder<'a> {
         block_context: &BlockContext,
         account_tx_context: AccountTransactionContext,
         tx_type: TransactionType,
+        include_nonce_increment_in_fee: bool,
     ) -> Self {
         Self {
             block_context: block_context.clone(),
             account_tx_context,
             tx_type,
+            include_nonce_increment_in_fee,
             validate_call_info: None,
             execute_call_info: None,
             state_changes: StateChanges::default(),
@@ -88,10 +91,15 @@ impl<'a> ActualCostBuilder<'a> {
         let fee_token_address =
             self.block_context.fee_token_address(&self.account_tx_context.fee_type());
 
-        let new_state_changes = state.get_actual_state_changes_for_fee_charge(
-            fee_token_address,
-            Some(self.account_tx_context.sender_address()),
-        )?;
+        let sender_address = self.account_tx_context.sender_address();
+        let mut new_state_changes = state
+            .get_actual_state_changes_for_fee_charge(fee_token_address, Some(sender_address))?;
+
+        // In a validate-only flow, the nonce isn't incremented during the call, so it must
+        // be added to the set for manually.
+        if self.include_nonce_increment_in_fee {
+            new_state_changes.modified_contracts.insert(sender_address);
+        }
 
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
         Ok(self)
