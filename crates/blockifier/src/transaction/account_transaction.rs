@@ -303,12 +303,14 @@ impl AccountTransaction {
     fn run_non_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-        mut execution_context: EntryPointExecutionContext,
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
+        let mut execution_context =
+            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         if matches!(self, Self::DeployAccount(_)) {
@@ -352,13 +354,15 @@ impl AccountTransaction {
     fn run_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-        mut execution_context: EntryPointExecutionContext,
         validate: bool,
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
+        let mut execution_context =
+            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
         let account_tx_context = self.get_account_tx_context();
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info =
@@ -519,24 +523,22 @@ impl AccountTransaction {
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_tx_context();
-        let execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
 
         if self.is_non_revertible() {
             return self.run_non_revertible(
                 state,
+                &account_tx_context,
                 remaining_gas,
                 block_context,
-                execution_context,
                 validate,
             );
         }
 
         self.run_revertible(
             state,
+            &account_tx_context,
             remaining_gas,
             block_context,
-            execution_context,
             validate,
             charge_fee,
         )
