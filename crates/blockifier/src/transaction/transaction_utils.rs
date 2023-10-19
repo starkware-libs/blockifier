@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use starknet_api::transaction::TransactionVersion;
 
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
@@ -78,4 +80,32 @@ pub fn calculate_tx_resources(
 
 pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
     *remaining_gas -= call_info.execution.gas_consumed;
+}
+
+pub fn verify_contract_class_version(
+    contract_class: ContractClass,
+    declare_version: TransactionVersion,
+) -> Result<ContractClass, TransactionExecutionError> {
+    match contract_class {
+        ContractClass::V0(_) => {
+            if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
+                Ok(contract_class)
+            } else {
+                Err(TransactionExecutionError::ContractClassVersionMismatch {
+                    declare_version,
+                    cairo_version: 0,
+                })
+            }
+        }
+        ContractClass::V1(_) => {
+            if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
+                Ok(contract_class)
+            } else {
+                Err(TransactionExecutionError::ContractClassVersionMismatch {
+                    declare_version,
+                    cairo_version: 1,
+                })
+            }
+        }
+    }
 }

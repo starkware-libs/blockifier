@@ -11,6 +11,7 @@ use super::objects::{
     AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
     DeprecatedAccountTransactionContext, HasRelatedFeeType,
 };
+use super::transaction_utils::verify_contract_class_version;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -107,34 +108,6 @@ pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
     tx_hash: TransactionHash,
     contract_class: ContractClass,
-}
-
-fn verify_contract_class_version(
-    contract_class: ContractClass,
-    declare_version: TransactionVersion,
-) -> Result<ContractClass, TransactionExecutionError> {
-    match contract_class {
-        ContractClass::V0(_) => {
-            if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 0,
-                })
-            }
-        }
-        ContractClass::V1(_) => {
-            if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 1,
-                })
-            }
-        }
-    }
 }
 
 impl DeclareTransaction {
@@ -417,6 +390,21 @@ pub struct L1HandlerTransaction {
     pub paid_fee_on_l1: Fee,
 }
 
+impl L1HandlerTransaction {
+    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+            common_fields: CommonAccountFields {
+                transaction_hash: self.tx_hash,
+                version: self.tx.version,
+                signature: TransactionSignature::default(),
+                nonce: self.tx.nonce,
+                sender_address: self.tx.contract_address,
+            },
+            max_fee: Fee::default(),
+        })
+    }
+}
+
 impl HasRelatedFeeType for L1HandlerTransaction {
     fn version(&self) -> TransactionVersion {
         self.tx.version
@@ -453,20 +441,5 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             .execute(state, resources, context)
             .map(Some)
             .map_err(TransactionExecutionError::ExecutionError)
-    }
-}
-
-impl L1HandlerTransaction {
-    pub fn get_account_tx_context(&self) -> AccountTransactionContext {
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            common_fields: CommonAccountFields {
-                transaction_hash: self.tx_hash,
-                version: self.tx.version,
-                signature: TransactionSignature::default(),
-                nonce: self.tx.nonce,
-                sender_address: self.tx.contract_address,
-            },
-            max_fee: Fee::default(),
-        })
     }
 }
