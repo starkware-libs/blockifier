@@ -170,12 +170,13 @@ impl AccountTransaction {
         &self,
         state: &mut dyn State,
         resources: &mut ExecutionResources,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         validate: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if validate {
-            self.validate_tx(state, resources, remaining_gas, block_context)
+            self.validate_tx(state, resources, account_tx_context, remaining_gas, block_context)
         } else {
             Ok(None)
         }
@@ -303,12 +304,14 @@ impl AccountTransaction {
     fn run_non_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-        mut execution_context: EntryPointExecutionContext,
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
+        let mut execution_context =
+            EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
         let validate_call_info: Option<CallInfo>;
         let execute_call_info: Option<CallInfo>;
         if matches!(self, Self::DeployAccount(_)) {
@@ -318,6 +321,7 @@ impl AccountTransaction {
             validate_call_info = self.handle_validate_tx(
                 state,
                 &mut resources,
+                account_tx_context,
                 remaining_gas,
                 block_context,
                 validate,
@@ -326,6 +330,7 @@ impl AccountTransaction {
             validate_call_info = self.handle_validate_tx(
                 state,
                 &mut resources,
+                account_tx_context,
                 remaining_gas,
                 block_context,
                 validate,
@@ -352,17 +357,25 @@ impl AccountTransaction {
     fn run_revertible<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-        mut execution_context: EntryPointExecutionContext,
         validate: bool,
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
+        let mut execution_context =
+            EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
         let account_tx_context = self.get_account_tx_context();
         // Run the validation, and if execution later fails, only keep the validation diff.
-        let validate_call_info =
-            self.handle_validate_tx(state, &mut resources, remaining_gas, block_context, validate)?;
+        let validate_call_info = self.handle_validate_tx(
+            state,
+            &mut resources,
+            &account_tx_context,
+            remaining_gas,
+            block_context,
+            validate,
+        )?;
 
         let validate_steps = validate_call_info
             .as_ref()
@@ -519,24 +532,22 @@ impl AccountTransaction {
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_tx_context();
-        let execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
 
         if self.is_non_revertible() {
             return self.run_non_revertible(
                 state,
+                &account_tx_context,
                 remaining_gas,
                 block_context,
-                execution_context,
                 validate,
             );
         }
 
         self.run_revertible(
             state,
+            &account_tx_context,
             remaining_gas,
             block_context,
-            execution_context,
             validate,
             charge_fee,
         )
@@ -637,10 +648,10 @@ impl ValidatableTransaction for AccountTransaction {
         &self,
         state: &mut dyn State,
         resources: &mut ExecutionResources,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let account_tx_context = self.get_account_tx_context();
         let mut context =
             EntryPointExecutionContext::new_validate(block_context, &account_tx_context);
         if context.account_tx_context.is_v0() {
