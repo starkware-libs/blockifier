@@ -109,9 +109,11 @@ impl<S: StateReader> TransactionExecutor<S> {
         };
 
         let mut execution_resources = ExecutionResources::default();
+        let account_tx_context = account_tx.get_account_tx_context();
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
+            &account_tx_context,
             &mut remaining_gas,
             &self.block_context,
         )?;

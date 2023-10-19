@@ -96,6 +96,7 @@ pub trait ValidatableTransaction {
         &self,
         state: &mut dyn State,
         resources: &mut ExecutionResources,
+        account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
