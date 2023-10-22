@@ -110,6 +110,12 @@ impl<S: StateReader> TransactionExecutor<S> {
 
         let mut execution_resources = ExecutionResources::default();
         let account_tx_context = account_tx.get_account_tx_context();
+
+        // For fee charging purposes, the nonce-increment cost is taken into consideration when
+        // calculating the fees for validation.
+        // Note: This assumes that the state is reset between calls to validate.
+        self.state.increment_nonce(account_tx_context.sender_address())?;
+
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
