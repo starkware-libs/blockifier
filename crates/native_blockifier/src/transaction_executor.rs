@@ -9,6 +9,7 @@ use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
+use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -109,6 +110,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         };
 
         let mut execution_resources = ExecutionResources::default();
+
+        // For fee charging purposes, the nonce-increment cost is taken into consideration when
+        // calculating the fees for validation.
+        // Note: This assumes that the state is reset between calls to validate.
+        AccountTransaction::handle_nonce(&account_tx.get_account_tx_context(), &mut self.state)?;
+
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
