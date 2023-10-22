@@ -420,6 +420,7 @@ impl CallExecution {
 }
 
 // Transactions.
+#[derive(Clone)]
 pub struct InvokeTxArgs {
     pub max_fee: Fee,
     pub signature: TransactionSignature,

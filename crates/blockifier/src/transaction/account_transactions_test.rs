@@ -359,6 +359,72 @@ fn test_infinite_recursion(
 }
 
 #[rstest]
+#[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
+fn test_recursion_depth_exceeded(
+    #[from(create_test_init_data)] init_data: TestInitData,
+    #[case] tx_version: TransactionVersion,
+    max_fee: Fee,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = init_data;
+
+    let raw_contract_address = *contract_address.0.key();
+
+    // Positive test
+
+    // Technical details for this specific recursive entry point:
+    // The maximum inner recursion depth is reduced by 2 from the global entry point limit for two
+    // reasons:
+    // 1. An additional call is made initially before entering the recursion.
+    // 2. The base case for recursion occurs at depth 0, not at depth 1.
+    let raw_entry_point_selector = selector_from_name("recursive_syscall").0;
+    let max_inner_recursion_depth = (block_context.max_recursion_depth - 2) as u8;
+
+    let calldata = calldata![
+        raw_contract_address,
+        raw_entry_point_selector,
+        stark_felt!(3_u8), // Calldata length.
+        raw_contract_address,
+        raw_entry_point_selector,
+        stark_felt!(max_inner_recursion_depth)
+    ];
+    let invoke_args = invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        calldata,
+        version: tx_version,
+        nonce: nonce_manager.next(account_address),
+    };
+    let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
+
+    assert!(tx_execution_info.unwrap().revert_error.is_none());
+
+    // Negative test
+
+    let exceeding_recursion_depth = max_inner_recursion_depth + 1;
+
+    let calldata = calldata![
+        raw_contract_address,
+        raw_entry_point_selector,
+        stark_felt!(3_u8), // Calldata length.
+        raw_contract_address,
+        raw_entry_point_selector,
+        stark_felt!(exceeding_recursion_depth)
+    ];
+    let invoke_args =
+        InvokeTxArgs { calldata, nonce: nonce_manager.next(account_address), ..invoke_args };
+    let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args);
+
+    assert!(tx_execution_info.unwrap().revert_error.unwrap().contains("recursion depth exceeded"));
+}
+
+#[rstest]
 /// Tests that an account invoke transaction that fails the execution phase, still incurs a nonce
 /// increase and a fee deduction.
 fn test_revert_invoke(
