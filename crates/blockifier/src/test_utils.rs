@@ -437,6 +437,7 @@ impl CallExecution {
 }
 
 // Transactions.
+#[derive(Clone)]
 pub struct InvokeTxArgs {
     pub max_fee: Fee,
     pub signature: TransactionSignature,
@@ -506,6 +507,17 @@ macro_rules! invoke_tx_args {
                 }
             }
             _macro_invoke_tx_args
+        }
+    };
+    ($($field:ident $(: $value:expr)?),* , ..$defaults:expr) => {
+        {
+            // Fill in all fields + use the provided defaults for missing fields.
+            // In this case, do not derive "smart" defaults for fields not passed explicitly - we
+            // assume these fields are already "correct" on the provided defaults.
+            InvokeTxArgs {
+                $($field $(: $value)?,)*
+                ..$defaults
+            }
         }
     };
 }

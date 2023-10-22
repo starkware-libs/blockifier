@@ -304,7 +304,11 @@ pub struct InvokeTransaction {
 }
 
 impl InvokeTransaction {
-    implement_inner_tx_getter_calls!((calldata, Calldata), (signature, TransactionSignature));
+    implement_inner_tx_getter_calls!(
+        (calldata, Calldata),
+        (signature, TransactionSignature),
+        (sender_address, ContractAddress)
+    );
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         let common_fields = CommonAccountFields {
