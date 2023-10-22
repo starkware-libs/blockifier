@@ -11,13 +11,15 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::block_context::BlockContext;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-    deprecated_create_deploy_test_state, deprecated_create_test_state,
-    trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
+    check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
+    deprecated_create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 #[test]
@@ -322,4 +324,69 @@ fn test_deploy(
         CallExecution::from_retdata(retdata![*contract_address.0.key()])
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
+}
+
+#[test_case(
+    ExecutionMode::Execute, "block_number" ;
+    "Test the syscall get_block_number in execution mode Execute")]
+#[test_case(
+    ExecutionMode::Validate, "block_number" ;
+    "Test the syscall get_block_number in execution mode Validate")]
+#[test_case(
+    ExecutionMode::Execute, "block_timestamp" ;
+    "Test the syscall get_block_timestamp in execution mode Execute")]
+#[test_case(
+    ExecutionMode::Validate, "block_timestamp" ;
+    "Test the syscall get_block_timestamp in execution mode Validate")]
+#[test_case(
+    ExecutionMode::Execute, "sequencer_address" ;
+    "Test the syscall get_sequencer_address in execution mode Execute")]
+#[test_case(
+    ExecutionMode::Validate, "sequencer_address" ;
+    "Test the syscall get_sequencer_address in execution mode Validate")]
+fn test_syscall_get_type_of_block_info(
+    execution_mode: ExecutionMode,
+    block_info_member_name: &str,
+) {
+    let mut state = deprecated_create_test_state();
+    // Create a block context with known parameters. These parameters match the block context used
+    // in the method execute_directly.
+    let block_context = BlockContext::create_for_testing();
+    let calldata = match block_info_member_name {
+        "block_number" => {
+            let block_number = block_context.block_number;
+            calldata![stark_felt!(block_number.0)]
+        }
+        "block_timestamp" => {
+            let block_timestamp = block_context.block_timestamp;
+            calldata![stark_felt!(block_timestamp.0)]
+        }
+        "sequencer_address" => {
+            let sequencer_address = block_context.sequencer_address;
+            calldata![sequencer_address.0.key().to_owned()]
+        }
+        _ => panic!("Unexpected block info member name: {}", block_info_member_name),
+    };
+
+    let entry_point_selector = selector_from_name(&format!("test_get_{}", block_info_member_name));
+    let entry_point_call =
+        CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
+
+    if execution_mode == ExecutionMode::Execute {
+        // Test that the syscall is available in execution mode.
+        assert_eq!(
+            entry_point_call.execute_directly(&mut state).unwrap().execution,
+            CallExecution::from_retdata(retdata![])
+        );
+    } else {
+        // Test that the syscall is not available in validation mode.
+        let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+        check_entry_point_execution_error_for_custom_hint(
+            &error,
+            &format!(
+                "Unauthorized syscall get_{} in execution mode Validate.",
+                block_info_member_name
+            ),
+        );
+    }
 }
