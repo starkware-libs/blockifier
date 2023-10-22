@@ -11,14 +11,49 @@ use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
-use crate::retdata;
-use crate::state::state_api::StateReader;
-use crate::test_utils::{
-    deprecated_create_deploy_test_state, deprecated_create_test_state,
-    trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
+use crate::block_context::BlockContext;
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, CallType, EntryPointExecutionContext,
+    ExecutionResources, Retdata,
 };
+use crate::retdata;
+use crate::state::state_api::{State, StateReader};
+use crate::test_utils::{
+    check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
+    deprecated_create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+};
+use crate::transaction::objects::AccountTransactionContext;
+
+fn syscall_get_type_of_block_info_test_body(
+    state: &mut dyn State,
+    execute_context: &mut EntryPointExecutionContext,
+    calldata: Calldata,
+    block_info_member_name: &str,
+) {
+    let selector_name = format!("test_get_{}", block_info_member_name);
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name(&selector_name),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    assert_eq!(
+        entry_point_call
+            .clone()
+            .execute(state, &mut ExecutionResources::default(), execute_context)
+            .unwrap()
+            .execution,
+        CallExecution::from_retdata(retdata![])
+    );
+
+    // Test that the syscall is not available in validation mode.
+    let error = entry_point_call.execute_directly_in_validate_mode(state).unwrap_err();
+    check_entry_point_execution_error_for_custom_hint(
+        &error,
+        &format!("Unauthorized syscall get_{} in execution mode Validate.", block_info_member_name),
+    );
+}
 
 #[test]
 fn test_storage_read_write() {
@@ -322,4 +357,38 @@ fn test_deploy(
         CallExecution::from_retdata(retdata![*contract_address.0.key()])
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
+}
+
+#[test]
+fn test_syscall_get_type_of_block_info() {
+    let mut state = deprecated_create_test_state();
+    let block_context = BlockContext::create_for_testing();
+    let block_number = block_context.block_number;
+    let block_timestamp = block_context.block_timestamp;
+    let sequencer_address = block_context.sequencer_address;
+
+    let mut execute_context = EntryPointExecutionContext::new_invoke(
+        &block_context,
+        &AccountTransactionContext::default(),
+    );
+    syscall_get_type_of_block_info_test_body(
+        &mut state,
+        &mut execute_context,
+        calldata![stark_felt!(block_number.0)],
+        "block_number",
+    );
+
+    syscall_get_type_of_block_info_test_body(
+        &mut state,
+        &mut execute_context,
+        calldata![stark_felt!(block_timestamp.0)],
+        "block_timestamp",
+    );
+
+    syscall_get_type_of_block_info_test_body(
+        &mut state,
+        &mut execute_context,
+        calldata![sequencer_address.0.key().to_owned()],
+        "sequencer_address",
+    );
 }
