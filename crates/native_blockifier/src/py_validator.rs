@@ -47,6 +47,10 @@ impl PyValidator {
     ) -> NativeBlockifierResult<()> {
         let reader = PyStateReader::new(state_reader_proxy);
 
+        assert!(
+            self.tx_executor.is_none(),
+            "Transaction executor should be torn down between calls to validate"
+        );
         self.tx_executor = Some(TransactionExecutor::new(
             reader,
             &self.general_config,
