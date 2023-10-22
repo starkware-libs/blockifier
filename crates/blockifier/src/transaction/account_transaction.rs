@@ -117,6 +117,28 @@ impl AccountTransaction {
         }
     }
 
+    pub fn handle_nonce(
+        account_tx_context: &AccountTransactionContext,
+        state: &mut dyn State,
+    ) -> TransactionExecutionResult<()> {
+        if account_tx_context.version() == TransactionVersion::ZERO {
+            return Ok(());
+        }
+
+        let address = account_tx_context.sender_address();
+        let current_nonce = state.get_nonce_at(address)?;
+        if current_nonce != account_tx_context.nonce() {
+            return Err(TransactionExecutionError::InvalidNonce {
+                address,
+                expected_nonce: current_nonce,
+                actual_nonce: account_tx_context.nonce(),
+            });
+        }
+
+        // Increment nonce.
+        Ok(state.increment_nonce(address)?)
+    }
+
     fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
         let allowed_versions: Vec<TransactionVersion> = match self {
             // Support `Declare` of version 0 in order to allow bootstrapping of a new system.
@@ -140,28 +162,6 @@ impl AccountTransaction {
         } else {
             Err(TransactionExecutionError::InvalidVersion { version, allowed_versions })
         }
-    }
-
-    fn handle_nonce(
-        account_tx_context: &AccountTransactionContext,
-        state: &mut dyn State,
-    ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version() == TransactionVersion::ZERO {
-            return Ok(());
-        }
-
-        let address = account_tx_context.sender_address();
-        let current_nonce = state.get_nonce_at(address)?;
-        if current_nonce != account_tx_context.nonce() {
-            return Err(TransactionExecutionError::InvalidNonce {
-                address,
-                expected_nonce: current_nonce,
-                actual_nonce: account_tx_context.nonce(),
-            });
-        }
-
-        // Increment nonce.
-        Ok(state.increment_nonce(address)?)
     }
 
     fn handle_validate_tx(
