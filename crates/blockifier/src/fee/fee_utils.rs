@@ -1,11 +1,16 @@
 use std::collections::HashSet;
 
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{
+    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
+    TransactionExecutionResult,
+};
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -58,4 +63,40 @@ pub fn calculate_tx_fee(
 
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
     Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.get_by_fee_type(fee_type)))
+}
+
+/// Verifies that, given the current state, the account can pay the given fee.
+/// Returns `Ok` if the balance can cover the fee.
+/// Error may indicate insufficient balance, or some other error.
+pub fn verify_can_pay_fee(
+    state: &mut dyn StateReader,
+    account_tx_context: &AccountTransactionContext,
+    block_context: &BlockContext,
+    fee: Fee,
+) -> TransactionExecutionResult<()> {
+    let (balance_low, balance_high) = state.get_fee_token_balance(
+        &account_tx_context.sender_address(),
+        &block_context.fee_token_address(&account_tx_context.fee_type()),
+    )?;
+    // TODO(Dori,1/10/2023): If/when fees can be more than 128 bit integers, this should be updated.
+    match balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0) {
+        true => Ok(()),
+        false => {
+            Err(TransactionExecutionError::FeeExceedsBalance { fee, balance_low, balance_high })
+        }
+    }
+}
+
+/// Returns `true` if and only if the balance covers the fee.
+pub fn can_pay_fee(
+    state: &mut dyn StateReader,
+    account_tx_context: &AccountTransactionContext,
+    block_context: &BlockContext,
+    fee: Fee,
+) -> TransactionExecutionResult<bool> {
+    match verify_can_pay_fee(state, account_tx_context, block_context, fee) {
+        Ok(_) => Ok(true),
+        Err(TransactionExecutionError::FeeExceedsBalance { .. }) => Ok(false),
+        Err(err) => Err(err),
+    }
 }

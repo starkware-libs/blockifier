@@ -479,7 +479,7 @@ fn assert_failure_if_max_fee_exceeds_balance(
     // Test error.
     assert_matches!(
         invalid_tx.execute(state, block_context, true, true).unwrap_err(),
-        TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
+        TransactionExecutionError::FeeExceedsBalance{ fee: max_fee, .. }
         if max_fee == sent_max_fee
     );
 }

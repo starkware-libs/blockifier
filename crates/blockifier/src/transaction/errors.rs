@@ -46,8 +46,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
-    #[error("Max fee ({max_fee:?}) exceeds balance (Uint256({balance_low:?}, {balance_high:?})).")]
-    MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+    #[error("Fee ({fee:?}) exceeds balance (Uint256({balance_low:?}, {balance_high:?})).")]
+    FeeExceedsBalance { fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
     #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
     #[error(transparent)]
