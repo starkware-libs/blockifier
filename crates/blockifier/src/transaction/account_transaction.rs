@@ -5,7 +5,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 
-use super::objects::HasRelatedFeeType;
+use super::errors::TransactionPreValidationError;
+use super::objects::{HasRelatedFeeType, TransactionPreValidationResult};
 use super::transactions::ValidatableTransaction;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
@@ -141,7 +142,67 @@ impl AccountTransaction {
         }
     }
 
-    fn handle_nonce(
+    pub fn perform_pre_validation_checks(
+        &self,
+        account_tx_context: &AccountTransactionContext,
+        state: &mut dyn State,
+        block_context: &BlockContext,
+        strict: bool,
+    ) -> TransactionPreValidationResult<()> {
+        Self::check_nonce(account_tx_context, state, strict)?;
+
+        Self::check_max_l1_gas_price(account_tx_context, block_context)?;
+
+        self.check_fee_balance(state, block_context)?;
+
+        Ok(())
+    }
+
+    pub fn check_max_l1_gas_price(
+        account_tx_context: &AccountTransactionContext,
+        block_context: &BlockContext,
+    ) -> TransactionPreValidationResult<()> {
+        match account_tx_context.max_l1_gas_price() {
+            Some(Fee(max_l1_gas_price)) => {
+                if block_context.gas_prices.strk_l1_gas_price > max_l1_gas_price {
+                    Err(TransactionPreValidationError::MaxL1GasPriceTooLow {
+                        max_l1_gas_price: Fee(max_l1_gas_price),
+                        current_gas_price: Fee(block_context.gas_prices.strk_l1_gas_price),
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn check_nonce(
+        account_tx_context: &AccountTransactionContext,
+        state: &mut dyn State,
+        strict: bool,
+    ) -> TransactionPreValidationResult<()> {
+        if account_tx_context.version() == TransactionVersion::ZERO {
+            return Ok(());
+        }
+
+        let address = account_tx_context.sender_address();
+        let current_nonce = state.get_nonce_at(address)?;
+        let tx_nonce = account_tx_context.nonce();
+        let invalid_nonce =
+            if strict { current_nonce != tx_nonce } else { current_nonce > tx_nonce };
+
+        if invalid_nonce {
+            return Err(TransactionPreValidationError::InvalidNonce {
+                address,
+                current_nonce,
+                tx_nonce,
+            });
+        }
+        Ok(())
+    }
+
+    pub fn increment_nonce(
         account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
     ) -> TransactionExecutionResult<()> {
@@ -150,17 +211,11 @@ impl AccountTransaction {
         }
 
         let address = account_tx_context.sender_address();
-        let current_nonce = state.get_nonce_at(address)?;
-        if current_nonce != account_tx_context.nonce() {
-            return Err(TransactionExecutionError::InvalidNonce {
-                address,
-                expected_nonce: current_nonce,
-                actual_nonce: account_tx_context.nonce(),
-            });
-        }
 
-        // Increment nonce.
-        Ok(state.increment_nonce(address)?)
+        match state.increment_nonce(address) {
+            Err(err) => Err(err.into()),
+            Ok(res) => Ok(res),
+        }
     }
 
     fn handle_validate_tx(
@@ -190,11 +245,11 @@ impl AccountTransaction {
     }
 
     /// Checks that the account's balance covers max fee.
-    fn check_fee_balance<S: StateReader>(
+    fn check_fee_balance(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut dyn State,
         block_context: &BlockContext,
-    ) -> TransactionExecutionResult<()> {
+    ) -> TransactionPreValidationResult<()> {
         let account_tx_context = self.get_account_tx_context();
         let max_fee = account_tx_context.max_fee();
 
@@ -205,7 +260,10 @@ impl AccountTransaction {
         // Check max fee is at least the estimated constant overhead.
         let minimal_fee = estimate_minimal_fee(block_context, self)?;
         if minimal_fee > max_fee {
-            return Err(TransactionExecutionError::MaxFeeTooLow { min_fee: minimal_fee, max_fee });
+            return Err(TransactionPreValidationError::MaxFeeTooLow {
+                min_fee: minimal_fee,
+                max_fee,
+            });
         }
 
         let (balance_low, balance_high) = state.get_fee_token_balance(
@@ -213,7 +271,7 @@ impl AccountTransaction {
             &block_context.fee_token_address(&account_tx_context.fee_type()),
         )?;
         if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
-            return Err(TransactionExecutionError::MaxFeeExceedsBalance {
+            return Err(TransactionPreValidationError::MaxFeeExceedsBalance {
                 max_fee,
                 balance_low,
                 balance_high,
@@ -557,16 +615,18 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_tx_context();
+
         self.verify_tx_version(account_tx_context.version())?;
 
-        let mut remaining_gas = Transaction::initial_gas();
-
-        // Nonce and fee check should be done before running user code.
-        if charge_fee {
-            self.check_fee_balance(state, block_context)?;
+        if let Err(err) =
+            self.perform_pre_validation_checks(&account_tx_context, state, block_context, true)
+        {
+            return Err(err.into());
         }
-        // Handle nonce.
-        Self::handle_nonce(&account_tx_context, state)?;
+
+        Self::increment_nonce(&account_tx_context, state)?;
+
+        let mut remaining_gas = Transaction::initial_gas();
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {

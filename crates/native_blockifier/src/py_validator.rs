@@ -1,12 +1,15 @@
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::py_utils::py_enum_name;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -81,6 +84,25 @@ impl PyValidator {
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
+        else {
+            panic!("L1 handlers should not be validated separately, only as part of execution")
+        };
+
+        let tx_executor = self.tx_executor();
+        let state = &mut tx_executor.state;
+        let block_context = &tx_executor.block_context;
+        let account_tx_context = account_tx.get_account_tx_context();
+        if let Err(err) = account_tx.perform_pre_validation_checks(
+            &account_tx_context,
+            state,
+            block_context,
+            false,
+        ) {
+            return Err(err.into());
+        }
+
         let (optional_call_info, actual_fee) =
             self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);

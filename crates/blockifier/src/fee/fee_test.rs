@@ -9,7 +9,7 @@ use cairo_vm::vm::runners::builtin_runner::{
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::FeeCalculationError;
 use crate::transaction::objects::ResourcesMapping;
 
 fn get_vm_resource_usage() -> ResourcesMapping {
@@ -42,5 +42,5 @@ fn test_calculate_l1_gas_by_vm_usage() {
     invalid_vm_resource_usage.0.insert(String::from("bad_resource_name"), 17);
     let error =
         calculate_l1_gas_by_vm_usage(&block_context, &invalid_vm_resource_usage).unwrap_err();
-    assert_matches!(error, TransactionExecutionError::CairoResourcesNotContainedInFeeCosts);
+    assert_matches!(error, FeeCalculationError::CairoResourcesNotContainedInFeeCosts);
 }
