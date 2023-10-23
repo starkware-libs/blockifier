@@ -5,9 +5,17 @@ use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use pretty_assertions::assert_eq;
+<<<<<<< HEAD
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, PatriciaKey,
 };
+||||||| 917fcca
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
+=======
+use starknet_api::core::{
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, PatriciaKey,
+};
+>>>>>>> origin/main-v0.12.3
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -18,8 +26,21 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
+<<<<<<< HEAD
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
+||||||| 917fcca
+use crate::execution::contract_class::ContractClassV0;
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
+    OrderedL2ToL1Message, Retdata,
+=======
+use crate::execution::common_hints::ExecutionMode;
+use crate::execution::contract_class::ContractClassV0;
+use crate::execution::entry_point::{
+    CallEntryPoint, CallExecution, CallInfo, CallType, MessageToL1, OrderedEvent,
+    OrderedL2ToL1Message, Retdata,
+>>>>>>> origin/main-v0.12.3
 };
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
