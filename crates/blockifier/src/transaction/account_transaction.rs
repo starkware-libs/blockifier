@@ -189,6 +189,25 @@ impl AccountTransaction {
         balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0)
     }
 
+    /// Check if as a result of tx execution the sender's fee token balance is maxed out, so that
+    /// they can't pay fee. If so, the transaction must be reverted.
+    fn is_maxed_out(
+        state: &mut dyn StateReader,
+        account_tx_context: &AccountTransactionContext,
+        block_context: &BlockContext,
+        charge_fee: bool,
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<bool> {
+        if !charge_fee {
+            return Ok(false);
+        }
+        let (balance_low, balance_high) = state.get_fee_token_balance(
+            &account_tx_context.sender_address(),
+            &block_context.fee_token_address(&account_tx_context.fee_type()),
+        )?;
+        Ok(!Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee))
+    }
+
     /// Checks that the account's balance covers max fee.
     fn check_fee_balance<S: StateReader>(
         &self,
@@ -414,18 +433,17 @@ impl AccountTransaction {
                     .try_add_state_changes(&mut execution_state)?
                     .build_for_non_reverted_tx(&execution_resources)?;
 
-                // Check if as a result of tx execution the sender's fee token balance is maxed out,
-                // so that they can't pay fee. If so, the transaction must be reverted.
-                let (balance_low, balance_high) = execution_state.get_fee_token_balance(
-                    &account_tx_context.sender_address(),
-                    &block_context.fee_token_address(&account_tx_context.fee_type()),
-                )?;
-                // If the fee is charged, the balance must be sufficient for the actual fee.
-                let is_maxed_out = charge_fee
-                    && !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
                 let max_fee = account_tx_context.max_fee();
 
-                if actual_fee > max_fee || is_maxed_out {
+                if actual_fee > max_fee
+                    || Self::is_maxed_out(
+                        &mut execution_state,
+                        &account_tx_context,
+                        block_context,
+                        charge_fee,
+                        actual_fee,
+                    )?
+                {
                     // Insufficient fee. Revert the execution and charge what is available.
                     let (final_fee, revert_error) = if actual_fee > max_fee {
                         (
