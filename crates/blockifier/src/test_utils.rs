@@ -119,19 +119,15 @@ pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in 
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
 
-<<<<<<< HEAD
 // The reserves values in the mocked STRK-ETH pair contract.
 pub const RESERVE_0: u32 = 100000;
 pub const RESERVE_1: u32 = 100;
 
-||||||| 917fcca
-=======
 // The block timestamp of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_TIMESTAMP: u64 = 1072023;
 
 pub const CHAIN_ID_NAME: &str = "SN_GOERLI";
 
->>>>>>> origin/main-v0.12.3
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -407,22 +403,12 @@ impl BlockContext {
         BlockContext {
             chain_id: ChainId(CHAIN_ID_NAME.to_string()),
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-<<<<<<< HEAD
-            block_timestamp: BlockTimestamp::default(),
+            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
                 strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
             },
-||||||| 917fcca
-            block_timestamp: BlockTimestamp::default(),
-            sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
-            fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
-=======
-            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
-            sequencer_address: ContractAddress(patricia_key!(TEST_SEQUENCER_ADDRESS)),
-            fee_token_address: ContractAddress(patricia_key!(TEST_ERC20_CONTRACT_ADDRESS)),
->>>>>>> origin/main-v0.12.3
             vm_resource_fee_cost: Default::default(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,

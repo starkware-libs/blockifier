@@ -20,19 +20,9 @@ ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
 cairo-felt = "0.8.2"
-<<<<<<< HEAD
-cairo-lang-casm = "2.1.0"
-cairo-lang-runner = "2.1.0"
-cairo-lang-starknet = "2.2.0"
-||||||| 917fcca
-cairo-lang-casm = "2.1.0"
-cairo-lang-runner = "2.1.0"
-cairo-lang-starknet = "2.1.0"
-=======
 cairo-lang-casm = "2.3.0-rc0"
 cairo-lang-runner = "2.3.0-rc0"
 cairo-lang-starknet = "2.3.0-rc0"
->>>>>>> origin/main-v0.12.3
 cairo-vm = "0.8.2"
 ctor = "0.2.0"
 derive_more = "0.99.17"
