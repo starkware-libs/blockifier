@@ -8,7 +8,10 @@ from starkware.starknet.common.syscalls import (
     library_call,
     deploy,
     call_contract,
+    get_block_number,
+    get_block_timestamp,
     get_caller_address,
+    get_sequencer_address,
     replace_class,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
@@ -250,4 +253,25 @@ func test_write_and_transfer{syscall_ptr: felt*}(
         calldata=calldata,
     );
     return (retdata_len=retdata_len, retdata=retdata);
+}
+
+@external
+func test_get_block_number{syscall_ptr: felt*}(expected_block_number: felt) {
+    let (block_number) = get_block_number();
+    assert block_number = expected_block_number;
+    return ();
+}
+
+@external
+func test_get_block_timestamp{syscall_ptr: felt*}(expected_block_timestamp: felt) {
+    let (block_timestamp) = get_block_timestamp();
+    assert block_timestamp = expected_block_timestamp;
+    return ();
+}
+
+@external
+func test_get_sequencer_address{syscall_ptr: felt*}(expected_sequencer_address: felt) {
+    let (sequencer_address) = get_sequencer_address();
+    assert sequencer_address = expected_sequencer_address;
+    return ();
 }
