@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::cmp::{max, min};
 
 use cairo_vm::vm::runners::cairo_runner::{
     ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
@@ -215,14 +215,17 @@ impl EntryPointExecutionContext {
             .min(block_context.invoke_tx_max_n_steps as usize)
     }
 
+    /// Returns the available steps in run resources.
+    pub fn remaining_steps(&self) -> usize {
+        self.vm_run_resources.get_n_steps().expect("The number of steps must be initialized.")
+    }
+
     /// Subtracts the given number of steps from the currently available run resources.
     /// Used for limiting the number of steps available during the execution stage, to leave enough
     /// steps available for the fee transfer stage.
     pub fn subtract_steps(&mut self, steps_to_subtract: usize) {
-        let current_n_steps =
-            self.vm_run_resources.get_n_steps().expect("The number of steps must be initialized.");
-        let steps_to_subtract = min(steps_to_subtract, current_n_steps);
-        self.vm_run_resources = RunResources::new(current_n_steps - steps_to_subtract);
+        self.vm_run_resources =
+            RunResources::new(max(0, self.remaining_steps() - steps_to_subtract));
     }
 
     /// Combines individual errors into a single stack trace string, with contract addresses printed

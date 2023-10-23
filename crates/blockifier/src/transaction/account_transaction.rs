@@ -1,4 +1,3 @@
-use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -393,10 +392,7 @@ impl AccountTransaction {
         // Subtract the actual steps used for validate_tx and estimated steps required for fee
         // transfer from the steps available to the run_execute context.
         execution_context.subtract_steps(validate_steps + overhead_steps);
-        let n_allotted_steps = execution_context
-            .vm_run_resources
-            .get_n_steps()
-            .expect("The number of steps must be initialized.");
+        let n_allotted_steps = execution_context.remaining_steps();
 
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
@@ -457,11 +453,7 @@ impl AccountTransaction {
                     };
 
                     execution_state.abort();
-                    let n_remaining_steps = execution_context
-                        .vm_run_resources
-                        .get_n_steps()
-                        .expect("Invalid remaining steps in RunResources.");
-                    let n_reverted_steps = n_allotted_steps - n_remaining_steps;
+                    let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
 
                     // Recalculate based on the `validate` state only in order to get the correct
                     // resources, as `execute` is reverted.
@@ -490,11 +482,7 @@ impl AccountTransaction {
             Err(_) => {
                 // Error during execution. Revert.
                 execution_state.abort();
-                let n_remaining_steps = execution_context
-                    .vm_run_resources
-                    .get_n_steps()
-                    .expect("The number of steps must be initialized.");
-                let n_reverted_steps = n_allotted_steps - n_remaining_steps;
+                let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
 
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
