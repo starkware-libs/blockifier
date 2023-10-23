@@ -15,6 +15,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_traits::Zero;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -398,11 +399,15 @@ impl<'a> SyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
         let block_context = &self.context.block_context;
-        let block_info: Vec<MaybeRelocatable> = vec![
-            Felt252::from(block_context.block_number.0).into(),
-            Felt252::from(block_context.block_timestamp.0).into(),
-            stark_felt_to_felt(*block_context.sequencer_address.0.key()).into(),
-        ];
+        let block_info: Vec<MaybeRelocatable> = if self.is_validate_mode() {
+            vec![Felt252::zero().into(); 3]
+        } else {
+            vec![
+                Felt252::from(block_context.block_number.0).into(),
+                Felt252::from(block_context.block_timestamp.0).into(),
+                stark_felt_to_felt(*block_context.sequencer_address.0.key()).into(),
+            ]
+        };
         let block_info_segment_start_ptr = self.read_only_segments.allocate(vm, &block_info)?;
 
         Ok(block_info_segment_start_ptr)
