@@ -150,18 +150,6 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         self.execution_mode() == ExecutionMode::Validate
     }
 
-    /// Returns an error if the syscall is run in validate mode.
-    pub fn verify_not_in_validate_mode(&self, syscall_name: &str) -> DeprecatedSyscallResult<()> {
-        if self.is_validate_mode() {
-            return Err(DeprecatedSyscallExecutionError::InvalidSyscallInExecutionMode {
-                syscall_name: syscall_name.to_string(),
-                execution_mode: self.execution_mode(),
-            });
-        }
-
-        Ok(())
-    }
-
     pub fn verify_syscall_ptr(&self, actual_ptr: Relocatable) -> DeprecatedSyscallResult<()> {
         if actual_ptr != self.syscall_ptr {
             return Err(DeprecatedSyscallExecutionError::BadSyscallPointer {

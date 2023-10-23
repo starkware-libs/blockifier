@@ -346,7 +346,7 @@ pub fn get_block_hash(
 ) -> SyscallResult<GetBlockHashResponse> {
     if syscall_handler.is_validate_mode() {
         return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
-            syscall_name: "get_block_hash".to_string(),
+            syscall_name: "get_block_hash".to_owned(),
             execution_mode: syscall_handler.execution_mode(),
         });
     }

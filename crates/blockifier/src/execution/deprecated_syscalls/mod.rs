@@ -396,7 +396,6 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
-    syscall_handler.verify_not_in_validate_mode("get_block_number")?;
     Ok(GetBlockNumberResponse { block_number: syscall_handler.context.block_context.block_number })
 }
 
@@ -421,7 +420,6 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
-    syscall_handler.verify_not_in_validate_mode("get_block_timestamp")?;
     Ok(GetBlockTimestampResponse {
         block_timestamp: syscall_handler.context.block_context.block_timestamp,
     })
@@ -474,7 +472,6 @@ pub fn get_sequencer_address(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetSequencerAddressResponse> {
-    syscall_handler.verify_not_in_validate_mode("get_sequencer_address")?;
     Ok(GetSequencerAddressResponse {
         address: syscall_handler.context.block_context.sequencer_address,
     })
