@@ -6,7 +6,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use itertools::concat;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, EthAddress, PatriciaKey,
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, PatriciaKey,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
@@ -21,6 +21,7 @@ use crate::abi::constants;
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
@@ -31,8 +32,9 @@ use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_deploy_test_state, create_test_state,
-    trivial_external_entry_point, CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -191,34 +193,49 @@ fn test_keccak() {
     );
 }
 
-#[test]
-fn test_get_execution_info() {
-    let mut state = create_test_state();
-
-    let calldata = calldata![
-        // Expected block info.
-        stark_felt!(1800_u16), // Block number.
-        stark_felt!(1801_u16), // Block timestamp.
-        stark_felt!(1802_u16), // Sequencer address.
-        // Expected transaction info.
-        stark_felt!(1803_u16), // Transaction version.
-        stark_felt!(1804_u16), // Account address.
-        stark_felt!(1805_u16), // Max fee.
-        stark_felt!(1806_u16), // Chain ID.
-        stark_felt!(1807_u16), // Nonce.
-        // Expected call info.
-        stark_felt!(1808_u16), // Caller address.
-        stark_felt!(1809_u16), // Storage address.
-        stark_felt!(1810_u16)  // Entry point selector.
+#[test_case(
+    ExecutionMode::Validate,
+    [stark_felt!(0_u16); 3];
+    "Validate execution mode: block info fields should be zeroed.")]
+#[test_case(
+    ExecutionMode::Execute,
+    [
+        stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
+        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+        stark_felt!(TEST_SEQUENCER_ADDRESS) // Sequencer address.
+    ];
+    "Execute execution mode: block info should be as usual.")]
+fn test_get_execution_info(execution_mode: ExecutionMode, expected_block_info: [StarkFelt; 3]) {
+    let expected_tx_info = vec![
+        stark_felt!(0_u16),                                         // Transaction version.
+        stark_felt!(0_u16),                                         // Account address.
+        stark_felt!(0_u16),                                         // Max fee.
+        stark_felt!(0_u16),                                         // Transaction hash.
+        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        stark_felt!(0_u16),                                         // Nonce.
+    ];
+    let entry_point_selector = selector_from_name("test_get_execution_info");
+    let expected_call_info = vec![
+        stark_felt!(0_u16),                  // Caller address.
+        stark_felt!(TEST_CONTRACT_ADDRESS),  // Storage address.
+        stark_felt!(entry_point_selector.0), // Entry point selector.
     ];
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("test_get_execution_info"),
-        calldata,
+        entry_point_selector,
+        calldata: Calldata(
+            [expected_block_info.to_vec(), expected_tx_info, expected_call_info].concat().into(),
+        ),
         ..trivial_external_entry_point()
     };
 
-    // TODO(spapini): Fix the "UNEXPECTED ERROR".
-    entry_point_call.execute_directly(&mut state).unwrap_err();
+    let mut state = create_test_state();
+
+    let result = match execution_mode {
+        ExecutionMode::Validate => entry_point_call.execute_directly_in_validate_mode(&mut state),
+        ExecutionMode::Execute => entry_point_call.execute_directly(&mut state),
+    };
+
+    assert!(!result.unwrap().execution.failed)
 }
 
 #[test]

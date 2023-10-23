@@ -123,6 +123,11 @@ pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
 pub const RESERVE_0: u32 = 100000;
 pub const RESERVE_1: u32 = 100;
 
+// The block timestamp of the BlockContext being used for testing.
+pub const CURRENT_BLOCK_TIMESTAMP: u64 = 1072023;
+
+pub const CHAIN_ID_NAME: &str = "SN_GOERLI";
+
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -396,9 +401,9 @@ impl CallEntryPoint {
 impl BlockContext {
     pub fn create_for_testing() -> BlockContext {
         BlockContext {
-            chain_id: ChainId("SN_GOERLI".to_string()),
+            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp::default(),
+            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
