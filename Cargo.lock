@@ -385,13 +385,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-<<<<<<< HEAD
-version = "0.3.0-rc0"
-||||||| 917fcca
-version = "0.1.0-rc0"
-=======
 version = "0.4.0-rc0"
->>>>>>> origin/main-v0.12.3
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2070,13 +2064,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-<<<<<<< HEAD
-version = "0.3.0-rc0"
-||||||| 917fcca
-version = "0.1.0-rc0"
-=======
 version = "0.4.0-rc0"
->>>>>>> origin/main-v0.12.3
 dependencies = [
  "blockifier",
  "cached",

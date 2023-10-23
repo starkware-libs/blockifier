@@ -11,16 +11,9 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
-<<<<<<< HEAD
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-||||||| 917fcca
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
-=======
-use crate::execution::common_hints::ExecutionMode;
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
->>>>>>> origin/main-v0.12.3
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
