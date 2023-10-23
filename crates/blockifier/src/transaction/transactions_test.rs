@@ -41,7 +41,7 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 use crate::transaction::objects::{
     FeeType, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
 };
@@ -479,7 +479,7 @@ fn assert_failure_if_max_fee_exceeds_balance(
     // Test error.
     assert_matches!(
         invalid_tx.execute(state, block_context, true, true).unwrap_err(),
-        TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
+        TransactionExecutionError::TransactionPreValidationError(TransactionPreValidationError::MaxFeeExceedsBalance{ max_fee, .. })
         if max_fee == sent_max_fee
     );
 }
@@ -544,7 +544,7 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Test error.
     assert_matches!(
         execution_error,
-        TransactionExecutionError::MaxFeeTooLow{ min_fee, max_fee }
+        TransactionExecutionError::TransactionPreValidationError(TransactionPreValidationError::MaxFeeTooLow{ min_fee, max_fee })
         if max_fee == invalid_max_fee && min_fee == minimal_fee
     );
 
@@ -573,8 +573,8 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Test error.
     assert_matches!(
         execution_error,
-        TransactionExecutionError::InvalidNonce { address, expected_nonce, actual_nonce }
-        if (address, expected_nonce, actual_nonce) ==
+        TransactionExecutionError::TransactionPreValidationError(TransactionPreValidationError::InvalidNonce { address, current_nonce, tx_nonce })
+        if (address, current_nonce, tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
     );
 }

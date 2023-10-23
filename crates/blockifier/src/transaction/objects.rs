@@ -4,17 +4,22 @@ use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
-    AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBoundsMapping, Tip,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping,
+    Tip, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use strum_macros::EnumIter;
 
+use super::errors::FeeCalculationError;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
+
+pub type TransactionPreValidationResult<T> = Result<T, TransactionPreValidationError>;
+
+pub type FeeCalculationResult<T> = Result<T, FeeCalculationError>;
 
 macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
@@ -58,12 +63,18 @@ impl AccountTransactionContext {
     pub fn max_fee(&self) -> Fee {
         match self {
             Self::Current(context) => {
-                let l1_resource_bounds =
-                    context.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
+                let l1_resource_bounds = context.get_l1_gas_bounds();
                 // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
                 Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
             }
             Self::Deprecated(context) => context.max_fee,
+        }
+    }
+
+    pub fn max_l1_gas_price(&self) -> Option<Fee> {
+        match self {
+            Self::Current(context) => Some(Fee(context.get_l1_gas_bounds().max_price_per_unit)),
+            Self::Deprecated(_) => None,
         }
     }
 
@@ -95,6 +106,12 @@ pub struct CurrentAccountTransactionContext {
     pub fee_data_availability_mode: DataAvailabilityMode,
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
+}
+
+impl CurrentAccountTransactionContext {
+    fn get_l1_gas_bounds(&self) -> ResourceBounds {
+        self.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap()
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -179,6 +196,9 @@ pub trait HasRelatedFeeType {
         resources: &ResourcesMapping,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Fee> {
-        calculate_tx_fee(resources, block_context, &self.fee_type())
+        match calculate_tx_fee(resources, block_context, &self.fee_type()) {
+            Err(err) => Err(err.into()),
+            Ok(other) => Ok(other),
+        }
     }
 }
