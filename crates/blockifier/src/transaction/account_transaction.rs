@@ -16,6 +16,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
+use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_max_fee};
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
@@ -179,16 +180,6 @@ impl AccountTransaction {
         }
     }
 
-    // TODO(Dori,1/10/2023): If/when Fees can be more than 128 bit integers, this should be updated.
-    fn is_sufficient_fee_balance(
-        balance_low: StarkFelt,
-        balance_high: StarkFelt,
-        fee: Fee,
-    ) -> bool {
-        // The fee is at most 128 bits, while balance is 256 bits (split into two 128 bit words).
-        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0)
-    }
-
     /// Checks that the account's balance covers max fee.
     fn check_fee_balance<S: StateReader>(
         &self,
@@ -208,19 +199,7 @@ impl AccountTransaction {
             return Err(TransactionExecutionError::MaxFeeTooLow { min_fee: minimal_fee, max_fee });
         }
 
-        let (balance_low, balance_high) = state.get_fee_token_balance(
-            &account_tx_context.sender_address(),
-            &block_context.fee_token_address(&account_tx_context.fee_type()),
-        )?;
-        if !Self::is_sufficient_fee_balance(balance_low, balance_high, max_fee) {
-            return Err(TransactionExecutionError::MaxFeeExceedsBalance {
-                max_fee,
-                balance_low,
-                balance_high,
-            });
-        }
-
-        Ok(())
+        verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee)
     }
 
     fn handle_fee(
@@ -427,18 +406,15 @@ impl AccountTransaction {
                     .try_add_state_changes(&mut execution_state)?
                     .build_for_non_reverted_tx(&execution_resources)?;
 
-                // Check if as a result of tx execution the sender's fee token balance is maxed out,
-                // so that they can't pay fee. If so, the transaction must be reverted.
-                let (balance_low, balance_high) = execution_state.get_fee_token_balance(
-                    &account_tx_context.sender_address(),
-                    &block_context.fee_token_address(&account_tx_context.fee_type()),
-                )?;
-                // If the fee is charged, the balance must be sufficient for the actual fee.
-                let is_maxed_out = charge_fee
-                    && !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
                 let max_fee = account_tx_context.max_fee();
+                let can_pay = can_pay_fee(
+                    &mut execution_state,
+                    &account_tx_context,
+                    block_context,
+                    actual_fee,
+                )?;
 
-                if actual_fee > max_fee || is_maxed_out {
+                if actual_fee > max_fee || (charge_fee && !can_pay) {
                     // Insufficient fee. Revert the execution and charge what is available.
                     let (final_fee, revert_error) = if actual_fee > max_fee {
                         (
