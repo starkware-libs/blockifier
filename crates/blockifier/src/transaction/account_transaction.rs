@@ -263,6 +263,29 @@ impl AccountTransaction {
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
     }
 
+    /// Reverts the execution state, computes the fee to charge and the resources used.
+    /// In case of successful execution the must be reverted, the charged fee is not derived from
+    /// the resources in block; in this case, the precomputed fee must be provided explicitly.
+    fn revert_and_compute_costs<S: StateReader>(
+        execution_state: TransactionalState<'_, S>,
+        execution_context: &EntryPointExecutionContext,
+        execution_resources: &ExecutionResources,
+        actual_cost_builder_with_validation_changes: ActualCostBuilder<'_>,
+        n_allotted_steps: usize,
+        precomputed_fee: Option<Fee>,
+    ) -> TransactionExecutionResult<ActualCost> {
+        execution_state.abort();
+        let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
+
+        // Recalculate based on the `validate` state only in order to get the correct
+        // resources, as `execute` is reverted.
+        actual_cost_builder_with_validation_changes.build_for_reverted_tx(
+            execution_resources,
+            n_reverted_steps,
+            precomputed_fee,
+        )
+    }
+
     fn run_execute<S: State>(
         &self,
         state: &mut S,
@@ -425,15 +448,16 @@ impl AccountTransaction {
                         String::from("Insufficient fee token balance")
                     };
 
-                    execution_state.abort();
-                    let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
-
-                    // Recalculate based on the `validate` state only in order to get the correct
-                    // resources, as `execute` is reverted.
                     let ActualCost { actual_resources, actual_fee } =
-                        actual_cost_builder_with_validation_changes.build_for_reverted_tx(
+                        Self::revert_and_compute_costs(
+                            execution_state,
+                            &execution_context,
                             &execution_resources,
-                            n_reverted_steps,
+                            actual_cost_builder_with_validation_changes,
+                            n_allotted_steps,
+                            // Recalculate based on the `validate` state only in order to get the
+                            // correct resources, as `execute` is reverted. Provide the precomputed
+                            // post-execution fee and charge it if possible.
                             Some(actual_fee),
                         )?;
 
@@ -457,16 +481,16 @@ impl AccountTransaction {
             }
             Err(_) => {
                 // Error during execution. Revert.
-                execution_state.abort();
-                let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
-
-                // Fee is determined by the `validate` state changes since `execute` is reverted.
-                let ActualCost { actual_fee, actual_resources } =
-                    actual_cost_builder_with_validation_changes.build_for_reverted_tx(
-                        &execution_resources,
-                        n_reverted_steps,
-                        None,
-                    )?;
+                let ActualCost { actual_fee, actual_resources } = Self::revert_and_compute_costs(
+                    execution_state,
+                    &execution_context,
+                    &execution_resources,
+                    actual_cost_builder_with_validation_changes,
+                    n_allotted_steps,
+                    // Fee is determined by the `validate` state changes since `execute` is
+                    // reverted.
+                    None,
+                )?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
