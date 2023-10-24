@@ -154,21 +154,24 @@ pub struct EntryPointExecutionContext {
 
 impl EntryPointExecutionContext {
     pub fn new(
-        block_context: BlockContext,
-        account_tx_context: AccountTransactionContext,
-        max_n_steps: usize,
-        execution_mode: ExecutionMode,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+        mode: ExecutionMode,
     ) -> Self {
         Self {
-            vm_run_resources: RunResources::new(max_n_steps),
+            vm_run_resources: RunResources::new(Self::max_steps(
+                block_context,
+                account_tx_context,
+                &mode,
+            )),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
-            account_tx_context,
+            account_tx_context: account_tx_context.clone(),
             current_recursion_depth: Default::default(),
             max_recursion_depth: block_context.max_recursion_depth,
-            block_context,
-            execution_mode,
+            block_context: block_context.clone(),
+            execution_mode: mode,
         }
     }
 
@@ -176,34 +179,33 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> Self {
-        Self::new(
-            block_context.clone(),
-            account_tx_context.clone(),
-            block_context.validate_max_n_steps as usize,
-            ExecutionMode::Validate,
-        )
+        Self::new(block_context, account_tx_context, ExecutionMode::Validate)
     }
 
     pub fn new_invoke(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> Self {
-        Self::new(
-            block_context.clone(),
-            account_tx_context.clone(),
-            Self::max_invoke_steps(block_context, account_tx_context),
-            ExecutionMode::Execute,
-        )
+        Self::new(block_context, account_tx_context, ExecutionMode::Execute)
     }
 
-    /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
+    /// Returns the maximum number of cairo steps allowed, given the max fee, gas price and the
+    /// execution mode.
     /// If fee is disabled, returns the global maximum.
-    pub fn max_invoke_steps(
+    fn max_steps(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        mode: &ExecutionMode,
     ) -> usize {
-        let block_upper_bound =
-            min(constants::MAX_STEPS_PER_TX, block_context.invoke_tx_max_n_steps as usize);
+        let block_upper_bound = match mode {
+            ExecutionMode::Validate => min(
+                block_context.validate_max_n_steps as usize,
+                constants::MAX_VALIDATE_STEPS_PER_TX,
+            ),
+            ExecutionMode::Execute => {
+                min(block_context.invoke_tx_max_n_steps as usize, constants::MAX_STEPS_PER_TX)
+            }
+        };
 
         if !account_tx_context.enforce_fee() {
             return block_upper_bound;

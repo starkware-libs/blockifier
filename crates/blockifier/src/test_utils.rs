@@ -35,7 +35,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
-use crate::abi::constants;
+use crate::abi::constants::{self, MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
 use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -414,8 +414,8 @@ impl BlockContext {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
                 strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
             },
-            invoke_tx_max_n_steps: 1_000_000,
-            validate_max_n_steps: 1_000_000,
+            invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
+            validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
             max_recursion_depth: 50,
         }
     }
