@@ -174,34 +174,43 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> Self {
-        Self::new(
-            block_context.clone(),
-            account_tx_context.clone(),
-            block_context.validate_max_n_steps as usize,
-            ExecutionMode::Validate,
-        )
+        Self::new_in_mode(block_context, account_tx_context, ExecutionMode::Validate)
     }
 
     pub fn new_invoke(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> Self {
+        Self::new_in_mode(block_context, account_tx_context, ExecutionMode::Execute)
+    }
+
+    pub fn new_in_mode(
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+        mode: ExecutionMode,
+    ) -> Self {
         Self::new(
             block_context.clone(),
             account_tx_context.clone(),
-            Self::max_invoke_steps(block_context, account_tx_context),
-            ExecutionMode::Execute,
+            Self::max_steps(block_context, account_tx_context, &mode),
+            mode,
         )
     }
 
-    /// Returns the maximum number of cairo steps allowed, given the max fee and gas price.
+    /// Returns the maximum number of cairo steps allowed, given the max fee, gas price and the
+    /// execution mode.
     /// If fee is disabled, returns the global maximum.
-    pub fn max_invoke_steps(
+    fn max_steps(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        mode: &ExecutionMode,
     ) -> usize {
+        let configured_max = match mode {
+            ExecutionMode::Validate => block_context.validate_max_n_steps as usize,
+            ExecutionMode::Execute => block_context.invoke_tx_max_n_steps as usize,
+        };
         if !account_tx_context.enforce_fee() {
-            return min(constants::MAX_STEPS_PER_TX, block_context.invoke_tx_max_n_steps as usize);
+            return min(constants::MAX_STEPS_PER_TX, configured_max);
         }
 
         let gas_per_step =
@@ -212,7 +221,7 @@ impl EntryPointExecutionContext {
             / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type());
         ((max_gas as f64 / gas_per_step).floor() as usize)
             .min(constants::MAX_STEPS_PER_TX)
-            .min(block_context.invoke_tx_max_n_steps as usize)
+            .min(configured_max)
     }
 
     /// Returns the available steps in run resources.
