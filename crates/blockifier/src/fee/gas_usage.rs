@@ -182,8 +182,5 @@ pub fn estimate_minimal_fee(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    match calculate_tx_fee(&resources, block_context, &tx.fee_type()) {
-        Err(err) => Err(err.into()),
-        Ok(other) => Ok(other),
-    }
+    Ok(calculate_tx_fee(&resources, block_context, &tx.fee_type())?)
 }

@@ -71,6 +71,7 @@ impl AccountTransactionContext {
         }
     }
 
+    /// Returns the max L1 gas price if such a bound exists, else None.
     pub fn max_l1_gas_price(&self) -> Option<Fee> {
         match self {
             Self::Current(context) => Some(Fee(context.get_l1_gas_bounds().max_price_per_unit)),
@@ -110,7 +111,7 @@ pub struct CurrentAccountTransactionContext {
 
 impl CurrentAccountTransactionContext {
     fn get_l1_gas_bounds(&self) -> ResourceBounds {
-        self.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap()
+        self.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default()
     }
 }
 
@@ -196,9 +197,6 @@ pub trait HasRelatedFeeType {
         resources: &ResourcesMapping,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Fee> {
-        match calculate_tx_fee(resources, block_context, &self.fee_type()) {
-            Err(err) => Err(err.into()),
-            Ok(other) => Ok(other),
-        }
+        Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
     }
 }

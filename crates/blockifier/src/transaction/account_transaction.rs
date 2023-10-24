@@ -215,12 +215,7 @@ impl AccountTransaction {
             return Ok(());
         }
 
-        let address = account_tx_context.sender_address();
-
-        match state.increment_nonce(address) {
-            Err(err) => Err(err.into()),
-            Ok(res) => Ok(res),
-        }
+        Ok(state.increment_nonce(account_tx_context.sender_address())?)
     }
 
     fn handle_validate_tx(
@@ -260,10 +255,7 @@ impl AccountTransaction {
             ));
         }
 
-        match verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee) {
-            Err(err) => Err(err.into()),
-            Ok(res) => Ok(res),
-        }
+        Ok(verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee)?)
     }
 
     fn handle_fee(
@@ -602,15 +594,13 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         self.verify_tx_version(account_tx_context.version())?;
 
-        if let Err(err) = self.perform_pre_validation_checks(
+        self.perform_pre_validation_checks(
             &account_tx_context,
             state,
             block_context,
             charge_fee,
             true,
-        ) {
-            return Err(err.into());
-        }
+        )?;
 
         Self::increment_nonce(&account_tx_context, state)?;
 

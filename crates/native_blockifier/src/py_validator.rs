@@ -95,21 +95,15 @@ impl PyValidator {
         };
 
         let tx_executor = self.tx_executor();
-        let state = &mut tx_executor.state;
-        let block_context = &tx_executor.block_context;
-        let account_tx_context = account_tx.get_account_tx_context();
-        if let Err(err) = account_tx.perform_pre_validation_checks(
-            &account_tx_context,
-            state,
-            block_context,
+        account_tx.perform_pre_validation_checks(
+            &account_tx.get_account_tx_context(),
+            &mut tx_executor.state,
+            &tx_executor.block_context,
             true,
             false,
-        ) {
-            return Err(err.into());
-        }
+        )?;
 
-        let (optional_call_info, actual_fee) =
-            self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
+        let (optional_call_info, actual_fee) = tx_executor.validate(remaining_gas, &account_tx)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
         Ok((py_optional_call_info, actual_fee.0))
     }
