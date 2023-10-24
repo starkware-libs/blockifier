@@ -9,9 +9,24 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
-pub enum FeeCalculationError {
+pub enum TransactionFeeError {
     #[error("Cairo resource names must be contained in fee cost dict.")]
     CairoResourcesNotContainedInFeeCosts,
+    #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
+    FeeTransferError { max_fee: Fee, actual_fee: Fee },
+    #[error("Actual fee ({actual_fee:?}) exceeded paid fee on L1 ({paid_fee:?}).")]
+    InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
+    #[error("Max fee ({max_fee:?}) exceeds balance (Uint256({balance_low:?}, {balance_high:?})).")]
+    MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+    #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
+    MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
+    #[error(
+        "Max L1 gas price ({max_l1_gas_price:?}) is lower than the current gas price: \
+         {current_gas_price:?}."
+    )]
+    MaxL1GasPriceTooLow { max_l1_gas_price: Fee, current_gas_price: Fee },
+    #[error(transparent)]
+    StateError(#[from] StateError),
 }
 
 #[derive(Debug, Error)]
@@ -30,11 +45,7 @@ pub enum TransactionExecutionError {
     #[error("Transaction execution has failed.")]
     ExecutionError(#[source] EntryPointExecutionError),
     #[error(transparent)]
-    FeeCalculationError(#[from] FeeCalculationError),
-    #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
-    FeeTransferError { max_fee: Fee, actual_fee: Fee },
-    #[error("Actual fee ({actual_fee:?}) exceeded paid fee on L1 ({paid_fee:?}).")]
-    InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
+    TransactionFeeError(#[from] TransactionFeeError),
     #[error(
         "Invalid order number for {object}. Order: {order} exceeds the maximum order limit: \
          {max_order}."
@@ -66,17 +77,8 @@ pub enum TransactionPreValidationError {
          {current_nonce:?}; got: {tx_nonce:?}."
     )]
     InvalidNonce { address: ContractAddress, current_nonce: Nonce, tx_nonce: Nonce },
-    #[error("Max fee ({max_fee:?}) exceeds balance (Uint256({balance_low:?}, {balance_high:?})).")]
-    MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
-    #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
-    MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
-    #[error(
-        "Max L1 gas price ({max_l1_gas_price:?}) is lower than the current gas price: \
-         {current_gas_price:?}."
-    )]
-    MaxL1GasPriceTooLow { max_l1_gas_price: Fee, current_gas_price: Fee },
     #[error(transparent)]
     StateError(#[from] StateError),
     #[error(transparent)]
-    FeeCalculationError(#[from] FeeCalculationError),
+    TransactionFeeError(#[from] TransactionFeeError),
 }

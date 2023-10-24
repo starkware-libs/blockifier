@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use blockifier::transaction::errors::{FeeCalculationError, TransactionExecutionError};
+use blockifier::transaction::errors::{TransactionExecutionError, TransactionFeeError};
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -95,8 +95,8 @@ pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
 #[pyfunction]
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
-    Err(TransactionExecutionError::FeeCalculationError(
-        FeeCalculationError::CairoResourcesNotContainedInFeeCosts,
+    Err(TransactionExecutionError::TransactionFeeError(
+        TransactionFeeError::CairoResourcesNotContainedInFeeCosts,
     )
     .into())
 }

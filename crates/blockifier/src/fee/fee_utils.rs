@@ -5,13 +5,12 @@ use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
-use crate::state::state_api::StateReader;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::state::state_api::State;
+use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
     AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionResult, FeeCalculationResult
+    TransactionExecutionResult, TransactionFeeResult,
 };
-use crate::transaction::errors::FeeCalculationError;
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -32,11 +31,11 @@ pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, Reso
 pub fn calculate_l1_gas_by_vm_usage(
     block_context: &BlockContext,
     vm_resource_usage: &ResourcesMapping,
-) -> FeeCalculationResult<f64> {
+) -> TransactionFeeResult<f64> {
     let vm_resource_fee_costs = &block_context.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
-        return Err(FeeCalculationError::CairoResourcesNotContainedInFeeCosts);
+        return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
 
     // Convert Cairo usage to L1 gas usage.
@@ -57,7 +56,7 @@ pub fn calculate_tx_fee(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
     fee_type: &FeeType,
-) -> FeeCalculationResult<Fee> {
+) -> TransactionFeeResult<Fee> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
@@ -68,11 +67,11 @@ pub fn calculate_tx_fee(
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
 fn get_balance_and_if_covers_fee(
-    state: &mut dyn StateReader,
+    state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     fee: Fee,
-) -> TransactionExecutionResult<(StarkFelt, StarkFelt, bool)> {
+) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
     let (balance_low, balance_high) = state.get_fee_token_balance(
         &account_tx_context.sender_address(),
         &block_context.fee_token_address(&account_tx_context.fee_type()),
@@ -89,23 +88,23 @@ fn get_balance_and_if_covers_fee(
 /// Verifies that, given the current state, the account can pay the given max fee.
 /// Error may indicate insufficient balance, or some other error.
 pub fn verify_can_pay_max_fee(
-    state: &mut dyn StateReader,
+    state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     max_fee: Fee,
-) -> TransactionExecutionResult<()> {
+) -> TransactionFeeResult<()> {
     let (balance_low, balance_high, can_pay) =
         get_balance_and_if_covers_fee(state, account_tx_context, block_context, max_fee)?;
     if can_pay {
         Ok(())
     } else {
-        Err(TransactionExecutionError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
+        Err(TransactionFeeError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
     }
 }
 
 /// Returns `true` if and only if the balance covers the fee.
 pub fn can_pay_fee(
-    state: &mut dyn StateReader,
+    state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     fee: Fee,

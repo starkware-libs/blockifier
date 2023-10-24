@@ -9,7 +9,7 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
-use super::errors::FeeCalculationError;
+use super::errors::TransactionFeeError;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -19,7 +19,7 @@ pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
 pub type TransactionPreValidationResult<T> = Result<T, TransactionPreValidationError>;
 
-pub type FeeCalculationResult<T> = Result<T, FeeCalculationError>;
+pub type TransactionFeeResult<T> = Result<T, TransactionFeeError>;
 
 macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
