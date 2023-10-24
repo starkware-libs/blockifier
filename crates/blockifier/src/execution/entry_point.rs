@@ -18,8 +18,10 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
+use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::state_api::State;
 use crate::transaction::objects::{AccountTransactionContext, HasRelatedFeeType};
+use crate::transaction::transaction_types::TransactionType;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -216,16 +218,40 @@ impl EntryPointExecutionContext {
     }
 
     /// Returns the available steps in run resources.
-    pub fn remaining_steps(&self) -> usize {
+    pub fn n_remaining_steps(&self) -> usize {
         self.vm_run_resources.get_n_steps().expect("The number of steps must be initialized.")
     }
 
     /// Subtracts the given number of steps from the currently available run resources.
     /// Used for limiting the number of steps available during the execution stage, to leave enough
     /// steps available for the fee transfer stage.
-    pub fn subtract_steps(&mut self, steps_to_subtract: usize) {
+    /// Returns the remaining number of steps.
+    pub fn subtract_steps(&mut self, steps_to_subtract: usize) -> usize {
         self.vm_run_resources =
-            RunResources::new(max(0, self.remaining_steps() - steps_to_subtract));
+            RunResources::new(max(0, self.n_remaining_steps() - steps_to_subtract));
+        self.n_remaining_steps()
+    }
+
+    /// From the total amount of steps available for execution, deduct the steps consumed during
+    /// validation and the overhead steps required for fee transfer.
+    /// Returns the remaining steps (after the subtraction).
+    pub fn subtract_validation_and_overhead_steps(
+        &mut self,
+        validate_call_info: &Option<CallInfo>,
+        tx_type: &TransactionType,
+    ) -> usize {
+        let validate_steps = validate_call_info
+            .as_ref()
+            .map(|call_info| call_info.vm_resources.n_steps)
+            .unwrap_or_default();
+
+        let overhead_steps = OS_RESOURCES
+            .execute_txs_inner()
+            .get(tx_type)
+            .expect("`OS_RESOURCES` must contain all transaction types.")
+            .n_steps;
+
+        self.subtract_steps(validate_steps + overhead_steps)
     }
 
     /// Combines individual errors into a single stack trace string, with contract addresses printed
