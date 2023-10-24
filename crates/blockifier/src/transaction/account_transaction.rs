@@ -446,7 +446,6 @@ impl AccountTransaction {
                 }
 
                 // Commit the execution.
-                resources.clone_from(&execution_resources);
                 execution_state.commit();
                 Ok(ValidateExecuteCallInfo::new_accepted(
                     validate_call_info,
