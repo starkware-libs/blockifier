@@ -435,7 +435,7 @@ impl AccountTransaction {
                     // resources, as `execute` is reverted.
                     let ActualCost { actual_resources: final_resources, .. } =
                         actual_cost_builder_with_validation_changes
-                            .build_for_reverted_tx(&execution_resources, n_reverted_steps)?;
+                            .build_for_reverted_tx(&resources, n_reverted_steps)?;
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
@@ -446,7 +446,6 @@ impl AccountTransaction {
                 }
 
                 // Commit the execution.
-                resources.clone_from(&execution_resources);
                 execution_state.commit();
                 Ok(ValidateExecuteCallInfo::new_accepted(
                     validate_call_info,
@@ -463,7 +462,7 @@ impl AccountTransaction {
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
                     actual_cost_builder_with_validation_changes
-                        .build_for_reverted_tx(&execution_resources, n_reverted_steps)?;
+                        .build_for_reverted_tx(&resources, n_reverted_steps)?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
