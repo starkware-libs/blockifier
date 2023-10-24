@@ -57,16 +57,32 @@ impl<'a> ActualCostBuilder<'a> {
     ) -> TransactionExecutionResult<ActualCost> {
         let is_reverted = false;
         let n_reverted_steps = 0;
-        self.calculate_actual_fee_and_resources(execution_resources, is_reverted, n_reverted_steps)
+        self.calculate_actual_fee_and_resources(
+            execution_resources,
+            is_reverted,
+            n_reverted_steps,
+            None,
+        )
     }
 
+    /// Based on the state changes of the validate phase, calculate the actual fee and resources,
+    /// given the number of reverted steps in the execute phase and optionally the computed fee
+    /// post-execution (before execution state changes).
+    /// Precomputed fee is required when the execution succeeds, but the transaction must be
+    /// reverted for other reasons.
     pub fn build_for_reverted_tx(
         self,
         execution_resources: &ExecutionResources,
         n_reverted_steps: usize,
+        precomputed_fee: Option<Fee>,
     ) -> TransactionExecutionResult<ActualCost> {
         let is_reverted = true;
-        self.calculate_actual_fee_and_resources(execution_resources, is_reverted, n_reverted_steps)
+        self.calculate_actual_fee_and_resources(
+            execution_resources,
+            is_reverted,
+            n_reverted_steps,
+            precomputed_fee,
+        )
     }
 
     // Setters.
@@ -105,6 +121,7 @@ impl<'a> ActualCostBuilder<'a> {
         execution_resources: &ExecutionResources,
         is_reverted: bool,
         n_reverted_steps: usize,
+        precomputed_fee: Option<Fee>,
     ) -> TransactionExecutionResult<ActualCost> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
         let non_optional_call_infos = vec![self.validate_call_info, self.execute_call_info]
@@ -120,8 +137,12 @@ impl<'a> ActualCostBuilder<'a> {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let mut actual_fee =
-            self.account_tx_context.calculate_tx_fee(&actual_resources, &self.block_context)?;
+        let mut actual_fee = match precomputed_fee {
+            Some(fee) => fee,
+            None => {
+                self.account_tx_context.calculate_tx_fee(&actual_resources, &self.block_context)?
+            }
+        };
         if is_reverted || !self.account_tx_context.enforce_fee() {
             // We cannot charge more than max_fee for reverted txs.
             actual_fee = min(actual_fee, self.account_tx_context.max_fee());
