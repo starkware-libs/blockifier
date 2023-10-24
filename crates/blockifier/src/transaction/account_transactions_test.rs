@@ -688,10 +688,11 @@ fn test_n_reverted_steps(
         "recursive_fail",
         0,
     );
-    let n_steps_0 = result.actual_resources.0.get("n_steps").unwrap();
-    let actual_fee_0 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
+    let mut actual_resources_0 = result.actual_resources.clone();
+    let n_steps_0 = result.actual_resources.0.get("n_steps").unwrap();
+    let actual_fee_0 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
     let result: TransactionExecutionInfo = run_recursive_function(
@@ -704,10 +705,11 @@ fn test_n_reverted_steps(
         "recursive_fail",
         1,
     );
-    let n_steps_1 = result.actual_resources.0.get("n_steps").unwrap();
-    let actual_fee_1 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
+    let actual_resources_1 = result.actual_resources;
+    let n_steps_1 = actual_resources_1.0.get("n_steps").unwrap();
+    let actual_fee_1 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
     let result: TransactionExecutionInfo = run_recursive_function(
@@ -734,6 +736,12 @@ fn test_n_reverted_steps(
     let single_call_fee_delta = actual_fee_1 - actual_fee_0;
     assert!(single_call_steps_delta > 0);
     assert!(single_call_fee_delta > 0);
+
+    // Make sure the resources in block of invocation 0 and 1 are the same, except for the number
+    // of cairo steps.
+    actual_resources_0.0.insert("n_steps".to_string(), *n_steps_0 + single_call_steps_delta);
+    assert_eq!(actual_resources_0, actual_resources_1);
+    actual_resources_0.0.insert("n_steps".to_string(), *n_steps_0);
 
     // Invoke the `recursive_fail` function with 100 iterations. This call should fail.
     let result: TransactionExecutionInfo = run_recursive_function(

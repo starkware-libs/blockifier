@@ -158,6 +158,7 @@ impl TransactionExecutionInfo {
 }
 
 /// A mapping from a transaction execution resource to its actual usage.
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
