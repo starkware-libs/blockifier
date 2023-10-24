@@ -1,11 +1,16 @@
 use std::collections::HashSet;
 
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{
+    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
+    TransactionExecutionResult,
+};
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -58,4 +63,53 @@ pub fn calculate_tx_fee(
 
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
     Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.get_by_fee_type(fee_type)))
+}
+
+/// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
+fn get_balance_and_if_covers_fee(
+    state: &mut dyn StateReader,
+    account_tx_context: &AccountTransactionContext,
+    block_context: &BlockContext,
+    fee: Fee,
+) -> TransactionExecutionResult<(StarkFelt, StarkFelt, bool)> {
+    let (balance_low, balance_high) = state.get_fee_token_balance(
+        &account_tx_context.sender_address(),
+        &block_context.fee_token_address(&account_tx_context.fee_type()),
+    )?;
+    Ok((
+        balance_low,
+        balance_high,
+        // TODO(Dori,1/10/2023): If/when fees can be more than 128 bit integers, this should be
+        //   updated.
+        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0),
+    ))
+}
+
+/// Verifies that, given the current state, the account can pay the given max fee.
+/// Error may indicate insufficient balance, or some other error.
+pub fn verify_can_pay_max_fee(
+    state: &mut dyn StateReader,
+    account_tx_context: &AccountTransactionContext,
+    block_context: &BlockContext,
+    max_fee: Fee,
+) -> TransactionExecutionResult<()> {
+    let (balance_low, balance_high, can_pay) =
+        get_balance_and_if_covers_fee(state, account_tx_context, block_context, max_fee)?;
+    if can_pay {
+        Ok(())
+    } else {
+        Err(TransactionExecutionError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
+    }
+}
+
+/// Returns `true` if and only if the balance covers the fee.
+pub fn can_pay_fee(
+    state: &mut dyn StateReader,
+    account_tx_context: &AccountTransactionContext,
+    block_context: &BlockContext,
+    fee: Fee,
+) -> TransactionExecutionResult<bool> {
+    let (_, _, can_pay) =
+        get_balance_and_if_covers_fee(state, account_tx_context, block_context, fee)?;
+    Ok(can_pay)
 }
