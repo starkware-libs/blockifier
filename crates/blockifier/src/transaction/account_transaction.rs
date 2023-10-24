@@ -18,7 +18,6 @@ use crate::execution::entry_point::{
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_max_fee};
 use crate::fee::gas_usage::estimate_minimal_fee;
-use crate::fee::os_resources::OS_RESOURCES;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
@@ -357,21 +356,8 @@ impl AccountTransaction {
             validate,
         )?;
 
-        let validate_steps = validate_call_info
-            .as_ref()
-            .map(|call_info| call_info.vm_resources.n_steps)
-            .unwrap_or_default();
-
-        let overhead_steps = OS_RESOURCES
-            .execute_txs_inner()
-            .get(&self.tx_type())
-            .expect("`OS_RESOURCES` must contain all transaction types.")
-            .n_steps;
-
-        // Subtract the actual steps used for validate_tx and estimated steps required for fee
-        // transfer from the steps available to the run_execute context.
-        execution_context.subtract_steps(validate_steps + overhead_steps);
-        let n_allotted_steps = execution_context.remaining_steps();
+        let total_execution_steps = execution_context
+            .subtract_validation_and_overhead_steps(&validate_call_info, &self.tx_type());
 
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
@@ -429,7 +415,8 @@ impl AccountTransaction {
                     };
 
                     execution_state.abort();
-                    let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
+                    let n_reverted_steps =
+                        total_execution_steps - execution_context.remaining_steps();
 
                     // Recalculate based on the `validate` state only in order to get the correct
                     // resources, as `execute` is reverted.
@@ -458,7 +445,7 @@ impl AccountTransaction {
             Err(_) => {
                 // Error during execution. Revert.
                 execution_state.abort();
-                let n_reverted_steps = n_allotted_steps - execution_context.remaining_steps();
+                let n_reverted_steps = total_execution_steps - execution_context.remaining_steps();
 
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
