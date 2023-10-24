@@ -402,16 +402,13 @@ impl AccountTransaction {
 
                 if actual_fee > max_fee || (charge_fee && !can_pay) {
                     // Insufficient fee. Revert the execution and charge what is available.
-                    let (final_fee, revert_error) = if actual_fee > max_fee {
-                        (
-                            max_fee,
-                            format!(
-                                "Insufficient max fee: max_fee: {max_fee:?}, actual_fee: \
-                                 {actual_fee:?}",
-                            ),
+                    let revert_error = if actual_fee > max_fee {
+                        format!(
+                            "Insufficient max fee: max_fee: {max_fee:?}, actual_fee: \
+                             {actual_fee:?}",
                         )
                     } else {
-                        (actual_fee, String::from("Insufficient fee token balance"))
+                        String::from("Insufficient fee token balance")
                     };
 
                     execution_state.abort();
@@ -420,15 +417,18 @@ impl AccountTransaction {
 
                     // Recalculate based on the `validate` state only in order to get the correct
                     // resources, as `execute` is reverted.
-                    let ActualCost { actual_resources: final_resources, .. } =
-                        actual_cost_builder_with_validation_changes
-                            .build_for_reverted_tx(&resources, n_reverted_steps)?;
+                    let ActualCost { actual_resources, actual_fee } =
+                        actual_cost_builder_with_validation_changes.build_for_reverted_tx(
+                            &resources,
+                            n_reverted_steps,
+                            Some(actual_fee),
+                        )?;
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
                         revert_error,
-                        final_fee,
-                        final_resources,
+                        actual_fee,
+                        actual_resources,
                     ));
                 }
 
@@ -449,8 +449,11 @@ impl AccountTransaction {
 
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
-                    actual_cost_builder_with_validation_changes
-                        .build_for_reverted_tx(&resources, n_reverted_steps)?;
+                    actual_cost_builder_with_validation_changes.build_for_reverted_tx(
+                        &resources,
+                        n_reverted_steps,
+                        None,
+                    )?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
