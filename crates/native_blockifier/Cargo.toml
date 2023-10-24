@@ -23,7 +23,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", version = "0.3.0-rc0", features = [
+blockifier = { path = "../blockifier", version = "0.4.0-rc0", features = [
     "testing",
 ] }
 cairo-lang-starknet.workspace = true
