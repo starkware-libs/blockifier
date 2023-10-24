@@ -382,12 +382,11 @@ impl AccountTransaction {
 
         // Create copies of state and resources for the execution.
         // Both will be rolled back if the execution is reverted or committed upon success.
-        let mut execution_resources = resources.clone();
         let mut execution_state = CachedState::create_transactional(state);
 
         let execution_result = self.run_execute(
             &mut execution_state,
-            &mut execution_resources,
+            &mut resources,
             &mut execution_context,
             remaining_gas,
         );
@@ -404,7 +403,7 @@ impl AccountTransaction {
                     // Since `execute_state_changes` are not yet committed, we merge them manually
                     // with `validate_state_changes` to count correctly.
                     .try_add_state_changes(&mut execution_state)?
-                    .build_for_non_reverted_tx(&execution_resources)?;
+                    .build_for_non_reverted_tx(&resources)?;
 
                 let max_fee = account_tx_context.max_fee();
                 let can_pay = can_pay_fee(
@@ -435,7 +434,7 @@ impl AccountTransaction {
                     // resources, as `execute` is reverted.
                     let ActualCost { actual_resources: final_resources, .. } =
                         actual_cost_builder_with_validation_changes
-                            .build_for_reverted_tx(&execution_resources, n_reverted_steps)?;
+                            .build_for_reverted_tx(&resources, n_reverted_steps)?;
 
                     return Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
@@ -446,7 +445,6 @@ impl AccountTransaction {
                 }
 
                 // Commit the execution.
-                resources.clone_from(&execution_resources);
                 execution_state.commit();
                 Ok(ValidateExecuteCallInfo::new_accepted(
                     validate_call_info,
@@ -463,7 +461,7 @@ impl AccountTransaction {
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
                     actual_cost_builder_with_validation_changes
-                        .build_for_reverted_tx(&execution_resources, n_reverted_steps)?;
+                        .build_for_reverted_tx(&resources, n_reverted_steps)?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
