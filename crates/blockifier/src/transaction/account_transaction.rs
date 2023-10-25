@@ -460,6 +460,7 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         mut execution_context: EntryPointExecutionContext,
+        charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
@@ -543,7 +544,7 @@ impl AccountTransaction {
                     !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
                 let max_fee = account_tx_context.max_fee;
 
-                if actual_fee > max_fee || is_maxed_out {
+                if charge_fee && (actual_fee > max_fee || is_maxed_out) {
                     // Insufficient fee. Revert the execution and charge what is available.
                     let (final_fee, revert_error) = if actual_fee > max_fee {
                         (
@@ -644,6 +645,7 @@ impl AccountTransaction {
         resources: &mut ExecutionResources,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
+        charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_transaction_context();
@@ -672,6 +674,7 @@ impl AccountTransaction {
             remaining_gas,
             block_context,
             execution_context,
+            charge_fee,
             validate,
         )
     }
@@ -741,8 +744,14 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
             final_fee,
             final_resources,
-        } =
-            self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context, validate)?;
+        } = self.run_or_revert(
+            state,
+            &mut resources,
+            &mut remaining_gas,
+            block_context,
+            charge_fee,
+            validate,
+        )?;
 
         let fee_transfer_call_info =
             self.handle_fee(state, block_context, final_fee, charge_fee)?;
