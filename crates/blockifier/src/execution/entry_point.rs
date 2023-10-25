@@ -202,19 +202,36 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
     ) -> usize {
+        let block_upper_bound =
+            min(constants::MAX_STEPS_PER_TX, block_context.invoke_tx_max_n_steps as usize);
+
         if !account_tx_context.enforce_fee() {
-            return min(constants::MAX_STEPS_PER_TX, block_context.invoke_tx_max_n_steps as usize);
+            return block_upper_bound;
         }
 
         let gas_per_step =
             block_context.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(
                 || panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE),
             );
-        let max_gas = account_tx_context.max_fee().0
-            / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type());
-        ((max_gas as f64 / gas_per_step).floor() as usize)
-            .min(constants::MAX_STEPS_PER_TX)
-            .min(block_context.invoke_tx_max_n_steps as usize)
+
+        // New transactions derive the step limit by the L1 gas resource bounds; deprecated
+        // transactions derive this value from the `max_fee`.
+        let tx_gas_upper_bound = match account_tx_context {
+            AccountTransactionContext::Deprecated(deprecated_context) => {
+                (deprecated_context.max_fee.0
+                    / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type()))
+                    as usize
+            }
+            AccountTransactionContext::Current(current_context) => {
+                current_context
+                    .l1_resource_bounds()
+                    .expect("No L1 resource bounds found on current transaction context.")
+                    .max_amount as usize
+            }
+        };
+
+        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        min(tx_upper_bound, block_upper_bound)
     }
 
     /// Returns the available steps in run resources.
