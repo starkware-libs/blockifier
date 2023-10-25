@@ -168,6 +168,18 @@ impl TransactionExecutionInfo {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
+impl ResourcesMapping {
+    #[cfg(test)]
+    pub fn n_steps(&self) -> usize {
+        *self.0.get(crate::abi::constants::N_STEPS_RESOURCE).unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn gas_usage(&self) -> usize {
+        *self.0.get(crate::abi::constants::GAS_USAGE).unwrap()
+    }
+}
+
 pub trait HasRelatedFeeType {
     fn version(&self) -> TransactionVersion;
 

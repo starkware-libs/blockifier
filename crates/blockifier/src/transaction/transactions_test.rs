@@ -1026,10 +1026,7 @@ fn test_calculate_tx_gas_usage() {
     };
     let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
 
-    assert_eq!(
-        *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
-        l1_gas_usage
-    );
+    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
     let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
@@ -1064,10 +1061,7 @@ fn test_calculate_tx_gas_usage() {
     };
     let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
 
-    assert_eq!(
-        *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
-        l1_gas_usage
-    );
+    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 }
 
 #[test]

@@ -17,6 +17,7 @@ use starknet_crypto::FieldElement;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -694,7 +695,7 @@ fn test_reverted_reach_steps_limit(
         "recurse",
         0,
     );
-    let n_steps_0 = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_0 = result.actual_resources.n_steps();
     let actual_fee_0 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
@@ -710,7 +711,7 @@ fn test_reverted_reach_steps_limit(
         "recurse",
         1,
     );
-    let n_steps_1 = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_1 = result.actual_resources.n_steps();
     let actual_fee_1 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
@@ -735,7 +736,7 @@ fn test_reverted_reach_steps_limit(
         "recurse",
         fail_depth,
     );
-    let n_steps_fail = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_fail = result.actual_resources.n_steps();
     let actual_fee_fail: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -756,7 +757,7 @@ fn test_reverted_reach_steps_limit(
         "recurse",
         fail_depth + 1,
     );
-    let n_steps_fail_next = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_fail_next = result.actual_resources.n_steps();
     let actual_fee_fail_next: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -797,7 +798,7 @@ fn test_n_reverted_steps(
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let mut actual_resources_0 = result.actual_resources.clone();
-    let n_steps_0 = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_0 = result.actual_resources.n_steps();
     let actual_fee_0 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
@@ -814,7 +815,7 @@ fn test_n_reverted_steps(
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let actual_resources_1 = result.actual_resources;
-    let n_steps_1 = actual_resources_1.0.get("n_steps").unwrap();
+    let n_steps_1 = actual_resources_1.n_steps();
     let actual_fee_1 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
@@ -828,7 +829,7 @@ fn test_n_reverted_steps(
         "recursive_fail",
         2,
     );
-    let n_steps_2 = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_2 = result.actual_resources.n_steps();
     let actual_fee_2 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -845,9 +846,11 @@ fn test_n_reverted_steps(
 
     // Make sure the resources in block of invocation 0 and 1 are the same, except for the number
     // of cairo steps.
-    actual_resources_0.0.insert("n_steps".to_string(), *n_steps_0 + single_call_steps_delta);
+    actual_resources_0
+        .0
+        .insert(abi_constants::N_STEPS_RESOURCE.to_string(), n_steps_0 + single_call_steps_delta);
     assert_eq!(actual_resources_0, actual_resources_1);
-    actual_resources_0.0.insert("n_steps".to_string(), *n_steps_0);
+    actual_resources_0.0.insert(abi_constants::N_STEPS_RESOURCE.to_string(), n_steps_0);
 
     // Invoke the `recursive_fail` function with 100 iterations. This call should fail.
     let result: TransactionExecutionInfo = run_recursive_function(
@@ -860,7 +863,7 @@ fn test_n_reverted_steps(
         "recursive_fail",
         100,
     );
-    let n_steps_100 = result.actual_resources.0.get("n_steps").unwrap();
+    let n_steps_100 = result.actual_resources.n_steps();
     let actual_fee_100 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -911,7 +914,7 @@ fn test_max_fee_to_max_steps_conversion(
     );
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
+    let n_steps1 = tx_execution_info1.actual_resources.n_steps();
     let gas_used1 =
         calculate_tx_l1_gas_usage(&tx_execution_info1.actual_resources, &block_context).unwrap();
 
@@ -930,7 +933,7 @@ fn test_max_fee_to_max_steps_conversion(
     );
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps2 = tx_execution_info2.actual_resources.0.get("n_steps").unwrap();
+    let n_steps2 = tx_execution_info2.actual_resources.n_steps();
     let gas_used2 =
         calculate_tx_l1_gas_usage(&tx_execution_info2.actual_resources, &block_context).unwrap();
 
