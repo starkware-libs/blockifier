@@ -168,12 +168,10 @@ impl AccountTransaction {
         match account_tx_context.max_l1_gas_price() {
             Some(Fee(max_l1_gas_price)) => {
                 if block_context.gas_prices.strk_l1_gas_price > max_l1_gas_price {
-                    Err(TransactionPreValidationError::TransactionFeeError(
-                        TransactionFeeError::MaxL1GasPriceTooLow {
-                            max_l1_gas_price: Fee(max_l1_gas_price),
-                            current_gas_price: Fee(block_context.gas_prices.strk_l1_gas_price),
-                        },
-                    ))
+                    Err(TransactionFeeError::MaxL1GasPriceTooLow {
+                        max_l1_gas_price: Fee(max_l1_gas_price),
+                        current_gas_price: Fee(block_context.gas_prices.strk_l1_gas_price),
+                    })?
                 } else {
                     Ok(())
                 }
@@ -250,9 +248,7 @@ impl AccountTransaction {
         // Check max fee is at least the estimated constant overhead.
         let minimal_fee = estimate_minimal_fee(block_context, self)?;
         if minimal_fee > max_fee {
-            return Err(TransactionPreValidationError::TransactionFeeError(
-                TransactionFeeError::MaxFeeTooLow { min_fee: minimal_fee, max_fee },
-            ));
+            return Err(TransactionFeeError::MaxFeeTooLow { min_fee: minimal_fee, max_fee })?;
         }
 
         Ok(verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee)?)
@@ -286,9 +282,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<CallInfo> {
         let max_fee = account_tx_context.max_fee();
         if actual_fee > max_fee {
-            return Err(TransactionExecutionError::TransactionFeeError(
-                TransactionFeeError::FeeTransferError { max_fee, actual_fee },
-            ));
+            return Err(TransactionFeeError::FeeTransferError { max_fee, actual_fee })?;
         }
 
         // The least significant 128 bits of the amount transferred.
