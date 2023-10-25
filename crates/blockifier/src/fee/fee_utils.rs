@@ -5,7 +5,7 @@ use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::State;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
@@ -75,7 +75,7 @@ pub fn calculate_tx_fee(
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
 fn get_balance_and_if_covers_fee(
-    state: &mut dyn StateReader,
+    state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     fee: Fee,
@@ -96,7 +96,7 @@ fn get_balance_and_if_covers_fee(
 /// Verifies that, given the current state, the account can pay the given max fee.
 /// Error may indicate insufficient balance, or some other error.
 pub fn verify_can_pay_max_fee(
-    state: &mut dyn StateReader,
+    state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     max_fee: Fee,
@@ -112,7 +112,7 @@ pub fn verify_can_pay_max_fee(
 
 /// Returns `true` if and only if the balance covers the fee.
 pub fn can_pay_fee(
-    state: &mut dyn StateReader,
+    state: &mut dyn State,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     fee: Fee,
