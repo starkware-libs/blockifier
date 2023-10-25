@@ -400,7 +400,7 @@ impl AccountTransaction {
                     actual_fee,
                 )?;
 
-                if actual_fee > max_fee || (charge_fee && !can_pay) {
+                if charge_fee && (actual_fee > max_fee || !can_pay) {
                     // Insufficient fee. Revert the execution and charge what is available.
                     let (final_fee, revert_error) = if actual_fee > max_fee {
                         (
