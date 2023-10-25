@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::cmp::{max, min};
+use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::{
     ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
@@ -61,10 +63,11 @@ impl CallEntryPoint {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
-        context.current_recursion_depth += 1;
-        if context.current_recursion_depth > context.max_recursion_depth {
-            return Err(EntryPointExecutionError::RecursionDepthExceeded);
-        }
+        let mut decrement_when_dropped = RecursionDepthGuard::new(
+            context.current_recursion_depth.clone(),
+            context.max_recursion_depth,
+        );
+        decrement_when_dropped.try_increment_and_check_depth()?;
 
         // Validate contract is deployed.
         let storage_address = self.storage_address;
@@ -90,28 +93,24 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
 
-        let result = execute_entry_point_call(self, contract_class, state, resources, context)
-            .map_err(|error| {
-                match error {
-                    // On VM error, pack the stack trace into the propagated error.
-                    EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                        context.error_stack.push((storage_address, error.try_to_vm_trace()));
-                        // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
-                        // right now,  each intermediate VM error is wrapped
-                        // in a VirtualMachineExecutionErrorWithTrace  error
-                        // with the stringified trace of all errors below
-                        // it.
-                        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                            trace: context.error_trace(),
-                            source: error,
-                        }
+        execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
+            match error {
+                // On VM error, pack the stack trace into the propagated error.
+                EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                    context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                    // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
+                    // right now,  each intermediate VM error is wrapped
+                    // in a VirtualMachineExecutionErrorWithTrace  error
+                    // with the stringified trace of all errors below
+                    // it.
+                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                        trace: context.error_trace(),
+                        source: error,
                     }
-                    other_error => other_error,
                 }
-            });
-
-        context.current_recursion_depth -= 1;
-        result
+                other_error => other_error,
+            }
+        })
     }
 }
 
@@ -142,7 +141,8 @@ pub struct EntryPointExecutionContext {
     /// Used to track error stack for call chain.
     pub error_stack: Vec<(ContractAddress, String)>,
 
-    current_recursion_depth: usize,
+    // Managed by dedicated guard object.
+    current_recursion_depth: Arc<RefCell<usize>>,
     // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
     max_recursion_depth: usize,
 
@@ -163,7 +163,7 @@ impl EntryPointExecutionContext {
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
             account_tx_context,
-            current_recursion_depth: 0,
+            current_recursion_depth: Default::default(),
             max_recursion_depth: block_context.max_recursion_depth,
             block_context,
             execution_mode,
@@ -305,4 +305,33 @@ pub fn handle_empty_constructor(
     };
 
     Ok(empty_constructor_call_info)
+}
+
+// Ensure that the recursion depth does not exceed the maximum allowed depth.
+struct RecursionDepthGuard {
+    current_depth: Arc<RefCell<usize>>,
+    max_depth: usize,
+}
+
+impl RecursionDepthGuard {
+    fn new(current_depth: Arc<RefCell<usize>>, max_depth: usize) -> Self {
+        Self { current_depth: current_depth.clone(), max_depth }
+    }
+
+    // Tries to increment the current recursion depth and returns an error if the maximum depth
+    // would be exceeded.
+    fn try_increment_and_check_depth(&mut self) -> EntryPointExecutionResult<()> {
+        *self.current_depth.borrow_mut() += 1;
+        if *self.current_depth.borrow() > self.max_depth {
+            return Err(EntryPointExecutionError::RecursionDepthExceeded);
+        }
+        Ok(())
+    }
+}
+
+// Implementing the Drop trait to decrement the recursion depth when the guard goes out of scope.
+impl Drop for RecursionDepthGuard {
+    fn drop(&mut self) {
+        *self.current_depth.borrow_mut() -= 1;
+    }
 }
