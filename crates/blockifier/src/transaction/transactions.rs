@@ -32,11 +32,12 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         state: &mut CachedState<S>,
         block_context: &BlockContext,
         charge_fee: bool,
+        validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = CachedState::create_transactional(state);
         let execution_result =
-            self.execute_raw(&mut transactional_state, block_context, charge_fee);
+            self.execute_raw(&mut transactional_state, block_context, charge_fee, validate);
 
         match execution_result {
             Ok(value) => {
@@ -59,6 +60,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
         charge_fee: bool,
+        validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
 
