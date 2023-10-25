@@ -96,8 +96,8 @@ impl PyValidator {
 
         let tx_executor = self.tx_executor();
         account_tx.perform_pre_validation_checks(
-            &account_tx.get_account_tx_context(),
             &mut tx_executor.state,
+            &account_tx.get_account_tx_context(),
             &tx_executor.block_context,
             true,
             false,

@@ -145,13 +145,14 @@ impl AccountTransaction {
 
     pub fn perform_pre_validation_checks(
         &self,
-        account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
+        account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
         charge_fee: bool,
         strict: bool,
     ) -> TransactionPreValidationResult<()> {
-        Self::check_nonce(account_tx_context, state, strict)?;
+        Self::check_nonce(state, account_tx_context, strict)?;
+
         if charge_fee {
             Self::check_max_l1_gas_price(account_tx_context, block_context)?;
 
@@ -181,8 +182,8 @@ impl AccountTransaction {
     }
 
     fn check_nonce(
-        account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
+        account_tx_context: &AccountTransactionContext,
         strict: bool,
     ) -> TransactionPreValidationResult<()> {
         if account_tx_context.version() == TransactionVersion::ZERO {
@@ -206,8 +207,8 @@ impl AccountTransaction {
     }
 
     pub fn increment_nonce(
-        account_tx_context: &AccountTransactionContext,
         state: &mut dyn State,
+        account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<()> {
         if account_tx_context.version() == TransactionVersion::ZERO {
             return Ok(());
@@ -589,14 +590,14 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.verify_tx_version(account_tx_context.version())?;
 
         self.perform_pre_validation_checks(
-            &account_tx_context,
             state,
+            &account_tx_context,
             block_context,
             charge_fee,
             true,
         )?;
 
-        Self::increment_nonce(&account_tx_context, state)?;
+        Self::increment_nonce(state, &account_tx_context)?;
 
         let mut remaining_gas = Transaction::initial_gas();
 
