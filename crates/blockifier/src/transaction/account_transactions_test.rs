@@ -20,6 +20,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, l1_resource_bounds};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
@@ -832,9 +833,12 @@ fn test_n_reverted_steps(
 
 #[rstest]
 /// Tests that steps are correctly limited based on max_fee.
+#[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
 fn test_max_fee_to_max_steps_conversion(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
+    #[case] version: TransactionVersion,
 ) {
     let TestInitData {
         mut state,
@@ -844,6 +848,8 @@ fn test_max_fee_to_max_steps_conversion(
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context, state);
     let actual_fee = 659500000000000;
+    let actual_gas_used = 6595;
+    let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
     let execute_calldata = calldata![
         *contract_address.0.key(),        // Contract address.
         selector_from_name("with_arg").0, // EP selector.
@@ -851,12 +857,15 @@ fn test_max_fee_to_max_steps_conversion(
         stark_felt!(25_u8)                // Calldata: arg.
     ];
 
+    let resource_bounds = l1_resource_bounds(actual_gas_used, actual_strk_gas_price);
+
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
     let account_tx1 = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(actual_fee),
         sender_address: account_address,
         calldata: execute_calldata.clone(),
-        version: TransactionVersion::ONE,
+        version,
+        resource_bounds: resource_bounds.clone(),
         nonce: nonce_manager.next(account_address),
     });
     let execution_context1 = EntryPointExecutionContext::new_invoke(
@@ -866,13 +875,17 @@ fn test_max_fee_to_max_steps_conversion(
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.0.get("n_steps").unwrap();
+    let gas_used1 =
+        calculate_tx_l1_gas_usage(&tx_execution_info1.actual_resources, &block_context).unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
+    let resource_bounds = l1_resource_bounds(2 * actual_gas_used, actual_strk_gas_price);
     let account_tx2 = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(2 * actual_fee),
         sender_address: account_address,
         calldata: execute_calldata,
-        version: TransactionVersion::ONE,
+        version,
+        resource_bounds,
         nonce: nonce_manager.next(account_address),
     });
     let execution_context2 = EntryPointExecutionContext::new_invoke(
@@ -882,12 +895,16 @@ fn test_max_fee_to_max_steps_conversion(
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.0.get("n_steps").unwrap();
+    let gas_used2 =
+        calculate_tx_l1_gas_usage(&tx_execution_info2.actual_resources, &block_context).unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
-    assert!(max_steps_limit2.unwrap() == 2 * max_steps_limit1.unwrap());
-    assert!(tx_execution_info1.actual_fee.0 == tx_execution_info2.actual_fee.0);
-    assert!(actual_fee == tx_execution_info2.actual_fee.0);
-    assert!(n_steps1 == n_steps2);
+    assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());
+    assert_eq!(tx_execution_info1.actual_fee.0, tx_execution_info2.actual_fee.0);
+    assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
+    assert_eq!(actual_gas_used, gas_used2 as u64);
+    assert_eq!(n_steps1, n_steps2);
+    assert_eq!(gas_used1, gas_used2);
 }
 
 #[rstest]
