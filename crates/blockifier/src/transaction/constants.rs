@@ -12,3 +12,7 @@ pub const FELT_TRUE: u64 = 1;
 
 // Expected return value of a `validate` entry point: `VALID`.
 pub const VALIDATE_RETDATA: &str = "0x56414c4944";
+
+// TODO(Noa, 14/11/2023): Replace SIMULATE_VERSION_BASE_BIT with a lazy calculation.
+//      pub static SIMULATE_VERSION_BASE: Lazy<BigUint> = ...
+pub const SIMULATE_VERSION_BASE_BIT: u32 = 128;

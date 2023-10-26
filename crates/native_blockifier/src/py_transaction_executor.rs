@@ -142,8 +142,15 @@ impl TransactionExecutor {
             let mut transactional_state = CachedState::create_transactional(executor.state);
             let charge_fee = true;
             let validate = true;
+            let simulate = false;
             let tx_execution_result = tx
-                .execute_raw(&mut transactional_state, executor.block_context, charge_fee, validate)
+                .execute_raw(
+                    &mut transactional_state,
+                    executor.block_context,
+                    charge_fee,
+                    validate,
+                    simulate,
+                )
                 .map_err(NativeBlockifierError::from);
             let (py_tx_execution_info, py_casm_hash_calculation_resources) =
                 match tx_execution_result {

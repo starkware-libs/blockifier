@@ -69,6 +69,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         block_context: &BlockContext,
         _charge_fee: bool,
         _validate: bool,
+        _simulate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx = &self.tx;
         let tx_context = AccountTransactionContext {
@@ -124,13 +125,14 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
+        simulate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         match self {
             Self::AccountTransaction(account_tx) => {
-                account_tx.execute_raw(state, block_context, charge_fee, validate)
+                account_tx.execute_raw(state, block_context, charge_fee, validate, simulate)
             }
             Self::L1HandlerTransaction(tx) => {
-                tx.execute_raw(state, block_context, charge_fee, validate)
+                tx.execute_raw(state, block_context, charge_fee, validate, simulate)
             }
         }
     }
