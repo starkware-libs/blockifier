@@ -1,5 +1,6 @@
 use std::cmp::min;
 
+use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
@@ -30,6 +31,8 @@ pub struct ActualCostBuilder<'a> {
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
+    sender_address: Option<ContractAddress>,
+    l1_payload_size: Option<usize>,
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -41,12 +44,19 @@ impl<'a> ActualCostBuilder<'a> {
     ) -> Self {
         Self {
             block_context: block_context.clone(),
+            sender_address: Some(account_tx_context.sender_address()),
             account_tx_context,
             tx_type,
             validate_call_info: None,
             execute_call_info: None,
             state_changes: StateChanges::default(),
+            l1_payload_size: None,
         }
+    }
+
+    pub fn without_sender_address(mut self) -> Self {
+        self.sender_address = None;
+        self
     }
 
     // Call the `build_*` methods to construct the actual cost object, after feeding the builder
@@ -88,13 +98,15 @@ impl<'a> ActualCostBuilder<'a> {
         let fee_token_address =
             self.block_context.fee_token_address(&self.account_tx_context.fee_type());
 
-        let new_state_changes = state.get_actual_state_changes_for_fee_charge(
-            fee_token_address,
-            Some(self.account_tx_context.sender_address()),
-        )?;
-
+        let new_state_changes = state
+            .get_actual_state_changes_for_fee_charge(fee_token_address, self.sender_address)?;
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
         Ok(self)
+    }
+
+    pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
+        self.l1_payload_size = Some(l1_payload_size);
+        self
     }
 
     // Private methods.
@@ -111,8 +123,11 @@ impl<'a> ActualCostBuilder<'a> {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage =
-            calculate_l1_gas_usage(&non_optional_call_infos, state_changes_count, None)?;
+        let l1_gas_usage = calculate_l1_gas_usage(
+            &non_optional_call_infos,
+            state_changes_count,
+            self.l1_payload_size,
+        )?;
         let mut actual_resources =
             calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
 
