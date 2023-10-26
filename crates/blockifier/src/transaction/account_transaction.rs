@@ -148,8 +148,9 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
         charge_fee: bool,
+        strict: bool,
     ) -> TransactionExecutionResult<()> {
-        Self::handle_nonce(state, account_tx_context)?;
+        Self::handle_nonce(state, account_tx_context, strict)?;
 
         if charge_fee {
             self.check_fee_balance(state, block_context)?;
@@ -161,21 +162,26 @@ impl AccountTransaction {
     fn handle_nonce(
         state: &mut dyn State,
         account_tx_context: &AccountTransactionContext,
+        strict: bool,
     ) -> TransactionExecutionResult<()> {
         if account_tx_context.version() == TransactionVersion::ZERO {
             return Ok(());
         }
 
         let address = account_tx_context.sender_address();
-        let current_nonce = state.get_nonce_at(address)?;
-        let tx_nonce = account_tx_context.nonce();
-        let invalid_nonce = current_nonce != tx_nonce;
+        let account_nonce = state.get_nonce_at(address)?;
+        let incoming_tx_nonce = account_tx_context.nonce();
+        let invalid_nonce = if strict {
+            account_nonce != incoming_tx_nonce
+        } else {
+            account_nonce > incoming_tx_nonce
+        };
 
         if invalid_nonce {
             return Err(TransactionExecutionError::InvalidNonce {
                 address,
-                expected_nonce: current_nonce,
-                actual_nonce: tx_nonce,
+                account_nonce,
+                incoming_tx_nonce,
             });
         }
         Ok(state.increment_nonce(account_tx_context.sender_address())?)
@@ -564,7 +570,14 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
-        self.perform_pre_validation_checks(state, &account_tx_context, block_context, charge_fee)?;
+        let strict_nonce_check = true;
+        self.perform_pre_validation_checks(
+            state,
+            &account_tx_context,
+            block_context,
+            charge_fee,
+            strict_nonce_check,
+        )?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {

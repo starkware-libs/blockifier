@@ -30,10 +30,10 @@ pub enum TransactionExecutionError {
     #[error("Actual fee ({actual_fee:?}) exceeded paid fee on L1 ({paid_fee:?}).")]
     InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
     #[error(
-        "Invalid transaction nonce of contract at address {address:?}. Expected: \
-         {expected_nonce:?}; got: {actual_nonce:?}."
+        "Invalid transaction nonce of contract at address {address:?}. Account nonce: \
+         {account_nonce:?}; got: {incoming_tx_nonce:?}."
     )]
-    InvalidNonce { address: ContractAddress, expected_nonce: Nonce, actual_nonce: Nonce },
+    InvalidNonce { address: ContractAddress, account_nonce: Nonce, incoming_tx_nonce: Nonce },
     #[error(
         "Invalid order number for {object}. Order: {order} exceeds the maximum order limit: \
          {max_order}."
