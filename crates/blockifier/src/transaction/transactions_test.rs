@@ -43,7 +43,8 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
-    FeeType, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
+    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
+    TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
@@ -474,7 +475,12 @@ fn assert_failure_if_max_fee_exceeds_balance(
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    let sent_max_fee = invalid_tx.get_account_tx_context().max_fee();
+    let sent_max_fee = match invalid_tx.get_account_tx_context() {
+        AccountTransactionContext::Deprecated(context) => context.max_fee,
+        AccountTransactionContext::Current(_) => {
+            panic!("Only deprecated transactions supported in this check.")
+        }
+    };
 
     // Test error.
     assert_matches!(
