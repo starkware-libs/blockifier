@@ -195,5 +195,6 @@ pub fn run_invoke_tx(
         state,
         block_context,
         true,
+        true,
     )
 }
