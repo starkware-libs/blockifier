@@ -49,6 +49,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::objects::AccountTransactionContext;
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -433,7 +434,13 @@ impl<'a> SyscallHintProcessor<'a> {
         let tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(account_tx_context.version().0).into(),
             stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            Felt252::from(account_tx_context.max_fee().0).into(),
+            Felt252::from(match account_tx_context {
+                AccountTransactionContext::Current(_) => 0,
+                AccountTransactionContext::Deprecated(deprecated_context) => {
+                    deprecated_context.max_fee.0
+                }
+            })
+            .into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
             stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
