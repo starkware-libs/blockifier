@@ -1,18 +1,16 @@
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
-use super::objects::HasRelatedFeeType;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
-use crate::state::cached_state::{StateChangesCount, TransactionalState};
+use crate::fee::actual_cost::ActualCost;
+use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
     InvokeTransaction, L1HandlerTransaction,
@@ -80,8 +78,6 @@ impl Transaction {
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
-    // TODO(Gilad): Use the actual cost builder to calculate fees here, the logic below
-    // duplicates much of its internal logic.
     fn execute_raw(
         self,
         state: &mut TransactionalState<'_, S>,
@@ -89,30 +85,22 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT token address should depend on tx version.
-        let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
-        let tx = &self.tx;
         let tx_context = self.get_account_tx_context();
-        let mut resources = ExecutionResources::default();
+
+        let mut execution_resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
-            self.run_execute(state, &mut resources, &mut context, &mut remaining_gas)?;
-
-        let call_infos =
-            if let Some(call_info) = execute_call_info.as_ref() { vec![call_info] } else { vec![] };
+            self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         // The calldata includes the "from" field, which is not a part of the payload.
-        let l1_handler_payload_size = Some(tx.calldata.0.len() - 1);
-        let state_changes =
-            state.get_actual_state_changes_for_fee_charge(fee_token_address, None)?;
-        let l1_gas_usage = calculate_l1_gas_usage(
-            &call_infos,
-            StateChangesCount::from(&state_changes),
-            l1_handler_payload_size,
-        )?;
-        let actual_resources =
-            calculate_tx_resources(&resources, l1_gas_usage, TransactionType::L1Handler)?;
-        let actual_fee = self.calculate_tx_fee(&actual_resources, &context.block_context)?;
+        let l1_handler_payload_size = self.tx.calldata.0.len() - 1;
+
+        let ActualCost { actual_fee, actual_resources } =
+            ActualCost::builder_for_l1_handler(block_context, tx_context, l1_handler_payload_size)
+                .with_execute_call_info(&execute_call_info)
+                .try_add_state_changes(state)?
+                .build(&execution_resources)?;
+
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.
