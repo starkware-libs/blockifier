@@ -28,6 +28,7 @@ use crate::execution::errors::PostExecutionError;
 use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::objects::AccountTransactionContext;
 
 pub type Args = Vec<CairoArg>;
 
@@ -270,4 +271,12 @@ pub fn felts_as_str(felts: &[StarkFelt]) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+pub fn max_fee_for_tx_info(account_tx_context: &AccountTransactionContext) -> Felt252 {
+    match account_tx_context {
+        AccountTransactionContext::Current(_) => 0,
+        AccountTransactionContext::Deprecated(deprecated_context) => deprecated_context.max_fee.0,
+    }
+    .into()
 }
