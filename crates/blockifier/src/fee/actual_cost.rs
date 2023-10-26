@@ -1,5 +1,6 @@
 use std::cmp::min;
 
+use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
@@ -21,6 +22,18 @@ pub struct ActualCost {
     pub actual_resources: ResourcesMapping,
 }
 
+impl ActualCost {
+    pub fn builder_for_l1(
+        block_context: &BlockContext,
+        tx_context: AccountTransactionContext,
+        l1_handler_payload_size: usize,
+    ) -> ActualCostBuilder<'_> {
+        ActualCostBuilder::new(block_context, tx_context, TransactionType::L1Handler)
+            .without_sender_address()
+            .with_l1_payload_size(l1_handler_payload_size)
+    }
+}
+
 #[derive(Debug, Clone)]
 // Invariant: private fields initialized after `new` is called via dedicated methods.
 pub struct ActualCostBuilder<'a> {
@@ -30,6 +43,10 @@ pub struct ActualCostBuilder<'a> {
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
+    sender_address: Option<ContractAddress>,
+    l1_payload_size: Option<usize>,
+    is_reverted: bool,
+    n_reverted_steps: usize,
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -41,32 +58,34 @@ impl<'a> ActualCostBuilder<'a> {
     ) -> Self {
         Self {
             block_context: block_context.clone(),
+            sender_address: Some(account_tx_context.sender_address()),
             account_tx_context,
             tx_type,
             validate_call_info: None,
             execute_call_info: None,
             state_changes: StateChanges::default(),
+            l1_payload_size: None,
+            is_reverted: false,
+            n_reverted_steps: 0,
         }
+    }
+
+    pub fn without_sender_address(mut self) -> Self {
+        self.sender_address = None;
+        self
     }
 
     // Call the `build_*` methods to construct the actual cost object, after feeding the builder
     // using the setters below.
-    pub fn build_for_non_reverted_tx(
+    pub fn build(
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
-        let is_reverted = false;
-        let n_reverted_steps = 0;
-        self.calculate_actual_fee_and_resources(execution_resources, is_reverted, n_reverted_steps)
-    }
-
-    pub fn build_for_reverted_tx(
-        self,
-        execution_resources: &ExecutionResources,
-        n_reverted_steps: usize,
-    ) -> TransactionExecutionResult<ActualCost> {
-        let is_reverted = true;
-        self.calculate_actual_fee_and_resources(execution_resources, is_reverted, n_reverted_steps)
+        self.calculate_actual_fee_and_resources(
+            execution_resources,
+            self.is_reverted,
+            self.n_reverted_steps,
+        )
     }
 
     // Setters.
@@ -88,13 +107,21 @@ impl<'a> ActualCostBuilder<'a> {
         let fee_token_address =
             self.block_context.fee_token_address(&self.account_tx_context.fee_type());
 
-        let new_state_changes = state.get_actual_state_changes_for_fee_charge(
-            fee_token_address,
-            Some(self.account_tx_context.sender_address()),
-        )?;
-
+        let new_state_changes = state
+            .get_actual_state_changes_for_fee_charge(fee_token_address, self.sender_address)?;
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
         Ok(self)
+    }
+
+    pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
+        self.l1_payload_size = Some(l1_payload_size);
+        self
+    }
+
+    pub fn with_reverted_steps(mut self, n_reverted_steps: usize) -> Self {
+        self.is_reverted = true;
+        self.n_reverted_steps = n_reverted_steps;
+        self
     }
 
     // Private methods.
@@ -111,8 +138,11 @@ impl<'a> ActualCostBuilder<'a> {
             .into_iter()
             .flatten()
             .collect::<Vec<&CallInfo>>();
-        let l1_gas_usage =
-            calculate_l1_gas_usage(&non_optional_call_infos, state_changes_count, None)?;
+        let l1_gas_usage = calculate_l1_gas_usage(
+            &non_optional_call_infos,
+            state_changes_count,
+            self.l1_payload_size,
+        )?;
         let mut actual_resources =
             calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
 

@@ -128,7 +128,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             .into_actual_cost_builder(&self.block_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?
-            .build_for_non_reverted_tx(&execution_resources)?;
+            .build(&execution_resources)?;
 
         Ok((validate_call_info, actual_fee))
     }
