@@ -528,7 +528,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
 #[test_case(
     &mut create_state_with_cairo1_account();
     "With Cairo1 account")]
-fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
+fn test_insufficient_max_fee(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx_args = default_invoke_tx_args();
     let valid_account_tx = account_invoke_tx(valid_invoke_tx_args.clone());
@@ -548,7 +548,7 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
         if max_fee == invalid_max_fee && min_fee == minimal_fee
     );
 
-    // Insufficient fee.
+    // Max_fee lower than actual fee.
     let invalid_max_fee = minimal_fee;
     let invalid_tx = account_invoke_tx(
         invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
@@ -560,22 +560,48 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     assert!(execution_error.starts_with("Insufficient max fee:"));
     // Test that fee was charged.
     assert_eq!(execution_result.actual_fee, invalid_max_fee);
+}
 
-    // Invalid nonce.
-    // Use a fresh state to facilitate testing.
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
+    let block_context = &BlockContext::create_for_account_testing();
+    let valid_invoke_tx_args = default_invoke_tx_args();
+
+    // Strict: account_nonce = 0, tx_nonce = 1.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
-    let execution_error = invalid_tx
-        .execute(&mut create_state_with_trivial_validation_account(), block_context, true, true)
-        .unwrap_err();
+    let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
 
     // Test error.
     assert_matches!(
         execution_error,
-        TransactionExecutionError::InvalidNonce { address, expected_nonce, actual_nonce }
-        if (address, expected_nonce, actual_nonce) ==
+        TransactionExecutionError::InvalidNonce { address, account_nonce, tx_nonce }
+        if (address, account_nonce, tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
+    );
+
+    // Non-strict: account_nonce = 1, tx_nonce = 0;
+    let invalid_nonce = Nonce(stark_felt!(0_u8));
+    let invalid_tx =
+        account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
+    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    // Increment account nonce to 1.
+    let _ = state.increment_nonce(invalid_tx_context.sender_address());
+    let execution_error =
+        AccountTransaction::check_nonce(state, &invalid_tx_context, false).unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::InvalidNonce { address, account_nonce, tx_nonce }
+        if (address, account_nonce, tx_nonce) ==
+        (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
     );
 }
 

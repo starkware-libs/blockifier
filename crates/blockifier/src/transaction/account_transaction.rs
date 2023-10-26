@@ -147,8 +147,9 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
         charge_fee: bool,
+        strict: bool,
     ) -> TransactionExecutionResult<()> {
-        Self::check_nonce(state, account_tx_context)?;
+        Self::check_nonce(state, account_tx_context, strict)?;
 
         if charge_fee {
             self.check_fee_balance(state, block_context)?;
@@ -160,21 +161,23 @@ impl AccountTransaction {
     fn check_nonce(
         state: &mut dyn StateReader,
         account_tx_context: &AccountTransactionContext,
+        strict: bool,
     ) -> TransactionExecutionResult<()> {
         if account_tx_context.version() == TransactionVersion::ZERO {
             return Ok(());
         }
 
         let address = account_tx_context.sender_address();
-        let current_nonce = state.get_nonce_at(address)?;
+        let account_nonce = state.get_nonce_at(address)?;
         let tx_nonce = account_tx_context.nonce();
-        let invalid_nonce = current_nonce != tx_nonce;
+        let invalid_nonce =
+            if strict { account_nonce != tx_nonce } else { account_nonce > tx_nonce };
 
         if invalid_nonce {
             return Err(TransactionExecutionError::InvalidNonce {
                 address,
-                expected_nonce: current_nonce,
-                actual_nonce: tx_nonce,
+                account_nonce,
+                tx_nonce,
             });
         }
         Ok(())
@@ -574,7 +577,13 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
-        self.perform_pre_validation_checks(state, &account_tx_context, block_context, charge_fee)?;
+        self.perform_pre_validation_checks(
+            state,
+            &account_tx_context,
+            block_context,
+            charge_fee,
+            true,
+        )?;
 
         AccountTransaction::increment_nonce(state, &account_tx_context)?;
 
