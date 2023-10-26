@@ -536,7 +536,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
 #[test_case(
     &mut create_state_with_cairo1_account();
     "With Cairo1 account")]
-fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
+fn test_insufficient_max_fee(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx_args = default_invoke_tx_args();
     let valid_account_tx = account_invoke_tx(valid_invoke_tx_args.clone());
@@ -556,7 +556,7 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
         if max_fee == invalid_max_fee && min_fee == minimal_fee
     );
 
-    // Insufficient fee.
+    // Max fee lower than actual fee.
     let invalid_max_fee = minimal_fee;
     let invalid_tx = account_invoke_tx(
         invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
@@ -568,22 +568,79 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     assert!(execution_error.starts_with("Insufficient max fee:"));
     // Test that fee was charged.
     assert_eq!(execution_result.actual_fee, invalid_max_fee);
+}
 
-    // Invalid nonce.
-    // Use a fresh state to facilitate testing.
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
+    let mut transactional_state = CachedState::create_transactional(state);
+    let block_context = &BlockContext::create_for_account_testing();
+    let valid_invoke_tx_args = default_invoke_tx_args();
+
+    // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
-    let execution_error = invalid_tx
-        .execute(&mut create_state_with_trivial_validation_account(), block_context, true, true)
+    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    let pre_validation_err = invalid_tx
+        .perform_pre_validation_checks(
+            &mut transactional_state,
+            &invalid_tx_context,
+            block_context,
+            false,
+            true,
+        )
         .unwrap_err();
 
     // Test error.
     assert_matches!(
-        execution_error,
-        TransactionExecutionError::InvalidNonce { address, expected_nonce, actual_nonce }
-        if (address, expected_nonce, actual_nonce) ==
+        pre_validation_err,
+        TransactionExecutionError::InvalidNonce { address, account_nonce, incoming_tx_nonce }
+        if (address, account_nonce, incoming_tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
+    );
+
+    // Non-strict.
+
+    // Positive flow: account nonce = 0, incoming tx nonce = 1.
+    let valid_nonce = Nonce(stark_felt!(1_u8));
+    let valid_tx =
+        account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
+    let valid_tx_context = valid_tx.get_account_tx_context();
+    valid_tx
+        .perform_pre_validation_checks(
+            &mut transactional_state,
+            &valid_tx_context,
+            block_context,
+            false,
+            false,
+        )
+        .unwrap();
+
+    // Negative flow: account nonce = 1, incoming tx nonce = 0.
+    let invalid_nonce = Nonce(stark_felt!(0_u8));
+    let invalid_tx =
+        account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
+    let pre_validation_err = invalid_tx
+        .perform_pre_validation_checks(
+            &mut transactional_state,
+            &invalid_tx.get_account_tx_context(),
+            block_context,
+            false,
+            false,
+        )
+        .unwrap_err();
+
+    // Test error.
+    assert_matches!(
+        pre_validation_err,
+        TransactionExecutionError::InvalidNonce { address, account_nonce, incoming_tx_nonce }
+        if (address, account_nonce, incoming_tx_nonce) ==
+        (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
     );
 }
 
