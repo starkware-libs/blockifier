@@ -1,7 +1,7 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{Fee, Resource, ResourceBounds, ResourceBoundsMapping};
 
 use crate::abi::constants;
 use crate::block_context::BlockContext;
@@ -120,4 +120,12 @@ pub fn can_pay_fee(
     let (_, _, can_pay) =
         get_balance_and_if_covers_fee(state, account_tx_context, block_context, fee)?;
     Ok(can_pay)
+}
+
+pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMapping {
+    // TODO(Dori, 1/11/2023): Once `From` is implemented on `ResourceBoundsMapping`, use it.
+    ResourceBoundsMapping(BTreeMap::from([(
+        Resource::L1Gas,
+        ResourceBounds { max_amount, max_price_per_unit: max_price },
+    )]))
 }
