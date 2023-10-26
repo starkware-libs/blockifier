@@ -49,20 +49,28 @@ pub fn calculate_l1_gas_by_vm_usage(
     Ok(vm_l1_gas_usage)
 }
 
-/// Calculates the fee that should be charged, given execution resources.
+/// Computes and returns the total L1 gas consumption.
 /// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1 messages)
-/// to the gas consumed by Cairo VM resource and multiply by the L1 gas price.
+/// to the gas consumed by Cairo VM resource.
+pub fn calculate_tx_l1_gas_usage(
+    resources: &ResourcesMapping,
+    block_context: &BlockContext,
+) -> TransactionExecutionResult<u128> {
+    let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
+    let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
+    let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
+
+    Ok(total_l1_gas_usage.ceil() as u128)
+}
+
+/// Calculates the fee that should be charged, given execution resources.
 pub fn calculate_tx_fee(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionExecutionResult<Fee> {
-    let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
-    let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
-    let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
-
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT gas price depends on transaction version.
-    Ok(Fee(total_l1_gas_usage.ceil() as u128 * block_context.gas_prices.get_by_fee_type(fee_type)))
+    Ok(Fee(calculate_tx_l1_gas_usage(resources, block_context)?
+        * block_context.gas_prices.get_by_fee_type(fee_type)))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
