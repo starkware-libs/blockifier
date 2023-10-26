@@ -1,12 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
+use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
+use super::transaction_utils::biguint_to_felt;
 use crate::execution::entry_point::CallInfo;
+use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
@@ -25,6 +28,11 @@ pub struct AccountTransactionContext {
 impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version == TransactionVersion(stark_felt!(0_u8))
+            || self.version
+                == TransactionVersion(
+                    biguint_to_felt(BigUint::from(2_u8).pow(QUERY_VERSION_BASE_BIT))
+                        .expect("`QUERY_VERSION_BASE should` be a valid TransactionVersion"),
+                )
     }
 }
 

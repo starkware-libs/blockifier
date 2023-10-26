@@ -12,3 +12,5 @@ pub const FELT_TRUE: u64 = 1;
 
 // Expected return value of a `validate` entry point: `VALID`.
 pub const VALIDATE_RETDATA: &str = "0x56414c4944";
+
+pub const QUERY_VERSION_BASE_BIT: u32 = 128;
