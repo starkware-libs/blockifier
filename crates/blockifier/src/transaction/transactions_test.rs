@@ -572,7 +572,7 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx_args = default_invoke_tx_args();
 
-    // Strict: account_nonce = 0, tx_nonce = 1.
+    // Strict, negative flow: account_nonce = 0, tx_nonce = 1.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
@@ -586,7 +586,17 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
         (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
     );
 
-    // Non-strict: account_nonce = 1, tx_nonce = 0;
+    // Non-strict
+
+    // Positive flow: account_nonce = 0, tx_nonce = 1
+    let valid_nonce = Nonce(stark_felt!(1_u8));
+    let valid_tx =
+        account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
+    let valid_tx_context = valid_tx.get_account_tx_context();
+    let result = AccountTransaction::check_nonce(state, &valid_tx_context, false);
+    assert_matches!(result, Ok(()));
+
+    // Negative flow: account_nonce = 1, tx_nonce = 0;
     let invalid_nonce = Nonce(stark_felt!(0_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
