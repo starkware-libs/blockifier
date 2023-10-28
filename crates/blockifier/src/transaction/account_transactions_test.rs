@@ -1185,3 +1185,104 @@ fn test_revert_on_overdraft(
         (final_received_amount, stark_felt!(0_u8))
     );
 }
+
+/// Tests that when a transaction requires more resources than the sender allowed, the execution is
+/// reverted.
+#[rstest]
+#[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
+fn test_revert_on_resource_overuse(
+    max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+    #[case] version: TransactionVersion,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
+
+    let n_writes = 100_u16;
+    let base_args = invoke_tx_args! { sender_address: account_address, version };
+
+    // Utility function to generate calldata for the `write_a_lot` function.
+    // Every call bumps the start address by `n_writes`, so each call writes to new storage slots.
+    let mut write_a_lot_start_address = 0_u16;
+    let mut write_a_lot_calldata = || {
+        write_a_lot_start_address += n_writes;
+        calldata![
+            *contract_address.0.key(),           // Contract address.
+            selector_from_name("write_a_lot").0, // EP selector.
+            stark_felt!(2_u8),                   // Calldata length.
+            stark_felt!(n_writes),
+            stark_felt!(write_a_lot_start_address)
+        ]
+    };
+
+    // Run a "heavy" transaction and measure the resources used.
+    let execution_info_measure = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            resource_bounds: max_resource_bounds.clone(),
+            nonce: nonce_manager.next(account_address),
+            calldata: write_a_lot_calldata(),
+            ..base_args.clone()
+        },
+    )
+    .unwrap();
+    assert!(!execution_info_measure.is_reverted());
+    let actual_fee = execution_info_measure.actual_fee;
+    let actual_gas_usage = calculate_tx_l1_gas_usage(
+        &execution_info_measure.actual_resources,
+        &block_context,
+    )
+    .unwrap() as u64;
+
+    // Run the same function, writing to a new address space (to keep cost high), with the actual
+    // resources used as upper bounds. Make sure execution does not revert.
+    let execution_info_tight = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee: actual_fee,
+            resource_bounds: l1_resource_bounds(actual_gas_usage, MAX_L1_GAS_PRICE),
+            nonce: nonce_manager.next(account_address),
+            calldata: write_a_lot_calldata(),
+            ..base_args.clone()
+        },
+    )
+    .unwrap();
+    assert!(!execution_info_tight.is_reverted());
+    assert_eq!(execution_info_tight.actual_fee, actual_fee);
+    assert_eq!(execution_info_tight.actual_resources, execution_info_measure.actual_resources);
+
+    // Re-run the same function, writing to a new address space (to keep cost high).
+    // Set max bounds slightly below the actual usage, and verify it's reverted.
+    let execution_info_revert = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee: Fee(execution_info_measure.actual_fee.0 - 1),
+            resource_bounds: l1_resource_bounds(actual_gas_usage - 1, MAX_L1_GAS_PRICE),
+            nonce: nonce_manager.next(account_address),
+            calldata: write_a_lot_calldata(),
+            ..base_args
+        },
+    )
+    .unwrap();
+
+    // Assert the transaction was reverted with the correct error.
+    assert!(execution_info_revert.revert_error.unwrap().starts_with(
+        if version < TransactionVersion::THREE {
+            "Insufficient max fee"
+        } else {
+            "Insufficient max L1 gas"
+        }
+    ));
+}
