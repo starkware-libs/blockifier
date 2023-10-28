@@ -8,8 +8,8 @@ use crate::block_context::BlockContext;
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionResult,
+    AccountTransactionContext, CurrentAccountTransactionContext, FeeType, HasRelatedFeeType,
+    ResourcesMapping, TransactionExecutionResult,
 };
 
 #[cfg(test)]
@@ -63,14 +63,25 @@ pub fn calculate_tx_l1_gas_usage(
     Ok(total_l1_gas_usage.ceil() as u128)
 }
 
+fn fee_by_l1_gas_usage(
+    block_context: &BlockContext,
+    l1_gas_usage: u128,
+    fee_type: &FeeType,
+) -> Fee {
+    Fee(l1_gas_usage * block_context.gas_prices.get_by_fee_type(fee_type))
+}
+
 /// Calculates the fee that should be charged, given execution resources.
 pub fn calculate_tx_fee(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionExecutionResult<Fee> {
-    Ok(Fee(calculate_tx_l1_gas_usage(resources, block_context)?
-        * block_context.gas_prices.get_by_fee_type(fee_type)))
+    Ok(fee_by_l1_gas_usage(
+        block_context,
+        calculate_tx_l1_gas_usage(resources, block_context)?,
+        fee_type,
+    ))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
@@ -128,4 +139,15 @@ pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMap
         Resource::L1Gas,
         ResourceBounds { max_amount, max_price_per_unit: max_price },
     )]))
+}
+
+/// Returns the fee to charge, if the L1 gas used is equal to the max L1 gas allowed.
+pub fn fee_for_l1_gas_limit(
+    account_tx_context: &CurrentAccountTransactionContext,
+    block_context: &BlockContext,
+) -> Fee {
+    let resources_bounds =
+        account_tx_context.l1_resource_bounds().expect("L1 gas bounds must be set.");
+    let l1_gas_limit = resources_bounds.max_amount as u128;
+    fee_by_l1_gas_usage(block_context, l1_gas_limit, &FeeType::Strk)
 }
