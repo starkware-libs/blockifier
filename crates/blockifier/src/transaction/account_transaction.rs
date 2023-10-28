@@ -16,7 +16,9 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
-use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_max_fee};
+use crate::fee::fee_utils::{
+    calculate_tx_l1_gas_usage, can_pay_fee, fee_by_l1_gas_usage, verify_can_pay_max_fee,
+};
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
@@ -269,28 +271,71 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         execution_state: &mut TransactionalState<'_, S>,
         post_execute_fee: Fee,
+        post_execute_resources: &ResourcesMapping,
         charge_fee: bool,
     ) -> TransactionExecutionResult<(Fee, Option<String>)> {
-        let max_fee = account_tx_context.max_fee();
-        let can_pay =
-            can_pay_fee(execution_state, account_tx_context, block_context, post_execute_fee)?;
-
-        if charge_fee && (post_execute_fee > max_fee || !can_pay) {
-            // Insufficient fee. Revert the execution and charge what is available.
-            if post_execute_fee > max_fee {
-                Ok((
-                    max_fee,
-                    Some(format!(
-                        "Insufficient max fee: max_fee: {max_fee:?}, actual_fee: \
-                         {post_execute_fee:?}",
-                    )),
-                ))
-            } else {
-                Ok((post_execute_fee, Some(String::from("Insufficient fee token balance"))))
-            }
-        } else {
-            Ok((post_execute_fee, None))
+        if !charge_fee {
+            return Ok((post_execute_fee, None));
         }
+
+        // First, compare actual resources used against the upper bound(s) defined by the sender.
+        // If the initial check fails, revert and charge based on the upper bound(s) and current
+        // price(s). The sender is ensured to have sufficient balance to cover these costs due to
+        // pre-validation checks: deprecated transactions check balance covers max_fee, and current
+        // transactions check balance covers the max gas amount.
+        match account_tx_context {
+            AccountTransactionContext::Deprecated(deprecated_context) => {
+                let max_fee = deprecated_context.max_fee;
+                if post_execute_fee > max_fee {
+                    return Ok((
+                        max_fee,
+                        Some(format!(
+                            "Insufficient max fee: max_fee: {max_fee:?}, actual_fee: \
+                             {post_execute_fee:?}",
+                        )),
+                    ));
+                }
+            }
+            AccountTransactionContext::Current(current_context) => {
+                let max_l1_gas = current_context
+                    .l1_resource_bounds()
+                    .expect("L1 gas bounds must be set.")
+                    .max_amount as u128;
+                let l1_gas_usage =
+                    calculate_tx_l1_gas_usage(post_execute_resources, block_context)?;
+                if l1_gas_usage > max_l1_gas {
+                    return Ok((
+                        fee_by_l1_gas_usage(
+                            block_context,
+                            max_l1_gas,
+                            &account_tx_context.fee_type(),
+                        ),
+                        Some(format!(
+                            "Insufficient max L1 gas: max amount: {:?}, actual: {:?}.",
+                            max_l1_gas, l1_gas_usage
+                        )),
+                    ));
+                }
+            }
+        }
+
+        // Initial check passed; verify against the post-execution account balance, which may have
+        // changed post execution.
+        Ok((
+            post_execute_fee,
+            if can_pay_fee(execution_state, account_tx_context, block_context, post_execute_fee)? {
+                None
+            } else {
+                // In pre-validation, `balance >= max_amount * max_price` (or `balance >= max_fee`
+                // for deprecated transactions) is checked. In addition, `max_price >= actual_price`
+                // is checked. In post-execution (above), we check `max_amount >= actual_amount` (or
+                // `max_fee >= actual_fee` for deprecated transactions).
+                // These checks ensure that the sender *could have paid* the *actual fee*, before
+                // execution. So, if the execution state is reverted, the fee transfer is guaranteed
+                // to succeed.
+                Some(String::from("Insufficient fee token balance"))
+            },
+        ))
     }
 
     fn run_execute<S: State>(
@@ -430,6 +475,7 @@ impl AccountTransaction {
                     &account_tx_context,
                     &mut execution_state,
                     actual_fee,
+                    &actual_resources,
                     charge_fee,
                 )?;
 
