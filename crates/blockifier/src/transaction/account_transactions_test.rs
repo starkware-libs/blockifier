@@ -10,7 +10,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash, TransactionVersion,
+    ResourceBoundsMapping, TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -27,8 +27,8 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
@@ -53,6 +53,13 @@ struct TestInitData {
 #[fixture]
 fn max_fee() -> Fee {
     Fee(MAX_FEE)
+}
+
+#[fixture]
+fn max_resource_bounds() -> ResourceBoundsMapping {
+    let max_amount = u64::try_from(MAX_L1_GAS_AMOUNT)
+        .expect(&format!("MAX_L1_GAS_AMOUNT {MAX_L1_GAS_AMOUNT:?} is too large."));
+    l1_resource_bounds(max_amount, MAX_L1_GAS_PRICE)
 }
 
 #[fixture]
@@ -650,10 +657,14 @@ fn recursive_function_calldata(
 /// Tests that reverted transactions are charged more fee and steps than their (recursive) prefix
 /// successful counterparts.
 /// In this test reverted transactions are valid function calls that got insufficient steps limit.
+#[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
 fn test_reverted_reach_steps_limit(
     max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
     mut block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
+    #[case] version: TransactionVersion,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
     block_context.invoke_tx_max_n_steps = 5000;
@@ -674,7 +685,8 @@ fn test_reverted_reach_steps_limit(
             max_fee,
             sender_address: account_address,
             nonce: nonce_manager.next(account_address),
-            version: TransactionVersion::ONE,
+            version,
+            resource_bounds: max_resource_bounds.clone(),
             calldata: recursive_function_calldata(&contract_address, 0, false)
         },
     )
@@ -692,7 +704,8 @@ fn test_reverted_reach_steps_limit(
             max_fee,
             sender_address: account_address,
             nonce: nonce_manager.next(account_address),
-            version: TransactionVersion::ONE,
+            version,
+            resource_bounds: max_resource_bounds.clone(),
             calldata: recursive_function_calldata(&contract_address, 1, false)
         },
     )
@@ -719,7 +732,8 @@ fn test_reverted_reach_steps_limit(
             max_fee,
             sender_address: account_address,
             nonce: nonce_manager.next(account_address),
-            version: TransactionVersion::ONE,
+            version,
+            resource_bounds: max_resource_bounds.clone(),
             calldata: recursive_function_calldata(&contract_address, fail_depth, false)
         },
     )
@@ -742,7 +756,8 @@ fn test_reverted_reach_steps_limit(
             max_fee,
             sender_address: account_address,
             nonce: nonce_manager.next(account_address),
-            version: TransactionVersion::ONE,
+            version,
+            resource_bounds: max_resource_bounds,
             calldata: recursive_function_calldata(&contract_address, fail_depth + 1, false)
         },
     )
@@ -1015,21 +1030,13 @@ fn test_insufficient_max_fee_reverts(
 }
 
 fn write_and_transfer_calldata(
-    block_context: &BlockContext,
     test_contract_address: ContractAddress,
     storage_address: StarkFelt,
     storage_value: StarkFelt,
     recipient: StarkFelt,
     transfer_amount: StarkFelt,
-    transaction_version: TransactionVersion,
+    fee_token_address: ContractAddress,
 ) -> Calldata {
-    let fee_token_address = block_context.fee_token_addresses.get_by_fee_type(
-        if transaction_version < TransactionVersion::THREE {
-            &FeeType::Eth
-        } else {
-            &FeeType::Strk
-        },
-    );
     calldata![
         *test_contract_address.0.key(),                  // Contract address.
         selector_from_name("test_write_and_transfer").0, // EP selector.
@@ -1045,14 +1052,21 @@ fn write_and_transfer_calldata(
 /// Tests that when a transaction drains an account's balance before fee transfer, the execution is
 /// reverted.
 #[rstest]
+#[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
 fn test_revert_on_overdraft(
     max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
+    #[case] version: TransactionVersion,
 ) {
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let version = TransactionVersion::ONE;
-    let fee_token_address = *block_context.fee_token_addresses.eth_fee_token_address.0.key();
+    let fee_token_address =
+        block_context.fee_token_addresses.get_by_fee_type(if version < TransactionVersion::THREE {
+            &FeeType::Eth
+        } else {
+            &FeeType::Strk
+        });
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();
@@ -1077,7 +1091,7 @@ fn test_revert_on_overdraft(
 
     // Approve the test contract to transfer funds.
     let approve_calldata = calldata![
-        fee_token_address,               // Contract address.
+        *fee_token_address.0.key(),      // Contract address.
         selector_from_name("approve").0, // EP selector.
         stark_felt!(3_u8),               // Calldata length.
         *contract_address.0.key(),       // Calldata: to.
@@ -1090,6 +1104,7 @@ fn test_revert_on_overdraft(
         sender_address: account_address,
         calldata: approve_calldata,
         version,
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address),
     });
     let account_tx_context = approve_tx.get_account_tx_context();
@@ -1106,13 +1121,12 @@ fn test_revert_on_overdraft(
             max_fee,
             sender_address: account_address,
             calldata: write_and_transfer_calldata(
-                &block_context,
                 contract_address,
                 storage_address,
                 expected_final_value,
                 recipient,
                 final_received_amount,
-                version
+                fee_token_address
             ),
             version,
             nonce: nonce_manager.next(account_address),
@@ -1140,13 +1154,12 @@ fn test_revert_on_overdraft(
             max_fee,
             sender_address: account_address,
             calldata: write_and_transfer_calldata(
-                &block_context,
                 contract_address,
                 storage_address,
                 stark_felt!(0_u8),
                 recipient,
                 balance,
-                version
+                fee_token_address
             ),
             version,
             nonce: nonce_manager.next(account_address),
