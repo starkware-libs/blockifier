@@ -84,6 +84,16 @@ func test_storage_read_write{syscall_ptr: felt*}(address: felt, value: felt) -> 
 }
 
 @external
+func write_a_lot{syscall_ptr: felt*}(n_writes: felt, start_address: felt) {
+    if (n_writes == 0) {
+        return ();
+    }
+    let address = start_address + n_writes;
+    storage_write(address=address, value=n_writes);
+    return write_a_lot(n_writes - 1, start_address);
+}
+
+@external
 func write_and_revert{syscall_ptr: felt*}(address: felt, value: felt) {
     storage_write(address=address, value=value);
     assert 0 = 1;

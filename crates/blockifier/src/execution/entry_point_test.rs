@@ -530,15 +530,15 @@ fn test_stack_trace() {
 Error at pc=0:34:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:708)
-Unknown location (pc=0:691)
+Unknown location (pc=0:741)
+Unknown location (pc=0:724)
 
 Error in the called contract ({}):
 Error at pc=0:34:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:708)
-Unknown location (pc=0:691)
+Unknown location (pc=0:741)
+Unknown location (pc=0:724)
 
 Error in the called contract ({}):
 Error at pc=0:58:
