@@ -22,6 +22,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
@@ -1318,4 +1319,110 @@ fn test_revert_on_overdraft(
             .unwrap(),
         (final_received_amount, stark_felt!(0_u8))
     );
+}
+
+/// Tests that when a transaction requires more resources than what the sender bounds allow, the
+/// execution is reverted; in the non-revertible case, checks for the correct error.
+#[rstest]
+#[case(TransactionVersion::ZERO, "", false)]
+#[case(TransactionVersion::ONE, "Insufficient max fee", true)]
+#[case(TransactionVersion::THREE, "Insufficient max L1 gas", true)]
+fn test_revert_on_resource_overuse(
+    max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+    #[case] version: TransactionVersion,
+    #[case] expected_error_prefix: &str,
+    #[case] is_revertible: bool,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context, state);
+
+    let n_writes = 100_u16;
+    let base_args = invoke_tx_args! { sender_address: account_address, version };
+
+    // Utility function to generate calldata for the `write_a_lot` function.
+    // Every call bumps the start address by `n_writes`, so each call writes to new storage slots.
+    let write_a_lot_calldata = |value: u8| {
+        create_calldata(
+            contract_address,
+            "write_a_lot",
+            &[stark_felt!(n_writes), stark_felt!(value)],
+        )
+    };
+
+    // Run a "heavy" transaction and measure the resources used.
+    let execution_info_measure = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            resource_bounds: max_resource_bounds.clone(),
+            nonce: nonce_manager.next(account_address),
+            calldata: write_a_lot_calldata(2),
+            ..base_args.clone()
+        },
+    )
+    .unwrap();
+    assert_eq!(execution_info_measure.revert_error, None);
+    let actual_fee = execution_info_measure.actual_fee;
+    let actual_gas_usage = calculate_tx_l1_gas_usage(
+        &execution_info_measure.actual_resources,
+        &block_context,
+    )
+    .unwrap() as u64;
+
+    // Run the same function, writing to a new address space (to keep cost high), with the actual
+    // resources used as upper bounds. Make sure execution does not revert.
+    let execution_info_tight = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee: actual_fee,
+            resource_bounds: l1_resource_bounds(actual_gas_usage, MAX_L1_GAS_PRICE),
+            nonce: nonce_manager.next(account_address),
+            calldata: write_a_lot_calldata(3),
+            ..base_args.clone()
+        },
+    )
+    .unwrap();
+    assert_eq!(execution_info_tight.revert_error, None);
+    assert_eq!(execution_info_tight.actual_fee, actual_fee);
+    assert_eq!(execution_info_tight.actual_resources, execution_info_measure.actual_resources);
+
+    // Re-run the same function, writing to a new address space (to keep cost high).
+    // Set max bounds slightly below the actual usage, and verify it's reverted.
+    let low_max_fee = Fee(execution_info_measure.actual_fee.0 - 1);
+    let execution_info_result = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee: low_max_fee,
+            resource_bounds: l1_resource_bounds(actual_gas_usage - 1, MAX_L1_GAS_PRICE),
+            nonce: nonce_manager.next(account_address),
+            calldata: write_a_lot_calldata(4),
+            ..base_args
+        },
+    );
+
+    // Assert the transaction was reverted with the correct error.
+    if is_revertible {
+        assert!(
+            execution_info_result.unwrap().revert_error.unwrap().starts_with(expected_error_prefix)
+        );
+    } else {
+        assert_matches!(
+            execution_info_result.unwrap_err(),
+            TransactionExecutionError::FeeCheckError(
+                FeeCheckError::MaxFeeExceeded { max_fee, actual_fee: fee_in_error }
+            )
+            if (max_fee, fee_in_error) == (low_max_fee, actual_fee)
+        );
+    }
 }
