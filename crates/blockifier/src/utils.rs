@@ -14,3 +14,8 @@ where
 {
     lhs.iter().filter(|(k, v)| rhs.get(k) != Some(v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
+
+/// Returns the max value of two constants, at compile time.
+pub const fn const_max(a: u128, b: u128) -> u128 {
+    [a, b][(a < b) as usize]
+}

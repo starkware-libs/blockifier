@@ -51,6 +51,7 @@ use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
 use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
+use crate::utils::const_max;
 
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
@@ -107,11 +108,15 @@ pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
     get_fee_token_var_address(&contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
 }
 
-// The max_fee used for txs in this test.
-pub const MAX_FEE: u128 = 1000000 * 100000000000; // 1000000 * min_eth_l1_gas_price.
+// The max_fee / resource bounds used for txs in this test.
+pub const MAX_L1_GAS_AMOUNT: u128 = 1000000;
+pub const MAX_L1_GAS_PRICE: u128 = DEFAULT_STRK_L1_GAS_PRICE;
+pub const MAX_RESOURCE_COMMITMENT: u128 = MAX_L1_GAS_AMOUNT * MAX_L1_GAS_PRICE;
+pub const MAX_FEE: u128 = MAX_L1_GAS_AMOUNT * DEFAULT_ETH_L1_GAS_PRICE;
 
-// The amount of test-token allocated to the account in this test.
-pub const BALANCE: u128 = 10 * MAX_FEE;
+// The amount of test-token allocated to the account in this test, set to a multiple of the max
+// amount deprecated / non-deprecated transactions commit to paying.
+pub const BALANCE: u128 = 10 * const_max(MAX_FEE, MAX_RESOURCE_COMMITMENT);
 
 pub const DEFAULT_ETH_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of Wei.
 pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of STRK.
