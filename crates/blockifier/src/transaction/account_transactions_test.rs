@@ -35,7 +35,7 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionExecutionInfo};
+use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
     create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
@@ -998,23 +998,19 @@ fn test_insufficient_max_fee_reverts(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
-/// Calls `test_write_and_transfer` with the given parameters.
-fn write_and_transfer(
+fn calldata_for_write_and_transfer(
+    block_context: &BlockContext,
+    test_contract_address: ContractAddress,
     storage_address: StarkFelt,
     storage_value: StarkFelt,
     recipient: StarkFelt,
     transfer_amount: StarkFelt,
-    account_address: ContractAddress,
-    test_contract_address: ContractAddress,
-    block_context: &BlockContext,
-    nonce_manager: &mut NonceManager,
-    max_fee: Fee,
-    state: &mut CachedState<DictStateReader>,
-) -> TransactionExecutionInfo {
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = *block_context.fee_token_addresses.eth_fee_token_address.0.key();
-    let execute_calldata = calldata![
+    tx_version: TransactionVersion,
+) -> Calldata {
+    let fee_token_address = block_context.fee_token_addresses.get_by_fee_type(
+        if tx_version < TransactionVersion::THREE { &FeeType::Eth } else { &FeeType::Strk },
+    );
+    calldata![
         *test_contract_address.0.key(),                  // Contract address.
         selector_from_name("test_write_and_transfer").0, // EP selector.
         stark_felt!(5_u8),                               // Calldata length.
@@ -1022,16 +1018,8 @@ fn write_and_transfer(
         storage_value,                                   // Calldata: storage value.
         recipient,                                       // Calldata: to.
         transfer_amount,                                 // Calldata: amount.
-        fee_token_address                                // Calldata: fee token address.
-    ];
-    let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee,
-        sender_address: account_address,
-        calldata: execute_calldata,
-        version: TransactionVersion::ONE,
-        nonce: nonce_manager.next(account_address),
-    });
-    account_tx.execute(state, block_context, true, true).unwrap()
+        *fee_token_address.0.key()                       // Calldata: fee token address.
+    ]
 }
 
 /// Tests that when a transaction drains an account's balance before fee transfer, the execution is
@@ -1043,6 +1031,7 @@ fn test_revert_on_overdraft(
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
+    let version = TransactionVersion::ONE;
     let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
@@ -1081,7 +1070,7 @@ fn test_revert_on_overdraft(
         max_fee,
         sender_address: account_address,
         calldata: approve_calldata,
-        version: TransactionVersion::ONE,
+        version,
         nonce: nonce_manager.next(account_address),
     });
     let account_tx_context = approve_tx.get_account_tx_context();
@@ -1091,18 +1080,27 @@ fn test_revert_on_overdraft(
 
     // Transfer a valid amount of funds to compute the cost of a successful
     // `test_write_and_transfer` operation. This operation should succeed.
-    let execution_info = write_and_transfer(
-        storage_address,
-        expected_final_value,
-        recipient,
-        final_received_amount,
-        account_address,
-        contract_address,
-        &block_context,
-        &mut nonce_manager,
-        max_fee,
+    let execution_info = run_invoke_tx(
         &mut state,
-    );
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            sender_address: account_address,
+            calldata: calldata_for_write_and_transfer(
+                &block_context,
+                contract_address,
+                storage_address,
+                expected_final_value,
+                recipient,
+                final_received_amount,
+                version
+            ),
+            version,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap();
+
     assert!(!execution_info.is_reverted());
     let transfer_tx_fee = execution_info.actual_fee;
 
@@ -1116,18 +1114,26 @@ fn test_revert_on_overdraft(
 
     // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
     // This operation should revert.
-    let execution_info = write_and_transfer(
-        storage_address,
-        stark_felt!(0_u8), // erase current storage value.
-        recipient,         // same recipient as before.
-        balance,           // transfer the entire balance.
-        account_address,
-        contract_address,
-        &block_context,
-        &mut nonce_manager,
-        max_fee,
+    let execution_info = run_invoke_tx(
         &mut state,
-    );
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            sender_address: account_address,
+            calldata: calldata_for_write_and_transfer(
+                &block_context,
+                contract_address,
+                storage_address,
+                stark_felt!(0_u8),
+                recipient,
+                balance,
+                version
+            ),
+            version,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap();
 
     // Compute the expected balance after the reverted write+transfer (tx fee should be charged).
     let expected_new_balance: StarkFelt =
