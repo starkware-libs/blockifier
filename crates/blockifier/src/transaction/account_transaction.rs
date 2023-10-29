@@ -163,28 +163,7 @@ impl AccountTransaction {
         Ok(state.increment_nonce(address)?)
     }
 
-<<<<<<< HEAD
     fn handle_validate_tx(
-||||||| 6295b3d
-    fn validate_tx(
-=======
-    fn handle_validate_tx(
-        &self,
-        state: &mut dyn State,
-        resources: &mut ExecutionResources,
-        remaining_gas: &mut u64,
-        block_context: &BlockContext,
-        validate: bool,
-    ) -> TransactionExecutionResult<Option<CallInfo>> {
-        if validate {
-            self.validate_tx(state, resources, remaining_gas, block_context)
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn validate_tx(
->>>>>>> origin/main-v0.12.3
         &self,
         state: &mut dyn State,
         resources: &mut ExecutionResources,
@@ -334,14 +313,7 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-<<<<<<< HEAD
         validate: bool,
-||||||| 6295b3d
-        mut execution_context: EntryPointExecutionContext,
-=======
-        mut execution_context: EntryPointExecutionContext,
-        validate: bool,
->>>>>>> origin/main-v0.12.3
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let validate_call_info: Option<CallInfo>;
@@ -353,7 +325,6 @@ impl AccountTransaction {
             let mut execution_context =
                 EntryPointExecutionContext::new_validate(block_context, account_tx_context);
             execute_call_info =
-<<<<<<< HEAD
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
             validate_call_info = self.handle_validate_tx(
                 state,
@@ -363,17 +334,7 @@ impl AccountTransaction {
                 block_context,
                 validate,
             )?;
-||||||| 6295b3d
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            validate_call_info =
-                self.validate_tx(state, resources, remaining_gas, block_context)?;
-=======
-                self.run_execute(state, resources, &mut execution_context, remaining_gas)?;
-            validate_call_info =
-                self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
->>>>>>> origin/main-v0.12.3
         } else {
-<<<<<<< HEAD
             let mut execution_context =
                 EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
             validate_call_info = self.handle_validate_tx(
@@ -384,13 +345,6 @@ impl AccountTransaction {
                 block_context,
                 validate,
             )?;
-||||||| 6295b3d
-            validate_call_info =
-                self.validate_tx(state, resources, remaining_gas, block_context)?;
-=======
-            validate_call_info =
-                self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
->>>>>>> origin/main-v0.12.3
             execute_call_info =
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
@@ -417,23 +371,14 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-<<<<<<< HEAD
         validate: bool,
         charge_fee: bool,
-||||||| 6295b3d
-        mut execution_context: EntryPointExecutionContext,
-=======
-        mut execution_context: EntryPointExecutionContext,
-        charge_fee: bool,
-        validate: bool,
->>>>>>> origin/main-v0.12.3
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let mut execution_context =
             EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
         let account_tx_context = self.get_account_tx_context();
         // Run the validation, and if execution later fails, only keep the validation diff.
-<<<<<<< HEAD
         let validate_call_info = self.handle_validate_tx(
             state,
             &mut resources,
@@ -442,47 +387,9 @@ impl AccountTransaction {
             block_context,
             validate,
         )?;
-||||||| 6295b3d
-        let validate_call_info =
-            self.validate_tx(state, resources, remaining_gas, block_context)?;
-        let validate_steps = validate_call_info.as_ref().unwrap().vm_resources.n_steps;
-        let overhead_steps = OS_RESOURCES.execute_txs_inner().get(&self.tx_type()).unwrap().n_steps;
-=======
-        let validate_call_info =
-            self.handle_validate_tx(state, resources, remaining_gas, block_context, validate)?;
-        let validate_steps = if validate {
-            validate_call_info
-                .as_ref()
-                .expect("`validate` call info cannot be `None`.")
-                .vm_resources
-                .n_steps
-        } else {
-            0
-        };
-        let overhead_steps = OS_RESOURCES
-            .execute_txs_inner()
-            .get(&self.tx_type())
-            .expect("`OS_RESOURCES` must contain all transaction types.")
-            .n_steps;
->>>>>>> origin/main-v0.12.3
 
-<<<<<<< HEAD
         let n_allotted_execution_steps = execution_context
             .subtract_validation_and_overhead_steps(&validate_call_info, &self.tx_type());
-||||||| 6295b3d
-        // Subtract the actual steps used for validate_tx and estimated steps required for fee
-        // transfer from the steps available to the run_execute context.
-        execution_context.subtract_steps(validate_steps + overhead_steps);
-        let n_allotted_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
-=======
-        // Subtract the actual steps used for validate_tx and estimated steps required for fee
-        // transfer from the steps available to the run_execute context.
-        execution_context.subtract_steps(validate_steps + overhead_steps);
-        let n_allotted_steps = execution_context
-            .vm_run_resources
-            .get_n_steps()
-            .expect("The number of steps must be initialized.");
->>>>>>> origin/main-v0.12.3
 
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
@@ -526,56 +433,8 @@ impl AccountTransaction {
                     charge_fee,
                 )?;
 
-<<<<<<< HEAD
                 // Revert or accept depending on result of post-execution check.
                 if let Some(revert_error) = revert_error {
-||||||| 6295b3d
-                // Check if as a result of tx execution the sender's fee token balance is maxed out,
-                // so that they can't pay fee. If so, the transaction must be reverted.
-                let (balance_low, balance_high) = execution_state
-                    .get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
-                let is_maxed_out =
-                    !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
-                let max_fee = account_tx_context.max_fee;
-
-                if actual_fee > max_fee || is_maxed_out {
-                    // Insufficient fee. Revert the execution and charge what is available.
-                    let (final_fee, revert_error) = if actual_fee > max_fee {
-                        (
-                            max_fee,
-                            format!(
-                                "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
-                                max_fee, actual_fee
-                            ),
-                        )
-                    } else {
-                        (actual_fee, String::from("Insufficient fee token balance"))
-                    };
-
-=======
-                // Check if as a result of tx execution the sender's fee token balance is maxed out,
-                // so that they can't pay fee. If so, the transaction must be reverted.
-                let (balance_low, balance_high) = execution_state
-                    .get_fee_token_balance(block_context, &account_tx_context.sender_address)?;
-                let is_maxed_out =
-                    !Self::is_sufficient_fee_balance(balance_low, balance_high, actual_fee);
-                let max_fee = account_tx_context.max_fee;
-
-                if charge_fee && (actual_fee > max_fee || is_maxed_out) {
-                    // Insufficient fee. Revert the execution and charge what is available.
-                    let (final_fee, revert_error) = if actual_fee > max_fee {
-                        (
-                            max_fee,
-                            format!(
-                                "Insufficient max fee: max_fee: {:?}, actual_fee: {:?}",
-                                max_fee, actual_fee
-                            ),
-                        )
-                    } else {
-                        (actual_fee, String::from("Insufficient fee token balance"))
-                    };
-
->>>>>>> origin/main-v0.12.3
                     execution_state.abort();
                     let n_reverted_steps =
                         n_allotted_execution_steps - execution_context.n_remaining_steps();
@@ -606,19 +465,8 @@ impl AccountTransaction {
             Err(_) => {
                 // Error during execution. Revert.
                 execution_state.abort();
-<<<<<<< HEAD
                 let n_reverted_steps =
                     n_allotted_execution_steps - execution_context.n_remaining_steps();
-||||||| 6295b3d
-                let n_remaining_steps = execution_context.vm_run_resources.get_n_steps().unwrap();
-                let n_reverted_steps = n_allotted_steps - n_remaining_steps;
-=======
-                let n_remaining_steps = execution_context
-                    .vm_run_resources
-                    .get_n_steps()
-                    .expect("The number of steps must be initialized.");
-                let n_reverted_steps = n_allotted_steps - n_remaining_steps;
->>>>>>> origin/main-v0.12.3
 
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
@@ -654,14 +502,8 @@ impl AccountTransaction {
         state: &mut TransactionalState<'_, S>,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
-<<<<<<< HEAD
         validate: bool,
         charge_fee: bool,
-||||||| 6295b3d
-=======
-        charge_fee: bool,
-        validate: bool,
->>>>>>> origin/main-v0.12.3
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let account_tx_context = self.get_account_tx_context();
 
@@ -671,18 +513,10 @@ impl AccountTransaction {
                 &account_tx_context,
                 remaining_gas,
                 block_context,
-<<<<<<< HEAD
                 validate,
-||||||| 6295b3d
-                execution_context,
-=======
-                execution_context,
-                validate,
->>>>>>> origin/main-v0.12.3
             );
         }
 
-<<<<<<< HEAD
         self.run_revertible(
             state,
             &account_tx_context,
@@ -691,19 +525,6 @@ impl AccountTransaction {
             validate,
             charge_fee,
         )
-||||||| 6295b3d
-        self.run_revertible(state, resources, remaining_gas, block_context, execution_context)
-=======
-        self.run_revertible(
-            state,
-            resources,
-            remaining_gas,
-            block_context,
-            execution_context,
-            charge_fee,
-            validate,
-        )
->>>>>>> origin/main-v0.12.3
     }
 
     pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
@@ -738,20 +559,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
             final_fee,
             final_resources,
-<<<<<<< HEAD
         } = self.run_or_revert(state, &mut remaining_gas, block_context, validate, charge_fee)?;
-||||||| 6295b3d
-        } = self.run_or_revert(state, &mut resources, &mut remaining_gas, block_context)?;
-=======
-        } = self.run_or_revert(
-            state,
-            &mut resources,
-            &mut remaining_gas,
-            block_context,
-            charge_fee,
-            validate,
-        )?;
->>>>>>> origin/main-v0.12.3
 
         let fee_transfer_call_info =
             self.handle_fee(state, block_context, final_fee, charge_fee)?;

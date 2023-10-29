@@ -112,15 +112,7 @@ fn create_test_init_data(
         state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
     }
 
-<<<<<<< HEAD
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
-||||||| 6295b3d
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    account_tx.execute(&mut state, &block_context, true).unwrap();
-=======
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    account_tx.execute(&mut state, &block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
 
     // Declare a contract.
     let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
@@ -193,16 +185,8 @@ fn test_fee_enforcement(
         );
 
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-<<<<<<< HEAD
         let enforce_fee = account_tx.get_account_tx_context().enforce_fee();
         let result = account_tx.execute(&mut state, &block_context, true, true);
-||||||| 6295b3d
-        let enforce_fee = account_tx.enforce_fee();
-        let result = account_tx.execute(&mut state, &block_context, true);
-=======
-        let enforce_fee = account_tx.enforce_fee();
-        let result = account_tx.execute(&mut state, &block_context, true, true);
->>>>>>> origin/main-v0.12.3
         assert_eq!(result.is_err(), enforce_fee);
     }
 }
@@ -507,14 +491,8 @@ fn test_revert_invoke(
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-<<<<<<< HEAD
     let account_tx_context = account_tx.get_account_tx_context();
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
-||||||| 6295b3d
-    let deploy_execution_info = account_tx.execute(&mut state, &block_context, true).unwrap();
-=======
-    let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
 
     // Invoke a function from the newly deployed contract, that changes the state.
     let storage_key = stark_felt!(9_u8);
@@ -589,16 +567,10 @@ fn test_fail_deploy_account(block_context: BlockContext) {
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
     let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
-<<<<<<< HEAD
 
     let initial_balance =
         state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap();
     deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
-||||||| 6295b3d
-    deploy_account_tx.execute(&mut state, &block_context, true).unwrap_err();
-=======
-    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
->>>>>>> origin/main-v0.12.3
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
@@ -640,7 +612,6 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     );
 
     // Fail execution, assert nonce and balance are unchanged.
-<<<<<<< HEAD
     let account_tx_context = declare_account_tx.get_account_tx_context();
     let initial_balance = state
         .get_fee_token_balance(
@@ -650,11 +621,6 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
 
-||||||| 6295b3d
-    declare_account_tx.execute(&mut state, &block_context, true).unwrap_err();
-=======
-    declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
->>>>>>> origin/main-v0.12.3
     assert_eq!(state.get_nonce_at(account_address).unwrap(), next_nonce);
     assert_eq!(
         state
@@ -1069,7 +1035,6 @@ fn write_and_transfer(
         transfer_amount,                                 // Calldata: amount.
         fee_token_address                                // Calldata: fee token address.
     ];
-<<<<<<< HEAD
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -1078,13 +1043,6 @@ fn write_and_transfer(
         nonce: nonce_manager.next(account_address),
     });
     account_tx.execute(state, block_context, true, true).unwrap()
-||||||| 6295b3d
-    let account_tx = account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee);
-    account_tx.execute(state, block_context, true).unwrap()
-=======
-    let account_tx = account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee);
-    account_tx.execute(state, block_context, true, true).unwrap()
->>>>>>> origin/main-v0.12.3
 }
 
 /// Tests that when a transaction drains an account's balance before fee transfer, the execution is
@@ -1129,7 +1087,6 @@ fn test_revert_on_overdraft(
         stark_felt!(0_u8)
     ];
 
-<<<<<<< HEAD
     let approve_tx: AccountTransaction = account_invoke_tx(invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -1140,16 +1097,6 @@ fn test_revert_on_overdraft(
     let account_tx_context = approve_tx.get_account_tx_context();
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();
-||||||| 6295b3d
-    let approve_tx: AccountTransaction =
-        account_invoke_tx(approve_calldata, account_address, &mut nonce_manager, max_fee);
-    let approval_execution_info = approve_tx.execute(&mut state, &block_context, true).unwrap();
-=======
-    let approve_tx: AccountTransaction =
-        account_invoke_tx(approve_calldata, account_address, &mut nonce_manager, max_fee);
-    let approval_execution_info =
-        approve_tx.execute(&mut state, &block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
     assert!(!approval_execution_info.is_reverted());
 
     // Transfer a valid amount of funds to compute the cost of a successful

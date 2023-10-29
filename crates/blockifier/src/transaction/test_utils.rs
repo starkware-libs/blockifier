@@ -216,20 +216,5 @@ pub fn run_invoke_tx(
     block_context: &BlockContext,
     invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-<<<<<<< HEAD
     account_invoke_tx(invoke_args).execute(state, block_context, true, true)
-||||||| 6295b3d
-    account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee).execute(
-        state,
-        block_context,
-        true,
-    )
-=======
-    account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee).execute(
-        state,
-        block_context,
-        true,
-        true,
-    )
->>>>>>> origin/main-v0.12.3
 }
