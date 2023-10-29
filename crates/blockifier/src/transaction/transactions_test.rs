@@ -596,14 +596,13 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
     let valid_tx_context = valid_tx.get_account_tx_context();
-    let result = valid_tx.perform_pre_validation_checks(
+    valid_tx.perform_pre_validation_checks(
         state,
         &valid_tx_context,
         block_context,
         false,
         false,
-    );
-    assert_matches!(result, Ok(()));
+    ).unwrap();
 
     // Negative flow: account_nonce = 1, tx_nonce = 0;
     let invalid_nonce = Nonce(stark_felt!(0_u8));
@@ -611,7 +610,7 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
     let invalid_tx_context = invalid_tx.get_account_tx_context();
     // Increment account nonce to 1.
-    let _ = state.increment_nonce(invalid_tx_context.sender_address());
+    state.increment_nonce(invalid_tx_context.sender_address()).unwrap();
     let pre_validation_err = invalid_tx
         .perform_pre_validation_checks(state, &invalid_tx_context, block_context, false, false)
         .unwrap_err();
