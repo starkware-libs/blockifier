@@ -37,6 +37,7 @@ impl Transaction {
         tx: StarknetApiTransaction,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
+        only_query: bool,
     ) -> TransactionExecutionResult<Self> {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => {
@@ -47,18 +48,27 @@ impl Transaction {
                 }))
             }
             StarknetApiTransaction::Declare(declare) => {
-                Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
-                    declare,
-                    contract_class.expect("Declare should be created with a ContractClass"),
-                )?)))
+                let contract_class =
+                    contract_class.expect("Declare should be created with a ContractClass");
+                let declare_tx = match only_query {
+                    true => DeclareTransaction::new_for_query(declare, contract_class),
+                    false => DeclareTransaction::new(declare, contract_class),
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::Declare(declare_tx?)))
             }
-            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
-                AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account }),
-            )),
+            StarknetApiTransaction::DeployAccount(deploy_account) => {
+                let deploy_account_tx = match only_query {
+                    true => DeployAccountTransaction::new_for_query(deploy_account),
+                    false => DeployAccountTransaction::new(deploy_account),
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account_tx)))
+            }
             StarknetApiTransaction::Invoke(invoke) => {
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
-                    tx: invoke,
-                })))
+                let invoke_tx = match only_query {
+                    true => InvokeTransaction::new_for_query(invoke),
+                    false => InvokeTransaction::new(invoke),
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke_tx)))
             }
             _ => unimplemented!(),
         }
