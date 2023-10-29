@@ -576,11 +576,14 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
-    let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
+    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    let pre_validation_err = invalid_tx
+        .perform_pre_validation_checks(state, &invalid_tx_context, block_context, false, true)
+        .unwrap_err();
 
     // Test error.
     assert_matches!(
-        execution_error,
+        pre_validation_err,
         TransactionExecutionError::InvalidNonce { address, account_nonce, tx_nonce }
         if (address, account_nonce, tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
@@ -593,7 +596,13 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
     let valid_tx_context = valid_tx.get_account_tx_context();
-    let result = AccountTransaction::check_nonce(state, &valid_tx_context, false);
+    let result = valid_tx.perform_pre_validation_checks(
+        state,
+        &valid_tx_context,
+        block_context,
+        false,
+        false,
+    );
     assert_matches!(result, Ok(()));
 
     // Negative flow: account_nonce = 1, tx_nonce = 0;
@@ -603,12 +612,13 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     let invalid_tx_context = invalid_tx.get_account_tx_context();
     // Increment account nonce to 1.
     let _ = state.increment_nonce(invalid_tx_context.sender_address());
-    let execution_error =
-        AccountTransaction::check_nonce(state, &invalid_tx_context, false).unwrap_err();
+    let pre_validation_err = invalid_tx
+        .perform_pre_validation_checks(state, &invalid_tx_context, block_context, false, false)
+        .unwrap_err();
 
     // Test error.
     assert_matches!(
-        execution_error,
+        pre_validation_err,
         TransactionExecutionError::InvalidNonce { address, account_nonce, tx_nonce }
         if (address, account_nonce, tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
