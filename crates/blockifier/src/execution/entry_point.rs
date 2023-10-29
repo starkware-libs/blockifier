@@ -246,8 +246,11 @@ impl EntryPointExecutionContext {
     /// steps available for the fee transfer stage.
     /// Returns the remaining number of steps.
     pub fn subtract_steps(&mut self, steps_to_subtract: usize) -> usize {
-        self.vm_run_resources =
-            RunResources::new(max(0, self.n_remaining_steps() - steps_to_subtract));
+        // If remaining steps is less than the number of steps to subtract, attempting to subtrace
+        // would cause underflow error.
+        // Logically, we update remaining steps to `max(0, remaining_steps - steps_to_subtract)`.
+        let remaining_steps = max(self.n_remaining_steps(), steps_to_subtract);
+        self.vm_run_resources = RunResources::new(remaining_steps - steps_to_subtract);
         self.n_remaining_steps()
     }
 
