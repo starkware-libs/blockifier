@@ -15,7 +15,8 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 use crate::transaction::transactions::{
-    DeclareTransaction, Executable, ExecutableTransaction, L1HandlerTransaction,
+    DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
+    InvokeTransaction, L1HandlerTransaction,
 };
 
 #[derive(Debug)]
@@ -51,11 +52,13 @@ impl Transaction {
                     contract_class.expect("Declare should be created with a ContractClass"),
                 )?)))
             }
-            StarknetApiTransaction::DeployAccount(deploy_account) => {
-                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
-            }
+            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
+                AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account }),
+            )),
             StarknetApiTransaction::Invoke(invoke) => {
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke)))
+                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
+                    tx: invoke,
+                })))
             }
             _ => unimplemented!(),
         }

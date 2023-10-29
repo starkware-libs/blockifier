@@ -7,7 +7,9 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::AccountTransactionContext;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
-use blockifier::transaction::transactions::{DeclareTransaction, L1HandlerTransaction};
+use blockifier::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, InvokeTransaction, L1HandlerTransaction,
+};
 use num_bigint::BigUint;
 use pyo3::prelude::*;
 use starknet_api::core::{
@@ -15,9 +17,9 @@ use starknet_api::core::{
 };
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2,
-    DeployAccountTransaction, Fee, InvokeTransaction, InvokeTransactionV0, InvokeTransactionV1,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
+    InvokeTransactionV0, InvokeTransactionV1, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
@@ -101,10 +103,12 @@ pub fn py_declare(
     }
 }
 
-pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
+pub fn py_deploy_account(
+    tx: &PyAny,
+) -> NativeBlockifierResult<starknet_api::transaction::DeployAccountTransaction> {
     let account_data_context = py_account_data_context(tx)?;
 
-    Ok(DeployAccountTransaction {
+    Ok(starknet_api::transaction::DeployAccountTransaction {
         transaction_hash: account_data_context.transaction_hash,
         max_fee: account_data_context.max_fee,
         version: account_data_context.version,
@@ -117,12 +121,14 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
     })
 }
 
-pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
+pub fn py_invoke_function(
+    tx: &PyAny,
+) -> NativeBlockifierResult<starknet_api::transaction::InvokeTransaction> {
     let account_data_context = py_account_data_context(tx)?;
 
     let version = usize::try_from(account_data_context.version.0)?;
     match version {
-        0 => Ok(InvokeTransaction::V0(InvokeTransactionV0 {
+        0 => Ok(starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
             transaction_hash: account_data_context.transaction_hash,
             max_fee: account_data_context.max_fee,
             signature: account_data_context.signature,
@@ -131,7 +137,7 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
             entry_point_selector: EntryPointSelector(py_felt_attr(tx, "entry_point_selector")?),
             calldata: py_calldata(tx, "calldata")?,
         })),
-        1 => Ok(InvokeTransaction::V1(InvokeTransactionV1 {
+        1 => Ok(starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
             transaction_hash: account_data_context.transaction_hash,
             max_fee: account_data_context.max_fee,
             signature: account_data_context.signature,
@@ -185,11 +191,14 @@ pub fn py_tx(
             Ok(Transaction::AccountTransaction(declare_tx))
         }
         "DEPLOY_ACCOUNT" => {
-            let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(tx)?);
+            let deploy_account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+                tx: py_deploy_account(tx)?,
+            });
             Ok(Transaction::AccountTransaction(deploy_account_tx))
         }
         "INVOKE_FUNCTION" => {
-            let invoke_tx = AccountTransaction::Invoke(py_invoke_function(tx)?);
+            let invoke_tx =
+                AccountTransaction::Invoke(InvokeTransaction { tx: py_invoke_function(tx)? });
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
         "L1_HANDLER" => {
