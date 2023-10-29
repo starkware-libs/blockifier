@@ -99,6 +99,7 @@ pub trait ValidatableTransaction {
         account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
+        charge_fee: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
