@@ -322,17 +322,9 @@ fn test_invoke_tx(
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
     let sender_address = invoke_tx.sender_address();
 
-<<<<<<< HEAD
     let account_tx = AccountTransaction::Invoke(invoke_tx);
     let fee_type = &account_tx.fee_type();
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-||||||| 6295b3d
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
-    let actual_execution_info = account_tx.execute(state, block_context, true).unwrap();
-=======
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
-    let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
 
     // Build expected validate call info.
     let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
@@ -459,7 +451,6 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         mint_low,
         mint_high
     ];
-<<<<<<< HEAD
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
@@ -469,27 +460,6 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     });
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
-||||||| 6295b3d
-    let mint_tx = crate::test_utils::invoke_tx(
-        execute_calldata,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        Fee(MAX_FEE),
-        None,
-    );
-    AccountTransaction::Invoke(InvokeTransaction::V1(mint_tx))
-        .execute(state, block_context, true)
-        .unwrap();
-=======
-    let mint_tx = crate::test_utils::invoke_tx(
-        execute_calldata,
-        ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS)),
-        Fee(MAX_FEE),
-        None,
-    );
-    AccountTransaction::Invoke(InvokeTransaction::V1(mint_tx))
-        .execute(state, block_context, true, true)
-        .unwrap();
->>>>>>> origin/main-v0.12.3
 
     // Get balance from state, and validate.
     let (low, high) =
@@ -566,24 +536,10 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Fee too low (lower than minimal estimated fee).
     let minimal_fee = estimate_minimal_fee(block_context, &valid_account_tx).unwrap();
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
-<<<<<<< HEAD
     let invalid_tx = account_invoke_tx(
         invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
     );
     let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
-||||||| 6295b3d
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..valid_invoke_tx.clone()
-    }));
-    let execution_error = invalid_tx.execute(state, block_context, true).unwrap_err();
-=======
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..valid_invoke_tx.clone()
-    }));
-    let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
->>>>>>> origin/main-v0.12.3
 
     // Test error.
     assert_matches!(
@@ -594,24 +550,10 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
 
     // Insufficient fee.
     let invalid_max_fee = minimal_fee;
-<<<<<<< HEAD
     let invalid_tx = account_invoke_tx(
         invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
     );
     let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
-||||||| 6295b3d
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..valid_invoke_tx.clone()
-    }));
-    let execution_result = invalid_tx.execute(state, block_context, true).unwrap();
-=======
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..valid_invoke_tx.clone()
-    }));
-    let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
     let execution_error = execution_result.revert_error.unwrap();
 
     // Test error.
@@ -691,14 +633,8 @@ fn test_declare_tx(
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
-<<<<<<< HEAD
     let fee_type = &account_tx.fee_type();
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-||||||| 6295b3d
-    let actual_execution_info = account_tx.execute(state, block_context, true).unwrap();
-=======
-    let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
 
     // Build expected validate call info.
     let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
@@ -875,17 +811,9 @@ fn test_deploy_account_tx(
         );
     }
 
-<<<<<<< HEAD
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let fee_type = &account_tx.fee_type();
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-||||||| 6295b3d
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx.clone());
-    let actual_execution_info = account_tx.execute(state, block_context, true).unwrap();
-=======
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx.clone());
-    let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
 
     // Build expected validate call info.
     let validate_calldata =
@@ -972,26 +900,10 @@ fn test_deploy_account_tx(
 
     // Negative flow.
     // Deploy to an existing address.
-<<<<<<< HEAD
     let deploy_account =
         deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-||||||| 6295b3d
-    let deploy_account_tx = DeployAccountTransaction {
-        nonce: nonce_manager.next(deployed_account_address),
-        ..deploy_account_tx
-    };
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let error = account_tx.execute(state, block_context, true).unwrap_err();
-=======
-    let deploy_account_tx = DeployAccountTransaction {
-        nonce: nonce_manager.next(deployed_account_address),
-        ..deploy_account_tx
-    };
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
->>>>>>> origin/main-v0.12.3
     assert_matches!(
         error,
         TransactionExecutionError::ContractConstructorExecutionFailed(
@@ -1101,18 +1013,8 @@ fn test_calculate_tx_gas_usage() {
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee token address should depend on tx version.
     let fee_token_address = *block_context.fee_token_addresses.eth_fee_token_address.0.key();
 
-<<<<<<< HEAD
     let account_tx = account_invoke_tx(default_invoke_tx_args());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-||||||| 6295b3d
-    let invoke_tx = invoke_tx();
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
-    let tx_execution_info = account_tx.execute(state, block_context, true).unwrap();
-=======
-    let invoke_tx = invoke_tx();
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
-    let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
->>>>>>> origin/main-v0.12.3
 
     let n_storage_updates = 1; // For the account balance update.
     let n_modified_contracts = 1;
@@ -1172,9 +1074,9 @@ fn test_calculate_tx_gas_usage() {
 fn test_valid_flag() {
     let state = &mut create_state_with_cairo1_account();
     let block_context = &BlockContext::create_for_account_testing();
-    let invoke_tx = invoke_tx();
+    let invoke_tx = invoke_tx(default_invoke_tx_args());
 
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
+    let account_tx = AccountTransaction::Invoke(invoke_tx);
     let actual_execution_info = account_tx.execute(state, block_context, true, false).unwrap();
 
     assert!(actual_execution_info.validate_call_info.is_none());
