@@ -374,7 +374,7 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 }
 
 impl CallEntryPoint {
-    /// Executes the call directly, without account context.
+    /// Executes the call directly, without account context, with fee charge.
     // TODO(Nir, 01/11/2023): adjust to V3, context as an arg or testing mode (<V3, V3).
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         self.execute_directly_given_account_context(
@@ -390,10 +390,11 @@ impl CallEntryPoint {
     ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
         let mut context =
-            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context);
+            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context, true);
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
-    /// Executes the call directly in validate mode, without account context.
+
+    /// Executes the call directly in validate mode, without account context, with fee charge.
     pub fn execute_directly_in_validate_mode(
         self,
         state: &mut dyn State,
@@ -402,6 +403,7 @@ impl CallEntryPoint {
         let mut context = EntryPointExecutionContext::new_validate(
             &block_context,
             &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+            true,
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
