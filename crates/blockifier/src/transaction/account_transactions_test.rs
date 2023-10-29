@@ -103,7 +103,7 @@ fn create_test_init_data(
     );
 
     let account_tx =
-        AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
+        AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Declare a contract.
@@ -173,7 +173,7 @@ fn test_fee_enforcement(
         );
 
         let account_tx =
-            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
+            AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
         let enforce_fee = account_tx.enforce_fee();
         let result = account_tx.execute(&mut state, &block_context, true, true);
         assert_eq!(result.is_err(), enforce_fee);
@@ -310,7 +310,7 @@ fn test_revert_invoke(
     );
 
     let account_tx =
-        AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
+        AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.

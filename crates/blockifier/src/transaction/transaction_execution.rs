@@ -37,6 +37,7 @@ impl Transaction {
         tx: StarknetApiTransaction,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
+        simulate: bool,
     ) -> TransactionExecutionResult<Self> {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => {
@@ -47,18 +48,30 @@ impl Transaction {
                 }))
             }
             StarknetApiTransaction::Declare(declare) => {
-                Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
-                    declare,
-                    contract_class.expect("Declare should be created with a ContractClass"),
-                )?)))
+                let contract_class =
+                    contract_class.expect("Declare should be created with a ContractClass");
+                let declare_tx = if simulate {
+                    DeclareTransaction::new_for_simulation(declare, contract_class)
+                } else {
+                    DeclareTransaction::new(declare, contract_class)
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::Declare(declare_tx?)))
             }
-            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
-                AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account }),
-            )),
+            StarknetApiTransaction::DeployAccount(deploy_account) => {
+                let deploy_account_tx = if simulate {
+                    DeployAccountTransaction::new_for_simulation(deploy_account)
+                } else {
+                    DeployAccountTransaction::new(deploy_account)
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account_tx)))
+            }
             StarknetApiTransaction::Invoke(invoke) => {
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
-                    tx: invoke,
-                })))
+                let invoke_tx = if simulate {
+                    InvokeTransaction::new_for_simulation(invoke)
+                } else {
+                    InvokeTransaction::new(invoke)
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke_tx)))
             }
             _ => unimplemented!(),
         }
