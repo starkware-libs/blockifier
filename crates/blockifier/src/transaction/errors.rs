@@ -50,6 +50,11 @@ pub enum TransactionExecutionError {
     MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
     #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
+    #[error(
+        "Max L1 gas price ({max_l1_gas_price:?}) is lower than the current gas price: \
+         {current_gas_price:?}."
+    )]
+    MaxL1GasPriceTooLow { max_l1_gas_price: Fee, current_gas_price: Fee },
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]

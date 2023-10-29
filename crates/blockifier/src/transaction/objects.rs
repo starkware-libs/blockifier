@@ -4,8 +4,8 @@ use itertools::concat;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
-    AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBoundsMapping, Tip,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping,
+    Tip, TransactionHash, TransactionSignature, TransactionVersion,
 };
 use strum_macros::EnumIter;
 
@@ -58,12 +58,19 @@ impl AccountTransactionContext {
     pub fn max_fee(&self) -> Fee {
         match self {
             Self::Current(context) => {
-                let l1_resource_bounds =
-                    context.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default();
+                let l1_resource_bounds = context.get_l1_gas_bounds();
                 // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
                 Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
             }
             Self::Deprecated(context) => context.max_fee,
+        }
+    }
+
+    /// Returns the max L1 gas price if such a bound exists, else None.
+    pub fn max_l1_gas_price(&self) -> Option<Fee> {
+        match self {
+            Self::Current(context) => Some(Fee(context.get_l1_gas_bounds().max_price_per_unit)),
+            Self::Deprecated(_) => None,
         }
     }
 
@@ -95,6 +102,12 @@ pub struct CurrentAccountTransactionContext {
     pub fee_data_availability_mode: DataAvailabilityMode,
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
+}
+
+impl CurrentAccountTransactionContext {
+    fn get_l1_gas_bounds(&self) -> ResourceBounds {
+        self.resource_bounds.0.get(&Resource::L1Gas).copied().unwrap_or_default()
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

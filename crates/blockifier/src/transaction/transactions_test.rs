@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
@@ -12,7 +12,8 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -637,6 +638,42 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
         if (address, account_nonce, tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
     );
+}
+
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_insufficient_max_l1_gas_price(state: &mut CachedState<DictStateReader>) {
+    let mut transactional_state = CachedState::create_transactional(state);
+    let block_context = &BlockContext::create_for_account_testing();
+    let valid_invoke_tx_args = default_invoke_tx_args();
+    let insufficient_max_l1_gas_price = block_context.gas_prices.strk_l1_gas_price - 1;
+
+    let invalid_tx =
+        account_invoke_tx(invoke_tx_args! {resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+            (Resource::L1Gas, ResourceBounds {
+                max_amount: (MAX_FEE / insufficient_max_l1_gas_price) as u64,
+                max_price_per_unit:  insufficient_max_l1_gas_price}),
+        ])), version:TransactionVersion::THREE, ..valid_invoke_tx_args.clone() });
+    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    let pre_validation_err = invalid_tx
+        .perform_pre_validation_checks(
+            &mut transactional_state,
+            &invalid_tx_context,
+            block_context,
+            true,
+            false,
+        )
+        .unwrap_err();
+    assert_matches!(
+        pre_validation_err,
+        TransactionExecutionError::MaxL1GasPriceTooLow { max_l1_gas_price, current_gas_price }
+        if (max_l1_gas_price, current_gas_price) ==
+        (Fee(insufficient_max_l1_gas_price), Fee(block_context.gas_prices.strk_l1_gas_price))
+    )
 }
 
 fn declare_tx(

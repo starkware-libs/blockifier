@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
@@ -8,8 +8,8 @@ use starknet_api::core::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    TransactionHash, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee, Resource,
+    ResourceBounds, ResourceBoundsMapping, TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -25,7 +25,7 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
@@ -400,6 +400,11 @@ fn test_recursion_depth_exceeded(
         calldata,
         version: tx_version,
         nonce: nonce_manager.next(account_address),
+        resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+            (Resource::L1Gas, ResourceBounds {
+                max_amount: (max_fee.0 / DEFAULT_STRK_L1_GAS_PRICE) as u64,
+                max_price_per_unit: DEFAULT_STRK_L1_GAS_PRICE }),
+        ])),
     };
     let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
 
