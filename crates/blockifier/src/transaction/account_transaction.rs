@@ -171,9 +171,17 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         validate: bool,
+        charge_fee: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if validate {
-            self.validate_tx(state, resources, account_tx_context, remaining_gas, block_context)
+            self.validate_tx(
+                state,
+                resources,
+                account_tx_context,
+                remaining_gas,
+                block_context,
+                charge_fee,
+            )
         } else {
             Ok(None)
         }
@@ -257,7 +265,7 @@ impl AccountTransaction {
         };
 
         let mut context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context);
+            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context, true);
 
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
     }
@@ -314,6 +322,7 @@ impl AccountTransaction {
         remaining_gas: &mut u64,
         block_context: &BlockContext,
         validate: bool,
+        charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let validate_call_info: Option<CallInfo>;
@@ -322,8 +331,11 @@ impl AccountTransaction {
             // Handle `DeployAccount` transactions separately, due to different order of things.
             // Also, the execution context required form the `DeployAccount` execute phase is
             // validation context.
-            let mut execution_context =
-                EntryPointExecutionContext::new_validate(block_context, account_tx_context);
+            let mut execution_context = EntryPointExecutionContext::new_validate(
+                block_context,
+                account_tx_context,
+                charge_fee,
+            );
             execute_call_info =
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
             validate_call_info = self.handle_validate_tx(
@@ -333,10 +345,14 @@ impl AccountTransaction {
                 remaining_gas,
                 block_context,
                 validate,
+                charge_fee,
             )?;
         } else {
-            let mut execution_context =
-                EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
+            let mut execution_context = EntryPointExecutionContext::new_invoke(
+                block_context,
+                account_tx_context,
+                charge_fee,
+            );
             validate_call_info = self.handle_validate_tx(
                 state,
                 &mut resources,
@@ -344,6 +360,7 @@ impl AccountTransaction {
                 remaining_gas,
                 block_context,
                 validate,
+                charge_fee,
             )?;
             execute_call_info =
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
@@ -375,7 +392,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let mut execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, account_tx_context);
+            EntryPointExecutionContext::new_invoke(block_context, account_tx_context, charge_fee);
         let account_tx_context = self.get_account_tx_context();
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info = self.handle_validate_tx(
@@ -385,6 +402,7 @@ impl AccountTransaction {
             remaining_gas,
             block_context,
             validate,
+            charge_fee,
         )?;
 
         let n_allotted_execution_steps = execution_context
@@ -513,6 +531,7 @@ impl AccountTransaction {
                 remaining_gas,
                 block_context,
                 validate,
+                charge_fee,
             );
         }
 
@@ -624,9 +643,10 @@ impl ValidatableTransaction for AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
+        charge_fee: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let mut context =
-            EntryPointExecutionContext::new_validate(block_context, account_tx_context);
+            EntryPointExecutionContext::new_validate(block_context, account_tx_context, charge_fee);
         if context.account_tx_context.is_v0() {
             return Ok(None);
         }

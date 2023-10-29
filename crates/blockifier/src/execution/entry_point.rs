@@ -157,12 +157,14 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         mode: ExecutionMode,
+        charge_fee: bool,
     ) -> Self {
         Self {
             vm_run_resources: RunResources::new(Self::max_steps(
                 block_context,
                 account_tx_context,
                 &mode,
+                charge_fee,
             )),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
@@ -178,15 +180,17 @@ impl EntryPointExecutionContext {
     pub fn new_validate(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        charge_fee: bool,
     ) -> Self {
-        Self::new(block_context, account_tx_context, ExecutionMode::Validate)
+        Self::new(block_context, account_tx_context, ExecutionMode::Validate, charge_fee)
     }
 
     pub fn new_invoke(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
+        charge_fee: bool,
     ) -> Self {
-        Self::new(block_context, account_tx_context, ExecutionMode::Execute)
+        Self::new(block_context, account_tx_context, ExecutionMode::Execute, charge_fee)
     }
 
     /// Returns the maximum number of cairo steps allowed, given the max fee, gas price and the
@@ -196,6 +200,7 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         mode: &ExecutionMode,
+        charge_fee: bool,
     ) -> usize {
         let block_upper_bound = match mode {
             ExecutionMode::Validate => min(
@@ -207,7 +212,7 @@ impl EntryPointExecutionContext {
             }
         };
 
-        if !account_tx_context.enforce_fee() {
+        if !charge_fee || !account_tx_context.enforce_fee() {
             return block_upper_bound;
         }
 
