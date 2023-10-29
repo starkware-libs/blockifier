@@ -397,7 +397,7 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
-    syscall_handler.verify_not_in_validate_mode("get_block_number")?;
+    // TODO(Yoni, 1/5/2024): disable for validate.
     Ok(GetBlockNumberResponse { block_number: syscall_handler.context.block_context.block_number })
 }
 
@@ -422,7 +422,7 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
-    syscall_handler.verify_not_in_validate_mode("get_block_timestamp")?;
+    // TODO(Yoni, 1/5/2024): disable for validate.
     Ok(GetBlockTimestampResponse {
         block_timestamp: syscall_handler.context.block_context.block_timestamp,
     })
