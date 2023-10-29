@@ -96,12 +96,14 @@ pub trait Executable<S: State> {
 pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
     contract_class: ContractClass,
+    simulate: bool,
 }
 
 impl DeclareTransaction {
     pub fn new(
         declare_tx: starknet_api::transaction::DeclareTransaction,
         contract_class: ContractClass,
+        simulate: bool,
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
         match declare_tx {
@@ -115,6 +117,7 @@ impl DeclareTransaction {
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V0(tx),
                     contract_class: contract_class.into(),
+                    simulate,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V1(tx) => {
@@ -127,6 +130,7 @@ impl DeclareTransaction {
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V1(tx),
                     contract_class: contract_class.into(),
+                    simulate,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
@@ -139,6 +143,7 @@ impl DeclareTransaction {
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V2(tx),
                     contract_class: contract_class.into(),
+                    simulate,
                 })
             }
         }
@@ -152,6 +157,10 @@ impl DeclareTransaction {
 
     pub fn contract_class(&self) -> ContractClass {
         self.contract_class.clone()
+    }
+
+    pub fn simulate(&self) -> bool {
+        self.simulate
     }
 }
 
@@ -195,6 +204,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
 #[derive(Debug, Clone)]
 pub struct DeployAccountTransaction {
     pub tx: starknet_api::transaction::DeployAccountTransaction,
+    pub simulate: bool,
 }
 
 impl DeployAccountTransaction {
@@ -248,6 +258,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
 #[derive(Debug, Clone)]
 pub struct InvokeTransaction {
     pub tx: starknet_api::transaction::InvokeTransaction,
+    pub simulate: bool,
 }
 
 impl InvokeTransaction {

@@ -38,6 +38,7 @@ macro_rules! impl_from_versioned_tx {
             fn from(tx: $specified_tx_type) -> Self {
                 Self {
                     tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
+                    simulate: false
                 }
             }
         })*
@@ -158,6 +159,7 @@ pub fn create_account_tx_for_validate_test(
                 DeclareTransaction::new(
                     starknet_api::transaction::DeclareTransaction::V1(declare_tx),
                     contract_class,
+                    false,
                 )
                 .unwrap(),
             )
@@ -170,7 +172,10 @@ pub fn create_account_tx_for_validate_test(
                 Some(signature),
                 nonce_manager,
             );
-            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx })
+            AccountTransaction::DeployAccount(DeployAccountTransaction {
+                tx: deploy_account_tx,
+                simulate: false,
+            })
         }
         TransactionType::InvokeFunction => {
             let entry_point_selector = selector_from_name("foo");
@@ -185,7 +190,7 @@ pub fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(signature),
             );
-            AccountTransaction::Invoke(InvokeTransaction { tx: invoke_tx.into() })
+            AccountTransaction::Invoke(invoke_tx.into())
         }
         TransactionType::L1Handler => unimplemented!(),
     }

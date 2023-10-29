@@ -37,6 +37,7 @@ impl Transaction {
         tx: StarknetApiTransaction,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
+        simulate: bool,
     ) -> TransactionExecutionResult<Self> {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => {
@@ -50,14 +51,18 @@ impl Transaction {
                 Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
                     declare,
                     contract_class.expect("Declare should be created with a ContractClass"),
+                    simulate,
                 )?)))
             }
-            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
-                AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account }),
-            )),
+            StarknetApiTransaction::DeployAccount(deploy_account) => {
+                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(
+                    DeployAccountTransaction { tx: deploy_account, simulate },
+                )))
+            }
             StarknetApiTransaction::Invoke(invoke) => {
                 Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
                     tx: invoke,
+                    simulate,
                 })))
             }
             _ => unimplemented!(),

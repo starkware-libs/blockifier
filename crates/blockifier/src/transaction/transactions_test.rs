@@ -482,6 +482,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
                 &mut NonceManager::default(),
             )
         },
+        simulate: false,
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
@@ -494,6 +495,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
         contract_class: ContractClass::V0(ContractClassV0::from_file(
             TEST_EMPTY_CONTRACT_CAIRO0_PATH,
         )),
+        simulate: false,
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
@@ -601,6 +603,7 @@ fn test_declare_tx(
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         contract_class: contract_class.clone(),
+        simulate: false,
     });
 
     // Check state before transaction application.
@@ -698,6 +701,7 @@ fn test_declare_tx_v2() {
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V2(declare_tx),
         contract_class: contract_class.clone(),
+        simulate: false,
     });
 
     // Check state before transaction application.
@@ -784,6 +788,7 @@ fn test_deploy_account_tx(
 
     let account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
         tx: deploy_account_tx.clone(),
+        simulate: false,
     });
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -876,6 +881,7 @@ fn test_deploy_account_tx(
             nonce: nonce_manager.next(deployed_account_address),
             ..deploy_account_tx
         },
+        simulate: false,
     };
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
@@ -963,6 +969,7 @@ fn test_validate_accounts_tx() {
             );
             let account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
                 tx: deploy_account_tx,
+                simulate: false,
             });
             let error = account_tx.execute(state, block_context, true, true).unwrap_err();
             if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {

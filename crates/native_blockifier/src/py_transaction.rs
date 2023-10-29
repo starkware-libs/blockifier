@@ -171,6 +171,7 @@ pub fn py_tx(
     tx: &PyAny,
     raw_contract_class: Option<&str>,
 ) -> NativeBlockifierResult<Transaction> {
+    let simulate = false;
     match tx_type {
         "DECLARE" => {
             let tx = py_declare(tx)?;
@@ -187,18 +188,21 @@ pub fn py_tx(
             };
 
             let declare_tx =
-                AccountTransaction::Declare(DeclareTransaction::new(tx, contract_class)?);
+                AccountTransaction::Declare(DeclareTransaction::new(tx, contract_class, simulate)?);
             Ok(Transaction::AccountTransaction(declare_tx))
         }
         "DEPLOY_ACCOUNT" => {
             let deploy_account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
                 tx: py_deploy_account(tx)?,
+                simulate,
             });
             Ok(Transaction::AccountTransaction(deploy_account_tx))
         }
         "INVOKE_FUNCTION" => {
-            let invoke_tx =
-                AccountTransaction::Invoke(InvokeTransaction { tx: py_invoke_function(tx)? });
+            let invoke_tx = AccountTransaction::Invoke(InvokeTransaction {
+                tx: py_invoke_function(tx)?,
+                simulate,
+            });
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
         "L1_HANDLER" => {
