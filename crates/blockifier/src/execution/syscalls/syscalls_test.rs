@@ -195,7 +195,11 @@ fn test_keccak() {
 
 #[test_case(
     ExecutionMode::Validate,
-    [stark_felt!(0_u16); 3];
+    [
+        stark_felt!(0_u16), // Block number.
+        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+        stark_felt!(0_u16) // Sequencer address.
+    ];
     "Validate execution mode: block info fields should be zeroed.")]
 #[test_case(
     ExecutionMode::Execute,
