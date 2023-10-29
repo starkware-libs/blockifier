@@ -158,7 +158,7 @@ impl AccountTransaction {
         Ok(())
     }
 
-    pub fn check_nonce(
+    fn check_nonce(
         state: &mut dyn State,
         account_tx_context: &AccountTransactionContext,
         strict: bool,
