@@ -4,13 +4,14 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
+    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use super::account_transaction::AccountTransaction;
 use super::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use super::transaction_types::TransactionType;
+use super::transactions::{DeployAccountTransaction, InvokeTransaction};
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -30,6 +31,20 @@ use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction
 pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+
+macro_rules! impl_from_versioned_tx {
+    ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
+        $(impl From<$specified_tx_type> for InvokeTransaction {
+            fn from(tx: $specified_tx_type) -> Self {
+                Self {
+                    tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
+                }
+            }
+        })*
+    };
+}
+
+impl_from_versioned_tx!((InvokeTransactionV0, V0), (InvokeTransactionV1, V1));
 
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
@@ -155,7 +170,7 @@ pub fn create_account_tx_for_validate_test(
                 Some(signature),
                 nonce_manager,
             );
-            AccountTransaction::DeployAccount(deploy_account_tx)
+            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx })
         }
         TransactionType::InvokeFunction => {
             let entry_point_selector = selector_from_name("foo");
@@ -170,7 +185,7 @@ pub fn create_account_tx_for_validate_test(
                 Fee(0),
                 Some(signature),
             );
-            AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx))
+            AccountTransaction::Invoke(InvokeTransaction { tx: invoke_tx.into() })
         }
         TransactionType::L1Handler => unimplemented!(),
     }
@@ -183,10 +198,9 @@ pub fn account_invoke_tx(
     max_fee: Fee,
 ) -> AccountTransaction {
     let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    }))
+    AccountTransaction::Invoke(
+        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
+    )
 }
 
 pub fn run_invoke_tx(

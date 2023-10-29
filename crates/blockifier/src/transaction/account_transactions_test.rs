@@ -32,7 +32,9 @@ use crate::transaction::test_utils::{
     create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+};
 
 struct TestInitData {
     pub state: CachedState<DictStateReader>,
@@ -100,7 +102,8 @@ fn create_test_init_data(
         stark_felt!(BALANCE),
     );
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Declare a contract.
@@ -169,7 +172,8 @@ fn test_fee_enforcement(
             &mut NonceManager::default(),
         );
 
-        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+        let account_tx =
+            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
         let enforce_fee = account_tx.enforce_fee();
         let result = account_tx.execute(&mut state, &block_context, true, true);
         assert_eq!(result.is_err(), enforce_fee);
@@ -305,7 +309,8 @@ fn test_revert_invoke(
         stark_felt!(BALANCE),
     );
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.
