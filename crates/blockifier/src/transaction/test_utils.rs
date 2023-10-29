@@ -61,6 +61,7 @@ pub fn create_account_tx_test_state(
     account_address: &str,
     erc20_account_balance_key: StorageKey,
     initial_account_balance: u128,
+    test_contract_class: ContractClass,
 ) -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
@@ -69,9 +70,7 @@ pub fn create_account_tx_test_state(
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, account_class),
-        // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract when running Cairo 1 account
-        // contract.
-        (test_contract_class_hash, ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()),
+        (test_contract_class_hash, test_contract_class),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     let test_contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
@@ -112,6 +111,8 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
         TEST_ACCOUNT_CONTRACT_ADDRESS,
         test_erc20_account_balance_key(),
         account_balance,
+        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
+        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
     )
 }
 
@@ -123,6 +124,9 @@ pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
         TEST_ACCOUNT_CONTRACT_ADDRESS,
         test_erc20_account_balance_key(),
         account_balance,
+        // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract.
+        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
+        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
     )
 }
 
@@ -134,6 +138,8 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
         TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
         test_erc20_faulty_account_balance_key(),
         account_balance * 2,
+        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
+        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
     )
 }
 
@@ -210,5 +216,20 @@ pub fn run_invoke_tx(
     block_context: &BlockContext,
     invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+<<<<<<< HEAD
     account_invoke_tx(invoke_args).execute(state, block_context, true, true)
+||||||| 6295b3d
+    account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee).execute(
+        state,
+        block_context,
+        true,
+    )
+=======
+    account_invoke_tx(execute_calldata, account_address, nonce_manager, max_fee).execute(
+        state,
+        block_context,
+        true,
+        true,
+    )
+>>>>>>> origin/main-v0.12.3
 }
