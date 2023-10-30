@@ -398,9 +398,9 @@ impl<'a> SyscallHintProcessor<'a> {
         let block_context = &self.context.block_context;
         let block_info: Vec<MaybeRelocatable> = if self.is_validate_mode() {
             vec![
-                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
-                Felt252::from(block_context.block_number.0).into(),
                 // TODO(Yoni, 1/5/2024): set the number to be zero for `validate`.
+                Felt252::from(block_context.block_number.0).into(),
+                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
                 Felt252::from(block_context.block_timestamp.0).into(),
                 Felt252::zero().into(),
             ]
