@@ -5,8 +5,10 @@ use assert_matches::assert_matches;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
+use num_bigint::BigUint;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use rstest::rstest;
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
@@ -34,25 +36,28 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    NonceManager, BALANCE, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
+    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
-    create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
-    CALL_CONTRACT, INVALID, VALID,
+    create_account_tx_for_validate_test, create_account_tx_test_state,
+    create_state_with_cairo1_account, create_state_with_falliable_validation_account,
+    create_state_with_trivial_validation_account, CALL_CONTRACT, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
+use crate::transaction::transaction_utils::biguint_to_felt;
 use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, InvokeTransaction,
 };
 
 enum CairoVersion {
@@ -1026,4 +1031,73 @@ fn test_calculate_tx_gas_usage() {
         *tx_execution_info.actual_resources.0.get(abi_constants::GAS_USAGE).unwrap(),
         l1_gas_usage
     );
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn test_simulate_flag(#[case] simulate: bool) {
+    let account_balance = BALANCE;
+    let state = &mut create_account_tx_test_state(
+        ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_ACCOUNT_CONTRACT_ADDRESS,
+        test_erc20_account_balance_key(),
+        account_balance,
+        ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
+    );
+    let block_context = &BlockContext::create_for_account_testing();
+    let mut version = BigUint::from(1_u8);
+    if simulate {
+        let simulate_version_base = BigUint::from(2_u8).pow(constants::SIMULATE_VERSION_BASE_BIT);
+        version = simulate_version_base + version;
+    }
+    let version = biguint_to_felt(version).unwrap();
+    let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let max_fee = Fee(MAX_FEE);
+    let expected_tx_info = vec![
+        version,                                                    // Transaction version.
+        *sender_address.0.key(),                                    // Account address.
+        stark_felt!(max_fee.0),                                     // Max fee.
+        stark_felt!(0_u16),                                         // Transaction hash.
+        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        stark_felt!(0_u16),                                         // Nonce.
+    ];
+    let entry_point_selector = selector_from_name("test_get_execution_info");
+    let expected_call_info = vec![
+        *sender_address.0.key(),             // Caller address.
+        stark_felt!(TEST_CONTRACT_ADDRESS),  // Storage address.
+        stark_felt!(entry_point_selector.0), // Entry point selector.
+    ];
+    let expected_block_info = [
+        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
+        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+        stark_felt!(TEST_SEQUENCER_ADDRESS),  // Sequencer address.
+    ];
+    let calldata_len =
+        expected_block_info.len() + expected_tx_info.len() + expected_call_info.len();
+    let execute_calldata = vec![
+        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
+        entry_point_selector.0,             // EP selector.
+        stark_felt!(calldata_len as u64),   // Calldata length.
+    ];
+    let execute_calldata = Calldata(
+        [
+            execute_calldata,
+            expected_block_info.clone().to_vec(),
+            expected_tx_info.clone(),
+            expected_call_info,
+        ]
+        .concat()
+        .into(),
+    );
+    let invoke_tx = crate::test_utils::invoke_tx(execute_calldata, sender_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        tx: starknet_api::transaction::InvokeTransaction::V1(invoke_tx),
+        tx_hash: TransactionHash::default(),
+        simulate,
+    });
+
+    let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+    assert!(!tx_execution_info.is_reverted())
 }
