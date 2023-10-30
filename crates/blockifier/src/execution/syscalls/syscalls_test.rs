@@ -196,7 +196,7 @@ fn test_keccak() {
 #[test_case(
     ExecutionMode::Validate,
     [
-        stark_felt!(0_u16), // Block number.
+        stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
         stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
         stark_felt!(0_u16) // Sequencer address.
     ];
