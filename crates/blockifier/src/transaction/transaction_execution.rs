@@ -9,7 +9,7 @@ use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResourc
 use crate::state::cached_state::{StateChangesCount, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
@@ -117,7 +117,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.
         if paid_fee == Fee(0) {
-            return Err(TransactionExecutionError::InsufficientL1Fee { paid_fee, actual_fee });
+            return Err(TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee })?;
         }
 
         Ok(TransactionExecutionInfo {

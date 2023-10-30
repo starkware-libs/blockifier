@@ -9,12 +9,17 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
+use super::errors::TransactionFeeError;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
+
+pub type TransactionPreValidationResult<T> = Result<T, TransactionPreValidationError>;
+
+pub type TransactionFeeResult<T> = Result<T, TransactionFeeError>;
 
 macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
@@ -101,12 +106,10 @@ impl CurrentAccountTransactionContext {
     pub fn l1_resource_bounds(&self) -> Option<ResourceBounds> {
         self.resource_bounds.0.get(&Resource::L1Gas).copied()
     }
-    pub fn get_l1_gas_bounds(&self) -> TransactionExecutionResult<ResourceBounds> {
+    pub fn get_l1_gas_bounds(&self) -> TransactionFeeResult<ResourceBounds> {
         match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
             Some(resource_bounds) => Ok(resource_bounds),
-            None => {
-                Err(TransactionExecutionError::MissingResourceBounds { resource: Resource::L1Gas })
-            }
+            None => Err(TransactionFeeError::MissingResourceBounds { resource: Resource::L1Gas }),
         }
     }
 }
@@ -206,6 +209,6 @@ pub trait HasRelatedFeeType {
         resources: &ResourcesMapping,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Fee> {
-        calculate_tx_fee(resources, block_context, &self.fee_type())
+        Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
     }
 }
