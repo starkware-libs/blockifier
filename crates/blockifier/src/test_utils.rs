@@ -105,6 +105,11 @@ pub const DEFAULT_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
 
+// The block timestamp of the BlockContext being used for testing.
+pub const CURRENT_BLOCK_TIMESTAMP: u64 = 1072023;
+
+pub const CHAIN_ID_NAME: &str = "SN_GOERLI";
+
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
@@ -331,14 +336,25 @@ impl CallEntryPoint {
         );
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
+
+    pub fn execute_directly_given_account_context(
+        self,
+        state: &mut dyn State,
+        account_tx_context: AccountTransactionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        let block_context = BlockContext::create_for_testing();
+        let mut context =
+            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context);
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
+    }
 }
 
 impl BlockContext {
     pub fn create_for_testing() -> BlockContext {
         BlockContext {
-            chain_id: ChainId("SN_GOERLI".to_string()),
+            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp::default(),
+            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             deprecated_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
             fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
