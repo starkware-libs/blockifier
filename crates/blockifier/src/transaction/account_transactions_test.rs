@@ -34,7 +34,9 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
@@ -399,11 +401,22 @@ fn test_max_fee_limit_validate(
         TransactionVersion::ONE => {
             assert_matches!(
                 error,
-                TransactionExecutionError::MaxFeeTooLow { max_fee: Fee(10), .. }
-            );
+                TransactionExecutionError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::MaxFeeTooLow { max_fee: Fee(10), .. }
+                    )
+                )
+            )
         }
         TransactionVersion::THREE => {
-            assert_matches!(error, TransactionExecutionError::MaxL1GasAmountTooLow { .. });
+            assert_matches!(
+                error,
+                TransactionExecutionError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::MaxL1GasAmountTooLow { .. }
+                    )
+                )
+            );
         }
         other => panic!("Add arm for tx version {:?}.", other),
     }

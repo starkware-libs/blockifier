@@ -9,6 +9,7 @@ use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
+use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -98,16 +99,9 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     pub fn validate(
         &mut self,
-        tx: &PyAny,
         mut remaining_gas: u64,
-        raw_contract_class: Option<&str>,
+        account_tx: &AccountTransaction,
     ) -> NativeBlockifierResult<(Option<CallInfo>, Fee)> {
-        let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
-        else {
-            panic!("L1 handlers should not be validated separately, only as part of execution")
-        };
-
         let mut execution_resources = ExecutionResources::default();
         let account_tx_context = account_tx.get_account_tx_context();
 
