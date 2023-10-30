@@ -1069,3 +1069,15 @@ fn test_calculate_tx_gas_usage() {
         l1_gas_usage
     );
 }
+
+#[test]
+fn test_valid_flag() {
+    let state = &mut create_state_with_cairo1_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let invoke_tx = invoke_tx(default_invoke_tx_args());
+
+    let account_tx = AccountTransaction::Invoke(invoke_tx);
+    let actual_execution_info = account_tx.execute(state, block_context, true, false).unwrap();
+
+    assert!(actual_execution_info.validate_call_info.is_none());
+}

@@ -368,13 +368,13 @@ fn test_deploy(
     ExecutionMode::Execute, "block_number", calldata![stark_felt!(CURRENT_BLOCK_NUMBER)];
     "Test the syscall get_block_number in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "block_number", calldata![stark_felt!(0_u64)];
+    ExecutionMode::Validate, "block_number", calldata![stark_felt!(CURRENT_BLOCK_NUMBER)];
     "Test the syscall get_block_number in execution mode Validate")]
 #[test_case(
     ExecutionMode::Execute, "block_timestamp", calldata![stark_felt!(CURRENT_BLOCK_TIMESTAMP)];
     "Test the syscall get_block_timestamp in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "block_timestamp", calldata![stark_felt!(0_u64)];
+    ExecutionMode::Validate, "block_timestamp", calldata![stark_felt!(CURRENT_BLOCK_TIMESTAMP)];
     "Test the syscall get_block_timestamp in execution mode Validate")]
 #[test_case(
     ExecutionMode::Execute, "sequencer_address", calldata![stark_felt!(TEST_SEQUENCER_ADDRESS)];
@@ -392,7 +392,7 @@ fn test_block_info_syscalls(
     let entry_point_call =
         CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
 
-    if execution_mode == ExecutionMode::Validate {
+    if execution_mode == ExecutionMode::Validate && block_info_member_name == "sequencer_address" {
         let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
         check_entry_point_execution_error_for_custom_hint(
             &error,
