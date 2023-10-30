@@ -6,10 +6,10 @@ use starknet_api::transaction::Fee;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::state::state_api::StateReader;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
     AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionResult,
+    TransactionExecutionResult, TransactionFeeResult,
 };
 
 #[cfg(test)]
@@ -31,11 +31,11 @@ pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, Reso
 pub fn calculate_l1_gas_by_vm_usage(
     block_context: &BlockContext,
     vm_resource_usage: &ResourcesMapping,
-) -> TransactionExecutionResult<f64> {
+) -> TransactionFeeResult<f64> {
     let vm_resource_fee_costs = &block_context.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
-        return Err(TransactionExecutionError::CairoResourcesNotContainedInFeeCosts);
+        return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
 
     // Convert Cairo usage to L1 gas usage.
@@ -55,7 +55,7 @@ pub fn calculate_l1_gas_by_vm_usage(
 pub fn calculate_tx_l1_gas_usage(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
-) -> TransactionExecutionResult<u128> {
+) -> TransactionFeeResult<u128> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
@@ -68,7 +68,7 @@ pub fn calculate_tx_fee(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
     fee_type: &FeeType,
-) -> TransactionExecutionResult<Fee> {
+) -> TransactionFeeResult<Fee> {
     Ok(Fee(calculate_tx_l1_gas_usage(resources, block_context)?
         * block_context.gas_prices.get_by_fee_type(fee_type)))
 }
@@ -79,7 +79,7 @@ fn get_balance_and_if_covers_fee(
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     fee: Fee,
-) -> TransactionExecutionResult<(StarkFelt, StarkFelt, bool)> {
+) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
     let (balance_low, balance_high) = state.get_fee_token_balance(
         &account_tx_context.sender_address(),
         &block_context.fee_token_address(&account_tx_context.fee_type()),
@@ -100,13 +100,13 @@ pub fn verify_can_pay_max_fee(
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
     max_fee: Fee,
-) -> TransactionExecutionResult<()> {
+) -> TransactionFeeResult<()> {
     let (balance_low, balance_high, can_pay) =
         get_balance_and_if_covers_fee(state, account_tx_context, block_context, max_fee)?;
     if can_pay {
         Ok(())
     } else {
-        Err(TransactionExecutionError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
+        Err(TransactionFeeError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
     }
 }
 
