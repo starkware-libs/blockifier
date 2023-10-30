@@ -73,7 +73,12 @@ impl Transaction {
                 };
 
                 Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(
-                    DeployAccountTransaction { tx: deploy_account, tx_hash, contract_address, simulate},
+                    DeployAccountTransaction {
+                        tx: deploy_account,
+                        tx_hash,
+                        contract_address,
+                        simulate,
+                    },
                 )))
             }
             StarknetApiTransaction::Invoke(invoke) => {
@@ -106,6 +111,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             signature: TransactionSignature::default(),
             nonce: tx.nonce,
             sender_address: tx.contract_address,
+            simulate: false,
         };
         let mut resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);

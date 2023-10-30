@@ -114,6 +114,7 @@ impl AccountTransaction {
                     signature: sn_api_tx.signature(),
                     nonce: sn_api_tx.nonce(),
                     sender_address: sn_api_tx.sender_address(),
+                    simulate: tx.simulate(),
                 }
             }
             Self::DeployAccount(tx) => AccountTransactionContext {
@@ -123,6 +124,7 @@ impl AccountTransaction {
                 signature: tx.signature(),
                 nonce: tx.nonce(),
                 sender_address: tx.contract_address,
+                simulate: tx.simulate,
             },
             Self::Invoke(tx) => {
                 let sn_api_tx = &tx.tx;
@@ -150,6 +152,7 @@ impl AccountTransaction {
                             tx_v1.sender_address
                         }
                     },
+                    simulate: tx.simulate,
                 }
             }
         }

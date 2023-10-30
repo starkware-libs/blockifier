@@ -1,13 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::concat;
+use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::call_info::CallInfo;
+use crate::transaction::constants::SIMULATE_VERSION_BASE_BIT;
 use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::transaction_utils::{biguint_to_felt, felt_to_biguint};
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
@@ -20,11 +23,25 @@ pub struct AccountTransactionContext {
     pub signature: TransactionSignature,
     pub nonce: Nonce,
     pub sender_address: ContractAddress,
+    pub simulate: bool,
 }
 
 impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version == TransactionVersion(stark_felt!(0_u8))
+    }
+
+    pub fn signed_version(&self) -> TransactionVersion {
+        let mut version = self.version;
+        if self.simulate {
+            let simulate_version_base = BigUint::from(2_u8).pow(SIMULATE_VERSION_BASE_BIT);
+            let simulate_version = simulate_version_base + felt_to_biguint(version.0);
+            version = TransactionVersion(
+                biguint_to_felt(simulate_version).expect("The version should be a field element."),
+            );
+        }
+
+        version
     }
 }
 

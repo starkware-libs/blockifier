@@ -43,6 +43,7 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
         version: TransactionVersion(py_attr::<PyFelt>(tx, "version")?.0),
         nonce,
         sender_address: ContractAddress::try_from(py_attr::<PyFelt>(tx, "sender_address")?.0)?,
+        simulate: false,
     })
 }
 
