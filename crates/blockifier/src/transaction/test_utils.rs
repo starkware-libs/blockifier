@@ -38,6 +38,7 @@ impl From<InvokeTransactionV1> for InvokeTransaction {
         InvokeTransaction {
             tx: starknet_api::transaction::InvokeTransaction::V1(tx),
             tx_hash: TransactionHash::default(),
+            simulate: false,
         }
     }
 }
@@ -150,6 +151,7 @@ pub fn create_account_tx_for_validate_test(
                     starknet_api::transaction::DeclareTransaction::V1(declare_tx),
                     TransactionHash::default(),
                     contract_class,
+                    false,
                 )
                 .unwrap(),
             )

@@ -490,6 +490,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
         contract_class: ContractClass::V0(ContractClassV0::from_file(
             TEST_EMPTY_CONTRACT_CAIRO0_PATH,
         )),
+        simulate: false,
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
@@ -598,6 +599,7 @@ fn test_declare_tx(
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
+        simulate: false,
     });
 
     // Check state before transaction application.
@@ -696,6 +698,7 @@ fn test_declare_tx_v2() {
         tx: starknet_api::transaction::DeclareTransaction::V2(declare_tx),
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
+        simulate: false,
     });
 
     // Check state before transaction application.

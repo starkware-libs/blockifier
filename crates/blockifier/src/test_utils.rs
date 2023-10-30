@@ -418,7 +418,12 @@ pub fn deploy_account_tx_with_salt(
         nonce: nonce_manager.next(contract_address),
     };
 
-    DeployAccountTransaction { tx, tx_hash: TransactionHash::default(), contract_address }
+    DeployAccountTransaction {
+        tx,
+        tx_hash: TransactionHash::default(),
+        contract_address,
+        simulate: false,
+    }
 }
 
 pub fn invoke_tx(

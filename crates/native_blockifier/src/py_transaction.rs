@@ -103,7 +103,12 @@ pub fn py_declare(
         }
     };
 
-    Ok(DeclareTransaction::new(sn_api_tx, account_data_context.transaction_hash, contract_class)?)
+    Ok(DeclareTransaction::new(
+        sn_api_tx,
+        account_data_context.transaction_hash,
+        contract_class,
+        false,
+    )?)
 }
 
 pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
@@ -124,6 +129,7 @@ pub fn py_deploy_account(tx: &PyAny) -> NativeBlockifierResult<DeployAccountTran
         tx,
         tx_hash: account_data_context.transaction_hash,
         contract_address: account_data_context.sender_address,
+        simulate: false,
     })
 }
 
@@ -154,7 +160,11 @@ pub fn py_invoke_function(tx: &PyAny) -> NativeBlockifierResult<InvokeTransactio
         }),
     }?;
 
-    Ok(InvokeTransaction { tx: sn_api_tx, tx_hash: account_data_context.transaction_hash })
+    Ok(InvokeTransaction {
+        tx: sn_api_tx,
+        tx_hash: account_data_context.transaction_hash,
+        simulate: false,
+    })
 }
 
 pub fn py_l1_handler(

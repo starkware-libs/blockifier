@@ -99,6 +99,7 @@ pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
     tx_hash: TransactionHash,
     contract_class: ContractClass,
+    simulate: bool,
 }
 
 impl DeclareTransaction {
@@ -106,6 +107,7 @@ impl DeclareTransaction {
         declare_tx: starknet_api::transaction::DeclareTransaction,
         tx_hash: TransactionHash,
         contract_class: ContractClass,
+        simulate: bool,
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
         match declare_tx {
@@ -120,6 +122,7 @@ impl DeclareTransaction {
                     tx: starknet_api::transaction::DeclareTransaction::V0(tx),
                     tx_hash,
                     contract_class: contract_class.into(),
+                    simulate,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V1(tx) => {
@@ -133,6 +136,7 @@ impl DeclareTransaction {
                     tx: starknet_api::transaction::DeclareTransaction::V1(tx),
                     tx_hash,
                     contract_class: contract_class.into(),
+                    simulate,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
@@ -146,6 +150,7 @@ impl DeclareTransaction {
                     tx: starknet_api::transaction::DeclareTransaction::V2(tx),
                     tx_hash,
                     contract_class: contract_class.into(),
+                    simulate,
                 })
             }
         }
@@ -161,6 +166,10 @@ impl DeclareTransaction {
 
     pub fn contract_class(&self) -> ContractClass {
         self.contract_class.clone()
+    }
+
+    pub fn simulate(&self) -> bool {
+        self.simulate
     }
 
     implement_inner_tx_getter_calls!((class_hash, ClassHash), (max_fee, Fee));
@@ -208,6 +217,7 @@ pub struct DeployAccountTransaction {
     pub tx: starknet_api::transaction::DeployAccountTransaction,
     pub tx_hash: TransactionHash,
     pub contract_address: ContractAddress,
+    pub simulate: bool,
 }
 
 impl DeployAccountTransaction {
@@ -257,6 +267,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
 pub struct InvokeTransaction {
     pub tx: starknet_api::transaction::InvokeTransaction,
     pub tx_hash: TransactionHash,
+    pub simulate: bool,
 }
 
 impl InvokeTransaction {

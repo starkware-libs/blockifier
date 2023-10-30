@@ -115,6 +115,7 @@ fn create_test_init_data(
             }),
             TransactionHash::default(),
             contract_class,
+            false,
         )
         .unwrap(),
     );
@@ -412,6 +413,7 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
             }),
             TransactionHash::default(),
             contract_class,
+            false,
         )
         .unwrap(),
     );

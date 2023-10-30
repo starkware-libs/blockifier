@@ -102,6 +102,7 @@ fn do_transfer(
     let account_tx = AccountTransaction::Invoke(InvokeTransaction {
         tx: sn_api_tx,
         tx_hash: TransactionHash::default(),
+        simulate: false,
     });
     let charge_fee = false;
     let validate = false;
