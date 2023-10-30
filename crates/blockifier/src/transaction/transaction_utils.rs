@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
-use num_bigint::BigUint;
-use starknet_api::hash::StarkFelt;
 
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
@@ -80,17 +78,4 @@ pub fn calculate_tx_resources(
 
 pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
     *remaining_gas -= call_info.execution.gas_consumed;
-}
-
-// TODO: Convert to a `TryFrom` cast and put in starknet-api (In StarkFelt), gated behind
-// `num-bigint` feature (for the sake of no-std users).
-pub fn biguint_to_felt(biguint: BigUint) -> TransactionExecutionResult<StarkFelt> {
-    let biguint_hex = format!("{biguint:#x}");
-    Ok(StarkFelt::try_from(&*biguint_hex)?)
-}
-
-// TODO: Convert to a `Into` cast and put in starknet-api (In StarkFelt), gated behind `num-bigint`
-// feature (for the sake of no-std users).
-pub fn felt_to_biguint(felt: StarkFelt) -> BigUint {
-    BigUint::from_bytes_be(felt.bytes())
 }

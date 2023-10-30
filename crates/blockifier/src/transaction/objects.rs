@@ -1,16 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_felt::Felt252;
 use itertools::concat;
-use num_bigint::BigUint;
+use num_traits::Pow;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::call_info::CallInfo;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::transaction::constants::SIMULATE_VERSION_BASE_BIT;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::transaction_utils::{biguint_to_felt, felt_to_biguint};
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 
@@ -32,16 +33,14 @@ impl AccountTransactionContext {
     }
 
     pub fn signed_version(&self) -> TransactionVersion {
-        let mut version = self.version;
-        if self.simulate {
-            let simulate_version_base = BigUint::from(2_u8).pow(SIMULATE_VERSION_BASE_BIT);
-            let simulate_version = simulate_version_base + felt_to_biguint(version.0);
-            version = TransactionVersion(
-                biguint_to_felt(simulate_version).expect("The version should be a field element."),
-            );
+        if !self.simulate {
+            return self.version;
         }
 
-        version
+        let simulate_version_base = Pow::pow(Felt252::from(2_u8), SIMULATE_VERSION_BASE_BIT);
+        let simulate_version = simulate_version_base + (stark_felt_to_felt(self.version.0));
+
+        TransactionVersion(felt_to_stark_felt(&simulate_version))
     }
 }
 
