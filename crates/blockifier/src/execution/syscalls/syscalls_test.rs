@@ -618,15 +618,11 @@ fn test_out_of_gas() {
         if error_data == vec![stark_felt!(OUT_OF_GAS_ERROR)]);
 }
 
-// TODO(yuval): This test should fail once upgrading the dependency on cairo-lang-runner to version
-// 2.4.0. To fix it, merge PR https://github.com/starkware-libs/blockifier/pull/1064.
 #[test]
 fn test_syscall_failure_format() {
     assert_eq!(
         get_dummy_string_execution_error().to_string(),
-        "Execution failed. Failure reason: \
-         \"0x046a6158a16a947e5916b2a2ca68501a45e93d7110e81aa2d6438b1c57c879a3, , Execution \
-         failure, \\u{11}\"."
+        "Execution failed. Failure reason: \"Execution failure\"."
     );
 }
 
