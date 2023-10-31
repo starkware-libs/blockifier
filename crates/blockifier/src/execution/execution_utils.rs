@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use cairo_felt::Felt252;
-use cairo_lang_runner::short_string::as_cairo_short_string;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
@@ -262,12 +261,150 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     Ok(())
 }
 
-pub fn felts_as_str(felts: &[StarkFelt]) -> String {
-    felts
-        .iter()
-        .map(|felt| {
-            as_cairo_short_string(&stark_felt_to_felt(*felt)).unwrap_or_else(|| felt.to_string())
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
+pub fn format_panic_data(felts: &[StarkFelt]) -> String {
+    let mut felts = felts.iter().map(|felt| stark_felt_to_felt(*felt));
+    let mut items = Vec::new();
+    while let Some(item) = format_next_item(&mut felts) {
+        items.push(item.quote_if_string());
+    }
+    if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
+}
+
+// TODO(yg): From here on this is a copied code from 2.4.0. Remove and instead call
+// `format_next_item` from 2.4.0.
+use cairo_felt::felt_str as felt252_str;
+use itertools::Itertools;
+use num_traits::{ToPrimitive, Zero};
+
+pub const BYTE_ARRAY_MAGIC: &str =
+    "46a6158a16a947e5916b2a2ca68501a45e93d7110e81aa2d6438b1c57c879a3";
+pub const BYTES_IN_WORD: usize = 31;
+
+/// A formatted string representation of anything formattable (e.g. ByteArray, felt, short-string).
+pub struct FormattedItem {
+    /// The formatted string representing the item.
+    item: String,
+    /// Whether the item is a string.
+    is_string: bool,
+}
+impl FormattedItem {
+    /// Returns the formatted item as is.
+    pub fn get(self) -> String {
+        self.item
+    }
+    /// Wraps the formatted item with quote, if it's a string. Otherwise returns it as is.
+    pub fn quote_if_string(self) -> String {
+        if self.is_string { format!("\"{}\"", self.item) } else { self.item }
+    }
+}
+
+/// Formats a string or a short string / `felt252`. Returns the formatted string and a boolean
+/// indicating whether it's a string. If can't format the item, returns None.
+pub fn format_next_item<T>(values: &mut T) -> Option<FormattedItem>
+where
+    T: Iterator<Item = Felt252> + Clone,
+{
+    let Some(first_felt) = values.next() else {
+        return None;
+    };
+
+    if first_felt == felt252_str!(BYTE_ARRAY_MAGIC, 16) {
+        if let Some(string) = try_format_string(values) {
+            return Some(FormattedItem { item: string, is_string: true });
+        }
+    }
+    Some(FormattedItem { item: format_short_string(&first_felt), is_string: false })
+}
+
+/// Formats a `Felt252`, as a short string if possible.
+fn format_short_string(value: &Felt252) -> String {
+    let hex_value = value.to_biguint();
+    match as_cairo_short_string(value) {
+        Some(as_string) => format!("{hex_value:#x} ('{as_string}')"),
+        None => format!("{hex_value:#x}"),
+    }
+}
+
+/// Tries to format a string, represented as a sequence of `Felt252`s.
+/// If the sequence is not a valid serialization of a ByteArray, returns None and doesn't change the
+/// given iterator (`values`).
+fn try_format_string<T>(values: &mut T) -> Option<String>
+where
+    T: Iterator<Item = Felt252> + Clone,
+{
+    // Clone the iterator and work with the clone. If the extraction of the string is successful,
+    // change the original iterator to the one we worked with. If not, continue with the
+    // original iterator at the original point.
+    let mut cloned_values_iter = values.clone();
+
+    let num_full_words = cloned_values_iter.next()?.to_usize()?;
+    let full_words = cloned_values_iter.by_ref().take(num_full_words).collect_vec();
+    let pending_word = cloned_values_iter.next()?;
+    let pending_word_len = cloned_values_iter.next()?.to_usize()?;
+
+    let full_words_string = full_words
+        .into_iter()
+        .map(|word| as_cairo_short_string_ex(&word, BYTES_IN_WORD))
+        .collect::<Option<Vec<String>>>()?
+        .join("");
+    let pending_word_string = as_cairo_short_string_ex(&pending_word, pending_word_len)?;
+
+    // Extraction was successful, change the original iterator to the one we worked with.
+    *values = cloned_values_iter;
+
+    Some(format!("{full_words_string}{pending_word_string}"))
+}
+
+/// Converts a bigint representing a felt252 to a Cairo short-string.
+pub fn as_cairo_short_string(value: &Felt252) -> Option<String> {
+    let mut as_string = String::default();
+    let mut is_end = false;
+    for byte in value.to_bytes_be() {
+        if byte == 0 {
+            is_end = true;
+        } else if is_end {
+            return None;
+        } else if byte.is_ascii_graphic() || byte.is_ascii_whitespace() {
+            as_string.push(byte as char);
+        } else {
+            return None;
+        }
+    }
+    Some(as_string)
+}
+
+/// Converts a bigint representing a felt252 to a Cairo short-string of the given length.
+/// Nulls are allowed and length must be <= 31.
+pub fn as_cairo_short_string_ex(value: &Felt252, length: usize) -> Option<String> {
+    if length == 0 {
+        return if value.is_zero() { Some("".to_string()) } else { None };
+    }
+    if length > 31 {
+        // A short string can't be longer than 31 bytes.
+        return None;
+    }
+
+    let bytes = value.to_bytes_be();
+    let bytes_len = bytes.len();
+    if bytes_len > length {
+        // `value` has more bytes than expected.
+        return None;
+    }
+
+    let mut as_string = "".to_string();
+    for byte in bytes {
+        if byte == 0 {
+            as_string.push_str(r"\0");
+        } else if byte.is_ascii_graphic() || byte.is_ascii_whitespace() {
+            as_string.push(byte as char);
+        } else {
+            as_string.push_str(format!(r"\x{:02x}", byte).as_str());
+        }
+    }
+
+    // `to_bytes_be` misses starting nulls. Prepend them as needed.
+    let missing_nulls = length - bytes_len;
+    as_string.insert_str(0, &r"\0".repeat(missing_nulls));
+
+    Some(as_string)
 }
