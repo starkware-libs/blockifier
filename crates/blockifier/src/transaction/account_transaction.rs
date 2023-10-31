@@ -144,14 +144,15 @@ impl AccountTransaction {
     fn get_account_transaction_context(&self) -> AccountTransactionContext {
         match self {
             Self::Declare(tx) => {
-                let tx = &tx.tx();
+                let sn_api_tx = &tx.tx();
                 AccountTransactionContext {
-                    transaction_hash: tx.transaction_hash(),
-                    max_fee: tx.max_fee(),
-                    version: tx.version(),
-                    signature: tx.signature(),
-                    nonce: tx.nonce(),
-                    sender_address: tx.sender_address(),
+                    transaction_hash: sn_api_tx.transaction_hash(),
+                    max_fee: sn_api_tx.max_fee(),
+                    version: sn_api_tx.version(),
+                    signature: sn_api_tx.signature(),
+                    nonce: sn_api_tx.nonce(),
+                    sender_address: sn_api_tx.sender_address(),
+                    simulate: tx.simulate(),
                 }
             }
             Self::DeployAccount(tx) => AccountTransactionContext {
@@ -161,6 +162,7 @@ impl AccountTransaction {
                 signature: tx.signature().clone(),
                 nonce: tx.nonce(),
                 sender_address: tx.contract_address(),
+                simulate: tx.simulate,
             },
             Self::Invoke(tx) => AccountTransactionContext {
                 transaction_hash: tx.transaction_hash(),
@@ -176,6 +178,7 @@ impl AccountTransaction {
                 signature: tx.signature(),
                 nonce: tx.nonce(),
                 sender_address: tx.sender_address(),
+                simulate: tx.simulate,
             },
         }
     }

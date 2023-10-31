@@ -48,6 +48,7 @@ pub fn py_account_data_context(tx: &PyAny) -> NativeBlockifierResult<AccountTran
         signature: TransactionSignature(py_felt_sequence_attr(tx, "signature")?),
         nonce,
         sender_address: ContractAddress::try_from(py_felt_attr(tx, "sender_address")?)?,
+        simulate: false,
     })
 }
 
