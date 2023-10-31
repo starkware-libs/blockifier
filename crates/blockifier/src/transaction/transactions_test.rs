@@ -26,7 +26,7 @@ use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::fee_utils::{calculate_tx_fee, l1_resource_bounds};
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -34,10 +34,11 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, invoke_tx, test_erc20_account_balance_key,
     test_erc20_sequencer_balance_key, DictStateReader, InvokeTxArgs, NonceManager, BALANCE,
-    MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    MAX_FEE, MAX_L1_GAS_AMOUNT, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -637,6 +638,38 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
         if (address, account_nonce, tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
     );
+}
+
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_insufficient_max_l1_gas_price(state: &mut CachedState<DictStateReader>) {
+    let mut transactional_state = CachedState::create_transactional(state);
+    let block_context = &BlockContext::create_for_account_testing();
+    let valid_invoke_tx_args = default_invoke_tx_args();
+    let insufficient_max_l1_gas_price = block_context.gas_prices.strk_l1_gas_price - 1;
+
+    let invalid_tx = account_invoke_tx(invoke_tx_args! {resource_bounds:
+    l1_resource_bounds(MAX_L1_GAS_AMOUNT, insufficient_max_l1_gas_price),
+    version:TransactionVersion::THREE, ..valid_invoke_tx_args.clone() });
+    let pre_validation_err = invalid_tx
+        .perform_pre_validation_checks(
+            &mut transactional_state,
+            &invalid_tx.get_account_tx_context(),
+            block_context,
+            true,
+            false,
+        )
+        .unwrap_err();
+    assert_matches!(
+        pre_validation_err,
+        TransactionExecutionError::MaxL1GasPriceTooLow { max_l1_gas_price, current_gas_price }
+        if (max_l1_gas_price, current_gas_price) ==
+        (Fee(insufficient_max_l1_gas_price), Fee(block_context.gas_prices.strk_l1_gas_price))
+    )
 }
 
 fn declare_tx(

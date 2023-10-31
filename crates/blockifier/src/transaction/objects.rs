@@ -101,6 +101,14 @@ impl CurrentAccountTransactionContext {
     pub fn l1_resource_bounds(&self) -> Option<ResourceBounds> {
         self.resource_bounds.0.get(&Resource::L1Gas).copied()
     }
+    pub fn get_l1_gas_bounds(&self) -> TransactionExecutionResult<ResourceBounds> {
+        match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
+            Some(resource_bounds) => Ok(resource_bounds),
+            None => {
+                Err(TransactionExecutionError::MissingResourceBounds { resource: Resource::L1Gas })
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

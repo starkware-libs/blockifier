@@ -153,9 +153,30 @@ impl AccountTransaction {
 
         if charge_fee {
             self.check_fee_balance(state, block_context)?;
+            Self::check_max_l1_gas_price(account_tx_context, block_context)?;
         }
 
         Ok(())
+    }
+
+    fn check_max_l1_gas_price(
+        account_tx_context: &AccountTransactionContext,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<()> {
+        match account_tx_context {
+            AccountTransactionContext::Current(current_context) => {
+                let max_l1_gas_price = current_context.get_l1_gas_bounds()?.max_price_per_unit;
+                if block_context.gas_prices.strk_l1_gas_price > max_l1_gas_price {
+                    Err(TransactionExecutionError::MaxL1GasPriceTooLow {
+                        max_l1_gas_price: Fee(max_l1_gas_price),
+                        current_gas_price: Fee(block_context.gas_prices.strk_l1_gas_price),
+                    })?
+                } else {
+                    Ok(())
+                }
+            }
+            AccountTransactionContext::Deprecated(_) => Ok(()),
+        }
     }
 
     fn check_nonce(
