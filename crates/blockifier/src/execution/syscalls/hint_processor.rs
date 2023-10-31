@@ -48,7 +48,7 @@ use crate::execution::syscalls::{
     SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
-use crate::state::state_api::State;
+use crate::state::state_api::{DataAvailabilityError, State};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -59,8 +59,8 @@ pub enum SyscallExecutionError {
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error("Cannot replace V1 class hash with V0 class hash: {class_hash}.")]
     ForbiddenClassReplacement { class_hash: ClassHash },
-    #[error("Invalid address domain: {address_domain}.")]
-    InvalidAddressDomain { address_domain: StarkFelt },
+    #[error(transparent)]
+    DataAvailabilityError(#[from] DataAvailabilityError),
     #[error(transparent)]
     InnerCallExecutionError(#[from] EntryPointExecutionError),
     #[error("Invalid syscall input: {input:?}; {info}")]

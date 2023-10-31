@@ -29,9 +29,9 @@ mod TestContract {
 
     #[external(v0)]
     fn test_storage_read_write(self: @ContractState, address: StorageAddress, value: felt252) -> felt252 {
-        let address_domain = 0;
-        starknet::syscalls::storage_write_syscall(address_domain, address, value).unwrap_syscall();
-        starknet::syscalls::storage_read_syscall(address_domain, address).unwrap_syscall()
+        let data_availability_mode = 0;
+        starknet::syscalls::storage_write_syscall(data_availability_mode, address, value).unwrap_syscall();
+        starknet::syscalls::storage_read_syscall(data_availability_mode, address).unwrap_syscall()
     }
 
     #[external(v0)]

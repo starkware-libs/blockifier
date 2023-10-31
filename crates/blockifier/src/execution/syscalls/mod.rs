@@ -28,6 +28,7 @@ use crate::execution::execution_utils::{
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
+use crate::state::state_api::DataAvailabilityError;
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub mod hint_processor;
@@ -539,18 +540,20 @@ pub fn send_message_to_l1(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {
-    pub address_domain: StarkFelt,
+    pub data_availability_mode: StarkFelt,
     pub address: StorageKey,
 }
 
 impl SyscallRequest for StorageReadRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address_domain = stark_felt_from_ptr(vm, ptr)?;
-        if address_domain != StarkFelt::from(0_u8) {
-            return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
+        let data_availability_mode = stark_felt_from_ptr(vm, ptr)?;
+        if data_availability_mode != StarkFelt::from(0_u8) {
+            return Err(DataAvailabilityError::InvalidDataAvailabilityMode {
+                data_availability_mode,
+            })?;
         }
         let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
-        Ok(StorageReadRequest { address_domain, address })
+        Ok(StorageReadRequest { data_availability_mode, address })
     }
 }
 
@@ -579,20 +582,22 @@ pub fn storage_read(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
-    pub address_domain: StarkFelt,
+    pub data_availability_mode: StarkFelt,
     pub address: StorageKey,
     pub value: StarkFelt,
 }
 
 impl SyscallRequest for StorageWriteRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address_domain = stark_felt_from_ptr(vm, ptr)?;
-        if address_domain != StarkFelt::from(0_u8) {
-            return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
+        let data_availability_mode = stark_felt_from_ptr(vm, ptr)?;
+        if data_availability_mode != StarkFelt::from(0_u8) {
+            return Err(DataAvailabilityError::InvalidDataAvailabilityMode {
+                data_availability_mode,
+            })?;
         }
         let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
         let value = stark_felt_from_ptr(vm, ptr)?;
-        Ok(StorageWriteRequest { address_domain, address, value })
+        Ok(StorageWriteRequest { data_availability_mode, address, value })
     }
 }
 

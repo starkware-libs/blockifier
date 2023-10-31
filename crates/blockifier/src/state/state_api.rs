@@ -1,6 +1,7 @@
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use thiserror::Error;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
@@ -10,10 +11,17 @@ use crate::state::errors::StateError;
 
 pub type StateResult<T> = Result<T, StateError>;
 
-// TODO(barak, 01/10/2023): Remove this enum from here once it can be used from starknet_api.
+// TODO(barak, 01/10/2023): Remove Data Availability related elements once it can be used from
+// starknet_api.
 pub enum DataAvailabilityMode {
     L1 = 0,
     L2 = 1,
+}
+
+#[derive(Debug, Error)]
+pub enum DataAvailabilityError {
+    #[error("Invalid data availability mode: {data_availability_mode}.")]
+    InvalidDataAvailabilityMode { data_availability_mode: StarkFelt },
 }
 
 /// A read-only API for accessing StarkNet global state.
