@@ -9,6 +9,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
+    InvokeTransactionV1,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -20,9 +21,10 @@ use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    declare_tx, deploy_account_tx, invoke_tx, DictStateReader, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -33,7 +35,7 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, InvokeTransaction,
 };
 
 struct TestInitData {
@@ -181,7 +183,13 @@ fn test_fee_enforcement(
 }
 
 #[rstest]
-fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
+#[case(false)]
+#[case(true)]
+fn test_account_flow_test(
+    max_fee: Fee,
+    #[from(create_test_init_data)] init_data: TestInitData,
+    #[case] query: bool,
+) {
     let TestInitData {
         mut state,
         account_address,
@@ -192,20 +200,22 @@ fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data
 
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
-    run_invoke_tx(
-        calldata![
-            *contract_address.0.key(), // Contract address.
-            entry_point_selector.0,    // EP selector.
-            stark_felt!(1_u8),         // Calldata length.
-            stark_felt!(2_u8)          // Calldata: num.
-        ],
-        &mut state,
-        account_address,
-        &block_context,
-        &mut nonce_manager,
-        max_fee,
-    )
-    .unwrap();
+    let execute_calldata = calldata![
+        *contract_address.0.key(), // Contract address.
+        entry_point_selector.0,    // EP selector.
+        stark_felt!(1_u8),         // Calldata length.
+        stark_felt!(2_u8)          // Calldata: num.
+    ];
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        tx: starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
+            nonce: nonce_manager.next(account_address),
+            ..tx
+        }),
+        query,
+    });
+    let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    assert!(!tx_execution_info.is_reverted());
 }
 
 #[rstest]
