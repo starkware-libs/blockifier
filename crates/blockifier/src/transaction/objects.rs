@@ -1,12 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_felt::Felt252;
 use itertools::concat;
+use num_traits::Pow;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionHash, TransactionSignature, TransactionVersion};
 
 use crate::execution::entry_point::CallInfo;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::transaction::constants::SIMULATE_VERSION_BASE_BIT;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
@@ -20,11 +24,22 @@ pub struct AccountTransactionContext {
     pub signature: TransactionSignature,
     pub nonce: Nonce,
     pub sender_address: ContractAddress,
+    pub simulate: bool,
 }
 
 impl AccountTransactionContext {
     pub fn is_v0(&self) -> bool {
         self.version == TransactionVersion(stark_felt!(0_u8))
+    }
+
+    pub fn signed_version(&self) -> TransactionVersion {
+        if !self.simulate {
+            return self.version;
+        }
+
+        let simulate_version_base = Pow::pow(Felt252::from(2_u8), SIMULATE_VERSION_BASE_BIT);
+        let simulate_version = simulate_version_base + stark_felt_to_felt(self.version.0);
+        TransactionVersion(felt_to_stark_felt(&simulate_version))
     }
 }
 

@@ -94,6 +94,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             signature: TransactionSignature::default(),
             nonce: tx.nonce,
             sender_address: tx.contract_address,
+            simulate: false,
         };
         let mut resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);

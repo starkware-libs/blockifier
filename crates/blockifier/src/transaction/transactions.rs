@@ -163,7 +163,15 @@ impl DeclareTransaction {
         Self::create(declare_tx, contract_class, true)
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash));
+    implement_inner_tx_getter_calls!(
+        (class_hash, ClassHash),
+        (sender_address, ContractAddress),
+        (nonce, Nonce),
+        (signature, TransactionSignature),
+        (max_fee, Fee),
+        (version, TransactionVersion),
+        (transaction_hash, TransactionHash)
+    );
 
     pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
         &self.tx
