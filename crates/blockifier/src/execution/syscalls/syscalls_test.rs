@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
+use cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -617,8 +618,6 @@ fn test_out_of_gas() {
         if error_data == vec![stark_felt!(OUT_OF_GAS_ERROR)]);
 }
 
-// TODO(yuval): This test should fail once upgrading the dependency on cairo-lang-runner to version
-// 2.4.0. To fix it, merge PR https://github.com/starkware-libs/blockifier/pull/1064.
 #[test]
 fn test_syscall_failure_format() {
     let error_data = vec![
@@ -635,15 +634,5 @@ fn test_syscall_failure_format() {
     .map(|x| StarkFelt::try_from(x).unwrap())
     .collect();
     let error = EntryPointExecutionError::ExecutionFailed { error_data };
-    assert_eq!(
-        error.to_string(),
-        format!(
-            "Execution failed. Failure reason: \"0x{BYTE_ARRAY_MAGIC}, , Execution failure, \
-             \\u{{11}}\"."
-        )
-    );
+    assert_eq!(error.to_string(), "Execution failed. Failure reason: \"Execution failure\".");
 }
-
-// TODO(yuval): when updating to the compiler of version 2.4.0, use it from
-// `cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC` instead.
-const BYTE_ARRAY_MAGIC: &str = "046a6158a16a947e5916b2a2ca68501a45e93d7110e81aa2d6438b1c57c879a3";
