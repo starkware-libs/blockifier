@@ -20,7 +20,7 @@ use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -49,6 +49,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::transaction::objects::{AccountTransactionContext, CurrentAccountTransactionContext};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -107,6 +108,8 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+// Each resource bound contains three felts; see struct `Resource`.
+pub const RESOURCE_BOUNDS_ELEMENT_SIZE: usize = 3;
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -311,6 +314,38 @@ impl<'a> SyscallHintProcessor<'a> {
         }
     }
 
+    // TODO(Mohammad, 20/10/2023): Refactor to use allocate_data_segment method.
+    fn allocate_tx_resource_bounds_segment(
+        &mut self,
+        vm: &mut VirtualMachine,
+        context: &CurrentAccountTransactionContext,
+    ) -> SyscallResult<Relocatable> {
+        let flat_resource_bounds = &context
+            .resource_bounds
+            .0
+            .iter()
+            .flat_map(|(resource, resource_bounds)| {
+                let resource_as_int = match resource {
+                    Resource::L1Gas => 0,
+                    Resource::L2Gas => 1,
+                };
+
+                vec![
+                    resource_as_int,
+                    resource_bounds.max_price_per_unit,
+                    resource_bounds.max_amount as u128,
+                ]
+                .into_iter()
+                .map(|value| MaybeRelocatable::from(Felt252::from(value)))
+            })
+            .collect();
+
+        let resource_bounds_segment_start_ptr =
+            self.read_only_segments.allocate(vm, flat_resource_bounds)?;
+
+        Ok(resource_bounds_segment_start_ptr)
+    }
+
     fn execute_syscall<Request, Response, ExecuteCallback>(
         &mut self,
         vm: &mut VirtualMachine,
@@ -374,6 +409,7 @@ impl<'a> SyscallHintProcessor<'a> {
         self.increment_syscall_count_by(selector, 1);
     }
 
+    // TODO(Mohammad, 20/10/2023): Refactor to use allocate_data_segment method.
     fn allocate_execution_info_segment(
         &mut self,
         vm: &mut VirtualMachine,
@@ -394,6 +430,7 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(execution_info_segment_start_ptr)
     }
 
+    // TODO(Mohammad, 20/10/2023): Refactor to use allocate_data_segment method.
     fn allocate_block_info_segment(
         &mut self,
         vm: &mut VirtualMachine,
@@ -418,33 +455,80 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(block_info_segment_start_ptr)
     }
 
-    fn allocate_tx_signature_segment(
+    fn allocate_data_segment(
         &mut self,
         vm: &mut VirtualMachine,
-    ) -> SyscallResult<Relocatable> {
-        let signature = &self.context.account_tx_context.signature().0;
-        let signature =
-            signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-        let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
-
-        Ok(signature_segment_start_ptr)
+        data: Vec<StarkFelt>,
+    ) -> SyscallResult<(Relocatable, Relocatable)> {
+        let data = data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let data_segment_start_ptr = self.read_only_segments.allocate(vm, &data)?;
+        let data_segment_end_ptr = (data_segment_start_ptr + data.len())?;
+        Ok((data_segment_start_ptr, data_segment_end_ptr))
     }
 
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
-        let tx_signature_start_ptr = self.allocate_tx_signature_segment(vm)?;
-        let account_tx_context = &self.context.account_tx_context;
-        let tx_signature_length = account_tx_context.signature().0.len();
-        let tx_signature_end_ptr = (tx_signature_start_ptr + tx_signature_length)?;
-        let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(account_tx_context.version().0).into(),
-            stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            Felt252::from(account_tx_context.max_fee().0).into(),
+        let (tx_signature_start_ptr, tx_signature_end_ptr) =
+            &self.allocate_data_segment(vm, self.context.account_tx_context.signature().0)?;
+        let account_tx_context = self.context.account_tx_context.clone();
+
+        let max_fee: MaybeRelocatable = match &self.context.account_tx_context {
+            AccountTransactionContext::Current(_) => Felt252::zero().into(),
+            AccountTransactionContext::Deprecated(_) => {
+                Felt252::from(self.context.account_tx_context.max_fee().0).into()
+            }
+        };
+        let mut tx_info: Vec<MaybeRelocatable> = vec![
+            stark_felt_to_felt(self.context.account_tx_context.version().0).into(),
+            stark_felt_to_felt(*self.context.account_tx_context.sender_address().0.key()).into(),
+            max_fee,
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
+            stark_felt_to_felt((self.context.account_tx_context).transaction_hash().0).into(),
             Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(account_tx_context.nonce().0).into(),
+            stark_felt_to_felt((self.context.account_tx_context).nonce().0).into(),
         ];
+
+        match account_tx_context {
+            AccountTransactionContext::Current(context) => {
+                let tx_resource_bounds_start_ptr =
+                    &self.allocate_tx_resource_bounds_segment(vm, &context)?;
+                let tx_resource_bounds_length = context.resource_bounds.0.len();
+                let tx_resource_bounds_end_ptr = (*tx_resource_bounds_start_ptr
+                    + (RESOURCE_BOUNDS_ELEMENT_SIZE * tx_resource_bounds_length))?;
+
+                let (tx_paymaster_data_start_ptr, tx_paymaster_data_end_ptr) =
+                    &self.allocate_data_segment(vm, context.paymaster_data.0)?;
+
+                let (tx_account_deployment_data_start_ptr, tx_account_deployment_data_end_ptr) =
+                    &self.allocate_data_segment(vm, context.account_deployment_data.0)?;
+
+                tx_info.extend_from_slice(&[
+                    tx_resource_bounds_start_ptr.into(),
+                    tx_resource_bounds_end_ptr.into(),
+                    Felt252::from(context.tip.0).into(),
+                    tx_paymaster_data_start_ptr.into(),
+                    tx_paymaster_data_end_ptr.into(),
+                    stark_felt_to_felt(context.nonce_data_availability_mode.into()).into(),
+                    stark_felt_to_felt(context.fee_data_availability_mode.into()).into(),
+                    tx_account_deployment_data_start_ptr.into(),
+                    tx_account_deployment_data_end_ptr.into(),
+                ]);
+            }
+            AccountTransactionContext::Deprecated(_) => {
+                let zero_felt: MaybeRelocatable = Felt252::zero().into();
+                tx_info.extend_from_slice(&[
+                    zero_felt.clone(), // Empty array of resource bounds.
+                    zero_felt.clone(),
+                    zero_felt.clone(), // Tip.
+                    zero_felt.clone(), // Empty array of paymaster data.
+                    zero_felt.clone(),
+                    zero_felt.clone(), // Nonce DA mode.
+                    zero_felt.clone(), // Fee DA mode.
+                    zero_felt.clone(), // Empty array of account deployment data.
+                    zero_felt,
+                ]);
+            }
+        };
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
         Ok(tx_info_start_ptr)
