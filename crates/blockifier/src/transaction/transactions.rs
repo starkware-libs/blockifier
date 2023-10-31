@@ -97,14 +97,14 @@ pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
     contract_class: ContractClass,
     // Indicates the presence of the query bit in the version.
-    query: bool,
+    only_query: bool,
 }
 
 impl DeclareTransaction {
     fn create(
         declare_tx: starknet_api::transaction::DeclareTransaction,
         contract_class: ContractClass,
-        query: bool,
+        only_query: bool,
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
         match declare_tx {
@@ -118,7 +118,7 @@ impl DeclareTransaction {
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V0(tx),
                     contract_class: contract_class.into(),
-                    query,
+                    only_query,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V1(tx) => {
@@ -131,7 +131,7 @@ impl DeclareTransaction {
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V1(tx),
                     contract_class: contract_class.into(),
-                    query,
+                    only_query,
                 })
             }
             starknet_api::transaction::DeclareTransaction::V2(tx) => {
@@ -144,7 +144,7 @@ impl DeclareTransaction {
                 Ok(Self {
                     tx: starknet_api::transaction::DeclareTransaction::V2(tx),
                     contract_class: contract_class.into(),
-                    query,
+                    only_query,
                 })
             }
         }
@@ -164,7 +164,15 @@ impl DeclareTransaction {
         Self::create(declare_tx, contract_class, true)
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash));
+    implement_inner_tx_getter_calls!(
+        (class_hash, ClassHash),
+        (sender_address, ContractAddress),
+        (nonce, Nonce),
+        (signature, TransactionSignature),
+        (max_fee, Fee),
+        (version, TransactionVersion),
+        (transaction_hash, TransactionHash)
+    );
 
     pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
         &self.tx
@@ -174,8 +182,8 @@ impl DeclareTransaction {
         self.contract_class.clone()
     }
 
-    pub fn query(&self) -> bool {
-        self.query
+    pub fn only_query(&self) -> bool {
+        self.only_query
     }
 }
 
@@ -220,18 +228,18 @@ impl<S: State> Executable<S> for DeclareTransaction {
 pub struct DeployAccountTransaction {
     pub tx: starknet_api::transaction::DeployAccountTransaction,
     // Indicates the presence of the query bit in the version.
-    pub query: bool,
+    pub only_query: bool,
 }
 
 impl DeployAccountTransaction {
     pub fn new(deploy_account_tx: starknet_api::transaction::DeployAccountTransaction) -> Self {
-        Self { tx: deploy_account_tx, query: false }
+        Self { tx: deploy_account_tx, only_query: false }
     }
 
     pub fn new_for_query(
         deploy_account_tx: starknet_api::transaction::DeployAccountTransaction,
     ) -> Self {
-        Self { tx: deploy_account_tx, query: true }
+        Self { tx: deploy_account_tx, only_query: true }
     }
 
     implement_inner_tx_getter_fields!(
@@ -281,16 +289,16 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
 pub struct InvokeTransaction {
     pub tx: starknet_api::transaction::InvokeTransaction,
     // Indicates the presence of the query bit in the version.
-    pub query: bool,
+    pub only_query: bool,
 }
 
 impl InvokeTransaction {
     pub fn new(invoke_tx: starknet_api::transaction::InvokeTransaction) -> Self {
-        Self { tx: invoke_tx, query: false }
+        Self { tx: invoke_tx, only_query: false }
     }
 
     pub fn new_for_query(invoke_tx: starknet_api::transaction::InvokeTransaction) -> Self {
-        Self { tx: invoke_tx, query: true }
+        Self { tx: invoke_tx, only_query: true }
     }
 
     implement_inner_tx_getter_calls!(
