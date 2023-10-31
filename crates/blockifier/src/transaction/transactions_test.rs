@@ -748,13 +748,13 @@ fn deploy_account_tx(
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     83, // range_check_builtin
-    3641, // n_steps
+    3639, // n_steps
     CairoVersion::Cairo0;
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
     85, // range_check_builtin
-    3697, // n_steps
+    3695, // n_steps
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_deploy_account_tx(
