@@ -115,6 +115,8 @@ pub const BALANCE: u128 = 10 * MAX_FEE;
 
 pub const DEFAULT_ETH_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of Wei.
 pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of STRK.
+pub const MAX_L1_GAS_AMOUNT: u64 = 1000000;
+pub const MAX_L1_GAS_PRICE: u128 = DEFAULT_STRK_L1_GAS_PRICE;
 
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
