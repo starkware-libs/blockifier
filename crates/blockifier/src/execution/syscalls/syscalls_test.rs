@@ -1,17 +1,32 @@
 use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
+use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{
+<<<<<<< HEAD
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, PatriciaKey,
+||||||| 4bda87b
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, PatriciaKey,
+=======
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey,
+>>>>>>> origin/main-v0.12.3
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
+<<<<<<< HEAD
     Calldata, ContractAddressSalt, EventContent, EventData, EventKey, L2ToL1Payload,
+||||||| 4bda87b
+    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
+=======
+    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, Fee,
+    L2ToL1Payload, TransactionHash, TransactionSignature, TransactionVersion,
+>>>>>>> origin/main-v0.12.3
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -25,6 +40,7 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
 };
@@ -36,6 +52,8 @@ use crate::test_utils::{
     TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
+use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
+use crate::transaction::objects::AccountTransactionContext;
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
@@ -199,7 +217,8 @@ fn test_keccak() {
         stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
         stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
         stark_felt!(0_u16) // Sequencer address.
-    ];
+    ],
+    false;
     "Validate execution mode: block info fields should be zeroed.")]
 #[test_case(
     ExecutionMode::Execute,
@@ -207,16 +226,39 @@ fn test_keccak() {
         stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
         stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
         stark_felt!(TEST_SEQUENCER_ADDRESS) // Sequencer address.
-    ];
+    ],
+    false;
     "Execute execution mode: block info should be as usual.")]
-fn test_get_execution_info(execution_mode: ExecutionMode, expected_block_info: [StarkFelt; 3]) {
+#[test_case(
+        ExecutionMode::Execute,
+        [
+            stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
+            stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+            stark_felt!(TEST_SEQUENCER_ADDRESS) // Sequencer address.
+        ],
+        true;
+        "Execute execution mode: block info should be as usual. Query.")]
+fn test_get_execution_info(
+    execution_mode: ExecutionMode,
+    expected_block_info: [StarkFelt; 3],
+    only_query: bool,
+) {
+    let mut version = Felt252::from(1_u8);
+    if only_query {
+        let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
+        version += simulate_version_base;
+    }
+    let tx_hash = TransactionHash(stark_felt!(1991_u16));
+    let max_fee = Fee(0);
+    let nonce = Nonce(stark_felt!(3_u16));
+    let sender_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let expected_tx_info = vec![
-        stark_felt!(0_u16),                                         // Transaction version.
-        stark_felt!(0_u16),                                         // Account address.
-        stark_felt!(0_u16),                                         // Max fee.
-        stark_felt!(0_u16),                                         // Transaction hash.
+        felt_to_stark_felt(&version), // Transaction version.
+        *sender_address.0.key(),      // Account address.
+        stark_felt!(max_fee.0),       // Max fee.
+        tx_hash.0,                    // Transaction hash.
         stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        stark_felt!(0_u16),                                         // Nonce.
+        nonce.0,                      // Nonce.
     ];
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
@@ -233,10 +275,25 @@ fn test_get_execution_info(execution_mode: ExecutionMode, expected_block_info: [
     };
 
     let mut state = create_test_state();
+    let account_tx_context = AccountTransactionContext {
+        transaction_hash: tx_hash,
+        max_fee,
+        version: TransactionVersion(stark_felt!(1_u8)),
+        signature: TransactionSignature::default(),
+        nonce,
+        sender_address,
+        only_query,
+    };
 
     let result = match execution_mode {
-        ExecutionMode::Validate => entry_point_call.execute_directly_in_validate_mode(&mut state),
-        ExecutionMode::Execute => entry_point_call.execute_directly(&mut state),
+        ExecutionMode::Validate => entry_point_call
+            .execute_directly_given_account_context_in_validate_mode(
+                &mut state,
+                account_tx_context,
+            ),
+        ExecutionMode::Execute => {
+            entry_point_call.execute_directly_given_account_context(&mut state, account_tx_context)
+        }
     };
 
     assert!(!result.unwrap().execution.failed)
