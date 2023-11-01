@@ -616,3 +616,34 @@ fn test_out_of_gas() {
     assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
         if error_data == vec![stark_felt!(OUT_OF_GAS_ERROR)]);
 }
+
+// TODO(yuval): This test should fail once upgrading the dependency on cairo-lang-runner to version
+// 2.4.0. To fix it, merge PR https://github.com/starkware-libs/blockifier/pull/1064.
+#[test]
+fn test_syscall_failure_format() {
+    let error_data = vec![
+        // Magic to indicate that this is a byte array.
+        BYTE_ARRAY_MAGIC,
+        // the number of full words in the byte array.
+        "0x00",
+        // The pending word of the byte array: "Execution failure"
+        "0x457865637574696f6e206661696c757265",
+        // The length of the pending word.
+        "0x11",
+    ]
+    .into_iter()
+    .map(|x| StarkFelt::try_from(x).unwrap())
+    .collect();
+    let error = EntryPointExecutionError::ExecutionFailed { error_data };
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "Execution failed. Failure reason: \"0x{BYTE_ARRAY_MAGIC}, , Execution failure, \
+             \\u{{11}}\"."
+        )
+    );
+}
+
+// TODO(yuval): when updating to the compiler of version 2.4.0, use it from
+// `cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC` instead.
+const BYTE_ARRAY_MAGIC: &str = "046a6158a16a947e5916b2a2ca68501a45e93d7110e81aa2d6438b1c57c879a3";
