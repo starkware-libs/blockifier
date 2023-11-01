@@ -39,7 +39,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 18
                 },
                 "n_memory_holes": 0,
-                "n_steps": 946
+                "n_steps": 944
             },
             "EmitEvent": {
                 "builtin_instance_counter": {},
@@ -224,7 +224,7 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 83
                 },
                 "n_memory_holes": 0,
-                "n_steps": 3626
+                "n_steps": 3628
             },
             "InvokeFunction": {
                 "builtin_instance_counter": {
