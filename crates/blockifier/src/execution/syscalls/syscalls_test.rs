@@ -8,25 +8,13 @@ use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{
-<<<<<<< HEAD
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, PatriciaKey,
-||||||| 4bda87b
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, PatriciaKey,
-=======
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey,
->>>>>>> origin/main-v0.12.3
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-<<<<<<< HEAD
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, L2ToL1Payload,
-||||||| 4bda87b
-    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, L2ToL1Payload,
-=======
-    Calldata, ContractAddressSalt, EthAddress, EventContent, EventData, EventKey, Fee,
-    L2ToL1Payload, TransactionHash, TransactionSignature, TransactionVersion,
->>>>>>> origin/main-v0.12.3
+    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, L2ToL1Payload,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
@@ -53,7 +41,9 @@ use crate::test_utils::{
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::{
+    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+};
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
@@ -275,15 +265,18 @@ fn test_get_execution_info(
     };
 
     let mut state = create_test_state();
-    let account_tx_context = AccountTransactionContext {
-        transaction_hash: tx_hash,
-        max_fee,
-        version: TransactionVersion(stark_felt!(1_u8)),
-        signature: TransactionSignature::default(),
-        nonce,
-        sender_address,
-        only_query,
-    };
+    let account_tx_context =
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+            common_fields: CommonAccountFields {
+                transaction_hash: tx_hash,
+                version: TransactionVersion::ONE,
+                nonce,
+                sender_address,
+                only_query,
+                ..Default::default()
+            },
+            max_fee,
+        });
 
     let result = match execution_mode {
         ExecutionMode::Validate => entry_point_call

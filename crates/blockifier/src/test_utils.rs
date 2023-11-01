@@ -375,9 +375,7 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 
 impl CallEntryPoint {
     /// Executes the call directly, without account context.
-    // TODO(Nir, 01/11/2023): adjust to V3, context as an arg or testing mode (<V3, V3).
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-<<<<<<< HEAD
         self.execute_directly_given_account_context(
             state,
             AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
@@ -389,17 +387,6 @@ impl CallEntryPoint {
         state: &mut dyn State,
         account_tx_context: AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
-||||||| 4bda87b
-=======
-        self.execute_directly_given_account_context(state, AccountTransactionContext::default())
-    }
-
-    pub fn execute_directly_given_account_context(
-        self,
-        state: &mut dyn State,
-        account_tx_context: AccountTransactionContext,
-    ) -> EntryPointExecutionResult<CallInfo> {
->>>>>>> origin/main-v0.12.3
         let block_context = BlockContext::create_for_testing();
         let mut context =
             EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context);
@@ -413,7 +400,7 @@ impl CallEntryPoint {
     ) -> EntryPointExecutionResult<CallInfo> {
         self.execute_directly_given_account_context_in_validate_mode(
             state,
-            AccountTransactionContext::default(),
+            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
         )
     }
 
@@ -423,20 +410,8 @@ impl CallEntryPoint {
         account_tx_context: AccountTransactionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-<<<<<<< HEAD
-        let mut context = EntryPointExecutionContext::new_validate(
-            &block_context,
-            &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
-        );
-||||||| 4bda87b
-        let mut context = EntryPointExecutionContext::new_validate(
-            &block_context,
-            &AccountTransactionContext::default(),
-        );
-=======
         let mut context =
             EntryPointExecutionContext::new_validate(&block_context, &account_tx_context);
->>>>>>> origin/main-v0.12.3
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }
