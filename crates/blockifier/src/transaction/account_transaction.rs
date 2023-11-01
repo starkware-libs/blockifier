@@ -75,13 +75,6 @@ impl AccountTransaction {
         }
     }
 
-    pub fn get_address_of_deploy(&self) -> Option<ContractAddress> {
-        match self {
-            AccountTransaction::DeployAccount(deploy_tx) => Some(deploy_tx.contract_address),
-            _ => None,
-        }
-    }
-
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
             Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
