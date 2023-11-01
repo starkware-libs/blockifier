@@ -113,11 +113,29 @@ pub fn py_tx(
             Ok(Transaction::AccountTransaction(declare_tx))
         }
         "DEPLOY_ACCOUNT" => {
+<<<<<<< HEAD
             let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(py_tx)?);
+||||||| b1c8717
+            let deploy_account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+                tx: py_deploy_account(tx)?,
+            });
+=======
+            let deploy_account_tx = AccountTransaction::DeployAccount(
+                DeployAccountTransaction::new(py_deploy_account(tx)?),
+            );
+>>>>>>> origin/main-v0.12.3
             Ok(Transaction::AccountTransaction(deploy_account_tx))
         }
         "INVOKE_FUNCTION" => {
+<<<<<<< HEAD
             let invoke_tx = AccountTransaction::Invoke(py_invoke_function(py_tx)?);
+||||||| b1c8717
+            let invoke_tx =
+                AccountTransaction::Invoke(InvokeTransaction { tx: py_invoke_function(tx)? });
+=======
+            let invoke_tx =
+                AccountTransaction::Invoke(InvokeTransaction::new(py_invoke_function(tx)?));
+>>>>>>> origin/main-v0.12.3
             Ok(Transaction::AccountTransaction(invoke_tx))
         }
         "L1_HANDLER" => Ok(Transaction::L1HandlerTransaction(py_l1_handler(py_tx)?)),

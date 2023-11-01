@@ -40,10 +40,18 @@ macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
         $(impl From<$specified_tx_type> for InvokeTransaction {
             fn from(tx: $specified_tx_type) -> Self {
+<<<<<<< HEAD
                 Self {
                     tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
                     tx_hash: TransactionHash::default(),
                 }
+||||||| b1c8717
+                Self {
+                    tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
+                }
+=======
+                Self::new(starknet_api::transaction::InvokeTransaction::$enum_variant(tx))
+>>>>>>> origin/main-v0.12.3
             }
         })*
     };
@@ -185,7 +193,13 @@ pub fn create_account_tx_for_validate_test(
                 Some(signature),
                 nonce_manager,
             );
+<<<<<<< HEAD
             AccountTransaction::DeployAccount(deploy_account_tx)
+||||||| b1c8717
+            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx })
+=======
+            AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx))
+>>>>>>> origin/main-v0.12.3
         }
         TransactionType::InvokeFunction => {
             let entry_point_selector = selector_from_name("foo");
@@ -194,6 +208,7 @@ pub fn create_account_tx_for_validate_test(
                 entry_point_selector.0,                            // EP selector.
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
+<<<<<<< HEAD
             let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
                 signature,
                 sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
@@ -202,6 +217,23 @@ pub fn create_account_tx_for_validate_test(
                 nonce: Nonce::default(),
             });
             AccountTransaction::Invoke(invoke_tx)
+||||||| b1c8717
+            let invoke_tx = crate::test_utils::invoke_tx(
+                execute_calldata,
+                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                Fee(0),
+                Some(signature),
+            );
+            AccountTransaction::Invoke(InvokeTransaction { tx: invoke_tx.into() })
+=======
+            let invoke_tx = crate::test_utils::invoke_tx(
+                execute_calldata,
+                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
+                Fee(0),
+                Some(signature),
+            );
+            AccountTransaction::Invoke(invoke_tx.into())
+>>>>>>> origin/main-v0.12.3
         }
         TransactionType::L1Handler => unimplemented!(),
     }

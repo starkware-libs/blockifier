@@ -506,15 +506,42 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Deploy.
+<<<<<<< HEAD
     let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         None,
         None,
         &mut NonceManager::default(),
     ));
+||||||| b1c8717
+    let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+        tx: starknet_api::transaction::DeployAccountTransaction {
+            max_fee: invalid_max_fee,
+            ..deploy_account_tx(
+                TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+                None,
+                None,
+                &mut NonceManager::default(),
+            )
+        },
+    });
+=======
+    let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction::new(
+        starknet_api::transaction::DeployAccountTransaction {
+            max_fee: invalid_max_fee,
+            ..deploy_account_tx(
+                TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+                None,
+                None,
+                &mut NonceManager::default(),
+            )
+        },
+    ));
+>>>>>>> origin/main-v0.12.3
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Declare.
+<<<<<<< HEAD
     let invalid_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
             max_fee: invalid_max_fee,
@@ -525,6 +552,28 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
             TEST_EMPTY_CONTRACT_CAIRO0_PATH,
         )),
     });
+||||||| b1c8717
+    let invalid_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+            max_fee: invalid_max_fee,
+            ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
+        }),
+        contract_class: ContractClass::V0(ContractClassV0::from_file(
+            TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+        )),
+    });
+=======
+    let invalid_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+                max_fee: invalid_max_fee,
+                ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
+            }),
+            ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH)),
+        )
+        .unwrap(),
+    );
+>>>>>>> origin/main-v0.12.3
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
 
@@ -627,11 +676,26 @@ fn test_declare_tx(
 
     let contract_class =
         ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH));
+<<<<<<< HEAD
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
     });
+||||||| b1c8717
+    let account_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+        contract_class: contract_class.clone(),
+    });
+=======
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+            contract_class.clone(),
+        )
+        .unwrap(),
+    );
+>>>>>>> origin/main-v0.12.3
 
     // Check state before transaction application.
     assert_matches!(
@@ -727,12 +791,27 @@ fn test_declare_tx_v2() {
 
     let contract_class =
         ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH));
+<<<<<<< HEAD
     let account_tx = AccountTransaction::Declare(DeclareTransaction {
         tx: starknet_api::transaction::DeclareTransaction::V2(declare_tx),
         tx_hash: TransactionHash::default(),
         contract_class: contract_class.clone(),
     });
     let fee_type = &account_tx.fee_type();
+||||||| b1c8717
+    let account_tx = AccountTransaction::Declare(DeclareTransaction {
+        tx: starknet_api::transaction::DeclareTransaction::V2(declare_tx),
+        contract_class: contract_class.clone(),
+    });
+=======
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V2(declare_tx),
+            contract_class.clone(),
+        )
+        .unwrap(),
+    );
+>>>>>>> origin/main-v0.12.3
 
     // Check state before transaction application.
     assert_matches!(
@@ -817,8 +896,17 @@ fn test_deploy_account_tx(
         );
     }
 
+<<<<<<< HEAD
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let fee_type = &account_tx.fee_type();
+||||||| b1c8717
+    let account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+        tx: deploy_account_tx.clone(),
+    });
+=======
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx.clone()));
+>>>>>>> origin/main-v0.12.3
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -906,9 +994,26 @@ fn test_deploy_account_tx(
 
     // Negative flow.
     // Deploy to an existing address.
+<<<<<<< HEAD
     let deploy_account =
         deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
+||||||| b1c8717
+    let deploy_account_tx = DeployAccountTransaction {
+        tx: starknet_api::transaction::DeployAccountTransaction {
+            nonce: nonce_manager.next(deployed_account_address),
+            ..deploy_account_tx
+        },
+    };
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+=======
+    let deploy_account_tx =
+        DeployAccountTransaction::new(starknet_api::transaction::DeployAccountTransaction {
+            nonce: nonce_manager.next(deployed_account_address),
+            ..deploy_account_tx
+        });
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+>>>>>>> origin/main-v0.12.3
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
@@ -992,7 +1097,16 @@ fn test_validate_accounts_tx() {
                 ])),
                 &mut NonceManager::default(),
             );
+<<<<<<< HEAD
             let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+||||||| b1c8717
+            let account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+                tx: deploy_account_tx,
+            });
+=======
+            let account_tx =
+                AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
+>>>>>>> origin/main-v0.12.3
             let error = account_tx.execute(state, block_context, true, true).unwrap_err();
             if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
                 check_entry_point_execution_error_for_custom_hint(

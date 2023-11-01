@@ -113,6 +113,14 @@ fn create_test_init_data(
         state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
     }
 
+<<<<<<< HEAD
+||||||| b1c8717
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
+=======
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
+>>>>>>> origin/main-v0.12.3
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Declare a contract.
@@ -185,8 +193,18 @@ fn test_fee_enforcement(
             &mut NonceManager::default(),
         );
 
+<<<<<<< HEAD
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
         let enforce_fee = account_tx.get_account_tx_context().enforce_fee();
+||||||| b1c8717
+        let account_tx =
+            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
+        let enforce_fee = account_tx.enforce_fee();
+=======
+        let account_tx =
+            AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
+        let enforce_fee = account_tx.enforce_fee();
+>>>>>>> origin/main-v0.12.3
         let result = account_tx.execute(&mut state, &block_context, true, true);
         assert_eq!(result.is_err(), enforce_fee);
     }
@@ -491,8 +509,16 @@ fn test_revert_invoke(
     let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
     state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
 
+<<<<<<< HEAD
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let account_tx_context = account_tx.get_account_tx_context();
+||||||| b1c8717
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx });
+=======
+    let account_tx =
+        AccountTransaction::DeployAccount(DeployAccountTransaction::new(deploy_account_tx));
+>>>>>>> origin/main-v0.12.3
     let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Invoke a function from the newly deployed contract, that changes the state.
