@@ -36,10 +36,10 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, invoke_tx, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
+    InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -267,13 +267,13 @@ fn validate_final_balances(
 }
 
 fn default_invoke_tx_args() -> InvokeTxArgs {
-    let entry_point_selector = selector_from_name("return_result");
-    let execute_calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
-        entry_point_selector.0,             // EP selector.
-        stark_felt!(1_u8),                  // Calldata length.
-        stark_felt!(2_u8)                   // Calldata: num.
-    ];
+    let execute_calldata = create_calldata(
+        contract_address!(TEST_CONTRACT_ADDRESS),
+        "return_result",
+        &[
+            stark_felt!(2_u8), // Calldata: num.
+        ],
+    );
 
     invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
@@ -450,15 +450,11 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     let recipient = stark_felt!(10_u8);
 
     // Mint some tokens.
-    let entry_point_selector = selector_from_name("permissionedMint");
-    let execute_calldata = calldata![
-        stark_felt!(TEST_ERC20_CONTRACT_ADDRESS), // Contract address.
-        entry_point_selector.0,                   // EP selector.
-        stark_felt!(3_u8),                        // Calldata length.
-        recipient,
-        mint_low,
-        mint_high
-    ];
+    let execute_calldata = create_calldata(
+        contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
+        "permissionedMint",
+        &[recipient, mint_low, mint_high],
+    );
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
@@ -1031,7 +1027,7 @@ fn test_calculate_tx_gas_usage() {
     let state = &mut create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee token address should depend on tx version.
-    let fee_token_address = *block_context.fee_token_addresses.eth_fee_token_address.0.key();
+    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
 
     let account_tx = account_invoke_tx(default_invoke_tx_args());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
@@ -1049,16 +1045,16 @@ fn test_calculate_tx_gas_usage() {
     assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
-    let entry_point_selector = selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME);
     let some_other_account_address = stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
-    let execute_calldata = calldata![
-        fee_token_address,          // Contract address.
-        entry_point_selector.0,     // EP selector.
-        stark_felt!(3_u8),          // Calldata length.
-        some_other_account_address, // Calldata: recipient.
-        stark_felt!(2_u8),          // Calldata: lsb amount.
-        stark_felt!(0_u8)           // Calldata: msb amount.
-    ];
+    let execute_calldata = create_calldata(
+        fee_token_address,
+        constants::TRANSFER_ENTRY_POINT_NAME,
+        &[
+            some_other_account_address, // Calldata: recipient.
+            stark_felt!(2_u8),          // Calldata: lsb amount.
+            stark_felt!(0_u8),          // Calldata: msb amount.
+        ],
+    );
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
