@@ -16,6 +16,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
 
+use super::hint_processor::BYTE_ARRAY_MAGIC;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::execution::call_info::{
@@ -615,4 +616,26 @@ fn test_out_of_gas() {
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
         if error_data == vec![stark_felt!(OUT_OF_GAS_ERROR)]);
+}
+
+// TODO(yuval): This test should fail once upgrading the dependency on cairo-lang-runner to version
+// 2.4.0. To fix it, merge PR https://github.com/starkware-libs/blockifier/pull/1064.
+#[test]
+fn test_syscall_failure_format() {
+    assert_eq!(
+        get_dummy_string_execution_error().to_string(),
+        "Execution failed. Failure reason: \
+         \"0x046a6158a16a947e5916b2a2ca68501a45e93d7110e81aa2d6438b1c57c879a3, , Execution \
+         failure, \\u{11}\"."
+    );
+}
+
+// "Execution failure"
+const DUMMY_EXECUTION_FAILURE_ERROR: &str = "0x457865637574696f6e206661696c757265";
+fn get_dummy_string_execution_error() -> EntryPointExecutionError {
+    let out_of_range_error = vec![BYTE_ARRAY_MAGIC, "0x00", DUMMY_EXECUTION_FAILURE_ERROR, "0x11"]
+        .into_iter()
+        .map(|x| StarkFelt::try_from(x).unwrap())
+        .collect();
+    return EntryPointExecutionError::ExecutionFailed { error_data: out_of_range_error };
 }
