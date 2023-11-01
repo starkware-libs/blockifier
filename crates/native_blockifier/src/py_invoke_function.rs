@@ -121,5 +121,5 @@ pub fn py_invoke_function(py_tx: &PyAny) -> NativeBlockifierResult<InvokeTransac
     }?;
 
     let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);
-    Ok(InvokeTransaction { tx, tx_hash })
+    Ok(InvokeTransaction::new(tx, tx_hash))
 }

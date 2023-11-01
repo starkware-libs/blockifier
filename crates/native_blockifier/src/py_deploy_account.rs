@@ -92,5 +92,5 @@ pub fn py_deploy_account(py_tx: &PyAny) -> NativeBlockifierResult<DeployAccountT
     let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);
     let contract_address =
         ContractAddress::try_from(py_attr::<PyFelt>(py_tx, "sender_address")?.0)?;
-    Ok(DeployAccountTransaction { tx, tx_hash, contract_address })
+    Ok(DeployAccountTransaction::new(tx, tx_hash, contract_address))
 }

@@ -35,12 +35,8 @@ impl Transaction {
         tx_hash: TransactionHash,
         contract_class: Option<ContractClass>,
         paid_fee_on_l1: Option<Fee>,
-<<<<<<< HEAD
         deployed_contract_address: Option<ContractAddress>,
-||||||| b1c8717
-=======
         only_query: bool,
->>>>>>> origin/main-v0.12.3
     ) -> TransactionExecutionResult<Self> {
         match tx {
             StarknetApiTransaction::L1Handler(l1_handler) => {
@@ -52,35 +48,14 @@ impl Transaction {
                 }))
             }
             StarknetApiTransaction::Declare(declare) => {
-<<<<<<< HEAD
-                Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
-                    declare,
-                    tx_hash,
-                    contract_class.expect("Declare should be created with a ContractClass"),
-                )?)))
-||||||| b1c8717
-                Ok(Self::AccountTransaction(AccountTransaction::Declare(DeclareTransaction::new(
-                    declare,
-                    contract_class.expect("Declare should be created with a ContractClass"),
-                )?)))
-=======
                 let contract_class =
                     contract_class.expect("Declare should be created with a ContractClass");
                 let declare_tx = match only_query {
-                    true => DeclareTransaction::new_for_query(declare, contract_class),
-                    false => DeclareTransaction::new(declare, contract_class),
+                    true => DeclareTransaction::new_for_query(declare, tx_hash, contract_class),
+                    false => DeclareTransaction::new(declare, tx_hash, contract_class),
                 };
                 Ok(Self::AccountTransaction(AccountTransaction::Declare(declare_tx?)))
             }
-            StarknetApiTransaction::DeployAccount(deploy_account) => {
-                let deploy_account_tx = match only_query {
-                    true => DeployAccountTransaction::new_for_query(deploy_account),
-                    false => DeployAccountTransaction::new(deploy_account),
-                };
-                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account_tx)))
->>>>>>> origin/main-v0.12.3
-            }
-<<<<<<< HEAD
             StarknetApiTransaction::DeployAccount(deploy_account) => {
                 let contract_address = match deployed_contract_address {
                     Some(address) => address,
@@ -91,34 +66,24 @@ impl Transaction {
                         ContractAddress::default(),
                     )?,
                 };
-
-                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(
-                    DeployAccountTransaction { tx: deploy_account, tx_hash, contract_address },
-                )))
+                let deploy_account_tx = match only_query {
+                    true => DeployAccountTransaction::new_for_query(
+                        deploy_account,
+                        tx_hash,
+                        contract_address,
+                    ),
+                    false => {
+                        DeployAccountTransaction::new(deploy_account, tx_hash, contract_address)
+                    }
+                };
+                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account_tx)))
             }
-||||||| b1c8717
-            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
-                AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account }),
-            )),
-=======
->>>>>>> origin/main-v0.12.3
             StarknetApiTransaction::Invoke(invoke) => {
-<<<<<<< HEAD
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
-                    tx: invoke,
-                    tx_hash,
-                })))
-||||||| b1c8717
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
-                    tx: invoke,
-                })))
-=======
                 let invoke_tx = match only_query {
-                    true => InvokeTransaction::new_for_query(invoke),
-                    false => InvokeTransaction::new(invoke),
+                    true => InvokeTransaction::new_for_query(invoke, tx_hash),
+                    false => InvokeTransaction::new(invoke, tx_hash),
                 };
                 Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke_tx)))
->>>>>>> origin/main-v0.12.3
             }
             _ => unimplemented!(),
         }
