@@ -23,7 +23,6 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, l1_resource_bounds};
-use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -42,6 +41,7 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::{create_calldata, invoke_tx_args};
 
 struct TestInitData {
     pub state: CachedState<DictStateReader>,
@@ -132,7 +132,6 @@ fn create_test_init_data(
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Deploy a contract using syscall deploy.
-    let entry_point_selector = selector_from_name("deploy_contract");
     let salt = ContractAddressSalt::default();
     let class_hash = class_hash!(TEST_CLASS_HASH);
     run_invoke_tx(
@@ -141,15 +140,16 @@ fn create_test_init_data(
         invoke_tx_args! {
             max_fee,
             sender_address: account_address,
-            calldata: calldata![
-                *account_address.0.key(), // Contract address.
-                entry_point_selector.0,   // EP selector.
-                stark_felt!(5_u8),        // Calldata length.
-                class_hash.0,             // Calldata: class_hash.
-                salt.0,                   // Contract_address_salt.
-                stark_felt!(2_u8),        // Constructor calldata length.
-                stark_felt!(1_u8),        // Constructor calldata: address.
-                stark_felt!(1_u8)         // Constructor calldata: value.
+            calldata: create_calldata![
+                contract_address: account_address,
+                entry_point_name: "deploy_contract",
+                entry_point_args: [
+                    class_hash.0,             // Calldata: class_hash.
+                    salt.0,                   // Contract_address_salt.
+                    stark_felt!(2_u8),        // Constructor calldata length.
+                    stark_felt!(1_u8),        // Constructor calldata: address.
+                    stark_felt!(1_u8)         // Constructor calldata: value.
+                ]
             ],
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
