@@ -4,28 +4,11 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-<<<<<<< HEAD
     Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, TransactionHash,
     TransactionSignature, TransactionVersion,
-||||||| 830a236
-    Calldata, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
-=======
-    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, TransactionSignature,
->>>>>>> origin/main-v0.12.3
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-<<<<<<< HEAD
-||||||| 830a236
-use super::account_transaction::AccountTransaction;
-use super::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use super::transaction_types::TransactionType;
-=======
-use super::account_transaction::AccountTransaction;
-use super::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use super::transaction_types::TransactionType;
-use super::transactions::{DeployAccountTransaction, InvokeTransaction};
->>>>>>> origin/main-v0.12.3
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -53,7 +36,6 @@ pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 
-<<<<<<< HEAD
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
         $(impl From<$specified_tx_type> for InvokeTransaction {
@@ -73,23 +55,6 @@ impl_from_versioned_tx!(
     (InvokeTransactionV3, V3)
 );
 
-||||||| 830a236
-=======
-macro_rules! impl_from_versioned_tx {
-    ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
-        $(impl From<$specified_tx_type> for InvokeTransaction {
-            fn from(tx: $specified_tx_type) -> Self {
-                Self {
-                    tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
-                }
-            }
-        })*
-    };
-}
-
-impl_from_versioned_tx!((InvokeTransactionV0, V0), (InvokeTransactionV1, V1));
-
->>>>>>> origin/main-v0.12.3
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
     account_class_hash: &str,
@@ -220,7 +185,7 @@ pub fn create_account_tx_for_validate_test(
                 Some(signature),
                 nonce_manager,
             );
-            AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account_tx })
+            AccountTransaction::DeployAccount(deploy_account_tx)
         }
         TransactionType::InvokeFunction => {
             let entry_point_selector = selector_from_name("foo");
@@ -229,7 +194,6 @@ pub fn create_account_tx_for_validate_test(
                 entry_point_selector.0,                            // EP selector.
                 stark_felt!(0_u8)                                  // Calldata length.
             ];
-<<<<<<< HEAD
             let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
                 signature,
                 sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
@@ -238,55 +202,13 @@ pub fn create_account_tx_for_validate_test(
                 nonce: Nonce::default(),
             });
             AccountTransaction::Invoke(invoke_tx)
-||||||| 830a236
-            let invoke_tx = crate::test_utils::invoke_tx(
-                execute_calldata,
-                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
-                Fee(0),
-                Some(signature),
-            );
-            AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx))
-=======
-            let invoke_tx = crate::test_utils::invoke_tx(
-                execute_calldata,
-                ContractAddress(patricia_key!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
-                Fee(0),
-                Some(signature),
-            );
-            AccountTransaction::Invoke(InvokeTransaction { tx: invoke_tx.into() })
->>>>>>> origin/main-v0.12.3
         }
         TransactionType::L1Handler => unimplemented!(),
     }
 }
 
-<<<<<<< HEAD
 pub fn account_invoke_tx(invoke_args: InvokeTxArgs) -> AccountTransaction {
     AccountTransaction::Invoke(invoke_tx(invoke_args))
-||||||| 830a236
-pub fn account_invoke_tx(
-    execute_calldata: Calldata,
-    account_address: ContractAddress,
-    nonce_manager: &mut NonceManager,
-    max_fee: Fee,
-) -> AccountTransaction {
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: nonce_manager.next(account_address),
-        ..tx
-    }))
-=======
-pub fn account_invoke_tx(
-    execute_calldata: Calldata,
-    account_address: ContractAddress,
-    nonce_manager: &mut NonceManager,
-    max_fee: Fee,
-) -> AccountTransaction {
-    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
-    AccountTransaction::Invoke(
-        InvokeTransactionV1 { nonce: nonce_manager.next(account_address), ..tx }.into(),
-    )
->>>>>>> origin/main-v0.12.3
 }
 
 pub fn run_invoke_tx(

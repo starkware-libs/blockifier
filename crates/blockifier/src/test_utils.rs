@@ -25,18 +25,10 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-<<<<<<< HEAD
     AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV0V1,
     DeployAccountTransactionV1, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
     PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
     TransactionSignature, TransactionVersion,
-||||||| 830a236
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransaction, Fee,
-    InvokeTransactionV1, TransactionSignature, TransactionVersion,
-=======
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV1,
-    TransactionSignature, TransactionVersion,
->>>>>>> origin/main-v0.12.3
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -550,7 +542,6 @@ pub fn deploy_account_tx(
     constructor_calldata: Option<Calldata>,
     signature: Option<TransactionSignature>,
     nonce_manager: &mut NonceManager,
-<<<<<<< HEAD
 ) -> DeployAccountTransaction {
     deploy_account_tx_with_salt(
         class_hash,
@@ -571,13 +562,6 @@ pub fn deploy_account_tx_with_salt(
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     let class_hash = class_hash!(class_hash);
-||||||| 830a236
-) -> DeployAccountTransaction {
-    let class_hash = ClassHash(stark_felt!(class_hash));
-=======
-) -> starknet_api::transaction::DeployAccountTransaction {
-    let class_hash = ClassHash(stark_felt!(class_hash));
->>>>>>> origin/main-v0.12.3
     let deployer_address = ContractAddress::default();
     let constructor_calldata = constructor_calldata.unwrap_or_default();
     let contract_address = calculate_contract_address(
@@ -588,13 +572,7 @@ pub fn deploy_account_tx_with_salt(
     )
     .unwrap();
 
-<<<<<<< HEAD
     let tx = starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
-||||||| 830a236
-    DeployAccountTransaction {
-=======
-    starknet_api::transaction::DeployAccountTransaction {
->>>>>>> origin/main-v0.12.3
         max_fee,
         signature: signature.unwrap_or_default(),
         class_hash,

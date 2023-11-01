@@ -53,7 +53,6 @@ impl Transaction {
                     contract_class.expect("Declare should be created with a ContractClass"),
                 )?)))
             }
-<<<<<<< HEAD
             StarknetApiTransaction::DeployAccount(deploy_account) => {
                 let contract_address = match deployed_contract_address {
                     Some(address) => address,
@@ -69,28 +68,11 @@ impl Transaction {
                     DeployAccountTransaction { tx: deploy_account, tx_hash, contract_address },
                 )))
             }
-||||||| 830a236
-            StarknetApiTransaction::DeployAccount(deploy_account) => {
-                Ok(Self::AccountTransaction(AccountTransaction::DeployAccount(deploy_account)))
-            }
-=======
-            StarknetApiTransaction::DeployAccount(deploy_account) => Ok(Self::AccountTransaction(
-                AccountTransaction::DeployAccount(DeployAccountTransaction { tx: deploy_account }),
-            )),
->>>>>>> origin/main-v0.12.3
             StarknetApiTransaction::Invoke(invoke) => {
-<<<<<<< HEAD
                 Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
                     tx: invoke,
                     tx_hash,
                 })))
-||||||| 830a236
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(invoke)))
-=======
-                Ok(Self::AccountTransaction(AccountTransaction::Invoke(InvokeTransaction {
-                    tx: invoke,
-                })))
->>>>>>> origin/main-v0.12.3
             }
             _ => unimplemented!(),
         }

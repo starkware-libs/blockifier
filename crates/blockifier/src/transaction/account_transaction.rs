@@ -34,15 +34,6 @@ use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
     InvokeTransaction,
 };
-<<<<<<< HEAD
-||||||| 830a236
-use crate::transaction::transactions::{DeclareTransaction, Executable, ExecutableTransaction};
-=======
-use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
-    InvokeTransaction,
-};
->>>>>>> origin/main-v0.12.3
 
 #[cfg(test)]
 #[path = "account_transactions_test.rs"]
@@ -86,31 +77,11 @@ impl AccountTransaction {
 
     pub fn get_address_of_deploy(&self) -> Option<ContractAddress> {
         match self {
-            AccountTransaction::DeployAccount(deploy_tx) => Some(deploy_tx.contract_address()),
+            AccountTransaction::DeployAccount(deploy_tx) => Some(deploy_tx.contract_address),
             _ => None,
         }
     }
 
-<<<<<<< HEAD
-||||||| 830a236
-    pub fn max_fee(&self) -> Fee {
-        match self {
-            AccountTransaction::Declare(declare) => declare.tx().max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee,
-            AccountTransaction::Invoke(invoke) => invoke.max_fee(),
-        }
-    }
-
-=======
-    pub fn max_fee(&self) -> Fee {
-        match self {
-            AccountTransaction::Declare(declare) => declare.tx().max_fee(),
-            AccountTransaction::DeployAccount(deploy_account) => deploy_account.max_fee(),
-            AccountTransaction::Invoke(invoke) => invoke.max_fee(),
-        }
-    }
-
->>>>>>> origin/main-v0.12.3
     fn validate_entry_point_selector(&self) -> EntryPointSelector {
         let validate_entry_point_name = match self {
             Self::Declare(_) => constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
@@ -139,77 +110,9 @@ impl AccountTransaction {
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         match self {
-<<<<<<< HEAD
             Self::Declare(tx) => tx.get_account_tx_context(),
             Self::DeployAccount(tx) => tx.get_account_tx_context(),
             Self::Invoke(tx) => tx.get_account_tx_context(),
-||||||| 830a236
-            Self::Declare(tx) => {
-                let tx = &tx.tx();
-                AccountTransactionContext {
-                    transaction_hash: tx.transaction_hash(),
-                    max_fee: tx.max_fee(),
-                    version: tx.version(),
-                    signature: tx.signature(),
-                    nonce: tx.nonce(),
-                    sender_address: tx.sender_address(),
-                }
-            }
-            Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash,
-                max_fee: tx.max_fee,
-                version: tx.version,
-                signature: tx.signature.clone(),
-                nonce: tx.nonce,
-                sender_address: tx.contract_address,
-            },
-            Self::Invoke(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
-                version: match tx {
-                    InvokeTransaction::V0(_) => TransactionVersion(StarkFelt::from(0_u8)),
-                    InvokeTransaction::V1(_) => TransactionVersion(StarkFelt::from(1_u8)),
-                },
-                signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.sender_address(),
-            },
-=======
-            Self::Declare(tx) => {
-                let tx = &tx.tx();
-                AccountTransactionContext {
-                    transaction_hash: tx.transaction_hash(),
-                    max_fee: tx.max_fee(),
-                    version: tx.version(),
-                    signature: tx.signature(),
-                    nonce: tx.nonce(),
-                    sender_address: tx.sender_address(),
-                }
-            }
-            Self::DeployAccount(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
-                version: tx.version(),
-                signature: tx.signature().clone(),
-                nonce: tx.nonce(),
-                sender_address: tx.contract_address(),
-            },
-            Self::Invoke(tx) => AccountTransactionContext {
-                transaction_hash: tx.transaction_hash(),
-                max_fee: tx.max_fee(),
-                version: match tx.tx {
-                    starknet_api::transaction::InvokeTransaction::V0(_) => {
-                        TransactionVersion(StarkFelt::from(0_u8))
-                    }
-                    starknet_api::transaction::InvokeTransaction::V1(_) => {
-                        TransactionVersion(StarkFelt::from(1_u8))
-                    }
-                },
-                signature: tx.signature(),
-                nonce: tx.nonce(),
-                sender_address: tx.sender_address(),
-            },
->>>>>>> origin/main-v0.12.3
         }
     }
 
