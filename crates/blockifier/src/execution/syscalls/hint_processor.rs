@@ -33,8 +33,8 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
-    felt_range_from_ptr, stark_felt_from_ptr, stark_felt_to_felt, write_maybe_relocatable,
-    ReadOnlySegment, ReadOnlySegments,
+    felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
+    write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::secp::{
     secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
@@ -462,16 +462,10 @@ impl<'a> SyscallHintProcessor<'a> {
             &self.allocate_data_segment(vm, self.context.account_tx_context.signature().0)?;
         let account_tx_context = self.context.account_tx_context.clone();
 
-        let max_fee: MaybeRelocatable = match &self.context.account_tx_context {
-            AccountTransactionContext::Current(_) => Felt252::zero().into(),
-            AccountTransactionContext::Deprecated(_) => {
-                Felt252::from(self.context.account_tx_context.max_fee().0).into()
-            }
-        };
         let mut tx_info: Vec<MaybeRelocatable> = vec![
             stark_felt_to_felt(self.context.account_tx_context.version().0).into(),
             stark_felt_to_felt(*self.context.account_tx_context.sender_address().0.key()).into(),
-            max_fee,
+            max_fee_for_execution_info(&account_tx_context).into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
             stark_felt_to_felt((self.context.account_tx_context).transaction_hash().0).into(),
