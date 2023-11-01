@@ -311,9 +311,19 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         let account_tx_context = &self.context.account_tx_context;
         let tx_signature_length = account_tx_context.signature().0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
+<<<<<<< HEAD
             stark_felt_to_felt(account_tx_context.version().0).into(),
             stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
             max_fee_for_execution_info(account_tx_context).into(),
+||||||| 24cc8f2
+            stark_felt_to_felt(account_tx_context.version.0).into(),
+            stark_felt_to_felt(*account_tx_context.sender_address.0.key()).into(),
+            Felt252::from(account_tx_context.max_fee.0).into(),
+=======
+            stark_felt_to_felt(account_tx_context.signed_version().0).into(),
+            stark_felt_to_felt(*account_tx_context.sender_address.0.key()).into(),
+            Felt252::from(account_tx_context.max_fee.0).into(),
+>>>>>>> origin/main-v0.12.3
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
             stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),

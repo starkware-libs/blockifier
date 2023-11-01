@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_felt::Felt252;
 use itertools::concat;
+use num_traits::Pow;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
@@ -9,9 +11,17 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
+<<<<<<< HEAD
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::fee_utils::calculate_tx_fee;
+||||||| 24cc8f2
+use crate::execution::entry_point::CallInfo;
+=======
+use crate::execution::entry_point::CallInfo;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
+>>>>>>> origin/main-v0.12.3
 use crate::transaction::errors::TransactionExecutionError;
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
@@ -126,8 +136,35 @@ pub struct CommonAccountFields {
     pub signature: TransactionSignature,
     pub nonce: Nonce,
     pub sender_address: ContractAddress,
+    pub only_query: bool,
 }
 
+<<<<<<< HEAD
+||||||| 24cc8f2
+impl AccountTransactionContext {
+    pub fn is_v0(&self) -> bool {
+        self.version == TransactionVersion(stark_felt!(0_u8))
+    }
+}
+
+=======
+impl AccountTransactionContext {
+    pub fn is_v0(&self) -> bool {
+        self.version == TransactionVersion(stark_felt!(0_u8))
+    }
+
+    pub fn signed_version(&self) -> TransactionVersion {
+        if !self.only_query {
+            return self.version;
+        }
+
+        let query_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
+        let query_version = query_version_base + stark_felt_to_felt(self.version.0);
+        TransactionVersion(felt_to_stark_felt(&query_version))
+    }
+}
+
+>>>>>>> origin/main-v0.12.3
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionExecutionInfo {

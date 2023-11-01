@@ -10,7 +10,12 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
+<<<<<<< HEAD
     TransactionHash, TransactionVersion,
+||||||| 24cc8f2
+=======
+    InvokeTransactionV1,
+>>>>>>> origin/main-v0.12.3
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -27,10 +32,21 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
+<<<<<<< HEAD
     declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+||||||| 24cc8f2
+    declare_tx, deploy_account_tx, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+=======
+    declare_tx, deploy_account_tx, invoke_tx, DictStateReader, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+>>>>>>> origin/main-v0.12.3
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -41,7 +57,17 @@ use crate::transaction::test_utils::{
     create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
+<<<<<<< HEAD
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+||||||| 24cc8f2
+use crate::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+};
+=======
+use crate::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, InvokeTransaction,
+};
+>>>>>>> origin/main-v0.12.3
 
 struct TestInitData {
     pub state: CachedState<DictStateReader>,
@@ -195,6 +221,7 @@ fn test_fee_enforcement(
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
 // TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
 #[rstest]
+<<<<<<< HEAD
 #[case(TransactionVersion::ZERO)]
 #[case(TransactionVersion::ONE)]
 fn test_account_flow_test(
@@ -202,6 +229,17 @@ fn test_account_flow_test(
     #[from(create_test_init_data)] init_data: TestInitData,
     #[case] tx_version: TransactionVersion,
 ) {
+||||||| 24cc8f2
+fn test_account_flow_test(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
+=======
+#[case(false)]
+#[case(true)]
+fn test_account_flow_test(
+    max_fee: Fee,
+    #[from(create_test_init_data)] init_data: TestInitData,
+    #[case] only_query: bool,
+) {
+>>>>>>> origin/main-v0.12.3
     let TestInitData {
         mut state,
         account_address,
@@ -212,6 +250,7 @@ fn test_account_flow_test(
 
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
+<<<<<<< HEAD
     run_invoke_tx(
         &mut state,
         &block_context,
@@ -229,6 +268,39 @@ fn test_account_flow_test(
         },
     )
     .unwrap();
+||||||| 24cc8f2
+    run_invoke_tx(
+        calldata![
+            *contract_address.0.key(), // Contract address.
+            entry_point_selector.0,    // EP selector.
+            stark_felt!(1_u8),         // Calldata length.
+            stark_felt!(2_u8)          // Calldata: num.
+        ],
+        &mut state,
+        account_address,
+        &block_context,
+        &mut nonce_manager,
+        max_fee,
+    )
+    .unwrap();
+=======
+    let execute_calldata = calldata![
+        *contract_address.0.key(), // Contract address.
+        entry_point_selector.0,    // EP selector.
+        stark_felt!(1_u8),         // Calldata length.
+        stark_felt!(2_u8)          // Calldata: num.
+    ];
+    let tx = invoke_tx(execute_calldata, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Invoke(InvokeTransaction {
+        tx: starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
+            nonce: nonce_manager.next(account_address),
+            ..tx
+        }),
+        only_query,
+    });
+    let tx_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    assert!(!tx_execution_info.is_reverted());
+>>>>>>> origin/main-v0.12.3
 }
 
 #[rstest]

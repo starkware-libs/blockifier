@@ -110,9 +110,81 @@ impl AccountTransaction {
 
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         match self {
+<<<<<<< HEAD
             Self::Declare(tx) => tx.get_account_tx_context(),
             Self::DeployAccount(tx) => tx.get_account_tx_context(),
             Self::Invoke(tx) => tx.get_account_tx_context(),
+||||||| 24cc8f2
+            Self::Declare(tx) => {
+                let tx = &tx.tx();
+                AccountTransactionContext {
+                    transaction_hash: tx.transaction_hash(),
+                    max_fee: tx.max_fee(),
+                    version: tx.version(),
+                    signature: tx.signature(),
+                    nonce: tx.nonce(),
+                    sender_address: tx.sender_address(),
+                }
+            }
+            Self::DeployAccount(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: tx.version(),
+                signature: tx.signature().clone(),
+                nonce: tx.nonce(),
+                sender_address: tx.contract_address(),
+            },
+            Self::Invoke(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: match tx.tx {
+                    starknet_api::transaction::InvokeTransaction::V0(_) => {
+                        TransactionVersion(StarkFelt::from(0_u8))
+                    }
+                    starknet_api::transaction::InvokeTransaction::V1(_) => {
+                        TransactionVersion(StarkFelt::from(1_u8))
+                    }
+                },
+                signature: tx.signature(),
+                nonce: tx.nonce(),
+                sender_address: tx.sender_address(),
+            },
+=======
+            Self::Declare(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: tx.version(),
+                signature: tx.signature(),
+                nonce: tx.nonce(),
+                sender_address: tx.sender_address(),
+                only_query: tx.only_query(),
+            },
+            Self::DeployAccount(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: tx.version(),
+                signature: tx.signature().clone(),
+                nonce: tx.nonce(),
+                sender_address: tx.contract_address(),
+                only_query: tx.only_query,
+            },
+            Self::Invoke(tx) => AccountTransactionContext {
+                transaction_hash: tx.transaction_hash(),
+                max_fee: tx.max_fee(),
+                version: match tx.tx {
+                    starknet_api::transaction::InvokeTransaction::V0(_) => {
+                        TransactionVersion(StarkFelt::from(0_u8))
+                    }
+                    starknet_api::transaction::InvokeTransaction::V1(_) => {
+                        TransactionVersion(StarkFelt::from(1_u8))
+                    }
+                },
+                signature: tx.signature(),
+                nonce: tx.nonce(),
+                sender_address: tx.sender_address(),
+                only_query: tx.only_query,
+            },
+>>>>>>> origin/main-v0.12.3
         }
     }
 
