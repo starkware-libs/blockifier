@@ -11,8 +11,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, DeployAccountTransaction, EventContent,
-    EventData, EventKey, Fee, InvokeTransaction, InvokeTransactionV1, TransactionSignature,
+    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
+    InvokeTransactionV1, TransactionSignature,
 };
 use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
@@ -52,7 +52,9 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::transaction::transactions::{
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+};
 
 enum CairoVersion {
     Cairo0,
@@ -294,7 +296,7 @@ fn test_invoke_tx(
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata.0));
     let sender_address = invoke_tx.sender_address;
 
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
+    let account_tx = AccountTransaction::Invoke(invoke_tx.into());
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -427,9 +429,7 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
         Fee(MAX_FEE),
         None,
     );
-    AccountTransaction::Invoke(InvokeTransaction::V1(mint_tx))
-        .execute(state, block_context, true, true)
-        .unwrap();
+    AccountTransaction::Invoke(mint_tx.into()).execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
     let (low, high) = state
@@ -466,21 +466,22 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     let invalid_max_fee = Fee(BALANCE + 1);
 
     // Invoke.
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..invoke_tx()
-    }));
+    let invalid_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 { max_fee: invalid_max_fee, ..invoke_tx() }.into(),
+    );
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
-        max_fee: invalid_max_fee,
-        ..deploy_account_tx(
-            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-            None,
-            None,
-            &mut NonceManager::default(),
-        )
+        tx: starknet_api::transaction::DeployAccountTransaction {
+            max_fee: invalid_max_fee,
+            ..deploy_account_tx(
+                TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+                None,
+                None,
+                &mut NonceManager::default(),
+            )
+        },
     });
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
@@ -506,16 +507,14 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
 fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx = invoke_tx();
-    let valid_account_tx =
-        AccountTransaction::Invoke(InvokeTransaction::V1(valid_invoke_tx.clone()));
+    let valid_account_tx = AccountTransaction::Invoke(valid_invoke_tx.clone().into());
 
     // Fee too low (lower than minimal estimated fee).
     let minimal_fee = estimate_minimal_fee(block_context, &valid_account_tx).unwrap();
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..valid_invoke_tx.clone()
-    }));
+    let invalid_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 { max_fee: invalid_max_fee, ..valid_invoke_tx.clone() }.into(),
+    );
     let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
 
     // Test error.
@@ -527,10 +526,9 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
 
     // Insufficient fee.
     let invalid_max_fee = minimal_fee;
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        max_fee: invalid_max_fee,
-        ..valid_invoke_tx.clone()
-    }));
+    let invalid_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 { max_fee: invalid_max_fee, ..valid_invoke_tx.clone() }.into(),
+    );
     let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
     let execution_error = execution_result.revert_error.unwrap();
 
@@ -542,10 +540,9 @@ fn test_negative_invoke_tx_flows(state: &mut CachedState<DictStateReader>) {
     // Invalid nonce.
     // Use a fresh state to facilitate testing.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
-    let invalid_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: invalid_nonce,
-        ..valid_invoke_tx
-    }));
+    let invalid_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 { nonce: invalid_nonce, ..valid_invoke_tx }.into(),
+    );
     let execution_error = invalid_tx
         .execute(&mut create_state_with_trivial_validation_account(), block_context, true, true)
         .unwrap_err();
@@ -735,7 +732,7 @@ fn deploy_account_tx(
     constructor_calldata: Option<Calldata>,
     signature: Option<TransactionSignature>,
     nonce_manager: &mut NonceManager,
-) -> DeployAccountTransaction {
+) -> starknet_api::transaction::DeployAccountTransaction {
     crate::test_utils::deploy_account_tx(
         account_class_hash,
         Fee(MAX_FEE),
@@ -785,7 +782,9 @@ fn test_deploy_account_tx(
         stark_felt!(BALANCE),
     );
 
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx.clone());
+    let account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+        tx: deploy_account_tx.clone(),
+    });
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -873,8 +872,10 @@ fn test_deploy_account_tx(
     // Negative flow.
     // Deploy to an existing address.
     let deploy_account_tx = DeployAccountTransaction {
-        nonce: nonce_manager.next(deployed_account_address),
-        ..deploy_account_tx
+        tx: starknet_api::transaction::DeployAccountTransaction {
+            nonce: nonce_manager.next(deployed_account_address),
+            ..deploy_account_tx
+        },
     };
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
@@ -960,7 +961,9 @@ fn test_validate_accounts_tx() {
                 ])),
                 &mut NonceManager::default(),
             );
-            let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+            let account_tx = AccountTransaction::DeployAccount(DeployAccountTransaction {
+                tx: deploy_account_tx,
+            });
             let error = account_tx.execute(state, block_context, true, true).unwrap_err();
             if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
                 check_entry_point_execution_error_for_custom_hint(
@@ -986,7 +989,7 @@ fn test_calculate_tx_gas_usage() {
     let block_context = &BlockContext::create_for_account_testing();
 
     let invoke_tx = invoke_tx();
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
+    let account_tx = AccountTransaction::Invoke(invoke_tx.into());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     let n_storage_updates = 1; // For the account balance update.
@@ -1023,10 +1026,9 @@ fn test_calculate_tx_gas_usage() {
         None,
     );
 
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(InvokeTransactionV1 {
-        nonce: Nonce(StarkFelt::from(1_u8)),
-        ..invoke_tx
-    }));
+    let account_tx = AccountTransaction::Invoke(
+        InvokeTransactionV1 { nonce: Nonce(StarkFelt::from(1_u8)), ..invoke_tx }.into(),
+    );
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.
@@ -1053,7 +1055,7 @@ fn test_valid_flag() {
     let block_context = &BlockContext::create_for_account_testing();
     let invoke_tx = invoke_tx();
 
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction::V1(invoke_tx));
+    let account_tx = AccountTransaction::Invoke(invoke_tx.into());
     let actual_execution_info = account_tx.execute(state, block_context, true, false).unwrap();
 
     assert!(actual_execution_info.validate_call_info.is_none());

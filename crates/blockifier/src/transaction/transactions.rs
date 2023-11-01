@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use starknet_api::core::ContractAddress;
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::transaction::{Calldata, DeployAccountTransaction, Fee, InvokeTransaction};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
+};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -23,6 +25,22 @@ use crate::transaction::transaction_utils::update_remaining_gas;
 #[cfg(test)]
 #[path = "transactions_test.rs"]
 mod test;
+
+macro_rules! implement_inner_tx_getter_calls {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            self.tx.$field().clone()
+        })*
+    };
+}
+
+macro_rules! implement_inner_tx_getter_fields {
+    ($(($field:ident, $field_type:ty)),*) => {
+        $(pub fn $field(&self) -> $field_type {
+            self.tx.$field.clone()
+        })*
+    };
+}
 
 pub trait ExecutableTransaction<S: StateReader>: Sized {
     /// Executes the transaction in a transactional manner
@@ -126,6 +144,8 @@ impl DeclareTransaction {
         }
     }
 
+    implement_inner_tx_getter_calls!((class_hash, ClassHash));
+
     pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
         &self.tx
     }
@@ -172,6 +192,25 @@ impl<S: State> Executable<S> for DeclareTransaction {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DeployAccountTransaction {
+    pub tx: starknet_api::transaction::DeployAccountTransaction,
+}
+
+impl DeployAccountTransaction {
+    implement_inner_tx_getter_fields!(
+        (class_hash, ClassHash),
+        (constructor_calldata, Calldata),
+        (contract_address_salt, ContractAddressSalt),
+        (contract_address, ContractAddress),
+        (nonce, Nonce),
+        (signature, TransactionSignature),
+        (max_fee, Fee),
+        (version, TransactionVersion),
+        (transaction_hash, TransactionHash)
+    );
+}
+
 impl<S: State> Executable<S> for DeployAccountTransaction {
     fn run_execute(
         &self,
@@ -181,9 +220,9 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let ctor_context = ConstructorContext {
-            class_hash: self.class_hash,
+            class_hash: self.class_hash(),
             code_address: None,
-            storage_address: self.contract_address,
+            storage_address: self.contract_address(),
             caller_address: ContractAddress::default(),
         };
         let deployment_result = execute_deployment(
@@ -191,7 +230,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             resources,
             context,
             ctor_context,
-            self.constructor_calldata.clone(),
+            self.constructor_calldata().clone(),
             *remaining_gas,
         );
         let call_info = deployment_result
@@ -202,6 +241,22 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct InvokeTransaction {
+    pub tx: starknet_api::transaction::InvokeTransaction,
+}
+
+impl InvokeTransaction {
+    implement_inner_tx_getter_calls!(
+        (calldata, Calldata),
+        (signature, TransactionSignature),
+        (sender_address, ContractAddress),
+        (max_fee, Fee),
+        (transaction_hash, TransactionHash),
+        (nonce, Nonce)
+    );
+}
+
 impl<S: State> Executable<S> for InvokeTransaction {
     fn run_execute(
         &self,
@@ -210,9 +265,11 @@ impl<S: State> Executable<S> for InvokeTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
-        let entry_point_selector = match self {
-            InvokeTransaction::V0(tx) => tx.entry_point_selector,
-            InvokeTransaction::V1(_) => selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
+        let entry_point_selector = match &self.tx {
+            starknet_api::transaction::InvokeTransaction::V0(tx) => tx.entry_point_selector,
+            starknet_api::transaction::InvokeTransaction::V1(_) => {
+                selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME)
+            }
         };
         let storage_address = self.sender_address();
         let execute_call = CallEntryPoint {
