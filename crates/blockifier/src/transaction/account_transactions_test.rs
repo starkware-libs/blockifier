@@ -195,12 +195,11 @@ fn test_fee_enforcement(
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
 // TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
 #[rstest]
-#[case(TransactionVersion::ZERO)]
-#[case(TransactionVersion::ONE)]
 fn test_account_flow_test(
     max_fee: Fee,
     #[from(create_test_init_data)] init_data: TestInitData,
-    #[case] tx_version: TransactionVersion,
+    #[values(TransactionVersion::ZERO, TransactionVersion::ONE)] tx_version: TransactionVersion,
+    #[values(true, false)] only_query: bool,
 ) {
     let TestInitData {
         mut state,
@@ -226,6 +225,7 @@ fn test_account_flow_test(
             ],
             version: tx_version,
             nonce: nonce_manager.next(account_address),
+            only_query,
         },
     )
     .unwrap();

@@ -107,8 +107,8 @@ pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
     tx_hash: TransactionHash,
     contract_class: ContractClass,
-    // Indicates the presence of the query bit in the version.
-    query: bool,
+    // Indicates the presence of the only_query bit in the version.
+    only_query: bool,
 }
 
 impl DeclareTransaction {
@@ -116,11 +116,11 @@ impl DeclareTransaction {
         declare_tx: starknet_api::transaction::DeclareTransaction,
         tx_hash: TransactionHash,
         contract_class: ContractClass,
-        query: bool,
+        only_query: bool,
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
         let contract_class = verify_contract_class_version(contract_class, declare_version)?;
-        Ok(Self { tx: declare_tx, tx_hash, contract_class, query })
+        Ok(Self { tx: declare_tx, tx_hash, contract_class, only_query })
     }
 
     pub fn new(
@@ -161,6 +161,7 @@ impl DeclareTransaction {
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
             sender_address: self.tx.sender_address(),
+            only_query: self.only_query,
         };
 
         match &self.tx {
@@ -191,8 +192,8 @@ impl DeclareTransaction {
         }
     }
 
-    pub fn query(&self) -> bool {
-        self.query
+    pub fn only_query(&self) -> bool {
+        self.only_query
     }
 }
 
@@ -245,8 +246,8 @@ pub struct DeployAccountTransaction {
     pub tx: starknet_api::transaction::DeployAccountTransaction,
     pub tx_hash: TransactionHash,
     pub contract_address: ContractAddress,
-    // Indicates the presence of the query bit in the version.
-    pub query: bool,
+    // Indicates the presence of the only_query bit in the version.
+    pub only_query: bool,
 }
 
 impl DeployAccountTransaction {
@@ -255,7 +256,7 @@ impl DeployAccountTransaction {
         tx_hash: TransactionHash,
         contract_address: ContractAddress,
     ) -> Self {
-        Self { tx: deploy_account_tx, tx_hash, contract_address, query: false }
+        Self { tx: deploy_account_tx, tx_hash, contract_address, only_query: false }
     }
 
     pub fn new_for_query(
@@ -263,7 +264,7 @@ impl DeployAccountTransaction {
         tx_hash: TransactionHash,
         contract_address: ContractAddress,
     ) -> Self {
-        Self { tx: deploy_account_tx, tx_hash, contract_address, query: true }
+        Self { tx: deploy_account_tx, tx_hash, contract_address, only_query: true }
     }
 
     implement_inner_tx_getter_calls!(
@@ -285,6 +286,7 @@ impl DeployAccountTransaction {
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
             sender_address: self.contract_address,
+            only_query: self.only_query,
         };
 
         match &self.tx {
@@ -343,8 +345,8 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
 pub struct InvokeTransaction {
     pub tx: starknet_api::transaction::InvokeTransaction,
     pub tx_hash: TransactionHash,
-    // Indicates the presence of the query bit in the version.
-    pub query: bool,
+    // Indicates the presence of the only_query bit in the version.
+    pub only_query: bool,
 }
 
 impl InvokeTransaction {
@@ -352,14 +354,14 @@ impl InvokeTransaction {
         invoke_tx: starknet_api::transaction::InvokeTransaction,
         tx_hash: TransactionHash,
     ) -> Self {
-        Self { tx: invoke_tx, tx_hash, query: false }
+        Self { tx: invoke_tx, tx_hash, only_query: false }
     }
 
     pub fn new_for_query(
         invoke_tx: starknet_api::transaction::InvokeTransaction,
         tx_hash: TransactionHash,
     ) -> Self {
-        Self { tx: invoke_tx, tx_hash, query: true }
+        Self { tx: invoke_tx, tx_hash, only_query: true }
     }
 
     implement_inner_tx_getter_calls!(
@@ -375,6 +377,7 @@ impl InvokeTransaction {
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),
             sender_address: self.tx.sender_address(),
+            only_query: self.only_query,
         };
 
         match &self.tx {
@@ -458,6 +461,7 @@ impl L1HandlerTransaction {
                 signature: TransactionSignature::default(),
                 nonce: self.tx.nonce,
                 sender_address: self.tx.contract_address,
+                only_query: false,
             },
             max_fee: Fee::default(),
         })

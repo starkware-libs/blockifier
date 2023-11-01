@@ -311,7 +311,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         let account_tx_context = &self.context.account_tx_context;
         let tx_signature_length = account_tx_context.signature().0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(account_tx_context.version().0).into(),
+            stark_felt_to_felt(account_tx_context.signed_version().0).into(),
             stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
             max_fee_for_execution_info(account_tx_context).into(),
             tx_signature_length.into(),
