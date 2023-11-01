@@ -27,7 +27,7 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
+    create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -132,7 +132,6 @@ fn create_test_init_data(
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Deploy a contract using syscall deploy.
-    let entry_point_selector = selector_from_name("deploy_contract");
     let salt = ContractAddressSalt::default();
     let class_hash = class_hash!(TEST_CLASS_HASH);
     run_invoke_tx(
@@ -141,16 +140,17 @@ fn create_test_init_data(
         invoke_tx_args! {
             max_fee,
             sender_address: account_address,
-            calldata: calldata![
-                *account_address.0.key(), // Contract address.
-                entry_point_selector.0,   // EP selector.
-                stark_felt!(5_u8),        // Calldata length.
-                class_hash.0,             // Calldata: class_hash.
-                salt.0,                   // Contract_address_salt.
-                stark_felt!(2_u8),        // Constructor calldata length.
-                stark_felt!(1_u8),        // Constructor calldata: address.
-                stark_felt!(1_u8)         // Constructor calldata: value.
-            ],
+            calldata: create_calldata(
+                account_address,
+                "deploy_contract",
+                &[
+                    class_hash.0,             // Calldata: class_hash
+                    salt.0,                   // contract address salt.
+                    stark_felt!(2_u8),        // constructor calldata length.
+                    stark_felt!(1_u8),        // constructor calldata: address.
+                    stark_felt!(1_u8)         // constructor calldata: value.
+                ]
+            ),
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
         },
