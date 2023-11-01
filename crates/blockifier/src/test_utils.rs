@@ -674,3 +674,34 @@ pub fn check_entry_point_execution_error_for_custom_hint(
         panic!("Unexpected structure for error: {:?}", error);
     }
 }
+#[macro_export]
+/// Usage:
+/// create_calldata(
+///     contract_address: <ContractAddress>,
+///     entry_point_name: "some_entry_point_name",
+///     entry_point_args: [
+///         starkfelt_arg_1,
+///         starkfelt_arg_2,
+///         ...
+///     ]
+/// );
+macro_rules! create_calldata {
+    (
+        contract_address:
+        $contract_address:expr,entry_point_name:
+        $entry_point_name:expr,entry_point_args:
+        $entry_point_args:expr $(,)*
+    ) => {{
+        let n_args = u128::try_from($entry_point_args.len()).expect("Calldata too big");
+        let n_args = StarkFelt::try_from(n_args).unwrap();
+
+        let mut calldata = vec![
+            *$contract_address.0.key(),              // Contract address as StarFelt.
+            selector_from_name($entry_point_name).0, // EP selector as StarkFelt.
+            n_args,
+        ];
+        calldata.extend($entry_point_args);
+
+        Calldata(calldata.into())
+    }};
+}
