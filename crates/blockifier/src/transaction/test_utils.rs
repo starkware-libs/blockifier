@@ -40,10 +40,10 @@ macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
         $(impl From<$specified_tx_type> for InvokeTransaction {
             fn from(tx: $specified_tx_type) -> Self {
-                Self {
-                    tx: starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
-                    tx_hash: TransactionHash::default(),
-                }
+                Self::new(
+                    starknet_api::transaction::InvokeTransaction::$enum_variant(tx),
+                    TransactionHash::default(),
+                )
             }
         })*
     };

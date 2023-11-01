@@ -515,16 +515,17 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 
     // Declare.
-    let invalid_tx = AccountTransaction::Declare(DeclareTransaction {
-        tx: starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-            max_fee: invalid_max_fee,
-            ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
-        }),
-        tx_hash: TransactionHash::default(),
-        contract_class: ContractClass::V0(ContractClassV0::from_file(
-            TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-        )),
-    });
+    let invalid_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+                max_fee: invalid_max_fee,
+                ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
+            }),
+            TransactionHash::default(),
+            ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH)),
+        )
+        .unwrap(),
+    );
     assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
 }
 
@@ -627,11 +628,14 @@ fn test_declare_tx(
 
     let contract_class =
         ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH));
-    let account_tx = AccountTransaction::Declare(DeclareTransaction {
-        tx: starknet_api::transaction::DeclareTransaction::V1(declare_tx),
-        tx_hash: TransactionHash::default(),
-        contract_class: contract_class.clone(),
-    });
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(declare_tx),
+            TransactionHash::default(),
+            contract_class.clone(),
+        )
+        .unwrap(),
+    );
 
     // Check state before transaction application.
     assert_matches!(
@@ -727,11 +731,14 @@ fn test_declare_tx_v2() {
 
     let contract_class =
         ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH));
-    let account_tx = AccountTransaction::Declare(DeclareTransaction {
-        tx: starknet_api::transaction::DeclareTransaction::V2(declare_tx),
-        tx_hash: TransactionHash::default(),
-        contract_class: contract_class.clone(),
-    });
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V2(declare_tx),
+            TransactionHash::default(),
+            contract_class.clone(),
+        )
+        .unwrap(),
+    );
     let fee_type = &account_tx.fee_type();
 
     // Check state before transaction application.
