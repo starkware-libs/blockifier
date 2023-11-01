@@ -567,7 +567,11 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         &mut NonceManager::default(),
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
-    let deploy_address = deploy_account_tx.get_address_of_deploy().unwrap();
+
+    let deploy_address = match &deploy_account_tx {
+        AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
+        _ => unreachable!("deploy_account_tx is a DeployAccount"),
+    };
 
     let initial_balance =
         state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap();
