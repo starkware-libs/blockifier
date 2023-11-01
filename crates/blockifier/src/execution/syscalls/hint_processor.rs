@@ -428,10 +428,23 @@ impl<'a> SyscallHintProcessor<'a> {
         let block_context = &self.context.block_context;
         let block_info: Vec<StarkFelt> = if self.is_validate_mode() {
             vec![
+<<<<<<< HEAD
                 StarkFelt::ZERO,
                 // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate``.
                 StarkFelt::from(block_context.block_timestamp.0),
                 StarkFelt::ZERO,
+||||||| 830a236
+                Felt252::zero().into(),
+                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate``.
+                Felt252::from(block_context.block_timestamp.0).into(),
+                Felt252::zero().into(),
+=======
+                // TODO(Yoni, 1/5/2024): set the number to be zero for `validate`.
+                Felt252::from(block_context.block_number.0).into(),
+                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
+                Felt252::from(block_context.block_timestamp.0).into(),
+                Felt252::zero().into(),
+>>>>>>> origin/main-v0.12.3
             ]
         } else {
             vec![
