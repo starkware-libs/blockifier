@@ -9,17 +9,17 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use crate::abi::abi_utils::get_storage_var_address;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    invoke_tx, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    DictStateReader, InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
-    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    create_calldata, invoke_tx, test_erc20_account_balance_key,
+    test_erc20_faulty_account_balance_key, DictStateReader, InvokeTxArgs, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
@@ -188,12 +188,11 @@ pub fn create_account_tx_for_validate_test(
             AccountTransaction::DeployAccount(deploy_account_tx)
         }
         TransactionType::InvokeFunction => {
-            let entry_point_selector = selector_from_name("foo");
-            let execute_calldata = calldata![
-                stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
-                entry_point_selector.0,                            // EP selector.
-                stark_felt!(0_u8)                                  // Calldata length.
-            ];
+            let execute_calldata = create_calldata(
+                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                "foo",
+                &[],
+            );
             let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
                 signature,
                 sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),

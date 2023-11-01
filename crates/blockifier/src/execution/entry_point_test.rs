@@ -3,11 +3,11 @@ use std::collections::HashSet;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -16,7 +16,7 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::{
-    create_test_state, deprecated_create_test_state, pad_address_to_64,
+    create_calldata, create_test_state, deprecated_create_test_state, pad_address_to_64,
     trivial_external_entry_point, trivial_external_entry_point_security_test, DictStateReader,
     SECURITY_TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
 };
@@ -511,15 +511,15 @@ fn test_stack_trace() {
     // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("foo");
-    let calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS_2), // Contract address.
-        outer_entry_point_selector.0,         // Calling test_call_contract again.
-        stark_felt!(3_u8),                    /* Calldata length for inner
-                                               * test_call_contract. */
-        stark_felt!(SECURITY_TEST_CONTRACT_ADDRESS), // Contract address.
-        inner_entry_point_selector.0,                // Function selector.
-        stark_felt!(0_u8)                            // Innermost calldata length.
-    ];
+    let calldata = create_calldata(
+        contract_address!(TEST_CONTRACT_ADDRESS_2),
+        "test_call_contract",
+        &[
+            stark_felt!(SECURITY_TEST_CONTRACT_ADDRESS), // Contract address.
+            inner_entry_point_selector.0,                // Function selector.
+            stark_felt!(0_u8),                           // Innermost calldata length.
+        ],
+    );
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata,

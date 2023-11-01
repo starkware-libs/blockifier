@@ -31,10 +31,10 @@ use crate::execution::syscalls::hint_processor::{
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, create_deploy_test_state, create_test_state,
-    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    check_entry_point_execution_error_for_custom_hint, create_calldata, create_deploy_test_state,
+    create_test_state, trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -73,14 +73,14 @@ fn test_call_contract() {
     let mut state = create_test_state();
 
     let outer_entry_point_selector = selector_from_name("test_call_contract");
-    let inner_entry_point_selector = selector_from_name("test_storage_read_write");
-    let calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
-        inner_entry_point_selector.0,       // Function selector.
-        stark_felt!(2_u8),                  // Calldata length.
-        stark_felt!(405_u16),               // Calldata: address.
-        stark_felt!(48_u8)                  // Calldata: value.
-    ];
+    let calldata = create_calldata(
+        contract_address!(TEST_CONTRACT_ADDRESS),
+        "test_storage_read_write",
+        &[
+            stark_felt!(405_u16), // Calldata: address.
+            stark_felt!(48_u8),   // Calldata: value.
+        ],
+    );
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata,
