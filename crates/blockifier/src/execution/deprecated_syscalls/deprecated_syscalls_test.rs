@@ -11,31 +11,17 @@ use starknet_api::core::{
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-<<<<<<< HEAD
-use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
-||||||| 4bda87b
-use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, patricia_key, stark_felt};
-=======
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, patricia_key, stark_felt};
->>>>>>> origin/main-v0.12.3
+use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
-<<<<<<< HEAD
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-||||||| 4bda87b
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
-=======
-use crate::execution::entry_point::{CallEntryPoint, CallExecution, CallInfo, CallType, Retdata};
 use crate::execution::execution_utils::felt_to_stark_felt;
->>>>>>> origin/main-v0.12.3
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -45,7 +31,9 @@ use crate::test_utils::{
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::{
+    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+};
 
 #[test]
 fn test_storage_read_write() {
@@ -461,15 +449,18 @@ fn test_tx_info(#[case] only_query: bool) {
         calldata: expected_tx_info,
         ..trivial_external_entry_point()
     };
-    let account_tx_context = AccountTransactionContext {
-        transaction_hash: tx_hash,
-        max_fee,
-        version: TransactionVersion(stark_felt!(1_u8)),
-        signature: TransactionSignature::default(),
-        nonce,
-        sender_address,
-        only_query,
-    };
+    let account_tx_context =
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+            common_fields: CommonAccountFields {
+                transaction_hash: tx_hash,
+                version: TransactionVersion::ONE,
+                nonce,
+                sender_address,
+                only_query,
+                ..Default::default()
+            },
+            max_fee,
+        });
     let result = entry_point_call
         .execute_directly_given_account_context(&mut state, account_tx_context)
         .unwrap();
