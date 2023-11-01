@@ -36,30 +36,15 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-<<<<<<< HEAD
     check_entry_point_execution_error_for_custom_hint, invoke_tx, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, DictStateReader, InvokeTxArgs, NonceManager, BALANCE,
-    MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
+    test_erc20_sequencer_balance_key, DictStateReader, InvokeTxArgs, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-||||||| 24cc8f2
-    check_entry_point_execution_error_for_custom_hint, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, DictStateReader, NonceManager, BALANCE, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-=======
-    check_entry_point_execution_error_for_custom_hint, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, DictStateReader, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH,
-    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
->>>>>>> origin/main-v0.12.3
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -69,24 +54,14 @@ use crate::transaction::objects::{
     TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
-<<<<<<< HEAD
-    account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
-    CALL_CONTRACT, INVALID, VALID,
-||||||| 24cc8f2
-    create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
-    CALL_CONTRACT, INVALID, VALID,
-=======
-    create_account_tx_for_validate_test, create_account_tx_test_state,
+    account_invoke_tx, create_account_tx_for_validate_test, create_account_tx_test_state,
     create_state_with_cairo1_account, create_state_with_falliable_validation_account,
     create_state_with_trivial_validation_account, CALL_CONTRACT, INVALID, VALID,
->>>>>>> origin/main-v0.12.3
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, InvokeTransaction,
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
 };
 use crate::{invoke_tx_args, retdata};
 
@@ -1179,11 +1154,10 @@ fn test_only_query_flag(#[case] only_query: bool) {
         .concat()
         .into(),
     );
-    let invoke_tx = crate::test_utils::invoke_tx(execute_calldata, sender_address, max_fee, None);
-    let account_tx = AccountTransaction::Invoke(InvokeTransaction {
-        tx: starknet_api::transaction::InvokeTransaction::V1(invoke_tx),
-        only_query,
-    });
+    let invoke_tx = crate::test_utils::invoke_tx(
+        invoke_tx_args! { calldata: execute_calldata, max_fee, sender_address, only_query },
+    );
+    let account_tx = AccountTransaction::Invoke(invoke_tx);
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     assert!(!tx_execution_info.is_reverted())
