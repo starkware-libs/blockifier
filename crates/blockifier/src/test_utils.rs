@@ -346,23 +346,39 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 impl CallEntryPoint {
     /// Executes the call directly, without account context.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
+        self.execute_directly_given_account_context(state, AccountTransactionContext::default())
+    }
+
+    pub fn execute_directly_given_account_context(
+        self,
+        state: &mut dyn State,
+        account_tx_context: AccountTransactionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_invoke(
-            &block_context,
-            &AccountTransactionContext::default(),
-        );
+        let mut context =
+            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context);
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
+
     /// Executes the call directly in validate mode, without account context.
     pub fn execute_directly_in_validate_mode(
         self,
         state: &mut dyn State,
     ) -> EntryPointExecutionResult<CallInfo> {
+        self.execute_directly_given_account_context_in_validate_mode(
+            state,
+            AccountTransactionContext::default(),
+        )
+    }
+
+    pub fn execute_directly_given_account_context_in_validate_mode(
+        self,
+        state: &mut dyn State,
+        account_tx_context: AccountTransactionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_validate(
-            &block_context,
-            &AccountTransactionContext::default(),
-        );
+        let mut context =
+            EntryPointExecutionContext::new_validate(&block_context, &account_tx_context);
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }
