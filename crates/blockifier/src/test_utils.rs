@@ -465,6 +465,7 @@ pub struct InvokeTxArgs {
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
     pub nonce: Nonce,
+    pub only_query: bool,
 }
 
 impl Default for InvokeTxArgs {
@@ -489,6 +490,7 @@ impl Default for InvokeTxArgs {
             paymaster_data: PaymasterData::default(),
             account_deployment_data: AccountDeploymentData::default(),
             nonce: Nonce::default(),
+            only_query: false,
         }
     }
 }
@@ -585,38 +587,47 @@ pub fn deploy_account_tx_with_salt(
 }
 
 pub fn invoke_tx(invoke_args: InvokeTxArgs) -> InvokeTransaction {
-    match invoke_args.version {
-        TransactionVersion::ZERO => InvokeTransactionV0 {
-            max_fee: invoke_args.max_fee,
-            calldata: invoke_args.calldata,
-            contract_address: invoke_args.sender_address,
-            signature: invoke_args.signature,
-            // V0 transactions should always select the `__execute__` entry point.
-            entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
+    let invoke_tx = match invoke_args.version {
+        TransactionVersion::ZERO => {
+            starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
+                max_fee: invoke_args.max_fee,
+                calldata: invoke_args.calldata,
+                contract_address: invoke_args.sender_address,
+                signature: invoke_args.signature,
+                // V0 transactions should always select the `__execute__` entry point.
+                entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
+            })
         }
-        .into(),
-        TransactionVersion::ONE => InvokeTransactionV1 {
-            max_fee: invoke_args.max_fee,
-            sender_address: invoke_args.sender_address,
-            nonce: invoke_args.nonce,
-            calldata: invoke_args.calldata,
-            signature: invoke_args.signature,
+        TransactionVersion::ONE => {
+            starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
+                max_fee: invoke_args.max_fee,
+                sender_address: invoke_args.sender_address,
+                nonce: invoke_args.nonce,
+                calldata: invoke_args.calldata,
+                signature: invoke_args.signature,
+            })
         }
-        .into(),
-        TransactionVersion::THREE => InvokeTransactionV3 {
-            resource_bounds: invoke_args.resource_bounds,
-            calldata: invoke_args.calldata,
-            sender_address: invoke_args.sender_address,
-            nonce: invoke_args.nonce,
-            signature: invoke_args.signature,
-            tip: invoke_args.tip,
-            nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
-            fee_data_availability_mode: invoke_args.fee_data_availability_mode,
-            paymaster_data: invoke_args.paymaster_data,
-            account_deployment_data: invoke_args.account_deployment_data,
+        TransactionVersion::THREE => {
+            starknet_api::transaction::InvokeTransaction::V3(InvokeTransactionV3 {
+                resource_bounds: invoke_args.resource_bounds,
+                calldata: invoke_args.calldata,
+                sender_address: invoke_args.sender_address,
+                nonce: invoke_args.nonce,
+                signature: invoke_args.signature,
+                tip: invoke_args.tip,
+                nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
+                fee_data_availability_mode: invoke_args.fee_data_availability_mode,
+                paymaster_data: invoke_args.paymaster_data,
+                account_deployment_data: invoke_args.account_deployment_data,
+            })
         }
-        .into(),
         _ => panic!("Unsupported transaction version: {:?}.", invoke_args.version),
+    };
+
+    let default_tx_hash = TransactionHash::default();
+    match invoke_args.only_query {
+        true => InvokeTransaction::new_for_query(invoke_tx, default_tx_hash),
+        false => InvokeTransaction::new(invoke_tx, default_tx_hash),
     }
 }
 

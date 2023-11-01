@@ -103,28 +103,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT token address should depend on tx version.
         let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
         let tx = &self.tx;
-<<<<<<< HEAD
         let tx_context = self.get_account_tx_context();
-||||||| 24cc8f2
-        let tx_context = AccountTransactionContext {
-            transaction_hash: tx.transaction_hash,
-            max_fee: Fee::default(),
-            version: tx.version,
-            signature: TransactionSignature::default(),
-            nonce: tx.nonce,
-            sender_address: tx.contract_address,
-        };
-=======
-        let tx_context = AccountTransactionContext {
-            transaction_hash: tx.transaction_hash,
-            max_fee: Fee::default(),
-            version: tx.version,
-            signature: TransactionSignature::default(),
-            nonce: tx.nonce,
-            sender_address: tx.contract_address,
-            only_query: false,
-        };
->>>>>>> origin/main-v0.12.3
         let mut resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);
         let mut remaining_gas = Transaction::initial_gas();
