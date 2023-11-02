@@ -1,12 +1,15 @@
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::py_utils::py_enum_name;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -74,8 +77,10 @@ impl PyValidator {
         tx: &PyAny,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
         let limit_execution_steps_by_resource_bounds = true;
-        self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+        self.tx_executor().execute(tx, limit_execution_steps_by_resource_bounds)
     }
 
     #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
@@ -85,8 +90,15 @@ impl PyValidator {
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
+        else {
+            panic!("L1 handlers should not be validated separately, only as part of execution")
+        };
+
         let (optional_call_info, actual_fee) =
-            self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
+            self.tx_executor().validate(account_tx, remaining_gas)?;
+
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
         Ok((py_optional_call_info, actual_fee.0))
     }
