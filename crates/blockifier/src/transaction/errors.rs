@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::fee::actual_cost::CostBuilderError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -19,6 +20,8 @@ pub enum TransactionExecutionError {
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
     #[error("Contract constructor execution has failed.")]
     ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
+    #[error(transparent)]
+    CostBuilderError(#[from] CostBuilderError),
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
     #[error(transparent)]
