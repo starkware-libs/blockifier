@@ -69,6 +69,7 @@ pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
+pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x115";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -79,6 +80,8 @@ pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/account_contract.casm.json";
 pub const ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
+pub const GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
+    "./feature_contracts/cairo0/compiled/account_with_long_validate_compiled.json";
 pub const TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
 pub const TEST_CONTRACT_CAIRO1_PATH: &str =
@@ -107,8 +110,10 @@ pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
     get_fee_token_var_address(&contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
 }
 
-// The max_fee used for txs in this test.
-pub const MAX_FEE: u128 = 1000000 * 100000000000; // 1000000 * min_eth_l1_gas_price.
+// The max_fee /resource bounds used for txs in this test.
+pub const MAX_L1_GAS_AMOUNT: u64 = 1000000;
+pub const MAX_L1_GAS_PRICE: u128 = DEFAULT_STRK_L1_GAS_PRICE;
+pub const MAX_FEE: u128 = MAX_L1_GAS_AMOUNT as u128 * DEFAULT_ETH_L1_GAS_PRICE;
 
 // The amount of test-token allocated to the account in this test.
 pub const BALANCE: u128 = 10 * MAX_FEE;
