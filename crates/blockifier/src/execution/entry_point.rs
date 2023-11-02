@@ -226,7 +226,9 @@ impl EntryPointExecutionContext {
             }
             AccountTransactionContext::Current(current_context) => {
                 current_context
-                    .l1_resource_bounds()
+                    .get_l1_gas_bounds()
+                    // TODO (Amos, 01/12/2023): Return error instead of panicking if resource bounds
+                    // are not found.
                     .expect("No L1 resource bounds found on current transaction context.")
                     .max_amount as usize
             }

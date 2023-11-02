@@ -17,7 +17,7 @@ use crate::execution::entry_point::{
 };
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_max_fee};
-use crate::fee::gas_usage::estimate_minimal_fee;
+use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
@@ -152,9 +152,58 @@ impl AccountTransaction {
         Self::check_nonce(state, account_tx_context, strict)?;
 
         if charge_fee {
-            self.check_fee_balance(state, block_context)?;
+            if !account_tx_context.enforce_fee() {
+                return Ok(());
+            }
+
+            self.check_fee_bounds(account_tx_context, block_context)?;
+
+            verify_can_pay_max_fee(
+                state,
+                account_tx_context,
+                block_context,
+                account_tx_context.max_fee(),
+            )?;
         }
 
+        Ok(())
+    }
+
+    fn check_fee_bounds(
+        &self,
+        account_tx_context: &AccountTransactionContext,
+        block_context: &BlockContext,
+    ) -> TransactionExecutionResult<()> {
+        let minimal_l1_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
+        match account_tx_context {
+            AccountTransactionContext::Current(current_context) => {
+                let l1_gas_bounds = current_context.get_l1_gas_bounds()?;
+                let max_l1_gas_amount = l1_gas_bounds.max_amount;
+                if (max_l1_gas_amount as u128) < minimal_l1_gas_amount {
+                    return Err(TransactionExecutionError::MaxL1GasAmountTooLow {
+                        max_l1_gas_amount,
+                        minimal_l1_gas_amount: (minimal_l1_gas_amount as u64),
+                    });
+                }
+                let max_l1_gas_price = l1_gas_bounds.max_price_per_unit;
+                if max_l1_gas_price < block_context.gas_prices.strk_l1_gas_price {
+                    return Err(TransactionExecutionError::MaxL1GasPriceTooLow {
+                        max_l1_gas_price: Fee(max_l1_gas_price),
+                        current_l1_gas_price: Fee(block_context.gas_prices.strk_l1_gas_price),
+                    });
+                }
+            }
+            AccountTransactionContext::Deprecated(_) => {
+                let max_fee = account_tx_context.max_fee();
+                let minimal_fee = minimal_l1_gas_amount * block_context.gas_prices.eth_l1_gas_price;
+                if max_fee.0 < minimal_fee {
+                    return Err(TransactionExecutionError::MaxFeeTooLow {
+                        min_fee: Fee(minimal_fee),
+                        max_fee,
+                    });
+                }
+            }
+        };
         Ok(())
     }
 
@@ -208,28 +257,6 @@ impl AccountTransaction {
         } else {
             Ok(None)
         }
-    }
-
-    /// Checks that the account's balance covers max fee.
-    fn check_fee_balance<S: StateReader>(
-        &self,
-        state: &mut TransactionalState<'_, S>,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<()> {
-        let account_tx_context = self.get_account_tx_context();
-        let max_fee = account_tx_context.max_fee();
-
-        if !account_tx_context.enforce_fee() {
-            return Ok(());
-        }
-
-        // Check max fee is at least the estimated constant overhead.
-        let minimal_fee = estimate_minimal_fee(block_context, self)?;
-        if minimal_fee > max_fee {
-            return Err(TransactionExecutionError::MaxFeeTooLow { min_fee: minimal_fee, max_fee });
-        }
-
-        verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee)
     }
 
     fn handle_fee(
