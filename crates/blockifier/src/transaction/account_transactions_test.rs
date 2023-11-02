@@ -27,7 +27,7 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
+    create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -132,7 +132,6 @@ fn create_test_init_data(
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Deploy a contract using syscall deploy.
-    let entry_point_selector = selector_from_name("deploy_contract");
     let salt = ContractAddressSalt::default();
     let class_hash = class_hash!(TEST_CLASS_HASH);
     run_invoke_tx(
@@ -141,16 +140,17 @@ fn create_test_init_data(
         invoke_tx_args! {
             max_fee,
             sender_address: account_address,
-            calldata: calldata![
-                *account_address.0.key(), // Contract address.
-                entry_point_selector.0,   // EP selector.
-                stark_felt!(5_u8),        // Calldata length.
+            calldata: create_calldata(
+                account_address,
+                "deploy_contract",
+                &[
                 class_hash.0,             // Calldata: class_hash.
                 salt.0,                   // Contract_address_salt.
                 stark_felt!(2_u8),        // Constructor calldata length.
                 stark_felt!(1_u8),        // Constructor calldata: address.
                 stark_felt!(1_u8)         // Constructor calldata: value.
-            ],
+                ]
+            ),
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
         },
@@ -210,19 +210,17 @@ fn test_account_flow_test(
     } = init_data;
 
     // Invoke a function from the newly deployed contract.
-    let entry_point_selector = selector_from_name("return_result");
     run_invoke_tx(
         &mut state,
         &block_context,
         invoke_tx_args! {
             max_fee,
             sender_address: account_address,
-            calldata: calldata![
-                *contract_address.0.key(), // Contract address.
-                entry_point_selector.0,    // EP selector.
-                stark_felt!(1_u8),         // Calldata length.
-                stark_felt!(2_u8)          // Calldata: num.
-            ],
+            calldata: create_calldata(
+                contract_address,
+                "return_result",
+                &[stark_felt!(2_u8)]  // Calldata: num.
+            ),
             version: tx_version,
             nonce: nonce_manager.next(account_address),
             only_query,
@@ -289,13 +287,9 @@ fn test_invoke_tx_from_non_deployed_account(
 #[rstest]
 // Try two runs for each recursion type: one short run (success), and one that reverts due to step
 // limit.
-#[case(true, true)]
-#[case(true, false)]
-#[case(false, true)]
-#[case(false, false)]
 fn test_infinite_recursion(
-    #[case] success: bool,
-    #[case] normal_recurse: bool,
+    #[values(true, false)] success: bool,
+    #[values(true, false)] normal_recurse: bool,
     #[from(create_state)] state: CachedState<DictStateReader>,
     max_fee: Fee,
     mut block_context: BlockContext,
@@ -311,30 +305,20 @@ fn test_infinite_recursion(
         block_context,
     } = create_test_init_data(max_fee, block_context, state);
 
-    // Two types of recursion: one "normal" recursion, and one that uses the `call_contract`
-    // syscall.
-    let raw_contract_address = *contract_address.0.key();
-    let raw_entry_point_selector =
-        selector_from_name(if normal_recurse { "recurse" } else { "recursive_syscall" }).0;
-
     let recursion_depth = if success { 3_u32 } else { 1000_u32 };
 
     let execute_calldata = if normal_recurse {
-        calldata![
-            raw_contract_address,
-            raw_entry_point_selector,
-            stark_felt!(1_u8),
-            stark_felt!(recursion_depth)
-        ]
+        create_calldata(contract_address, "recurse", &[stark_felt!(recursion_depth)])
     } else {
-        calldata![
-            raw_contract_address,
-            raw_entry_point_selector,
-            stark_felt!(3_u8), // Calldata length.
-            raw_contract_address,
-            raw_entry_point_selector,
-            stark_felt!(recursion_depth)
-        ]
+        create_calldata(
+            contract_address,
+            "recursive_syscall",
+            &[
+                *contract_address.0.key(), // Calldata: raw contract address.
+                selector_from_name("recursive_syscall").0, // Calldata: raw selector
+                stark_felt!(recursion_depth),
+            ],
+        )
     };
 
     let tx_execution_info = run_invoke_tx(
@@ -384,12 +368,12 @@ fn test_max_fee_limit_validate(
         invoke_tx_args! {
             max_fee: Fee(10),
             sender_address: account_address,
-            calldata: calldata![
-                *contract_address.0.key(),              // Contract address.
-                selector_from_name("return_result").0,  // EP selector.
-                stark_felt!(1_u8),                      // Calldata length.
-                stark_felt!(2_u8)                       // Calldata: num.
-            ],
+            calldata: create_calldata(
+                contract_address,
+                "return_result",
+                &[stark_felt!(2_u8)], // Calldata: num.
+
+            ),
             version: tx_version,
             nonce: nonce_manager.next(account_address),
         },
@@ -415,8 +399,6 @@ fn test_recursion_depth_exceeded(
         block_context,
     } = init_data;
 
-    let raw_contract_address = *contract_address.0.key();
-
     // Positive test
 
     // Technical details for this specific recursive entry point:
@@ -424,17 +406,18 @@ fn test_recursion_depth_exceeded(
     // reasons:
     // 1. An additional call is made initially before entering the recursion.
     // 2. The base case for recursion occurs at depth 0, not at depth 1.
-    let raw_entry_point_selector = selector_from_name("recursive_syscall").0;
     let max_inner_recursion_depth = (block_context.max_recursion_depth - 2) as u8;
 
-    let calldata = calldata![
-        raw_contract_address,
-        raw_entry_point_selector,
-        stark_felt!(3_u8), // Calldata length.
-        raw_contract_address,
-        raw_entry_point_selector,
-        stark_felt!(max_inner_recursion_depth)
-    ];
+    let recursive_syscall_entry_point_name = "recursive_syscall";
+    let calldata = create_calldata(
+        contract_address,
+        recursive_syscall_entry_point_name,
+        &[
+            *contract_address.0.key(), // Calldata: raw contract address.
+            selector_from_name(recursive_syscall_entry_point_name).0, // Calldata: raw selector.
+            stark_felt!(max_inner_recursion_depth),
+        ],
+    );
     let invoke_args = invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -450,14 +433,15 @@ fn test_recursion_depth_exceeded(
 
     let exceeding_recursion_depth = max_inner_recursion_depth + 1;
 
-    let calldata = calldata![
-        raw_contract_address,
-        raw_entry_point_selector,
-        stark_felt!(3_u8), // Calldata length.
-        raw_contract_address,
-        raw_entry_point_selector,
-        stark_felt!(exceeding_recursion_depth)
-    ];
+    let calldata = create_calldata(
+        contract_address,
+        recursive_syscall_entry_point_name,
+        &[
+            *contract_address.0.key(), // Calldata: raw contract address.
+            selector_from_name(recursive_syscall_entry_point_name).0, // Calldata: raw selector.
+            stark_felt!(exceeding_recursion_depth),
+        ],
+    );
     let invoke_args =
         InvokeTxArgs { calldata, nonce: nonce_manager.next(account_address), ..invoke_args };
     let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args);
@@ -497,20 +481,20 @@ fn test_revert_invoke(
 
     // Invoke a function from the newly deployed contract, that changes the state.
     let storage_key = stark_felt!(9_u8);
-    let entry_point_selector = selector_from_name("write_and_revert");
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
         invoke_tx_args! {
             max_fee,
             sender_address: deployed_account_address,
-            calldata: calldata![
-                *deployed_account_address.0.key(), // Contract address.
-                entry_point_selector.0,            // EP selector.
-                stark_felt!(2_u8),                 // Calldata length.
-                storage_key,
-                stark_felt!(99_u8) // Dummy, non-zero value.
-            ],
+            calldata: create_calldata(
+                deployed_account_address,
+                "write_and_revert",
+                &[
+                    storage_key,
+                    stark_felt!(99_u8) // Dummy, non-zero value.
+                ]
+            ),
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(deployed_account_address),
         },
@@ -655,12 +639,11 @@ fn run_recursive_function(
         invoke_tx_args! {
             max_fee,
             sender_address: *account_address,
-            calldata: calldata![
-                *contract_address.0.key(),           // Contract address.
-                selector_from_name(function_name).0, // EP selector.
-                stark_felt!(1_u8),                   // Calldata length.
-                stark_felt!(depth)                   // Calldata: recursion depth.
-            ],
+            calldata: create_calldata(
+                *contract_address,
+                function_name,
+                &[stark_felt!(depth)]  // Calldata: recursion depth.
+            ),
             version: TransactionVersion::ONE,
             nonce: nonce_manager.next(*account_address),
         },
@@ -896,12 +879,11 @@ fn test_max_fee_to_max_steps_conversion(
     let actual_fee = 659500000000000;
     let actual_gas_used = 6595;
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
-    let execute_calldata = calldata![
-        *contract_address.0.key(),        // Contract address.
-        selector_from_name("with_arg").0, // EP selector.
-        stark_felt!(1_u8),                // Calldata length.
-        stark_felt!(25_u8)                // Calldata: arg.
-    ];
+    let execute_calldata = create_calldata(
+        contract_address,
+        "with_arg",
+        &[stark_felt!(25_u8)], // Calldata: arg.
+    );
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
     let account_tx1 = account_invoke_tx(invoke_tx_args! {
@@ -1061,7 +1043,7 @@ fn test_revert_on_overdraft(
     #[from(create_state)] state: CachedState<DictStateReader>,
 ) {
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = *block_context.fee_token_addresses.eth_fee_token_address.0.key();
+    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();
@@ -1085,14 +1067,15 @@ fn test_revert_on_overdraft(
     assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
 
     // Approve the test contract to transfer funds.
-    let approve_calldata = calldata![
-        fee_token_address,               // Contract address.
-        selector_from_name("approve").0, // EP selector.
-        stark_felt!(3_u8),               // Calldata length.
-        *contract_address.0.key(),       // Calldata: to.
-        stark_felt!(BALANCE),
-        stark_felt!(0_u8)
-    ];
+    let approve_calldata = create_calldata(
+        fee_token_address,
+        "approve",
+        &[
+            *contract_address.0.key(), // Calldata: to.
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+        ],
+    );
 
     let approve_tx: AccountTransaction = account_invoke_tx(invoke_tx_args! {
         max_fee,
