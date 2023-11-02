@@ -1,17 +1,13 @@
 use std::collections::HashMap;
 
-use starknet_api::transaction::Fee;
-
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::fee::eth_gas_constants;
-use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::fee_utils::calculate_tx_l1_gas_usage;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
-};
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -137,11 +133,11 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
         + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD
 }
 
-/// Return an estimated lower bound for the fee on an account transaction.
-pub fn estimate_minimal_fee(
+/// Return an estimated lower bound for the L1 gas on an account transaction.
+pub fn estimate_minimal_l1_gas(
     block_context: &BlockContext,
     tx: &AccountTransaction,
-) -> TransactionExecutionResult<Fee> {
+) -> TransactionExecutionResult<u128> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
     let os_steps_for_type = OS_RESOURCES
         .execute_txs_inner()
@@ -181,6 +177,5 @@ pub fn estimate_minimal_fee(
         ),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
-
-    calculate_tx_fee(&resources, block_context, &tx.fee_type())
+    calculate_tx_l1_gas_usage(&resources, block_context)
 }

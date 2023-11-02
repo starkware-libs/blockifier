@@ -28,8 +28,8 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
@@ -363,12 +363,13 @@ fn test_infinite_recursion(
 
 /// Tests that validation fails on insufficient steps if max fee is too low.
 #[rstest]
-#[case(TransactionVersion::ONE)]
-#[case(TransactionVersion::THREE)]
+#[case(TransactionVersion::ONE, true)]
+#[case(TransactionVersion::THREE, false)]
 fn test_max_fee_limit_validate(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
     #[case] tx_version: TransactionVersion,
+    #[case] is_deprecated: bool,
 ) {
     let TestInitData {
         mut state,
@@ -395,8 +396,11 @@ fn test_max_fee_limit_validate(
         },
     )
     .unwrap_err();
-
-    assert_matches!(error, TransactionExecutionError::MaxFeeTooLow { max_fee: Fee(10), .. });
+    if is_deprecated {
+        assert_matches!(error, TransactionExecutionError::MaxFeeTooLow { max_fee: Fee(10), .. });
+    } else {
+        assert_matches!(error, TransactionExecutionError::MaxL1GasAmountTooLow { .. });
+    }
 }
 
 #[rstest]
@@ -441,6 +445,8 @@ fn test_recursion_depth_exceeded(
         calldata,
         version: tx_version,
         nonce: nonce_manager.next(account_address),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE)
+
     };
     let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
 
