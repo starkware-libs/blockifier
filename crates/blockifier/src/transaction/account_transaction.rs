@@ -15,10 +15,8 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
-use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
-use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usage, can_pay_fee, fee_by_l1_gas_usage, verify_can_pay_max_fee,
-};
+use crate::fee::actual_cost::{ActualCost, ActualCostBuilder, CostBuilderError};
+use crate::fee::fee_utils::verify_can_pay_max_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
@@ -257,80 +255,6 @@ impl AccountTransaction {
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
     }
 
-    /// After successful execution and fee computation, checks that the sender can pay the fee.
-    /// Returns the actual fee to pay and an optional revert error (if revert is needed).
-    fn post_execution_final_fee_and_error<S: StateReader>(
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
-        execution_state: &mut TransactionalState<'_, S>,
-        post_execute_fee: Fee,
-        post_execute_resources: &ResourcesMapping,
-        charge_fee: bool,
-    ) -> TransactionExecutionResult<(Fee, Option<String>)> {
-        if !charge_fee {
-            return Ok((post_execute_fee, None));
-        }
-
-        // First, compare actual resources used against the upper bound(s) defined by the sender.
-        // If the initial check fails, revert and charge based on the upper bound(s) and current
-        // price(s). The sender is ensured to have sufficient balance to cover these costs due to
-        // pre-validation checks: deprecated transactions check balance covers max_fee, and current
-        // transactions check balance covers the max gas amount.
-        match account_tx_context {
-            AccountTransactionContext::Deprecated(deprecated_context) => {
-                let max_fee = deprecated_context.max_fee;
-                if post_execute_fee > max_fee {
-                    return Ok((
-                        max_fee,
-                        Some(format!(
-                            "Insufficient max fee: max_fee: {max_fee:?}, actual_fee: \
-                             {post_execute_fee:?}",
-                        )),
-                    ));
-                }
-            }
-            AccountTransactionContext::Current(current_context) => {
-                let max_l1_gas = current_context
-                    .l1_resource_bounds()
-                    .expect("L1 gas bounds must be set.")
-                    .max_amount as u128;
-                let l1_gas_usage =
-                    calculate_tx_l1_gas_usage(post_execute_resources, block_context)?;
-                if l1_gas_usage > max_l1_gas {
-                    return Ok((
-                        fee_by_l1_gas_usage(
-                            block_context,
-                            max_l1_gas,
-                            &account_tx_context.fee_type(),
-                        ),
-                        Some(format!(
-                            "Insufficient max L1 gas: max amount: {:?}, actual: {:?}.",
-                            max_l1_gas, l1_gas_usage
-                        )),
-                    ));
-                }
-            }
-        }
-
-        // Initial check passed; verify against the post-execution account balance, which may have
-        // changed post execution.
-        Ok((
-            post_execute_fee,
-            if can_pay_fee(execution_state, account_tx_context, block_context, post_execute_fee)? {
-                None
-            } else {
-                // In pre-validation, `balance >= max_amount * max_price` (or `balance >= max_fee`
-                // for deprecated transactions) is checked. In addition, `max_price >= actual_price`
-                // is checked. In post-execution (above), we check `max_amount >= actual_amount` (or
-                // `max_fee >= actual_fee` for deprecated transactions).
-                // These checks ensure that the sender *could have paid* the *actual fee*, before
-                // execution. So, if the execution state is reverted, the fee transfer is guaranteed
-                // to succeed.
-                Some(String::from("Insufficient fee token balance"))
-            },
-        ))
-    }
-
     fn run_execute<S: State>(
         &self,
         state: &mut S,
@@ -452,8 +376,7 @@ impl AccountTransaction {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
-                let ActualCost { actual_fee, actual_resources } =
-                    actual_cost_builder_with_validation_changes
+                let actual_cost = actual_cost_builder_with_validation_changes
                     .clone()
                     .with_execute_call_info(&execute_call_info)
                     // Fee is determined by the sum of `validate` and `execute` state changes.
@@ -463,42 +386,51 @@ impl AccountTransaction {
                     .build_for_non_reverted_tx(&execution_resources)?;
 
                 // Post-execution: check senders ability and willingness to pay the fee.
-                let (reverted_tx_fee, revert_error) = Self::post_execution_final_fee_and_error(
+                match ActualCostBuilder::perform_post_execution_cost_check(
+                    &mut execution_state,
                     block_context,
                     &account_tx_context,
-                    &mut execution_state,
-                    actual_fee,
-                    &actual_resources,
+                    &actual_cost,
                     charge_fee,
-                )?;
+                ) {
+                    // We may commit the execution state if no fee is to be charged, or if fee check
+                    // passes.
+                    Ok(_) => {
+                        execution_state.commit();
+                        Ok(ValidateExecuteCallInfo::new_accepted(
+                            validate_call_info,
+                            execute_call_info,
+                            actual_cost.actual_fee,
+                            actual_cost.actual_resources,
+                        ))
+                    }
+                    // On cost revert error, we revert and charge the updated fee.
+                    Err(TransactionExecutionError::CostBuilderError(
+                        CostBuilderError::ActualCostRevertError {
+                            reason: revert_error,
+                            final_fee: reverted_tx_fee,
+                        },
+                    )) => {
+                        execution_state.abort();
+                        let n_reverted_steps =
+                            n_allotted_execution_steps - execution_context.n_remaining_steps();
 
-                // Revert or accept depending on result of post-execution check.
-                if let Some(revert_error) = revert_error {
-                    execution_state.abort();
-                    let n_reverted_steps =
-                        n_allotted_execution_steps - execution_context.n_remaining_steps();
+                        // Recalculate based on the `validate` state only in order to get the
+                        // correct resources, as `execute` is
+                        // reverted.
+                        let ActualCost { actual_resources: reverted_tx_resources, .. } =
+                            actual_cost_builder_with_validation_changes
+                                .build_for_reverted_tx(&resources, n_reverted_steps)?;
 
-                    // Recalculate based on the `validate` state only in order to get the correct
-                    // resources, as `execute` is reverted.
-                    let ActualCost { actual_resources: reverted_tx_resources, .. } =
-                        actual_cost_builder_with_validation_changes
-                            .build_for_reverted_tx(&resources, n_reverted_steps)?;
-
-                    Ok(ValidateExecuteCallInfo::new_reverted(
-                        validate_call_info,
-                        revert_error,
-                        reverted_tx_fee,
-                        reverted_tx_resources,
-                    ))
-                } else {
-                    // Commit the execution.
-                    execution_state.commit();
-                    Ok(ValidateExecuteCallInfo::new_accepted(
-                        validate_call_info,
-                        execute_call_info,
-                        actual_fee,
-                        actual_resources,
-                    ))
+                        Ok(ValidateExecuteCallInfo::new_reverted(
+                            validate_call_info,
+                            revert_error,
+                            reverted_tx_fee,
+                            reverted_tx_resources,
+                        ))
+                    }
+                    // Propagate any other error.
+                    Err(error) => Err(error),
                 }
             }
             Err(_) => {
