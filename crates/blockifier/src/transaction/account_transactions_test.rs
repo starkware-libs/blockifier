@@ -22,16 +22,20 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, l1_resource_bounds};
+use crate::fee::fee_utils::{
+    calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage, l1_resource_bounds,
+};
+use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
@@ -70,9 +74,15 @@ fn block_context() -> BlockContext {
 fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
     let test_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
+    let test_grindy_validate_account_class_hash =
+        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
+        (
+            test_grindy_validate_account_class_hash,
+            ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
+        ),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contracts.
@@ -90,22 +100,19 @@ fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     })
 }
 
-#[fixture]
-fn create_test_init_data(
+/// Deploys a new account with the given class hash, funds with both fee tokens, and returns the
+/// deploy tx and address.
+fn deploy_and_fund_account(
+    state: &mut CachedState<DictStateReader>,
+    nonce_manager: &mut NonceManager,
+    block_context: &BlockContext,
+    class_hash: &str,
     max_fee: Fee,
-    block_context: BlockContext,
-    #[from(create_state)] mut state: CachedState<DictStateReader>,
-) -> TestInitData {
-    let mut nonce_manager = NonceManager::default();
-
+    constructor_calldata: Option<Calldata>,
+) -> (AccountTransaction, ContractAddress) {
     // Deploy an account contract.
-    let deploy_account_tx = deploy_account_tx(
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        None,
-        None,
-        &mut nonce_manager,
-    );
+    let deploy_account_tx =
+        deploy_account_tx(class_hash, max_fee, constructor_calldata, None, nonce_manager);
     let account_address = deploy_account_tx.contract_address;
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
 
@@ -118,6 +125,25 @@ fn create_test_init_data(
         state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
     }
 
+    (account_tx, account_address)
+}
+
+#[fixture]
+fn create_test_init_data(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[from(create_state)] mut state: CachedState<DictStateReader>,
+) -> TestInitData {
+    let mut nonce_manager = NonceManager::default();
+
+    let (account_tx, account_address) = deploy_and_fund_account(
+        &mut state,
+        &mut nonce_manager,
+        &block_context,
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        None,
+    );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Declare a contract.
@@ -355,9 +381,10 @@ fn test_infinite_recursion(
 #[case(TransactionVersion::ONE)]
 #[case(TransactionVersion::THREE)]
 fn test_max_fee_limit_validate(
+    max_fee: Fee,
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
-    #[case] tx_version: TransactionVersion,
+    #[case] version: TransactionVersion,
 ) {
     let TestInitData {
         mut state,
@@ -367,25 +394,99 @@ fn test_max_fee_limit_validate(
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context, state);
 
+    // Declare the grindy-validation account.
+    let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
+    let declare_tx =
+        declare_tx(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH, account_address, Fee(MAX_FEE), None);
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+                nonce: nonce_manager.next(account_address),
+                ..declare_tx
+            }),
+            TransactionHash::default(),
+            contract_class,
+        )
+        .unwrap(),
+    );
+    account_tx.execute(&mut state, &block_context, true, true).unwrap();
+
+    // Deploy grindy account with a lot of grind in the constructor.
+    // Expect this to fail without bumping nonce, so pass a temporary nonce manager.
+    let (deploy_account_tx, _) = deploy_and_fund_account(
+        &mut state,
+        &mut NonceManager::default(),
+        &block_context,
+        TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        Some(calldata![stark_felt!(1_u8)]), // Grind in deploy phase.
+    );
+    let error = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
+    assert_matches!(
+        error,
+        TransactionExecutionError::ValidateTransactionError(
+            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }
+        )
+        if trace.contains("no remaining steps")
+    );
+
+    // Deploy grindy account successfully this time.
+    let (deploy_account_tx, grindy_account_address) = deploy_and_fund_account(
+        &mut state,
+        &mut nonce_manager,
+        &block_context,
+        TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        Some(calldata![stark_felt!(0_u8)]), // Do not grind in deploy phase.
+    );
+    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap();
+
+    // Invoke a function that grinds validate (any function will do); set bounds low enough to fail
+    // on this grind.
+    // To ensure bounds are low enough, estimate minimal resources consumption, and set bounds
+    // slightly above them.
+    let tx_args = invoke_tx_args! {
+        sender_address: grindy_account_address,
+        calldata: create_calldata(
+            contract_address,
+            "return_result",
+            &[stark_felt!(2_u8)], // Calldata: num.
+        ),
+        version,
+        nonce: nonce_manager.next(grindy_account_address)
+    };
+
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        // Temporary upper bounds; just for gas estimation.
+        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        ..tx_args.clone()
+    });
+    let estimated_min_l1_gas = estimate_minimal_l1_gas(&block_context, &account_tx).unwrap();
+    let estimated_min_fee =
+        get_fee_by_l1_gas_usage(&block_context, estimated_min_l1_gas, &account_tx.fee_type());
+
     let error = run_invoke_tx(
         &mut state,
         &block_context,
         invoke_tx_args! {
-            max_fee: Fee(10),
-            sender_address: account_address,
-            calldata: create_calldata(
-                contract_address,
-                "return_result",
-                &[stark_felt!(2_u8)], // Calldata: num.
-
+            max_fee: estimated_min_fee,
+            resource_bounds: l1_resource_bounds(
+                estimated_min_l1_gas as u64,
+                block_context.gas_prices.get_by_fee_type(&account_tx.fee_type())
             ),
-            version: tx_version,
-            nonce: nonce_manager.next(account_address),
+            ..tx_args
         },
     )
     .unwrap_err();
 
-    assert_matches!(error, TransactionExecutionError::MaxFeeTooLow { max_fee: Fee(10), .. });
+    assert_matches!(
+        error,
+        TransactionExecutionError::ValidateTransactionError(
+            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }
+        )
+        if trace.contains("no remaining steps")
+    );
 }
 
 #[rstest]
