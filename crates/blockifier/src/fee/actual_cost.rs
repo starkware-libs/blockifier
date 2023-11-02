@@ -1,18 +1,28 @@
 use std::cmp::min;
 
 use starknet_api::transaction::Fee;
+use thiserror::Error;
 
+use super::fee_utils::{calculate_tx_l1_gas_usage, can_pay_fee, get_fee_by_l1_gas_usage};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
-use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
+use crate::state::cached_state::{
+    CachedState, StateChanges, StateChangesCount, TransactionalState,
+};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
+
+#[derive(Debug, Error)]
+pub enum CostBuilderError {
+    #[error("Actual cost cannot be paid. Reason: {reason}. Final fee: {final_fee:?}")]
+    ActualCostRevertError { reason: String, final_fee: Fee },
+}
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -67,6 +77,81 @@ impl<'a> ActualCostBuilder<'a> {
     ) -> TransactionExecutionResult<ActualCost> {
         let is_reverted = true;
         self.calculate_actual_fee_and_resources(execution_resources, is_reverted, n_reverted_steps)
+    }
+
+    // Utility to check the actual cost can be paid by the account. If not, returns an error.
+    pub fn perform_post_execution_cost_check<S: StateReader>(
+        execution_state: &mut TransactionalState<'_, S>,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+        actual_cost: &ActualCost,
+        charge_fee: bool,
+    ) -> TransactionExecutionResult<()> {
+        if !charge_fee {
+            return Ok(());
+        }
+
+        let ActualCost { actual_fee: post_execute_fee, actual_resources: post_execute_resources } =
+            actual_cost;
+
+        // First, compare actual resources used against the upper bound(s) defined by the sender.
+        // If the initial check fails, revert and charge based on the upper bound(s) and current
+        // price(s). The sender is ensured to have sufficient balance to cover these costs due to
+        // pre-validation checks.
+        match account_tx_context {
+            AccountTransactionContext::Current(context) => {
+                // Check L1 gas limit. If overshot, revert and charge for the L1 gas limit.
+                let max_l1_gas =
+                    context.l1_resource_bounds().expect("L1 gas bounds must be set.").max_amount
+                        as u128;
+                let actual_used_l1_gas =
+                    calculate_tx_l1_gas_usage(post_execute_resources, block_context)?;
+                if actual_used_l1_gas > max_l1_gas {
+                    Err(CostBuilderError::ActualCostRevertError {
+                        final_fee: get_fee_by_l1_gas_usage(
+                            block_context,
+                            max_l1_gas,
+                            &account_tx_context.fee_type(),
+                        ),
+                        reason: format!(
+                            "Insufficient max L1 gas: max amount: {:?}, actual used: {:?}.",
+                            max_l1_gas, actual_used_l1_gas
+                        ),
+                    })?;
+                }
+            }
+            AccountTransactionContext::Deprecated(context) => {
+                // Check max fee. If overshot, revert and charge max fee.
+                let max_fee = context.max_fee;
+                if post_execute_fee > &max_fee {
+                    Err(CostBuilderError::ActualCostRevertError {
+                        final_fee: max_fee,
+                        reason: format!(
+                            "Insufficient max fee: max fee: {max_fee:?}, actual fee: \
+                             {post_execute_fee:?}",
+                        ),
+                    })?;
+                }
+            }
+        }
+
+        // Initial check passed; verify against the post-execution account balance, which may have
+        // changed post execution.
+        if can_pay_fee(execution_state, account_tx_context, block_context, *post_execute_fee)? {
+            Ok(())
+        } else {
+            // In pre-validation, balance is verified to cover sender's requested upper bounds,
+            // and the current block context is verified to satisfy the sender's price requirements.
+            // In post-execution (above), we check the resources charged are within the sender's
+            // requested bounds.
+            // These checks ensure that the sender *could have paid* the *actual fee*, before
+            // execution. So, if the execution state is reverted, the fee transfer is guaranteed
+            // to succeed.
+            Err(CostBuilderError::ActualCostRevertError {
+                reason: "Insufficient fee token balance".into(),
+                final_fee: *post_execute_fee,
+            })?
+        }
     }
 
     // Setters.

@@ -63,7 +63,7 @@ pub fn calculate_tx_l1_gas_usage(
     Ok(total_l1_gas_usage.ceil() as u128)
 }
 
-pub fn fee_by_l1_gas_usage(
+pub fn get_fee_by_l1_gas_usage(
     block_context: &BlockContext,
     l1_gas_usage: u128,
     fee_type: &FeeType,
@@ -77,11 +77,8 @@ pub fn calculate_tx_fee(
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionExecutionResult<Fee> {
-    Ok(fee_by_l1_gas_usage(
-        block_context,
-        calculate_tx_l1_gas_usage(resources, block_context)?,
-        fee_type,
-    ))
+    let l1_gas_usage = calculate_tx_l1_gas_usage(resources, block_context)?;
+    Ok(get_fee_by_l1_gas_usage(block_context, l1_gas_usage, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
