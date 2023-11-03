@@ -347,7 +347,7 @@ impl AccountTransaction {
             .with_validate_call_info(&validate_call_info)
             .with_execute_call_info(&execute_call_info)
             .try_add_state_changes(state)?
-            .build_for_non_reverted_tx(&resources)?;
+            .build(&resources)?;
 
         Ok(ValidateExecuteCallInfo::new_accepted(
             validate_call_info,
@@ -415,7 +415,7 @@ impl AccountTransaction {
                     // Since `execute_state_changes` are not yet committed, we merge them manually
                     // with `validate_state_changes` to count correctly.
                     .try_add_state_changes(&mut execution_state)?
-                    .build_for_non_reverted_tx(&execution_resources)?;
+                    .build(&execution_resources)?;
 
                 // Post-execution: check senders ability and willingness to pay the fee.
                 let (reverted_tx_fee, revert_error) = Self::post_execution_final_fee_and_error(
@@ -436,7 +436,8 @@ impl AccountTransaction {
                     // resources, as `execute` is reverted.
                     let ActualCost { actual_resources: reverted_tx_resources, .. } =
                         actual_cost_builder_with_validation_changes
-                            .build_for_reverted_tx(&resources, n_reverted_steps)?;
+                            .with_reverted_steps(n_reverted_steps)
+                            .build(&resources)?;
 
                     Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
@@ -464,7 +465,8 @@ impl AccountTransaction {
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
                 let ActualCost { actual_fee, actual_resources } =
                     actual_cost_builder_with_validation_changes
-                        .build_for_reverted_tx(&resources, n_reverted_steps)?;
+                        .with_reverted_steps(n_reverted_steps)
+                        .build(&resources)?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
