@@ -249,6 +249,7 @@ fn test_get_execution_info(
         tx_hash.0,                    // Transaction hash.
         stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
         nonce.0,                      // Nonce.
+        stark_felt!(0_u16),           // Length of Resource bound.
     ];
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
@@ -497,7 +498,7 @@ fn test_secp256k1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 32630990_u64, ..Default::default() }
+        CallExecution { gas_consumed: 32602390_u64, ..Default::default() }
     );
 }
 
@@ -514,7 +515,7 @@ fn test_secp256r1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 48738220_u64, ..Default::default() }
+        CallExecution { gas_consumed: 48708820_u64, ..Default::default() }
     );
 }
 

@@ -1119,6 +1119,7 @@ fn test_only_query_flag(#[case] only_query: bool) {
         stark_felt!(0_u16),           // Transaction hash.
         stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
         stark_felt!(0_u16),           // Nonce.
+        stark_felt!(0_u16),           // Length of resource_bound array.
     ];
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
