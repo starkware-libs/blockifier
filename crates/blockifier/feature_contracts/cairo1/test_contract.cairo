@@ -6,14 +6,17 @@ mod TestContract {
     use starknet::ContractAddress;
     use starknet::StorageAddress;
     use array::ArrayTrait;
-    use array::SpanTrait;
     use clone::Clone;
     use traits::Into;
     use traits::TryInto;
-    use option::OptionTrait;
     use starknet::{
     eth_address::U256IntoEthAddress, EthAddress,
-    secp256_trait::{Signature, verify_eth_signature},
+    secp256_trait::Signature,
+    eth_signature::verify_eth_signature,
+    info::SyscallResultTrait,
+    info::v2::{
+    ExecutionInfo, BlockInfo, TxInfo, ResourceBounds,
+    },
 };
 
     #[storage]
@@ -119,7 +122,7 @@ mod TestContract {
         a: felt252,
         b: felt252
     ) -> Span::<felt252> {
-        let mut nested_library_calldata = Default::default();
+        let mut nested_library_calldata: Array::<felt252> = Default::default();
         nested_library_calldata.append(class_hash.into());
         nested_library_calldata.append(nested_selector);
         nested_library_calldata.append(2);
@@ -130,7 +133,7 @@ mod TestContract {
         )
             .unwrap_syscall();
 
-        let mut calldata = Default::default();
+        let mut calldata: Array::<felt252> = Default::default();
         calldata.append(a);
         calldata.append(b);
         starknet::library_call_syscall(class_hash, nested_selector, calldata.span())
@@ -175,14 +178,14 @@ mod TestContract {
 
     #[external(v0)]
     fn test_keccak(ref self: ContractState) {
-        let mut input = Default::default();
+        let mut input: Array::<u256> = Default::default();
         input.append(u256 { low: 1, high: 0 });
 
         let res = keccak::keccak_u256s_le_inputs(input.span());
         assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
         assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
 
-        let mut input = Default::default();
+        let mut input: Array::<u64> = Default::default();
         input.append(1_u64);
         match starknet::syscalls::keccak_syscall(input.span()) {
             Result::Ok(_) => panic_with_felt252('Should fail'),
@@ -217,7 +220,7 @@ mod TestContract {
 
         let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
-        verify_eth_signature::<starknet::secp256k1::Secp256k1Point>(
+        verify_eth_signature(
             :msg_hash, :signature, :eth_address);
     }
 
@@ -265,7 +268,7 @@ mod TestContract {
 
         let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
             get_message_and_secp256r1_signature();
-        verify_eth_signature::<starknet::secp256r1::Secp256r1Point>(
+        verify_eth_signature(
             :msg_hash, :signature, :eth_address);
     }
 
