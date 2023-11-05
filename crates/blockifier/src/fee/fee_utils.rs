@@ -82,7 +82,7 @@ pub fn calculate_tx_fee(
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
-fn get_balance_and_if_covers_fee(
+pub fn get_balance_and_if_covers_fee(
     state: &mut dyn StateReader,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
@@ -116,18 +116,6 @@ pub fn verify_can_pay_max_fee(
     } else {
         Err(TransactionExecutionError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
     }
-}
-
-/// Returns `true` if and only if the balance covers the fee.
-pub fn can_pay_fee(
-    state: &mut dyn StateReader,
-    account_tx_context: &AccountTransactionContext,
-    block_context: &BlockContext,
-    fee: Fee,
-) -> TransactionExecutionResult<bool> {
-    let (_, _, can_pay) =
-        get_balance_and_if_covers_fee(state, account_tx_context, block_context, fee)?;
-    Ok(can_pay)
 }
 
 pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMapping {
