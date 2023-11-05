@@ -160,7 +160,7 @@ fn test_get_block_hash() {
 
     assert_eq!(
         entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 15250, ..CallExecution::from_retdata(retdata![block_hash]) }
+        CallExecution { gas_consumed: 14250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
 
     // Negative flow. Execution mode is Validate.
@@ -497,7 +497,7 @@ fn test_secp256k1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 38373130_u64, ..Default::default() }
+        CallExecution { gas_consumed: 32630990_u64, ..Default::default() }
     );
 }
 

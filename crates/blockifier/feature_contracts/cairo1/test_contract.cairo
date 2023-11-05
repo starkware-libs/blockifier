@@ -6,14 +6,17 @@ mod TestContract {
     use starknet::ContractAddress;
     use starknet::StorageAddress;
     use array::ArrayTrait;
-    use array::SpanTrait;
     use clone::Clone;
     use traits::Into;
     use traits::TryInto;
-    use option::OptionTrait;
     use starknet::{
     eth_address::U256IntoEthAddress, EthAddress,
-    secp256_trait::{Signature, verify_eth_signature},
+    secp256_trait::Signature,
+    eth_signature::verify_eth_signature,
+    info::SyscallResultTrait,
+    info::v2::{
+    ExecutionInfo, BlockInfo, TxInfo, ResourceBounds,
+    },
 };
 
     #[storage]
@@ -97,6 +100,64 @@ mod TestContract {
     }
 
     #[external(v0)]
+    fn test_get_execution_info_v2(
+        self: @ContractState,
+        // Expected block info.
+        block_number: felt252,
+        block_timestamp: felt252,
+        sequencer_address: felt252,
+        // Expected transaction info.
+        version: felt252,
+        account_address: felt252,
+        max_fee: felt252,
+        transaction_hash: felt252,
+        chain_id: felt252,
+        nonce: felt252,
+        resource_bounds: Array::<felt252>,
+        // Expected call info.
+        caller_address: felt252,
+        contract_address: felt252,
+        entry_point_selector: felt252,
+    ) {
+        let execution_info = starknet::syscalls::get_execution_info_v2_syscall().unwrap_syscall().unbox();
+        let block_info = execution_info.block_info.unbox();
+        assert(block_info.block_number.into() == block_number, 'BLOCK_NUMBER_MISMATCH');
+        assert(block_info.block_timestamp.into() == block_timestamp, 'BLOCK_TIMESTAMP_MISMATCH');
+        assert(block_info.sequencer_address.into() == sequencer_address, 'SEQUENCER_MISMATCH');
+
+        let tx_info = execution_info.tx_info.unbox();
+        assert(tx_info.version == version, 'VERSION_MISMATCH');
+        assert(tx_info.account_contract_address.into() == account_address, 'ACCOUNT_MISMATCH');
+        assert(tx_info.max_fee == 0_u128, 'MAX_FEE_MISMATCH');
+        assert(tx_info.signature.len() == 0_u32, 'SIGNATURE_MISMATCH');
+        assert(tx_info.transaction_hash == transaction_hash, 'TRANSACTION_HASH_MISMATCH');
+        assert(tx_info.chain_id == chain_id, 'CHAIN_ID_MISMATCH');
+        assert(tx_info.nonce == nonce, 'NONCE_MISMATCH');
+
+        let mut resource_bounds_array = resource_bounds.span();
+        let mut tx_info_resource_bounds: Span<ResourceBounds> = tx_info.resource_bounds;
+        loop {
+            match resource_bounds_array.pop_front() {
+                Option::Some(current_word) => {
+                assert(*tx_info_resource_bounds.pop_front().unwrap().resource == *current_word, 'RESOURCE_BOUNDS_MISMATCH');
+                assert(*tx_info_resource_bounds.pop_front().unwrap().max_amount == (*resource_bounds_array.pop_front().unwrap()).try_into().unwrap(), 'RESOURCE_BOUNDS_MISMATCH');
+                assert(*tx_info_resource_bounds.pop_front().unwrap().max_price_per_unit == (*resource_bounds_array.pop_front().unwrap()).try_into().unwrap(), 'RESOURCE_BOUNDS_MISMATCH');
+                },
+                Option::None => { break; }
+            }
+        };
+        assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
+        assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
+        assert(tx_info.nonce_data_availabilty_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
+        assert(tx_info.fee_data_availabilty_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
+        assert(tx_info.account_deployment_data.len() == 0_u32, 'DEPLOYMENT_DATA_MISMATCH');
+
+        assert(execution_info.caller_address.into() == caller_address, 'CALLER_MISMATCH');
+        assert(execution_info.contract_address.into() == contract_address, 'CONTRACT_MISMATCH');
+        assert(execution_info.entry_point_selector == entry_point_selector, 'SELECTOR_MISMATCH');
+    }
+
+    #[external(v0)]
     #[raw_output]
     fn test_library_call(
         self: @ContractState,
@@ -119,7 +180,7 @@ mod TestContract {
         a: felt252,
         b: felt252
     ) -> Span::<felt252> {
-        let mut nested_library_calldata = Default::default();
+        let mut nested_library_calldata: Array::<felt252> = Default::default();
         nested_library_calldata.append(class_hash.into());
         nested_library_calldata.append(nested_selector);
         nested_library_calldata.append(2);
@@ -130,7 +191,7 @@ mod TestContract {
         )
             .unwrap_syscall();
 
-        let mut calldata = Default::default();
+        let mut calldata: Array::<felt252> = Default::default();
         calldata.append(a);
         calldata.append(b);
         starknet::library_call_syscall(class_hash, nested_selector, calldata.span())
@@ -175,14 +236,14 @@ mod TestContract {
 
     #[external(v0)]
     fn test_keccak(ref self: ContractState) {
-        let mut input = Default::default();
+        let mut input: Array::<u256> = Default::default();
         input.append(u256 { low: 1, high: 0 });
 
         let res = keccak::keccak_u256s_le_inputs(input.span());
         assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
         assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
 
-        let mut input = Default::default();
+        let mut input: Array::<u64> = Default::default();
         input.append(1_u64);
         match starknet::syscalls::keccak_syscall(input.span()) {
             Result::Ok(_) => panic_with_felt252('Should fail'),
@@ -217,7 +278,7 @@ mod TestContract {
 
         let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
-        verify_eth_signature::<starknet::secp256k1::Secp256k1Point>(
+        verify_eth_signature(
             :msg_hash, :signature, :eth_address);
     }
 
@@ -265,7 +326,7 @@ mod TestContract {
 
         let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
             get_message_and_secp256r1_signature();
-        verify_eth_signature::<starknet::secp256r1::Secp256r1Point>(
+        verify_eth_signature(
             :msg_hash, :signature, :eth_address);
     }
 
