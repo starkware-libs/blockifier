@@ -133,9 +133,27 @@ impl AccountTransaction {
         }
     }
 
-    fn handle_nonce(
+    // Performs static checks before executing validation entry point.
+    // Note that nonce is incremented during these checks.
+    pub fn perform_pre_validation_checks<S: StateReader>(
+        &self,
+        state: &mut TransactionalState<'_, S>,
         account_tx_context: &AccountTransactionContext,
+        block_context: &BlockContext,
+        charge_fee: bool,
+    ) -> TransactionExecutionResult<()> {
+        Self::handle_nonce(state, account_tx_context)?;
+
+        if charge_fee {
+            self.check_fee_balance(state, block_context)?;
+        }
+
+        Ok(())
+    }
+
+    fn handle_nonce(
         state: &mut dyn State,
+        account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<()> {
         if account_tx_context.version() == TransactionVersion::ZERO {
             return Ok(());
@@ -143,16 +161,17 @@ impl AccountTransaction {
 
         let address = account_tx_context.sender_address();
         let current_nonce = state.get_nonce_at(address)?;
-        if current_nonce != account_tx_context.nonce() {
+        let tx_nonce = account_tx_context.nonce();
+        let invalid_nonce = current_nonce != tx_nonce;
+
+        if invalid_nonce {
             return Err(TransactionExecutionError::InvalidNonce {
                 address,
                 expected_nonce: current_nonce,
-                actual_nonce: account_tx_context.nonce(),
+                actual_nonce: tx_nonce,
             });
         }
-
-        // Increment nonce.
-        Ok(state.increment_nonce(address)?)
+        Ok(state.increment_nonce(account_tx_context.sender_address())?)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -543,11 +562,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
-        if charge_fee {
-            self.check_fee_balance(state, block_context)?;
-        }
-        // Handle nonce.
-        Self::handle_nonce(&account_tx_context, state)?;
+        self.perform_pre_validation_checks(state, &account_tx_context, block_context, charge_fee)?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {
