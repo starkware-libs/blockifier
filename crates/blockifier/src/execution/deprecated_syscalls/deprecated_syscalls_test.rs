@@ -462,7 +462,7 @@ fn test_tx_info(#[case] only_query: bool) {
             max_fee,
         });
     let result = entry_point_call
-        .execute_directly_given_account_context(&mut state, account_tx_context)
+        .execute_directly_given_account_context(&mut state, account_tx_context, true)
         .unwrap();
 
     assert!(!result.execution.failed)
