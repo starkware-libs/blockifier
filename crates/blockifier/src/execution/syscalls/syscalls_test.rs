@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
@@ -10,10 +10,12 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, L2ToL1Payload,
+    AccountDeploymentData, Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee,
+    L2ToL1Payload, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
@@ -28,9 +30,9 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
-use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
@@ -42,7 +44,8 @@ use crate::test_utils::{
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
-    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+    AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
+    DeprecatedAccountTransactionContext,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -203,54 +206,128 @@ fn test_keccak() {
 
 #[test_case(
     ExecutionMode::Validate,
-    [
-        stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        stark_felt!(0_u16) // Sequencer address.
-    ],
+    stark_felt!(0_u16),
+    TransactionVersion::ONE,
     false;
-    "Validate execution mode: block info fields should be zeroed.")]
+    "Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
     ExecutionMode::Execute,
-    [
-        stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        stark_felt!(TEST_SEQUENCER_ADDRESS) // Sequencer address.
-    ],
+    stark_felt!(TEST_SEQUENCER_ADDRESS),
+    TransactionVersion::ONE,
     false;
-    "Execute execution mode: block info should be as usual.")]
+    "Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
-        ExecutionMode::Execute,
-        [
-            stark_felt!(CURRENT_BLOCK_NUMBER), // Block number.
-            stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-            stark_felt!(TEST_SEQUENCER_ADDRESS) // Sequencer address.
-        ],
-        true;
-        "Execute execution mode: block info should be as usual. Query.")]
+    ExecutionMode::Validate,
+    stark_felt!(0_u16),
+    TransactionVersion::THREE,
+    false;
+    "Validate execution mode: block info fields should be zeroed. Transaction V3.")]
+#[test_case(
+    ExecutionMode::Execute,
+    stark_felt!(TEST_SEQUENCER_ADDRESS),
+    TransactionVersion::THREE,
+    false;
+    "Execute execution mode: block info should be as usual. Transaction V3.")]
+#[test_case(
+    ExecutionMode::Execute,
+    stark_felt!(TEST_SEQUENCER_ADDRESS),
+    TransactionVersion::THREE,
+    true;
+    "Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 fn test_get_execution_info(
     execution_mode: ExecutionMode,
-    expected_block_info: [StarkFelt; 3],
+    sequencer_address: StarkFelt,
+    mut version: TransactionVersion,
     only_query: bool,
 ) {
-    let mut version = Felt252::from(1_u8);
+    let mut state = create_test_state();
+    let expected_block_info = [
+        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
+        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+        sequencer_address,
+    ];
+
     if only_query {
         let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
-        version += simulate_version_base;
+        let query_version = simulate_version_base + stark_felt_to_felt(version.0);
+        version = TransactionVersion(felt_to_stark_felt(&query_version));
     }
+
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
-    let max_fee = Fee(0);
+    let max_fee = Fee(42);
     let nonce = Nonce(stark_felt!(3_u16));
     let sender_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
-    let expected_tx_info = vec![
-        felt_to_stark_felt(&version), // Transaction version.
-        *sender_address.0.key(),      // Account address.
-        stark_felt!(max_fee.0),       // Max fee.
-        tx_hash.0,                    // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        nonce.0,                      // Nonce.
-        stark_felt!(0_u16),           // Length of resource bounds array.
-    ];
+
+    let expected_tx_info: Vec<StarkFelt>;
+    let account_tx_context: AccountTransactionContext;
+    if version == TransactionVersion::ONE {
+        expected_tx_info = vec![
+            version.0,                                                  // Transaction version.
+            *sender_address.0.key(),                                    // Account address.
+            stark_felt!(max_fee.0),                                     // Max fee.
+            tx_hash.0,                                                  // Transaction hash.
+            stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+            nonce.0,                                                    // Nonce.
+            stark_felt!(0_u16),                                         /* Length of resource
+                                                                         * bounds array. */
+        ];
+        account_tx_context =
+            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+                common_fields: CommonAccountFields {
+                    transaction_hash: tx_hash,
+                    version: TransactionVersion::ONE,
+                    nonce,
+                    sender_address,
+                    only_query,
+                    ..Default::default()
+                },
+                max_fee,
+            });
+    } else {
+        let max_amount = Fee(13);
+        let max_price_per_unit = Fee(61);
+        expected_tx_info = vec![
+            version.0,                                                  // Transaction version.
+            *sender_address.0.key(),                                    // Account address.
+            StarkFelt::ZERO,                                            // Max fee.
+            tx_hash.0,                                                  // Transaction hash.
+            stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+            nonce.0,                                                    // Nonce.
+            StarkFelt::from(2u32),     // Length of ResourceBounds array.
+            stark_felt!(L1_GAS),       // Resource.
+            stark_felt!(max_amount.0), // Max amount.
+            stark_felt!(max_price_per_unit.0), // Max price per unit.
+            stark_felt!(L2_GAS),       // Resource.
+            StarkFelt::ZERO,           // Max amount.
+            StarkFelt::ZERO,           // Max price per unit.
+        ];
+        account_tx_context = AccountTransactionContext::Current(CurrentAccountTransactionContext {
+            common_fields: CommonAccountFields {
+                transaction_hash: tx_hash,
+                version: TransactionVersion::THREE,
+                nonce,
+                sender_address,
+                only_query,
+                ..Default::default()
+            },
+            resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+                (
+                    Resource::L1Gas,
+                    ResourceBounds {
+                        max_amount: max_amount.0 as u64,
+                        max_price_per_unit: max_price_per_unit.0,
+                    },
+                ),
+                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+            ])),
+            tip: Tip::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: PaymasterData::default(),
+            account_deployment_data: AccountDeploymentData::default(),
+        });
+    }
+
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
         stark_felt!(0_u16),                  // Caller address.
@@ -260,37 +337,28 @@ fn test_get_execution_info(
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata: Calldata(
-            [expected_block_info.to_vec(), expected_tx_info, expected_call_info].concat().into(),
+            [expected_block_info.to_vec(), expected_tx_info.clone(), expected_call_info]
+                .concat()
+                .into(),
         ),
         ..trivial_external_entry_point()
     };
-
-    let mut state = create_test_state();
-    let account_tx_context =
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            common_fields: CommonAccountFields {
-                transaction_hash: tx_hash,
-                version: TransactionVersion::ONE,
-                nonce,
-                sender_address,
-                only_query,
-                ..Default::default()
-            },
-            max_fee,
-        });
 
     let result = match execution_mode {
         ExecutionMode::Validate => entry_point_call
             .execute_directly_given_account_context_in_validate_mode(
                 &mut state,
                 account_tx_context,
+                false,
             ),
-        ExecutionMode::Execute => {
-            entry_point_call.execute_directly_given_account_context(&mut state, account_tx_context)
-        }
+        ExecutionMode::Execute => entry_point_call.execute_directly_given_account_context(
+            &mut state,
+            account_tx_context,
+            false,
+        ),
     };
 
-    assert!(!result.unwrap().execution.failed)
+    assert!(!result.unwrap().execution.failed);
 }
 
 #[test]
