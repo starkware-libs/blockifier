@@ -15,8 +15,8 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
-use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
-use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_max_fee};
+use crate::fee::actual_cost::{ActualCost, ActualCostBuilder, PostExecutionAuditor};
+use crate::fee::fee_utils::verify_can_pay_max_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
@@ -228,11 +228,6 @@ impl AccountTransaction {
         account_tx_context: AccountTransactionContext,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
-        let max_fee = account_tx_context.max_fee();
-        if actual_fee > max_fee {
-            return Err(TransactionExecutionError::FeeTransferError { max_fee, actual_fee });
-        }
-
         // The least significant 128 bits of the amount transferred.
         let lsb_amount = StarkFelt::from(actual_fee.0);
         // The most significant 128 bits of the amount transferred.
@@ -261,37 +256,6 @@ impl AccountTransaction {
             EntryPointExecutionContext::new_invoke(block_context, &account_tx_context, true);
 
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
-    }
-
-    /// After successful execution and fee computation, checks that the sender can pay the fee.
-    /// Returns the actual fee to pay and an optional revert error (if revert is needed).
-    fn post_execution_final_fee_and_error<S: StateReader>(
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
-        execution_state: &mut TransactionalState<'_, S>,
-        post_execute_fee: Fee,
-        charge_fee: bool,
-    ) -> TransactionExecutionResult<(Fee, Option<String>)> {
-        let max_fee = account_tx_context.max_fee();
-        let can_pay =
-            can_pay_fee(execution_state, account_tx_context, block_context, post_execute_fee)?;
-
-        if charge_fee && (post_execute_fee > max_fee || !can_pay) {
-            // Insufficient fee. Revert the execution and charge what is available.
-            if post_execute_fee > max_fee {
-                Ok((
-                    max_fee,
-                    Some(format!(
-                        "Insufficient max fee: max_fee: {max_fee:?}, actual_fee: \
-                         {post_execute_fee:?}",
-                    )),
-                ))
-            } else {
-                Ok((post_execute_fee, Some(String::from("Insufficient fee token balance"))))
-            }
-        } else {
-            Ok((post_execute_fee, None))
-        }
     }
 
     fn run_execute<S: State>(
@@ -366,6 +330,14 @@ impl AccountTransaction {
             .try_add_state_changes(state)?
             .build(&resources)?;
 
+        PostExecutionAuditor {
+            block_context,
+            account_tx_context,
+            actual_cost: &actual_cost,
+            charge_fee,
+        }
+        .verify_valid_actual_cost(state)?;
+
         Ok(ValidateExecuteCallInfo::new_accepted(
             validate_call_info,
             execute_call_info,
@@ -420,12 +392,19 @@ impl AccountTransaction {
             remaining_gas,
         );
 
+        // Pre-compute cost in case of revert.
+        let execution_steps_consumed =
+            n_allotted_execution_steps - execution_context.n_remaining_steps();
+        let revert_cost = actual_cost_builder_with_validation_changes
+            .clone()
+            .with_reverted_steps(execution_steps_consumed)
+            .build(&resources)?;
+
         match execution_result {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
                 let actual_cost = actual_cost_builder_with_validation_changes
-                    .clone()
                     .with_execute_call_info(&execute_call_info)
                     // Fee is determined by the sum of `validate` and `execute` state changes.
                     // Since `execute_state_changes` are not yet committed, we merge them manually
@@ -433,61 +412,68 @@ impl AccountTransaction {
                     .try_add_state_changes(&mut execution_state)?
                     .build(&execution_resources)?;
 
-                // Post-execution: check senders ability and willingness to pay the fee.
-                let (reverted_tx_fee, revert_error) = Self::post_execution_final_fee_and_error(
+                // Post-execution checks.
+                let auditor = PostExecutionAuditor {
+                    account_tx_context: &account_tx_context,
                     block_context,
-                    &account_tx_context,
-                    &mut execution_state,
-                    actual_cost.actual_fee,
+                    actual_cost: &actual_cost,
                     charge_fee,
-                )?;
+                };
+                match auditor.verify_valid_actual_cost(&mut execution_state) {
+                    Ok(()) => {
+                        // Post-execution audit passed, commit the execution.
+                        execution_state.commit();
+                        Ok(ValidateExecuteCallInfo::new_accepted(
+                            validate_call_info,
+                            execute_call_info,
+                            actual_cost,
+                        ))
+                    }
+                    Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {
+                        // Post-execution audit failed. Revert the execution, compute the final fee
+                        // to charge and recompute resources used (to be consistent with other
+                        // revert case, compute resources by adding consumed execution steps to
+                        // validation resources).
+                        execution_state.abort();
+                        let final_cost = ActualCost {
+                            actual_fee: auditor.post_execution_revert_fee(&error),
+                            actual_resources: revert_cost.actual_resources,
+                        };
 
-                // Revert or accept depending on result of post-execution check.
-                if let Some(revert_error) = revert_error {
-                    execution_state.abort();
-                    let n_reverted_steps =
-                        n_allotted_execution_steps - execution_context.n_remaining_steps();
-
-                    // Recalculate based on the `validate` state only in order to get the correct
-                    // resources, as `execute` is reverted.
-                    let ActualCost { actual_resources: reverted_tx_resources, .. } =
-                        actual_cost_builder_with_validation_changes
-                            .with_reverted_steps(n_reverted_steps)
-                            .build(&resources)?;
-
-                    Ok(ValidateExecuteCallInfo::new_reverted(
-                        validate_call_info,
-                        revert_error,
-                        ActualCost {
-                            actual_fee: reverted_tx_fee,
-                            actual_resources: reverted_tx_resources,
-                        },
-                    ))
-                } else {
-                    // Commit the execution.
-                    execution_state.commit();
-                    Ok(ValidateExecuteCallInfo::new_accepted(
-                        validate_call_info,
-                        execute_call_info,
-                        actual_cost,
-                    ))
+                        Ok(ValidateExecuteCallInfo::new_reverted(
+                            validate_call_info,
+                            error.to_string(),
+                            final_cost,
+                        ))
+                    }
+                    // Propagate other errors.
+                    Err(other_error) => Err(other_error),
                 }
             }
             Err(_) => {
                 // Error during execution. Revert.
                 execution_state.abort();
-                let n_reverted_steps =
-                    n_allotted_execution_steps - execution_context.n_remaining_steps();
-
-                // Fee is determined by the `validate` state changes since `execute` is reverted.
-                let actual_cost = actual_cost_builder_with_validation_changes
-                    .with_reverted_steps(n_reverted_steps)
-                    .build(&resources)?;
+                let auditor = PostExecutionAuditor {
+                    account_tx_context: &account_tx_context,
+                    block_context,
+                    actual_cost: &revert_cost,
+                    charge_fee,
+                };
+                let final_cost = match auditor.verify_valid_actual_cost(state) {
+                    Ok(()) => revert_cost,
+                    Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {
+                        ActualCost {
+                            actual_fee: auditor.post_execution_revert_fee(&error),
+                            actual_resources: revert_cost.actual_resources,
+                        }
+                    }
+                    Err(other_error) => return Err(other_error),
+                };
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
                     execution_context.error_trace(),
-                    actual_cost,
+                    final_cost,
                 ))
             }
         }
