@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
@@ -10,10 +10,12 @@ use pretty_assertions::assert_eq;
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, L2ToL1Payload,
+    AccountDeploymentData, Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee,
+    L2ToL1Payload, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
@@ -30,7 +32,7 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, OUT_OF_GAS_ERROR,
+    SyscallExecutionError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
@@ -42,7 +44,8 @@ use crate::test_utils::{
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
-    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+    AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
+    DeprecatedAccountTransactionContext,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -259,7 +262,9 @@ fn test_get_execution_info(
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata: Calldata(
-            [expected_block_info.to_vec(), expected_tx_info, expected_call_info].concat().into(),
+            [expected_block_info.to_vec(), expected_tx_info.clone(), expected_call_info]
+                .concat()
+                .into(),
         ),
         ..trivial_external_entry_point()
     };
@@ -287,6 +292,80 @@ fn test_get_execution_info(
         ExecutionMode::Execute => {
             entry_point_call.execute_directly_given_account_context(&mut state, account_tx_context)
         }
+    };
+
+    assert!(!result.unwrap().execution.failed);
+
+    // Test V3 transactions.
+    let mut version = Felt252::from(3_u8);
+    if only_query {
+        let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
+        version += simulate_version_base;
+    }
+    let nonce = Nonce(stark_felt!(3_u16));
+    let l1_gas = StarkFelt::try_from(L1_GAS).map_err(SyscallExecutionError::from).unwrap();
+    let l2_gas = StarkFelt::try_from(L2_GAS).map_err(SyscallExecutionError::from).unwrap();
+
+    let expected_tx_info_v2 = vec![
+        felt_to_stark_felt(&version), // Transaction version.
+        *sender_address.0.key(),      // Account address.
+        StarkFelt::ZERO,              // Max fee.
+        tx_hash.0,                    // Transaction hash.
+        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        nonce.0,                      // Nonce.
+        StarkFelt::from(2u32),        // Length of ResourceBounds array.
+        l1_gas,                       // Resource.
+        StarkFelt::ZERO,              // Max amount.
+        StarkFelt::ONE,               // Max price per unit.
+        l2_gas,                       // Resource.
+        StarkFelt::ZERO,              // Max amount.
+        StarkFelt::ZERO,              // Max price per unit.
+    ];
+    let entry_point_selector_v2 = selector_from_name("test_get_execution_info_v2");
+    let expected_call_info_v2 = vec![
+        stark_felt!(0_u16),                     // Caller address.
+        stark_felt!(TEST_CONTRACT_ADDRESS),     // Storage address.
+        stark_felt!(entry_point_selector_v2.0), // Entry point selector.
+    ];
+    let entry_point_call_v2 = CallEntryPoint {
+        entry_point_selector: entry_point_selector_v2,
+        calldata: Calldata(
+            [expected_block_info.to_vec(), expected_tx_info_v2, expected_call_info_v2]
+                .concat()
+                .into(),
+        ),
+        ..trivial_external_entry_point()
+    };
+
+    let default_current_context =
+        AccountTransactionContext::Current(CurrentAccountTransactionContext {
+            common_fields: CommonAccountFields {
+                transaction_hash: tx_hash,
+                version: TransactionVersion::THREE,
+                nonce,
+                sender_address,
+                only_query,
+                ..Default::default()
+            },
+            resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+            ])),
+            tip: Tip::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: PaymasterData::default(),
+            account_deployment_data: AccountDeploymentData::default(),
+        });
+
+    let result = match execution_mode {
+        ExecutionMode::Validate => entry_point_call_v2
+            .execute_directly_given_account_context_in_validate_mode(
+                &mut state,
+                default_current_context,
+            ),
+        ExecutionMode::Execute => entry_point_call_v2
+            .execute_directly_given_account_context(&mut state, default_current_context),
     };
 
     assert!(!result.unwrap().execution.failed)
