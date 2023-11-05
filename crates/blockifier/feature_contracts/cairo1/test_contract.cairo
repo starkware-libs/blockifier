@@ -95,7 +95,7 @@ mod TestContract {
         assert(tx_info.transaction_hash == transaction_hash, 'TRANSACTION_HASH_MISMATCH');
         assert(tx_info.chain_id == chain_id, 'CHAIN_ID_MISMATCH');
         assert(tx_info.nonce == nonce, 'NONCE_MISMATCH');
-        assert (tx_info.resource_bounds == resource_bounds, 'RESOURCE_BOUND_MISMATCH');
+        assert(tx_info.resource_bounds == resource_bounds, 'RESOURCE_BOUND_MISMATCH');
         assert(tx_info.max_fee.into() == max_fee, 'MAX_FEE_MISMATCH');
         assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
         assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
