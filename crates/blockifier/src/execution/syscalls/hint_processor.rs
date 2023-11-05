@@ -108,6 +108,10 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+// "L1_GAS";
+pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c315f474153";
+// "L2_GAS";
+pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -317,14 +321,16 @@ impl<'a> SyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
         context: &CurrentAccountTransactionContext,
     ) -> SyscallResult<(Relocatable, Relocatable)> {
+        let l1_gas = StarkFelt::try_from(L1_GAS).map_err(SyscallExecutionError::from)?;
+        let l2_gas = StarkFelt::try_from(L2_GAS).map_err(SyscallExecutionError::from)?;
         let flat_resource_bounds = context
             .resource_bounds
             .0
             .iter()
             .flat_map(|(resource, resource_bounds)| {
                 let resource = match resource {
-                    Resource::L1Gas => StarkFelt::ZERO,
-                    Resource::L2Gas => StarkFelt::ONE,
+                    Resource::L1Gas => l1_gas,
+                    Resource::L2Gas => l2_gas,
                 };
 
                 vec![
