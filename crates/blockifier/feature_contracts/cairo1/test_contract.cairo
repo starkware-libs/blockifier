@@ -101,6 +101,65 @@ mod TestContract {
     }
 
     #[external(v0)]
+    fn test_get_execution_info_v2(
+        self: @ContractState,
+        // Expected block info.
+        block_number: felt252,
+        block_timestamp: felt252,
+        sequencer_address: felt252,
+        // Expected transaction info.
+        version: felt252,
+        account_address: felt252,
+        max_fee: felt252,
+        transaction_hash: felt252,
+        chain_id: felt252,
+        nonce: felt252,
+        mut resource_bounds: Array::<ResourceBounds>,
+        // Expected call info.
+        caller_address: felt252,
+        contract_address: felt252,
+        entry_point_selector: felt252,
+    ) {
+        let execution_info = starknet::syscalls::get_execution_info_v2_syscall().unwrap_syscall().unbox();
+        let block_info = execution_info.block_info.unbox();
+        assert(block_info.block_number.into() == block_number, 'BLOCK_NUMBER_MISMATCH');
+        assert(block_info.block_timestamp.into() == block_timestamp, 'BLOCK_TIMESTAMP_MISMATCH');
+        assert(block_info.sequencer_address.into() == sequencer_address, 'SEQUENCER_MISMATCH');
+
+        let tx_info = execution_info.tx_info.unbox();
+        assert(tx_info.version == version, 'VERSION_MISMATCH');
+        assert(tx_info.account_contract_address.into() == account_address, 'ACCOUNT_MISMATCH');
+        assert(tx_info.max_fee == 0_u128, 'MAX_FEE_MISMATCH');
+        assert(tx_info.signature.len() == 0_u32, 'SIGNATURE_MISMATCH');
+        assert(tx_info.transaction_hash == transaction_hash, 'TRANSACTION_HASH_MISMATCH');
+        assert(tx_info.chain_id == chain_id, 'CHAIN_ID_MISMATCH');
+        assert(tx_info.nonce == nonce, 'NONCE_MISMATCH');
+        assert(resource_bounds.len() == 2_u32, 'RESOURCE_BOUND_SIZE_MISMATCH');
+
+        let mut tx_info_resource_bounds: Span<ResourceBounds> = tx_info.resource_bounds;
+        loop {
+            match resource_bounds.pop_front() {
+                Option::Some(current_resource) => {
+                    let resource = tx_info_resource_bounds.pop_front().unwrap();
+                    assert(*resource.resource == current_resource.resource, 'RESOURCE_MISMATCH');
+                    assert(*resource.max_amount == current_resource.max_amount, 'MAX_AMOUNT_MISMATCH');
+                    assert(*resource.max_price_per_unit == current_resource.max_price_per_unit, 'MAX_PRICE_PER_UNIT_MISMATCH');
+                },
+                Option::None => { break; }
+            }
+        };
+        assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
+        assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
+        assert(tx_info.nonce_data_availabilty_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
+        assert(tx_info.fee_data_availabilty_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
+        assert(tx_info.account_deployment_data.len() == 0_u32, 'DEPLOYMENT_DATA_MISMATCH');
+
+        assert(execution_info.caller_address.into() == caller_address, 'CALLER_MISMATCH');
+        assert(execution_info.contract_address.into() == contract_address, 'CONTRACT_MISMATCH');
+        assert(execution_info.entry_point_selector == entry_point_selector, 'SELECTOR_MISMATCH');
+    }
+
+    #[external(v0)]
     #[raw_output]
     fn test_library_call(
         self: @ContractState,
