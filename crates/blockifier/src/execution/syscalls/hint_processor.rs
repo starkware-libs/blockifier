@@ -21,7 +21,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Resource};
-use starknet_api::StarknetApiError;
+use starknet_api::{stark_felt, StarknetApiError};
 use thiserror::Error;
 
 use crate::abi::constants;
@@ -108,6 +108,10 @@ pub const INVALID_INPUT_LENGTH_ERROR: &str =
 // "Invalid argument";
 pub const INVALID_ARGUMENT: &str =
     "0x00000000000000000000000000000000496e76616c696420617267756d656e74";
+// "L1_GAS";
+pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004C315F474153";
+// "L2_GAS";
+pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004C325F474153";
 
 /// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -323,8 +327,8 @@ impl<'a> SyscallHintProcessor<'a> {
             .iter()
             .flat_map(|(resource, resource_bounds)| {
                 let resource = match resource {
-                    Resource::L1Gas => StarkFelt::ZERO,
-                    Resource::L2Gas => StarkFelt::ONE,
+                    Resource::L1Gas => stark_felt!(L1_GAS),
+                    Resource::L2Gas => stark_felt!(L2_GAS),
                 };
 
                 vec![
