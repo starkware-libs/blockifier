@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::fee::actual_cost::PostExecutionAuditorError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -25,8 +26,6 @@ pub enum TransactionExecutionError {
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("Transaction execution has failed.")]
     ExecutionError(#[source] EntryPointExecutionError),
-    #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]
-    FeeTransferError { max_fee: Fee, actual_fee: Fee },
     #[error("Actual fee ({actual_fee:?}) exceeded paid fee on L1 ({paid_fee:?}).")]
     InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
     #[error(
@@ -50,6 +49,8 @@ pub enum TransactionExecutionError {
     MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
     #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
+    #[error(transparent)]
+    PostExecutionAuditorError(#[from] PostExecutionAuditorError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
