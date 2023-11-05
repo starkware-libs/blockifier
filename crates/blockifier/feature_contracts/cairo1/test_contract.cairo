@@ -7,6 +7,7 @@ mod TestContract {
     use starknet::StorageAddress;
     use array::ArrayTrait;
     use clone::Clone;
+    use core::bytes_31::POW_2_128;
     use traits::Into;
     use traits::TryInto;
     use starknet::{
@@ -75,6 +76,7 @@ mod TestContract {
         transaction_hash: felt252,
         chain_id: felt252,
         nonce: felt252,
+        resource_bounds: Span::<ResourceBounds>,
         // Expected call info.
         caller_address: felt252,
         contract_address: felt252,
@@ -89,11 +91,17 @@ mod TestContract {
         let tx_info = execution_info.tx_info.unbox();
         assert(tx_info.version == version, 'VERSION_MISMATCH');
         assert(tx_info.account_contract_address.into() == account_address, 'ACCOUNT_MISMATCH');
-        assert(tx_info.max_fee.into() == max_fee, 'MAX_FEE_MISMATCH');
         assert(tx_info.signature.len() == 0_u32, 'SIGNATURE_MISMATCH');
         assert(tx_info.transaction_hash == transaction_hash, 'TRANSACTION_HASH_MISMATCH');
         assert(tx_info.chain_id == chain_id, 'CHAIN_ID_MISMATCH');
         assert(tx_info.nonce == nonce, 'NONCE_MISMATCH');
+        assert (tx_info.resource_bounds == resource_bounds, 'RESOURCE_BOUND_MISMATCH');
+        assert(tx_info.max_fee.into() == max_fee, 'MAX_FEE_MISMATCH');
+        assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
+        assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
+        assert(tx_info.nonce_data_availabilty_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
+        assert(tx_info.fee_data_availabilty_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
+        assert(tx_info.account_deployment_data.len() == 0_u32, 'DEPLOYMENT_DATA_MISMATCH');
 
         assert(execution_info.caller_address.into() == caller_address, 'CALLER_MISMATCH');
         assert(execution_info.contract_address.into() == contract_address, 'CONTRACT_MISMATCH');
@@ -292,4 +300,18 @@ mod TestContract {
 
         (msg_hash, Signature { r, s, y_parity: true }, public_key_x, public_key_y, eth_address)
     }
+
+    impl ResourceBoundsPartialEq of PartialEq<ResourceBounds> {
+        #[inline(always)]
+        fn eq(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
+            (*lhs.resource == *rhs.resource) && (*lhs.max_amount == *rhs.max_amount) &&
+                (*lhs.max_price_per_unit == *rhs.max_price_per_unit)
+        }
+        #[inline(always)]
+        fn ne(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
+            !(*lhs == *rhs)
+        }
+    }
+
 }
+
