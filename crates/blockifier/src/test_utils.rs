@@ -388,6 +388,7 @@ impl CallEntryPoint {
         self.execute_directly_given_account_context(
             state,
             AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+            true,
         )
     }
 
@@ -395,11 +396,15 @@ impl CallEntryPoint {
         self,
         state: &mut dyn State,
         account_tx_context: AccountTransactionContext,
+        limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context =
-            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context, true)
-                .unwrap();
+        let mut context = EntryPointExecutionContext::new_invoke(
+            &block_context,
+            &account_tx_context,
+            limit_steps_by_resources,
+        )
+        .unwrap();
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 
@@ -412,6 +417,7 @@ impl CallEntryPoint {
         self.execute_directly_given_account_context_in_validate_mode(
             state,
             AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+            true,
         )
     }
 
@@ -419,11 +425,15 @@ impl CallEntryPoint {
         self,
         state: &mut dyn State,
         account_tx_context: AccountTransactionContext,
+        limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
-        let mut context =
-            EntryPointExecutionContext::new_validate(&block_context, &account_tx_context, true)
-                .unwrap();
+        let mut context = EntryPointExecutionContext::new_validate(
+            &block_context,
+            &account_tx_context,
+            limit_steps_by_resources,
+        )
+        .unwrap();
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }
