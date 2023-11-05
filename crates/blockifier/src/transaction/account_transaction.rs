@@ -141,6 +141,7 @@ impl AccountTransaction {
         }
     }
 
+    // The nonce is incremented during these checks.
     pub fn perform_pre_validation_checks<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
@@ -148,7 +149,7 @@ impl AccountTransaction {
         block_context: &BlockContext,
         charge_fee: bool,
     ) -> TransactionExecutionResult<()> {
-        Self::check_nonce(state, account_tx_context)?;
+        Self::handle_nonce(state, account_tx_context)?;
 
         if charge_fee {
             self.check_fee_balance(state, block_context)?;
@@ -157,8 +158,8 @@ impl AccountTransaction {
         Ok(())
     }
 
-    fn check_nonce(
-        state: &mut dyn StateReader,
+    fn handle_nonce(
+        state: &mut dyn State,
         account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<()> {
         if account_tx_context.version() == TransactionVersion::ZERO {
@@ -177,17 +178,6 @@ impl AccountTransaction {
                 actual_nonce: tx_nonce,
             });
         }
-        Ok(())
-    }
-
-    pub fn increment_nonce(
-        state: &mut dyn State,
-        account_tx_context: &AccountTransactionContext,
-    ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version() == TransactionVersion::ZERO {
-            return Ok(());
-        }
-
         Ok(state.increment_nonce(account_tx_context.sender_address())?)
     }
 
@@ -575,8 +565,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Nonce and fee check should be done before running user code.
         self.perform_pre_validation_checks(state, &account_tx_context, block_context, charge_fee)?;
-
-        AccountTransaction::increment_nonce(state, &account_tx_context)?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {
