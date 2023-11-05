@@ -1,12 +1,19 @@
 use std::collections::{HashMap, HashSet};
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use num_traits::Pow;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
+use rstest::rstest;
+use starknet_api::core::{
+    calculate_contract_address, ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, ContractAddressSalt};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion,
+};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
 
@@ -14,13 +21,18 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
+use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
-    deprecated_create_test_state, trivial_external_entry_point, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    deprecated_create_test_state, trivial_external_entry_point, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+};
+use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
+use crate::transaction::objects::{
+    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
 };
 
 #[test]
@@ -407,4 +419,51 @@ fn test_block_info_syscalls(
             CallExecution::from_retdata(retdata![])
         );
     }
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn test_tx_info(#[case] only_query: bool) {
+    let mut state = deprecated_create_deploy_test_state();
+    let mut version = Felt252::from(1_u8);
+    if only_query {
+        let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
+        version += simulate_version_base;
+    }
+    let tx_hash = TransactionHash(stark_felt!(1991_u16));
+    let max_fee = Fee(0);
+    let nonce = Nonce(stark_felt!(3_u16));
+    let sender_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let expected_tx_info = calldata![
+        felt_to_stark_felt(&version), // Transaction version.
+        *sender_address.0.key(),      // Account address.
+        stark_felt!(max_fee.0),       // Max fee.
+        tx_hash.0,                    // Transaction hash.
+        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        nonce.0                       // Nonce.
+    ];
+    let entry_point_selector = selector_from_name("test_get_tx_info");
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector,
+        calldata: expected_tx_info,
+        ..trivial_external_entry_point()
+    };
+    let account_tx_context =
+        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
+            common_fields: CommonAccountFields {
+                transaction_hash: tx_hash,
+                version: TransactionVersion::ONE,
+                nonce,
+                sender_address,
+                only_query,
+                ..Default::default()
+            },
+            max_fee,
+        });
+    let result = entry_point_call
+        .execute_directly_given_account_context(&mut state, account_tx_context)
+        .unwrap();
+
+    assert!(!result.execution.failed)
 }

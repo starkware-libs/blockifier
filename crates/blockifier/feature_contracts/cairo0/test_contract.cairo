@@ -3,6 +3,7 @@
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.starknet.common.syscalls import (
+    TxInfo,
     storage_read,
     storage_write,
     library_call,
@@ -13,6 +14,7 @@ from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_sequencer_address,
     replace_class,
+    get_tx_info,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -273,5 +275,33 @@ func test_get_block_timestamp{syscall_ptr: felt*}(expected_block_timestamp: felt
 func test_get_sequencer_address{syscall_ptr: felt*}(expected_sequencer_address: felt) {
     let (sequencer_address) = get_sequencer_address();
     assert sequencer_address = expected_sequencer_address;
+    return ();
+}
+
+@external
+func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(
+    expected_version: felt,
+    expected_account_contract_address: felt,
+    expected_max_fee: felt,
+    expected_transaction_hash: felt,
+    expected_chain_id: felt,
+    expected_nonce: felt,
+) {
+    let (tx_info_ptr: TxInfo*) = get_tx_info();
+    // Copy tx_info fields to make sure they were assigned a value during the system call.
+    tempvar tx_info = [tx_info_ptr];
+
+    assert tx_info.version = expected_version;
+    assert tx_info.account_contract_address = expected_account_contract_address;
+    assert tx_info.max_fee = expected_max_fee;
+    assert tx_info.transaction_hash = expected_transaction_hash;
+    assert tx_info.chain_id = expected_chain_id;
+    assert tx_info.nonce = expected_nonce;
+    assert tx_info.signature_len = 0;
+
+    storage_write(address=300, value=tx_info.transaction_hash);
+    storage_write(address=311, value=tx_info.chain_id);
+    storage_write(address=322, value=tx_info.nonce);
+
     return ();
 }
