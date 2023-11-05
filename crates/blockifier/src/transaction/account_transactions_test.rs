@@ -622,33 +622,16 @@ fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: Tes
     );
 }
 
-#[allow(clippy::too_many_arguments)]
-fn run_recursive_function(
-    state: &mut CachedState<DictStateReader>,
-    block_context: &BlockContext,
-    max_fee: Fee,
+fn recursive_function_calldata(
     contract_address: &ContractAddress,
-    account_address: &ContractAddress,
-    nonce_manager: &mut NonceManager,
-    function_name: &str,
     depth: u32,
-) -> TransactionExecutionInfo {
-    run_invoke_tx(
-        state,
-        block_context,
-        invoke_tx_args! {
-            max_fee,
-            sender_address: *account_address,
-            calldata: create_calldata(
-                *contract_address,
-                function_name,
-                &[stark_felt!(depth)]  // Calldata: recursion depth.
-            ),
-            version: TransactionVersion::ONE,
-            nonce: nonce_manager.next(*account_address),
-        },
+    failure_variant: bool,
+) -> Calldata {
+    create_calldata(
+        *contract_address,
+        if failure_variant { "recursive_fail" } else { "recurse" },
+        &[stark_felt!(depth)], // Calldata: recursion depth.
     )
-    .unwrap()
 }
 
 #[rstest]
@@ -670,34 +653,39 @@ fn test_reverted_reach_steps_limit(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(max_fee, block_context, state);
+    let recursion_base_args = invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        version: TransactionVersion::ONE,
+    };
 
     // Invoke the `recurse` function with 0 iterations. This call should succeed.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        0,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 0, false),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     let n_steps_0 = result.actual_resources.n_steps();
     let actual_fee_0 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
 
     // Invoke the `recurse` function with 1 iteration. This call should succeed.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        1,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 1, false),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     let n_steps_1 = result.actual_resources.n_steps();
     let actual_fee_1 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
@@ -713,16 +701,16 @@ fn test_reverted_reach_steps_limit(
     let fail_depth = block_context.invoke_tx_max_n_steps / (steps_diff as u32);
 
     // Invoke the `recurse` function with `fail_depth` iterations. This call should fail.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        fail_depth,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, fail_depth, false),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     let n_steps_fail = result.actual_resources.n_steps();
     let actual_fee_fail: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
@@ -734,16 +722,16 @@ fn test_reverted_reach_steps_limit(
     assert!(actual_fee_fail > actual_fee_1);
 
     // Invoke the `recurse` function with `fail_depth`+1 iterations. This call should fail.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        fail_depth + 1,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, fail_depth + 1, false),
+            ..recursion_base_args
+        },
+    )
+    .unwrap();
     let n_steps_fail_next = result.actual_resources.n_steps();
     let actual_fee_fail_next: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
@@ -770,18 +758,23 @@ fn test_n_reverted_steps(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(max_fee, block_context, state);
+    let recursion_base_args = invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        version: TransactionVersion::ONE,
+    };
 
     // Invoke the `recursive_fail` function with 0 iterations. This call should fail.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recursive_fail",
-        0,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 0, true),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let mut actual_resources_0 = result.actual_resources.clone();
@@ -789,16 +782,16 @@ fn test_n_reverted_steps(
     let actual_fee_0 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recursive_fail",
-        1,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 1, true),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let actual_resources_1 = result.actual_resources;
@@ -806,16 +799,16 @@ fn test_n_reverted_steps(
     let actual_fee_1 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recursive_fail",
-        2,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 2, true),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     let n_steps_2 = result.actual_resources.n_steps();
     let actual_fee_2 = result.actual_fee.0;
     // Ensure the transaction was reverted.
@@ -840,16 +833,16 @@ fn test_n_reverted_steps(
     actual_resources_0.0.insert(abi_constants::N_STEPS_RESOURCE.to_string(), n_steps_0);
 
     // Invoke the `recursive_fail` function with 100 iterations. This call should fail.
-    let result: TransactionExecutionInfo = run_recursive_function(
+    let result = run_invoke_tx(
         &mut state,
         &block_context,
-        max_fee,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recursive_fail",
-        100,
-    );
+        invoke_tx_args! {
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 100, true),
+            ..recursion_base_args
+        },
+    )
+    .unwrap();
     let n_steps_100 = result.actual_resources.n_steps();
     let actual_fee_100 = result.actual_fee.0;
     // Ensure the transaction was reverted.
@@ -946,34 +939,40 @@ fn test_insufficient_max_fee_reverts(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    let recursion_base_args = invoke_tx_args! {
+        sender_address: account_address,
+        version: TransactionVersion::ONE,
+    };
 
     // Invoke the `recurse` function with depth 1 and MAX_FEE. This call should succeed.
-    let tx_execution_info1: TransactionExecutionInfo = run_recursive_function(
+    let tx_execution_info1 = run_invoke_tx(
         &mut state,
         &block_context,
-        Fee(MAX_FEE),
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        1,
-    );
+        invoke_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 1, false),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     assert!(!tx_execution_info1.is_reverted());
     let actual_fee_depth1 = tx_execution_info1.actual_fee;
 
     // Invoke the `recurse` function with depth of 2 and the actual fee of depth 1 as max_fee.
     // This call should fail due to insufficient max fee (steps bound based on max_fee is not so
     // tight as to stop execution between iterations 1 and 2).
-    let tx_execution_info2: TransactionExecutionInfo = run_recursive_function(
+    let tx_execution_info2 = run_invoke_tx(
         &mut state,
         &block_context,
-        actual_fee_depth1,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        2,
-    );
+        invoke_tx_args! {
+            max_fee: actual_fee_depth1,
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 2, false),
+            ..recursion_base_args.clone()
+        },
+    )
+    .unwrap();
     assert!(tx_execution_info2.is_reverted());
     assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
     assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
@@ -981,16 +980,17 @@ fn test_insufficient_max_fee_reverts(
     // Invoke the `recurse` function with depth of 800 and the actual fee of depth 1 as max_fee.
     // This call should fail due to no remaining steps (execution steps based on max_fee are bounded
     // well enough to catch this mid-execution).
-    let tx_execution_info3: TransactionExecutionInfo = run_recursive_function(
+    let tx_execution_info3 = run_invoke_tx(
         &mut state,
         &block_context,
-        actual_fee_depth1,
-        &contract_address,
-        &account_address,
-        &mut nonce_manager,
-        "recurse",
-        800,
-    );
+        invoke_tx_args! {
+            max_fee: actual_fee_depth1,
+            nonce: nonce_manager.next(account_address),
+            calldata: recursive_function_calldata(&contract_address, 800, false),
+            ..recursion_base_args
+        },
+    )
+    .unwrap();
     assert!(tx_execution_info3.is_reverted());
     assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
     assert!(
