@@ -26,6 +26,9 @@ cairo-lang-starknet = "2.3.0"
 cairo-vm = "0.8.2"
 ctor = "0.2.0"
 derive_more = "0.99.17"
+# TODO(Gilad): Remove `genco` dep once the issue with its 0.17.7 release
+# is fixed, or no longer a dependency of cairo-lang-starknet.
+genco = "=0.17.6"
 indexmap = "1.9.2"
 itertools = "0.10.3"
 keccak = "0.1.3"
