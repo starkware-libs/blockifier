@@ -23,9 +23,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", version = "0.4.0-rc0", features = [
-    "testing",
-] }
+blockifier = { version = "0.4.0-rc2", features = ["testing"] }
 cairo-lang-starknet.workspace = true
 cairo-vm.workspace = true
 indexmap.workspace = true
@@ -35,7 +33,7 @@ papyrus_storage = { version = "0.0.5", features = ["testing"] }
 pyo3 = { version = "0.19.1", features = ["num-bigint", "hashbrown"] }
 pyo3-log = "0.8.1"
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-starknet_api = { workspace = true, features = ["testing"] }
+starknet_api = { version = "0.5.0-rc1", features = ["testing"] }
 
 thiserror.workspace = true
 
