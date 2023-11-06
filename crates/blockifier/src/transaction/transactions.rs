@@ -99,6 +99,7 @@ pub trait ValidatableTransaction {
         account_tx_context: &AccountTransactionContext,
         remaining_gas: &mut u64,
         block_context: &BlockContext,
+        limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 

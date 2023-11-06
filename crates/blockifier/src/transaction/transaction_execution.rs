@@ -99,7 +99,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let tx_context = self.get_account_tx_context();
 
         let mut execution_resources = ExecutionResources::default();
-        let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context);
+        let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context, true);
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
