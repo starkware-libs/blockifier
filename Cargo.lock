@@ -387,6 +387,43 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.4.0-rc2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d36a7157bb3ae3df0ae2c7c714a56d805e6581a1ce466299a1cc9285ffcd4086"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-secp256k1",
+ "ark-secp256r1",
+ "cached",
+ "cairo-felt",
+ "cairo-lang-casm",
+ "cairo-lang-runner",
+ "cairo-lang-starknet",
+ "cairo-vm",
+ "ctor",
+ "derive_more",
+ "genco",
+ "indexmap 1.9.3",
+ "itertools 0.10.5",
+ "keccak",
+ "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits 0.2.17",
+ "phf",
+ "serde",
+ "serde_json",
+ "sha3",
+ "starknet-crypto",
+ "starknet_api 0.5.0-rc1",
+ "strum",
+ "strum_macros 0.24.3",
+ "thiserror",
+]
+
+[[package]]
+name = "blockifier"
+version = "0.4.0-rc3"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -416,7 +453,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "starknet-crypto",
- "starknet_api",
+ "starknet_api 0.6.0-rc0",
  "strum",
  "strum_macros 0.24.3",
  "test-case",
@@ -2059,9 +2096,9 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.4.0-rc2"
+version = "0.4.0-rc3"
 dependencies = [
- "blockifier",
+ "blockifier 0.4.0-rc2",
  "cached",
  "cairo-lang-starknet",
  "cairo-vm",
@@ -2073,7 +2110,7 @@ dependencies = [
  "pyo3",
  "pyo3-log",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.5.0-rc1",
  "tempfile",
  "thiserror",
 ]
@@ -2241,7 +2278,7 @@ dependencies = [
  "primitive-types",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.5.0-rc1",
  "tempfile",
  "thiserror",
  "tracing",
@@ -3118,6 +3155,27 @@ dependencies = [
  "serde",
  "serde_json",
  "starknet-crypto",
+ "thiserror",
+]
+
+[[package]]
+name = "starknet_api"
+version = "0.6.0-rc0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed59a4103c50f0172847080598cc23a35dac0e484ad8dec1cb1f45819736f79b"
+dependencies = [
+ "cairo-lang-starknet",
+ "derive_more",
+ "genco",
+ "hex",
+ "indexmap 1.9.3",
+ "once_cell",
+ "primitive-types",
+ "serde",
+ "serde_json",
+ "starknet-crypto",
+ "strum",
+ "strum_macros 0.24.3",
  "thiserror",
 ]
 
