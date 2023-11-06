@@ -24,8 +24,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
-    AccountTransactionContext, ResourcesMapping, TransactionExecutionInfo,
-    TransactionExecutionResult,
+    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -360,7 +359,7 @@ impl AccountTransaction {
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
 
-        let ActualCost { actual_fee, actual_resources } = self
+        let actual_cost = self
             .into_actual_cost_builder(block_context)
             .with_validate_call_info(&validate_call_info)
             .with_execute_call_info(&execute_call_info)
@@ -370,8 +369,7 @@ impl AccountTransaction {
         Ok(ValidateExecuteCallInfo::new_accepted(
             validate_call_info,
             execute_call_info,
-            actual_fee,
-            actual_resources,
+            actual_cost,
         ))
     }
 
@@ -426,8 +424,7 @@ impl AccountTransaction {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
-                let ActualCost { actual_fee, actual_resources } =
-                    actual_cost_builder_with_validation_changes
+                let actual_cost = actual_cost_builder_with_validation_changes
                     .clone()
                     .with_execute_call_info(&execute_call_info)
                     // Fee is determined by the sum of `validate` and `execute` state changes.
@@ -441,7 +438,7 @@ impl AccountTransaction {
                     block_context,
                     &account_tx_context,
                     &mut execution_state,
-                    actual_fee,
+                    actual_cost.actual_fee,
                     charge_fee,
                 )?;
 
@@ -461,8 +458,10 @@ impl AccountTransaction {
                     Ok(ValidateExecuteCallInfo::new_reverted(
                         validate_call_info,
                         revert_error,
-                        reverted_tx_fee,
-                        reverted_tx_resources,
+                        ActualCost {
+                            actual_fee: reverted_tx_fee,
+                            actual_resources: reverted_tx_resources,
+                        },
                     ))
                 } else {
                     // Commit the execution.
@@ -470,8 +469,7 @@ impl AccountTransaction {
                     Ok(ValidateExecuteCallInfo::new_accepted(
                         validate_call_info,
                         execute_call_info,
-                        actual_fee,
-                        actual_resources,
+                        actual_cost,
                     ))
                 }
             }
@@ -482,16 +480,14 @@ impl AccountTransaction {
                     n_allotted_execution_steps - execution_context.n_remaining_steps();
 
                 // Fee is determined by the `validate` state changes since `execute` is reverted.
-                let ActualCost { actual_fee, actual_resources } =
-                    actual_cost_builder_with_validation_changes
-                        .with_reverted_steps(n_reverted_steps)
-                        .build(&resources)?;
+                let actual_cost = actual_cost_builder_with_validation_changes
+                    .with_reverted_steps(n_reverted_steps)
+                    .build(&resources)?;
 
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
                     execution_context.error_trace(),
-                    actual_fee,
-                    actual_resources,
+                    actual_cost,
                 ))
             }
         }
@@ -572,8 +568,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate_call_info,
             execute_call_info,
             revert_error,
-            final_fee,
-            final_resources,
+            final_cost: ActualCost { actual_fee: final_fee, actual_resources: final_resources },
         } = self.run_or_revert(state, &mut remaining_gas, block_context, validate, charge_fee)?;
 
         let fee_transfer_call_info =
@@ -596,38 +591,28 @@ struct ValidateExecuteCallInfo {
     validate_call_info: Option<CallInfo>,
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
-    final_fee: Fee,
-    final_resources: ResourcesMapping,
+    final_cost: ActualCost,
 }
 
 impl ValidateExecuteCallInfo {
     pub fn new_accepted(
         validate_call_info: Option<CallInfo>,
         execute_call_info: Option<CallInfo>,
-        final_fee: Fee,
-        final_resources: ResourcesMapping,
+        final_cost: ActualCost,
     ) -> Self {
-        Self {
-            validate_call_info,
-            execute_call_info,
-            revert_error: None,
-            final_fee,
-            final_resources,
-        }
+        Self { validate_call_info, execute_call_info, revert_error: None, final_cost }
     }
 
     pub fn new_reverted(
         validate_call_info: Option<CallInfo>,
         revert_error: String,
-        final_fee: Fee,
-        final_resources: ResourcesMapping,
+        final_cost: ActualCost,
     ) -> Self {
         Self {
             validate_call_info,
             execute_call_info: None,
             revert_error: Some(revert_error),
-            final_fee,
-            final_resources,
+            final_cost,
         }
     }
 }
