@@ -74,8 +74,8 @@ impl PyValidator {
         tx: &PyAny,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
-        let charge_fee = false;
-        self.tx_executor().execute(tx, raw_contract_class, charge_fee)
+        let limit_execution_steps_by_resource_bounds = true;
+        self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
 
     #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
