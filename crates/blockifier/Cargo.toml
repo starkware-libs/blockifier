@@ -24,6 +24,7 @@ cairo-lang-runner.workspace = true
 cairo-lang-starknet.workspace = true
 cairo-vm.workspace = true
 derive_more.workspace = true
+genco = "=0.17.6"
 indexmap.workspace = true
 itertools.workspace = true
 keccak.workspace = true
