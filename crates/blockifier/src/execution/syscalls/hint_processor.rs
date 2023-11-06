@@ -335,8 +335,8 @@ impl<'a> SyscallHintProcessor<'a> {
 
                 vec![
                     resource,
-                    StarkFelt::from(resource_bounds.max_price_per_unit),
                     StarkFelt::from(resource_bounds.max_amount),
+                    StarkFelt::from(resource_bounds.max_price_per_unit),
                 ]
             })
             .collect();
