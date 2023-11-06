@@ -385,7 +385,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.4.0-rc0"
+version = "0.4.0-rc2"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -400,6 +400,7 @@ dependencies = [
  "cairo-vm",
  "ctor",
  "derive_more",
+ "genco",
  "indexmap 1.9.3",
  "itertools 0.10.5",
  "keccak",
@@ -2064,7 +2065,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.4.0-rc0"
+version = "0.4.0-rc2"
 dependencies = [
  "blockifier",
  "cached",
