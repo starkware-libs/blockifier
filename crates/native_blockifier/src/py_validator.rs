@@ -1,13 +1,18 @@
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::state::state_api::StateReader;
+use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
+use starknet_api::core::Nonce;
+use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::PyActualCost;
+use crate::py_transaction::{py_tx, PyActualCost};
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::py_utils::{py_enum_name, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -16,6 +21,7 @@ use crate::transaction_executor::TransactionExecutor;
 pub struct PyValidator {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
+    pub max_nonce_for_validation_skip: Nonce,
     pub tx_executor: Option<TransactionExecutor<PyStateReader>>,
     pub global_contract_cache: GlobalContractCache,
 }
@@ -23,12 +29,17 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth))]
-    pub fn create(general_config: PyGeneralConfig, max_recursion_depth: usize) -> Self {
+    #[pyo3(signature = (general_config, max_recursion_depth, max_nonce_for_validation_skip))]
+    pub fn create(
+        general_config: PyGeneralConfig,
+        max_recursion_depth: usize,
+        max_nonce_for_validation_skip: PyFelt,
+    ) -> Self {
         let tx_executor = None;
         let validator = Self {
             general_config,
             max_recursion_depth,
+            max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
             global_contract_cache: GlobalContractCache::default(),
         };
@@ -100,15 +111,18 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
-    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    #[pyo3(signature = (tx, remaining_gas, raw_contract_class, deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
         tx: &PyAny,
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
+        deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<Option<PyCallInfo>> {
-        // Pre validations.
-        // TODO(Amos, 09/11/2023): Add pre-validation checks.
+        if !self.pre_validation_checks(tx, raw_contract_class, deploy_account_tx_hash)? {
+            // Pre validations have failed or validation should be skipped.
+            return Ok(None);
+        }
 
         // `__validate__` call.
         let (py_optional_call_info, _actual_cost) =
@@ -126,6 +140,7 @@ impl PyValidator {
         Self {
             general_config,
             max_recursion_depth: 50,
+            max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
         }
@@ -133,7 +148,52 @@ impl PyValidator {
 }
 
 impl PyValidator {
-    pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
+    fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+    // All checks that should be done before running __validate__.
+    // Returns true if and only if the pre validation checks succeeded.
+    fn pre_validation_checks(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+        deploy_account_tx_hash: Option<PyFelt>,
+    ) -> NativeBlockifierResult<bool> {
+        self.should_do_validations(tx, raw_contract_class, deploy_account_tx_hash)
+    }
+
+    fn should_do_validations(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+        deploy_account_tx_hash: Option<PyFelt>,
+    ) -> NativeBlockifierResult<bool> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
+        else {
+            panic!("L1 handlers should not be validated separately, only as part of execution")
+        };
+
+        let account_tx_context = account_tx.get_account_tx_context();
+        let nonce = self.tx_executor().state.get_nonce_at(account_tx_context.sender_address())?;
+        let tx_nonce = account_tx_context.nonce();
+
+        // Check if deploy account was submitted but not processed yet. If so, then skip
+        // validations for subsequent transactions for a better user experience.
+        // (Otherwise they'll fail solely because the deploy account hasn't been processed yet.)
+
+        let deploy_account_not_processed = nonce == Nonce(StarkFelt::ZERO);
+        let is_post_deploy_nonce = Nonce(StarkFelt::ONE) <= tx_nonce;
+        let nonce_small_enough_to_qualify_for_validation_skip =
+            tx_nonce <= self.max_nonce_for_validation_skip;
+        let deploy_account_has_been_sent = deploy_account_tx_hash.is_some();
+
+        let skip_validations = deploy_account_not_processed
+            && is_post_deploy_nonce
+            && nonce_small_enough_to_qualify_for_validation_skip
+            && deploy_account_has_been_sent;
+
+        Ok(skip_validations)
     }
 }
