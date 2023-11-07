@@ -39,7 +39,18 @@ impl Storage {
             max_size: config.max_size,
             growth_step: 1 << 26, // 64MB.
         };
-        let (reader, writer) = papyrus_storage::open_storage(db_config)?;
+        let storage_config = papyrus_storage::StorageConfig {
+            db_config,
+            scope: papyrus_storage::StorageScope::StateOnly, // Only stores blockifier-related data.
+            // Storage for large objects (state-diffs, contracts). This sets total storage
+            // allocated, maximum space an object can take, and how fast the storage grows.
+            mmap_file_config: papyrus_storage::mmap_file::MmapFileConfig {
+                max_size: 1 << 40,        // 1TB
+                growth_step: 2 << 30,     // 2GB
+                max_object_size: 1 << 30, // 1GB
+            },
+        };
+        let (reader, writer) = papyrus_storage::open_storage(storage_config)?;
         log::debug!("Initialized Blockifier storage.");
 
         Ok(Storage { reader: Some(reader), writer: Some(writer) })
@@ -202,7 +213,8 @@ impl Storage {
             max_size: 1 << 35,    // 32GB
             growth_step: 1 << 26, // 64MB
         };
-        let (reader, writer) = papyrus_storage::open_storage(db_config).unwrap();
+        let storage_config = papyrus_storage::StorageConfig { db_config, ..Default::default() };
+        let (reader, writer) = papyrus_storage::open_storage(storage_config).unwrap();
 
         Storage { reader: Some(reader), writer: Some(writer) }
     }
