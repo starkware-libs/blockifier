@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
@@ -15,9 +14,9 @@ use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTr
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
-use starknet_api::transaction::Fee;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::post_execution_checker::PostValidationChecker;
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
@@ -95,7 +94,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         account_tx: AccountTransaction,
         mut remaining_gas: u64,
-    ) -> NativeBlockifierResult<(Option<CallInfo>, Fee)> {
+    ) -> NativeBlockifierResult<PostValidationChecker> {
         let mut execution_resources = ExecutionResources::default();
         let account_tx_context = account_tx.get_account_tx_context();
 
@@ -119,7 +118,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             .try_add_state_changes(&mut self.state)?
             .build(&execution_resources)?;
 
-        Ok((validate_call_info, actual_fee))
+        Ok(PostValidationChecker { account_tx_context, call_info: validate_call_info, actual_fee })
     }
 
     /// Returns the state diff resulting in executing transactions.

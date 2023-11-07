@@ -14,6 +14,7 @@ pub mod py_validator;
 pub mod state_readers;
 pub mod storage;
 pub mod transaction_executor;
+pub mod post_execution_checker;
 
 use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;

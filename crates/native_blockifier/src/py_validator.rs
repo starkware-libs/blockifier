@@ -89,18 +89,17 @@ impl PyValidator {
         tx: &PyAny,
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
+    ) -> NativeBlockifierResult<Option<PyCallInfo>> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
         else {
             panic!("L1 handlers should not be validated separately, only as part of execution")
         };
 
-        let (optional_call_info, actual_fee) =
-            self.tx_executor().validate(account_tx, remaining_gas)?;
+        let optional_call_info =
+            self.tx_executor().validate(account_tx, remaining_gas)?.post_validate()?;
 
-        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
-        Ok((py_optional_call_info, actual_fee.0))
+        Ok(optional_call_info.map(Into::into))
     }
 
     pub fn close(&mut self) {

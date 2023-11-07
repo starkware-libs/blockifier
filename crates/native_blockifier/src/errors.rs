@@ -5,6 +5,7 @@ use cairo_vm::types::errors::program_errors::ProgramError;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
+use starknet_api::transaction::Fee;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -58,6 +59,11 @@ macro_rules! native_blockifier_errors {
 
 native_blockifier_errors!(
     (NativeBlockifierInputError, NativeBlockifierInputError, PyNativeBlockifierInputError),
+    (
+        NativeBlockifierValidationError,
+        NativeBlockifierValidationError,
+        PyNativeBlockifierValidationError
+    ),
     (ProgramError, ProgramError, PyProgramError),
     (Pyo3Error, PyErr, PyPyo3Error),
     (SerdeError, serde_json::Error, PySerdeError),
@@ -77,6 +83,15 @@ pub enum NativeBlockifierInputError {
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+}
+
+#[derive(Debug, Error)]
+pub enum NativeBlockifierValidationError {
+    #[error(
+        "Max fee must be greater or equal to the validation's actual fee.\n{max_fee:?} < \
+         {actual_fee:?}"
+    )]
+    InsufficientMaxFee { max_fee: Fee, actual_fee: Fee },
 }
 
 create_exception!(native_blockifier, UndeclaredClassHashError, PyException);

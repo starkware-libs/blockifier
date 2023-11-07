@@ -95,7 +95,7 @@ impl PyBlockExecutor {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
         let charge_fee = true;
-        self.tx_executor().execute(tx, charge_fee)
+        self.tx_executor().execute(tx, charge_fee).map(Into::into)
     }
 
     pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
