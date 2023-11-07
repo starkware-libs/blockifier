@@ -141,7 +141,7 @@ impl AccountTransaction {
         }
     }
 
-    // The nonce is incremented during these checks.
+    // Nonce is incremented during these checks.
     pub fn perform_pre_validation_checks<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
