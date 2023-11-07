@@ -39,7 +39,13 @@ impl Storage {
             max_size: config.max_size,
             growth_step: 1 << 26, // 64MB.
         };
-        let (reader, writer) = papyrus_storage::open_storage(db_config)?;
+        let storage_config = papyrus_storage::StorageConfig {
+            db_config,
+            scope: papyrus_storage::StorageScope::FullArchive, // stores state diffs.
+            // BLOCKING TODO(Gilad): Figure out what this does.
+            mmap_file_config: papyrus_storage::mmap_file::MmapFileConfig::default(),
+        };
+        let (reader, writer) = papyrus_storage::open_storage(storage_config)?;
         log::debug!("Initialized Blockifier storage.");
 
         Ok(Storage { reader: Some(reader), writer: Some(writer) })
@@ -202,7 +208,8 @@ impl Storage {
             max_size: 1 << 35,    // 32GB
             growth_step: 1 << 26, // 64MB
         };
-        let (reader, writer) = papyrus_storage::open_storage(db_config).unwrap();
+        let storage_config = papyrus_storage::StorageConfig { db_config, ..Default::default() };
+        let (reader, writer) = papyrus_storage::open_storage(storage_config).unwrap();
 
         Storage { reader: Some(reader), writer: Some(writer) }
     }
