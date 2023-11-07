@@ -71,9 +71,11 @@ impl<S: StateReader> TransactionExecutor<S> {
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
+        println!("DORI: before execute_raw");
         let tx_execution_result = tx
             .execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate)
             .map_err(NativeBlockifierError::from);
+        println!("DORI: after execute_raw");
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());

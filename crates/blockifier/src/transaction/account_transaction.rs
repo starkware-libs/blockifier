@@ -199,6 +199,7 @@ impl AccountTransaction {
             return Err(TransactionExecutionError::MaxFeeTooLow { min_fee: minimal_fee, max_fee });
         }
 
+        println!("DORI: before verify_can_pay_max_fee");
         verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee)
     }
 
@@ -218,6 +219,7 @@ impl AccountTransaction {
         let account_tx_context = self.get_account_tx_context();
         let fee_transfer_call_info =
             Self::execute_fee_transfer(state, block_context, account_tx_context, actual_fee)?;
+        println!("DORI: after execute_fee_transfer");
 
         Ok(Some(fee_transfer_call_info))
     }
@@ -558,7 +560,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
 
         // Nonce and fee check should be done before running user code.
         if charge_fee {
+            println!("DORI: before check_fee_balance");
             self.check_fee_balance(state, block_context)?;
+            println!("DORI: after check_fee_balance");
         }
         // Handle nonce.
         Self::handle_nonce(&account_tx_context, state)?;
@@ -570,9 +574,11 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             revert_error,
             final_cost: ActualCost { actual_fee: final_fee, actual_resources: final_resources },
         } = self.run_or_revert(state, &mut remaining_gas, block_context, validate, charge_fee)?;
+        println!("DORI: after run_or_revert");
 
         let fee_transfer_call_info =
             self.handle_fee(state, block_context, final_fee, charge_fee)?;
+        println!("DORI: after handle_fee");
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,

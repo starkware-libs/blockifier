@@ -65,6 +65,7 @@ impl CallEntryPoint {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
+        println!("DORI: in fee_transfer execute()");
         let mut decrement_when_dropped = RecursionDepthGuard::new(
             context.current_recursion_depth.clone(),
             context.max_recursion_depth,
@@ -74,9 +75,11 @@ impl CallEntryPoint {
         // Validate contract is deployed.
         let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
+        println!("DORI: after fee_transfer execute().get_class_hash_at({:?})", storage_address);
         if storage_class_hash == ClassHash::default() {
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
         }
+        println!("DORI: got class hash {:?}", storage_class_hash);
 
         let class_hash = match self.class_hash {
             Some(class_hash) => class_hash,
@@ -94,6 +97,7 @@ impl CallEntryPoint {
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(&class_hash)?;
+        println!("DORI: got compiled class");
 
         execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
             match error {
