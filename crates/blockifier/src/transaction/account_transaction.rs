@@ -15,7 +15,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
-use crate::fee::actual_cost::{ActualCost, ActualCostBuilder, PostExecutionAuditor};
+use crate::fee::actual_cost::{ActualCost, ActualCostBuilder, PostExecutionReport};
 use crate::fee::fee_utils::verify_can_pay_max_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
@@ -330,19 +330,21 @@ impl AccountTransaction {
             .try_add_state_changes(state)?
             .build(&resources)?;
 
-        PostExecutionAuditor {
+        let post_execution_report = PostExecutionReport::generate(
+            state,
             block_context,
             account_tx_context,
-            actual_cost: &actual_cost,
+            &actual_cost,
             charge_fee,
+        )?;
+        match post_execution_report.error() {
+            Some(error) => Err(error.into()),
+            None => Ok(ValidateExecuteCallInfo::new_accepted(
+                validate_call_info,
+                execute_call_info,
+                actual_cost,
+            )),
         }
-        .verify_valid_actual_cost(state)?;
-
-        Ok(ValidateExecuteCallInfo::new_accepted(
-            validate_call_info,
-            execute_call_info,
-            actual_cost,
-        ))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -413,15 +415,31 @@ impl AccountTransaction {
                     .build(&execution_resources)?;
 
                 // Post-execution checks.
-                let auditor = PostExecutionAuditor {
-                    account_tx_context: &account_tx_context,
+                let post_execution_report = PostExecutionReport::generate(
+                    &mut execution_state,
                     block_context,
-                    actual_cost: &actual_cost,
+                    &account_tx_context,
+                    &actual_cost,
                     charge_fee,
-                };
-                match auditor.verify_valid_actual_cost(&mut execution_state) {
-                    Ok(()) => {
-                        // Post-execution audit passed, commit the execution.
+                )?;
+                match post_execution_report.error() {
+                    Some(post_execution_error) => {
+                        // Post-execution check failed. Revert the execution, compute the final fee
+                        // to charge and recompute resources used (to be consistent with other
+                        // revert case, compute resources by adding consumed execution steps to
+                        // validation resources).
+                        execution_state.abort();
+                        Ok(ValidateExecuteCallInfo::new_reverted(
+                            validate_call_info,
+                            post_execution_error.to_string(),
+                            ActualCost {
+                                actual_fee: post_execution_report.recommended_fee(),
+                                actual_resources: revert_cost.actual_resources,
+                            },
+                        ))
+                    }
+                    None => {
+                        // Post-execution check passed, commit the execution.
                         execution_state.commit();
                         Ok(ValidateExecuteCallInfo::new_accepted(
                             validate_call_info,
@@ -429,51 +447,25 @@ impl AccountTransaction {
                             actual_cost,
                         ))
                     }
-                    Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {
-                        // Post-execution audit failed. Revert the execution, compute the final fee
-                        // to charge and recompute resources used (to be consistent with other
-                        // revert case, compute resources by adding consumed execution steps to
-                        // validation resources).
-                        execution_state.abort();
-                        let final_cost = ActualCost {
-                            actual_fee: auditor.post_execution_revert_fee(&error),
-                            actual_resources: revert_cost.actual_resources,
-                        };
-
-                        Ok(ValidateExecuteCallInfo::new_reverted(
-                            validate_call_info,
-                            error.to_string(),
-                            final_cost,
-                        ))
-                    }
-                    // Propagate other errors.
-                    Err(other_error) => Err(other_error),
                 }
             }
             Err(_) => {
                 // Error during execution. Revert, even if the error is sequencer-related.
                 execution_state.abort();
-                let auditor = PostExecutionAuditor {
-                    account_tx_context: &account_tx_context,
+                let post_execution_report = PostExecutionReport::generate(
+                    state,
                     block_context,
-                    actual_cost: &revert_cost,
+                    &account_tx_context,
+                    &revert_cost,
                     charge_fee,
-                };
-                let final_cost = match auditor.verify_valid_actual_cost(state) {
-                    Ok(()) => revert_cost,
-                    Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {
-                        ActualCost {
-                            actual_fee: auditor.post_execution_revert_fee(&error),
-                            actual_resources: revert_cost.actual_resources,
-                        }
-                    }
-                    Err(other_error) => return Err(other_error),
-                };
-
+                )?;
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
                     execution_context.error_trace(),
-                    final_cost,
+                    ActualCost {
+                        actual_fee: post_execution_report.recommended_fee(),
+                        actual_resources: revert_cost.actual_resources,
+                    },
                 ))
             }
         }

@@ -19,8 +19,8 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 
-#[derive(Debug, Error)]
-pub enum PostExecutionAuditorError {
+#[derive(Clone, Debug, Error)]
+pub enum PostExecutionFeeError {
     #[error("Insufficient max L1 gas: max amount: {max_amount}, actual used: {actual_amount}.")]
     MaxL1GasAmountExceeded { max_amount: u128, actual_amount: u128 },
     #[error("Insufficient max fee: max fee: {max_fee:?}, actual fee: {actual_fee:?}")]
@@ -178,51 +178,63 @@ impl<'a> ActualCostBuilder<'a> {
     }
 }
 
-pub struct PostExecutionAuditor<'a> {
-    pub block_context: &'a BlockContext,
-    pub account_tx_context: &'a AccountTransactionContext,
-    pub actual_cost: &'a ActualCost,
-    pub charge_fee: bool,
+pub struct PostExecutionReport {
+    recommended_fee: Fee,
+    error: Option<PostExecutionFeeError>,
 }
 
-impl PostExecutionAuditor<'_> {
+impl PostExecutionReport {
     /// Utility to check the actual cost can be paid by the account. If not, returns an error.
-    pub fn verify_valid_actual_cost<S: StateReader>(
-        &self,
+    pub fn generate<S: StateReader>(
         state: &mut S,
-    ) -> TransactionExecutionResult<()> {
-        if !self.charge_fee {
-            return Ok(());
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+        cost_to_audit: &ActualCost,
+        charge_fee: bool,
+    ) -> TransactionExecutionResult<Self> {
+        let passing_report = Self { recommended_fee: cost_to_audit.actual_fee, error: None };
+        if !charge_fee {
+            return Ok(passing_report);
         }
 
         let ActualCost { actual_fee: post_execute_fee, actual_resources: post_execute_resources } =
-            &self.actual_cost;
+            cost_to_audit;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
-        match self.account_tx_context {
+        match account_tx_context {
             AccountTransactionContext::Current(context) => {
                 // Check L1 gas limit.
                 let max_l1_gas =
                     context.l1_resource_bounds().expect("L1 gas bounds must be set.").max_amount
                         as u128;
                 let actual_used_l1_gas =
-                    calculate_tx_l1_gas_usage(post_execute_resources, self.block_context)?;
+                    calculate_tx_l1_gas_usage(post_execute_resources, block_context)?;
                 if actual_used_l1_gas > max_l1_gas {
-                    return Err(PostExecutionAuditorError::MaxL1GasAmountExceeded {
-                        max_amount: max_l1_gas,
-                        actual_amount: actual_used_l1_gas,
-                    })?;
+                    return Ok(Self {
+                        recommended_fee: get_fee_by_l1_gas_usage(
+                            block_context,
+                            max_l1_gas,
+                            &account_tx_context.fee_type(),
+                        ),
+                        error: Some(PostExecutionFeeError::MaxL1GasAmountExceeded {
+                            max_amount: max_l1_gas,
+                            actual_amount: actual_used_l1_gas,
+                        }),
+                    });
                 }
             }
             AccountTransactionContext::Deprecated(context) => {
                 // Check max fee.
                 let max_fee = context.max_fee;
                 if post_execute_fee > &max_fee {
-                    return Err(PostExecutionAuditorError::MaxFeeExceeded {
-                        max_fee,
-                        actual_fee: *post_execute_fee,
-                    })?;
+                    return Ok(Self {
+                        recommended_fee: max_fee,
+                        error: Some(PostExecutionFeeError::MaxFeeExceeded {
+                            max_fee,
+                            actual_fee: *post_execute_fee,
+                        }),
+                    });
                 }
             }
         }
@@ -231,49 +243,29 @@ impl PostExecutionAuditor<'_> {
         // execution.
         let (balance_low, balance_high, can_pay) = get_balance_and_if_covers_fee(
             state,
-            self.account_tx_context,
-            self.block_context,
+            account_tx_context,
+            block_context,
             *post_execute_fee,
         )?;
         if can_pay {
-            Ok(())
+            Ok(passing_report)
         } else {
-            Err(PostExecutionAuditorError::InsufficientFeeTokenBalance {
-                fee: *post_execute_fee,
-                balance_low,
-                balance_high,
-            })?
+            Ok(Self {
+                recommended_fee: *post_execute_fee,
+                error: Some(PostExecutionFeeError::InsufficientFeeTokenBalance {
+                    fee: *post_execute_fee,
+                    balance_low,
+                    balance_high,
+                }),
+            })
         }
     }
 
-    /// Given a post execution error of a revertible transaction, returns the actual fee to charge.
-    pub fn post_execution_revert_fee(&self, error: &PostExecutionAuditorError) -> Fee {
-        match error {
-            // If sender bounds were exceeded, charge based on the sender bounds.
-            // The sender is ensured to have sufficient balance to cover these costs due to
-            // pre-validation checks.
-            PostExecutionAuditorError::MaxL1GasAmountExceeded { .. }
-            | PostExecutionAuditorError::MaxFeeExceeded { .. } => match self.account_tx_context {
-                AccountTransactionContext::Current(context) => {
-                    let max_l1_gas = context
-                        .l1_resource_bounds()
-                        .expect("L1 gas bounds must be set.")
-                        .max_amount as u128;
-                    get_fee_by_l1_gas_usage(
-                        self.block_context,
-                        max_l1_gas,
-                        &self.account_tx_context.fee_type(),
-                    )
-                }
-                AccountTransactionContext::Deprecated(context) => context.max_fee,
-            },
-            // Balance overdraft error can only occur if sender bound check passes.
-            // Sender bound checks ensure that the sender *could have paid* the *actual fee*, before
-            // execution. So, if the execution state is reverted, the fee transfer is guaranteed
-            // to succeed.
-            PostExecutionAuditorError::InsufficientFeeTokenBalance { .. } => {
-                self.actual_cost.actual_fee
-            }
-        }
+    pub fn recommended_fee(&self) -> Fee {
+        self.recommended_fee
+    }
+
+    pub fn error(&self) -> Option<PostExecutionFeeError> {
+        self.error.clone()
     }
 }
