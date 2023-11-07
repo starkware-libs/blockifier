@@ -1,9 +1,12 @@
 use blockifier::fee::actual_cost::{ActualCost, PostExecutionReport};
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
+use starknet_api::core::Nonce;
+use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
@@ -21,6 +24,7 @@ use crate::transaction_executor::TransactionExecutor;
 pub struct PyValidator {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
+    pub max_nonce_for_validation_skip: Nonce,
     pub tx_executor: Option<TransactionExecutor<PyStateReader>>,
     pub global_contract_cache: GlobalContractCache,
 }
@@ -28,12 +32,17 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth))]
-    pub fn create(general_config: PyGeneralConfig, max_recursion_depth: usize) -> Self {
+    #[pyo3(signature = (general_config, max_recursion_depth, max_nonce_for_validation_skip))]
+    pub fn create(
+        general_config: PyGeneralConfig,
+        max_recursion_depth: usize,
+        max_nonce_for_validation_skip: PyFelt,
+    ) -> Self {
         let tx_executor = None;
         let validator = Self {
             general_config,
             max_recursion_depth,
+            max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
             global_contract_cache: GlobalContractCache::default(),
         };
@@ -109,39 +118,35 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
-    #[pyo3(signature = (tx, raw_contract_class, _deploy_account_tx_hash))]
+    #[pyo3(signature = (tx, raw_contract_class, deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-        _deploy_account_tx_hash: Option<PyFelt>,
+        deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
-
-        // Deploy account transactions should be fully executed (including pre-validation and
-        // post-execution), since the constructor is ran before validation.
+        let account_tx_context = account_tx.get_account_tx_context();
+        // Deploy account transactions should be fully executed, since the constructor must run
+        // before `__validate_deploy__`. The execution already includes all necessary validations,
+        // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
                 self.execute(tx, raw_contract_class)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
+
             return Ok(());
         }
-        let account_tx_context = account_tx.get_account_tx_context();
 
-        // Other (not deploy account) transactions should be validated only (with pre-validation
-        // before, and post-validation after).
-        let tx_executor = self.tx_executor();
-        let strict_nonce_check = false;
-        // Run pre-validation in charge fee mode to perform fee and balance related checks.
-        let charge_fee = true;
-        account_tx.perform_pre_validation_stage(
-            &mut tx_executor.state,
-            &account_tx.get_account_tx_context(),
-            &tx_executor.block_context,
-            charge_fee,
-            strict_nonce_check,
-        )?;
+        self.perform_pre_validation_stage(&account_tx)?;
+
+        if self.skip_validations_due_to_unprocessed_deploy_account(
+            &account_tx_context,
+            deploy_account_tx_hash,
+        )? {
+            return Ok(());
+        }
 
         // `__validate__` call.
         let (_py_optional_call_info, py_actual_cost) =
@@ -160,6 +165,7 @@ impl PyValidator {
         Self {
             general_config,
             max_recursion_depth: 50,
+            max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
         }
@@ -167,8 +173,53 @@ impl PyValidator {
 }
 
 impl PyValidator {
-    pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
+    fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+    fn perform_pre_validation_stage(
+        &mut self,
+        account_tx: &AccountTransaction,
+    ) -> NativeBlockifierResult<()> {
+        let account_tx_context = account_tx.get_account_tx_context();
+
+        let tx_executor = self.tx_executor();
+        let strict_nonce_check = false;
+        // Run pre-validation in charge fee mode to perform fee and balance related checks.
+        let charge_fee = true;
+        account_tx.perform_pre_validation_stage(
+            &mut tx_executor.state,
+            &account_tx_context,
+            &tx_executor.block_context,
+            charge_fee,
+            strict_nonce_check,
+        )?;
+
+        Ok(())
+    }
+
+    // Check if deploy account was submitted but not processed yet. If so, then skip
+    // validations for subsequent transactions for a better user experience.
+    // (they will otherwise fail solely because the deploy account hasn't been processed yet).
+    fn skip_validations_due_to_unprocessed_deploy_account(
+        &mut self,
+        account_tx_context: &AccountTransactionContext,
+        deploy_account_tx_hash: Option<PyFelt>,
+    ) -> NativeBlockifierResult<bool> {
+        let nonce = self.tx_executor().state.get_nonce_at(account_tx_context.sender_address())?;
+        let tx_nonce = account_tx_context.nonce();
+
+        let deploy_account_not_processed =
+            deploy_account_tx_hash.is_some() && nonce == Nonce(StarkFelt::ZERO);
+        let is_post_deploy_nonce = Nonce(StarkFelt::ONE) <= tx_nonce;
+        let nonce_small_enough_to_qualify_for_validation_skip =
+            tx_nonce <= self.max_nonce_for_validation_skip;
+
+        let skip_validations = deploy_account_not_processed
+            && is_post_deploy_nonce
+            && nonce_small_enough_to_qualify_for_validation_skip;
+
+        Ok(skip_validations)
     }
 
     fn perform_post_validation_stage(
