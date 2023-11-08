@@ -1,5 +1,3 @@
-use std::cmp::min;
-
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
@@ -62,7 +60,6 @@ pub struct ActualCostBuilder<'a> {
     state_changes: StateChanges,
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
-    is_reverted: bool,
     n_reverted_steps: usize,
 }
 
@@ -82,7 +79,6 @@ impl<'a> ActualCostBuilder<'a> {
             execute_call_info: None,
             state_changes: StateChanges::default(),
             l1_payload_size: None,
-            is_reverted: false,
             n_reverted_steps: 0,
         }
     }
@@ -98,11 +94,7 @@ impl<'a> ActualCostBuilder<'a> {
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
-        self.calculate_actual_fee_and_resources(
-            execution_resources,
-            self.is_reverted,
-            self.n_reverted_steps,
-        )
+        self.calculate_actual_fee_and_resources(execution_resources, self.n_reverted_steps)
     }
 
     // Setters.
@@ -136,7 +128,6 @@ impl<'a> ActualCostBuilder<'a> {
     }
 
     pub fn with_reverted_steps(mut self, n_reverted_steps: usize) -> Self {
-        self.is_reverted = true;
         self.n_reverted_steps = n_reverted_steps;
         self
     }
@@ -147,7 +138,6 @@ impl<'a> ActualCostBuilder<'a> {
     fn calculate_actual_fee_and_resources(
         &self,
         execution_resources: &ExecutionResources,
-        is_reverted: bool,
         n_reverted_steps: usize,
     ) -> TransactionExecutionResult<ActualCost> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
@@ -167,12 +157,11 @@ impl<'a> ActualCostBuilder<'a> {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let mut actual_fee =
-            self.account_tx_context.calculate_tx_fee(&actual_resources, &self.block_context)?;
-        if is_reverted || !self.account_tx_context.enforce_fee() {
-            // We cannot charge more than max_fee for reverted txs.
-            actual_fee = min(actual_fee, self.account_tx_context.max_fee());
-        }
+        let actual_fee = if self.account_tx_context.enforce_fee() {
+            self.account_tx_context.calculate_tx_fee(&actual_resources, &self.block_context)?
+        } else {
+            Fee(0)
+        };
 
         Ok(ActualCost { actual_fee, actual_resources })
     }
