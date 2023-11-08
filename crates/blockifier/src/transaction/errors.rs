@@ -17,6 +17,16 @@ pub enum TransactionFeeError {
     FeeTransferError { max_fee: Fee, actual_fee: Fee },
     #[error("Actual fee ({actual_fee:?}) exceeded paid fee on L1 ({paid_fee:?}).")]
     InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
+    #[error(
+        "L1 gas bounds (max amount: {max_amount:?}, max price: {max_price:?}) exceed balance \
+         (Uint256({balance_low:?}, {balance_high:?}))."
+    )]
+    L1GasBoundsExceedBalance {
+        max_amount: u64,
+        max_price: u128,
+        balance_low: StarkFelt,
+        balance_high: StarkFelt,
+    },
     #[error("Max fee ({max_fee:?}) exceeds balance (Uint256({balance_low:?}, {balance_high:?})).")]
     MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
     #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
