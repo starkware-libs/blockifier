@@ -18,10 +18,12 @@ use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
+use crate::abi::sierra_types::felt_to_u128;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
@@ -36,7 +38,9 @@ use crate::test_utils::{
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
@@ -1074,6 +1078,81 @@ fn test_max_fee_to_max_steps_conversion(
     assert_eq!(actual_gas_used, gas_used2 as u64);
     assert_eq!(n_steps1, n_steps2);
     assert_eq!(gas_used1, gas_used2);
+}
+
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_insufficient_balance_for_committed_bounds(
+    block_context: BlockContext,
+    #[from(create_state)] state: CachedState<DictStateReader>,
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+
+    let (current_balance, _) = state
+        .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
+        .unwrap();
+    let current_balance = felt_to_u128(&stark_felt_to_felt(current_balance)).unwrap();
+    let overdrafted_max_fee = Fee(current_balance + 1);
+    let gas_price = MAX_L1_GAS_PRICE;
+    let overdrafted_l1_gas_amount = u64::try_from((current_balance / gas_price) + 1).unwrap();
+    let pre_validation_error = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee: overdrafted_max_fee,
+            resource_bounds: l1_resource_bounds(overdrafted_l1_gas_amount, gas_price),
+            sender_address: account_address,
+            calldata: create_calldata(
+                contract_address,
+                "with_arg",
+                &[stark_felt!(25_u8)], // Calldata: arg.
+            ),
+            version,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap_err();
+
+    if let TransactionExecutionError::TransactionPreValidationError(
+        TransactionPreValidationError::TransactionFeeError(fee_error),
+    ) = pre_validation_error
+    {
+        match version {
+            TransactionVersion::ONE => assert_matches!(
+                fee_error,
+                TransactionFeeError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high }
+                if (
+                    max_fee == overdrafted_max_fee
+                    && balance_low == stark_felt!(current_balance)
+                    && balance_high == StarkFelt::ZERO
+                )
+            ),
+            TransactionVersion::THREE => assert_matches!(
+                fee_error,
+                TransactionFeeError::L1GasBoundsExceedBalance {
+                    max_amount, max_price, balance_low, balance_high
+                }
+                if (
+                    max_amount == overdrafted_l1_gas_amount
+                    && max_price == gas_price
+                    && balance_low == stark_felt!(current_balance)
+                    && balance_high == StarkFelt::ZERO
+                )
+            ),
+            _ => panic!("Unexpected transaction version {:?}", version),
+        };
+    } else {
+        panic!("Unexpected pre-validation error {:?}", pre_validation_error);
+    }
 }
 
 #[rstest]
