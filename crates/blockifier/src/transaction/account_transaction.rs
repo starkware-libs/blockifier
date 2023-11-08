@@ -16,7 +16,7 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
-use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_max_fee};
+use crate::fee::fee_utils::{can_pay_fee, verify_can_pay_committed_bounds};
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
@@ -199,7 +199,7 @@ impl AccountTransaction {
             return Err(TransactionExecutionError::MaxFeeTooLow { min_fee: minimal_fee, max_fee });
         }
 
-        verify_can_pay_max_fee(state, &account_tx_context, block_context, max_fee)
+        verify_can_pay_committed_bounds(state, &account_tx_context, block_context)
     }
 
     fn handle_fee(

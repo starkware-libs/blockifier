@@ -103,18 +103,43 @@ fn get_balance_and_if_covers_fee(
 
 /// Verifies that, given the current state, the account can pay the given max fee.
 /// Error may indicate insufficient balance, or some other error.
-pub fn verify_can_pay_max_fee(
+pub fn verify_can_pay_committed_bounds(
     state: &mut dyn StateReader,
     account_tx_context: &AccountTransactionContext,
     block_context: &BlockContext,
-    max_fee: Fee,
 ) -> TransactionExecutionResult<()> {
+    let committed_fee = match account_tx_context {
+        AccountTransactionContext::Current(context) => {
+            let l1_bounds =
+                context.l1_resource_bounds().expect("L1 resource bounds should be set.");
+            Fee(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit)
+        }
+        AccountTransactionContext::Deprecated(context) => context.max_fee,
+    };
     let (balance_low, balance_high, can_pay) =
-        get_balance_and_if_covers_fee(state, account_tx_context, block_context, max_fee)?;
+        get_balance_and_if_covers_fee(state, account_tx_context, block_context, committed_fee)?;
     if can_pay {
         Ok(())
     } else {
-        Err(TransactionExecutionError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high })
+        Err(match account_tx_context {
+            AccountTransactionContext::Current(context) => {
+                let l1_bounds =
+                    context.l1_resource_bounds().expect("L1 resource bounds should be set.");
+                TransactionExecutionError::L1GasBoundsExceedBalance {
+                    max_amount: l1_bounds.max_amount,
+                    max_price: l1_bounds.max_price_per_unit,
+                    balance_low,
+                    balance_high,
+                }
+            }
+            AccountTransactionContext::Deprecated(context) => {
+                TransactionExecutionError::MaxFeeExceedsBalance {
+                    max_fee: context.max_fee,
+                    balance_low,
+                    balance_high,
+                }
+            }
+        })
     }
 }
 
