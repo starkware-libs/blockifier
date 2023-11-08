@@ -122,7 +122,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             &account_tx_context,
             &mut remaining_gas,
             &self.block_context,
-            true,
         )?;
 
         let ActualCost { actual_fee, .. } = account_tx

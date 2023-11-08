@@ -157,14 +157,12 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         mode: ExecutionMode,
-        limit_steps_by_resources: bool,
     ) -> Self {
         Self {
             vm_run_resources: RunResources::new(Self::max_steps(
                 block_context,
                 account_tx_context,
                 &mode,
-                limit_steps_by_resources,
             )),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
@@ -180,27 +178,15 @@ impl EntryPointExecutionContext {
     pub fn new_validate(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        limit_steps_by_resources: bool,
     ) -> Self {
-        Self::new(
-            block_context,
-            account_tx_context,
-            ExecutionMode::Validate,
-            limit_steps_by_resources,
-        )
+        Self::new(block_context, account_tx_context, ExecutionMode::Validate)
     }
 
     pub fn new_invoke(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        limit_steps_by_resources: bool,
     ) -> Self {
-        Self::new(
-            block_context,
-            account_tx_context,
-            ExecutionMode::Execute,
-            limit_steps_by_resources,
-        )
+        Self::new(block_context, account_tx_context, ExecutionMode::Execute)
     }
 
     /// Returns the maximum number of cairo steps allowed, given the max fee, gas price and the
@@ -210,7 +196,6 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         mode: &ExecutionMode,
-        limit_steps_by_resources: bool,
     ) -> usize {
         let block_upper_bound = match mode {
             ExecutionMode::Validate => min(
@@ -222,7 +207,7 @@ impl EntryPointExecutionContext {
             }
         };
 
-        if !limit_steps_by_resources || !account_tx_context.enforce_fee() {
+        if !account_tx_context.enforce_fee() {
             return block_upper_bound;
         }
 
