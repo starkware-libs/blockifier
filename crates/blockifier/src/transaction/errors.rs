@@ -49,6 +49,8 @@ pub enum TransactionExecutionError {
     MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
     #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
+    #[error("Missing L1 gas bounds in resource bounds.")]
+    MissingL1GasBounds,
     #[error(transparent)]
     PostExecutionAuditorError(#[from] PostExecutionAuditorError),
     #[error(transparent)]
