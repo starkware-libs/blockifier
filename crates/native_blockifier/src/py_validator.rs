@@ -96,6 +96,23 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
+    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    pub fn perform_validations(
+        &mut self,
+        tx: &PyAny,
+        remaining_gas: u64,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
+        // Pre validations.
+        // TODO(Amos, 09/11/2023): Add pre-validation checks.
+
+        // `__validate__` call.
+        self.validate(tx, remaining_gas, raw_contract_class)
+
+        // Post validations.
+        // TODO(Noa, 09/11/2023): Add post-validation checks.
+    }
+
     #[pyo3(signature = (general_config))]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig) -> Self {
