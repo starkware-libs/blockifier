@@ -63,7 +63,7 @@ impl AccountTransactionContext {
     pub fn max_fee(&self) -> Fee {
         match self {
             Self::Current(context) => {
-                let l1_resource_bounds = context.l1_resource_bounds().unwrap_or_default();
+                let l1_resource_bounds = context.get_l1_gas_bounds().unwrap_or_default();
                 // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
                 Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
             }
@@ -89,10 +89,9 @@ impl AccountTransactionContext {
     pub fn enforce_fee(&self) -> bool {
         match self {
             AccountTransactionContext::Current(current_context) => {
-                let l1_bounds = current_context
-                    .l1_resource_bounds()
-                    .expect("L1 resource bounds should be set.");
-                l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit > 0
+                let l1_gas_bounds =
+                    current_context.get_l1_gas_bounds().expect("L1 gas bounds should be set.");
+                l1_gas_bounds.max_amount as u128 * l1_gas_bounds.max_price_per_unit > 0
             }
             AccountTransactionContext::Deprecated(deprecated_context) => {
                 deprecated_context.max_fee != Fee(0)
@@ -123,9 +122,14 @@ pub struct CurrentAccountTransactionContext {
 }
 
 impl CurrentAccountTransactionContext {
-    /// Fetch the L1 resource bounds, if they exist.
-    pub fn l1_resource_bounds(&self) -> Option<ResourceBounds> {
-        self.resource_bounds.0.get(&Resource::L1Gas).copied()
+    /// Fetch the L1 gas price bounds, if they exist.
+    pub fn get_l1_gas_bounds(&self) -> TransactionExecutionResult<ResourceBounds> {
+        match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
+            Some(resource_bounds) => Ok(resource_bounds),
+            None => {
+                Err(TransactionExecutionError::MissingResourceBounds { resource: Resource::L1Gas })
+            }
+        }
     }
 }
 
