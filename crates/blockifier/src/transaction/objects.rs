@@ -86,16 +86,14 @@ impl AccountTransactionContext {
         TransactionVersion(felt_to_stark_felt(&query_version))
     }
 
-    pub fn enforce_fee(&self) -> bool {
+    pub fn enforce_fee(&self) -> TransactionExecutionResult<bool> {
         match self {
             AccountTransactionContext::Current(current_context) => {
-                let l1_bounds = current_context
-                    .l1_resource_bounds()
-                    .expect("L1 resource bounds should be set.");
-                l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit > 0
+                let l1_bounds = current_context.l1_resource_bounds()?;
+                Ok(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit > 0)
             }
             AccountTransactionContext::Deprecated(deprecated_context) => {
-                deprecated_context.max_fee != Fee(0)
+                Ok(deprecated_context.max_fee != Fee(0))
             }
         }
     }
@@ -124,8 +122,11 @@ pub struct CurrentAccountTransactionContext {
 
 impl CurrentAccountTransactionContext {
     /// Fetch the L1 resource bounds, if they exist.
-    pub fn l1_resource_bounds(&self) -> Option<ResourceBounds> {
-        self.resource_bounds.0.get(&Resource::L1Gas).copied()
+    pub fn l1_resource_bounds(&self) -> TransactionExecutionResult<ResourceBounds> {
+        match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
+            Some(bounds) => Ok(bounds),
+            None => Err(TransactionExecutionError::MissingL1GasBounds),
+        }
     }
 }
 

@@ -20,7 +20,9 @@ use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::state_api::State;
-use crate::transaction::objects::{AccountTransactionContext, HasRelatedFeeType};
+use crate::transaction::objects::{
+    AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
+};
 use crate::transaction::transaction_types::TransactionType;
 
 #[cfg(test)]
@@ -158,14 +160,11 @@ impl EntryPointExecutionContext {
         account_tx_context: &AccountTransactionContext,
         mode: ExecutionMode,
         limit_steps_by_resources: bool,
-    ) -> Self {
-        Self {
-            vm_run_resources: RunResources::new(Self::max_steps(
-                block_context,
-                account_tx_context,
-                &mode,
-                limit_steps_by_resources,
-            )),
+    ) -> TransactionExecutionResult<Self> {
+        let max_steps =
+            Self::max_steps(block_context, account_tx_context, &mode, limit_steps_by_resources)?;
+        Ok(Self {
+            vm_run_resources: RunResources::new(max_steps),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
@@ -174,14 +173,14 @@ impl EntryPointExecutionContext {
             max_recursion_depth: block_context.max_recursion_depth,
             block_context: block_context.clone(),
             execution_mode: mode,
-        }
+        })
     }
 
     pub fn new_validate(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         limit_steps_by_resources: bool,
-    ) -> Self {
+    ) -> TransactionExecutionResult<Self> {
         Self::new(
             block_context,
             account_tx_context,
@@ -194,7 +193,7 @@ impl EntryPointExecutionContext {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         limit_steps_by_resources: bool,
-    ) -> Self {
+    ) -> TransactionExecutionResult<Self> {
         Self::new(
             block_context,
             account_tx_context,
@@ -211,7 +210,7 @@ impl EntryPointExecutionContext {
         account_tx_context: &AccountTransactionContext,
         mode: &ExecutionMode,
         limit_steps_by_resources: bool,
-    ) -> usize {
+    ) -> TransactionExecutionResult<usize> {
         let block_upper_bound = match mode {
             ExecutionMode::Validate => min(
                 block_context.validate_max_n_steps as usize,
@@ -222,8 +221,8 @@ impl EntryPointExecutionContext {
             }
         };
 
-        if !limit_steps_by_resources || !account_tx_context.enforce_fee() {
-            return block_upper_bound;
+        if !limit_steps_by_resources || !account_tx_context.enforce_fee()? {
+            return Ok(block_upper_bound);
         }
 
         let gas_per_step =
@@ -248,7 +247,7 @@ impl EntryPointExecutionContext {
         };
 
         let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
-        min(tx_upper_bound, block_upper_bound)
+        Ok(min(tx_upper_bound, block_upper_bound))
     }
 
     /// Returns the available steps in run resources.
