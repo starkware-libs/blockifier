@@ -23,13 +23,13 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
-use crate::abi::sierra_types::next_storage_key;
+use crate::abi::sierra_types::{felt_to_u128, next_storage_key};
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
-use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
@@ -39,12 +39,12 @@ use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -58,8 +58,8 @@ use crate::transaction::objects::{
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_account_tx_test_state,
     create_state_with_cairo1_account, create_state_with_falliable_validation_account,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    create_state_with_trivial_validation_account, l1_resource_bounds, run_invoke_tx, CALL_CONTRACT,
+    INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -605,6 +605,72 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
         if max_l1_gas_price == insufficient_max_l1_gas_price &&
         actual_l1_gas_price == actual_strk_l1_gas_price
     );
+}
+
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_insufficient_balance_for_committed_bounds(
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+) {
+    let block_context = &BlockContext::create_for_account_testing();
+    let mut state = create_state_with_trivial_validation_account();
+    let invoke_args = default_invoke_tx_args();
+
+    let (current_balance, _) = state
+        .get_fee_token_balance(
+            &invoke_args.sender_address,
+            &block_context.fee_token_address(&fee_type),
+        )
+        .unwrap();
+    let current_balance = felt_to_u128(&stark_felt_to_felt(current_balance)).unwrap();
+    let overdrafted_max_fee = Fee(current_balance + 1);
+    let gas_price = MAX_L1_GAS_PRICE;
+    let overdrafted_l1_gas_amount = u64::try_from((current_balance / gas_price) + 1).unwrap();
+    let pre_validation_error = run_invoke_tx(
+        &mut state,
+        block_context,
+        invoke_tx_args! {
+            max_fee: overdrafted_max_fee,
+            resource_bounds: l1_resource_bounds(overdrafted_l1_gas_amount, gas_price),
+            version,
+            ..default_invoke_tx_args()
+        },
+    )
+    .unwrap_err();
+
+    if let TransactionExecutionError::TransactionPreValidationError(
+        TransactionPreValidationError::TransactionFeeError(fee_error),
+    ) = pre_validation_error
+    {
+        match version {
+            TransactionVersion::ONE => assert_matches!(
+                fee_error,
+                TransactionFeeError::MaxFeeExceedsBalance { max_fee, balance_low, balance_high }
+                if (
+                    max_fee == overdrafted_max_fee
+                    && balance_low == stark_felt!(current_balance)
+                    && balance_high == StarkFelt::ZERO
+                )
+            ),
+            TransactionVersion::THREE => assert_matches!(
+                fee_error,
+                TransactionFeeError::L1GasBoundsExceedBalance {
+                    max_amount, max_price, balance_low, balance_high
+                }
+                if (
+                    max_amount == overdrafted_l1_gas_amount
+                    && max_price == gas_price
+                    && balance_low == stark_felt!(current_balance)
+                    && balance_high == StarkFelt::ZERO
+                )
+            ),
+            _ => panic!("Unexpected transaction version {:?}", version),
+        };
+    } else {
+        panic!("Unexpected pre-validation error {:?}", pre_validation_error);
+    }
 }
 
 #[test_case(
