@@ -207,7 +207,7 @@ impl<'a> PostExecutionAuditor<'a> {
             AccountTransactionContext::Current(context) => {
                 // Check L1 gas limit.
                 let max_l1_gas =
-                    context.l1_resource_bounds().expect("L1 gas bounds must be set.").max_amount
+                    context.get_l1_gas_bounds().expect("L1 gas bounds must be set.").max_amount
                         as u128;
                 let actual_used_l1_gas =
                     calculate_tx_l1_gas_usage(post_execute_resources, self.block_context)?;
@@ -258,10 +258,9 @@ impl<'a> PostExecutionAuditor<'a> {
             PostExecutionAuditorError::MaxL1GasAmountExceeded { .. }
             | PostExecutionAuditorError::MaxFeeExceeded { .. } => match self.account_tx_context {
                 AccountTransactionContext::Current(context) => {
-                    let max_l1_gas = context
-                        .l1_resource_bounds()
-                        .expect("L1 gas bounds must be set.")
-                        .max_amount as u128;
+                    let max_l1_gas =
+                        context.get_l1_gas_bounds().expect("L1 gas bounds must be set.").max_amount
+                            as u128;
                     get_fee_by_l1_gas_usage(
                         self.block_context,
                         max_l1_gas,
