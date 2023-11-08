@@ -208,7 +208,7 @@ impl AccountTransaction {
         let account_tx_context = self.get_account_tx_context();
         let max_fee = account_tx_context.max_fee();
 
-        if !account_tx_context.enforce_fee() {
+        if !account_tx_context.enforce_fee()? {
             return Ok(());
         }
 
@@ -272,7 +272,7 @@ impl AccountTransaction {
         };
 
         let mut context =
-            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context, true);
+            EntryPointExecutionContext::new_invoke(block_context, &account_tx_context, true)?;
 
         Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
     }
@@ -311,7 +311,7 @@ impl AccountTransaction {
                 block_context,
                 account_tx_context,
                 charge_fee,
-            );
+            )?;
             execute_call_info =
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
             validate_call_info = self.handle_validate_tx(
@@ -328,7 +328,7 @@ impl AccountTransaction {
                 block_context,
                 account_tx_context,
                 charge_fee,
-            );
+            )?;
             validate_call_info = self.handle_validate_tx(
                 state,
                 &mut resources,
@@ -349,7 +349,7 @@ impl AccountTransaction {
             .try_add_state_changes(state)?
             .build(&resources)?;
 
-        PostExecutionAuditor::new(block_context, account_tx_context, &actual_cost, charge_fee)
+        PostExecutionAuditor::new(block_context, account_tx_context, &actual_cost, charge_fee)?
             .verify_valid_actual_cost(state)?;
 
         Ok(ValidateExecuteCallInfo::new_accepted(
@@ -371,7 +371,7 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         let mut resources = ExecutionResources::default();
         let mut execution_context =
-            EntryPointExecutionContext::new_invoke(block_context, account_tx_context, charge_fee);
+            EntryPointExecutionContext::new_invoke(block_context, account_tx_context, charge_fee)?;
         let account_tx_context = self.get_account_tx_context();
         // Run the validation, and if execution later fails, only keep the validation diff.
         let validate_call_info = self.handle_validate_tx(
@@ -432,7 +432,7 @@ impl AccountTransaction {
                     &account_tx_context,
                     &actual_cost,
                     charge_fee,
-                );
+                )?;
                 match auditor.verify_valid_actual_cost(&mut execution_state) {
                     Ok(()) => {
                         // Post-execution audit passed, commit the execution.
@@ -450,7 +450,7 @@ impl AccountTransaction {
                         // validation resources).
                         execution_state.abort();
                         let final_cost = ActualCost {
-                            actual_fee: auditor.post_execution_revert_fee(&error),
+                            actual_fee: auditor.post_execution_revert_fee(&error)?,
                             actual_resources: revert_cost.actual_resources,
                         };
 
@@ -472,12 +472,12 @@ impl AccountTransaction {
                     &account_tx_context,
                     &revert_cost,
                     charge_fee,
-                );
+                )?;
                 let final_cost = match auditor.verify_valid_actual_cost(state) {
                     Ok(()) => revert_cost,
                     Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {
                         ActualCost {
-                            actual_fee: auditor.post_execution_revert_fee(&error),
+                            actual_fee: auditor.post_execution_revert_fee(&error)?,
                             actual_resources: revert_cost.actual_resources,
                         }
                     }
@@ -627,7 +627,7 @@ impl ValidatableTransaction for AccountTransaction {
             block_context,
             account_tx_context,
             limit_steps_by_resources,
-        );
+        )?;
         if context.account_tx_context.is_v0() {
             return Ok(None);
         }

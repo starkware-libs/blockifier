@@ -395,7 +395,8 @@ impl CallEntryPoint {
     ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
         let mut context =
-            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context, true);
+            EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context, true)
+                .unwrap();
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 
@@ -418,7 +419,8 @@ impl CallEntryPoint {
     ) -> EntryPointExecutionResult<CallInfo> {
         let block_context = BlockContext::create_for_testing();
         let mut context =
-            EntryPointExecutionContext::new_validate(&block_context, &account_tx_context, true);
+            EntryPointExecutionContext::new_validate(&block_context, &account_tx_context, true)
+                .unwrap();
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }
