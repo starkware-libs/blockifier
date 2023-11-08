@@ -30,8 +30,8 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_fee};
+use crate::fee::fee_utils::{calculate_tx_fee, l1_resource_bounds};
+use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -536,18 +536,23 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
 #[test_case(
     &mut create_state_with_cairo1_account();
     "With Cairo1 account")]
-fn test_insufficient_max_fee(state: &mut CachedState<DictStateReader>) {
+fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let valid_invoke_tx_args = default_invoke_tx_args();
-    let valid_account_tx = account_invoke_tx(valid_invoke_tx_args.clone());
+    // The minimal gas estimate does not depend on tx version.
+    let minimal_l1_gas =
+        estimate_minimal_l1_gas(block_context, &account_invoke_tx(valid_invoke_tx_args.clone()))
+            .unwrap();
 
-    // Fee too low (lower than minimal estimated fee).
-    let minimal_fee = estimate_minimal_fee(block_context, &valid_account_tx).unwrap();
+    // Test V1 tx
+
+    let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
+    // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
-    let invalid_tx = account_invoke_tx(
+    let invalid_v1_tx = account_invoke_tx(
         invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
     );
-    let execution_error = invalid_tx.execute(state, block_context, true, true).unwrap_err();
+    let execution_error = invalid_v1_tx.execute(state, block_context, true, true).unwrap_err();
 
     // Test error.
     assert_matches!(
@@ -556,18 +561,61 @@ fn test_insufficient_max_fee(state: &mut CachedState<DictStateReader>) {
         if max_fee == invalid_max_fee && min_fee == minimal_fee
     );
 
-    // Max fee lower than actual fee.
-    let invalid_max_fee = minimal_fee;
-    let invalid_tx = account_invoke_tx(
-        invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
+    // Test V3 tx
+    let actual_strk_l1_gas_price = block_context.gas_prices.strk_l1_gas_price;
+
+    // Max L1 gas amount too low.
+    let insufficient_max_l1_gas_amount = (minimal_l1_gas - 1) as u64;
+    let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
+        resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price),
+        version: TransactionVersion::THREE,
+        ..valid_invoke_tx_args.clone()
+    });
+    let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::MaxL1GasAmountTooLow{ max_l1_gas_amount, minimal_l1_gas_amount}
+        if max_l1_gas_amount == insufficient_max_l1_gas_amount &&
+        minimal_l1_gas_amount == minimal_l1_gas as u64
     );
+
+    // Max L1 gas price too low.
+    let insufficient_max_l1_gas_price = actual_strk_l1_gas_price - 1;
+    let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
+        resource_bounds: l1_resource_bounds(minimal_l1_gas as u64, insufficient_max_l1_gas_price),
+        version: TransactionVersion::THREE,
+        ..valid_invoke_tx_args
+    });
+    let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
+    assert_matches!(
+        execution_error,
+        TransactionExecutionError::MaxL1GasPriceTooLow{ max_l1_gas_price, actual_l1_gas_price }
+        if max_l1_gas_price == insufficient_max_l1_gas_price &&
+        actual_l1_gas_price == actual_strk_l1_gas_price
+    );
+}
+
+#[test_case(
+    &mut create_state_with_trivial_validation_account();
+    "With Cairo0 account")]
+#[test_case(
+    &mut create_state_with_cairo1_account();
+    "With Cairo1 account")]
+fn test_actual_fee_gt_resource_bounds(state: &mut CachedState<DictStateReader>) {
+    let block_context = &BlockContext::create_for_account_testing();
+    let invoke_tx_args = default_invoke_tx_args();
+    let minimal_l1_gas =
+        estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone())).unwrap();
+    let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
+    // The estimated minimal fee is lower than the actual fee.
+    let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
+
     let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
     let execution_error = execution_result.revert_error.unwrap();
-
     // Test error.
     assert!(execution_error.starts_with("Insufficient max fee:"));
     // Test that fee was charged.
-    assert_eq!(execution_result.actual_fee, invalid_max_fee);
+    assert_eq!(execution_result.actual_fee, minimal_fee);
 }
 
 #[test_case(

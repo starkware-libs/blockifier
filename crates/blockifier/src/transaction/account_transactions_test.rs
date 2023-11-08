@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use assert_matches::assert_matches;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
 use starknet_api::core::{
@@ -350,44 +349,6 @@ fn test_infinite_recursion(
     }
 }
 
-/// Tests that validation fails on insufficient steps if max fee is too low.
-#[rstest]
-#[case(TransactionVersion::ONE)]
-#[case(TransactionVersion::THREE)]
-fn test_max_fee_limit_validate(
-    block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
-    #[case] tx_version: TransactionVersion,
-) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
-
-    let error = run_invoke_tx(
-        &mut state,
-        &block_context,
-        invoke_tx_args! {
-            max_fee: Fee(10),
-            sender_address: account_address,
-            calldata: create_calldata(
-                contract_address,
-                "return_result",
-                &[stark_felt!(2_u8)], // Calldata: num.
-
-            ),
-            version: tx_version,
-            nonce: nonce_manager.next(account_address),
-        },
-    )
-    .unwrap_err();
-
-    assert_matches!(error, TransactionExecutionError::MaxFeeTooLow { max_fee: Fee(10), .. });
-}
-
 #[rstest]
 #[case(TransactionVersion::ONE)]
 #[case(TransactionVersion::THREE)]
@@ -429,6 +390,8 @@ fn test_recursion_depth_exceeded(
         calldata,
         version: tx_version,
         nonce: nonce_manager.next(account_address),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE)
+
     };
     let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
 
