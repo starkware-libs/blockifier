@@ -349,13 +349,8 @@ impl AccountTransaction {
             .try_add_state_changes(state)?
             .build(&resources)?;
 
-        PostExecutionAuditor {
-            block_context,
-            account_tx_context,
-            actual_cost: &actual_cost,
-            charge_fee,
-        }
-        .verify_valid_actual_cost(state)?;
+        PostExecutionAuditor::new(block_context, account_tx_context, &actual_cost, charge_fee)
+            .verify_valid_actual_cost(state)?;
 
         Ok(ValidateExecuteCallInfo::new_accepted(
             validate_call_info,
@@ -432,12 +427,12 @@ impl AccountTransaction {
                     .build(&execution_resources)?;
 
                 // Post-execution checks.
-                let auditor = PostExecutionAuditor {
-                    account_tx_context: &account_tx_context,
+                let auditor = PostExecutionAuditor::new(
                     block_context,
-                    actual_cost: &actual_cost,
+                    &account_tx_context,
+                    &actual_cost,
                     charge_fee,
-                };
+                );
                 match auditor.verify_valid_actual_cost(&mut execution_state) {
                     Ok(()) => {
                         // Post-execution audit passed, commit the execution.
@@ -472,12 +467,12 @@ impl AccountTransaction {
             Err(_) => {
                 // Error during execution. Revert, even if the error is sequencer-related.
                 execution_state.abort();
-                let auditor = PostExecutionAuditor {
-                    account_tx_context: &account_tx_context,
+                let auditor = PostExecutionAuditor::new(
                     block_context,
-                    actual_cost: &revert_cost,
+                    &account_tx_context,
+                    &revert_cost,
                     charge_fee,
-                };
+                );
                 let final_cost = match auditor.verify_valid_actual_cost(state) {
                     Ok(()) => revert_cost,
                     Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {

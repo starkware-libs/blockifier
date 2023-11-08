@@ -168,19 +168,33 @@ impl<'a> ActualCostBuilder<'a> {
 }
 
 pub struct PostExecutionAuditor<'a> {
-    pub block_context: &'a BlockContext,
-    pub account_tx_context: &'a AccountTransactionContext,
-    pub actual_cost: &'a ActualCost,
-    pub charge_fee: bool,
+    block_context: &'a BlockContext,
+    account_tx_context: &'a AccountTransactionContext,
+    actual_cost: &'a ActualCost,
+    allow_any_cost: bool,
 }
 
-impl PostExecutionAuditor<'_> {
+impl<'a> PostExecutionAuditor<'a> {
+    pub fn new(
+        block_context: &'a BlockContext,
+        account_tx_context: &'a AccountTransactionContext,
+        actual_cost: &'a ActualCost,
+        charge_fee: bool,
+    ) -> Self {
+        Self {
+            block_context,
+            account_tx_context,
+            actual_cost,
+            allow_any_cost: !charge_fee || !account_tx_context.enforce_fee(),
+        }
+    }
+
     /// Utility to check the actual cost can be paid by the account. If not, returns an error.
     pub fn verify_valid_actual_cost<S: StateReader>(
         &self,
         state: &mut S,
     ) -> TransactionExecutionResult<()> {
-        if !self.charge_fee {
+        if self.allow_any_cost {
             return Ok(());
         }
 

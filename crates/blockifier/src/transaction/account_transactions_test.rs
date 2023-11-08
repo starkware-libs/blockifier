@@ -28,9 +28,9 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
     create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, ERC20_CONTRACT_PATH, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -175,26 +175,59 @@ fn create_test_init_data(
 }
 
 #[rstest]
+#[case(Fee(0))]
+#[case(Fee(1))]
 fn test_fee_enforcement(
     block_context: BlockContext,
     #[from(create_state)] mut state: CachedState<DictStateReader>,
+    #[case] max_fee: Fee,
 ) {
-    for max_fee_value in 0..2 {
-        let max_fee = Fee(max_fee_value);
+    let deploy_account_tx = deploy_account_tx(
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        None,
+        None,
+        &mut NonceManager::default(),
+    );
 
-        let deploy_account_tx = deploy_account_tx(
-            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-            max_fee,
-            None,
-            None,
-            &mut NonceManager::default(),
-        );
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let enforce_fee = account_tx.get_account_tx_context().enforce_fee();
+    let result = account_tx.execute(&mut state, &block_context, true, true);
+    assert_eq!(result.is_err(), enforce_fee);
+}
 
-        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        let enforce_fee = account_tx.get_account_tx_context().enforce_fee();
-        let result = account_tx.execute(&mut state, &block_context, true, true);
-        assert_eq!(result.is_err(), enforce_fee);
-    }
+#[rstest]
+#[case(TransactionVersion::ZERO)]
+#[case(TransactionVersion::ONE)]
+#[case(TransactionVersion::THREE)]
+fn test_enforce_fee_false_works(
+    #[from(create_test_init_data)] init_data: TestInitData,
+    #[case] version: TransactionVersion,
+) {
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = init_data;
+    run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee: Fee(0),
+            resource_bounds: l1_resource_bounds(0, DEFAULT_STRK_L1_GAS_PRICE),
+            sender_address: account_address,
+            calldata: create_calldata(
+                contract_address,
+                "return_result",
+                &[stark_felt!(2_u8)]  // Calldata: num.
+            ),
+            version,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap();
 }
 
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
