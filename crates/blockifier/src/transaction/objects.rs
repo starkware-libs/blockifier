@@ -60,19 +60,6 @@ impl AccountTransactionContext {
         }
     }
 
-    pub fn max_fee(&self) -> TransactionExecutionResult<Fee> {
-        match self {
-            Self::Current(context) => {
-                let l1_resource_bounds = context.l1_resource_bounds()?;
-                // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
-                Ok(Fee(
-                    l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit
-                ))
-            }
-            Self::Deprecated(context) => Ok(context.max_fee),
-        }
-    }
-
     pub fn is_v0(&self) -> bool {
         self.version() == TransactionVersion::ZERO
     }
