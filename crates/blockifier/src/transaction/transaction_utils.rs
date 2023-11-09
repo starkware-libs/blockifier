@@ -14,8 +14,8 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 
-pub fn calculate_l1_gas_usage(
-    call_infos: &[&CallInfo],
+pub fn calculate_l1_gas_usage<'a>(
+    call_infos: impl Iterator<Item = &'a CallInfo>,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {

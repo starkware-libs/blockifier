@@ -167,22 +167,17 @@ pub struct TransactionExecutionInfo {
 }
 
 impl TransactionExecutionInfo {
-    pub fn non_optional_call_infos(&self) -> Vec<&CallInfo> {
-        let call_infos = vec![
-            self.validate_call_info.as_ref(),
-            self.execute_call_info.as_ref(),
-            self.fee_transfer_call_info.as_ref(),
-        ];
-
-        call_infos.into_iter().flatten().collect()
+    pub fn non_optional_call_infos(&self) -> impl Iterator<Item = &CallInfo> {
+        self.validate_call_info
+            .iter()
+            .chain(self.execute_call_info.iter())
+            .chain(self.fee_transfer_call_info.iter())
     }
 
     /// Returns the set of class hashes that were executed during this transaction execution.
     pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
         concat(
-            self.non_optional_call_infos()
-                .into_iter()
-                .map(|call_info| call_info.get_executed_class_hashes()),
+            self.non_optional_call_infos().map(|call_info| call_info.get_executed_class_hashes()),
         )
     }
 
