@@ -51,6 +51,16 @@ pub enum TransactionExecutionError {
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
     #[error("Missing L1 gas bounds in resource bounds.")]
     MissingL1GasBounds,
+    #[error(
+        "Max L1 gas price ({max_l1_gas_price:?}) is lower than the actual gas price: \
+         {actual_l1_gas_price:?}."
+    )]
+    MaxL1GasPriceTooLow { max_l1_gas_price: u128, actual_l1_gas_price: u128 },
+    #[error(
+        "Max L1 gas amount ({max_l1_gas_amount:?}) is lower than the minimal gas amount: \
+         {minimal_l1_gas_amount:?}."
+    )]
+    MaxL1GasAmountTooLow { max_l1_gas_amount: u64, minimal_l1_gas_amount: u64 },
     #[error(transparent)]
     PostExecutionFeeError(#[from] PostExecutionFeeError),
     #[error(transparent)]
