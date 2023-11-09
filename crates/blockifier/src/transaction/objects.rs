@@ -88,8 +88,8 @@ impl AccountTransactionContext {
 
     pub fn enforce_fee(&self) -> TransactionExecutionResult<bool> {
         match self {
-            AccountTransactionContext::Current(current_context) => {
-                let l1_bounds = current_context.l1_resource_bounds()?;
+            AccountTransactionContext::Current(context) => {
+                let l1_bounds = context.l1_resource_bounds()?;
                 Ok(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit > 0)
             }
             AccountTransactionContext::Deprecated(deprecated_context) => {

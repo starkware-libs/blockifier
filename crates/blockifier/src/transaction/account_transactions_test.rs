@@ -530,6 +530,8 @@ fn test_recursion_depth_exceeded(
         calldata,
         version: tx_version,
         nonce: nonce_manager.next(account_address),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE)
+
     };
     let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
 
@@ -1211,6 +1213,7 @@ fn test_revert_on_overdraft(
                 fee_token_address
             ),
             version,
+            resource_bounds: max_resource_bounds.clone(),
             nonce: nonce_manager.next(account_address),
         },
     )
@@ -1244,6 +1247,7 @@ fn test_revert_on_overdraft(
                 fee_token_address
             ),
             version,
+            resource_bounds: max_resource_bounds.clone(),
             nonce: nonce_manager.next(account_address),
         },
     )
