@@ -385,6 +385,7 @@ fn test_max_fee_limit_validate(
     block_context: BlockContext,
     #[from(create_state)] state: CachedState<DictStateReader>,
     #[case] version: TransactionVersion,
+    max_resource_bounds: ResourceBoundsMapping,
 ) {
     let TestInitData {
         mut state,
@@ -459,7 +460,7 @@ fn test_max_fee_limit_validate(
     let account_tx = account_invoke_tx(invoke_tx_args! {
         // Temporary upper bounds; just for gas estimation.
         max_fee: Fee(MAX_FEE),
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        resource_bounds: max_resource_bounds,
         ..tx_args.clone()
     });
     let estimated_min_l1_gas = estimate_minimal_l1_gas(&block_context, &account_tx).unwrap();
@@ -496,6 +497,7 @@ fn test_recursion_depth_exceeded(
     #[from(create_test_init_data)] init_data: TestInitData,
     #[case] tx_version: TransactionVersion,
     max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
 ) {
     let TestInitData {
         mut state,
@@ -530,6 +532,7 @@ fn test_recursion_depth_exceeded(
         calldata,
         version: tx_version,
         nonce: nonce_manager.next(account_address),
+        resource_bounds: max_resource_bounds,
     };
     let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
 
@@ -1211,6 +1214,7 @@ fn test_revert_on_overdraft(
                 fee_token_address
             ),
             version,
+            resource_bounds: max_resource_bounds.clone(),
             nonce: nonce_manager.next(account_address),
         },
     )
@@ -1244,6 +1248,7 @@ fn test_revert_on_overdraft(
                 fee_token_address
             ),
             version,
+            resource_bounds: max_resource_bounds.clone(),
             nonce: nonce_manager.next(account_address),
         },
     )

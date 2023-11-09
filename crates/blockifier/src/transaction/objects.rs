@@ -60,14 +60,16 @@ impl AccountTransactionContext {
         }
     }
 
-    pub fn max_fee(&self) -> Fee {
+    pub fn max_fee(&self) -> TransactionExecutionResult<Fee> {
         match self {
             Self::Current(context) => {
-                let l1_resource_bounds = context.l1_resource_bounds().unwrap_or_default();
+                let l1_resource_bounds = context.l1_resource_bounds()?;
                 // TODO(nir, 01/11/2023): Change to max_amount * block_context.gas_price.
-                Fee(l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit)
+                Ok(Fee(
+                    l1_resource_bounds.max_amount as u128 * l1_resource_bounds.max_price_per_unit
+                ))
             }
-            Self::Deprecated(context) => context.max_fee,
+            Self::Deprecated(context) => Ok(context.max_fee),
         }
     }
 
@@ -88,8 +90,8 @@ impl AccountTransactionContext {
 
     pub fn enforce_fee(&self) -> TransactionExecutionResult<bool> {
         match self {
-            AccountTransactionContext::Current(current_context) => {
-                let l1_bounds = current_context.l1_resource_bounds()?;
+            AccountTransactionContext::Current(context) => {
+                let l1_bounds = context.l1_resource_bounds()?;
                 Ok(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit > 0)
             }
             AccountTransactionContext::Deprecated(deprecated_context) => {

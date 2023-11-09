@@ -137,7 +137,7 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
         + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD
 }
 
-/// Return an estimated lower bound for the fee on an account transaction.
+/// Return an estimated lower bound for the L1 gas on an account transaction.
 pub fn estimate_minimal_l1_gas(
     block_context: &BlockContext,
     tx: &AccountTransaction,
