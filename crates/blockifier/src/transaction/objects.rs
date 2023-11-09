@@ -16,9 +16,13 @@ use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::transaction::constants;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
+pub type TransactionFeeResult<T> = Result<T, TransactionFeeError>;
+pub type TransactionPreValidationResult<T> = Result<T, TransactionPreValidationError>;
 
 macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
@@ -123,12 +127,10 @@ pub struct CurrentAccountTransactionContext {
 
 impl CurrentAccountTransactionContext {
     /// Fetch the L1 gas price bounds, if they exist.
-    pub fn get_l1_gas_bounds(&self) -> TransactionExecutionResult<ResourceBounds> {
+    pub fn get_l1_gas_bounds(&self) -> TransactionFeeResult<ResourceBounds> {
         match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
             Some(resource_bounds) => Ok(resource_bounds),
-            None => {
-                Err(TransactionExecutionError::MissingResourceBounds { resource: Resource::L1Gas })
-            }
+            None => Err(TransactionFeeError::MissingResourceBounds { resource: Resource::L1Gas }),
         }
     }
 }
@@ -229,6 +231,6 @@ pub trait HasRelatedFeeType {
         resources: &ResourcesMapping,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Fee> {
-        calculate_tx_fee(resources, block_context, &self.fee_type())
+        Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
     }
 }

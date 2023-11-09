@@ -9,6 +9,7 @@ use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
+use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -98,23 +99,11 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     pub fn validate(
         &mut self,
-        tx: &PyAny,
         mut remaining_gas: u64,
-        raw_contract_class: Option<&str>,
+        account_tx: &AccountTransaction,
     ) -> NativeBlockifierResult<(Option<CallInfo>, Fee)> {
-        let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
-        else {
-            panic!("L1 handlers should not be validated separately, only as part of execution")
-        };
-
         let mut execution_resources = ExecutionResources::default();
         let account_tx_context = account_tx.get_account_tx_context();
-
-        // For fee charging purposes, the nonce-increment cost is taken into consideration when
-        // calculating the fees for validation.
-        // Note: This assumes that the state is reset between calls to validate.
-        self.state.increment_nonce(account_tx_context.sender_address())?;
 
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
@@ -125,6 +114,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             true,
         )?;
 
+        // The cost includes a nonce increment, which is done in the pre-validation step.
         let ActualCost { actual_fee, .. } = account_tx
             .into_actual_cost_builder(&self.block_context)
             .with_validate_call_info(&validate_call_info)

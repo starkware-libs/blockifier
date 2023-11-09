@@ -24,9 +24,9 @@ use starknet_api::deprecated_contract_class::{
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
-
 /// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
@@ -145,7 +145,7 @@ impl ContractClassV1 {
 
     pub fn get_entry_point(
         &self,
-        call: &super::entry_point::CallEntryPoint,
+        call: &CallEntryPoint,
     ) -> Result<EntryPointV1, PreExecutionError> {
         if call.entry_point_type == EntryPointType::Constructor
             && call.entry_point_selector != selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME)
