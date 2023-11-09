@@ -233,16 +233,13 @@ impl EntryPointExecutionContext {
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
         let tx_gas_upper_bound = match account_tx_context {
-            AccountTransactionContext::Deprecated(deprecated_context) => {
-                (deprecated_context.max_fee.0
+            AccountTransactionContext::Deprecated(context) => {
+                (context.max_fee.0
                     / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type()))
                     as usize
             }
-            AccountTransactionContext::Current(current_context) => {
-                current_context
-                    .l1_resource_bounds()
-                    .expect("No L1 resource bounds found on current transaction context.")
-                    .max_amount as usize
+            AccountTransactionContext::Current(context) => {
+                context.l1_resource_bounds()?.max_amount as usize
             }
         };
 
