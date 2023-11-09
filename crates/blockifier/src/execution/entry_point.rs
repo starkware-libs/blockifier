@@ -239,10 +239,7 @@ impl EntryPointExecutionContext {
                     as usize
             }
             AccountTransactionContext::Current(current_context) => {
-                current_context
-                    .l1_resource_bounds()
-                    .expect("No L1 resource bounds found on current transaction context.")
-                    .max_amount as usize
+                current_context.l1_resource_bounds()?.max_amount as usize
             }
         };
 
