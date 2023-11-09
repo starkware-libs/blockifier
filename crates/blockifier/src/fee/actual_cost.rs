@@ -142,7 +142,7 @@ impl<'a> ActualCostBuilder<'a> {
     ) -> TransactionExecutionResult<ActualCost> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
         let non_optional_call_infos =
-            self.validate_call_info.into_iter().chain(self.execute_call_info.into_iter());
+            self.validate_call_info.into_iter().chain(self.execute_call_info);
         let l1_gas_usage = calculate_l1_gas_usage(
             non_optional_call_infos,
             state_changes_count,
