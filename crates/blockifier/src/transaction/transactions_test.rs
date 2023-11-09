@@ -48,7 +48,9 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 use crate::transaction::objects::{
     AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
     TransactionExecutionInfo,
@@ -486,7 +488,9 @@ fn assert_failure_if_max_fee_exceeds_balance(
     // Test error.
     assert_matches!(
         invalid_tx.execute(state, block_context, true, true).unwrap_err(),
-        TransactionExecutionError::MaxFeeExceedsBalance{ max_fee, .. }
+        TransactionExecutionError::TransactionPreValidationError(
+            TransactionPreValidationError::TransactionFeeError(
+                TransactionFeeError::MaxFeeExceedsBalance{ max_fee, .. }))
         if max_fee == sent_max_fee
     );
 }
@@ -557,7 +561,9 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
     // Test error.
     assert_matches!(
         execution_error,
-        TransactionExecutionError::MaxFeeTooLow{ min_fee, max_fee }
+        TransactionExecutionError::TransactionPreValidationError(
+            TransactionPreValidationError::TransactionFeeError(
+                TransactionFeeError::MaxFeeTooLow { min_fee, max_fee }))
         if max_fee == invalid_max_fee && min_fee == minimal_fee
     );
 
@@ -574,7 +580,10 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
     let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         execution_error,
-        TransactionExecutionError::MaxL1GasAmountTooLow{ max_l1_gas_amount, minimal_l1_gas_amount}
+        TransactionExecutionError::TransactionPreValidationError(
+            TransactionPreValidationError::TransactionFeeError(
+                TransactionFeeError::MaxL1GasAmountTooLow{
+                    max_l1_gas_amount, minimal_l1_gas_amount }))
         if max_l1_gas_amount == insufficient_max_l1_gas_amount &&
         minimal_l1_gas_amount == minimal_l1_gas as u64
     );
@@ -589,7 +598,9 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
     let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         execution_error,
-        TransactionExecutionError::MaxL1GasPriceTooLow{ max_l1_gas_price, actual_l1_gas_price }
+        TransactionExecutionError::TransactionPreValidationError(
+            TransactionPreValidationError::TransactionFeeError(
+                TransactionFeeError::MaxL1GasPriceTooLow{ max_l1_gas_price, actual_l1_gas_price }))
         if max_l1_gas_price == insufficient_max_l1_gas_price &&
         actual_l1_gas_price == actual_strk_l1_gas_price
     );
@@ -647,7 +658,7 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     // Test error.
     assert_matches!(
         pre_validation_err,
-        TransactionExecutionError::InvalidNonce { address, account_nonce, incoming_tx_nonce }
+            TransactionPreValidationError::InvalidNonce {address, account_nonce, incoming_tx_nonce}
         if (address, account_nonce, incoming_tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce::default(), invalid_nonce)
     );
@@ -686,7 +697,7 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     // Test error.
     assert_matches!(
         pre_validation_err,
-        TransactionExecutionError::InvalidNonce { address, account_nonce, incoming_tx_nonce }
+        TransactionPreValidationError::InvalidNonce {address, account_nonce, incoming_tx_nonce}
         if (address, account_nonce, incoming_tx_nonce) ==
         (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
     );

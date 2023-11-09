@@ -9,7 +9,7 @@ use crate::fee::actual_cost::ActualCost;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
@@ -116,7 +116,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         // For now, assert only that any amount of fee was paid.
         // The error message still indicates the required fee.
         if paid_fee == Fee(0) {
-            return Err(TransactionExecutionError::InsufficientL1Fee { paid_fee, actual_fee });
+            return Err(TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee })?;
         }
 
         Ok(TransactionExecutionInfo {
