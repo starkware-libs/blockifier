@@ -190,10 +190,34 @@ impl<'a> PostExecutionAuditor<'a> {
     }
 
     /// Utility to check the actual cost can be paid by the account. If not, returns an error.
-    pub fn verify_valid_actual_cost<S: StateReader>(
+    pub fn verify_can_pay_actual_cost<S: StateReader>(
         &self,
         state: &mut S,
     ) -> TransactionExecutionResult<()> {
+        self.verify_valid_actual_cost()?;
+        let ActualCost { actual_fee: post_execute_fee, .. } = &self.actual_cost;
+        // The actual resources used are within the sender's bound(s); verify against the account
+        // balance, which may have changed after execution.
+        let (balance_low, balance_high, can_pay) = get_balance_and_if_covers_fee(
+            state,
+            self.account_tx_context,
+            self.block_context,
+            *post_execute_fee,
+        )?;
+        if can_pay {
+            Ok(())
+        } else {
+            Err(PostExecutionAuditorError::InsufficientFeeTokenBalance {
+                fee: *post_execute_fee,
+                balance_low,
+                balance_high,
+            })?
+        }
+    }
+
+    // Verifies that the actual resources used are less than the upper bound(s) defined by the
+    // sender.
+    pub fn verify_valid_actual_cost(&self) -> TransactionExecutionResult<()> {
         if self.allow_any_cost {
             return Ok(());
         }
@@ -201,8 +225,6 @@ impl<'a> PostExecutionAuditor<'a> {
         let ActualCost { actual_fee: post_execute_fee, actual_resources: post_execute_resources } =
             &self.actual_cost;
 
-        // First, compare the actual resources used against the upper bound(s) defined by the
-        // sender.
         match self.account_tx_context {
             AccountTransactionContext::Current(context) => {
                 // Check L1 gas limit.
@@ -230,23 +252,7 @@ impl<'a> PostExecutionAuditor<'a> {
             }
         }
 
-        // Initial check passed; verify against the account balance, which may have changed after
-        // execution.
-        let (balance_low, balance_high, can_pay) = get_balance_and_if_covers_fee(
-            state,
-            self.account_tx_context,
-            self.block_context,
-            *post_execute_fee,
-        )?;
-        if can_pay {
-            Ok(())
-        } else {
-            Err(PostExecutionAuditorError::InsufficientFeeTokenBalance {
-                fee: *post_execute_fee,
-                balance_low,
-                balance_high,
-            })?
-        }
+        Ok(())
     }
 
     /// Given a post execution error of a revertible transaction, returns the actual fee to charge.

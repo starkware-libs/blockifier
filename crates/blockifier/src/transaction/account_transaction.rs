@@ -350,7 +350,7 @@ impl AccountTransaction {
             .build(&resources)?;
 
         PostExecutionAuditor::new(block_context, account_tx_context, &actual_cost, charge_fee)?
-            .verify_valid_actual_cost(state)?;
+            .verify_can_pay_actual_cost(state)?;
 
         Ok(ValidateExecuteCallInfo::new_accepted(
             validate_call_info,
@@ -433,7 +433,7 @@ impl AccountTransaction {
                     &actual_cost,
                     charge_fee,
                 )?;
-                match auditor.verify_valid_actual_cost(&mut execution_state) {
+                match auditor.verify_can_pay_actual_cost(&mut execution_state) {
                     Ok(()) => {
                         // Post-execution audit passed, commit the execution.
                         execution_state.commit();
@@ -473,7 +473,7 @@ impl AccountTransaction {
                     &revert_cost,
                     charge_fee,
                 )?;
-                let final_cost = match auditor.verify_valid_actual_cost(state) {
+                let final_cost = match auditor.verify_can_pay_actual_cost(state) {
                     Ok(()) => revert_cost,
                     Err(TransactionExecutionError::PostExecutionAuditorError(error)) => {
                         ActualCost {
