@@ -1,5 +1,7 @@
+use blockifier::fee::actual_cost::{ActualCost, PostExecutionReport};
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 
@@ -93,8 +95,10 @@ impl PyValidator {
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
         let (optional_call_info, actual_cost) =
-            self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
+            self.tx_executor().validate(&account_tx, remaining_gas)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
 
         Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
@@ -120,17 +124,18 @@ impl PyValidator {
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
             return Ok(());
         }
+        let account_tx_context = account_tx.get_account_tx_context();
 
         // Pre validations.
         // TODO(Amos, 09/11/2023): Add pre-validation checks.
 
         // `__validate__` call.
-        let (_py_optional_call_info, _actual_cost) =
+        let (_py_optional_call_info, py_actual_cost) =
             self.validate(tx, Transaction::initial_gas(), raw_contract_class)?;
 
         // Post validations.
-        // TODO(Noa, 09/11/2023): Add post-validation checks.
         // TODO(Ayelet, 09/11/2023): Check call succeeded.
+        self.perform_post_validation_stage(&account_tx_context, &ActualCost::from(py_actual_cost))?;
 
         Ok(())
     }
@@ -150,5 +155,28 @@ impl PyValidator {
 impl PyValidator {
     pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+    fn perform_post_validation_stage(
+        &mut self,
+        account_tx_context: &AccountTransactionContext,
+        actual_cost: &ActualCost,
+    ) -> TransactionExecutionResult<()> {
+        // TODO(Noa, 09/11/2023): Add this logic to `PostValdateReport`.
+        if !account_tx_context.enforce_fee()? {
+            return Ok(());
+        }
+
+        let resource_bounds_report = PostExecutionReport::check_actual_cost_within_bounds(
+            &self.tx_executor().block_context,
+            actual_cost,
+            account_tx_context,
+        )?;
+        match resource_bounds_report.error() {
+            Some(error) => Err(error)?,
+            // Note: the balance cannot be changed in `__validate__` (which cannot call other
+            // contracts), so there is no need to recheck that balance >= actual_cost.
+            None => Ok(()),
+        }
     }
 }
