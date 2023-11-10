@@ -1,13 +1,17 @@
+use blockifier::fee::actual_cost::{ActualCost, PostExecutionAuditor};
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
+use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::PyActualCost;
+use crate::py_transaction::{py_tx, PyActualCost};
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::py_utils::py_enum_name;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -88,8 +92,13 @@ impl PyValidator {
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
+        else {
+            panic!("L1 handlers should not be validated separately, only as part of execution")
+        };
         let (optional_call_info, actual_cost) =
-            self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
+            self.tx_executor().validate(&account_tx, remaining_gas)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
 
         Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
@@ -100,22 +109,28 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
-    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    #[pyo3(signature = (tx, raw_contract_class))]
     pub fn perform_validations(
         &mut self,
         tx: &PyAny,
-        remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<Option<PyCallInfo>> {
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
+        else {
+            panic!("L1 handlers should not be validated separately, only as part of execution")
+        };
+        let account_tx_context = account_tx.get_account_tx_context();
         // Pre validations.
         // TODO(Amos, 09/11/2023): Add pre-validation checks.
 
         // `__validate__` call.
-        let (py_optional_call_info, _actual_cost) =
-            self.validate(tx, remaining_gas, raw_contract_class)?;
+        let (py_optional_call_info, py_actual_cost) =
+            self.validate(tx, Transaction::initial_gas(), raw_contract_class)?;
 
         // Post validations.
         // TODO(Noa, 09/11/2023): Add post-validation checks.
+        self.post_validate(&account_tx_context, &ActualCost::from(py_actual_cost))?;
 
         Ok(py_optional_call_info)
     }
@@ -135,5 +150,24 @@ impl PyValidator {
 impl PyValidator {
     pub fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+    fn post_validate(
+        &mut self,
+        account_tx_context: &AccountTransactionContext,
+        actual_cost: &ActualCost,
+    ) -> TransactionExecutionResult<()> {
+        // Post validations.
+        let charge_fee = true;
+        let auditor = PostExecutionAuditor::new(
+            &self.tx_executor().block_context,
+            account_tx_context,
+            actual_cost,
+            charge_fee,
+        )?;
+
+        // Note- The balance cannot be changed in `__validate__`, so there is no need to recheck
+        // that balance >= actual_cost.
+        auditor.verify_valid_actual_cost()
     }
 }
