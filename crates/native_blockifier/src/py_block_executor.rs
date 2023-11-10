@@ -218,7 +218,6 @@ impl PyBlockExecutor {
 #[derive(Default)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
-    pub strk_l1_gas_price_source_config: PyStrkL1GasPriceSourceConfig,
     pub min_strk_l1_gas_price: u128,
     pub max_strk_l1_gas_price: u128,
     pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
@@ -236,12 +235,9 @@ impl FromPyObject<'_> for PyGeneralConfig {
         let max_strk_l1_gas_price: u128 = py_attr(general_config, "max_strk_l1_gas_price")?;
         let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
         let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
-        let strk_l1_gas_price_source_config: PyStrkL1GasPriceSourceConfig =
-            py_attr(general_config, "strk_l1_gas_price_source_config")?;
 
         Ok(Self {
             starknet_os_config,
-            strk_l1_gas_price_source_config,
             min_strk_l1_gas_price,
             max_strk_l1_gas_price,
             cairo_resource_fee_weights,
@@ -249,12 +245,6 @@ impl FromPyObject<'_> for PyGeneralConfig {
             validate_max_n_steps,
         })
     }
-}
-
-#[derive(FromPyObject, Clone, Default)]
-pub struct PyStrkL1GasPriceSourceConfig {
-    pub l2_amm_addresses: Vec<PyFelt>,
-    pub override_gas_price: Option<PyFelt>,
 }
 
 #[derive(FromPyObject, Clone)]
