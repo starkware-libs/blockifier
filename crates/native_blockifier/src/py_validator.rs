@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_transaction::PyActualCost;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
@@ -78,17 +79,20 @@ impl PyValidator {
         self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
 
+    // TODO(Noa, 20/11/23): when this method is no longer exrernalize to python, remove
+    // #[pyo3(...)].
     #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
     pub fn validate(
         &mut self,
         tx: &PyAny,
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
-        let (optional_call_info, actual_fee) =
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let (optional_call_info, actual_cost) =
             self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
-        Ok((py_optional_call_info, actual_fee.0))
+
+        Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
     }
 
     pub fn close(&mut self) {
@@ -102,15 +106,18 @@ impl PyValidator {
         tx: &PyAny,
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
+    ) -> NativeBlockifierResult<Option<PyCallInfo>> {
         // Pre validations.
         // TODO(Amos, 09/11/2023): Add pre-validation checks.
 
         // `__validate__` call.
-        self.validate(tx, remaining_gas, raw_contract_class)
+        let (py_optional_call_info, _actual_cost) =
+            self.validate(tx, remaining_gas, raw_contract_class)?;
 
         // Post validations.
         // TODO(Noa, 09/11/2023): Add post-validation checks.
+
+        Ok(py_optional_call_info)
     }
 
     #[pyo3(signature = (general_config))]
