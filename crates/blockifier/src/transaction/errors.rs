@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::actual_cost::PostExecutionAuditorError;
+use crate::fee::actual_cost::PostExecutionFeeError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -52,7 +52,7 @@ pub enum TransactionExecutionError {
     #[error("Missing L1 gas bounds in resource bounds.")]
     MissingL1GasBounds,
     #[error(transparent)]
-    PostExecutionAuditorError(#[from] PostExecutionAuditorError),
+    PostExecutionFeeError(#[from] PostExecutionFeeError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
