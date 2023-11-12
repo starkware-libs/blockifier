@@ -51,10 +51,11 @@ struct PyDeployAccountTransactionV3 {
     pub paymaster_data: Vec<PyFelt>,
 }
 
-impl From<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
-    fn from(tx: PyDeployAccountTransactionV3) -> Self {
-        Self {
-            resource_bounds: ResourceBoundsMapping::from(tx.resource_bounds),
+impl TryFrom<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
+    type Error = NativeBlockifierInputError;
+    fn try_from(tx: PyDeployAccountTransactionV3) -> Result<Self, Self::Error> {
+        Ok(Self {
+            resource_bounds: ResourceBoundsMapping::try_from(tx.resource_bounds)?,
             tip: Tip(tx.tip),
             signature: TransactionSignature(from_py_felts(tx.signature)),
             nonce: Nonce(tx.nonce.0),
@@ -66,7 +67,7 @@ impl From<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
             ),
             fee_data_availability_mode: DataAvailabilityMode::from(tx.fee_data_availability_mode),
             paymaster_data: PaymasterData(from_py_felts(tx.paymaster_data)),
-        }
+        })
     }
 }
 
@@ -80,7 +81,7 @@ pub fn py_deploy_account(py_tx: &PyAny) -> NativeBlockifierResult<DeployAccountT
         }
         3 => {
             let py_deploy_account_tx: PyDeployAccountTransactionV3 = py_tx.extract()?;
-            let deploy_account_tx = DeployAccountTransactionV3::from(py_deploy_account_tx);
+            let deploy_account_tx = DeployAccountTransactionV3::try_from(py_deploy_account_tx)?;
             Ok(starknet_api::transaction::DeployAccountTransaction::V3(deploy_account_tx))
         }
         _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {

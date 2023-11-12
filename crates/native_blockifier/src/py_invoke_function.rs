@@ -78,7 +78,7 @@ impl TryFrom<PyInvokeTransactionV3> for InvokeTransactionV3 {
     type Error = NativeBlockifierInputError;
     fn try_from(tx: PyInvokeTransactionV3) -> Result<Self, Self::Error> {
         Ok(Self {
-            resource_bounds: ResourceBoundsMapping::from(tx.resource_bounds),
+            resource_bounds: ResourceBoundsMapping::try_from(tx.resource_bounds)?,
             tip: Tip(tx.tip),
             signature: TransactionSignature(from_py_felts(tx.signature)),
             nonce: Nonce(tx.nonce.0),

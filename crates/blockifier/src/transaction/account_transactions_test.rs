@@ -22,9 +22,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage, l1_resource_bounds,
-};
+use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
@@ -42,7 +40,7 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
-    create_state_with_falliable_validation_account, run_invoke_tx, INVALID,
+    create_state_with_falliable_validation_account, l1_resource_bounds, run_invoke_tx, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};

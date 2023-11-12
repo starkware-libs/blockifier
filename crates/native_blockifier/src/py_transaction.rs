@@ -7,6 +7,7 @@ use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds};
+use starknet_api::StarknetApiError;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_declare::py_declare;
@@ -60,15 +61,18 @@ impl From<PyResourceBounds> for starknet_api::transaction::ResourceBounds {
 #[derive(Clone, FromPyObject)]
 pub struct PyResourceBoundsMapping(pub BTreeMap<PyResource, PyResourceBounds>);
 
-impl From<PyResourceBoundsMapping> for starknet_api::transaction::ResourceBoundsMapping {
-    fn from(py_resource_bounds_mapping: PyResourceBoundsMapping) -> Self {
-        let mut resource_bounds_mapping = BTreeMap::new();
-
-        for (py_resource_type, py_resource_bounds) in py_resource_bounds_mapping.0.into_iter() {
-            resource_bounds_mapping
-                .insert(Resource::from(py_resource_type), ResourceBounds::from(py_resource_bounds));
-        }
-        Self(resource_bounds_mapping)
+impl TryFrom<PyResourceBoundsMapping> for starknet_api::transaction::ResourceBoundsMapping {
+    type Error = StarknetApiError;
+    fn try_from(py_resource_bounds_mapping: PyResourceBoundsMapping) -> Result<Self, Self::Error> {
+        Self::try_from(
+            py_resource_bounds_mapping
+                .0
+                .into_iter()
+                .map(|(py_resource_type, py_resource_bounds)| {
+                    (Resource::from(py_resource_type), ResourceBounds::from(py_resource_bounds))
+                })
+                .collect::<Vec<_>>(),
+        )
     }
 }
 

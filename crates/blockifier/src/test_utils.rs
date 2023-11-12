@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -498,13 +498,13 @@ impl Default for InvokeTxArgs {
             calldata: calldata![],
             // TODO(Dori, 10/10/2023): Change to THREE when supported.
             version: TransactionVersion::ONE,
-            // TODO(Dori, 1/11/2023): Once `From` is implemented on `ResourceBoundsMapping`, use it.
-            resource_bounds: ResourceBoundsMapping(BTreeMap::from([
+            resource_bounds: ResourceBoundsMapping::try_from(vec![
                 (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
                 // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
                 //   L2 gas.
                 (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
-            ])),
+            ])
+            .unwrap(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
             fee_data_availability_mode: DataAvailabilityMode::L1,
@@ -529,19 +529,16 @@ macro_rules! invoke_tx_args {
             // If resource bounds aren't explicitly passed, derive them from max_fee.
             if _macro_invoke_tx_args.version >= TransactionVersion::THREE
                 && [$(stringify!($field) != "resource_bounds"),*].iter().all(|&x| x) {
-                // TODO(Dori, 1/11/2023): When `ResourceBoundsMapping` implements `TryFrom`, use it.
-                for resource in [
+                _macro_invoke_tx_args.resource_bounds = starknet_api::transaction::ResourceBoundsMapping::try_from([
                     starknet_api::transaction::Resource::L1Gas,
                     starknet_api::transaction::Resource::L2Gas
-                ].into_iter() {
-                    _macro_invoke_tx_args.resource_bounds.0.insert(
-                        resource,
-                        starknet_api::transaction::ResourceBounds {
-                            max_amount: _macro_invoke_tx_args.max_fee.0 as u64,
-                            max_price_per_unit: 1
-                        },
-                    );
-                }
+                ].into_iter().map(|resource| (
+                    resource,
+                    starknet_api::transaction::ResourceBounds {
+                        max_amount: _macro_invoke_tx_args.max_fee.0 as u64,
+                        max_price_per_unit: 1
+                    },
+                )).collect::<Vec<_>>()).unwrap();
             }
             _macro_invoke_tx_args
         }
