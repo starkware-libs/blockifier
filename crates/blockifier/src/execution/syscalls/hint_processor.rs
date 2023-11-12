@@ -137,8 +137,8 @@ pub struct SyscallHintProcessor<'a> {
     pub accessed_keys: HashSet<StorageKey>,
 
     // Secp hint processors.
-    pub secp256k1_hint_processor: super::secp::SecpHintProcessor<ark_secp256k1::Config>,
-    pub secp256r1_hint_processor: super::secp::SecpHintProcessor<ark_secp256r1::Config>,
+    pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
 
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
