@@ -13,7 +13,9 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
-use crate::fee::actual_cost::{ActualCost, ActualCostBuilder, PostExecutionReport};
+use crate::fee::actual_cost::{
+    ActualCost, ActualCostBuilder, FeeCheckReportFields, PostExecutionReport,
+};
 use crate::fee::fee_utils::verify_can_pay_max_fee;
 use crate::fee::gas_usage::estimate_minimal_fee;
 use crate::retdata;
@@ -452,7 +454,7 @@ impl AccountTransaction {
                             validate_call_info,
                             post_execution_error.to_string(),
                             ActualCost {
-                                actual_fee: post_execution_report.recommended_fee(),
+                                actual_fee: post_execution_report.post_execution_recommended_fee(),
                                 actual_resources: revert_cost.actual_resources,
                             },
                         ))
@@ -482,7 +484,7 @@ impl AccountTransaction {
                     validate_call_info,
                     execution_context.error_trace(),
                     ActualCost {
-                        actual_fee: post_execution_report.recommended_fee(),
+                        actual_fee: post_execution_report.post_execution_recommended_fee(),
                         actual_resources: revert_cost.actual_resources,
                     },
                 ))
