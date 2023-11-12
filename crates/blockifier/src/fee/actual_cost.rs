@@ -19,7 +19,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 
 #[derive(Clone, Debug, Error)]
-pub enum PostExecutionFeeError {
+pub enum FeeCheckError {
     #[error("Insufficient max L1 gas: max amount: {max_amount}, actual used: {actual_amount}.")]
     MaxL1GasAmountExceeded { max_amount: u128, actual_amount: u128 },
     #[error("Insufficient max fee: max fee: {max_fee:?}, actual fee: {actual_fee:?}")]
@@ -168,30 +168,41 @@ impl<'a> ActualCostBuilder<'a> {
     }
 }
 
-/// Before fee transfer, need to check fee / resources used are valid.
-/// This struct holds the result of this check: recommended fee to charge (useful in revert flow)
-/// and an error if the check failed.
-pub struct PostExecutionReport {
+/// This struct holds the result of fee checks: recommended fee to charge (useful in post-execution
+/// revert flow) and an error if the check failed.
+struct FeeCheckReport {
     recommended_fee: Fee,
-    error: Option<PostExecutionFeeError>,
+    error: Option<FeeCheckError>,
 }
 
-impl PostExecutionReport {
-    /// Verifies the actual cost can be paid by the account. If not, reports an error and the fee
-    /// that should be charged in revert flow.
-    pub fn new<S: StateReader>(
-        state: &mut S,
+pub trait FeeCheckReportFields {
+    fn recommended_fee(&self) -> Fee;
+    fn error(&self) -> Option<FeeCheckError>;
+}
+
+impl FeeCheckReportFields for FeeCheckReport {
+    fn recommended_fee(&self) -> Fee {
+        self.recommended_fee
+    }
+
+    fn error(&self) -> Option<FeeCheckError> {
+        self.error.clone()
+    }
+}
+
+impl FeeCheckReport {
+    pub fn success_report(actual_fee: Fee) -> Self {
+        Self { recommended_fee: actual_fee, error: None }
+    }
+
+    /// If the actual cost exceeds the resource bounds on the transaction, returns a report with an
+    /// error and a fee recommendation.
+    fn check_actual_cost_within_bounds(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
-        cost_to_audit: &ActualCost,
-        charge_fee: bool,
+        actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<Self> {
-        let passing_report = Self { recommended_fee: cost_to_audit.actual_fee, error: None };
-        if !charge_fee || !account_tx_context.enforce_fee()? {
-            return Ok(passing_report);
-        }
-
-        let ActualCost { actual_fee, actual_resources } = cost_to_audit;
+        let ActualCost { actual_fee, actual_resources } = actual_cost;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
@@ -208,7 +219,7 @@ impl PostExecutionReport {
                             max_l1_gas,
                             &account_tx_context.fee_type(),
                         ),
-                        error: Some(PostExecutionFeeError::MaxL1GasAmountExceeded {
+                        error: Some(FeeCheckError::MaxL1GasAmountExceeded {
                             max_amount: max_l1_gas,
                             actual_amount: actual_used_l1_gas,
                         }),
@@ -221,7 +232,7 @@ impl PostExecutionReport {
                 if actual_fee > &max_fee {
                     return Ok(Self {
                         recommended_fee: max_fee,
-                        error: Some(PostExecutionFeeError::MaxFeeExceeded {
+                        error: Some(FeeCheckError::MaxFeeExceeded {
                             max_fee,
                             actual_fee: *actual_fee,
                         }),
@@ -230,28 +241,82 @@ impl PostExecutionReport {
             }
         }
 
-        // Initial check passed; verify against the account balance, which may have changed after
-        // execution.
+        Ok(Self::success_report(*actual_fee))
+    }
+
+    /// If the actual cost exceeds the sender's balance, returns a report with an error and a
+    /// post-execution fee recommendation.
+    fn check_can_pay_fee<S: StateReader>(
+        state: &mut S,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+        actual_cost: &ActualCost,
+    ) -> TransactionExecutionResult<Self> {
+        let ActualCost { actual_fee, .. } = actual_cost;
         let (balance_low, balance_high, can_pay) =
             get_balance_and_if_covers_fee(state, account_tx_context, block_context, *actual_fee)?;
         if can_pay {
-            return Ok(passing_report);
+            return Ok(Self::success_report(*actual_fee));
         }
         Ok(Self {
             recommended_fee: *actual_fee,
-            error: Some(PostExecutionFeeError::InsufficientFeeTokenBalance {
+            error: Some(FeeCheckError::InsufficientFeeTokenBalance {
                 fee: *actual_fee,
                 balance_low,
                 balance_high,
             }),
         })
     }
+}
 
-    pub fn recommended_fee(&self) -> Fee {
-        self.recommended_fee
+pub struct PostExecutionReport(FeeCheckReport);
+
+impl FeeCheckReportFields for PostExecutionReport {
+    fn recommended_fee(&self) -> Fee {
+        self.0.recommended_fee()
     }
 
-    pub fn error(&self) -> Option<PostExecutionFeeError> {
-        self.error.clone()
+    fn error(&self) -> Option<FeeCheckError> {
+        self.0.error()
+    }
+}
+
+impl PostExecutionReport {
+    /// Verifies the actual cost can be paid by the account. If not, reports an error and the fee
+    /// that should be charged in revert flow.
+    pub fn new<S: StateReader>(
+        state: &mut S,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+        actual_cost: &ActualCost,
+        charge_fee: bool,
+    ) -> TransactionExecutionResult<Self> {
+        let ActualCost { actual_fee, .. } = actual_cost;
+
+        // If fee is not enforced, no need to check post-execution.
+        if !charge_fee || !account_tx_context.enforce_fee()? {
+            return Ok(Self(FeeCheckReport::success_report(*actual_fee)));
+        }
+
+        // First, compare the actual resources used against the upper bound(s) defined by the
+        // sender.
+        let resource_bounds_report = FeeCheckReport::check_actual_cost_within_bounds(
+            block_context,
+            account_tx_context,
+            actual_cost,
+        )?;
+        if resource_bounds_report.error().is_some() {
+            return Ok(Self(resource_bounds_report));
+        }
+
+        // Initial check passed; resource bounds cover the actual cost, and are covered by
+        // pre-execution balance (verified in pre-validation phase).
+        // Verify against the account balance, which may have changed after execution.
+        Ok(Self(FeeCheckReport::check_can_pay_fee(
+            state,
+            block_context,
+            account_tx_context,
+            actual_cost,
+        )?))
     }
 }

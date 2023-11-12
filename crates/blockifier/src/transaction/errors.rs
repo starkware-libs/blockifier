@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::actual_cost::PostExecutionFeeError;
+use crate::fee::actual_cost::FeeCheckError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -62,7 +62,7 @@ pub enum TransactionExecutionError {
     )]
     MaxL1GasAmountTooLow { max_l1_gas_amount: u64, minimal_l1_gas_amount: u64 },
     #[error(transparent)]
-    PostExecutionFeeError(#[from] PostExecutionFeeError),
+    PostExecutionFeeError(#[from] FeeCheckError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
