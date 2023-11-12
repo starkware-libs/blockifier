@@ -23,7 +23,8 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", version = "0.4.0-rc4", features = [
+# Point to the release and main's merge-base until the publish cycle is complete.
+blockifier = { git = "https://github.com/starkware-libs/blockifier", rev = "96f70c0", features = [
     "testing",
 ] }
 cairo-lang-starknet.workspace = true
@@ -35,8 +36,8 @@ papyrus_storage = { version = "0.2.0-rc1", features = ["testing"] }
 pyo3 = { version = "0.19.1", features = ["num-bigint", "hashbrown"] }
 pyo3-log = "0.8.1"
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
-starknet_api = { workspace = true, features = ["testing"] }
-
+# SN API before the start of the merge cycle.
+starknet_api = { version = "0.6.0-rc1", features = ["testing"] }
 thiserror.workspace = true
 
 [dev-dependencies]
