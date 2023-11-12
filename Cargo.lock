@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.4.0-rc4"
+version = "0.4.0-rc5"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2095,7 +2095,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.4.0-rc4"
+version = "0.4.0-rc5"
 dependencies = [
  "blockifier",
  "cached",
