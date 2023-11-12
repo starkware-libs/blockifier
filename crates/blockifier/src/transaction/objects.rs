@@ -16,9 +16,13 @@ use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::transaction::constants;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
+pub type TransactionFeeResult<T> = Result<T, TransactionFeeError>;
+pub type TransactionPreValidationResult<T> = Result<T, TransactionPreValidationError>;
 
 macro_rules! implement_getters {
     ($(($field:ident, $field_type:ty)),*) => {
@@ -60,7 +64,7 @@ impl AccountTransactionContext {
         }
     }
 
-    pub fn max_fee(&self) -> TransactionExecutionResult<Fee> {
+    pub fn max_fee(&self) -> TransactionFeeResult<Fee> {
         match self {
             Self::Current(context) => {
                 let l1_resource_bounds = context.l1_resource_bounds()?;
@@ -88,7 +92,7 @@ impl AccountTransactionContext {
         TransactionVersion(felt_to_stark_felt(&query_version))
     }
 
-    pub fn enforce_fee(&self) -> TransactionExecutionResult<bool> {
+    pub fn enforce_fee(&self) -> TransactionFeeResult<bool> {
         match self {
             AccountTransactionContext::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
@@ -124,10 +128,10 @@ pub struct CurrentAccountTransactionContext {
 
 impl CurrentAccountTransactionContext {
     /// Fetch the L1 resource bounds, if they exist.
-    pub fn l1_resource_bounds(&self) -> TransactionExecutionResult<ResourceBounds> {
+    pub fn l1_resource_bounds(&self) -> TransactionFeeResult<ResourceBounds> {
         match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
             Some(bounds) => Ok(bounds),
-            None => Err(TransactionExecutionError::MissingL1GasBounds),
+            None => Err(TransactionFeeError::MissingL1GasBounds),
         }
     }
 }
@@ -228,6 +232,6 @@ pub trait HasRelatedFeeType {
         resources: &ResourcesMapping,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Fee> {
-        calculate_tx_fee(resources, block_context, &self.fee_type())
+        Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
     }
 }

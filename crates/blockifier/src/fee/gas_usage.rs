@@ -10,7 +10,7 @@ use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult, TransactionPreValidationResult
 };
 
 #[cfg(test)]
@@ -141,7 +141,7 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
 pub fn estimate_minimal_l1_gas(
     block_context: &BlockContext,
     tx: &AccountTransaction,
-) -> TransactionExecutionResult<u128> {
+) -> TransactionPreValidationResult<u128> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
     let os_steps_for_type = OS_RESOURCES
         .execute_txs_inner()
@@ -182,7 +182,7 @@ pub fn estimate_minimal_l1_gas(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    calculate_tx_l1_gas_usage(&resources, block_context)
+    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
 }
 
 pub fn estimate_minimal_fee(

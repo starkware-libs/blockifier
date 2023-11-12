@@ -1,12 +1,14 @@
-use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_transaction::py_account_tx;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::py_utils::py_enum_name;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -88,6 +90,7 @@ impl PyValidator {
         let (optional_call_info, actual_fee) =
             self.tx_executor().validate(tx, remaining_gas, raw_contract_class)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
+
         Ok((py_optional_call_info, actual_fee.0))
     }
 
@@ -103,8 +106,19 @@ impl PyValidator {
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(Option<PyCallInfo>, u128)> {
-        // Pre validations.
-        // TODO(Amos, 09/11/2023): Add pre-validation checks.
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
+        let tx_executor = self.tx_executor();
+
+        let strict_nonce_check = false;
+        let charge_fee = true;
+        account_tx.perform_pre_validation_stage(
+            &mut CachedState::create_transactional(&mut tx_executor.state),
+            &account_tx.get_account_tx_context(),
+            &tx_executor.block_context,
+            charge_fee,
+            strict_nonce_check,
+        )?;
 
         // `__validate__` call.
         self.validate(tx, remaining_gas, raw_contract_class)
