@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::actual_cost::FeeCheckError;
+use crate::fee::fee_checks::FeeCheckError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
