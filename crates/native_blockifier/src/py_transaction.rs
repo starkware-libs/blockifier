@@ -100,27 +100,30 @@ impl From<PyDataAvailabilityMode> for starknet_api::data_availability::DataAvail
 
 // Transactions creation.
 
+pub fn py_account_tx(
+    tx_type: &str,
+    py_tx: &PyAny,
+    raw_contract_class: Option<&str>,
+) -> NativeBlockifierResult<AccountTransaction> {
+    match tx_type {
+        "DECLARE" => {
+            let raw_contract_class: &str = raw_contract_class
+                .expect("A contract class must be passed in a Declare transaction.");
+            Ok(AccountTransaction::Declare(py_declare(py_tx, raw_contract_class)?))
+        }
+        "DEPLOY_ACCOUNT" => Ok(AccountTransaction::DeployAccount(py_deploy_account(py_tx)?)),
+        "INVOKE_FUNCTION" => Ok(AccountTransaction::Invoke(py_invoke_function(py_tx)?)),
+        _ => unimplemented!(),
+    }
+}
+
 pub fn py_tx(
     tx_type: &str,
     py_tx: &PyAny,
     raw_contract_class: Option<&str>,
 ) -> NativeBlockifierResult<Transaction> {
-    match tx_type {
-        "DECLARE" => {
-            let raw_contract_class: &str = raw_contract_class
-                .expect("A contract class must be passed in a Declare transaction.");
-            let declare_tx = AccountTransaction::Declare(py_declare(py_tx, raw_contract_class)?);
-            Ok(Transaction::AccountTransaction(declare_tx))
-        }
-        "DEPLOY_ACCOUNT" => {
-            let deploy_account_tx = AccountTransaction::DeployAccount(py_deploy_account(py_tx)?);
-            Ok(Transaction::AccountTransaction(deploy_account_tx))
-        }
-        "INVOKE_FUNCTION" => {
-            let invoke_tx = AccountTransaction::Invoke(py_invoke_function(py_tx)?);
-            Ok(Transaction::AccountTransaction(invoke_tx))
-        }
-        "L1_HANDLER" => Ok(Transaction::L1HandlerTransaction(py_l1_handler(py_tx)?)),
-        _ => unimplemented!(),
+    if tx_type == "L1_HANDLER" {
+        return Ok(Transaction::L1HandlerTransaction(py_l1_handler(py_tx)?));
     }
+    Ok(Transaction::AccountTransaction(py_account_tx(tx_type, py_tx, raw_contract_class)?))
 }
