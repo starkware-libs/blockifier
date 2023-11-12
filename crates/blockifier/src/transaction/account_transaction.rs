@@ -135,14 +135,15 @@ impl AccountTransaction {
 
     // Performs static checks before executing validation entry point.
     // Note that nonce is incremented during these checks.
-    pub fn perform_pre_validation_checks<S: StateReader>(
+    pub fn perform_pre_validation_stage<S: StateReader>(
         &self,
         state: &mut TransactionalState<'_, S>,
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
         charge_fee: bool,
+        strict_nonce_check: bool,
     ) -> TransactionExecutionResult<()> {
-        Self::handle_nonce(state, account_tx_context)?;
+        Self::handle_nonce(state, account_tx_context, strict_nonce_check)?;
 
         if charge_fee {
             self.check_fee_balance(state, block_context)?;
@@ -154,24 +155,24 @@ impl AccountTransaction {
     fn handle_nonce(
         state: &mut dyn State,
         account_tx_context: &AccountTransactionContext,
+        strict: bool,
     ) -> TransactionExecutionResult<()> {
-        if account_tx_context.version() == TransactionVersion::ZERO {
+        if account_tx_context.is_v0() {
             return Ok(());
         }
 
         let address = account_tx_context.sender_address();
-        let current_nonce = state.get_nonce_at(address)?;
-        let tx_nonce = account_tx_context.nonce();
-        let invalid_nonce = current_nonce != tx_nonce;
-
-        if invalid_nonce {
-            return Err(TransactionExecutionError::InvalidNonce {
-                address,
-                expected_nonce: current_nonce,
-                actual_nonce: tx_nonce,
-            });
+        let account_nonce = state.get_nonce_at(address)?;
+        let incoming_tx_nonce = account_tx_context.nonce();
+        let valid_nonce = if strict {
+            account_nonce == incoming_tx_nonce
+        } else {
+            account_nonce <= incoming_tx_nonce
+        };
+        if valid_nonce {
+            return Ok(state.increment_nonce(address)?);
         }
-        Ok(state.increment_nonce(address)?)
+        Err(TransactionExecutionError::InvalidNonce { address, account_nonce, incoming_tx_nonce })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -557,7 +558,14 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         let mut remaining_gas = Transaction::initial_gas();
 
         // Nonce and fee check should be done before running user code.
-        self.perform_pre_validation_checks(state, &account_tx_context, block_context, charge_fee)?;
+        let strict_nonce_check = true;
+        self.perform_pre_validation_stage(
+            state,
+            &account_tx_context,
+            block_context,
+            charge_fee,
+            strict_nonce_check,
+        )?;
 
         // Run validation and execution.
         let ValidateExecuteCallInfo {
