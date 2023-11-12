@@ -1,4 +1,4 @@
-use blockifier::fee::actual_cost::{ActualCost, PostExecutionReport};
+use blockifier::fee::actual_cost::{ActualCost, FeeCheckReportFields, PostValidationReport};
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 use blockifier::transaction::transaction_execution::Transaction;
@@ -152,14 +152,10 @@ impl PyValidator {
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
-        if !account_tx_context.enforce_fee()? {
-            return Ok(());
-        }
-
-        let resource_bounds_report = PostExecutionReport::check_actual_cost_within_bounds(
+        let resource_bounds_report = PostValidationReport::new(
             &self.tx_executor().block_context,
-            actual_cost,
             account_tx_context,
+            actual_cost,
         )?;
         if let Some(error) = resource_bounds_report.error() {
             return Err(error)?;
