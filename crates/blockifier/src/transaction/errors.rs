@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::actual_cost::PostExecutionFeeError;
+use crate::fee::actual_cost::FeeCheckError;
 use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
@@ -52,6 +52,8 @@ pub enum TransactionExecutionError {
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("Transaction execution has failed.")]
     ExecutionError(#[source] EntryPointExecutionError),
+    #[error(transparent)]
+    FeeCheckError(#[from] FeeCheckError),
     #[error(
         "Invalid order number for {object}. Order: {order} exceeds the maximum order limit: \
          {max_order}."
@@ -64,8 +66,6 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
-    #[error(transparent)]
-    PostExecutionFeeError(#[from] PostExecutionFeeError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
