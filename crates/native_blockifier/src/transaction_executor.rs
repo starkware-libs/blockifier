@@ -110,6 +110,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         let mut execution_resources = ExecutionResources::default();
         let account_tx_context = account_tx.get_account_tx_context();
 
+        // TODO(Amos, 01/12/2023): Delete this once deprecated txs call
+        // PyValidator.perform_validations().
         // For fee charging purposes, the nonce-increment cost is taken into consideration when
         // calculating the fees for validation.
         // Note: This assumes that the state is reset between calls to validate.

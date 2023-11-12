@@ -20,10 +20,12 @@ use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionInfo,
-    TransactionExecutionResult,
+    TransactionExecutionResult, TransactionPreValidationResult,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -134,14 +136,14 @@ impl AccountTransaction {
 
     // Performs static checks before executing validation entry point.
     // Note that nonce is incremented during these checks.
-    pub fn perform_pre_validation_stage<S: StateReader>(
+    pub fn perform_pre_validation_stage<S: State + StateReader>(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut S,
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
         charge_fee: bool,
         strict_nonce_check: bool,
-    ) -> TransactionExecutionResult<()> {
+    ) -> TransactionPreValidationResult<()> {
         Self::handle_nonce(state, account_tx_context, strict_nonce_check)?;
 
         if charge_fee && account_tx_context.enforce_fee()? {
@@ -162,7 +164,7 @@ impl AccountTransaction {
         &self,
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
-    ) -> TransactionExecutionResult<()> {
+    ) -> TransactionPreValidationResult<()> {
         let minimal_l1_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
 
         match account_tx_context {
@@ -173,19 +175,19 @@ impl AccountTransaction {
                 } = context.l1_resource_bounds()?;
 
                 if (max_l1_gas_amount as u128) < minimal_l1_gas_amount {
-                    return Err(TransactionExecutionError::MaxL1GasAmountTooLow {
+                    return Err(TransactionFeeError::MaxL1GasAmountTooLow {
                         max_l1_gas_amount,
                         minimal_l1_gas_amount: (minimal_l1_gas_amount as u64),
-                    });
+                    })?;
                 }
 
                 let actual_l1_gas_price =
                     block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type());
                 if max_l1_gas_price < actual_l1_gas_price {
-                    return Err(TransactionExecutionError::MaxL1GasPriceTooLow {
+                    return Err(TransactionFeeError::MaxL1GasPriceTooLow {
                         max_l1_gas_price,
                         actual_l1_gas_price,
-                    });
+                    })?;
                 }
             }
             AccountTransactionContext::Deprecated(context) => {
@@ -196,7 +198,7 @@ impl AccountTransaction {
                     &account_tx_context.fee_type(),
                 );
                 if max_fee < min_fee {
-                    return Err(TransactionExecutionError::MaxFeeTooLow { min_fee, max_fee });
+                    return Err(TransactionFeeError::MaxFeeTooLow { min_fee, max_fee })?;
                 }
             }
         };
@@ -207,7 +209,7 @@ impl AccountTransaction {
         state: &mut dyn State,
         account_tx_context: &AccountTransactionContext,
         strict: bool,
-    ) -> TransactionExecutionResult<()> {
+    ) -> TransactionPreValidationResult<()> {
         if account_tx_context.is_v0() {
             return Ok(());
         }
@@ -223,7 +225,11 @@ impl AccountTransaction {
         if valid_nonce {
             return Ok(state.increment_nonce(address)?);
         }
-        Err(TransactionExecutionError::InvalidNonce { address, account_nonce, incoming_tx_nonce })
+        Err(TransactionPreValidationError::InvalidNonce {
+            address,
+            account_nonce,
+            incoming_tx_nonce,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -579,9 +585,8 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let account_tx_context = self.get_account_tx_context();
-        self.verify_tx_version(account_tx_context.version())?;
 
-        let mut remaining_gas = Transaction::initial_gas();
+        self.verify_tx_version(account_tx_context.version())?;
 
         // Nonce and fee check should be done before running user code.
         let strict_nonce_check = true;
@@ -594,6 +599,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         )?;
 
         // Run validation and execution.
+        let mut remaining_gas = Transaction::initial_gas();
         let ValidateExecuteCallInfo {
             validate_call_info,
             execute_call_info,

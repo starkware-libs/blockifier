@@ -7,8 +7,8 @@ use starknet_api::core::PatriciaKey;
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
-use super::*;
 use crate::block_context::BlockContext;
+use crate::state::cached_state::*;
 use crate::test_utils::{
     deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
