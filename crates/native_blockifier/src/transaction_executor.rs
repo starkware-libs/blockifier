@@ -15,7 +15,6 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
-use starknet_api::transaction::Fee;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
@@ -101,7 +100,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &PyAny,
         mut remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(Option<CallInfo>, Fee)> {
+    ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let Transaction::AccountTransaction(account_tx) = py_tx(&tx_type, tx, raw_contract_class)?
         else {
@@ -125,13 +124,13 @@ impl<S: StateReader> TransactionExecutor<S> {
             true,
         )?;
 
-        let ActualCost { actual_fee, .. } = account_tx
+        let actual_cost = account_tx
             .into_actual_cost_builder(&self.block_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?
             .build(&execution_resources)?;
 
-        Ok((validate_call_info, actual_fee))
+        Ok((validate_call_info, actual_cost))
     }
 
     /// Returns the state diff resulting in executing transactions.
