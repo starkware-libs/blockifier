@@ -57,6 +57,7 @@ use crate::utils::const_max;
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
 pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
+pub const LEGACY_TEST_CONTRACT_ADDRESS: &str = "0x400";
 pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
@@ -71,6 +72,7 @@ pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
 pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x115";
+pub const LEGACY_TEST_CLASS_HASH: &str = "0x116";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -87,6 +89,8 @@ pub const TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
 pub const TEST_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/test_contract.casm.json";
+pub const LEGACY_TEST_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/legacy_test_contract.casm.json";
 pub const SECURITY_TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
 pub const TEST_EMPTY_CONTRACT_CAIRO0_PATH: &str =
@@ -285,6 +289,10 @@ fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
             class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
         ),
+        (
+            class_hash!(LEGACY_TEST_CLASS_HASH),
+            ContractClassV1::from_file(LEGACY_TEST_CONTRACT_CAIRO1_PATH).into(),
+        ),
     ])
 }
 
@@ -294,6 +302,7 @@ fn get_address_to_v0_class_hash() -> HashMap<ContractAddress, ClassHash> {
         (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
         (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
         (contract_address!(SECURITY_TEST_CONTRACT_ADDRESS), class_hash!(SECURITY_TEST_CLASS_HASH)),
+        (contract_address!(LEGACY_TEST_CONTRACT_ADDRESS), class_hash!(LEGACY_TEST_CLASS_HASH)),
         (
             contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1),
             class_hash!(TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH),
@@ -332,6 +341,7 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     // Two instances of a test contract and one instance of another (different) test contract.
     let address_to_class_hash = HashMap::from([
         (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
+        (contract_address!(LEGACY_TEST_CONTRACT_ADDRESS), class_hash!(LEGACY_TEST_CLASS_HASH)),
         (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
         (
             contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1),
