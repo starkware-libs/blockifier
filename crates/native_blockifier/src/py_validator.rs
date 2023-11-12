@@ -5,11 +5,11 @@ use pyo3::prelude::*;
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::PyActualCost;
+use crate::py_transaction::{py_account_tx, PyActualCost};
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
-use crate::py_utils::PyFelt;
+use crate::py_utils::{py_enum_name, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -109,8 +109,19 @@ impl PyValidator {
         raw_contract_class: Option<&str>,
         _deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
-        // Pre validations.
-        // TODO(Amos, 09/11/2023): Add pre-validation checks.
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
+        let tx_executor = self.tx_executor();
+
+        let strict_nonce_check = false;
+        let charge_fee = true;
+        account_tx.perform_pre_validation_stage(
+            &mut tx_executor.state,
+            &account_tx.get_account_tx_context(),
+            &tx_executor.block_context,
+            charge_fee,
+            strict_nonce_check,
+        )?;
 
         // `__validate__` call.
         let (_py_optional_call_info, _actual_cost) =

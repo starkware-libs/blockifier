@@ -7,11 +7,6 @@ use starknet_api::transaction::{
     DeclareTransactionV3, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
 
-use super::objects::{
-    AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
-    DeprecatedAccountTransactionContext, HasRelatedFeeType,
-};
-use super::transaction_utils::verify_contract_class_version;
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -25,8 +20,12 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use crate::transaction::transaction_utils::update_remaining_gas;
+use crate::transaction::objects::{
+    AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
+    DeprecatedAccountTransactionContext, HasRelatedFeeType, TransactionExecutionInfo,
+    TransactionExecutionResult,
+};
+use crate::transaction::transaction_utils::{update_remaining_gas, verify_contract_class_version};
 
 #[cfg(test)]
 #[path = "transactions_test.rs"]
