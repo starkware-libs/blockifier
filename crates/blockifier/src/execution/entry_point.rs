@@ -313,6 +313,385 @@ impl EntryPointExecutionContext {
     }
 }
 
+<<<<<<< HEAD
+||||||| b5dfbd3
+impl CallEntryPoint {
+    pub fn execute(
+        mut self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        context: &mut EntryPointExecutionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        context.current_recursion_depth += 1;
+        if context.current_recursion_depth > context.max_recursion_depth {
+            return Err(EntryPointExecutionError::RecursionDepthExceeded);
+        }
+
+        // Validate contract is deployed.
+        let storage_address = self.storage_address;
+        let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
+        if storage_class_hash == ClassHash::default() {
+            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
+        }
+
+        let class_hash = match self.class_hash {
+            Some(class_hash) => class_hash,
+            None => storage_class_hash, // If not given, take the storage contract class hash.
+        };
+        // Hack to prevent version 0 attack on argent accounts.
+        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8))
+            && class_hash
+                == ClassHash(
+                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
+                )
+        {
+            return Err(PreExecutionError::FraudAttempt.into());
+        }
+        // Add class hash to the call, that will appear in the output (call info).
+        self.class_hash = Some(class_hash);
+        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+
+        let result = execute_entry_point_call(self, contract_class, state, resources, context)
+            .map_err(|error| {
+                match error {
+                    // On VM error, pack the stack trace into the propagated error.
+                    EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                        context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                        // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
+                        // right now,  each intermediate VM error is wrapped
+                        // in a VirtualMachineExecutionErrorWithTrace  error
+                        // with the stringified trace of all errors below
+                        // it.
+                        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                            trace: context.error_trace(),
+                            source: error,
+                        }
+                    }
+                    other_error => other_error,
+                }
+            });
+
+        context.current_recursion_depth -= 1;
+        result
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Retdata(pub Vec<StarkFelt>);
+
+#[macro_export]
+macro_rules! retdata {
+    ( $( $x:expr ),* ) => {
+        Retdata(vec![$($x),*])
+    };
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct OrderedEvent {
+    pub order: usize,
+    pub event: EventContent,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct MessageToL1 {
+    pub to_address: EthAddress,
+    pub payload: L2ToL1Payload,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct OrderedL2ToL1Message {
+    pub order: usize,
+    pub message: MessageToL1,
+}
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct CallExecution {
+    pub retdata: Retdata,
+    pub events: Vec<OrderedEvent>,
+    pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    pub failed: bool,
+    pub gas_consumed: u64,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct CallInfo {
+    pub call: CallEntryPoint,
+    pub execution: CallExecution,
+    pub vm_resources: VmExecutionResources,
+    pub inner_calls: Vec<CallInfo>,
+
+    // Additional information gathered during execution.
+    pub storage_read_values: Vec<StarkFelt>,
+    pub accessed_storage_keys: HashSet<StorageKey>,
+}
+
+impl CallInfo {
+    /// Returns the set of class hashes that were executed during this call execution.
+    // TODO: Add unit test for this method
+    pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
+        let mut class_hashes = HashSet::new();
+        let calls = self.into_iter();
+        for call in calls {
+            class_hashes
+                .insert(call.call.class_hash.expect("Class hash must be set after execution."));
+        }
+
+        class_hashes
+    }
+
+    /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
+    /// by the order in which they were sent.
+    pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
+        let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
+        let mut starknet_l2_to_l1_payloads_length: Vec<Option<usize>> = vec![None; n_messages];
+
+        for call in self.into_iter() {
+            for ordered_message_content in &call.execution.l2_to_l1_messages {
+                let message_order = ordered_message_content.order;
+                if message_order >= n_messages {
+                    return Err(TransactionExecutionError::InvalidOrder {
+                        object: "L2-to-L1 message".to_string(),
+                        order: message_order,
+                        max_order: n_messages,
+                    });
+                }
+                starknet_l2_to_l1_payloads_length[message_order] =
+                    Some(ordered_message_content.message.payload.0.len());
+            }
+        }
+
+        starknet_l2_to_l1_payloads_length.into_iter().enumerate().try_fold(
+            Vec::new(),
+            |mut acc, (i, option)| match option {
+                Some(value) => {
+                    acc.push(value);
+                    Ok(acc)
+                }
+                None => Err(TransactionExecutionError::UnexpectedHoles {
+                    object: "L2-to-L1 message".to_string(),
+                    order: i,
+                }),
+            },
+        )
+    }
+}
+
+pub struct CallInfoIter<'a> {
+    call_infos: Vec<&'a CallInfo>,
+}
+
+impl<'a> Iterator for CallInfoIter<'a> {
+    type Item = &'a CallInfo;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(call_info) = self.call_infos.pop() else {
+            return None;
+        };
+
+        // Push order is right to left.
+        self.call_infos.extend(call_info.inner_calls.iter().rev());
+        Some(call_info)
+    }
+}
+
+impl<'a> IntoIterator for &'a CallInfo {
+    type Item = &'a CallInfo;
+    type IntoIter = CallInfoIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CallInfoIter { call_infos: vec![self] }
+    }
+}
+
+=======
+impl CallEntryPoint {
+    pub fn execute(
+        mut self,
+        state: &mut dyn State,
+        resources: &mut ExecutionResources,
+        context: &mut EntryPointExecutionContext,
+    ) -> EntryPointExecutionResult<CallInfo> {
+        context.current_recursion_depth += 1;
+        if context.current_recursion_depth > context.max_recursion_depth {
+            return Err(EntryPointExecutionError::RecursionDepthExceeded);
+        }
+
+        // Validate contract is deployed.
+        let storage_address = self.storage_address;
+        let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
+        if storage_class_hash == ClassHash::default() {
+            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
+        }
+
+        let class_hash = match self.class_hash {
+            Some(class_hash) => class_hash,
+            None => storage_class_hash, // If not given, take the storage contract class hash.
+        };
+        // Hack to prevent version 0 attack on argent accounts.
+        if context.account_tx_context.version == TransactionVersion(StarkFelt::from(0_u8))
+            && class_hash
+                == ClassHash(
+                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
+                )
+        {
+            return Err(PreExecutionError::FraudAttempt.into());
+        }
+        // Add class hash to the call, that will appear in the output (call info).
+        self.class_hash = Some(class_hash);
+        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+
+        let result = execute_entry_point_call(self, contract_class, state, resources, context)
+            .map_err(|error| {
+                match error {
+                    // On VM error, pack the stack trace into the propagated error.
+                    EntryPointExecutionError::VirtualMachineExecutionError(error) => {
+                        context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                        // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
+                        //   right now, each intermediate VM error is wrapped in a
+                        //   VirtualMachineExecutionErrorWithTrace error with the stringified trace
+                        //   of all errors below it.
+                        //   When that's done, remove the 10000 character limitation.
+                        let error_trace = context.error_trace();
+                        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                            trace: error_trace[..min(10000, error_trace.len())].to_string(),
+                            source: error,
+                        }
+                    }
+                    other_error => other_error,
+                }
+            });
+
+        context.current_recursion_depth -= 1;
+        result
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Retdata(pub Vec<StarkFelt>);
+
+#[macro_export]
+macro_rules! retdata {
+    ( $( $x:expr ),* ) => {
+        Retdata(vec![$($x),*])
+    };
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct OrderedEvent {
+    pub order: usize,
+    pub event: EventContent,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct MessageToL1 {
+    pub to_address: EthAddress,
+    pub payload: L2ToL1Payload,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct OrderedL2ToL1Message {
+    pub order: usize,
+    pub message: MessageToL1,
+}
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct CallExecution {
+    pub retdata: Retdata,
+    pub events: Vec<OrderedEvent>,
+    pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    pub failed: bool,
+    pub gas_consumed: u64,
+}
+
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct CallInfo {
+    pub call: CallEntryPoint,
+    pub execution: CallExecution,
+    pub vm_resources: VmExecutionResources,
+    pub inner_calls: Vec<CallInfo>,
+
+    // Additional information gathered during execution.
+    pub storage_read_values: Vec<StarkFelt>,
+    pub accessed_storage_keys: HashSet<StorageKey>,
+}
+
+impl CallInfo {
+    /// Returns the set of class hashes that were executed during this call execution.
+    // TODO: Add unit test for this method
+    pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
+        let mut class_hashes = HashSet::new();
+        let calls = self.into_iter();
+        for call in calls {
+            class_hashes
+                .insert(call.call.class_hash.expect("Class hash must be set after execution."));
+        }
+
+        class_hashes
+    }
+
+    /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
+    /// by the order in which they were sent.
+    pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
+        let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
+        let mut starknet_l2_to_l1_payloads_length: Vec<Option<usize>> = vec![None; n_messages];
+
+        for call in self.into_iter() {
+            for ordered_message_content in &call.execution.l2_to_l1_messages {
+                let message_order = ordered_message_content.order;
+                if message_order >= n_messages {
+                    return Err(TransactionExecutionError::InvalidOrder {
+                        object: "L2-to-L1 message".to_string(),
+                        order: message_order,
+                        max_order: n_messages,
+                    });
+                }
+                starknet_l2_to_l1_payloads_length[message_order] =
+                    Some(ordered_message_content.message.payload.0.len());
+            }
+        }
+
+        starknet_l2_to_l1_payloads_length.into_iter().enumerate().try_fold(
+            Vec::new(),
+            |mut acc, (i, option)| match option {
+                Some(value) => {
+                    acc.push(value);
+                    Ok(acc)
+                }
+                None => Err(TransactionExecutionError::UnexpectedHoles {
+                    object: "L2-to-L1 message".to_string(),
+                    order: i,
+                }),
+            },
+        )
+    }
+}
+
+pub struct CallInfoIter<'a> {
+    call_infos: Vec<&'a CallInfo>,
+}
+
+impl<'a> Iterator for CallInfoIter<'a> {
+    type Item = &'a CallInfo;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(call_info) = self.call_infos.pop() else {
+            return None;
+        };
+
+        // Push order is right to left.
+        self.call_infos.extend(call_info.inner_calls.iter().rev());
+        Some(call_info)
+    }
+}
+
+impl<'a> IntoIterator for &'a CallInfo {
+    type Item = &'a CallInfo;
+    type IntoIter = CallInfoIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CallInfoIter { call_infos: vec![self] }
+    }
+}
+
+>>>>>>> origin/main-v0.12.3
 pub fn execute_constructor_entry_point(
     state: &mut dyn State,
     resources: &mut ExecutionResources,
