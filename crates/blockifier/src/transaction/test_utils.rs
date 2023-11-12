@@ -4,8 +4,9 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
+    ResourceBounds, ResourceBoundsMapping, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -216,4 +217,14 @@ pub fn run_invoke_tx(
     invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
     account_invoke_tx(invoke_args).execute(state, block_context, true, true)
+}
+
+/// Creates a `ResourceBoundsMapping` with the given `max_amount` and `max_price` for L1 gas limits.
+/// No guarantees on the values of the other resources bounds.
+pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMapping {
+    ResourceBoundsMapping::try_from(vec![
+        (Resource::L1Gas, ResourceBounds { max_amount, max_price_per_unit: max_price }),
+        (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+    ])
+    .unwrap()
 }
