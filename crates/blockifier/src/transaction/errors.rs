@@ -6,8 +6,8 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::actual_cost::PostExecutionFeeError;
 use crate::state::errors::StateError;
+use crate::transaction::post_execution::PostExecutionFeeError;
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
