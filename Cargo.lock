@@ -313,6 +313,7 @@ dependencies = [
  "cairo-lang-casm",
  "cairo-lang-runner",
  "cairo-lang-starknet",
+ "cairo-lang-utils",
  "cairo-vm",
  "ctor",
  "derive_more",

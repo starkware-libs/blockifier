@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_felt::Felt252;
-use cairo_lang_runner::short_string::as_cairo_short_string;
+use cairo_lang_runner::casm_run::format_next_item;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
@@ -263,20 +263,19 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     Ok(())
 }
 
-pub fn felts_as_str(felts: &[StarkFelt]) -> String {
-    felts
-        .iter()
-        .map(|felt| {
-            as_cairo_short_string(&stark_felt_to_felt(*felt)).unwrap_or_else(|| felt.to_string())
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
 pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext) -> Felt252 {
     match account_tx_context {
         AccountTransactionContext::Current(_) => 0,
         AccountTransactionContext::Deprecated(deprecated_context) => deprecated_context.max_fee.0,
     }
     .into()
+}
+
+pub fn format_panic_data(felts: &[StarkFelt]) -> String {
+    let mut felts = felts.iter().map(|felt| stark_felt_to_felt(*felt));
+    let mut items = Vec::new();
+    while let Some(item) = format_next_item(&mut felts) {
+        items.push(item.quote_if_string());
+    }
+    if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
 }

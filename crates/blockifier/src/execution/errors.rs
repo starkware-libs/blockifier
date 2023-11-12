@@ -9,7 +9,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use thiserror::Error;
 
-use crate::execution::execution_utils::felts_as_str;
+use crate::execution::execution_utils::format_panic_data;
 use crate::state::errors::StateError;
 
 // TODO(AlonH, 21/12/2022): Implement Display for all types that appear in errors.
@@ -122,7 +122,7 @@ impl VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
-    #[error("Execution failed. Failure reason: {:?}.", felts_as_str(.error_data))]
+    #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
     ExecutionFailed { error_data: Vec<StarkFelt> },
     #[error("Invalid input: {input_descriptor}; {info}")]
     InvalidExecutionInput { input_descriptor: String, info: String },
