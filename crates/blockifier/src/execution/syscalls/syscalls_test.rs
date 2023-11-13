@@ -28,9 +28,9 @@ use crate::execution::syscalls::hint_processor::{
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    create_deploy_test_state, create_test_state, trivial_external_entry_point,
-    CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
+    check_entry_point_execution_error_for_custom_hint, create_deploy_test_state, create_test_state,
+    trivial_external_entry_point, CURRENT_BLOCK_NUMBER, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -384,8 +384,15 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.clone().execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
+
+    // Execution mode is Validate.
+    let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+    check_entry_point_execution_error_for_custom_hint(
+        &error,
+        "Unauthorized syscall replace_class in execution mode Validate.",
+    );
 
     // Positive flow.
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
