@@ -24,20 +24,10 @@ use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
-<<<<<<< HEAD
     check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
     deprecated_create_test_state, trivial_external_entry_point, CHAIN_ID_NAME,
     CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
-||||||| 842c8975
-    deprecated_create_deploy_test_state, deprecated_create_test_state,
-    trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
-=======
-    check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
-    deprecated_create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
->>>>>>> origin/main-v0.12.2
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::AccountTransactionContext;
