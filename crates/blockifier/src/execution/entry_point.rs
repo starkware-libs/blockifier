@@ -234,7 +234,7 @@ impl CallEntryPoint {
                         //   When that's done, remove the 10000 character limitation.
                         let error_trace = context.error_trace();
                         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                            trace: error_trace[..min(10000, error_trace.len())].to_string(),
+                            trace: error_trace,
                             source: error,
                         }
                     }
