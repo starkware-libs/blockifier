@@ -15,6 +15,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
@@ -87,12 +88,16 @@ pub struct EntryPointExecutionContext {
     current_recursion_depth: usize,
     // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
     max_recursion_depth: usize,
+
+    // The execution mode affects the behavior of the hint processor.
+    pub execution_mode: ExecutionMode,
 }
 impl EntryPointExecutionContext {
     pub fn new(
         block_context: BlockContext,
         account_tx_context: AccountTransactionContext,
         max_n_steps: usize,
+        execution_mode: ExecutionMode,
     ) -> Self {
         Self {
             vm_run_resources: RunResources::new(max_n_steps),
@@ -103,6 +108,7 @@ impl EntryPointExecutionContext {
             current_recursion_depth: 0,
             max_recursion_depth: block_context.max_recursion_depth,
             block_context,
+            execution_mode,
         }
     }
 
@@ -114,6 +120,7 @@ impl EntryPointExecutionContext {
             block_context.clone(),
             account_tx_context.clone(),
             block_context.validate_max_n_steps as usize,
+            ExecutionMode::Validate,
         )
     }
 
@@ -125,6 +132,7 @@ impl EntryPointExecutionContext {
             block_context.clone(),
             account_tx_context.clone(),
             Self::max_invoke_steps(block_context, account_tx_context),
+            ExecutionMode::Execute,
         )
     }
 
@@ -220,12 +228,13 @@ impl CallEntryPoint {
                     EntryPointExecutionError::VirtualMachineExecutionError(error) => {
                         context.error_stack.push((storage_address, error.try_to_vm_trace()));
                         // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
-                        // right now,  each intermediate VM error is wrapped
-                        // in a VirtualMachineExecutionErrorWithTrace  error
-                        // with the stringified trace of all errors below
-                        // it.
+                        //   right now, each intermediate VM error is wrapped in a
+                        //   VirtualMachineExecutionErrorWithTrace error with the stringified trace
+                        //   of all errors below it.
+                        //   When that's done, remove the 10000 character limitation.
+                        let error_trace = context.error_trace();
                         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                            trace: context.error_trace(),
+                            trace: error_trace[..min(10000, error_trace.len())].to_string(),
                             source: error,
                         }
                     }

@@ -23,6 +23,16 @@ use crate::execution::hint_code::{
     NORMALIZE_ADDRESS_SET_IS_250_HINT, NORMALIZE_ADDRESS_SET_IS_SMALL_HINT,
 };
 
+/// Transaction execution mode.
+#[derive(Clone, Copy, Debug, Default, derive_more::Display, Eq, PartialEq)]
+pub enum ExecutionMode {
+    /// Normal execution mode.
+    #[default]
+    Execute,
+    /// Validate execution mode.
+    Validate,
+}
+
 pub type HintExecutionResult = Result<(), HintError>;
 
 /// Must comply with the API of a hint function, as defined by the `HintProcessor`.
