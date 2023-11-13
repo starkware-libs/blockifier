@@ -266,7 +266,7 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
 pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext) -> Felt252 {
     match account_tx_context {
         AccountTransactionContext::Current(_) => 0,
-        AccountTransactionContext::Deprecated(deprecated_context) => deprecated_context.max_fee.0,
+        AccountTransactionContext::Deprecated(context) => context.max_fee.0,
     }
     .into()
 }
