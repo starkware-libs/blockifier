@@ -482,6 +482,13 @@ pub fn replace_class(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<ReplaceClassResponse> {
+    if syscall_handler.is_validate_mode() {
+        return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
+            syscall_name: "replace_class".to_string(),
+            execution_mode: syscall_handler.execution_mode(),
+        });
+    }
+
     // Ensure the class is declared (by reading it), and of type V1.
     let class_hash = request.class_hash;
     let class = syscall_handler.state.get_compiled_contract_class(&class_hash)?;
