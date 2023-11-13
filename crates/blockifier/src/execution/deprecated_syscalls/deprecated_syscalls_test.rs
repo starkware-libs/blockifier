@@ -24,10 +24,20 @@ use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
+<<<<<<< HEAD
     check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
     deprecated_create_test_state, trivial_external_entry_point, CHAIN_ID_NAME,
     CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+||||||| 842c8975
+    deprecated_create_deploy_test_state, deprecated_create_test_state,
+    trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CLASS_HASH,
+=======
+    check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
+    deprecated_create_test_state, trivial_external_entry_point, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH,
+>>>>>>> origin/main-v0.12.2
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::AccountTransactionContext;
@@ -205,8 +215,15 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.clone().execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
+
+    // Execution mode is Validate.
+    let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+    check_entry_point_execution_error_for_custom_hint(
+        &error,
+        "Unauthorized syscall replace_class in execution mode Validate.",
+    );
 
     // Positive flow.
     let contract_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));

@@ -610,6 +610,8 @@ pub fn replace_class(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<ReplaceClassResponse> {
+    syscall_handler.verify_not_in_validate_mode("replace_class")?;
+
     // Ensure the class is declared (by reading it).
     syscall_handler.state.get_compiled_contract_class(&request.class_hash)?;
     syscall_handler.state.set_class_hash_at(syscall_handler.storage_address, request.class_hash)?;
