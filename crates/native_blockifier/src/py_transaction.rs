@@ -134,6 +134,23 @@ impl From<PyActualCost> for ActualCost {
 
 // Transactions creation.
 
+pub fn py_account_tx(
+    tx_type: &str,
+    py_tx: &PyAny,
+    raw_contract_class: Option<&str>,
+) -> NativeBlockifierResult<AccountTransaction> {
+    match tx_type {
+        "DECLARE" => {
+            let raw_contract_class: &str = raw_contract_class
+                .expect("A contract class must be passed in a Declare transaction.");
+            Ok(AccountTransaction::Declare(py_declare(py_tx, raw_contract_class)?))
+        }
+        "DEPLOY_ACCOUNT" => Ok(AccountTransaction::DeployAccount(py_deploy_account(py_tx)?)),
+        "INVOKE_FUNCTION" => Ok(AccountTransaction::Invoke(py_invoke_function(py_tx)?)),
+        _ => unimplemented!(),
+    }
+}
+
 pub fn py_tx(
     tx_type: &str,
     py_tx: &PyAny,
