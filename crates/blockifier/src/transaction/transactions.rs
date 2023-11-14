@@ -10,6 +10,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext, ExecutionResources,
@@ -319,6 +320,16 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        if context.execution_mode != ExecutionMode::Validate {
+            let execution_mode_str = context.execution_mode.to_string();
+            let validate_mode_str = ExecutionMode::Validate.to_string();
+            return Err(TransactionExecutionError::ExecutionContextError {
+                error: format!(
+                    "Deploy account transaction was run in execution mode: {execution_mode_str}. \
+                     It must be run in execution mode: {validate_mode_str}.",
+                ),
+            });
+        }
         let ctor_context = ConstructorContext {
             class_hash: self.class_hash(),
             code_address: None,

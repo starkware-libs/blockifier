@@ -78,6 +78,8 @@ pub enum TransactionExecutionError {
     UnexpectedHoles { object: String, order: usize },
     #[error("Transaction validation has failed.")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
+    #[error("Entry point execution context error: {error}")]
+    ExecutionContextError { error: String },
 }
 
 #[derive(Debug, Error)]

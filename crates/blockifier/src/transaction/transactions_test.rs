@@ -27,7 +27,9 @@ use crate::abi::sierra_types::next_storage_key;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
-use crate::execution::entry_point::{CallEntryPoint, CallType};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
+};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -52,8 +54,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionInfo,
+    AccountTransactionContext, DeprecatedAccountTransactionContext, FeeType, HasRelatedFeeType,
+    ResourcesMapping, TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_account_tx_test_state,
@@ -64,7 +66,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+    DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
 };
 use crate::{invoke_tx_args, retdata};
 
@@ -1033,7 +1035,7 @@ fn test_deploy_account_tx(
     // Deploy to an existing address.
     let deploy_account =
         deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
-    let account_tx = AccountTransaction::DeployAccount(deploy_account);
+    let account_tx = AccountTransaction::DeployAccount(deploy_account.clone());
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
@@ -1041,6 +1043,31 @@ fn test_deploy_account_tx(
             EntryPointExecutionError::StateError(StateError::UnavailableContractAddress(_))
         )
     );
+
+    // Run execute in execute mode.
+    let mut execution_context = EntryPointExecutionContext::new_invoke(
+        block_context,
+        &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+        false,
+    )
+    .unwrap();
+    let mut remaining_gas = Transaction::initial_gas();
+    let error = deploy_account
+        .run_execute(
+            state,
+            &mut ExecutionResources::default(),
+            &mut execution_context,
+            &mut remaining_gas,
+        )
+        .unwrap_err();
+    assert_matches!(
+        error,
+        TransactionExecutionError::ExecutionContextError { error }
+        if error.contains(
+            "Deploy account transaction was run in execution mode: Execute. \
+             It must be run in execution mode: Validate."
+        )
+    )
 }
 
 // TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
