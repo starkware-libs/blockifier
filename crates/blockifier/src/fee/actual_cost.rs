@@ -18,7 +18,7 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
 
-#[derive(Clone, Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum FeeCheckError {
     #[error("Insufficient max L1 gas: max amount: {max_amount}, actual used: {actual_amount}.")]
     MaxL1GasAmountExceeded { max_amount: u128, actual_amount: u128 },
@@ -30,6 +30,8 @@ pub enum FeeCheckError {
     )]
     InsufficientFeeTokenBalance { fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
 }
+
+type FeeCheckResult = Result<(), FeeCheckError>;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -186,7 +188,7 @@ impl FeeCheckReportFields for FeeCheckReport {
     }
 
     fn error(&self) -> Option<FeeCheckError> {
-        self.error.clone()
+        self.error
     }
 }
 
@@ -195,13 +197,42 @@ impl FeeCheckReport {
         Self { recommended_fee: actual_fee, error: None }
     }
 
-    /// If the actual cost exceeds the resource bounds on the transaction, returns a report with an
-    /// error and a fee recommendation.
+    /// Given a list of fee check results, returns a fee check report with the first error, or a
+    /// success report if all checks passed.
+    pub fn from_fee_check_results(
+        actual_fee: Fee,
+        results: Vec<FeeCheckResult>,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> Self {
+        for result in results {
+            if let Err(fee_check_error) = result {
+                // Found an error; set the recommended fee based on the error variant and current
+                // context, and return the report.
+                let recommended_fee = match fee_check_error {
+                    FeeCheckError::InsufficientFeeTokenBalance { fee, .. } => fee,
+                    FeeCheckError::MaxFeeExceeded { max_fee, .. } => max_fee,
+                    FeeCheckError::MaxL1GasAmountExceeded { max_amount, .. } => {
+                        get_fee_by_l1_gas_usage(
+                            block_context,
+                            max_amount,
+                            &account_tx_context.fee_type(),
+                        )
+                    }
+                };
+                return Self { recommended_fee, error: Some(fee_check_error) };
+            }
+        }
+        Self::success_report(actual_fee)
+    }
+
+    /// If the actual cost exceeds the resource bounds on the transaction, returns a fee check
+    /// error.
     fn check_actual_cost_within_bounds(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
-    ) -> TransactionExecutionResult<Self> {
+    ) -> TransactionExecutionResult<FeeCheckResult> {
         let ActualCost { actual_fee, actual_resources } = actual_cost;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
@@ -213,59 +244,45 @@ impl FeeCheckReport {
                 let actual_used_l1_gas =
                     calculate_tx_l1_gas_usage(actual_resources, block_context)?;
                 if actual_used_l1_gas > max_l1_gas {
-                    return Ok(Self {
-                        recommended_fee: get_fee_by_l1_gas_usage(
-                            block_context,
-                            max_l1_gas,
-                            &account_tx_context.fee_type(),
-                        ),
-                        error: Some(FeeCheckError::MaxL1GasAmountExceeded {
-                            max_amount: max_l1_gas,
-                            actual_amount: actual_used_l1_gas,
-                        }),
-                    });
+                    return Ok(Err(FeeCheckError::MaxL1GasAmountExceeded {
+                        max_amount: max_l1_gas,
+                        actual_amount: actual_used_l1_gas,
+                    }));
                 }
             }
             AccountTransactionContext::Deprecated(context) => {
                 // Check max fee.
                 let max_fee = context.max_fee;
                 if actual_fee > &max_fee {
-                    return Ok(Self {
-                        recommended_fee: max_fee,
-                        error: Some(FeeCheckError::MaxFeeExceeded {
-                            max_fee,
-                            actual_fee: *actual_fee,
-                        }),
-                    });
+                    return Ok(Err(FeeCheckError::MaxFeeExceeded {
+                        max_fee,
+                        actual_fee: *actual_fee,
+                    }));
                 }
             }
         }
 
-        Ok(Self::success_report(*actual_fee))
+        Ok(Ok(()))
     }
 
-    /// If the actual cost exceeds the sender's balance, returns a report with an error and a
-    /// post-execution fee recommendation.
+    /// If the actual cost exceeds the sender's balance, returns a fee check error.
     fn check_can_pay_fee<S: StateReader>(
         state: &mut S,
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
-    ) -> TransactionExecutionResult<Self> {
+    ) -> TransactionExecutionResult<FeeCheckResult> {
         let ActualCost { actual_fee, .. } = actual_cost;
         let (balance_low, balance_high, can_pay) =
             get_balance_and_if_covers_fee(state, account_tx_context, block_context, *actual_fee)?;
         if can_pay {
-            return Ok(Self::success_report(*actual_fee));
+            return Ok(Ok(()));
         }
-        Ok(Self {
-            recommended_fee: *actual_fee,
-            error: Some(FeeCheckError::InsufficientFeeTokenBalance {
-                fee: *actual_fee,
-                balance_low,
-                balance_high,
-            }),
-        })
+        Ok(Err(FeeCheckError::InsufficientFeeTokenBalance {
+            fee: *actual_fee,
+            balance_low,
+            balance_high,
+        }))
     }
 }
 
@@ -298,25 +315,30 @@ impl PostExecutionReport {
             return Ok(Self(FeeCheckReport::success_report(*actual_fee)));
         }
 
-        // First, compare the actual resources used against the upper bound(s) defined by the
-        // sender.
-        let resource_bounds_report = FeeCheckReport::check_actual_cost_within_bounds(
-            block_context,
-            account_tx_context,
-            actual_cost,
-        )?;
-        if resource_bounds_report.error().is_some() {
-            return Ok(Self(resource_bounds_report));
-        }
+        let fee_check_results: Vec<FeeCheckResult> = vec![
+            // First, compare the actual resources used against the upper bound(s) defined by the
+            // sender.
+            FeeCheckReport::check_actual_cost_within_bounds(
+                block_context,
+                account_tx_context,
+                actual_cost,
+            )?,
+            // Next, compare resource bounds cover the actual cost, and are covered by
+            // pre-execution balance (verified in pre-validation phase).
+            // Verify against the account balance, which may have changed after execution.
+            FeeCheckReport::check_can_pay_fee(
+                state,
+                block_context,
+                account_tx_context,
+                actual_cost,
+            )?,
+        ];
 
-        // Initial check passed; resource bounds cover the actual cost, and are covered by
-        // pre-execution balance (verified in pre-validation phase).
-        // Verify against the account balance, which may have changed after execution.
-        Ok(Self(FeeCheckReport::check_can_pay_fee(
-            state,
+        Ok(Self(FeeCheckReport::from_fee_check_results(
+            *actual_fee,
+            fee_check_results,
             block_context,
             account_tx_context,
-            actual_cost,
-        )?))
+        )))
     }
 }
