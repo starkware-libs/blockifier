@@ -30,7 +30,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::fee::fee_utils::{calculate_tx_fee, l1_resource_bounds};
+use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -56,7 +56,8 @@ use crate::transaction::objects::{
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_account_tx_test_state,
     create_state_with_cairo1_account, create_state_with_falliable_validation_account,
-    create_state_with_trivial_validation_account, CALL_CONTRACT, INVALID, VALID,
+    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
+    VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
