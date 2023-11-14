@@ -12,6 +12,7 @@ use crate::fee::fee_utils::{
 };
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
@@ -195,13 +196,29 @@ impl FeeCheckReport {
         Self { recommended_fee: actual_fee, error: None }
     }
 
+    /// Converts a fee check error to a report with a fee recommendation using the current context.
+    pub fn from_fee_check_error(
+        error: FeeCheckError,
+        block_context: &BlockContext,
+        account_tx_context: &AccountTransactionContext,
+    ) -> Self {
+        let recommended_fee = match error {
+            FeeCheckError::MaxL1GasAmountExceeded { max_amount, .. } => {
+                get_fee_by_l1_gas_usage(block_context, max_amount, &account_tx_context.fee_type())
+            }
+            FeeCheckError::MaxFeeExceeded { max_fee, .. } => max_fee,
+            FeeCheckError::InsufficientFeeTokenBalance { fee, .. } => fee,
+        };
+        Self { recommended_fee, error: Some(error) }
+    }
+
     /// If the actual cost exceeds the resource bounds on the transaction, returns a report with an
     /// error and a fee recommendation.
     fn check_actual_cost_within_bounds(
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
-    ) -> TransactionExecutionResult<Self> {
+    ) -> TransactionExecutionResult<()> {
         let ActualCost { actual_fee, actual_resources } = actual_cost;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
@@ -213,35 +230,25 @@ impl FeeCheckReport {
                 let actual_used_l1_gas =
                     calculate_tx_l1_gas_usage(actual_resources, block_context)?;
                 if actual_used_l1_gas > max_l1_gas {
-                    return Ok(Self {
-                        recommended_fee: get_fee_by_l1_gas_usage(
-                            block_context,
-                            max_l1_gas,
-                            &account_tx_context.fee_type(),
-                        ),
-                        error: Some(FeeCheckError::MaxL1GasAmountExceeded {
-                            max_amount: max_l1_gas,
-                            actual_amount: actual_used_l1_gas,
-                        }),
-                    });
+                    return Err(FeeCheckError::MaxL1GasAmountExceeded {
+                        max_amount: max_l1_gas,
+                        actual_amount: actual_used_l1_gas,
+                    })?;
                 }
             }
             AccountTransactionContext::Deprecated(context) => {
                 // Check max fee.
                 let max_fee = context.max_fee;
                 if actual_fee > &max_fee {
-                    return Ok(Self {
-                        recommended_fee: max_fee,
-                        error: Some(FeeCheckError::MaxFeeExceeded {
-                            max_fee,
-                            actual_fee: *actual_fee,
-                        }),
-                    });
+                    return Err(FeeCheckError::MaxFeeExceeded {
+                        max_fee,
+                        actual_fee: *actual_fee,
+                    })?;
                 }
             }
         }
 
-        Ok(Self::success_report(*actual_fee))
+        Ok(())
     }
 
     /// If the actual cost exceeds the sender's balance, returns a report with an error and a
@@ -251,21 +258,18 @@ impl FeeCheckReport {
         block_context: &BlockContext,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
-    ) -> TransactionExecutionResult<Self> {
+    ) -> TransactionExecutionResult<()> {
         let ActualCost { actual_fee, .. } = actual_cost;
         let (balance_low, balance_high, can_pay) =
             get_balance_and_if_covers_fee(state, account_tx_context, block_context, *actual_fee)?;
         if can_pay {
-            return Ok(Self::success_report(*actual_fee));
+            return Ok(());
         }
-        Ok(Self {
-            recommended_fee: *actual_fee,
-            error: Some(FeeCheckError::InsufficientFeeTokenBalance {
-                fee: *actual_fee,
-                balance_low,
-                balance_high,
-            }),
-        })
+        Err(FeeCheckError::InsufficientFeeTokenBalance {
+            fee: *actual_fee,
+            balance_low,
+            balance_high,
+        })?
     }
 }
 
@@ -300,23 +304,36 @@ impl PostExecutionReport {
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
-        let resource_bounds_report = FeeCheckReport::check_actual_cost_within_bounds(
+        match FeeCheckReport::check_actual_cost_within_bounds(
             block_context,
             account_tx_context,
             actual_cost,
-        )?;
-        if resource_bounds_report.error().is_some() {
-            return Ok(Self(resource_bounds_report));
-        }
+        ) {
+            Ok(_) => (),
+            Err(TransactionExecutionError::FeeCheckError(error)) => {
+                return Ok(Self(FeeCheckReport::from_fee_check_error(
+                    error,
+                    block_context,
+                    account_tx_context,
+                )));
+            }
+            Err(other_error) => return Err(other_error),
+        };
 
         // Initial check passed; resource bounds cover the actual cost, and are covered by
         // pre-execution balance (verified in pre-validation phase).
         // Verify against the account balance, which may have changed after execution.
-        Ok(Self(FeeCheckReport::check_can_pay_fee(
+        match FeeCheckReport::check_can_pay_fee(
             state,
             block_context,
             account_tx_context,
             actual_cost,
-        )?))
+        ) {
+            Ok(_) => Ok(Self(FeeCheckReport::success_report(*actual_fee))),
+            Err(TransactionExecutionError::FeeCheckError(error)) => Ok(Self(
+                FeeCheckReport::from_fee_check_error(error, block_context, account_tx_context),
+            )),
+            Err(other_error) => Err(other_error),
+        }
     }
 }
