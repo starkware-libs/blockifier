@@ -1,4 +1,5 @@
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
@@ -8,6 +9,7 @@ use crate::py_transaction::PyActualCost;
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
+use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -100,24 +102,24 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
-    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    #[pyo3(signature = (tx, raw_contract_class, _deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
         tx: &PyAny,
-        remaining_gas: u64,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<Option<PyCallInfo>> {
+        _deploy_account_tx_hash: Option<PyFelt>,
+    ) -> NativeBlockifierResult<()> {
         // Pre validations.
         // TODO(Amos, 09/11/2023): Add pre-validation checks.
 
         // `__validate__` call.
-        let (py_optional_call_info, _actual_cost) =
-            self.validate(tx, remaining_gas, raw_contract_class)?;
+        let (_py_optional_call_info, _actual_cost) =
+            self.validate(tx, Transaction::initial_gas(), raw_contract_class)?;
 
         // Post validations.
         // TODO(Noa, 09/11/2023): Add post-validation checks.
 
-        Ok(py_optional_call_info)
+        Ok(())
     }
 
     #[pyo3(signature = (general_config))]
