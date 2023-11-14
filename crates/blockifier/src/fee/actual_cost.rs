@@ -191,7 +191,49 @@ impl PostExecutionReport {
             return Ok(passing_report);
         }
 
-        let ActualCost { actual_fee, actual_resources } = cost_to_audit;
+        let ActualCost { actual_fee, .. } = cost_to_audit;
+        let resource_bounds_report = Self::check_actual_cost_within_bounds(
+            block_context,
+            cost_to_audit,
+            account_tx_context,
+        )?;
+        if resource_bounds_report.error.is_some() {
+            return Ok(resource_bounds_report);
+        }
+
+        // Initial check passed; verify against the account balance, which may have changed
+        // after execution.
+        let (balance_low, balance_high, can_pay) =
+            get_balance_and_if_covers_fee(state, account_tx_context, block_context, *actual_fee)?;
+        if can_pay {
+            return Ok(passing_report);
+        }
+        Ok(Self {
+            recommended_fee: *actual_fee,
+            error: Some(PostExecutionFeeError::InsufficientFeeTokenBalance {
+                fee: *actual_fee,
+                balance_low,
+                balance_high,
+            }),
+        })
+    }
+
+    pub fn recommended_fee(&self) -> Fee {
+        self.recommended_fee
+    }
+
+    pub fn error(&self) -> Option<PostExecutionFeeError> {
+        self.error.clone()
+    }
+
+    // Verifies that the actual resources used are less than the upper bound(s) defined by the
+    // sender.
+    pub fn check_actual_cost_within_bounds(
+        block_context: &BlockContext,
+        cost: &ActualCost,
+        account_tx_context: &AccountTransactionContext,
+    ) -> TransactionExecutionResult<Self> {
+        let ActualCost { actual_fee, actual_resources } = cost;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
@@ -229,29 +271,6 @@ impl PostExecutionReport {
                 }
             }
         }
-
-        // Initial check passed; verify against the account balance, which may have changed after
-        // execution.
-        let (balance_low, balance_high, can_pay) =
-            get_balance_and_if_covers_fee(state, account_tx_context, block_context, *actual_fee)?;
-        if can_pay {
-            return Ok(passing_report);
-        }
-        Ok(Self {
-            recommended_fee: *actual_fee,
-            error: Some(PostExecutionFeeError::InsufficientFeeTokenBalance {
-                fee: *actual_fee,
-                balance_low,
-                balance_high,
-            }),
-        })
-    }
-
-    pub fn recommended_fee(&self) -> Fee {
-        self.recommended_fee
-    }
-
-    pub fn error(&self) -> Option<PostExecutionFeeError> {
-        self.error.clone()
+        Ok(Self { recommended_fee: cost.actual_fee, error: None })
     }
 }
