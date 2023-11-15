@@ -20,6 +20,7 @@ mod TestContract {
         version: felt252,
         account_address: felt252,
         max_fee: felt252,
+        signature: Span<felt252>,
         transaction_hash: felt252,
         chain_id: felt252,
         nonce: felt252,

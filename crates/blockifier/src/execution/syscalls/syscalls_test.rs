@@ -288,8 +288,17 @@ fn test_get_execution_info(
         *sequencer_address.0.key(),
     ];
 
+    let mut expected_unsupported_fields: Vec<StarkFelt> = vec![];
     if is_legacy {
         verify_compiler_version(LEGACY_TEST_CONTRACT_CAIRO1_PATH, "2.1.0");
+    } else {
+        expected_unsupported_fields = vec![
+            StarkFelt::ZERO, // Tip.
+            StarkFelt::ZERO, // Paymaster data.
+            StarkFelt::ZERO, // Nonce da.
+            StarkFelt::ZERO, // Fee da.
+            StarkFelt::ZERO, // Account data.
+        ];
     }
 
     let test_contract_address =
@@ -314,6 +323,7 @@ fn test_get_execution_info(
             version.0,                                                  // Transaction version.
             *sender_address.0.key(),                                    // Account address.
             stark_felt!(max_fee.0),                                     // Max fee.
+            StarkFelt::ZERO,                                            // Signature.
             tx_hash.0,                                                  // Transaction hash.
             stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
             nonce.0,                                                    // Nonce.
@@ -342,6 +352,7 @@ fn test_get_execution_info(
             version.0,                                                  // Transaction version.
             *sender_address.0.key(),                                    // Account address.
             StarkFelt::ZERO,                                            // Max fee.
+            StarkFelt::ZERO,                                            // Signature.
             tx_hash.0,                                                  // Transaction hash.
             stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
             nonce.0,                                                    // Nonce.
@@ -398,6 +409,7 @@ fn test_get_execution_info(
                 expected_block_info.to_vec(),
                 expected_tx_info.clone(),
                 expected_resource_bounds,
+                expected_unsupported_fields,
                 expected_call_info,
             ]
             .concat()
