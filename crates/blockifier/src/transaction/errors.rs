@@ -92,3 +92,9 @@ pub enum TransactionPreValidationError {
     #[error(transparent)]
     TransactionFeeError(#[from] TransactionFeeError),
 }
+
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("Unsupported transaction type: {0}")]
+    UnknownTransactionType(String),
+}

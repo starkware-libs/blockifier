@@ -15,7 +15,7 @@ use crate::py_transaction::{py_account_tx, PyActualCost};
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
-use crate::py_utils::{py_enum_name, PyFelt};
+use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -104,8 +104,7 @@ impl PyValidator {
         remaining_gas: u64,
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
-        let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
+        let account_tx = py_account_tx(tx, raw_contract_class)?;
         let (optional_call_info, actual_cost) =
             self.tx_executor().validate(&account_tx, remaining_gas)?;
         let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
@@ -125,8 +124,7 @@ impl PyValidator {
         raw_contract_class: Option<&str>,
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
-        let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
+        let account_tx = py_account_tx(tx, raw_contract_class)?;
         let account_tx_context = account_tx.get_account_tx_context();
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,

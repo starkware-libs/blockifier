@@ -108,12 +108,3 @@ where
 {
     Ok(obj.getattr(attr)?.extract()?)
 }
-
-pub fn py_enum_name<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
-where
-    T: for<'a> FromPyObject<'a>,
-    T: Clone,
-    T: ToString,
-{
-    py_attr(obj.getattr(attr)?, "name")
-}
