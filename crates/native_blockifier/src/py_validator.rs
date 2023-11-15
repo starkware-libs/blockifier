@@ -118,6 +118,9 @@ impl PyValidator {
     ) -> NativeBlockifierResult<()> {
         let tx_type: String = py_enum_name(tx, "tx_type")?;
         let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
+
+        // Deploy account transactions should be fully executed (including pre-validation and
+        // post-execution), since the constructor is ran before validation.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
                 self.execute(tx, raw_contract_class)?;
@@ -126,8 +129,19 @@ impl PyValidator {
         }
         let account_tx_context = account_tx.get_account_tx_context();
 
-        // Pre validations.
-        // TODO(Amos, 09/11/2023): Add pre-validation checks.
+        // Other (not deploy account) transactions should be validated only (with pre-validation
+        // before, and post-validation after).
+        let tx_executor = self.tx_executor();
+        let strict_nonce_check = false;
+        // Run pre-validation in charge fee mode to perform fee and balance related checks.
+        let charge_fee = true;
+        account_tx.perform_pre_validation_stage(
+            &mut tx_executor.state,
+            &account_tx.get_account_tx_context(),
+            &tx_executor.block_context,
+            charge_fee,
+            strict_nonce_check,
+        )?;
 
         // `__validate__` call.
         let (_py_optional_call_info, py_actual_cost) =

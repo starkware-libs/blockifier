@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use num_bigint::BigUint;
 use num_traits::Zero;
 
-use super::errors::StrkGasPriceCalcError;
+use crate::fee::strk_gas_price::errors::StrkGasPriceCalcError;
 
 #[cfg(test)]
 #[path = "gas_price_test.rs"]
