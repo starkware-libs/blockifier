@@ -2,8 +2,9 @@ use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
+use starknet_api::hash::StarkFelt;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{self, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyActualCost};
@@ -105,6 +106,22 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
+    pub fn check_call_succeeded(
+        &mut self,
+        py_optional_call_info: Option<PyCallInfo>,
+    ) -> NativeBlockifierResult<()> {
+        if let Some(py_call_info) = py_optional_call_info {
+            if py_call_info.failure_flag.0 != StarkFelt::ZERO {
+                return Err(errors::NativeBlockifierError::NativeBlockifierInputError(
+                    NativeBlockifierInputError::ValidationError {
+                        error_data: py_call_info.retdata.iter().map(|v| v.0).collect(),
+                    },
+                ));
+            }
+        }
+        Ok(())
+    }
+
     #[pyo3(signature = (tx, raw_contract_class, _deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
@@ -117,21 +134,27 @@ impl PyValidator {
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
                 self.execute(tx, raw_contract_class)?;
-            // TODO(Ayelet, 09/11/2023): Check call succeeded.
+            let _ = self.check_call_succeeded(_py_tx_execution_info.validate_call_info);
+            let _ = self.check_call_succeeded(_py_tx_execution_info.execute_call_info);
             return Ok(());
         }
 
         // Pre validations.
         // TODO(Amos, 09/11/2023): Add pre-validation checks.
+        let tx_type: String = py_enum_name(tx, "tx_type")?;
+        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
 
         // `__validate__` call.
-        let (_py_optional_call_info, _actual_cost) =
+        let (py_optional_call_info, _actual_cost) =
             self.validate(tx, Transaction::initial_gas(), raw_contract_class)?;
 
         // Post validations.
         // TODO(Noa, 09/11/2023): Add post-validation checks.
-        // TODO(Ayelet, 09/11/2023): Check call succeeded.
+        if account_tx.get_account_tx_context().is_v0() {
+            return Ok(());
+        }
 
+        let _ = self.check_call_succeeded(py_optional_call_info);
         Ok(())
     }
 
