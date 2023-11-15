@@ -62,6 +62,8 @@ pub enum TransactionExecutionError {
     )]
     MaxL1GasAmountTooLow { max_l1_gas_amount: u64, minimal_l1_gas_amount: u64 },
     #[error(transparent)]
+    ParseError(#[from] ParseError),
+    #[error(transparent)]
     PostExecutionFeeError(#[from] PostExecutionFeeError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
@@ -71,4 +73,10 @@ pub enum TransactionExecutionError {
     UnexpectedHoles { object: String, order: usize },
     #[error("Transaction validation has failed.")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
+}
+
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("Unsupported transaction type: {0}")]
+    UnknownTransactionType(String),
 }

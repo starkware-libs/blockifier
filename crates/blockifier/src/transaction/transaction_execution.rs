@@ -16,7 +16,7 @@ use crate::transaction::transactions::{
     InvokeTransaction, L1HandlerTransaction,
 };
 
-#[derive(Debug)]
+#[derive(Debug, derive_more::From)]
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
     L1HandlerTransaction(L1HandlerTransaction),

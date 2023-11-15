@@ -1,5 +1,5 @@
 use blockifier::state::errors::StateError;
-use blockifier::transaction::errors::TransactionExecutionError;
+use blockifier::transaction::errors::{ParseError, TransactionExecutionError};
 use blockifier::transaction::transaction_types::TransactionType;
 use cairo_vm::types::errors::program_errors::ProgramError;
 use pyo3::create_exception;
@@ -69,6 +69,8 @@ native_blockifier_errors!(
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
+    #[error(transparent)]
+    ParseError(#[from] ParseError),
     #[error(transparent)]
     ProgramError(#[from] ProgramError),
     #[error(transparent)]
