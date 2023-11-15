@@ -4,12 +4,13 @@ use blockifier::fee::actual_cost::ActualCost;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::ResourcesMapping;
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transaction_types::TransactionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::transaction::{Fee, Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_declare::py_declare;
 use crate::py_deploy_account::py_deploy_account;
 use crate::py_invoke_function::py_invoke_function;
@@ -132,32 +133,36 @@ impl From<PyActualCost> for ActualCost {
     }
 }
 
-// Transactions creation.
+// Transaction creation.
 
 pub fn py_account_tx(
-    tx_type: &str,
-    py_tx: &PyAny,
+    tx: &PyAny,
     raw_contract_class: Option<&str>,
 ) -> NativeBlockifierResult<AccountTransaction> {
-    match tx_type {
-        "DECLARE" => {
-            let raw_contract_class: &str = raw_contract_class
-                .expect("A contract class must be passed in a Declare transaction.");
-            Ok(AccountTransaction::Declare(py_declare(py_tx, raw_contract_class)?))
-        }
-        "DEPLOY_ACCOUNT" => Ok(AccountTransaction::DeployAccount(py_deploy_account(py_tx)?)),
-        "INVOKE_FUNCTION" => Ok(AccountTransaction::Invoke(py_invoke_function(py_tx)?)),
-        _ => unimplemented!(),
-    }
+    let Transaction::AccountTransaction(account_tx) = py_tx(tx, raw_contract_class)? else {
+        panic!("Not an account transaction.");
+    };
+
+    Ok(account_tx)
 }
 
-pub fn py_tx(
-    tx_type: &str,
-    py_tx: &PyAny,
-    raw_contract_class: Option<&str>,
-) -> NativeBlockifierResult<Transaction> {
-    if tx_type == "L1_HANDLER" {
-        return Ok(Transaction::L1HandlerTransaction(py_l1_handler(py_tx)?));
-    }
-    Ok(Transaction::AccountTransaction(py_account_tx(tx_type, py_tx, raw_contract_class)?))
+pub fn py_tx(tx: &PyAny, raw_contract_class: Option<&str>) -> NativeBlockifierResult<Transaction> {
+    let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
+    let tx_type: TransactionType =
+        tx_type.parse().map_err(NativeBlockifierInputError::ParseError)?;
+
+    Ok(match tx_type {
+        TransactionType::Declare => {
+            let raw_contract_class: &str = raw_contract_class
+                .expect("A contract class must be passed in a Declare transaction.");
+            AccountTransaction::Declare(py_declare(tx, raw_contract_class)?).into()
+        }
+        TransactionType::DeployAccount => {
+            AccountTransaction::DeployAccount(py_deploy_account(tx)?).into()
+        }
+        TransactionType::InvokeFunction => {
+            AccountTransaction::Invoke(py_invoke_function(tx)?).into()
+        }
+        TransactionType::L1Handler => py_l1_handler(tx)?.into(),
+    })
 }
