@@ -6,6 +6,7 @@ use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
+use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
@@ -159,13 +160,14 @@ impl PyBlockExecutor {
 
     /// Returns the unique identifier of the given block number in bytes.
     #[pyo3(signature = (block_number))]
-    fn get_block_id_at_target(&self, block_number: u64) -> NativeBlockifierResult<Option<u64>> {
-        let block_id_bytes = self.storage.get_block_id(block_number)?;
-        let block_id_u64 = block_id_bytes.map(|block_id_bytes| {
-            u64::from_be_bytes(block_id_bytes[block_id_bytes.len() - 8..].try_into().unwrap())
-        });
+    fn get_block_id_at_target(&self, block_number: u64) -> NativeBlockifierResult<Option<PyFelt>> {
+        let optional_block_id_bytes = self.storage.get_block_id(block_number)?;
+        let Some(block_id_bytes) = optional_block_id_bytes else { return Ok(None) };
 
-        Ok(block_id_u64)
+        let mut block_id_fixed_bytes = [0_u8; 32];
+        block_id_fixed_bytes.copy_from_slice(&block_id_bytes);
+
+        Ok(Some(PyFelt(StarkFelt::new(block_id_fixed_bytes)?)))
     }
 
     #[pyo3(signature = (source_block_number))]
