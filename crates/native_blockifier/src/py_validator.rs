@@ -9,14 +9,16 @@ use pyo3::prelude::*;
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{
+    NativeBlockifierError, NativeBlockifierResult, NativeBlockifierValidationsError,
+};
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyActualCost};
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
-use crate::py_utils::{py_enum_name, PyFelt};
+use crate::py_utils::{py_enum_name, selector_to_name, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -133,10 +135,10 @@ impl PyValidator {
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
+            let (py_tx_execution_info, _py_casm_hash_calculation_resources) =
                 self.execute(tx, raw_contract_class)?;
-            // TODO(Ayelet, 09/11/2023): Check call succeeded.
-
+            check_call_succeeded(py_tx_execution_info.execute_call_info)?;
+            check_call_succeeded(py_tx_execution_info.validate_call_info)?;
             return Ok(());
         }
 
@@ -154,7 +156,10 @@ impl PyValidator {
             self.validate(tx, Transaction::initial_gas(), raw_contract_class)?;
 
         // Post validations.
-        // TODO(Ayelet, 09/11/2023): Check call succeeded.
+        if !account_tx.get_account_tx_context().is_v0() {
+            check_call_succeeded(_py_optional_call_info)?;
+        }
+
         self.perform_post_validation_stage(&account_tx_context, &ActualCost::from(py_actual_cost))?;
 
         Ok(())
@@ -234,4 +239,19 @@ impl PyValidator {
             actual_cost,
         )
     }
+}
+
+pub fn check_call_succeeded(
+    py_optional_call_info: Option<PyCallInfo>,
+) -> NativeBlockifierResult<()> {
+    let py_call_info = py_optional_call_info.expect("Call info must be not None.");
+    if py_call_info.failure_flag.0 == StarkFelt::ZERO {
+        return Ok(());
+    }
+    return Err(NativeBlockifierError::NativeBlockifierValidationsError(
+        NativeBlockifierValidationsError::ValidationError {
+            entry_point_name: selector_to_name(py_call_info.entry_point_selector.0),
+            error_data: py_call_info.retdata.iter().map(|v| v.0).collect(),
+        },
+    ));
 }
