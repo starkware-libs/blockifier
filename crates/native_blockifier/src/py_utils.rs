@@ -1,5 +1,12 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::abi::abi_utils::selector_from_name;
+use blockifier::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
+use blockifier::transaction::constants::{
+    EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, VALIDATE_DECLARE_ENTRY_POINT_NAME,
+    VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
+};
 use blockifier::transaction::errors::{TransactionExecutionError, TransactionFeeError};
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
@@ -116,4 +123,33 @@ where
     T: ToString,
 {
     py_attr(obj.getattr(attr)?, "name")
+}
+
+lazy_static! {
+    static ref SELECTOR_TO_NAME_MAP: HashMap<_, _> = {
+        let mut map = HashMap::new();
+        map.insert(
+            selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME).0,
+            CONSTRUCTOR_ENTRY_POINT_NAME,
+        );
+        map.insert(selector_from_name(EXECUTE_ENTRY_POINT_NAME).0, EXECUTE_ENTRY_POINT_NAME);
+        map.insert(selector_from_name(TRANSFER_ENTRY_POINT_NAME).0, TRANSFER_ENTRY_POINT_NAME);
+        map.insert(selector_from_name(VALIDATE_ENTRY_POINT_NAME).0, VALIDATE_ENTRY_POINT_NAME);
+        map.insert(
+            selector_from_name(VALIDATE_DECLARE_ENTRY_POINT_NAME).0,
+            VALIDATE_DECLARE_ENTRY_POINT_NAME,
+        );
+        map.insert(
+            selector_from_name(VALIDATE_DEPLOY_ENTRY_POINT_NAME).0,
+            VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+        );
+        map
+    };
+}
+
+pub fn selector_to_name(entry_point_selector: StarkFelt) -> String {
+    SELECTOR_TO_NAME_MAP
+        .get(&entry_point_selector)
+        .unwrap_or_else(|| panic!("{} is not defined.", entry_point_selector))
+        .to_string()
 }
