@@ -1,3 +1,4 @@
+use blockifier::execution::execution_utils::format_panic_data;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::transaction_types::TransactionType;
@@ -5,6 +6,7 @@ use cairo_vm::types::errors::program_errors::ProgramError;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
+use starknet_api::hash::StarkFelt;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
@@ -58,6 +60,11 @@ macro_rules! native_blockifier_errors {
 
 native_blockifier_errors!(
     (NativeBlockifierInputError, NativeBlockifierInputError, PyNativeBlockifierInputError),
+    (
+        NativeBlockifierValidateError,
+        NativeBlockifierValidationsError,
+        PyNativeBlockifierValidateError
+    ),
     (ProgramError, ProgramError, PyProgramError),
     (Pyo3Error, PyErr, PyPyo3Error),
     (SerdeError, serde_json::Error, PySerdeError),
@@ -77,6 +84,15 @@ pub enum NativeBlockifierInputError {
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+}
+
+#[derive(Debug, Error)]
+pub enum NativeBlockifierValidationsError {
+    #[error(
+        "`{entry_point_name}` call failed; failure reason: {}.",
+        format_panic_data(error_data)
+    )]
+    ValidationError { entry_point_name: String, error_data: Vec<StarkFelt> },
 }
 
 create_exception!(native_blockifier, UndeclaredClassHashError, PyException);
