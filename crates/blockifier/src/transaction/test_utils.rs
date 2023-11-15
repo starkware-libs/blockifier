@@ -203,7 +203,7 @@ pub fn create_account_tx_for_validate_test(
             });
             AccountTransaction::Invoke(invoke_tx)
         }
-        TransactionType::L1Handler => unimplemented!(),
+        _ => panic!("Not an account transaction."),
     }
 }
 

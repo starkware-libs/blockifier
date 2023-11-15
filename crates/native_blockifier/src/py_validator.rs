@@ -1,16 +1,15 @@
 use blockifier::state::cached_state::GlobalContractCache;
-use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::{py_account_tx, PyActualCost};
+use crate::py_transaction::{py_tx, PyActualCost};
 use crate::py_transaction_execution_info::{
     PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
-use crate::py_utils::{py_enum_name, PyFelt};
+use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 
@@ -112,9 +111,8 @@ impl PyValidator {
         raw_contract_class: Option<&str>,
         _deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
-        let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let account_tx = py_account_tx(&tx_type, tx, raw_contract_class)?;
-        if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
+        let account_tx = py_tx(tx, raw_contract_class)?;
+        if let Transaction::AccountTransaction(_) = account_tx {
             let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
                 self.execute(tx, raw_contract_class)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
