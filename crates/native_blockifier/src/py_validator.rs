@@ -1,4 +1,5 @@
-use blockifier::fee::actual_cost::{ActualCost, PostValidationReport};
+use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
