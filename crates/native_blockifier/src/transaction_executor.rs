@@ -22,7 +22,7 @@ use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
-use crate::py_utils::{py_enum_name, PyFelt};
+use crate::py_utils::PyFelt;
 
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
@@ -65,8 +65,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         raw_contract_class: Option<&str>,
         charge_fee: bool,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
-        let tx_type: String = py_enum_name(tx, "tx_type")?;
-        let tx: Transaction = py_tx(&tx_type, tx, raw_contract_class)?;
+        let tx: Transaction = py_tx(tx, raw_contract_class)?;
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
