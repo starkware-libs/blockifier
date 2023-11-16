@@ -289,7 +289,7 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_trivial_validation_account(),
     ExpectedResultTestInvokeTx{
         range_check: 101,
-        n_steps: 4155,
+        n_steps: 4269,
         vm_resources: VmExecutionResources {
             n_steps:  61,
             n_memory_holes:  0,
@@ -305,7 +305,7 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_cairo1_account(),
     ExpectedResultTestInvokeTx{
         range_check: 113,
-        n_steps: 4575,
+        n_steps: 4689,
         vm_resources: VmExecutionResources {
             n_steps: 283,
             n_memory_holes: 1,
@@ -720,13 +720,13 @@ fn declare_tx(
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     63, // range_check_builtin
-    2723, // n_steps
+    2809, // n_steps
     CairoVersion::Cairo0;
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
     65, // range_check_builtin
-    2761, // n_steps
+    2847, // n_steps
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_declare_tx(
@@ -872,7 +872,7 @@ fn test_declare_tx_v2() {
         (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 2) * 612),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2761),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 2847),
     ]));
 
     let expected_actual_fee =
@@ -904,13 +904,13 @@ fn deploy_account_tx(
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     83, // range_check_builtin
-    3641, // n_steps
+    3756, // n_steps
     CairoVersion::Cairo0;
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
     85, // range_check_builtin
-    3697, // n_steps
+    3812, // n_steps
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_deploy_account_tx(
