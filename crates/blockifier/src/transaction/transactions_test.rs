@@ -1045,94 +1045,87 @@ fn test_deploy_account_tx(
 
 // TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
 // another contract flow.
-#[test]
-fn test_validate_accounts_tx() {
-    fn test_validate_account_tx(tx_type: TransactionType) {
-        let block_context = &BlockContext::create_for_account_testing();
+#[rstest]
+#[case(TransactionType::InvokeFunction)]
+#[case(TransactionType::Declare)]
+#[case(TransactionType::DeployAccount)]
+fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
+    let block_context = &BlockContext::create_for_account_testing();
 
-        // Positive flows.
-        // Valid logic.
+    // Positive flows.
+    // Valid logic.
+    let state = &mut create_state_with_falliable_validation_account();
+    let account_tx =
+        create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
+    account_tx.execute(state, block_context, true, true).unwrap();
+
+    if tx_type != TransactionType::DeployAccount {
+        // Calling self (allowed).
         let state = &mut create_state_with_falliable_validation_account();
-        let account_tx =
-            create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
-        account_tx.execute(state, block_context, true, true).unwrap();
-
-        if tx_type != TransactionType::DeployAccount {
-            // Calling self (allowed).
-            let state = &mut create_state_with_falliable_validation_account();
-            let account_tx = create_account_tx_for_validate_test(
-                tx_type,
-                CALL_CONTRACT,
-                Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
-                &mut NonceManager::default(),
-            );
-            account_tx.execute(state, block_context, true, true).unwrap();
-        }
-
-        // Negative flows.
-
-        // Logic failure.
-        let state = &mut create_state_with_falliable_validation_account();
-        let account_tx = create_account_tx_for_validate_test(
-            tx_type,
-            INVALID,
-            None,
-            &mut NonceManager::default(),
-        );
-        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        // TODO(Noa,01/05/2023): Test the exact failure reason.
-        assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
-
-        // Trying to call another contract (forbidden).
         let account_tx = create_account_tx_for_validate_test(
             tx_type,
             CALL_CONTRACT,
-            Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
+            Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
             &mut NonceManager::default(),
         );
+        account_tx.execute(state, block_context, true, true).unwrap();
+    }
+
+    // Negative flows.
+
+    // Logic failure.
+    let state = &mut create_state_with_falliable_validation_account();
+    let account_tx =
+        create_account_tx_for_validate_test(tx_type, INVALID, None, &mut NonceManager::default());
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    // TODO(Noa,01/05/2023): Test the exact failure reason.
+    assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+
+    // Trying to call another contract (forbidden).
+    let account_tx = create_account_tx_for_validate_test(
+        tx_type,
+        CALL_CONTRACT,
+        Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
+        &mut NonceManager::default(),
+    );
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    if let TransactionExecutionError::ValidateTransactionError(error) = error {
+        check_entry_point_execution_error_for_custom_hint(
+            &error,
+            "Unauthorized syscall call_contract in execution mode Validate.",
+        );
+    } else {
+        panic!("Expected ValidateTransactionError.")
+    }
+
+    // Verify that the contract does not call another contract in the constructor of deploy account
+    // as well.
+    if tx_type == TransactionType::DeployAccount {
+        // Deploy another instance of 'faulty_account' and trying to call other contract in the
+        // constructor (forbidden).
+
+        let deploy_account_tx = crate::test_utils::deploy_account_tx(
+            TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+            Fee(0),
+            Some(calldata![stark_felt!(constants::FELT_TRUE)]),
+            // run faulty_validate() in the constructor.
+            Some(TransactionSignature(vec![
+                stark_felt!(CALL_CONTRACT),
+                stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+            ])),
+            &mut NonceManager::default(),
+        );
+        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        if let TransactionExecutionError::ValidateTransactionError(error) = error {
+        if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
             check_entry_point_execution_error_for_custom_hint(
                 &error,
                 "Unauthorized syscall call_contract in execution mode Validate.",
             );
         } else {
-            panic!("Expected ValidateTransactionError.")
-        }
-
-        // Verify that the contract does not call another contract in the constructor of deploy
-        // account as well.
-        if tx_type == TransactionType::DeployAccount {
-            // Deploy another instance of 'faulty_account' and trying to call other contract in the
-            // constructor (forbidden).
-
-            let deploy_account_tx = crate::test_utils::deploy_account_tx(
-                TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-                Fee(0),
-                Some(calldata![stark_felt!(constants::FELT_TRUE)]),
-                // run faulty_validate() in the constructor.
-                Some(TransactionSignature(vec![
-                    stark_felt!(CALL_CONTRACT),
-                    stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-                ])),
-                &mut NonceManager::default(),
-            );
-            let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-            let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-            if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
-                check_entry_point_execution_error_for_custom_hint(
-                    &error,
-                    "Unauthorized syscall call_contract in execution mode Validate.",
-                );
-            } else {
-                panic!("Expected ContractConstructorExecutionFailed.")
-            }
+            panic!("Expected ContractConstructorExecutionFailed.")
         }
     }
-
-    test_validate_account_tx(TransactionType::InvokeFunction);
-    test_validate_account_tx(TransactionType::Declare);
-    test_validate_account_tx(TransactionType::DeployAccount);
 }
 
 // Test that we exclude the fee token contract modification and adds the account’s balance change
