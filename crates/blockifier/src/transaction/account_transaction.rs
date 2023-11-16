@@ -13,7 +13,9 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
 };
-use crate::fee::actual_cost::{ActualCost, ActualCostBuilder, PostExecutionReport};
+use crate::fee::actual_cost::{
+    ActualCost, ActualCostBuilder, FeeCheckReportFields, PostExecutionReport,
+};
 use crate::fee::fee_utils::{get_fee_by_l1_gas_usage, verify_can_pay_max_fee};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::retdata;
