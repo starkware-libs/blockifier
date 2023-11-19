@@ -6,7 +6,7 @@ resolver = "2"
 members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.package]
-version = "0.4.0-rc7"
+version = "0.4.0-rc8"
 edition = "2021"
 repository = "https://github.com/starkware-libs/blockifier/"
 license = "Apache-2.0"
