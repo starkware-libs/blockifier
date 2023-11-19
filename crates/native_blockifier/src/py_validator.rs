@@ -138,12 +138,13 @@ impl PyValidator {
             return Ok(());
         }
 
-        self.perform_pre_validation_stage(&account_tx)?;
-
-        if self.skip_validate_due_to_unprocessed_deploy_account(
+        let skip_validate = self.skip_validate_due_to_unprocessed_deploy_account(
             &account_tx_context,
             deploy_account_tx_hash,
-        )? {
+        )?;
+        self.perform_pre_validation_stage(&account_tx)?;
+
+        if skip_validate {
             return Ok(());
         }
 
