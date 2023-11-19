@@ -138,12 +138,16 @@ impl PyValidator {
             return Ok(());
         }
 
-        self.perform_pre_validation_stage(&account_tx)?;
-
-        if self.skip_validate_due_to_unprocessed_deploy_account(
+        // First, we check if the transaction should be skipped due to the deploy account not being
+        // processed. It is done before the pre-validations checks because, in these checks, we
+        // change the state (more precisely, we increment the nonce).
+        let skip_validate = self.skip_validate_due_to_unprocessed_deploy_account(
             &account_tx_context,
             deploy_account_tx_hash,
-        )? {
+        )?;
+        self.perform_pre_validation_stage(&account_tx)?;
+
+        if skip_validate {
             return Ok(());
         }
 
