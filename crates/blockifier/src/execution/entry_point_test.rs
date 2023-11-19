@@ -3,22 +3,26 @@ use std::collections::HashSet;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
+use crate::state::state_api::StateReader;
 use crate::test_utils::{
     create_calldata, create_test_state, deprecated_create_test_state, pad_address_to_64,
     trivial_external_entry_point, trivial_external_entry_point_security_test, DictStateReader,
-    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
+    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_ADDRESS_2,
 };
 
 #[test]
@@ -525,20 +529,42 @@ fn test_stack_trace() {
         calldata,
         ..trivial_external_entry_point()
     };
+
+    // Fetch PC locations from the compiled contract to compute the expected PC locations in the
+    // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
+    // this computation should be stable.
+    let contract_class = state.get_compiled_contract_class(&class_hash!(TEST_CLASS_HASH)).unwrap();
+    let entry_point_offset = match contract_class {
+        ContractClass::V0(class) => {
+            class
+                .entry_points_by_type
+                .get(&EntryPointType::External)
+                .unwrap()
+                .iter()
+                .find(|ep| ep.selector == entry_point_call.entry_point_selector)
+                .unwrap()
+                .offset
+        }
+        ContractClass::V1(_) => panic!("Expected contract class V0, got V1."),
+    };
+    // Relative offsets of the test_call_contract entry point and the inner call.
+    let call_location = entry_point_offset.0 + 14;
+    let entry_point_location = entry_point_offset.0 - 3;
+
     let expected_trace = format!(
         "Error in the called contract ({}):
 Error at pc=0:34:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:708)
-Unknown location (pc=0:691)
+Unknown location (pc=0:{call_location})
+Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({}):
 Error at pc=0:34:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:708)
-Unknown location (pc=0:691)
+Unknown location (pc=0:{call_location})
+Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({}):
 Error at pc=0:58:
