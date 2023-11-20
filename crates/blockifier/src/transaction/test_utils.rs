@@ -20,10 +20,11 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    create_calldata, declare_tx, deploy_account_tx, invoke_tx, test_erc20_account_balance_key,
-    test_erc20_faulty_account_balance_key, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    create_calldata, declare_tx, deploy_account_tx, test_erc20_account_balance_key,
+    test_erc20_faulty_account_balance_key, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
+    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
@@ -337,7 +338,7 @@ pub fn create_account_tx_for_validate_test(
                 "foo",
                 &[],
             );
-            let invoke_tx = crate::test_utils::invoke_tx(invoke_tx_args! {
+            let invoke_tx = crate::test_utils::invoke::invoke_tx(invoke_tx_args! {
                 signature,
                 sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 calldata: execute_calldata,

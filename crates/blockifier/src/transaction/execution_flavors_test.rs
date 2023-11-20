@@ -12,8 +12,9 @@ use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
+use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, InvokeTxArgs, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
 };
 use crate::transaction::errors::{
