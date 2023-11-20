@@ -11,7 +11,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
-use crate::test_utils::FakeStorage;
+use crate::test_utils::MockStorage;
 
 #[test]
 fn global_contract_cache_update() {
@@ -59,7 +59,7 @@ fn get_block_id_with_large_hash_value() {
     );
 
     let storage =
-        FakeStorage { block_number_to_class_hash: HashMap::from([(1138, max_class_hash)]) };
+        MockStorage { block_number_to_class_hash: HashMap::from([(1138, max_class_hash)]) };
     let block_executor = PyBlockExecutor::create_for_testing_with_storage(storage);
 
     assert_eq!(

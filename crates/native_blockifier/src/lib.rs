@@ -13,8 +13,8 @@ pub mod py_utils;
 pub mod py_validator;
 pub mod state_readers;
 pub mod storage;
-pub mod transaction_executor;
 pub mod test_utils;
+pub mod transaction_executor;
 
 use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;

@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use crate::errors::NativeBlockifierResult;
 use crate::storage::Storage;
 
-pub struct FakeStorage {
+pub struct MockStorage {
     pub block_number_to_class_hash: HashMap<u64, Vec<u8>>,
     // .. Add more as needed.
 }
-impl Storage for FakeStorage {
+impl Storage for MockStorage {
     fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
         Ok(self.block_number_to_class_hash.get(&block_number).cloned())
     }
