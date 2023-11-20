@@ -28,19 +28,21 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, ERC20_CONTRACT_PATH,
-    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+    check_entry_point_execution_error_for_custom_hint, create_calldata, declare_tx,
+    deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
+    BALANCE, DEFAULT_STRK_L1_GAS_PRICE, ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH,
+    MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test,
-    create_state_with_falliable_validation_account, l1_resource_bounds, run_invoke_tx, INVALID,
+    create_state_with_falliable_validation_account, l1_resource_bounds, run_invoke_tx,
+    CALL_CONTRACT, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -710,6 +712,33 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
+}
+
+#[rstest]
+/// Tests that any deploy account transaction is run in validate mode by testing that the
+/// transaction fails on invalid syscall in execution mode.
+// TODO(Arni, 1/1/2023): Add test for too many steps.
+fn test_deploy_account_execution_mode(block_context: BlockContext) {
+    let mut state = create_state_with_falliable_validation_account();
+
+    let another_address = stark_felt!("0x1234567890");
+
+    // Create and execute (failing) deploy account transaction.
+    let deploy_account_tx = create_account_tx_for_validate_test(
+        TransactionType::DeployAccount,
+        CALL_CONTRACT,
+        Some(another_address),
+        &mut NonceManager::default(),
+    );
+    let err = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
+    if let TransactionExecutionError::ValidateTransactionError(error) = err {
+        check_entry_point_execution_error_for_custom_hint(
+            &error,
+            "Unauthorized syscall call_contract in execution mode Validate.",
+        )
+    } else {
+        panic!("Expected ValidateTransactionError.")
+    }
 }
 
 #[rstest]
