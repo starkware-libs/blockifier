@@ -221,6 +221,7 @@ impl<'a> SyscallHintProcessor<'a> {
             self.increment_syscall_count(&selector);
         }
 
+        dbg!("!!!!!!! selector: {:?}", selector);
         match selector {
             SyscallSelector::CallContract => {
                 self.execute_syscall(vm, call_contract, constants::CALL_CONTRACT_GAS_COST)
@@ -327,6 +328,9 @@ impl<'a> SyscallHintProcessor<'a> {
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
+        dbg!("!!!!!!! request: {:?}", &request);
+        dbg!("!!!!!!! gas_counter: {:?}", &gas_counter);
+
         if gas_counter < base_gas_cost {
             //  Out of gas failure.
             let out_of_gas_error =
@@ -343,6 +347,9 @@ impl<'a> SyscallHintProcessor<'a> {
         let original_response = execute_callback(request, vm, self, &mut remaining_gas);
         let response = match original_response {
             Ok(response) => {
+                dbg!("!!!!!!! response: {:?}", &response);
+                dbg!("!!!!!!! remaining_gas: {:?}", &remaining_gas);
+
                 SyscallResponseWrapper::Success { gas_counter: remaining_gas, response }
             }
             Err(SyscallExecutionError::SyscallError { error_data: data }) => {

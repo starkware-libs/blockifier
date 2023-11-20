@@ -160,6 +160,8 @@ pub fn call_contract(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
+    dbg!("!!!!!!!!!!!!! call_contract", &request);
+
     let storage_address = request.contract_address;
     if syscall_handler.is_validate_mode() && syscall_handler.storage_address() != storage_address {
         return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
@@ -179,6 +181,7 @@ pub fn call_contract(
         initial_gas: *remaining_gas,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)?;
+    dbg!("!!!!!!!!!!!!! call_contract return", &retdata_segment);
 
     Ok(CallContractResponse { segment: retdata_segment })
 }
@@ -605,7 +608,10 @@ pub fn storage_write(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
 ) -> SyscallResult<StorageWriteResponse> {
-    syscall_handler.set_contract_storage_at(request.address, request.value)
+    dbg!("!!!!!!!!!!!!! storage_write", &request);
+    let res = syscall_handler.set_contract_storage_at(request.address, request.value);
+    dbg!("!!!!!!!!!!!!! storage_write return", &res);
+    res
 }
 
 // Keccak syscall.
