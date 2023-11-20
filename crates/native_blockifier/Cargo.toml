@@ -29,17 +29,18 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { version = "0.2.0-rc2", features = ["testing"] }
-pyo3 = { version = "0.19.1", features = ["num-bigint", "hashbrown"] }
-pyo3-log = "0.8.1"
+papyrus_storage = { workspace = true, features = ["testing"] }
+pyo3 = { workspace = true, features = ["num-bigint", "hashbrown"] }
+pyo3-log.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 starknet_api = { workspace = true, features = ["testing"] }
 thiserror.workspace = true
 
 [dev-dependencies]
 cached.workspace = true
+criterion = { workspace = true, features = ["html_reports"] }
+pretty_assertions.workspace = true
 tempfile.workspace = true
-criterion = { version = "0.3", features = ["html_reports"] }
 
 [[bench]]
 path = "bench/blockifier_bench.rs"

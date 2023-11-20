@@ -13,7 +13,7 @@ use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
-use crate::storage::{Storage, StorageConfig};
+use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 use crate::transaction_executor::TransactionExecutor;
 
 #[cfg(test)]
@@ -25,7 +25,8 @@ pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
-    pub storage: Storage,
+    /// `Send` trait is required for `pyclass` compatibility as Python objects must be threadsafe.
+    pub storage: Box<dyn Storage + Send>,
     pub global_contract_cache: GlobalContractCache,
 }
 
@@ -40,14 +41,15 @@ impl PyBlockExecutor {
     ) -> Self {
         log::debug!("Initializing Block Executor...");
         let tx_executor = None;
-        let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
+        let storage =
+            PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
 
         log::debug!("Initialized Block Executor.");
         Self {
             general_config,
             max_recursion_depth,
             tx_executor,
-            storage,
+            storage: Box::new(storage),
             global_contract_cache: GlobalContractCache::default(),
         }
     }
@@ -196,7 +198,10 @@ impl PyBlockExecutor {
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
         Self {
-            storage: Storage::new_for_testing(path, &general_config.starknet_os_config.chain_id),
+            storage: Box::new(PapyrusStorage::new_for_testing(
+                path,
+                &general_config.starknet_os_config.chain_id,
+            )),
             general_config,
             max_recursion_depth: 50,
             tx_executor: None,
@@ -214,6 +219,17 @@ impl PyBlockExecutor {
         // Full-node storage must be aligned to the Python storage before initializing a reader.
         self.storage.validate_aligned(next_block_number);
         PapyrusReader::new(self.storage.reader().clone(), BlockNumber(next_block_number))
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn create_for_testing_with_storage(storage: impl Storage + Send + 'static) -> Self {
+        Self {
+            storage: Box::new(storage),
+            general_config: PyGeneralConfig::default(),
+            max_recursion_depth: 50,
+            tx_executor: None,
+            global_contract_cache: GlobalContractCache::default(),
+        }
     }
 }
 
