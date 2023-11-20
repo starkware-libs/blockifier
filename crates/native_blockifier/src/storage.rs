@@ -24,13 +24,13 @@ const GENESIS_BLOCK_ID: u64 = u64::MAX;
 // Invariant: Only one instance of this struct should exist.
 // Reader and writer fields must be cleared before the struct goes out of scope in Python;
 // to prevent possible memory leaks (TODO: see if this is indeed necessary).
-pub struct Storage {
+pub struct PapyrusStorage {
     reader: Option<papyrus_storage::StorageReader>,
     writer: Option<papyrus_storage::StorageWriter>,
 }
 
-impl Storage {
-    pub fn new(config: StorageConfig) -> NativeBlockifierResult<Storage> {
+impl PapyrusStorage {
+    pub fn new(config: StorageConfig) -> NativeBlockifierResult<PapyrusStorage> {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
             path_prefix: config.path_prefix,
@@ -53,29 +53,39 @@ impl Storage {
         let (reader, writer) = papyrus_storage::open_storage(storage_config)?;
         log::debug!("Initialized Blockifier storage.");
 
-        Ok(Storage { reader: Some(reader), writer: Some(writer) })
+        Ok(PapyrusStorage { reader: Some(reader), writer: Some(writer) })
     }
 
     /// Manually drops the storage reader and writer.
     /// Python does not necessarily drop them even if instance is no longer live.
-    pub fn close(&mut self) {
-        log::debug!("Closing Blockifier storage.");
-        self.reader = None;
-        self.writer = None;
-    }
+    pub fn new_for_testing(path_prefix: PathBuf, chain_id: &ChainId) -> PapyrusStorage {
+        let db_config = papyrus_storage::db::DbConfig {
+            path_prefix,
+            chain_id: chain_id.clone(),
+            min_size: 1 << 20,    // 1MB
+            max_size: 1 << 35,    // 32GB
+            growth_step: 1 << 26, // 64MB
+        };
+        let storage_config = papyrus_storage::StorageConfig { db_config, ..Default::default() };
+        let (reader, writer) = papyrus_storage::open_storage(storage_config).unwrap();
 
+        PapyrusStorage { reader: Some(reader), writer: Some(writer) }
+    }
+}
+
+impl Storage for PapyrusStorage {
     /// Returns the next block number, for which state diff was not yet appended.
-    pub fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
+    fn get_state_marker(&self) -> NativeBlockifierResult<u64> {
         let block_number = self.reader().begin_ro_txn()?.get_state_marker()?;
         Ok(block_number.0)
     }
 
-    pub fn get_header_marker(&self) -> NativeBlockifierResult<u64> {
+    fn get_header_marker(&self) -> NativeBlockifierResult<u64> {
         let block_number = self.reader().begin_ro_txn()?.get_header_marker()?;
         Ok(block_number.0)
     }
 
-    pub fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
+    fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>> {
         let block_number = BlockNumber(block_number);
         let block_hash = self
             .reader()
@@ -85,7 +95,7 @@ impl Storage {
         Ok(block_hash)
     }
 
-    pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+    fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
         log::debug!("Reverting state diff for {block_number:?}.");
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer().begin_rw_txn()?;
@@ -97,7 +107,7 @@ impl Storage {
     }
 
     // TODO(Gilad): Refactor.
-    pub fn append_block(
+    fn append_block(
         &mut self,
         block_id: u64,
         previous_block_id: Option<PyFelt>,
@@ -205,21 +215,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn new_for_testing(path_prefix: PathBuf, chain_id: &ChainId) -> Storage {
-        let db_config = papyrus_storage::db::DbConfig {
-            path_prefix,
-            chain_id: chain_id.clone(),
-            min_size: 1 << 20,    // 1MB
-            max_size: 1 << 35,    // 32GB
-            growth_step: 1 << 26, // 64MB
-        };
-        let storage_config = papyrus_storage::StorageConfig { db_config, ..Default::default() };
-        let (reader, writer) = papyrus_storage::open_storage(storage_config).unwrap();
-
-        Storage { reader: Some(reader), writer: Some(writer) }
-    }
-
-    pub fn validate_aligned(&self, source_block_number: u64) {
+    fn validate_aligned(&self, source_block_number: u64) {
         let header_marker = self.get_header_marker().expect("Should have a header marker");
         let state_marker = self.get_state_marker().expect("Should have a state marker");
 
@@ -236,12 +232,18 @@ impl Storage {
         );
     }
 
-    pub fn reader(&self) -> &papyrus_storage::StorageReader {
+    fn reader(&self) -> &papyrus_storage::StorageReader {
         self.reader.as_ref().expect("Storage should be initialized.")
     }
 
-    pub fn writer(&mut self) -> &mut papyrus_storage::StorageWriter {
+    fn writer(&mut self) -> &mut papyrus_storage::StorageWriter {
         self.writer.as_mut().expect("Storage should be initialized.")
+    }
+
+    fn close(&mut self) {
+        log::debug!("Closing Blockifier storage.");
+        self.reader = None;
+        self.writer = None;
     }
 }
 
@@ -264,4 +266,28 @@ impl StorageConfig {
     ) -> Self {
         Self { path_prefix, chain_id, max_size }
     }
+}
+
+pub trait Storage {
+    fn get_state_marker(&self) -> NativeBlockifierResult<u64>;
+    fn get_header_marker(&self) -> NativeBlockifierResult<u64>;
+    fn get_block_id(&self, block_number: u64) -> NativeBlockifierResult<Option<Vec<u8>>>;
+
+    fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()>;
+    fn append_block(
+        &mut self,
+        block_id: u64,
+        previous_block_id: Option<PyFelt>,
+        py_block_info: PyBlockInfo,
+        py_state_diff: PyStateDiff,
+        declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
+        deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
+    ) -> NativeBlockifierResult<()>;
+
+    fn validate_aligned(&self, source_block_number: u64);
+
+    fn reader(&self) -> &papyrus_storage::StorageReader;
+    fn writer(&mut self) -> &mut papyrus_storage::StorageWriter;
+
+    fn close(&mut self);
 }
