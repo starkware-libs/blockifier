@@ -15,11 +15,12 @@ use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
+use blockifier::test_utils::deploy_account::deploy_account_tx_with_salt;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use blockifier::test_utils::{
-    deploy_account_tx_with_salt, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;

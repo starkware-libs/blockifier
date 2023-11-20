@@ -894,7 +894,7 @@ fn deploy_account_tx(
     signature: Option<TransactionSignature>,
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
-    crate::test_utils::deploy_account_tx(
+    crate::test_utils::deploy_account::deploy_account_tx(
         account_class_hash,
         Fee(MAX_FEE),
         constructor_calldata,
@@ -1106,7 +1106,7 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         // Deploy another instance of 'faulty_account' and trying to call other contract in the
         // constructor (forbidden).
 
-        let deploy_account_tx = crate::test_utils::deploy_account_tx(
+        let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
             TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
             Fee(0),
             Some(calldata![stark_felt!(constants::FELT_TRUE)]),
