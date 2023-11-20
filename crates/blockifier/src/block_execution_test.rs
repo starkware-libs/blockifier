@@ -6,7 +6,7 @@ use starknet_api::state::StorageKey;
 use crate::abi::constants;
 use crate::block_execution::pre_process_block;
 use crate::state::state_api::StateReader;
-use crate::test_utils::create_test_state;
+use crate::test_utils::dict_state_reader::create_test_state;
 
 #[test]
 fn test_pre_process_block() {

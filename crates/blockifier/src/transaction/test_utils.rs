@@ -15,9 +15,10 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
+use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     create_calldata, invoke_tx, test_erc20_account_balance_key,
-    test_erc20_faulty_account_balance_key, DictStateReader, InvokeTxArgs, NonceManager,
+    test_erc20_faulty_account_balance_key, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,

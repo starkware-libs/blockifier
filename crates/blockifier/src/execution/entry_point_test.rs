@@ -18,11 +18,13 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
+use crate::test_utils::dict_state_reader::{
+    create_test_state, deprecated_create_test_state, DictStateReader,
+};
 use crate::test_utils::{
-    create_calldata, create_test_state, deprecated_create_test_state, pad_address_to_64,
-    trivial_external_entry_point, trivial_external_entry_point_security_test, DictStateReader,
-    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_ADDRESS_2,
+    create_calldata, pad_address_to_64, trivial_external_entry_point,
+    trivial_external_entry_point_security_test, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
 };
 
 #[test]

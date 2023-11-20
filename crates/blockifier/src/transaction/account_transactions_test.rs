@@ -28,8 +28,9 @@ use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
-    create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
+    create_calldata, declare_tx, deploy_account_tx, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, ERC20_CONTRACT_PATH,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,

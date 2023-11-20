@@ -11,9 +11,8 @@ use crate::fee::strk_gas_price::errors::StrkGasPriceCalcError;
 use crate::fee::strk_gas_price::gas_price::{PoolState, PoolStateAggregator};
 use crate::retdata;
 use crate::state::state_api::StateReader;
-use crate::test_utils::{
-    deprecated_create_test_state, RESERVE_0, RESERVE_1, TEST_PAIR_SKELETON_CONTRACT_ADDRESS1,
-};
+use crate::test_utils::dict_state_reader::deprecated_create_test_state;
+use crate::test_utils::{RESERVE_0, RESERVE_1, TEST_PAIR_SKELETON_CONTRACT_ADDRESS1};
 
 /// Sanity tests for STRK<->ETH price computation.
 #[test]

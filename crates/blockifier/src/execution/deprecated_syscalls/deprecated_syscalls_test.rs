@@ -24,9 +24,11 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::retdata;
 use crate::state::state_api::StateReader;
+use crate::test_utils::dict_state_reader::{
+    deprecated_create_deploy_test_state, deprecated_create_test_state,
+};
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, deprecated_create_deploy_test_state,
-    deprecated_create_test_state, trivial_external_entry_point, CHAIN_ID_NAME,
+    check_entry_point_execution_error_for_custom_hint, trivial_external_entry_point, CHAIN_ID_NAME,
     CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
