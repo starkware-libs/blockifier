@@ -180,7 +180,7 @@ pub fn create_account_tx_for_validate_test(
             )
         }
         TransactionType::DeployAccount => {
-            let deploy_account_tx = crate::test_utils::deploy_account_tx(
+            let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
                 TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
                 Fee(0),
                 Some(calldata![stark_felt!(constants::FELT_FALSE)]),

@@ -1,3 +1,4 @@
+pub mod deploy_account;
 pub mod dict_state_reader;
 pub mod invoke;
 pub mod struct_impls;
@@ -12,18 +13,13 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_traits::{One, Zero};
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
-};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransactionV1, Fee,
-    TransactionHash, TransactionSignature,
-};
+use starknet_api::transaction::{Calldata, DeclareTransactionV0V1, Fee, TransactionSignature};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
@@ -32,7 +28,6 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::transaction::transactions::DeployAccountTransaction;
 use crate::utils::const_max;
 
 // Addresses.
@@ -188,54 +183,6 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
 }
 
 // Transactions.
-
-pub fn deploy_account_tx(
-    class_hash: &str,
-    max_fee: Fee,
-    constructor_calldata: Option<Calldata>,
-    signature: Option<TransactionSignature>,
-    nonce_manager: &mut NonceManager,
-) -> DeployAccountTransaction {
-    deploy_account_tx_with_salt(
-        class_hash,
-        max_fee,
-        constructor_calldata,
-        ContractAddressSalt::default(),
-        signature,
-        nonce_manager,
-    )
-}
-
-pub fn deploy_account_tx_with_salt(
-    class_hash: &str,
-    max_fee: Fee,
-    constructor_calldata: Option<Calldata>,
-    contract_address_salt: ContractAddressSalt,
-    signature: Option<TransactionSignature>,
-    nonce_manager: &mut NonceManager,
-) -> DeployAccountTransaction {
-    let class_hash = class_hash!(class_hash);
-    let deployer_address = ContractAddress::default();
-    let constructor_calldata = constructor_calldata.unwrap_or_default();
-    let contract_address = calculate_contract_address(
-        contract_address_salt,
-        class_hash,
-        &constructor_calldata,
-        deployer_address,
-    )
-    .unwrap();
-
-    let tx = starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
-        max_fee,
-        signature: signature.unwrap_or_default(),
-        class_hash,
-        contract_address_salt,
-        constructor_calldata,
-        nonce: nonce_manager.next(contract_address),
-    });
-
-    DeployAccountTransaction::new(tx, TransactionHash::default(), contract_address)
-}
 
 pub fn declare_tx(
     class_hash: &str,
