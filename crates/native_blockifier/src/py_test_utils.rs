@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 
 use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
-use blockifier::test_utils::DictStateReader;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use starknet_api::class_hash;
 use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkHash;

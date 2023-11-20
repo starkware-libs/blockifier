@@ -8,10 +8,9 @@ use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::test_utils::{
-    deprecated_create_test_state, trivial_external_entry_point, DictStateReader, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS,
-};
+use crate::test_utils::cached_state::deprecated_create_test_state;
+use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::{trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS};
 
 #[test]
 fn test_calculate_contract_address() {

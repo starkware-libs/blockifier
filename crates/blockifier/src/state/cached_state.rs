@@ -343,7 +343,7 @@ impl<S: StateReader> State for CachedState<S> {
 }
 
 #[cfg(any(feature = "testing", test))]
-impl Default for CachedState<crate::test_utils::DictStateReader> {
+impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateReader> {
     fn default() -> Self {
         Self {
             state: Default::default(),

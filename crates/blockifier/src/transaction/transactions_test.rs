@@ -35,11 +35,12 @@ use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, InvokeTxArgs, NonceManager,
+    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
