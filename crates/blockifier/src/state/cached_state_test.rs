@@ -9,10 +9,9 @@ use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::block_context::BlockContext;
 use crate::state::cached_state::*;
-use crate::test_utils::{
-    deprecated_create_test_state, get_test_contract_class, DictStateReader, TEST_CLASS_HASH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
-};
+use crate::test_utils::cached_state::deprecated_create_test_state;
+use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::{get_test_contract_class, TEST_CLASS_HASH, TEST_EMPTY_CONTRACT_CLASS_HASH};
 
 fn set_initial_state_values(
     state: &mut CachedState<DictStateReader>,
