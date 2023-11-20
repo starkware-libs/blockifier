@@ -19,10 +19,11 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
+use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    create_calldata, declare_tx, deploy_account_tx, test_erc20_account_balance_key,
+    create_calldata, declare_tx, test_erc20_account_balance_key,
     test_erc20_faulty_account_balance_key, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
@@ -323,7 +324,7 @@ pub fn create_account_tx_for_validate_test(
             )
         }
         TransactionType::DeployAccount => {
-            let deploy_account_tx = crate::test_utils::deploy_account_tx(
+            let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
                 TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
                 Fee(0),
                 Some(calldata![stark_felt!(constants::FELT_FALSE)]),
