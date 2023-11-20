@@ -36,9 +36,10 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, InvokeTxArgs, NonceManager,
+    check_entry_point_execution_error_for_custom_hint, create_calldata,
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, NonceManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
@@ -1266,7 +1267,7 @@ fn test_only_query_flag(#[case] only_query: bool) {
         .concat()
         .into(),
     );
-    let invoke_tx = crate::test_utils::invoke_tx(
+    let invoke_tx = crate::test_utils::invoke::invoke_tx(
         invoke_tx_args! { calldata: execute_calldata, max_fee, sender_address, only_query },
     );
     let account_tx = AccountTransaction::Invoke(invoke_tx);
