@@ -2110,6 +2110,7 @@ dependencies = [
  "log",
  "num-bigint",
  "papyrus_storage",
+ "pretty_assertions",
  "pyo3",
  "pyo3-log",
  "serde_json",
