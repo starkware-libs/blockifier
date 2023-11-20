@@ -1,24 +1,18 @@
 pub mod dict_state_reader;
+pub mod struct_impls;
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use cairo_felt::Felt252;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
-};
 use num_traits::{One, Zero};
-use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, EntryPointSelector, Nonce,
-    PatriciaKey,
+    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
 };
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::{
@@ -35,19 +29,12 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::abi::constants::{self, MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
-use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
-use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, EntryPointExecutionResult,
-    ExecutionResources,
-};
+use crate::abi::constants::{self};
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::state::state_api::State;
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
-use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
 use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
 use crate::utils::const_max;
 
@@ -200,106 +187,6 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     CallEntryPoint {
         storage_address: contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
         ..trivial_external_entry_point()
-    }
-}
-
-impl CallEntryPoint {
-    /// Executes the call directly, without account context. Limits the number of steps by resource
-    /// bounds.
-    pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-        self.execute_directly_given_account_context(
-            state,
-            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
-            true,
-        )
-    }
-
-    pub fn execute_directly_given_account_context(
-        self,
-        state: &mut dyn State,
-        account_tx_context: AccountTransactionContext,
-        limit_steps_by_resources: bool,
-    ) -> EntryPointExecutionResult<CallInfo> {
-        let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_invoke(
-            &block_context,
-            &account_tx_context,
-            limit_steps_by_resources,
-        )
-        .unwrap();
-        self.execute(state, &mut ExecutionResources::default(), &mut context)
-    }
-
-    /// Executes the call directly in validate mode, without account context. Limits the number of
-    /// steps by resource bounds.
-    pub fn execute_directly_in_validate_mode(
-        self,
-        state: &mut dyn State,
-    ) -> EntryPointExecutionResult<CallInfo> {
-        self.execute_directly_given_account_context_in_validate_mode(
-            state,
-            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
-            true,
-        )
-    }
-
-    pub fn execute_directly_given_account_context_in_validate_mode(
-        self,
-        state: &mut dyn State,
-        account_tx_context: AccountTransactionContext,
-        limit_steps_by_resources: bool,
-    ) -> EntryPointExecutionResult<CallInfo> {
-        let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_validate(
-            &block_context,
-            &account_tx_context,
-            limit_steps_by_resources,
-        )
-        .unwrap();
-        self.execute(state, &mut ExecutionResources::default(), &mut context)
-    }
-}
-
-impl BlockContext {
-    pub fn create_for_testing() -> BlockContext {
-        BlockContext {
-            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
-            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
-            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
-                strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
-            },
-            vm_resource_fee_cost: Default::default(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
-                strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
-            },
-            invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
-            validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
-            max_recursion_depth: 50,
-        }
-    }
-
-    pub fn create_for_account_testing() -> BlockContext {
-        let vm_resource_fee_cost = Arc::new(HashMap::from([
-            (constants::N_STEPS_RESOURCE.to_string(), 1_f64),
-            (HASH_BUILTIN_NAME.to_string(), 1_f64),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 1_f64),
-            (SIGNATURE_BUILTIN_NAME.to_string(), 1_f64),
-            (BITWISE_BUILTIN_NAME.to_string(), 1_f64),
-            (POSEIDON_BUILTIN_NAME.to_string(), 1_f64),
-            (OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
-            (EC_OP_BUILTIN_NAME.to_string(), 1_f64),
-        ]));
-        BlockContext { vm_resource_fee_cost, ..BlockContext::create_for_testing() }
-    }
-}
-
-impl CallExecution {
-    pub fn from_retdata(retdata: Retdata) -> Self {
-        Self { retdata, ..Default::default() }
     }
 }
 
@@ -500,22 +387,6 @@ pub fn declare_tx(
         sender_address,
         signature: signature.unwrap_or_default(),
         ..Default::default()
-    }
-}
-
-// Contract loaders.
-
-impl ContractClassV0 {
-    pub fn from_file(contract_path: &str) -> ContractClassV0 {
-        let raw_contract_class = get_raw_contract_class(contract_path);
-        Self::try_from_json_string(&raw_contract_class).unwrap()
-    }
-}
-
-impl ContractClassV1 {
-    pub fn from_file(contract_path: &str) -> ContractClassV1 {
-        let raw_contract_class = get_raw_contract_class(contract_path);
-        Self::try_from_json_string(&raw_contract_class).unwrap()
     }
 }
 
