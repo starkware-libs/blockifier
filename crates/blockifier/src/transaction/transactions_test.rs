@@ -833,7 +833,7 @@ fn test_declare_tx(
     assert_eq!(contract_class_from_state, contract_class);
 }
 
-// TODO(Noa, 01/07/23): Consider unify the decalre tx tests.
+// TODO(Noa, 01/07/23): Consider unify the declare tx tests.
 #[test]
 fn test_declare_tx_v2() {
     let state = &mut create_state_with_cairo1_account();
