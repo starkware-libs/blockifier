@@ -24,8 +24,10 @@ pub struct OsResources {
 }
 
 impl OsResources {
-    pub fn execute_txs_inner(&self) -> &HashMap<TransactionType, VmExecutionResources> {
-        &self.execute_txs_inner
+    pub fn resources_for_tx_type(&self, tx_type: &TransactionType) -> &VmExecutionResources {
+        self.execute_txs_inner
+            .get(tx_type)
+            .unwrap_or_else(|| panic!("should contain transaction type '{tx_type:?}'."))
     }
 }
 
@@ -48,9 +50,6 @@ pub fn get_additional_os_resources(
     // i.e., the resources of the StarkNet OS function `execute_transactions_inner`.
     // Also adds the resources needed for the fee transfer execution, performed in the end·
     // of every transaction.
-    let os_resources = OS_RESOURCES
-        .execute_txs_inner
-        .get(&tx_type)
-        .expect("`OS_RESOURCES` must contain all transaction types.");
+    let os_resources = OS_RESOURCES.resources_for_tx_type(&tx_type);
     Ok(&os_additional_vm_resources + os_resources)
 }
