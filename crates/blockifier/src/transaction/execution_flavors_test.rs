@@ -8,9 +8,10 @@ use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
+use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
+use crate::state::state_api::StateReader;
 use crate::test_utils::{
     InvokeTxArgs, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
@@ -233,4 +234,157 @@ fn test_simulate_validate_charge_fee_fail_validate(
             if trace.contains("An ASSERT_EQ instruction failed: 1 != 0.")
         );
     }
+}
+
+/// Test simulate / validate / charge_fee flag combinations during execution.
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_simulate_validate_charge_fee_mid_execution(
+    #[values(true, false)] simulate: bool,
+    #[values(true, false)] validate: bool,
+    #[values(true, false)] charge_fee: bool,
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+) {
+    let block_context = BlockContext::create_for_account_testing();
+    let max_fee = Fee(MAX_FEE);
+    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+
+    // Create two states, one of which contains a contract that can fail validation on demand.
+    let TestInitData {
+        state: mut initial_state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context.clone(), create_state(block_context.clone()));
+    let mut state = CachedState::create_transactional(&mut initial_state);
+
+    // If charge_fee is false, test that balance indeed doesn't change.
+    let (current_balance, _) = state
+        .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
+        .unwrap();
+    macro_rules! check_balance {
+        () => {
+            let old_balance = current_balance;
+            let (current_balance, _) = state
+                .get_fee_token_balance(
+                    &account_address,
+                    &block_context.fee_token_address(&fee_type),
+                )
+                .unwrap();
+            if charge_fee {
+                assert!(old_balance > current_balance);
+            } else {
+                assert_eq!(old_balance, current_balance);
+            }
+        };
+    }
+
+    // Execution scenarios.
+    // 1. Execution fails due to logic error.
+    // 2. Execution fails due to out-of-resources error, due to max sender bounds, mid-run.
+    // 3. Execution fails due to out-of-resources error, due to max block bounds, mid-run.
+    let recurse_calldata = |fail: bool, depth: u32| {
+        calldata![
+            *contract_address.0.key(), // Contract address.
+            selector_from_name(if fail { "recursive_fail" } else { "recurse" }).0, // EP selector.
+            stark_felt!(1_u8),         // Calldata length.
+            stark_felt!(depth)         // Calldata: recursion depth.
+        ]
+    };
+    let execution_base_args = invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        sender_address: account_address,
+        version,
+        only_query: simulate,
+    };
+
+    // First scenario: logic error. Should result in revert; actual fee should be shown.
+    let (revert_gas_used, revert_fee) = gas_and_fee(5987, validate);
+    let tx_execution_info = account_invoke_tx(invoke_tx_args! {
+        calldata: recurse_calldata(true, 3),
+        nonce: nonce_manager.next(account_address),
+        ..execution_base_args.clone()
+    })
+    .execute(&mut state, &block_context, charge_fee, validate)
+    .unwrap();
+    assert!(tx_execution_info.is_reverted());
+    assert_eq!(
+        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, &block_context).unwrap(),
+        revert_gas_used as u128
+    );
+    assert_eq!(tx_execution_info.actual_fee, revert_fee);
+    check_balance!();
+
+    // Second scenario: limit resources via sender bounds. Should revert if and only if step limit
+    // is derived from sender bounds (`charge_fee` mode).
+    // If `charge_fee` is false, we don't limit the execution resources by user's resource bounds.
+    // Thus, the actual consumed resources may be greater in the `charge_fee` case (and may be
+    // greater than the upper bounds in any case).
+    let (gas_bound, fee_bound) = gas_and_fee(5944, validate);
+    let (limited_gas_used, limited_fee) = gas_and_fee(8392, validate);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10688, validate);
+    let tx_execution_info = account_invoke_tx(invoke_tx_args! {
+        max_fee: fee_bound,
+        resource_bounds: l1_resource_bounds(gas_bound, gas_price),
+        calldata: recurse_calldata(false, 1000),
+        nonce: nonce_manager.next(account_address),
+        ..execution_base_args.clone()
+    })
+    .execute(&mut state, &block_context, charge_fee, validate)
+    .unwrap();
+    assert_eq!(tx_execution_info.is_reverted(), charge_fee);
+    if charge_fee {
+        assert!(tx_execution_info.revert_error.unwrap().contains("no remaining steps"));
+    }
+    assert_eq!(
+        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, &block_context).unwrap(),
+        if charge_fee { limited_gas_used } else { unlimited_gas_used } as u128
+    );
+    // Complete resources used are reported as actual_resources; but only the charged final fee is
+    // shown in actual_fee.
+    assert_eq!(
+        calculate_tx_fee(&tx_execution_info.actual_resources, &block_context, &fee_type).unwrap(),
+        if charge_fee { limited_fee } else { unlimited_fee }
+    );
+    assert_eq!(tx_execution_info.actual_fee, if charge_fee { fee_bound } else { unlimited_fee });
+    check_balance!();
+
+    // Third scenario: only limit is block bounds. Expect resources consumed to be identical,
+    // whether or not `charge_fee` is true.
+    let mut low_step_block_context = block_context.clone();
+    low_step_block_context.invoke_tx_max_n_steps = 10000;
+    let (huge_gas_limit, huge_fee) = gas_and_fee(100000, validate);
+    // Gas usage does not depend on `validate` flag in this scenario, because we reach the block
+    // step limit during execution anyway. The actual limit when execution phase starts is slightly
+    // lower when `validate` is true, but this is not reflected in the actual gas usage.
+    let block_limit_gas: u128 = low_step_block_context.invoke_tx_max_n_steps as u128 + 4 * 612;
+    let block_limit_fee = get_fee_by_l1_gas_usage(&block_context, block_limit_gas, &fee_type);
+    let tx_execution_info = account_invoke_tx(invoke_tx_args! {
+        max_fee: huge_fee,
+        resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
+        calldata: recurse_calldata(false, 10000),
+        nonce: nonce_manager.next(account_address),
+        ..execution_base_args.clone()
+    })
+    .execute(&mut state, &low_step_block_context, charge_fee, validate)
+    .unwrap();
+    assert!(tx_execution_info.revert_error.unwrap().contains("no remaining steps"));
+    assert_eq!(
+        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, &low_step_block_context)
+            .unwrap(),
+        block_limit_gas
+    );
+    // Complete resources used are reported as actual_resources; but only the charged final fee is
+    // shown in actual_fee.
+    assert_eq!(
+        calculate_tx_fee(&tx_execution_info.actual_resources, &low_step_block_context, &fee_type)
+            .unwrap(),
+        block_limit_fee
+    );
+    assert_eq!(tx_execution_info.actual_fee, block_limit_fee);
+    check_balance!();
 }
