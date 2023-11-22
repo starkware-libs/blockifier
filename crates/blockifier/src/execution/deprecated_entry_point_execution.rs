@@ -125,7 +125,7 @@ pub fn resolve_entry_point_pc(
 
     // Returns the default entrypoint if the given selector is missing.
     if filtered_entry_points.is_empty() {
-        match entry_points_of_same_type.get(0) {
+        match entry_points_of_same_type.first() {
             Some(entry_point) => {
                 if entry_point.selector
                     == EntryPointSelector(StarkHash::from(DEFAULT_ENTRY_POINT_SELECTOR))
@@ -150,7 +150,7 @@ pub fn resolve_entry_point_pc(
 
     // Filtered entry points contain exactly one element.
     let entry_point = filtered_entry_points
-        .get(0)
+        .first()
         .expect("The number of entry points with the given selector is exactly one.");
     Ok(entry_point.offset.0)
 }
