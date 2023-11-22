@@ -58,3 +58,6 @@ future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
 unused = "deny"
+
+[workspace.lints.clippy]
+iter_over_hash_type = "deny" # needs rust 1.75.

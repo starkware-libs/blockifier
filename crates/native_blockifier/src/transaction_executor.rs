@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::CallInfo;
@@ -13,6 +11,7 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use indexmap::IndexSet;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
@@ -28,7 +27,7 @@ pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
 
     // Maintained for counting purposes.
-    pub executed_class_hashes: HashSet<ClassHash>,
+    pub executed_class_hashes: IndexSet<ClassHash>,
 
     // State-related fields.
     pub state: CachedState<S>,
@@ -51,7 +50,7 @@ impl<S: StateReader> TransactionExecutor<S> {
 
         let block_context = into_block_context(general_config, block_info, max_recursion_depth)?;
         let state = CachedState::new(state_reader, global_contract_cache);
-        let executed_class_hashes = HashSet::<ClassHash>::new();
+        let executed_class_hashes = IndexSet::<ClassHash>::new();
         log::debug!("Initialized Transaction Executor.");
         Ok(Self { block_context, executed_class_hashes, state, staged_for_commit_state: None })
     }
@@ -67,7 +66,7 @@ impl<S: StateReader> TransactionExecutor<S> {
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
 
-        let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
+        let mut tx_executed_class_hashes = IndexSet::<ClassHash>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
         let tx_execution_result = tx
@@ -179,10 +178,10 @@ impl<S: StateReader> TransactionExecutor<S> {
 /// executed classes by the current transaction.
 pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
-    executed_class_hashes: &HashSet<ClassHash>,
-    tx_executed_class_hashes: &HashSet<ClassHash>,
+    executed_class_hashes: &IndexSet<ClassHash>,
+    tx_executed_class_hashes: &IndexSet<ClassHash>,
 ) -> NativeBlockifierResult<PyVmExecutionResources> {
-    let newly_executed_class_hashes: HashSet<&ClassHash> =
+    let newly_executed_class_hashes: IndexSet<&ClassHash> =
         tx_executed_class_hashes.difference(executed_class_hashes).collect();
 
     let mut casm_hash_computation_resources = VmExecutionResources::default();

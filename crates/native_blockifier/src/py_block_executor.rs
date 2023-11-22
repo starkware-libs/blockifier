@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::state::cached_state::GlobalContractCache;
+use indexmap::IndexMap;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -140,8 +141,8 @@ impl PyBlockExecutor {
         previous_block_id: Option<PyFelt>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
-        declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
-        deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
+        declared_class_hash_to_class: IndexMap<PyFelt, (PyFelt, String)>,
+        deprecated_declared_class_hash_to_class: IndexMap<PyFelt, String>,
     ) -> NativeBlockifierResult<()> {
         self.storage.append_block(
             block_id,

@@ -16,6 +16,7 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -49,7 +50,7 @@ use crate::execution::hint_code;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
-pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
+pub type SyscallCounter = IndexMap<DeprecatedSyscallSelector, usize>;
 
 #[derive(Debug, Error)]
 pub enum DeprecatedSyscallExecutionError {
