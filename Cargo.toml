@@ -58,3 +58,7 @@ future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
 unused = "deny"
+
+[workspace.lints.clippy]
+# Uncomment once rust stable becomes >= 1.75.
+# iter_over_hash_type = "deny"

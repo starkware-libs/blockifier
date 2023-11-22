@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
@@ -113,8 +112,8 @@ impl Storage for PapyrusStorage {
         previous_block_id: Option<PyFelt>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
-        declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
-        deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
+        declared_class_hash_to_class: IndexMap<PyFelt, (PyFelt, String)>,
+        deprecated_declared_class_hash_to_class: IndexMap<PyFelt, String>,
     ) -> NativeBlockifierResult<()> {
         log::debug!(
             "Appending state diff with {block_id:?} for block_number: {}.",
@@ -159,7 +158,7 @@ impl Storage for PapyrusStorage {
         }
         let mut py_state_diff = py_state_diff;
         replaced_classes.keys().for_each(|&address| {
-            py_state_diff.address_to_class_hash.remove(&address.into());
+            py_state_diff.address_to_class_hash.remove(&PyFelt::from(address));
         });
 
         let mut declared_classes = IndexMap::<ClassHash, (CompiledClassHash, ContractClass)>::new();
@@ -280,8 +279,8 @@ pub trait Storage {
         previous_block_id: Option<PyFelt>,
         py_block_info: PyBlockInfo,
         py_state_diff: PyStateDiff,
-        declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
-        deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
+        declared_class_hash_to_class: IndexMap<PyFelt, (PyFelt, String)>,
+        deprecated_declared_class_hash_to_class: IndexMap<PyFelt, String>,
     ) -> NativeBlockifierResult<()>;
 
     fn validate_aligned(&self, source_block_number: u64);
