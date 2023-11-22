@@ -1,4 +1,5 @@
 use assert_matches::assert_matches;
+use cairo_felt::Felt252;
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -8,9 +9,11 @@ use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::invoke_tx_args;
+use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
     create_calldata, InvokeTxArgs, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
@@ -27,6 +30,27 @@ use crate::transaction::test_utils::{
 use crate::transaction::transactions::ExecutableTransaction;
 
 const VALIDATE_GAS_OVERHEAD: u64 = 21;
+
+/// Checks that balance of the account decreased if and only if `charge_fee` is true.
+/// Returns the new balance.
+fn check_balance<S: StateReader>(
+    current_balance: StarkFelt,
+    state: &mut CachedState<S>,
+    account_address: ContractAddress,
+    block_context: &BlockContext,
+    fee_type: &FeeType,
+    charge_fee: bool,
+) -> StarkFelt {
+    let (new_balance, _) = state
+        .get_fee_token_balance(&account_address, &block_context.fee_token_address(fee_type))
+        .unwrap();
+    if charge_fee {
+        assert!(new_balance < current_balance);
+    } else {
+        assert_eq!(new_balance, current_balance);
+    }
+    new_balance
+}
 
 /// Returns the amount of L1 gas and derived fee, given base gas amount and a boolean indicating
 /// if validation is to be done.
@@ -56,6 +80,14 @@ fn check_gas_and_fee(
         expected_actual_gas as u128
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
+}
+
+fn recurse_calldata(contract_address: ContractAddress, fail: bool, depth: u32) -> Calldata {
+    create_calldata(
+        contract_address,
+        if fail { "recursive_fail" } else { "recurse" },
+        &[stark_felt!(depth)],
+    )
 }
 
 /// Test simulate / validate / charge_fee flag combinations in pre-validation stage.
@@ -276,34 +308,11 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let (current_balance, _) = state
         .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
         .unwrap();
-    macro_rules! check_balance {
-        () => {
-            let old_balance = current_balance;
-            let (current_balance, _) = state
-                .get_fee_token_balance(
-                    &account_address,
-                    &block_context.fee_token_address(&fee_type),
-                )
-                .unwrap();
-            if charge_fee {
-                assert!(old_balance > current_balance);
-            } else {
-                assert_eq!(old_balance, current_balance);
-            }
-        };
-    }
 
     // Execution scenarios.
     // 1. Execution fails due to logic error.
     // 2. Execution fails due to out-of-resources error, due to max sender bounds, mid-run.
     // 3. Execution fails due to out-of-resources error, due to max block bounds, mid-run.
-    let recurse_calldata = |fail: bool, depth: u32| {
-        create_calldata(
-            contract_address,
-            if fail { "recursive_fail" } else { "recurse" },
-            &[stark_felt!(depth)],
-        )
-    };
     let execution_base_args = invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
@@ -315,7 +324,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // First scenario: logic error. Should result in revert; actual fee should be shown.
     let (revert_gas_used, revert_fee) = gas_and_fee(5987, validate);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
-        calldata: recurse_calldata(true, 3),
+        calldata: recurse_calldata(contract_address, true, 3),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
     })
@@ -323,7 +332,14 @@ fn test_simulate_validate_charge_fee_mid_execution(
     .unwrap();
     assert!(tx_execution_info.is_reverted());
     check_gas_and_fee(&block_context, &tx_execution_info, revert_gas_used, revert_fee);
-    check_balance!();
+    let current_balance = check_balance(
+        current_balance,
+        &mut state,
+        account_address,
+        &block_context,
+        &fee_type,
+        charge_fee,
+    );
 
     // Second scenario: limit resources via sender bounds. Should revert if and only if step limit
     // is derived from sender bounds (`charge_fee` mode).
@@ -335,7 +351,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
         resource_bounds: l1_resource_bounds(gas_bound, gas_price),
-        calldata: recurse_calldata(false, 1000),
+        calldata: recurse_calldata(contract_address, false, 1000),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
     })
@@ -361,7 +377,14 @@ fn test_simulate_validate_charge_fee_mid_execution(
         calculate_tx_fee(&tx_execution_info.actual_resources, &block_context, &fee_type).unwrap(),
         if charge_fee { limited_fee } else { unlimited_fee }
     );
-    check_balance!();
+    let current_balance = check_balance(
+        current_balance,
+        &mut state,
+        account_address,
+        &block_context,
+        &fee_type,
+        charge_fee,
+    );
 
     // Third scenario: only limit is block bounds. Expect resources consumed to be identical,
     // whether or not `charge_fee` is true.
@@ -378,7 +401,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
-        calldata: recurse_calldata(false, 10000),
+        calldata: recurse_calldata(contract_address, false, 10000),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
     })
@@ -394,5 +417,146 @@ fn test_simulate_validate_charge_fee_mid_execution(
             .unwrap(),
         block_limit_fee
     );
-    check_balance!();
+    check_balance(
+        current_balance,
+        &mut state,
+        account_address,
+        &block_context,
+        &fee_type,
+        charge_fee,
+    );
+}
+
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth, true)]
+#[case(TransactionVersion::THREE, FeeType::Strk, false)]
+fn test_simulate_validate_charge_fee_post_execution(
+    #[values(true, false)] only_query: bool,
+    #[values(true, false)] validate: bool,
+    #[values(true, false)] charge_fee: bool,
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+    #[case] is_deprecated: bool,
+) {
+    let block_context = BlockContext::create_for_account_testing();
+    let max_fee = Fee(MAX_FEE);
+    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context);
+    let fee_token_address = block_context.fee_token_address(&fee_type);
+
+    // If charge_fee is false, test that balance indeed doesn't change.
+    let (current_balance, _) =
+        state.get_fee_token_balance(&account_address, &fee_token_address).unwrap();
+
+    // Post-execution scenarios:
+    // 1. Consumed too many resources (more than resource bounds).
+    // 2. Balance is lower than actual fee.
+
+    // First scenario: resource overdraft.
+    // If `charge_fee` is false - we do not revert, and simply report the fee and resources as used.
+    // If `charge_fee` is true, we revert, charge the maximal allowed fee (derived from sender
+    // bounds), and report resources base on execution steps reverted + other overhead.
+    let base_gas_bound = 10000;
+    let (just_not_enough_gas_bound, just_not_enough_fee_bound) =
+        gas_and_fee(base_gas_bound, validate);
+    // Execution steps + overhead, translated to L1 gas, comes out slightly less than the gas bound.
+    let (revert_gas_usage, _) = gas_and_fee(base_gas_bound - 3, validate);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(base_gas_bound + 688, validate);
+    let tx_execution_info = account_invoke_tx(invoke_tx_args! {
+        max_fee: just_not_enough_fee_bound,
+        resource_bounds: l1_resource_bounds(just_not_enough_gas_bound, gas_price),
+        calldata: recurse_calldata(contract_address, false, 1000),
+        nonce: nonce_manager.next(account_address),
+        sender_address: account_address,
+        version,
+        only_query,
+    })
+    .execute(&mut state, &block_context, charge_fee, validate)
+    .unwrap();
+    assert_eq!(tx_execution_info.is_reverted(), charge_fee);
+    if charge_fee {
+        assert!(tx_execution_info.revert_error.clone().unwrap().starts_with(if is_deprecated {
+            "Insufficient max fee"
+        } else {
+            "Insufficient max L1 gas"
+        }));
+    }
+    check_gas_and_fee(
+        &block_context,
+        &tx_execution_info,
+        if charge_fee { revert_gas_usage } else { unlimited_gas_used },
+        if charge_fee { just_not_enough_fee_bound } else { unlimited_fee },
+    );
+    let current_balance = check_balance(
+        current_balance,
+        &mut state,
+        account_address,
+        &block_context,
+        &fee_type,
+        charge_fee,
+    );
+
+    // Second scenario: balance too low.
+    // Execute a transfer, and make sure we get the expected result.
+    let (success_actual_gas, actual_fee) = gas_and_fee(8893, validate);
+    let (fail_actual_gas, _) = gas_and_fee(6508, validate);
+    assert!(stark_felt!(actual_fee) < current_balance);
+    let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
+    let recipient = stark_felt!(7_u8);
+    let transfer_calldata = create_calldata(
+        fee_token_address,
+        "transfer",
+        &[
+            recipient, // Calldata: to.
+            felt_to_stark_felt(&transfer_amount),
+            stark_felt!(0_u8),
+        ],
+    );
+    let tx_execution_info = account_invoke_tx(invoke_tx_args! {
+        max_fee: actual_fee,
+        resource_bounds: l1_resource_bounds(success_actual_gas, gas_price),
+        calldata: transfer_calldata,
+        nonce: nonce_manager.next(account_address),
+        sender_address: account_address,
+        version,
+        only_query,
+    })
+    .execute(&mut state, &block_context, charge_fee, validate)
+    .unwrap();
+    assert_eq!(tx_execution_info.is_reverted(), charge_fee);
+    if charge_fee {
+        assert!(
+            tx_execution_info
+                .revert_error
+                .clone()
+                .unwrap()
+                .contains("Insufficient fee token balance.")
+        );
+    }
+    check_gas_and_fee(
+        &block_context,
+        &tx_execution_info,
+        // Since the failure was due to insufficient balance, the actual fee remains the same
+        // regardless of whether or not the transaction was reverted.
+        // The reported gas consumed, on the other hand, is much lower if the transaction was
+        // reverted.
+        if charge_fee { fail_actual_gas } else { success_actual_gas },
+        actual_fee,
+    );
+    check_balance(
+        current_balance,
+        &mut state,
+        account_address,
+        &block_context,
+        &fee_type,
+        // Even if `charge_fee` is false, we expect balance to be reduced here; as in this case the
+        // transaction will not be reverted, and the balance transfer should be applied.
+        true,
+    );
 }
