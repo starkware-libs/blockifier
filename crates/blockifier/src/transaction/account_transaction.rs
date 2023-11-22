@@ -40,6 +40,10 @@ use crate::transaction::transactions::{
 #[path = "account_transactions_test.rs"]
 mod test;
 
+#[cfg(test)]
+#[path = "execution_flavors_test.rs"]
+mod flavors_test;
+
 /// Represents a paid StarkNet transaction.
 #[derive(Debug)]
 pub enum AccountTransaction {
