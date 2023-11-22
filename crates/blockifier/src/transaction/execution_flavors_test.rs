@@ -1,22 +1,27 @@
 use assert_matches::assert_matches;
 use rstest::rstest;
-use starknet_api::core::Nonce;
-use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
-use starknet_api::{calldata, stark_felt};
+use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
+use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
+use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
-use crate::test_utils::{InvokeTxArgs, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE};
+use crate::test_utils::{
+    InvokeTxArgs, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+};
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{FeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_test_init_data, l1_resource_bounds, TestInitData,
+    account_invoke_tx, create_state_with_falliable_validation_account, create_test_init_data,
+    l1_resource_bounds, TestInitData, INVALID,
 };
 use crate::transaction::transactions::ExecutableTransaction;
 
@@ -190,5 +195,57 @@ fn test_simulate_validate_charge_fee_pre_validate(
                 )
             );
         }
+    }
+}
+
+/// Test simulate / validate / charge_fee flag combinations in (fallible) validation stage.
+#[rstest]
+fn test_simulate_validate_charge_fee_fail_validate(
+    #[values(true, false)] only_query: bool,
+    #[values(true, false)] validate: bool,
+    #[values(true, false)] charge_fee: bool,
+    #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
+) {
+    let block_context = BlockContext::create_for_account_testing();
+    let max_fee = Fee(MAX_FEE);
+
+    // Create a state with a contract that can fail validation on demand.
+    let TestInitData { mut nonce_manager, block_context, .. } =
+        create_test_init_data(max_fee, block_context);
+    let mut falliable_state = create_state_with_falliable_validation_account();
+    let falliable_sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
+
+    // Validation scenario: falliable validation.
+    let (actual_gas_used, actual_fee) = gas_and_fee(31450, validate);
+    let result = account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        signature: TransactionSignature(vec![
+            StarkFelt::from(INVALID),
+            StarkFelt::ZERO
+        ]),
+        sender_address: falliable_sender_address,
+        calldata: calldata![
+            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
+            selector_from_name("foo").0,                       // EP selector.
+            stark_felt!(0_u8)                                  // Calldata length.
+        ],
+        version,
+        nonce: nonce_manager.next(falliable_sender_address),
+        only_query,
+    })
+    .execute(&mut falliable_state, &block_context, charge_fee, validate);
+    if !validate {
+        // The reported fee should be the actual cost, regardless of whether or not fee is charged.
+        check_gas_and_fee(&block_context, &result.unwrap(), actual_gas_used, actual_fee);
+    } else {
+        nonce_manager.rollback(falliable_sender_address);
+        assert_matches!(
+            result.unwrap_err(),
+            TransactionExecutionError::ValidateTransactionError(
+                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }
+            )
+            if trace.contains("An ASSERT_EQ instruction failed: 1 != 0.")
+        );
     }
 }
