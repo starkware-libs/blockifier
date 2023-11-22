@@ -206,6 +206,15 @@ impl NonceManager {
         self.next_nonce.insert(account_address, Felt252::one() + next_felt252);
         next
     }
+
+    /// Decrements the nonce of the account, unless it is zero.
+    pub fn rollback(&mut self, account_address: ContractAddress) {
+        let zero = Felt252::zero();
+        let current = self.next_nonce.get(&account_address).unwrap_or(&zero);
+        if !current.is_zero() {
+            self.next_nonce.insert(account_address, current - 1);
+        }
+    }
 }
 
 pub fn pad_address_to_64(address: &str) -> String {
