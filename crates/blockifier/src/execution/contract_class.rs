@@ -313,9 +313,7 @@ fn convert_entry_points_v1(
         .into_iter()
         .map(|ep| -> Result<_, ProgramError> {
             Ok(EntryPointV1 {
-                selector: EntryPointSelector(felt_to_stark_felt(
-                    &Felt252::try_from(ep.selector).unwrap(),
-                )),
+                selector: EntryPointSelector(felt_to_stark_felt(&Felt252::from(ep.selector))),
                 offset: EntryPointOffset(ep.offset),
                 builtins: ep.builtins.into_iter().map(|builtin| builtin + "_builtin").collect(),
             })
