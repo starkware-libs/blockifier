@@ -12,6 +12,8 @@ description = "A Bridge between the Rust blockifier crate and Python."
 [features]
 extension-module = ["pyo3/extension-module"]
 
+[lints]
+workspace = true
 
 [lib]
 name = "native_blockifier"
