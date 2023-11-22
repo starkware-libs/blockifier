@@ -1,32 +1,37 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
-    ResourceBounds, ResourceBoundsMapping, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV0,
+    InvokeTransactionV1, InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use strum::IntoEnumIterator;
 
-use crate::abi::abi_utils::get_storage_var_address;
+use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
+use crate::state::state_api::State;
 use crate::test_utils::{
-    create_calldata, invoke_tx, test_erc20_account_balance_key,
+    create_calldata, declare_tx, deploy_account_tx, invoke_tx, test_erc20_account_balance_key,
     test_erc20_faulty_account_balance_key, DictStateReader, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
+use crate::transaction::objects::{FeeType, TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
     DeclareTransaction, ExecutableTransaction, InvokeTransaction,
@@ -55,6 +60,143 @@ impl_from_versioned_tx!(
     (InvokeTransactionV1, V1),
     (InvokeTransactionV3, V3)
 );
+
+/// Struct containing the data usually needed to initialize a test.
+pub struct TestInitData {
+    pub state: CachedState<DictStateReader>,
+    pub account_address: ContractAddress,
+    pub contract_address: ContractAddress,
+    pub nonce_manager: NonceManager,
+    pub block_context: BlockContext,
+}
+
+/// Deploys a new account with the given class hash, funds with both fee tokens, and returns the
+/// deploy tx and address.
+pub fn deploy_and_fund_account(
+    state: &mut CachedState<DictStateReader>,
+    nonce_manager: &mut NonceManager,
+    block_context: &BlockContext,
+    class_hash: &str,
+    max_fee: Fee,
+    constructor_calldata: Option<Calldata>,
+) -> (AccountTransaction, ContractAddress) {
+    // Deploy an account contract.
+    let deploy_account_tx =
+        deploy_account_tx(class_hash, max_fee, constructor_calldata, None, nonce_manager);
+    let account_address = deploy_account_tx.contract_address;
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+
+    // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
+    // can pay for the transaction execution.
+    // Set balance in all fee types.
+    let deployed_account_balance_key = get_fee_token_var_address(&account_address);
+    for fee_type in FeeType::iter() {
+        let fee_token_address = block_context.fee_token_address(&fee_type);
+        state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
+    }
+
+    (account_tx, account_address)
+}
+
+/// Sets up account and test contracts ("declare" + "deploy").
+pub fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
+    // Declare all the needed contracts.
+    let test_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
+    let test_grindy_validate_account_class_hash =
+        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
+    let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
+    let class_hash_to_class = HashMap::from([
+        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
+        (
+            test_grindy_validate_account_class_hash,
+            ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
+        ),
+        (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
+    ]);
+    // Deploy the erc20 contracts.
+    let test_eth_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let test_strk_address = block_context.fee_token_addresses.strk_fee_token_address;
+    let address_to_class_hash = HashMap::from([
+        (test_eth_address, test_erc20_class_hash),
+        (test_strk_address, test_erc20_class_hash),
+    ]);
+
+    CachedState::from(DictStateReader {
+        address_to_class_hash,
+        class_hash_to_class,
+        ..Default::default()
+    })
+}
+
+/// Given a partially initialized state, deploys and funds an account, and declares and deploys a
+/// test contract.
+pub fn create_test_init_data(max_fee: Fee, block_context: BlockContext) -> TestInitData {
+    let mut state = create_state(block_context.clone());
+    let mut nonce_manager = NonceManager::default();
+
+    let (account_tx, account_address) = deploy_and_fund_account(
+        &mut state,
+        &mut nonce_manager,
+        &block_context,
+        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+        max_fee,
+        None,
+    );
+    account_tx.execute(&mut state, &block_context, true, true).unwrap();
+
+    // Declare a contract.
+    let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
+    let declare_tx = declare_tx(TEST_CLASS_HASH, account_address, max_fee, None);
+    let account_tx = AccountTransaction::Declare(
+        DeclareTransaction::new(
+            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+                nonce: nonce_manager.next(account_address),
+                ..declare_tx
+            }),
+            TransactionHash::default(),
+            contract_class,
+        )
+        .unwrap(),
+    );
+    account_tx.execute(&mut state, &block_context, true, true).unwrap();
+
+    // Deploy a contract using syscall deploy.
+    let salt = ContractAddressSalt::default();
+    let class_hash = class_hash!(TEST_CLASS_HASH);
+    run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            sender_address: account_address,
+            calldata: create_calldata(
+                account_address,
+                "deploy_contract",
+                &[
+                class_hash.0,             // Calldata: class_hash.
+                salt.0,                   // Contract_address_salt.
+                stark_felt!(2_u8),        // Constructor calldata length.
+                stark_felt!(1_u8),        // Constructor calldata: address.
+                stark_felt!(1_u8)         // Constructor calldata: value.
+                ]
+            ),
+            version: TransactionVersion::ONE,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap();
+
+    // Calculate the newly deployed contract address
+    let contract_address = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash,
+        &calldata![stark_felt!(1_u8), stark_felt!(1_u8)],
+        account_address,
+    )
+    .unwrap();
+
+    TestInitData { state, account_address, contract_address, nonce_manager, block_context }
+}
 
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
