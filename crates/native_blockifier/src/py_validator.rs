@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
-use blockifier::fee::os_resources;
 use blockifier::fee::os_usage::OsResources;
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::state::state_api::StateReader;
@@ -178,8 +177,7 @@ impl PyValidator {
             max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
-            os_resources: serde_json::from_value(os_resources::os_resources())
-                .expect("os_resources json does not exist or cannot be deserialized."),
+            os_resources: blockifier::test_utils::os_resources_fixture::MOCK_OS_RESOURCES.clone(),
         }
     }
 }
