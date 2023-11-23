@@ -348,7 +348,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
         execute_callback: ExecuteCallback,
-        base_gas_cost: u64,
+        syscall_gas_cost: u64,
     ) -> HintExecutionResult
     where
         Request: SyscallRequest + std::fmt::Debug,
@@ -360,10 +360,13 @@ impl<'a> SyscallHintProcessor<'a> {
             &mut u64, // Remaining gas.
         ) -> SyscallResult<Response>,
     {
+        // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
+        let required_gas = syscall_gas_cost - constants::SYSCALL_BASE_GAS_COST;
+
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
-        if gas_counter < base_gas_cost {
+        if gas_counter < required_gas {
             //  Out of gas failure.
             let out_of_gas_error =
                 StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
@@ -375,7 +378,7 @@ impl<'a> SyscallHintProcessor<'a> {
         }
 
         // Execute.
-        let mut remaining_gas = gas_counter - base_gas_cost;
+        let mut remaining_gas = gas_counter - required_gas;
         let original_response = execute_callback(request, vm, self, &mut remaining_gas);
         let response = match original_response {
             Ok(response) => {
