@@ -11,6 +11,7 @@ description = "A Bridge between the Rust blockifier crate and Python."
 # https://pyo3.rs/v0.19.1/faq#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
 [features]
 extension-module = ["pyo3/extension-module"]
+testing = []
 
 [lints]
 workspace = true
