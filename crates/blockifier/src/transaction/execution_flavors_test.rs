@@ -20,13 +20,12 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::FeeType;
+use crate::transaction::test_prices::{return_result_cost, VALIDATE_OVERHEAD_N_STEPS};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_state, create_state_with_falliable_validation_account,
     create_test_init_data, l1_resource_bounds, TestInitData, INVALID,
 };
 use crate::transaction::transactions::ExecutableTransaction;
-
-const VALIDATE_GAS_OVERHEAD: u64 = 21;
 
 /// Checks that balance of the account decreased if and only if `charge_fee` is true.
 /// Returns the new balance.
@@ -53,7 +52,7 @@ fn check_balance<S: StateReader>(
 /// if validation is to be done.
 fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, Fee) {
     // Validation incurs a constant gas overhead.
-    let gas = base_gas + if validate_mode { VALIDATE_GAS_OVERHEAD } else { 0 };
+    let gas = base_gas + if validate_mode { VALIDATE_OVERHEAD_N_STEPS as u64 } else { 0 };
     (
         gas,
         get_fee_by_l1_gas_usage(&BlockContext::create_for_account_testing(), gas as u128, fee_type),
@@ -138,7 +137,9 @@ fn test_simulate_validate_charge_fee_pre_validate(
     nonce_manager.rollback(account_address);
 
     // Second scenario: minimal fee not covered. Actual fee is precomputed.
-    let (actual_gas_used, actual_fee) = gas_and_fee(6696, validate, &fee_type);
+    let actual_gas_used =
+        calculate_tx_l1_gas_usage(&return_result_cost(validate), &block_context).unwrap();
+    let actual_fee = get_fee_by_l1_gas_usage(&block_context, actual_gas_used as u128, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(10),
         resource_bounds: l1_resource_bounds(10, 10),
