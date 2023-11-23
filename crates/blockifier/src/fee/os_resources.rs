@@ -146,10 +146,10 @@ fn os_resources() -> serde_json::Value {
             },
             "Secp256k1Mul": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 10739
+                    "range_check_builtin": 7045
                 },
                 "n_memory_holes": 0,
-                "n_steps": 121956
+                "n_steps": 76501
             },
             "Secp256k1New": {
                 "builtin_instance_counter": {
@@ -181,10 +181,10 @@ fn os_resources() -> serde_json::Value {
             },
             "Secp256r1Mul": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 21477
+                    "range_check_builtin": 13961
                 },
                 "n_memory_holes": 0,
-                "n_steps": 195595
+                "n_steps": 125340
             },
             "Secp256r1New": {
                 "builtin_instance_counter": {
