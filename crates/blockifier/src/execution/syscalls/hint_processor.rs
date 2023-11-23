@@ -24,7 +24,7 @@ use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::abi::constants;
+use crate::abi::constants::{self, SYSCALL_BASE_GAS_COST};
 use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
@@ -360,6 +360,9 @@ impl<'a> SyscallHintProcessor<'a> {
             &mut u64, // Remaining gas.
         ) -> SyscallResult<Response>,
     {
+        // Substract precharged cost from `base_gas_cost`.
+        let base_gas_cost = base_gas_cost - SYSCALL_BASE_GAS_COST;
+
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;
 
