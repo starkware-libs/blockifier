@@ -1,6 +1,7 @@
 pub mod deploy_account;
 pub mod dict_state_reader;
 pub mod invoke;
+pub mod os_resources_fixture;
 pub mod struct_impls;
 
 use std::collections::HashMap;

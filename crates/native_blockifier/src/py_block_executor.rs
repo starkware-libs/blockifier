@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
-use blockifier::fee::os_resources;
 use blockifier::fee::os_usage::OsResources;
 use blockifier::state::cached_state::GlobalContractCache;
 use indexmap::IndexMap;
@@ -216,9 +215,7 @@ impl PyBlockExecutor {
             max_recursion_depth: 50,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
-            //  REMOVE ME! get this as a param.
-            os_resources: serde_json::from_value(os_resources::os_resources())
-                .expect("os_resources json does not exist or cannot be deserialized."),
+            os_resources: blockifier::test_utils::os_resources_fixture::MOCK_OS_RESOURCES.clone(),
         }
     }
 }
@@ -242,8 +239,7 @@ impl PyBlockExecutor {
             max_recursion_depth: 50,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
-            os_resources: serde_json::from_value(os_resources::os_resources())
-                .expect("os_resources json does not exist or cannot be deserialized."),
+            os_resources: blockifier::test_utils::os_resources_fixture::MOCK_OS_RESOURCES.clone(),
         }
     }
 }

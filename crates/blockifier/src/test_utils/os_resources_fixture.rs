@@ -1,15 +1,15 @@
+use std::sync::Arc;
+
 use serde_json::json;
 
 use crate::fee::os_usage::OsResources;
 
 #[ctor::ctor]
-pub static OS_RESOURCES: OsResources = {
-    serde_json::from_value(os_resources())
-        .expect("os_resources json does not exist or cannot be deserialized.")
-};
+pub static MOCK_OS_RESOURCES: Arc<OsResources> =
+    Arc::new(OsResources::new(raw_mock_os_resources()).expect("OS resources validation failed."));
 
 // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
-pub fn os_resources() -> serde_json::Value {
+fn raw_mock_os_resources() -> String {
     json!({
         "execute_syscalls": {
             "CallContract": {
@@ -93,8 +93,6 @@ pub fn os_resources() -> serde_json::Value {
                 "n_memory_holes": 0,
                 "n_steps": 44
             },
-            // The following is the cost of one Keccak round.
-            // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
             "Keccak": {
                 "builtin_instance_counter": {
                     "bitwise_builtin": 6,
@@ -244,4 +242,5 @@ pub fn os_resources() -> serde_json::Value {
             }
         }
     })
+    .to_string()
 }
