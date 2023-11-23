@@ -1,20 +1,15 @@
-use std::collections::HashMap;
-
 use assert_matches::assert_matches;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeclareTransactionV2, Fee,
-    ResourceBoundsMapping, TransactionHash, TransactionVersion,
+    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, Fee, ResourceBoundsMapping,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
-use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
@@ -26,33 +21,23 @@ use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
-use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
-    create_calldata, declare_tx, deploy_account_tx, DictStateReader, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, ERC20_CONTRACT_PATH,
-    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    create_calldata, declare_tx, deploy_account_tx, InvokeTxArgs, NonceManager, BALANCE,
+    DEFAULT_STRK_L1_GAS_PRICE, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test,
-    create_state_with_falliable_validation_account, l1_resource_bounds, run_invoke_tx, INVALID,
+    account_invoke_tx, create_account_tx_for_validate_test, create_state,
+    create_state_with_falliable_validation_account, create_test_init_data, deploy_and_fund_account,
+    l1_resource_bounds, run_invoke_tx, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
-
-struct TestInitData {
-    pub state: CachedState<DictStateReader>,
-    pub account_address: ContractAddress,
-    pub contract_address: ContractAddress,
-    pub nonce_manager: NonceManager,
-    pub block_context: BlockContext,
-}
 
 #[fixture]
 fn max_fee() -> Fee {
@@ -69,144 +54,11 @@ fn block_context() -> BlockContext {
     BlockContext::create_for_account_testing()
 }
 
-#[fixture]
-fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
-    // Declare all the needed contracts.
-    let test_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
-    let test_grindy_validate_account_class_hash =
-        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
-    let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
-    let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
-        (
-            test_grindy_validate_account_class_hash,
-            ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
-        ),
-        (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
-    ]);
-    // Deploy the erc20 contracts.
-    let test_eth_address = block_context.fee_token_addresses.eth_fee_token_address;
-    let test_strk_address = block_context.fee_token_addresses.strk_fee_token_address;
-    let address_to_class_hash = HashMap::from([
-        (test_eth_address, test_erc20_class_hash),
-        (test_strk_address, test_erc20_class_hash),
-    ]);
-
-    CachedState::from(DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        ..Default::default()
-    })
-}
-
-/// Deploys a new account with the given class hash, funds with both fee tokens, and returns the
-/// deploy tx and address.
-fn deploy_and_fund_account(
-    state: &mut CachedState<DictStateReader>,
-    nonce_manager: &mut NonceManager,
-    block_context: &BlockContext,
-    class_hash: &str,
-    max_fee: Fee,
-    constructor_calldata: Option<Calldata>,
-) -> (AccountTransaction, ContractAddress) {
-    // Deploy an account contract.
-    let deploy_account_tx =
-        deploy_account_tx(class_hash, max_fee, constructor_calldata, None, nonce_manager);
-    let account_address = deploy_account_tx.contract_address;
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-
-    // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
-    // can pay for the transaction execution.
-    // Set balance in all fee types.
-    let deployed_account_balance_key = get_fee_token_var_address(&account_address);
-    for fee_type in FeeType::iter() {
-        let fee_token_address = block_context.fee_token_address(&fee_type);
-        state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
-    }
-
-    (account_tx, account_address)
-}
-
-#[fixture]
-fn create_test_init_data(
-    max_fee: Fee,
-    block_context: BlockContext,
-    #[from(create_state)] mut state: CachedState<DictStateReader>,
-) -> TestInitData {
-    let mut nonce_manager = NonceManager::default();
-
-    let (account_tx, account_address) = deploy_and_fund_account(
-        &mut state,
-        &mut nonce_manager,
-        &block_context,
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        None,
-    );
-    account_tx.execute(&mut state, &block_context, true, true).unwrap();
-
-    // Declare a contract.
-    let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
-    let declare_tx = declare_tx(TEST_CLASS_HASH, account_address, max_fee, None);
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-                nonce: nonce_manager.next(account_address),
-                ..declare_tx
-            }),
-            TransactionHash::default(),
-            contract_class,
-        )
-        .unwrap(),
-    );
-    account_tx.execute(&mut state, &block_context, true, true).unwrap();
-
-    // Deploy a contract using syscall deploy.
-    let salt = ContractAddressSalt::default();
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    run_invoke_tx(
-        &mut state,
-        &block_context,
-        invoke_tx_args! {
-            max_fee,
-            sender_address: account_address,
-            calldata: create_calldata(
-                account_address,
-                "deploy_contract",
-                &[
-                class_hash.0,             // Calldata: class_hash.
-                salt.0,                   // Contract_address_salt.
-                stark_felt!(2_u8),        // Constructor calldata length.
-                stark_felt!(1_u8),        // Constructor calldata: address.
-                stark_felt!(1_u8)         // Constructor calldata: value.
-                ]
-            ),
-            version: TransactionVersion::ONE,
-            nonce: nonce_manager.next(account_address),
-        },
-    )
-    .unwrap();
-
-    // Calculate the newly deployed contract address
-    let contract_address = calculate_contract_address(
-        ContractAddressSalt::default(),
-        class_hash,
-        &calldata![stark_felt!(1_u8), stark_felt!(1_u8)],
-        account_address,
-    )
-    .unwrap();
-
-    TestInitData { state, account_address, contract_address, nonce_manager, block_context }
-}
-
 #[rstest]
 #[case(Fee(0))]
 #[case(Fee(1))]
-fn test_fee_enforcement(
-    block_context: BlockContext,
-    #[from(create_state)] mut state: CachedState<DictStateReader>,
-    #[case] max_fee: Fee,
-) {
+fn test_fee_enforcement(block_context: BlockContext, #[case] max_fee: Fee) {
+    let mut state = create_state(block_context.clone());
     let deploy_account_tx = deploy_account_tx(
         TEST_ACCOUNT_CONTRACT_CLASS_HASH,
         max_fee,
@@ -226,7 +78,8 @@ fn test_fee_enforcement(
 #[case(TransactionVersion::ONE)]
 #[case(TransactionVersion::THREE)]
 fn test_enforce_fee_false_works(
-    #[from(create_test_init_data)] init_data: TestInitData,
+    block_context: BlockContext,
+    max_fee: Fee,
     #[case] version: TransactionVersion,
 ) {
     let TestInitData {
@@ -235,7 +88,7 @@ fn test_enforce_fee_false_works(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = init_data;
+    } = create_test_init_data(max_fee, block_context);
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
@@ -261,8 +114,8 @@ fn test_enforce_fee_false_works(
 // TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
 #[rstest]
 fn test_account_flow_test(
+    block_context: BlockContext,
     max_fee: Fee,
-    #[from(create_test_init_data)] init_data: TestInitData,
     #[values(TransactionVersion::ZERO, TransactionVersion::ONE)] tx_version: TransactionVersion,
     #[values(true, false)] only_query: bool,
 ) {
@@ -272,7 +125,7 @@ fn test_account_flow_test(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = init_data;
+    } = create_test_init_data(max_fee, block_context);
 
     // Invoke a function from the newly deployed contract.
     run_invoke_tx(
@@ -299,8 +152,8 @@ fn test_account_flow_test(
 #[case(TransactionVersion::ONE)]
 // TODO(Nimrod, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
 fn test_invoke_tx_from_non_deployed_account(
+    block_context: BlockContext,
     max_fee: Fee,
-    #[from(create_test_init_data)] init_data: TestInitData,
     #[case] tx_version: TransactionVersion,
 ) {
     let TestInitData {
@@ -309,7 +162,7 @@ fn test_invoke_tx_from_non_deployed_account(
         contract_address: _,
         mut nonce_manager,
         block_context,
-    } = init_data;
+    } = create_test_init_data(max_fee, block_context);
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
 
@@ -355,7 +208,6 @@ fn test_invoke_tx_from_non_deployed_account(
 fn test_infinite_recursion(
     #[values(true, false)] success: bool,
     #[values(true, false)] normal_recurse: bool,
-    #[from(create_state)] state: CachedState<DictStateReader>,
     max_fee: Fee,
     mut block_context: BlockContext,
 ) {
@@ -368,7 +220,7 @@ fn test_infinite_recursion(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(max_fee, block_context, state);
+    } = create_test_init_data(max_fee, block_context);
 
     let recursion_depth = if success { 3_u32 } else { 1000_u32 };
 
@@ -417,7 +269,6 @@ fn test_infinite_recursion(
 fn test_max_fee_limit_validate(
     max_fee: Fee,
     block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
     #[case] version: TransactionVersion,
     max_resource_bounds: ResourceBoundsMapping,
 ) {
@@ -427,7 +278,7 @@ fn test_max_fee_limit_validate(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    } = create_test_init_data(Fee(MAX_FEE), block_context);
 
     // Declare the grindy-validation account.
     let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
@@ -528,8 +379,8 @@ fn test_max_fee_limit_validate(
 #[case(TransactionVersion::ONE)]
 #[case(TransactionVersion::THREE)]
 fn test_recursion_depth_exceeded(
-    #[from(create_test_init_data)] init_data: TestInitData,
     #[case] tx_version: TransactionVersion,
+    block_context: BlockContext,
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
 ) {
@@ -539,7 +390,7 @@ fn test_recursion_depth_exceeded(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = init_data;
+    } = create_test_init_data(max_fee, block_context);
 
     // Positive test
 
@@ -595,11 +446,8 @@ fn test_recursion_depth_exceeded(
 #[rstest]
 /// Tests that an account invoke transaction that fails the execution phase, still incurs a nonce
 /// increase and a fee deduction.
-fn test_revert_invoke(
-    block_context: BlockContext,
-    max_fee: Fee,
-    #[from(create_state)] mut state: CachedState<DictStateReader>,
-) {
+fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
+    let mut state = create_state(block_context.clone());
     let mut nonce_manager = NonceManager::default();
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
     let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
@@ -715,9 +563,9 @@ fn test_fail_deploy_account(block_context: BlockContext) {
 
 #[rstest]
 /// Tests that a failing declare transaction should not change state (no fee charge or nonce bump).
-fn test_fail_declare(max_fee: Fee, #[from(create_test_init_data)] init_data: TestInitData) {
+fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
-        init_data;
+        create_test_init_data(max_fee, block_context);
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
     let contract_class = ContractClass::V1(ContractClassV1::default());
     let next_nonce = nonce_manager.next(account_address);
@@ -786,20 +634,19 @@ fn recursive_function_calldata(
 fn test_reverted_reach_steps_limit(
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
-    mut block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
+    block_context: BlockContext,
     #[case] version: TransactionVersion,
 ) {
-    // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 5000;
-
     let TestInitData {
         mut state,
         account_address,
         contract_address,
         mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context, state);
+        mut block_context,
+    } = create_test_init_data(max_fee, block_context);
+
+    // Limit the number of execution steps (so we quickly hit the limit).
+    block_context.invoke_tx_max_n_steps = 5000;
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         resource_bounds: max_resource_bounds,
@@ -894,18 +741,14 @@ fn test_reverted_reach_steps_limit(
 /// Tests that n_steps and actual_fees of reverted transactions invocations are consistent.
 /// In this test reverted transactions are recursive function invocations where the innermost call
 /// asserts false. We test deltas between consecutive depths, and further depths.
-fn test_n_reverted_steps(
-    max_fee: Fee,
-    block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
-) {
+fn test_n_reverted_steps(max_fee: Fee, block_context: BlockContext) {
     let TestInitData {
         mut state,
         account_address,
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(max_fee, block_context, state);
+    } = create_test_init_data(max_fee, block_context);
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -1007,7 +850,6 @@ fn test_n_reverted_steps(
 #[case(TransactionVersion::THREE)]
 fn test_max_fee_to_max_steps_conversion(
     block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
     #[case] version: TransactionVersion,
 ) {
     let TestInitData {
@@ -1016,7 +858,7 @@ fn test_max_fee_to_max_steps_conversion(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    } = create_test_init_data(Fee(MAX_FEE), block_context);
     let actual_fee = 670900000000000;
     let actual_gas_used = 6709;
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
@@ -1080,17 +922,14 @@ fn test_max_fee_to_max_steps_conversion(
 #[rstest]
 /// Tests that transactions with insufficient max_fee are reverted, the correct revert_error is
 /// recorded and max_fee is charged.
-fn test_insufficient_max_fee_reverts(
-    block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
-) {
+fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
     let TestInitData {
         mut state,
         account_address,
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    } = create_test_init_data(Fee(MAX_FEE), block_context);
     let recursion_base_args = invoke_tx_args! {
         sender_address: account_address,
         version: TransactionVersion::ONE,
@@ -1180,7 +1019,6 @@ fn test_revert_on_overdraft(
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
     block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
 ) {
@@ -1202,7 +1040,7 @@ fn test_revert_on_overdraft(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(max_fee, block_context, state);
+    } = create_test_init_data(max_fee, block_context);
 
     // Verify the contract's storage key initial value is empty.
     assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
@@ -1331,7 +1169,6 @@ fn test_revert_on_resource_overuse(
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
     block_context: BlockContext,
-    #[from(create_state)] state: CachedState<DictStateReader>,
     #[case] version: TransactionVersion,
     #[case] expected_error_prefix: &str,
     #[case] is_revertible: bool,
@@ -1342,7 +1179,7 @@ fn test_revert_on_resource_overuse(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(max_fee, block_context, state);
+    } = create_test_init_data(max_fee, block_context);
 
     let n_writes = 5_u8;
     let base_args = invoke_tx_args! { sender_address: account_address, version };
