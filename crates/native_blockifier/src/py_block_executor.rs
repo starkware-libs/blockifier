@@ -195,6 +195,7 @@ impl PyBlockExecutor {
         self.storage.close();
     }
 
+    #[cfg(any(feature = "testing", test))]
     #[pyo3(signature = (general_config, path))]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {

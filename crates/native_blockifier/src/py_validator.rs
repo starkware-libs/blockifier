@@ -158,6 +158,7 @@ impl PyValidator {
         Ok(())
     }
 
+    #[cfg(any(feature = "testing", test))]
     #[pyo3(signature = (general_config))]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig) -> Self {

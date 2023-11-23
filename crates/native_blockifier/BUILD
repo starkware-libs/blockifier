@@ -6,6 +6,7 @@ rust_shared_library(
     name = "native_blockifier",
     srcs = glob(["src/**/*.rs"]),
     visibility = ["//crates:__subpackages__"],
+    crate_features=["testing"],
     deps = all_crate_deps() + ["//crates/blockifier"],
 )
 
