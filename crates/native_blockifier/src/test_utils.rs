@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use indexmap::IndexMap;
-
 use crate::errors::NativeBlockifierResult;
 use crate::storage::Storage;
 
@@ -33,11 +31,11 @@ impl Storage for MockStorage {
         _previous_block_id: Option<crate::py_utils::PyFelt>,
         _py_block_info: crate::py_state_diff::PyBlockInfo,
         _py_state_diff: crate::py_state_diff::PyStateDiff,
-        _declared_class_hash_to_class: IndexMap<
+        _declared_class_hash_to_class: HashMap<
             crate::py_utils::PyFelt,
             (crate::py_utils::PyFelt, String),
         >,
-        _deprecated_declared_class_hash_to_class: IndexMap<crate::py_utils::PyFelt, String>,
+        _deprecated_declared_class_hash_to_class: HashMap<crate::py_utils::PyFelt, String>,
     ) -> NativeBlockifierResult<()> {
         todo!()
     }

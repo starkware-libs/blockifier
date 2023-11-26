@@ -81,7 +81,7 @@ fn cast_between_storage_mapping_types() {
     let storage_val1: StarkFelt = stark_felt!("0x5");
     let storage_val2: StarkFelt = stark_felt!("0xa");
 
-    let storage_map = StorageView(IndexMap::from([
+    let storage_map = StorageView(HashMap::from([
         ((contract_address0, key0), storage_val0),
         ((contract_address0, key1), storage_val1),
         ((contract_address1, key0), storage_val2),

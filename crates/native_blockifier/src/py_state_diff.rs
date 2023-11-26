@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use blockifier::state::cached_state::CommitmentStateDiff;
@@ -14,13 +15,13 @@ use crate::py_utils::PyFelt;
 // TODO: Add support for returning the `declared_classes` to python.
 pub struct PyStateDiff {
     #[pyo3(get)]
-    pub address_to_class_hash: IndexMap<PyFelt, PyFelt>,
+    pub address_to_class_hash: HashMap<PyFelt, PyFelt>,
     #[pyo3(get)]
-    pub address_to_nonce: IndexMap<PyFelt, PyFelt>,
+    pub address_to_nonce: HashMap<PyFelt, PyFelt>,
     #[pyo3(get)]
-    pub storage_updates: IndexMap<PyFelt, IndexMap<PyFelt, PyFelt>>,
+    pub storage_updates: HashMap<PyFelt, HashMap<PyFelt, PyFelt>>,
     #[pyo3(get)]
-    pub class_hash_to_compiled_class_hash: IndexMap<PyFelt, PyFelt>,
+    pub class_hash_to_compiled_class_hash: HashMap<PyFelt, PyFelt>,
 }
 
 impl TryFrom<PyStateDiff> for StateDiff {
