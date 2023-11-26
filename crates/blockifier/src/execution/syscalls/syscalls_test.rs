@@ -465,6 +465,30 @@ fn test_library_call() {
 }
 
 #[test]
+fn test_library_call_assert_fails() {
+    let mut state = create_test_state();
+    let inner_entry_point_selector = selector_from_name("assert_eq");
+    let calldata = calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        inner_entry_point_selector.0, // Function selector.
+        stark_felt!(2_u8),            // Calldata length.
+        stark_felt!(0_u8),            // Calldata: first assert value.
+        stark_felt!(1_u8)             // Calldata: second assert value.
+    ];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_library_call"),
+        calldata,
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        ..trivial_external_entry_point()
+    };
+
+    assert_matches!(
+        entry_point_call.execute_directly(&mut state).unwrap_err(),
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } if trace.contains("x != y")
+    );
+}
+
+#[test]
 fn test_nested_library_call() {
     let mut state = create_test_state();
 
