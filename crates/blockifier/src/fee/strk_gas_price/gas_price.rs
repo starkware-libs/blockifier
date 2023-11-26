@@ -13,7 +13,7 @@ pub mod test;
 #[derive(Clone, Debug)]
 pub struct PoolState {
     pub total_wei: BigUint,
-    pub total_strk: BigUint,
+    pub total_fri: BigUint,
 }
 
 impl PoolState {
@@ -22,10 +22,10 @@ impl PoolState {
         self.total_wei.clone() << 1
     }
     /// Returns the result of comparing two pool states by STRK / Wei ratio.
-    pub fn compare_strk_to_wei_ratio(&self, other: &Self) -> Ordering {
+    pub fn compare_fri_to_wei_ratio(&self, other: &Self) -> Ordering {
         //  a / b < c / d <=> a * d < c * b. The same is true for the other orders.
-        let lhs = self.total_strk.clone() * other.total_wei.clone();
-        let rhs = other.total_strk.clone() * self.total_wei.clone();
+        let lhs = self.total_fri.clone() * other.total_wei.clone();
+        let rhs = other.total_fri.clone() * self.total_wei.clone();
         lhs.cmp(&rhs)
     }
 }
@@ -37,7 +37,7 @@ pub struct PoolStateAggregator {
     // Pool states are sorted by STRK / Wei ratio.
     pub sorted_pool_states: Vec<PoolState>,
     // See PoolStateAggregator::calc_median_values() for more info on median calculation.
-    pub median_pool_strk_tvl: BigUint,
+    pub median_pool_fri_tvl: BigUint,
     pub median_pool_wei_tvl: BigUint,
 }
 
@@ -49,13 +49,13 @@ impl PoolStateAggregator {
 
         let mut sorted_pool_states: Vec<PoolState> = pool_states.to_vec();
         sorted_pool_states.sort_unstable_by(|pool_state_a, pool_state_b| {
-            pool_state_a.compare_strk_to_wei_ratio(pool_state_b)
+            pool_state_a.compare_fri_to_wei_ratio(pool_state_b)
         });
 
-        let (median_pool_strk_tvl, median_pool_wei_tvl) =
+        let (median_pool_fri_tvl, median_pool_wei_tvl) =
             Self::calc_median_values(&sorted_pool_states);
 
-        Ok(Self { sorted_pool_states, median_pool_strk_tvl, median_pool_wei_tvl })
+        Ok(Self { sorted_pool_states, median_pool_fri_tvl, median_pool_wei_tvl })
     }
 
     /// Returns the STRK and Wei TVL of the weighted median pool state:
@@ -81,23 +81,23 @@ impl PoolStateAggregator {
             median_idx += 1;
         }
 
-        let median_pool_strk_tvl: BigUint;
+        let median_pool_fri_tvl: BigUint;
         let median_pool_wei_tvl: BigUint;
         if equal_weight_partition {
-            median_pool_strk_tvl = (sorted_pool_states[median_idx].total_strk.clone()
-                + sorted_pool_states[median_idx + 1].total_strk.clone())
+            median_pool_fri_tvl = (sorted_pool_states[median_idx].total_fri.clone()
+                + sorted_pool_states[median_idx + 1].total_fri.clone())
                 / BigUint::from(2_u32);
             median_pool_wei_tvl = (sorted_pool_states[median_idx].total_wei.clone()
                 + sorted_pool_states[median_idx + 1].total_wei.clone())
                 / BigUint::from(2_u32);
         } else {
-            median_pool_strk_tvl = sorted_pool_states[median_idx].total_strk.clone();
+            median_pool_fri_tvl = sorted_pool_states[median_idx].total_fri.clone();
             median_pool_wei_tvl = sorted_pool_states[median_idx].total_wei.clone();
         }
-        (median_pool_strk_tvl, median_pool_wei_tvl)
+        (median_pool_fri_tvl, median_pool_wei_tvl)
     }
 
-    pub fn convert_wei_to_strk(&self, wei_amount: BigUint) -> BigUint {
-        (wei_amount * self.median_pool_strk_tvl.clone()) / self.median_pool_wei_tvl.clone()
+    pub fn convert_wei_to_fri(&self, wei_amount: BigUint) -> BigUint {
+        (wei_amount * self.median_pool_fri_tvl.clone()) / self.median_pool_wei_tvl.clone()
     }
 }
