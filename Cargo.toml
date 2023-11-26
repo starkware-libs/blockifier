@@ -36,15 +36,19 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 rstest = "0.17.0"
-papyrus_storage = "0.2.0-rc2"
+papyrus_storage = { version = "0.2.0-rc2", features = ["testing"] }
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
-pyo3 = "0.19.1"
+pyo3 = { version = "0.19.1", features = [
+    "num-bigint",
+    "hashbrown",
+    "indexmap",
+] }
 pyo3-log = "0.8.1"
-serde = "1.0.184"
-serde_json = "1.0.81"
+serde = { version = "1.0.184", features = ["derive"] }
+serde_json = { version = "1.0.81", features = ["arbitrary_precision"] }
 sha3 = "0.10.6"
-starknet_api = "0.6.0-rc2"
+starknet_api = { version = "0.6.0-rc2", features = ["testing"] }
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
@@ -62,3 +66,8 @@ unused = "deny"
 [workspace.lints.clippy]
 # Uncomment once rust stable becomes >= 1.75.
 # iter_over_hash_type = "deny"
+
+# For use in publish cycles.
+[patch.crates-io]
+# starknet_api = { path = "../starknet-api" }
+# papyrus_storage = { path = "../papyrus/crates/papyrus_storage" }
