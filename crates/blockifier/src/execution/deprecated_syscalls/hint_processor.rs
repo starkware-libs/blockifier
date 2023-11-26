@@ -1,5 +1,7 @@
+use core::panic;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
@@ -50,6 +52,8 @@ use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
 pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
+pub type SyscallStartTime = HashMap<DeprecatedSyscallSelector, Instant>;
+pub type SyscallExecutionTimeCounter = HashMap<DeprecatedSyscallSelector, Duration>;
 
 #[derive(Debug, Error)]
 pub enum DeprecatedSyscallExecutionError {
@@ -187,8 +191,9 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
 
         let selector = DeprecatedSyscallSelector::try_from(self.read_next_syscall_selector(vm)?)?;
         self.increment_syscall_count(&selector);
+        self.update_syscall_start_time(&selector);
 
-        match selector {
+        let res: HintExecutionResult = match selector {
             DeprecatedSyscallSelector::CallContract => self.execute_syscall(vm, call_contract),
             DeprecatedSyscallSelector::DelegateCall => self.execute_syscall(vm, delegate_call),
             DeprecatedSyscallSelector::DelegateL1Handler => {
@@ -224,7 +229,10 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             _ => Err(HintError::UnknownHint(
                 format!("Unsupported syscall selector {selector:?}.").into(),
             )),
-        }
+        };
+
+        self.increment_syscall_time_counter(&selector);
+        res
     }
 
     pub fn get_or_allocate_tx_signature_segment(
@@ -289,6 +297,26 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
         let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
+    }
+
+    fn update_syscall_start_time(&mut self, selector: &DeprecatedSyscallSelector) {
+        let syscall_start_time =
+            self.resources.syscall_start_time.entry(*selector).or_insert_with(Instant::now);
+        *syscall_start_time = Instant::now();
+    }
+
+    fn increment_syscall_time_counter(&mut self, selector: &DeprecatedSyscallSelector) {
+        let syscall_execution_time_counter =
+            self.resources.syscall_execution_time_counter.entry(*selector).or_default();
+        if let Some(syscall_start_time) =
+            self.resources.syscall_start_time.get(selector).copied()
+        {
+            *syscall_execution_time_counter += syscall_start_time.elapsed();
+        }
+        else {
+            // panic
+            panic!("Syscall start time not found for selector {:?}", selector);
+        }
     }
 
     fn allocate_tx_signature_segment(

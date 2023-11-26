@@ -138,13 +138,16 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        match self {
+        log::debug!("Blockifier: Initializing Transaction Execution...");
+        let return_val = match self {
             Self::AccountTransaction(account_tx) => {
                 account_tx.execute_raw(state, block_context, charge_fee, validate)
             }
             Self::L1HandlerTransaction(tx) => {
                 tx.execute_raw(state, block_context, charge_fee, validate)
             }
-        }
+        };
+        log::debug!("Blockifier: Finalizing Transaction Execution...");
+        return_val
     }
 }

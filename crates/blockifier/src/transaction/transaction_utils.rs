@@ -44,6 +44,10 @@ pub fn calculate_tx_resources(
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
         + &get_additional_os_resources(&execution_resources.syscall_counter, tx_type)?;
+    for (selector, duration) in &execution_resources.syscall_execution_time_counter {
+        log::debug!("Selector: {:?}: Duration: {:?}", selector, duration);
+    }
+
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.

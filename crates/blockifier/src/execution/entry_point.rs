@@ -15,7 +15,7 @@ use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
+use crate::execution::deprecated_syscalls::hint_processor::{SyscallCounter, SyscallExecutionTimeCounter, SyscallStartTime};
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::fee::os_resources::OS_RESOURCES;
@@ -131,6 +131,8 @@ pub struct ConstructorContext {
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
+    pub syscall_start_time: SyscallStartTime,
+    pub syscall_execution_time_counter:  SyscallExecutionTimeCounter,
 }
 
 #[derive(Clone, Debug)]
