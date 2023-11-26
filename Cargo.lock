@@ -2611,6 +2611,7 @@ checksum = "e681a6cfdc4adcc93b4d3cf993749a4552018ee0a9b65fc0ccfad74352c72a38"
 dependencies = [
  "cfg-if",
  "hashbrown 0.14.2",
+ "indexmap 1.9.3",
  "indoc 1.0.9",
  "libc",
  "memoffset",
