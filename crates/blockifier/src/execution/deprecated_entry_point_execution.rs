@@ -199,6 +199,7 @@ pub fn run_entry_point(
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
+    log::debug!("Deprecated VM: Initializing Entrypoint Run...");
     let result = runner.run_from_entrypoint(
         entry_point_pc,
         &args,
@@ -207,6 +208,7 @@ pub fn run_entry_point(
         vm,
         hint_processor,
     );
+    log::debug!("Deprecated VM: Finalizing Entrypoint Run...");
 
     Ok(result?)
 }
