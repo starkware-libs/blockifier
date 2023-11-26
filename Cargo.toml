@@ -6,7 +6,7 @@ resolver = "2"
 members = ["crates/blockifier"]
 
 [workspace.package]
-version = "0.4.0-rc9"
+version = "0.4.0-rc10"
 edition = "2021"
 repository = "https://github.com/starkware-libs/blockifier/"
 license = "Apache-2.0"
@@ -40,7 +40,7 @@ pretty_assertions = "1.2.1"
 serde = "1.0.184"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = "0.6.0-rc2"
+starknet_api = "0.6.0-rc3"
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"

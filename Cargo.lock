@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.4.0-rc8"
+version = "0.4.0-rc10"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2504,14 +2504,14 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.6.0-rc2"
+version = "0.6.0-rc3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6883c619b61c92c514d415b45f4f11d03c435ca483d68beb2820c58c34d915a"
+checksum = "874475a79285b03525dcb6773c5b6436d0bb937de9791c43a02a682a0fcbefd4"
 dependencies = [
  "cairo-lang-starknet",
  "derive_more",
  "hex",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
  "once_cell",
  "primitive-types",
  "serde",
