@@ -29,7 +29,7 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { version = "0.2.0-rc2", features = ["testing"] }
+papyrus_storage = { git= "http://github.com/starkware-libs/papyrus", rev = "6c7faf1e", features = ["testing"] }
 pyo3 = { version = "0.19.1", features = ["num-bigint", "hashbrown"] }
 pyo3-log = "0.8.1"
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
