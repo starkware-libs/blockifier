@@ -99,8 +99,8 @@ mod TestContract {
         assert(tx_info.max_fee.into() == max_fee, 'MAX_FEE_MISMATCH');
         assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
         assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
-        assert(tx_info.nonce_data_availabilty_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
-        assert(tx_info.fee_data_availabilty_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
+        assert(tx_info.nonce_data_availability_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
+        assert(tx_info.fee_data_availability_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
         assert(tx_info.account_deployment_data.len() == 0_u32, 'DEPLOYMENT_DATA_MISMATCH');
 
         assert(execution_info.caller_address.into() == caller_address, 'CALLER_MISMATCH');
