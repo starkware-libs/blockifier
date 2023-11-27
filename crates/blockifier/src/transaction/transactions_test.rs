@@ -39,12 +39,12 @@ use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
     InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -474,26 +474,32 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     assert_eq!(high, mint_high);
 }
 
-fn assert_failure_if_max_fee_exceeds_balance(
+fn assert_failure_if_resource_bounds_exceed_balance(
     state: &mut CachedState<DictStateReader>,
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    let sent_max_fee = match invalid_tx.get_account_tx_context() {
-        AccountTransactionContext::Deprecated(context) => context.max_fee,
-        AccountTransactionContext::Current(_) => {
-            panic!("Only deprecated transactions supported in this check.")
+    match invalid_tx.get_account_tx_context() {
+        AccountTransactionContext::Deprecated(context) => {
+            assert_matches!(
+                invalid_tx.execute(state, block_context, true, true).unwrap_err(),
+                TransactionExecutionError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::MaxFeeExceedsBalance{ max_fee, .. }))
+                if max_fee == context.max_fee
+            );
+        }
+        AccountTransactionContext::Current(context) => {
+            let l1_bounds = context.l1_resource_bounds().unwrap();
+            assert_matches!(
+                invalid_tx.execute(state, block_context, true, true).unwrap_err(),
+                TransactionExecutionError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::L1GasBoundsExceedBalance{ max_amount, max_price, .. }))
+                if max_amount == l1_bounds.max_amount && max_price == l1_bounds.max_price_per_unit
+            );
         }
     };
-
-    // Test error.
-    assert_matches!(
-        invalid_tx.execute(state, block_context, true, true).unwrap_err(),
-        TransactionExecutionError::TransactionPreValidationError(
-            TransactionPreValidationError::TransactionFeeError(
-                TransactionFeeError::MaxFeeExceedsBalance{ max_fee, .. }))
-        if max_fee == sent_max_fee
-    );
 }
 
 #[test_case(
@@ -505,11 +511,24 @@ fn assert_failure_if_max_fee_exceeds_balance(
 fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     let block_context = &BlockContext::create_for_account_testing();
     let invalid_max_fee = Fee(BALANCE + 1);
+    let invalid_resource_bounds =
+        l1_resource_bounds((BALANCE / MAX_L1_GAS_PRICE) as u64 + 1, MAX_L1_GAS_PRICE);
 
-    // Invoke.
-    let invalid_tx =
-        account_invoke_tx(invoke_tx_args! { max_fee: invalid_max_fee, ..default_invoke_tx_args() });
-    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
+    // V1 Invoke.
+    let invalid_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee: invalid_max_fee,
+        version: TransactionVersion::ONE,
+        ..default_invoke_tx_args()
+    });
+    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
+
+    // V3 invoke.
+    let invalid_tx = account_invoke_tx(invoke_tx_args! {
+        resource_bounds: invalid_resource_bounds,
+        version: TransactionVersion::THREE,
+        ..default_invoke_tx_args()
+    });
+    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
@@ -518,7 +537,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
         None,
         &mut NonceManager::default(),
     ));
-    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
+    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 
     // Declare.
     let invalid_tx = AccountTransaction::Declare(
@@ -532,7 +551,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
         )
         .unwrap(),
     );
-    assert_failure_if_max_fee_exceeds_balance(state, block_context, invalid_tx);
+    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 }
 
 #[test_case(
