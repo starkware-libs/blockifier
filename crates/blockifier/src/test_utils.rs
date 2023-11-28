@@ -1,5 +1,6 @@
 pub mod cached_state;
 pub mod dict_state_reader;
+pub mod invoke;
 pub mod struct_impls;
 
 use std::collections::HashMap;
@@ -15,17 +16,14 @@ use num_traits::{One, Zero};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
 };
-use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV0V1,
-    DeployAccountTransactionV1, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3,
-    PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV0V1, DeployAccountTransactionV1, Fee,
+    TransactionHash, TransactionSignature,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -35,8 +33,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
-use crate::transaction::transactions::{DeployAccountTransaction, InvokeTransaction};
+use crate::transaction::transactions::DeployAccountTransaction;
 use crate::utils::const_max;
 
 // Addresses.
@@ -201,96 +198,6 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
 }
 
 // Transactions.
-#[derive(Clone)]
-pub struct InvokeTxArgs {
-    pub max_fee: Fee,
-    pub signature: TransactionSignature,
-    pub sender_address: ContractAddress,
-    pub calldata: Calldata,
-    pub version: TransactionVersion,
-    pub resource_bounds: ResourceBoundsMapping,
-    pub tip: Tip,
-    pub nonce_data_availability_mode: DataAvailabilityMode,
-    pub fee_data_availability_mode: DataAvailabilityMode,
-    pub paymaster_data: PaymasterData,
-    pub account_deployment_data: AccountDeploymentData,
-    pub nonce: Nonce,
-    pub only_query: bool,
-}
-
-impl Default for InvokeTxArgs {
-    fn default() -> Self {
-        InvokeTxArgs {
-            max_fee: Fee::default(),
-            signature: TransactionSignature::default(),
-            sender_address: ContractAddress::default(),
-            calldata: calldata![],
-            // TODO(Dori, 10/10/2023): Change to THREE when supported.
-            version: TransactionVersion::ONE,
-            resource_bounds: ResourceBoundsMapping::try_from(vec![
-                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
-                // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
-                //   L2 gas.
-                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
-            ])
-            .unwrap(),
-            tip: Tip::default(),
-            nonce_data_availability_mode: DataAvailabilityMode::L1,
-            fee_data_availability_mode: DataAvailabilityMode::L1,
-            paymaster_data: PaymasterData::default(),
-            account_deployment_data: AccountDeploymentData::default(),
-            nonce: Nonce::default(),
-            only_query: false,
-        }
-    }
-}
-
-/// Utility macro for creating `InvokeTxArgs` with "smart" default values, kwarg-style notation.
-#[macro_export]
-macro_rules! invoke_tx_args {
-    ($($field:ident $(: $value:expr)?),* $(,)?) => {
-        {
-            // Fill in all fields + defaults for missing fields.
-            let mut _macro_invoke_tx_args = InvokeTxArgs {
-                $($field $(: $value)?,)*
-                ..Default::default()
-            };
-            // If resource bounds aren't explicitly passed, derive them from max_fee.
-            if _macro_invoke_tx_args.version >= TransactionVersion::THREE
-                && [$(stringify!($field) != "resource_bounds"),*].iter().all(|&x| x) {
-                let _macro_new_resource_bounds_vec: Vec<(
-                    starknet_api::transaction::Resource,
-                    starknet_api::transaction::ResourceBounds
-                )> = [
-                    starknet_api::transaction::Resource::L1Gas,
-                    starknet_api::transaction::Resource::L2Gas
-                ].into_iter().map(|resource| (
-                    resource,
-                    starknet_api::transaction::ResourceBounds {
-                        max_amount: _macro_invoke_tx_args.max_fee.0 as u64,
-                        max_price_per_unit: 1
-                    },
-                )).collect();
-                _macro_invoke_tx_args.resource_bounds
-                    = starknet_api::transaction::ResourceBoundsMapping::try_from(
-                        _macro_new_resource_bounds_vec
-                    ).unwrap();
-            }
-            _macro_invoke_tx_args
-        }
-    };
-    ($($field:ident $(: $value:expr)?),* , ..$defaults:expr) => {
-        {
-            // Fill in all fields + use the provided defaults for missing fields.
-            // In this case, do not derive "smart" defaults for fields not passed explicitly - we
-            // assume these fields are already "correct" on the provided defaults.
-            InvokeTxArgs {
-                $($field $(: $value)?,)*
-                ..$defaults
-            }
-        }
-    };
-}
 
 pub fn deploy_account_tx(
     class_hash: &str,
@@ -338,51 +245,6 @@ pub fn deploy_account_tx_with_salt(
     });
 
     DeployAccountTransaction::new(tx, TransactionHash::default(), contract_address)
-}
-
-pub fn invoke_tx(invoke_args: InvokeTxArgs) -> InvokeTransaction {
-    let invoke_tx = match invoke_args.version {
-        TransactionVersion::ZERO => {
-            starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
-                max_fee: invoke_args.max_fee,
-                calldata: invoke_args.calldata,
-                contract_address: invoke_args.sender_address,
-                signature: invoke_args.signature,
-                // V0 transactions should always select the `__execute__` entry point.
-                entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
-            })
-        }
-        TransactionVersion::ONE => {
-            starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
-                max_fee: invoke_args.max_fee,
-                sender_address: invoke_args.sender_address,
-                nonce: invoke_args.nonce,
-                calldata: invoke_args.calldata,
-                signature: invoke_args.signature,
-            })
-        }
-        TransactionVersion::THREE => {
-            starknet_api::transaction::InvokeTransaction::V3(InvokeTransactionV3 {
-                resource_bounds: invoke_args.resource_bounds,
-                calldata: invoke_args.calldata,
-                sender_address: invoke_args.sender_address,
-                nonce: invoke_args.nonce,
-                signature: invoke_args.signature,
-                tip: invoke_args.tip,
-                nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
-                fee_data_availability_mode: invoke_args.fee_data_availability_mode,
-                paymaster_data: invoke_args.paymaster_data,
-                account_deployment_data: invoke_args.account_deployment_data,
-            })
-        }
-        _ => panic!("Unsupported transaction version: {:?}.", invoke_args.version),
-    };
-
-    let default_tx_hash = TransactionHash::default();
-    match invoke_args.only_query {
-        true => InvokeTransaction::new_for_query(invoke_tx, default_tx_hash),
-        false => InvokeTransaction::new(invoke_tx, default_tx_hash),
-    }
 }
 
 pub fn declare_tx(
