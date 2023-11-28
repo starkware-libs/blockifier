@@ -5,8 +5,7 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, Fee, ResourceBoundsMapping,
-    TransactionHash, TransactionVersion,
+    Calldata, DeclareTransactionV2, Fee, ResourceBoundsMapping, TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
@@ -285,22 +284,15 @@ fn test_max_fee_limit_validate(
 
     // Declare the grindy-validation account.
     let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
-    let declare_tx = declare_tx(DeclareTxArgs {
-        class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
-        sender_address: account_address,
-        max_fee: Fee(MAX_FEE),
-        ..Default::default()
-    });
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-                nonce: nonce_manager.next(account_address),
-                ..declare_tx
-            }),
-            TransactionHash::default(),
-            contract_class,
-        )
-        .unwrap(),
+    let account_tx = declare_tx(
+        DeclareTxArgs {
+            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            sender_address: account_address,
+            max_fee: Fee(MAX_FEE),
+            nonce: nonce_manager.next(account_address),
+            ..Default::default()
+        },
+        contract_class,
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 

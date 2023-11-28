@@ -543,18 +543,15 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 
     // Declare.
-    let invalid_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V1(declare_tx(DeclareTxArgs {
-                class_hash: class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-                sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
-                max_fee: invalid_max_fee,
-                ..Default::default()
-            })),
-            TransactionHash::default(),
-            ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH)),
-        )
-        .unwrap(),
+    let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
+    let invalid_tx = declare_tx(
+        DeclareTxArgs {
+            class_hash: class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+            sender_address,
+            max_fee: invalid_max_fee,
+            ..Default::default()
+        },
+        ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH)),
     );
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 }
@@ -747,27 +744,13 @@ fn test_declare_tx(
     cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
-    let declare_tx = declare_tx(DeclareTxArgs {
-        class_hash: class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
-        max_fee: Fee(MAX_FEE),
-        ..Default::default()
-    });
-
-    // Extract declare transaction fields for testing, as it is consumed when creating an account
-    // transaction.
-    let sender_address = declare_tx.sender_address;
-    let class_hash = declare_tx.class_hash;
-
+    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
     let contract_class =
         ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH));
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V1(declare_tx),
-            TransactionHash::default(),
-            contract_class.clone(),
-        )
-        .unwrap(),
+    let account_tx = declare_tx(
+        DeclareTxArgs { class_hash, sender_address, max_fee: Fee(MAX_FEE), ..Default::default() },
+        contract_class.clone(),
     );
 
     // Check state before transaction application.
