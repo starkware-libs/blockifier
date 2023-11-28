@@ -23,7 +23,7 @@ use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
-use crate::test_utils::deploy_account::deploy_account_tx;
+use crate::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
@@ -63,10 +63,11 @@ fn block_context() -> BlockContext {
 fn test_fee_enforcement(block_context: BlockContext, #[case] max_fee: Fee) {
     let mut state = create_state(block_context.clone());
     let deploy_account_tx = deploy_account_tx(
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        None,
-        None,
+        DeployTxArgs {
+            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            max_fee,
+            ..Default::default()
+        },
         &mut NonceManager::default(),
     );
 
@@ -310,9 +311,12 @@ fn test_max_fee_limit_validate(
         &mut state,
         &mut NonceManager::default(),
         &block_context,
-        TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        Some(calldata![stark_felt!(1_u8)]), // Grind in deploy phase.
+        DeployTxArgs {
+            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            max_fee,
+            constructor_calldata: calldata![stark_felt!(1_u8)], // Grind in deploy phase.
+            ..Default::default()
+        },
     );
     let error = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
     assert_matches!(
@@ -328,9 +332,12 @@ fn test_max_fee_limit_validate(
         &mut state,
         &mut nonce_manager,
         &block_context,
-        TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        Some(calldata![stark_felt!(0_u8)]), // Do not grind in deploy phase.
+        DeployTxArgs {
+            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            max_fee,
+            constructor_calldata: calldata![stark_felt!(0_u8)], // Do not grind in deploy phase.
+            ..Default::default()
+        },
     );
     deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
@@ -463,10 +470,11 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        None,
-        None,
+        DeployTxArgs {
+            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            max_fee,
+            ..Default::default()
+        },
         &mut nonce_manager,
     );
     let deployed_account_address = deploy_account_tx.contract_address;
