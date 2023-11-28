@@ -3,11 +3,12 @@ use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1,
-    InvokeTransactionV3, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    InvokeTransactionV3, PaymasterData, ResourceBoundsMapping, Tip, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::test_utils::default_testing_resource_bounds;
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::transactions::InvokeTransaction;
 
@@ -37,13 +38,7 @@ impl Default for InvokeTxArgs {
             calldata: calldata![],
             // TODO(Dori, 10/10/2023): Change to THREE when supported.
             version: TransactionVersion::ONE,
-            resource_bounds: ResourceBoundsMapping::try_from(vec![
-                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
-                // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
-                //   L2 gas.
-                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
-            ])
-            .unwrap(),
+            resource_bounds: default_testing_resource_bounds(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
             fee_data_availability_mode: DataAvailabilityMode::L1,

@@ -1,4 +1,5 @@
 pub mod cached_state;
+pub mod declare;
 pub mod deploy_account;
 pub mod dict_state_reader;
 pub mod invoke;
@@ -14,14 +15,14 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_traits::{One, Zero};
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
+use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, DeclareTransactionV0V1, Fee, TransactionSignature};
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::transaction::{Calldata, Resource, ResourceBounds, ResourceBoundsMapping};
+use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants::{self};
@@ -192,22 +193,17 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     }
 }
 
-// Transactions.
-
-pub fn declare_tx(
-    class_hash: &str,
-    sender_address: ContractAddress,
-    max_fee: Fee,
-    signature: Option<TransactionSignature>,
-) -> DeclareTransactionV0V1 {
-    DeclareTransactionV0V1 {
-        max_fee,
-        class_hash: class_hash!(class_hash),
-        sender_address,
-        signature: signature.unwrap_or_default(),
-        ..Default::default()
-    }
+fn default_testing_resource_bounds() -> ResourceBoundsMapping {
+    ResourceBoundsMapping::try_from(vec![
+        (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+        // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
+        //   L2 gas.
+        (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+    ])
+    .unwrap()
 }
+
+// Transactions.
 
 /// Checks that the given error is a `HintError::CustomHint` with the given hint.
 pub fn check_entry_point_execution_error_for_custom_hint(

@@ -22,10 +22,11 @@ use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, declare_tx, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
+    create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
     TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -284,8 +285,12 @@ fn test_max_fee_limit_validate(
 
     // Declare the grindy-validation account.
     let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
-    let declare_tx =
-        declare_tx(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH, account_address, Fee(MAX_FEE), None);
+    let declare_tx = declare_tx(DeclareTxArgs {
+        class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+        sender_address: account_address,
+        max_fee: Fee(MAX_FEE),
+        ..Default::default()
+    });
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
