@@ -15,7 +15,7 @@ use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::deploy_account::deploy_account_tx_with_salt;
+use blockifier::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use blockifier::test_utils::{
@@ -26,9 +26,9 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use criterion::{criterion_group, criterion_main, Criterion};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, class_hash, stark_felt};
 
 const N_ACCOUNTS: usize = 10000;
 
@@ -121,16 +121,15 @@ fn prepare_accounts(
         // Deploy an account contract.
         let class_hash = TEST_ACCOUNT_CONTRACT_CLASS_HASH;
         let max_fee = Fee(MAX_FEE);
-        let constructor_calldata = None;
         let constructor_address_salt = ContractAddressSalt(stark_felt!(account_salt as u64));
-        let signature = None;
         let nonce_manager = &mut NonceManager::default();
-        let deploy_account_tx = deploy_account_tx_with_salt(
-            class_hash,
-            max_fee,
-            constructor_calldata,
-            constructor_address_salt,
-            signature,
+        let deploy_account_tx = deploy_account_tx(
+            DeployTxArgs {
+                class_hash: class_hash!(class_hash),
+                max_fee,
+                contract_address_salt: constructor_address_salt,
+                ..Default::default()
+            },
             nonce_manager,
         );
 
