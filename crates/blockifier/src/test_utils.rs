@@ -13,7 +13,8 @@ use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_traits::{One, Zero};
 use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey,
+    calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, EntryPointSelector,
+    Nonce, PatriciaKey,
 };
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::{
@@ -200,6 +201,16 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     }
 }
 
+fn default_testing_resource_bounds() -> ResourceBoundsMapping {
+    ResourceBoundsMapping::try_from(vec![
+        (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+        // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
+        //   L2 gas.
+        (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+    ])
+    .unwrap()
+}
+
 // Transactions.
 #[derive(Clone)]
 pub struct InvokeTxArgs {
@@ -227,13 +238,7 @@ impl Default for InvokeTxArgs {
             calldata: calldata![],
             // TODO(Dori, 10/10/2023): Change to THREE when supported.
             version: TransactionVersion::ONE,
-            resource_bounds: ResourceBoundsMapping::try_from(vec![
-                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
-                // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
-                //   L2 gas.
-                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
-            ])
-            .unwrap(),
+            resource_bounds: default_testing_resource_bounds(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
             fee_data_availability_mode: DataAvailabilityMode::L1,
@@ -241,6 +246,44 @@ impl Default for InvokeTxArgs {
             account_deployment_data: AccountDeploymentData::default(),
             nonce: Nonce::default(),
             only_query: false,
+        }
+    }
+}
+
+// Transactions.
+#[derive(Clone)]
+pub struct DeclareTxArgs {
+    pub max_fee: Fee,
+    pub signature: TransactionSignature,
+    pub nonce: Nonce,
+    pub class_hash: ClassHash,
+    pub sender_address: ContractAddress,
+    pub compiled_class_hash: CompiledClassHash,
+    pub resource_bounds: ResourceBoundsMapping,
+    pub tip: Tip,
+    pub nonce_data_availability_mode: DataAvailabilityMode,
+    pub fee_data_availability_mode: DataAvailabilityMode,
+    pub paymaster_data: PaymasterData,
+    pub account_deployment_data: AccountDeploymentData,
+    pub version: TransactionVersion,
+}
+
+impl Default for DeclareTxArgs {
+    fn default() -> Self {
+        Self {
+            max_fee: Fee::default(),
+            signature: TransactionSignature::default(),
+            sender_address: ContractAddress::default(),
+            class_hash: ClassHash::default(),
+            compiled_class_hash: CompiledClassHash::default(),
+            version: TransactionVersion::ONE,
+            resource_bounds: default_testing_resource_bounds(),
+            tip: Tip::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: PaymasterData::default(),
+            account_deployment_data: AccountDeploymentData::default(),
+            nonce: Nonce::default(),
         }
     }
 }
@@ -385,18 +428,13 @@ pub fn invoke_tx(invoke_args: InvokeTxArgs) -> InvokeTransaction {
     }
 }
 
-pub fn declare_tx(
-    class_hash: &str,
-    sender_address: ContractAddress,
-    max_fee: Fee,
-    signature: Option<TransactionSignature>,
-) -> DeclareTransactionV0V1 {
+pub fn declare_tx(declare_tx_args: DeclareTxArgs) -> DeclareTransactionV0V1 {
     DeclareTransactionV0V1 {
-        max_fee,
-        class_hash: class_hash!(class_hash),
-        sender_address,
-        signature: signature.unwrap_or_default(),
-        ..Default::default()
+        max_fee: declare_tx_args.max_fee,
+        class_hash: declare_tx_args.class_hash,
+        sender_address: declare_tx_args.sender_address,
+        signature: declare_tx_args.signature,
+        nonce: declare_tx_args.nonce,
     }
 }
 

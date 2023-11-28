@@ -22,7 +22,7 @@ use crate::state::state_api::State;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     create_calldata, declare_tx, deploy_account_tx, invoke_tx, test_erc20_account_balance_key,
-    test_erc20_faulty_account_balance_key, InvokeTxArgs, NonceManager,
+    test_erc20_faulty_account_balance_key, DeclareTxArgs, InvokeTxArgs, NonceManager,
     ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, ERC20_CONTRACT_PATH,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
@@ -147,7 +147,12 @@ pub fn create_test_init_data(max_fee: Fee, block_context: BlockContext) -> TestI
 
     // Declare a contract.
     let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
-    let declare_tx = declare_tx(TEST_CLASS_HASH, account_address, max_fee, None);
+    let declare_tx = declare_tx(DeclareTxArgs {
+        class_hash: class_hash!(TEST_CLASS_HASH),
+        sender_address: account_address,
+        max_fee,
+        ..Default::default()
+    });
     let account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
@@ -305,12 +310,13 @@ pub fn create_account_tx_for_validate_test(
         TransactionType::Declare => {
             let contract_class =
                 ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
-            let declare_tx = crate::test_utils::declare_tx(
-                TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-                Fee(0),
-                Some(signature),
-            );
+            let declare_tx = crate::test_utils::declare_tx(DeclareTxArgs {
+                class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+                sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                max_fee: Fee(0),
+                signature,
+                ..Default::default()
+            });
 
             AccountTransaction::Declare(
                 DeclareTransaction::new(
