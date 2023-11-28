@@ -19,7 +19,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
-use crate::test_utils::deploy_account::deploy_account_tx;
+use crate::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
@@ -79,13 +79,10 @@ pub fn deploy_and_fund_account(
     state: &mut CachedState<DictStateReader>,
     nonce_manager: &mut NonceManager,
     block_context: &BlockContext,
-    class_hash: &str,
-    max_fee: Fee,
-    constructor_calldata: Option<Calldata>,
+    deploy_tx_args: DeployTxArgs,
 ) -> (AccountTransaction, ContractAddress) {
     // Deploy an account contract.
-    let deploy_account_tx =
-        deploy_account_tx(class_hash, max_fee, constructor_calldata, None, nonce_manager);
+    let deploy_account_tx = deploy_account_tx(deploy_tx_args, nonce_manager);
     let account_address = deploy_account_tx.contract_address;
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
 
@@ -141,9 +138,11 @@ pub fn create_test_init_data(max_fee: Fee, block_context: BlockContext) -> TestI
         &mut state,
         &mut nonce_manager,
         &block_context,
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        max_fee,
-        None,
+        DeployTxArgs {
+            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            max_fee,
+            ..Default::default()
+        },
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
@@ -325,10 +324,13 @@ pub fn create_account_tx_for_validate_test(
         }
         TransactionType::DeployAccount => {
             let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
-                TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-                Fee(0),
-                Some(calldata![stark_felt!(constants::FELT_FALSE)]),
-                Some(signature),
+                DeployTxArgs {
+                    class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
+                    max_fee: Fee(0),
+                    constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
+                    signature,
+                    ..Default::default()
+                },
                 nonce_manager,
             );
             AccountTransaction::DeployAccount(deploy_account_tx)

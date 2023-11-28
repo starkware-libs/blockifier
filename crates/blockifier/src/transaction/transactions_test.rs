@@ -35,6 +35,7 @@ use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::deploy_account::DeployTxArgs;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
@@ -914,10 +915,13 @@ fn deploy_account_tx(
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     crate::test_utils::deploy_account::deploy_account_tx(
-        account_class_hash,
-        Fee(MAX_FEE),
-        constructor_calldata,
-        signature,
+        DeployTxArgs {
+            class_hash: class_hash!(account_class_hash),
+            max_fee: Fee(MAX_FEE),
+            constructor_calldata: constructor_calldata.unwrap_or_default(),
+            signature: signature.unwrap_or_default(),
+            ..Default::default()
+        },
         nonce_manager,
     )
 }
@@ -1152,14 +1156,17 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         // constructor (forbidden).
 
         let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
-            TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-            Fee(0),
-            Some(calldata![stark_felt!(constants::FELT_TRUE)]),
-            // run faulty_validate() in the constructor.
-            Some(TransactionSignature(vec![
-                stark_felt!(CALL_CONTRACT),
-                stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-            ])),
+            DeployTxArgs {
+                class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
+                max_fee: Fee(0),
+                constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
+                // run faulty_validate() in the constructor.
+                signature: TransactionSignature(vec![
+                    stark_felt!(CALL_CONTRACT),
+                    stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                ]),
+                ..Default::default()
+            },
             &mut NonceManager::default(),
         );
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
