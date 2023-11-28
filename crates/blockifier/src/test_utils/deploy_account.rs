@@ -6,7 +6,7 @@ use starknet_api::transaction::{
     TransactionSignature,
 };
 
-use super::NonceManager;
+use crate::test_utils::NonceManager;
 use crate::transaction::transactions::DeployAccountTransaction;
 
 pub fn deploy_account_tx(

@@ -14,8 +14,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV0V1, DeclareTransactionV2, EventContent, EventData, EventKey, Fee,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, DeclareTransactionV2, EventContent, EventData, EventKey, Fee, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -35,6 +35,7 @@ use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
@@ -544,10 +545,12 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     // Declare.
     let invalid_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
+            starknet_api::transaction::DeclareTransaction::V1(declare_tx(DeclareTxArgs {
+                class_hash: class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+                sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
                 max_fee: invalid_max_fee,
-                ..declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None)
-            }),
+                ..Default::default()
+            })),
             TransactionHash::default(),
             ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH)),
         )
@@ -725,19 +728,6 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     );
 }
 
-fn declare_tx(
-    class_hash: &str,
-    sender_address: &str,
-    signature: Option<TransactionSignature>,
-) -> DeclareTransactionV0V1 {
-    crate::test_utils::declare_tx(
-        class_hash,
-        contract_address!(sender_address),
-        Fee(MAX_FEE),
-        signature,
-    )
-}
-
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     63, // range_check_builtin
@@ -757,8 +747,12 @@ fn test_declare_tx(
     cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
-    let declare_tx =
-        declare_tx(TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ACCOUNT_CONTRACT_ADDRESS, None);
+    let declare_tx = declare_tx(DeclareTxArgs {
+        class_hash: class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        max_fee: Fee(MAX_FEE),
+        ..Default::default()
+    });
 
     // Extract declare transaction fields for testing, as it is consumed when creating an account
     // transaction.
