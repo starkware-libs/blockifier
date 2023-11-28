@@ -1063,6 +1063,32 @@ fn test_deploy_account_tx(
     );
 }
 
+#[rstest]
+fn test_fail_deploy_account_undeclared_class_hash() {
+    let mut state = create_state_with_trivial_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let mut nonce_manager = NonceManager::default();
+    let undeclared_hash = "0xdeadbeef";
+    let deploy_account = deploy_account_tx(undeclared_hash, None, None, &mut nonce_manager);
+
+    // Fund account, so as not to fail pre-validation.
+    state.set_storage_at(
+        block_context.fee_token_address(&FeeType::Eth),
+        get_fee_token_var_address(&deploy_account.contract_address),
+        stark_felt!(BALANCE),
+    );
+
+    let account_tx = AccountTransaction::DeployAccount(deploy_account);
+    let error = account_tx.execute(&mut state, block_context, true, true).unwrap_err();
+    assert_matches!(
+        error,
+        TransactionExecutionError::ContractConstructorExecutionFailed(
+            EntryPointExecutionError::StateError(StateError::UndeclaredClassHash(class_hash))
+        )
+        if class_hash == class_hash!(undeclared_hash)
+    );
+}
+
 // TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
 // another contract flow.
 #[rstest]
