@@ -1,9 +1,9 @@
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeployAccountTransactionV1, Fee, PaymasterData, Resource,
-    ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    Calldata, ContractAddressSalt, DeployAccountTransactionV1, DeployAccountTransactionV3, Fee,
+    PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 
 use super::NonceManager;
@@ -64,14 +64,33 @@ pub fn deploy_account_tx(
     )
     .unwrap();
 
-    let tx = starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
-        max_fee: deploy_tx_args.max_fee,
-        signature: deploy_tx_args.signature,
-        class_hash: deploy_tx_args.class_hash,
-        contract_address_salt: deploy_tx_args.contract_address_salt,
-        constructor_calldata: deploy_tx_args.constructor_calldata,
-        nonce: nonce_manager.next(contract_address),
-    });
+    let tx = match deploy_tx_args.version {
+        TransactionVersion::ONE => {
+            starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
+                max_fee: deploy_tx_args.max_fee,
+                signature: deploy_tx_args.signature,
+                class_hash: deploy_tx_args.class_hash,
+                contract_address_salt: deploy_tx_args.contract_address_salt,
+                constructor_calldata: deploy_tx_args.constructor_calldata,
+                nonce: nonce_manager.next(contract_address),
+            })
+        }
+        TransactionVersion::THREE => {
+            starknet_api::transaction::DeployAccountTransaction::V3(DeployAccountTransactionV3 {
+                resource_bounds: deploy_tx_args.resource_bounds,
+                signature: deploy_tx_args.signature,
+                class_hash: deploy_tx_args.class_hash,
+                contract_address_salt: deploy_tx_args.contract_address_salt,
+                constructor_calldata: deploy_tx_args.constructor_calldata,
+                nonce: nonce_manager.next(contract_address),
+                tip: deploy_tx_args.tip,
+                nonce_data_availability_mode: deploy_tx_args.nonce_data_availability_mode,
+                fee_data_availability_mode: deploy_tx_args.fee_data_availability_mode,
+                paymaster_data: deploy_tx_args.paymaster_data,
+            })
+        }
+        version => panic!("Unsupported transaction version: {:?}.", version),
+    };
 
     DeployAccountTransaction::new(tx, TransactionHash::default(), contract_address)
 }
