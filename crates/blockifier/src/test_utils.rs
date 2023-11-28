@@ -405,48 +405,68 @@ macro_rules! invoke_tx_args {
     };
 }
 
-pub fn deploy_account_tx(
-    class_hash: &str,
-    max_fee: Fee,
-    constructor_calldata: Option<Calldata>,
-    signature: Option<TransactionSignature>,
-    nonce_manager: &mut NonceManager,
-) -> DeployAccountTransaction {
-    deploy_account_tx_with_salt(
-        class_hash,
-        max_fee,
-        constructor_calldata,
-        ContractAddressSalt::default(),
-        signature,
-        nonce_manager,
-    )
+// Transactions.
+#[derive(Clone)]
+pub struct DeployTxArgs {
+    pub version: TransactionVersion,
+    pub max_fee: Fee,
+    pub signature: TransactionSignature,
+    pub nonce: Nonce,
+    pub class_hash: ClassHash,
+    pub contract_address_salt: ContractAddressSalt,
+    pub constructor_calldata: Calldata,
+    pub resource_bounds: ResourceBoundsMapping,
+    pub tip: Tip,
+    pub nonce_data_availability_mode: DataAvailabilityMode,
+    pub fee_data_availability_mode: DataAvailabilityMode,
+    pub paymaster_data: PaymasterData,
+    pub deployer_address: ContractAddress,
 }
 
-pub fn deploy_account_tx_with_salt(
-    class_hash: &str,
-    max_fee: Fee,
-    constructor_calldata: Option<Calldata>,
-    contract_address_salt: ContractAddressSalt,
-    signature: Option<TransactionSignature>,
+impl Default for DeployTxArgs {
+    fn default() -> Self {
+        DeployTxArgs {
+            version: TransactionVersion::ONE,
+            resource_bounds: ResourceBoundsMapping::try_from(vec![
+                (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
+                // TODO(Dori, 1/2/2024): When fee market is developed, change the default price of
+                //   L2 gas.
+                (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
+            ])
+            .unwrap(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            nonce: Nonce::default(),
+            class_hash: ClassHash::default(),
+            contract_address_salt: ContractAddressSalt::default(),
+            constructor_calldata: Calldata::default(),
+            tip: Tip::default(),
+            paymaster_data: PaymasterData::default(),
+            signature: TransactionSignature::default(),
+            max_fee: Fee::default(),
+            deployer_address: ContractAddress::default(),
+        }
+    }
+}
+
+pub fn deploy_account_tx(
+    deploy_tx_args: DeployTxArgs,
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
-    let class_hash = class_hash!(class_hash);
-    let deployer_address = ContractAddress::default();
-    let constructor_calldata = constructor_calldata.unwrap_or_default();
     let contract_address = calculate_contract_address(
-        contract_address_salt,
-        class_hash,
-        &constructor_calldata,
-        deployer_address,
+        deploy_tx_args.contract_address_salt,
+        deploy_tx_args.class_hash,
+        &deploy_tx_args.constructor_calldata,
+        deploy_tx_args.deployer_address,
     )
     .unwrap();
 
     let tx = starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
-        max_fee,
-        signature: signature.unwrap_or_default(),
-        class_hash,
-        contract_address_salt,
-        constructor_calldata,
+        max_fee: deploy_tx_args.max_fee,
+        signature: deploy_tx_args.signature,
+        class_hash: deploy_tx_args.class_hash,
+        contract_address_salt: deploy_tx_args.contract_address_salt,
+        constructor_calldata: deploy_tx_args.constructor_calldata,
         nonce: nonce_manager.next(contract_address),
     });
 

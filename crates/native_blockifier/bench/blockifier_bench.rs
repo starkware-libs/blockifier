@@ -124,12 +124,15 @@ fn prepare_accounts(
         let constructor_address_salt = ContractAddressSalt(stark_felt!(account_salt as u64));
         let signature = None;
         let nonce_manager = &mut NonceManager::default();
-        let deploy_account_tx = deploy_account_tx_with_salt(
-            class_hash,
-            max_fee,
-            constructor_calldata,
-            constructor_address_salt,
-            signature,
+        let deploy_account_tx = deploy_account_tx(
+            DeployTxArgs {
+                class_hash,
+                max_fee,
+                constructor_calldata,
+                constructor_address_salt,
+                signature,
+                ..Default::default()
+            },
             nonce_manager,
         );
 
