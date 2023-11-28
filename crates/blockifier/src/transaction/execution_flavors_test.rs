@@ -65,18 +65,25 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
 }
 
 /// Asserts gas used and reported fee are as expected.
-/// Actual fee is not necessarily the cost of the actual resources; check them separately.
 fn check_gas_and_fee(
     block_context: &BlockContext,
     tx_execution_info: &TransactionExecutionInfo,
+    fee_type: &FeeType,
     expected_actual_gas: u64,
     expected_actual_fee: Fee,
+    expected_cost_of_resources: Fee,
 ) {
     assert_eq!(
         calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context).unwrap(),
         expected_actual_gas as u128
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
+    // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
+    // `calculate_tx_fee` is simply the result of `calculate_tx_l1_gas_usage` times gas price).
+    assert_eq!(
+        calculate_tx_fee(&tx_execution_info.actual_resources, block_context, fee_type).unwrap(),
+        expected_cost_of_resources
+    );
 }
 
 fn recurse_calldata(contract_address: ContractAddress, fail: bool, depth: u32) -> Calldata {
@@ -158,7 +165,14 @@ fn test_simulate_validate_charge_fee_pre_validate(
     })
     .execute(&mut state, &block_context, charge_fee, validate);
     if !charge_fee {
-        check_gas_and_fee(&block_context, &result.unwrap(), actual_gas_used, actual_fee);
+        check_gas_and_fee(
+            &block_context,
+            &result.unwrap(),
+            &fee_type,
+            actual_gas_used,
+            actual_fee,
+            actual_fee,
+        );
     } else {
         nonce_manager.rollback(account_address);
         if is_deprecated {
@@ -191,7 +205,14 @@ fn test_simulate_validate_charge_fee_pre_validate(
     })
     .execute(&mut state, &block_context, charge_fee, validate);
     if !charge_fee {
-        check_gas_and_fee(&block_context, &result.unwrap(), actual_gas_used, actual_fee);
+        check_gas_and_fee(
+            &block_context,
+            &result.unwrap(),
+            &fee_type,
+            actual_gas_used,
+            actual_fee,
+            actual_fee,
+        );
     } else {
         nonce_manager.rollback(account_address);
         if is_deprecated {
@@ -224,7 +245,14 @@ fn test_simulate_validate_charge_fee_pre_validate(
         })
         .execute(&mut state, &block_context, charge_fee, validate);
         if !charge_fee {
-            check_gas_and_fee(&block_context, &result.unwrap(), actual_gas_used, actual_fee);
+            check_gas_and_fee(
+                &block_context,
+                &result.unwrap(),
+                &fee_type,
+                actual_gas_used,
+                actual_fee,
+                actual_fee,
+            );
         } else {
             nonce_manager.rollback(account_address);
             assert_matches!(
@@ -281,7 +309,14 @@ fn test_simulate_validate_charge_fee_fail_validate(
     .execute(&mut falliable_state, &block_context, charge_fee, validate);
     if !validate {
         // The reported fee should be the actual cost, regardless of whether or not fee is charged.
-        check_gas_and_fee(&block_context, &result.unwrap(), actual_gas_used, actual_fee);
+        check_gas_and_fee(
+            &block_context,
+            &result.unwrap(),
+            &fee_type,
+            actual_gas_used,
+            actual_fee,
+            actual_fee,
+        );
     } else {
         assert_matches!(
             result.unwrap_err(),
@@ -342,7 +377,14 @@ fn test_simulate_validate_charge_fee_mid_execution(
     .execute(&mut state, &block_context, charge_fee, validate)
     .unwrap();
     assert!(tx_execution_info.is_reverted());
-    check_gas_and_fee(&block_context, &tx_execution_info, revert_gas_used, revert_fee);
+    check_gas_and_fee(
+        &block_context,
+        &tx_execution_info,
+        &fee_type,
+        revert_gas_used,
+        revert_fee,
+        revert_fee,
+    );
     let current_balance = check_balance(
         current_balance,
         &mut state,
@@ -375,18 +417,16 @@ fn test_simulate_validate_charge_fee_mid_execution(
     check_gas_and_fee(
         &block_context,
         &tx_execution_info,
+        &fee_type,
         // In case `charge_fee = false` we completely ignore the sender bounds when executing the
         // transaction. If `charge_fee` is true, we limit the transaction steps according to the
         // sender bounds. However, there are other resources that consumes gas (e.g. L1 data
         // availability), hence the actual resources may exceed the senders bounds after all.
         if charge_fee { limited_gas_used } else { unlimited_gas_used },
         if charge_fee { fee_bound } else { unlimited_fee },
-    );
-    // Complete resources used are reported as actual_resources; but only the charged final fee is
-    // shown in actual_fee.
-    assert_eq!(
-        calculate_tx_fee(&tx_execution_info.actual_resources, &block_context, &fee_type).unwrap(),
-        if charge_fee { limited_fee } else { unlimited_fee }
+        // Complete resources used are reported as actual_resources; but only the charged final fee
+        // is shown in actual_fee.
+        if charge_fee { limited_fee } else { unlimited_fee },
     );
     let current_balance = check_balance(
         current_balance,
@@ -422,11 +462,13 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // Complete resources used are reported as actual_resources; but only the charged final fee is
     // shown in actual_fee. As a sanity check, verify that the fee derived directly from the
     // consumed resources is also equal to the expected fee.
-    check_gas_and_fee(&block_context, &tx_execution_info, block_limit_gas, block_limit_fee);
-    assert_eq!(
-        calculate_tx_fee(&tx_execution_info.actual_resources, &low_step_block_context, &fee_type)
-            .unwrap(),
-        block_limit_fee
+    check_gas_and_fee(
+        &block_context,
+        &tx_execution_info,
+        &fee_type,
+        block_limit_gas,
+        block_limit_fee,
+        block_limit_fee,
     );
     check_balance(
         current_balance,
@@ -478,7 +520,7 @@ fn test_simulate_validate_charge_fee_post_execution(
         gas_and_fee(base_gas_bound, validate, &fee_type);
     // `__validate__` and overhead resources + number of reverted steps, comes out slightly less
     // than the gas bound.
-    let (revert_gas_usage, _) = gas_and_fee(base_gas_bound - 3, validate, &fee_type);
+    let (revert_gas_usage, revert_fee) = gas_and_fee(base_gas_bound - 3, validate, &fee_type);
     let (unlimited_gas_used, unlimited_fee) =
         gas_and_fee(base_gas_bound + 688, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
@@ -503,8 +545,10 @@ fn test_simulate_validate_charge_fee_post_execution(
     check_gas_and_fee(
         &block_context,
         &tx_execution_info,
+        &fee_type,
         if charge_fee { revert_gas_usage } else { unlimited_gas_used },
         if charge_fee { just_not_enough_fee_bound } else { unlimited_fee },
+        if charge_fee { revert_fee } else { unlimited_fee },
     );
     let current_balance = check_balance(
         current_balance,
@@ -518,7 +562,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     // Second scenario: balance too low.
     // Execute a transfer, and make sure we get the expected result.
     let (success_actual_gas, actual_fee) = gas_and_fee(8893, validate, &fee_type);
-    let (fail_actual_gas, _) = gas_and_fee(6508, validate, &fee_type);
+    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(6508, validate, &fee_type);
     assert!(stark_felt!(actual_fee) < current_balance);
     let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
     let recipient = stark_felt!(7_u8);
@@ -555,12 +599,14 @@ fn test_simulate_validate_charge_fee_post_execution(
     check_gas_and_fee(
         &block_context,
         &tx_execution_info,
+        &fee_type,
         // Since the failure was due to insufficient balance, the actual fee remains the same
         // regardless of whether or not the transaction was reverted.
         // The reported gas consumed, on the other hand, is much lower if the transaction was
         // reverted.
         if charge_fee { fail_actual_gas } else { success_actual_gas },
         actual_fee,
+        if charge_fee { fail_actual_cost } else { actual_fee },
     );
     check_balance(
         current_balance,
