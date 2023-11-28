@@ -165,14 +165,25 @@ fn test_simulate_validate_charge_fee_pre_validate(
         check_gas_and_fee(&block_context, &result.unwrap(), actual_gas_used, actual_fee);
     } else {
         nonce_manager.rollback(account_address);
-        assert_matches!(
-            result.unwrap_err(),
-            TransactionExecutionError::TransactionPreValidationError(
-                TransactionPreValidationError::TransactionFeeError(
-                    TransactionFeeError::MaxFeeExceedsBalance { .. }
+        if is_deprecated {
+            assert_matches!(
+                result.unwrap_err(),
+                TransactionExecutionError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::MaxFeeExceedsBalance { .. }
+                    )
                 )
-            )
-        );
+            );
+        } else {
+            assert_matches!(
+                result.unwrap_err(),
+                TransactionExecutionError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::L1GasBoundsExceedBalance { .. }
+                    )
+                )
+            );
+        }
     }
 
     // Fourth scenario: L1 gas price bound lower than the price on the block.
