@@ -38,8 +38,8 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, InvokeTxArgs, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DeployTxArgs, InvokeTxArgs,
+    NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
@@ -913,10 +913,13 @@ fn deploy_account_tx(
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     crate::test_utils::deploy_account_tx(
-        account_class_hash,
-        Fee(MAX_FEE),
-        constructor_calldata,
-        signature,
+        DeployTxArgs {
+            class_hash: class_hash!(account_class_hash),
+            max_fee: Fee(MAX_FEE),
+            constructor_calldata: constructor_calldata.unwrap_or_default(),
+            signature: signature.unwrap_or_default(),
+            ..Default::default()
+        },
         nonce_manager,
     )
 }
@@ -1125,14 +1128,17 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         // constructor (forbidden).
 
         let deploy_account_tx = crate::test_utils::deploy_account_tx(
-            TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-            Fee(0),
-            Some(calldata![stark_felt!(constants::FELT_TRUE)]),
-            // run faulty_validate() in the constructor.
-            Some(TransactionSignature(vec![
-                stark_felt!(CALL_CONTRACT),
-                stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-            ])),
+            DeployTxArgs {
+                class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
+                max_fee: Fee(0),
+                constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
+                // run faulty_validate() in the constructor.
+                signature: TransactionSignature(vec![
+                    stark_felt!(CALL_CONTRACT),
+                    stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                ]),
+                ..Default::default()
+            },
             &mut NonceManager::default(),
         );
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
