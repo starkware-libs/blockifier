@@ -147,6 +147,13 @@ mod TestContract {
         arg
     }
 
+    #[l1_handler]
+    fn l1_handler_set_value(self: @ContractState, from_address: felt252, key: StorageAddress, value: felt252) -> felt252{
+        let address_domain = 0;
+        starknet::syscalls::storage_write_syscall(address_domain, key, value).unwrap_syscall();
+        value
+    }
+
     #[external(v0)]
     fn test_deploy(
         self: @ContractState,
