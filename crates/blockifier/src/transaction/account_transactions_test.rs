@@ -57,14 +57,18 @@ fn block_context() -> BlockContext {
 }
 
 #[rstest]
-#[case(Fee(0))]
-#[case(Fee(1))]
-fn test_fee_enforcement(block_context: BlockContext, #[case] max_fee: Fee) {
+fn test_fee_enforcement(
+    block_context: BlockContext,
+    #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
+    #[values(true, false)] zero_bounds: bool,
+) {
     let mut state = create_state(block_context.clone());
     let deploy_account_tx = deploy_account_tx(
         DeployTxArgs {
             class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
-            max_fee,
+            max_fee: Fee(u128::from(!zero_bounds)),
+            resource_bounds: l1_resource_bounds(u64::from(!zero_bounds), DEFAULT_STRK_L1_GAS_PRICE),
+            version,
             ..Default::default()
         },
         &mut NonceManager::default(),
