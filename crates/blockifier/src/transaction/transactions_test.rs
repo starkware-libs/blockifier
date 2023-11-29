@@ -30,6 +30,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
@@ -43,12 +44,12 @@ use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata,
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, NonceManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -72,6 +73,7 @@ use crate::transaction::transactions::{
 };
 use crate::{invoke_tx_args, retdata};
 
+#[derive(PartialEq)]
 enum CairoVersion {
     Cairo0,
     Cairo1,
@@ -726,31 +728,53 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     );
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account(),
-    63, // range_check_builtin
-    2809, // n_steps
-    CairoVersion::Cairo0;
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account(),
-    65, // range_check_builtin
-    2847, // n_steps
-    CairoVersion::Cairo1;
-    "With Cairo1 account")]
+#[rstest]
+#[case(&mut create_state_with_trivial_validation_account(), CairoVersion::Cairo0)]
+#[case(&mut create_state_with_cairo1_account(), CairoVersion::Cairo1)]
 fn test_declare_tx(
-    state: &mut CachedState<DictStateReader>,
-    expected_range_check_builtin: usize,
-    expected_n_steps_resource: usize,
-    cairo_version: CairoVersion,
+    #[case] state: &mut CachedState<DictStateReader>,
+    #[case] cairo_version: CairoVersion,
+    #[values(
+        TransactionVersion::ZERO,
+        TransactionVersion::ONE,
+        TransactionVersion::TWO,
+        TransactionVersion::THREE
+    )]
+    version: TransactionVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
     let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
-    let contract_class =
-        ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH));
+    let contract_class = if version < TransactionVersion::TWO {
+        ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH))
+    } else {
+        ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH))
+    };
+
+    // Expected resource usage, depending on Cairo version and transaction version.
+    let expected_range_check_builtin =
+        if cairo_version == CairoVersion::Cairo0 || version == TransactionVersion::ZERO {
+            63
+        } else {
+            65
+        };
+    let expected_n_steps_resource = if version == TransactionVersion::ZERO {
+        2797
+    } else if cairo_version == CairoVersion::Cairo0 {
+        2809
+    } else {
+        2847
+    };
+
     let account_tx = declare_tx(
-        DeclareTxArgs { class_hash, sender_address, max_fee: Fee(MAX_FEE), ..Default::default() },
+        DeclareTxArgs {
+            class_hash,
+            sender_address,
+            max_fee: Fee(MAX_FEE),
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            version,
+            ..Default::default()
+        },
         contract_class.clone(),
     );
 
@@ -767,14 +791,19 @@ fn test_declare_tx(
     let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_account_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
     let expected_gas_consumed = 0;
-    let expected_validate_call_info = expected_validate_call_info(
-        expected_account_class_hash,
-        constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
-        expected_gas_consumed,
-        calldata![class_hash.0],
-        expected_account_address,
-        cairo_version,
-    );
+    // V0 transactions do not run validate.
+    let expected_validate_call_info = if version == TransactionVersion::ZERO {
+        None
+    } else {
+        expected_validate_call_info(
+            expected_account_class_hash,
+            constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
+            expected_gas_consumed,
+            calldata![class_hash.0],
+            expected_account_address,
+            cairo_version,
+        )
+    };
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
@@ -794,6 +823,12 @@ fn test_declare_tx(
         fee_type,
     );
 
+    let expected_memory_words = 2 * match version {
+        TransactionVersion::ZERO => 1, // 1 storage update, no nonce change.
+        TransactionVersion::ONE => 2,  // 1 modified contract (nonce), 1 sender balance update.
+        TransactionVersion::TWO | TransactionVersion::THREE => 3,
+        version => panic!("Unsupported version {version:?}."),
+    };
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -801,8 +836,10 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            // 1 modified contract, 1 storage update (sender balance).
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+            (
+                abi_constants::GAS_USAGE.to_string(),
+                expected_memory_words * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
+            ),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -812,9 +849,14 @@ fn test_declare_tx(
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
 
-    // Test nonce update.
+    // Test nonce update. V0 transactions do not update nonce.
+    let expected_nonce = Nonce(stark_felt!(match version {
+        TransactionVersion::ZERO => 0_u8,
+        TransactionVersion::ONE | TransactionVersion::TWO | TransactionVersion::THREE => 1_u8,
+        version => panic!("Unsupported version {version:?}."),
+    }));
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
+    assert_eq!(nonce_from_state, expected_nonce);
 
     // Test final balances.
     validate_final_balances(
