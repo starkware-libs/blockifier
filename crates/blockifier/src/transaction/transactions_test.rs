@@ -35,6 +35,7 @@ use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::cached_state::create_test_state;
 use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
 use crate::test_utils::deploy_account::DeployTxArgs;
 use crate::test_utils::dict_state_reader::DictStateReader;
@@ -68,7 +69,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
-    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction,
+    DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, L1HandlerTransaction,
 };
 use crate::{invoke_tx_args, retdata};
 
@@ -1302,4 +1303,91 @@ fn test_only_query_flag(#[case] only_query: bool) {
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     assert!(!tx_execution_info.is_reverted())
+}
+
+fn test_get_l1_handler_tx(calldata: &Calldata) -> L1HandlerTransaction {
+    L1HandlerTransaction {
+        tx: starknet_api::transaction::L1HandlerTransaction {
+            version: TransactionVersion::ZERO,
+            nonce: Nonce::default(),
+            contract_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            entry_point_selector: selector_from_name("deposit"),
+            calldata: calldata.clone(),
+        },
+        tx_hash: TransactionHash::default(),
+        paid_fee_on_l1: Fee(1),
+    }
+}
+
+#[test]
+fn test_l1_handler() {
+    let state = &mut create_test_state();
+    let block_context = &BlockContext::create_for_account_testing();
+    let calldata = Calldata(
+        vec![StarkFelt::from_u128(0x123), StarkFelt::from_u128(0x876), StarkFelt::from_u128(0x44)]
+            .into(),
+    );
+    let l1_handler_tx = test_get_l1_handler_tx(&calldata);
+
+    let actual_execution_info = l1_handler_tx.execute(state, block_context, true, true).unwrap();
+
+    // Build the expected call info.
+    let accessed_storage_key = StorageKey::try_from(calldata.0[1]).unwrap();
+    let expected_call_info = CallInfo {
+        call: CallEntryPoint {
+            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+            code_address: None,
+            entry_point_type: EntryPointType::L1Handler,
+            entry_point_selector: selector_from_name("deposit"),
+            calldata: calldata.clone(),
+            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            caller_address: ContractAddress::default(),
+            call_type: CallType::Call,
+            initial_gas: Transaction::initial_gas(), //
+        },
+        execution: CallExecution {
+            retdata: Retdata(vec![calldata.0[2]]),
+            gas_consumed: 19650,
+            ..Default::default()
+        },
+        vm_resources: VmExecutionResources {
+            n_steps: 143,
+            n_memory_holes: 1,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
+        },
+        accessed_storage_keys: HashSet::from_iter(vec![accessed_storage_key]),
+        ..Default::default()
+    };
+
+    // Build the expected resource mapping.
+    let expected_resource_mapping = ResourcesMapping(HashMap::from([
+        (HASH_BUILTIN_NAME.to_string(), 11),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 1304),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 22),
+        (abi_constants::GAS_USAGE.to_string(), 18471),
+    ]));
+
+    // Build the expected execution info.
+    let expected_execution_info = TransactionExecutionInfo {
+        validate_call_info: None,
+        execute_call_info: Some(expected_call_info),
+        fee_transfer_call_info: None,
+        actual_fee: Fee(0),
+        actual_resources: expected_resource_mapping,
+        revert_error: None,
+    };
+
+    // Check the actual returned execution info.
+    assert_eq!(actual_execution_info, expected_execution_info);
+
+    // Negative flow: not enough fee paid on L1
+    let mut l1_handler_tx_no_fee = test_get_l1_handler_tx(&calldata);
+    l1_handler_tx_no_fee.paid_fee_on_l1 = Fee(0);
+    let error = l1_handler_tx_no_fee.execute(state, block_context, true, true).unwrap_err();
+    assert_matches!(
+        error,
+        TransactionExecutionError::TransactionFeeError(
+            TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
+            if paid_fee == Fee(0) && actual_fee == Fee(0)
+    );
 }

@@ -147,6 +147,13 @@ mod TestContract {
         arg
     }
 
+    #[l1_handler]
+    fn deposit(self: @ContractState, from_address: felt252, to_address: StorageAddress, amount: felt252) -> felt252{
+        let address_domain = 0;
+        starknet::syscalls::storage_write_syscall(address_domain, to_address, amount).unwrap_syscall();
+        amount
+    }
+
     #[external(v0)]
     fn test_deploy(
         self: @ContractState,
