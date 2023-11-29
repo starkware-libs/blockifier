@@ -14,19 +14,17 @@ use crate::transaction::transactions::DeclareTransaction;
 pub struct DeclareTxArgs {
     pub max_fee: Fee,
     pub signature: TransactionSignature,
-    pub nonce: Nonce,
-    pub class_hash: ClassHash,
     pub sender_address: ContractAddress,
-    pub compiled_class_hash: CompiledClassHash,
+    pub version: TransactionVersion,
     pub resource_bounds: ResourceBoundsMapping,
     pub tip: Tip,
     pub nonce_data_availability_mode: DataAvailabilityMode,
     pub fee_data_availability_mode: DataAvailabilityMode,
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
-
-    // Meta fields.
-    pub version: TransactionVersion,
+    pub nonce: Nonce,
+    pub class_hash: ClassHash,
+    pub compiled_class_hash: CompiledClassHash,
     pub tx_hash: TransactionHash,
 }
 
