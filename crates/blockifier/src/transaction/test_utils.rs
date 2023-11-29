@@ -6,9 +6,9 @@ use starknet_api::core::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, DeclareTransactionV0V1, Fee, InvokeTransactionV0,
-    InvokeTransactionV1, InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, Fee, InvokeTransactionV0, InvokeTransactionV1,
+    InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -36,9 +36,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::objects::{FeeType, TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{
-    DeclareTransaction, ExecutableTransaction, InvokeTransaction,
-};
+use crate::transaction::transactions::{ExecutableTransaction, InvokeTransaction};
 
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
@@ -149,22 +147,15 @@ pub fn create_test_init_data(max_fee: Fee, block_context: BlockContext) -> TestI
 
     // Declare a contract.
     let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
-    let declare_tx = declare_tx(DeclareTxArgs {
-        class_hash: class_hash!(TEST_CLASS_HASH),
-        sender_address: account_address,
-        max_fee,
-        ..Default::default()
-    });
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V1(DeclareTransactionV0V1 {
-                nonce: nonce_manager.next(account_address),
-                ..declare_tx
-            }),
-            TransactionHash::default(),
-            contract_class,
-        )
-        .unwrap(),
+    let account_tx = declare_tx(
+        DeclareTxArgs {
+            class_hash: class_hash!(TEST_CLASS_HASH),
+            sender_address: account_address,
+            max_fee,
+            nonce: nonce_manager.next(account_address),
+            ..Default::default()
+        },
+        contract_class,
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
@@ -312,21 +303,16 @@ pub fn create_account_tx_for_validate_test(
         TransactionType::Declare => {
             let contract_class =
                 ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
-            let declare_tx = declare_tx(DeclareTxArgs {
-                class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
-                sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-                max_fee: Fee(0),
-                signature,
-                ..Default::default()
-            });
-
-            AccountTransaction::Declare(
-                DeclareTransaction::new(
-                    starknet_api::transaction::DeclareTransaction::V1(declare_tx),
-                    TransactionHash::default(),
-                    contract_class,
-                )
-                .unwrap(),
+            let sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
+            declare_tx(
+                DeclareTxArgs {
+                    class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+                    sender_address,
+                    max_fee: Fee(0),
+                    signature,
+                    ..Default::default()
+                },
+                contract_class,
             )
         }
         TransactionType::DeployAccount => {
