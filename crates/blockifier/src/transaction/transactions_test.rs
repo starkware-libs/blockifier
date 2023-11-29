@@ -43,12 +43,12 @@ use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata,
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, NonceManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
+    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -726,23 +726,21 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     );
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account(),
-    63, // range_check_builtin
-    2809, // n_steps
-    CairoVersion::Cairo0;
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account(),
-    65, // range_check_builtin
-    2847, // n_steps
-    CairoVersion::Cairo1;
-    "With Cairo1 account")]
+#[rstest]
+#[case(&mut create_state_with_trivial_validation_account(), 63, 2809, CairoVersion::Cairo0)]
+#[case(&mut create_state_with_cairo1_account(), 65, 2847, CairoVersion::Cairo1)]
 fn test_declare_tx(
-    state: &mut CachedState<DictStateReader>,
-    expected_range_check_builtin: usize,
-    expected_n_steps_resource: usize,
-    cairo_version: CairoVersion,
+    #[case] state: &mut CachedState<DictStateReader>,
+    #[case] expected_range_check_builtin: usize,
+    #[case] expected_n_steps_resource: usize,
+    #[case] cairo_version: CairoVersion,
+    #[values(
+        TransactionVersion::ZERO,
+        TransactionVersion::ONE,
+        TransactionVersion::TWO,
+        TransactionVersion::THREE
+    )]
+    version: TransactionVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
@@ -750,7 +748,14 @@ fn test_declare_tx(
     let contract_class =
         ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH));
     let account_tx = declare_tx(
-        DeclareTxArgs { class_hash, sender_address, max_fee: Fee(MAX_FEE), ..Default::default() },
+        DeclareTxArgs {
+            class_hash,
+            sender_address,
+            max_fee: Fee(MAX_FEE),
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_AMOUNT as u128),
+            version,
+            ..Default::default()
+        },
         contract_class.clone(),
     );
 
