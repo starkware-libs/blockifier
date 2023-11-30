@@ -16,6 +16,7 @@ pub mod storage;
 pub mod test_utils;
 pub mod transaction_executor;
 
+use blockifier::fee::os_resources::get_raw_os_resources;
 use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;
 use py_transaction_execution_info::{
@@ -51,5 +52,12 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     //   with #[cfg(test)].
     py_module.add_function(wrap_pyfunction!(raise_error_for_testing, py)?)?;
 
+    py_module.add_function(wrap_pyfunction!(get_os_resources_json, py)?)?;
+
     Ok(())
+}
+
+#[pyfunction]
+pub fn get_os_resources_json() -> String {
+    get_raw_os_resources().to_string()
 }

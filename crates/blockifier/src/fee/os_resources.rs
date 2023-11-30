@@ -4,12 +4,13 @@ use crate::fee::os_usage::OsResources;
 
 #[ctor::ctor]
 pub static OS_RESOURCES: OsResources = {
-    serde_json::from_value(os_resources())
+    serde_json::from_value(get_raw_os_resources())
         .expect("os_resources json does not exist or cannot be deserialized.")
 };
 
 // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
-fn os_resources() -> serde_json::Value {
+// ** NOTE: prefer using the deserialized static instance above whenever possible.
+pub fn get_raw_os_resources() -> serde_json::Value {
     json!({
         "execute_syscalls": {
             "CallContract": {
