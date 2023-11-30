@@ -2260,9 +2260,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_config"
-version = "0.2.0-rc3"
+version = "0.2.0-rc4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b290d624e39ec04018140e6a94dc162fc812b17e31c02660505346065437ddca"
+checksum = "d316b4cedf183430bf102fa37aaca569fcf14afa21017f9cae40bad31a92f90f"
 dependencies = [
  "clap 4.4.8",
  "itertools 0.10.5",
@@ -2275,9 +2275,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_proc_macros"
-version = "0.2.0-rc3"
+version = "0.2.0-rc4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3068769b78f2ccd22544f742dc37d17c69d603cdee22b6996f8d2b7747da7f23"
+checksum = "23b901029cb8fcaa483ac289b985d497299618f4c77291cbad82fbb51e6736a1"
 dependencies = [
  "quote",
  "syn 2.0.39",
@@ -2285,9 +2285,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_storage"
-version = "0.2.0-rc3"
+version = "0.2.0-rc4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b21c01003e46b28f6de4adb5dada6c74c859d02e5d56774f3a077ec265bf39da"
+checksum = "dee9785850852ce6a9935eb8b44c8197e3ecbb3a856e6875b7abc527af869808"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
