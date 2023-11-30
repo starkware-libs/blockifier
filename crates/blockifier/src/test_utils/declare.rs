@@ -50,6 +50,23 @@ impl Default for DeclareTxArgs {
     }
 }
 
+/// Utility macro for creating `DeclareTxArgs` to reduce boilerplate.
+#[macro_export]
+macro_rules! declare_tx_args {
+    ($($field:ident $(: $value:expr)?),* $(,)?) => {
+        DeclareTxArgs {
+            $($field $(: $value)?,)*
+            ..Default::default()
+        }
+    };
+    ($($field:ident $(: $value:expr)?),* , ..$defaults:expr) => {
+        DeclareTxArgs {
+            $($field $(: $value)?,)*
+            ..$defaults
+        }
+    };
+}
+
 pub fn declare_tx(
     declare_tx_args: DeclareTxArgs,
     contract_class: ContractClass,
