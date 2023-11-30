@@ -50,49 +50,19 @@ impl Default for InvokeTxArgs {
     }
 }
 
-/// Utility macro for creating `InvokeTxArgs` with "smart" default values, kwarg-style notation.
+/// Utility macro for creating `InvokeTxArgs` to reduce boilerplate.
 #[macro_export]
 macro_rules! invoke_tx_args {
     ($($field:ident $(: $value:expr)?),* $(,)?) => {
-        {
-            // Fill in all fields + defaults for missing fields.
-            let mut _macro_invoke_tx_args = InvokeTxArgs {
-                $($field $(: $value)?,)*
-                ..Default::default()
-            };
-            // If resource bounds aren't explicitly passed, derive them from max_fee.
-            if _macro_invoke_tx_args.version >= TransactionVersion::THREE
-                && [$(stringify!($field) != "resource_bounds"),*].iter().all(|&x| x) {
-                let _macro_new_resource_bounds_vec: Vec<(
-                    starknet_api::transaction::Resource,
-                    starknet_api::transaction::ResourceBounds
-                )> = [
-                    starknet_api::transaction::Resource::L1Gas,
-                    starknet_api::transaction::Resource::L2Gas
-                ].into_iter().map(|resource| (
-                    resource,
-                    starknet_api::transaction::ResourceBounds {
-                        max_amount: _macro_invoke_tx_args.max_fee.0 as u64,
-                        max_price_per_unit: 1
-                    },
-                )).collect();
-                _macro_invoke_tx_args.resource_bounds
-                    = starknet_api::transaction::ResourceBoundsMapping::try_from(
-                        _macro_new_resource_bounds_vec
-                    ).unwrap();
-            }
-            _macro_invoke_tx_args
+        InvokeTxArgs {
+            $($field $(: $value)?,)*
+            ..Default::default()
         }
     };
     ($($field:ident $(: $value:expr)?),* , ..$defaults:expr) => {
-        {
-            // Fill in all fields + use the provided defaults for missing fields.
-            // In this case, do not derive "smart" defaults for fields not passed explicitly - we
-            // assume these fields are already "correct" on the provided defaults.
-            InvokeTxArgs {
-                $($field $(: $value)?,)*
-                ..$defaults
-            }
+        InvokeTxArgs {
+            $($field $(: $value)?,)*
+            ..$defaults
         }
     };
 }
