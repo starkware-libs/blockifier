@@ -58,3 +58,7 @@ future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
 unused = "deny"
+
+# Temporarily here until a tag is published.
+[patch.crates-io]
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "94c6dfeb" }
