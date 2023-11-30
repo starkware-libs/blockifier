@@ -37,8 +37,7 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::create_test_state;
-use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
-use crate::test_utils::deploy_account::DeployTxArgs;
+use crate::test_utils::declare::declare_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
@@ -72,7 +71,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
     DeployAccountTransaction, ExecutableTransaction, L1HandlerTransaction,
 };
-use crate::{invoke_tx_args, retdata};
+use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args, retdata};
 
 #[derive(Clone, Copy)]
 enum CairoVersion {
@@ -549,11 +548,10 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     // Declare.
     let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
     let invalid_tx = declare_tx(
-        DeclareTxArgs {
+        declare_tx_args! {
             class_hash: class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             sender_address,
             max_fee: invalid_max_fee,
-            ..Default::default()
         },
         ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH)),
     );
@@ -814,13 +812,12 @@ fn test_declare_tx(
     };
 
     let account_tx = declare_tx(
-        DeclareTxArgs {
+        declare_tx_args! {
             max_fee: Fee(MAX_FEE),
             sender_address,
             version,
             resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
             class_hash,
-            ..Default::default()
         },
         contract_class.clone(),
     );
@@ -915,12 +912,11 @@ fn deploy_account_tx(
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     crate::test_utils::deploy_account::deploy_account_tx(
-        DeployTxArgs {
+        deploy_account_tx_args! {
             class_hash: class_hash!(account_class_hash),
             max_fee: Fee(MAX_FEE),
             constructor_calldata: constructor_calldata.unwrap_or_default(),
             signature: signature.unwrap_or_default(),
-            ..Default::default()
         },
         nonce_manager,
     )
@@ -1156,7 +1152,7 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         // constructor (forbidden).
 
         let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
-            DeployTxArgs {
+            deploy_account_tx_args! {
                 class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
                 constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
                 // Run faulty_validate() in the constructor.
@@ -1164,7 +1160,6 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
                     stark_felt!(CALL_CONTRACT),
                     stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
                 ]),
-                ..Default::default()
             },
             &mut NonceManager::default(),
         );

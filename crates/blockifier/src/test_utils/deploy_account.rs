@@ -11,7 +11,7 @@ use crate::test_utils::NonceManager;
 use crate::transaction::transactions::DeployAccountTransaction;
 
 #[derive(Clone)]
-pub struct DeployTxArgs {
+pub struct DeployAccountTxArgs {
     pub max_fee: Fee,
     pub signature: TransactionSignature,
     pub deployer_address: ContractAddress,
@@ -27,9 +27,9 @@ pub struct DeployTxArgs {
     pub constructor_calldata: Calldata,
 }
 
-impl Default for DeployTxArgs {
+impl Default for DeployAccountTxArgs {
     fn default() -> Self {
-        DeployTxArgs {
+        DeployAccountTxArgs {
             max_fee: Fee::default(),
             signature: TransactionSignature::default(),
             deployer_address: ContractAddress::default(),
@@ -47,8 +47,25 @@ impl Default for DeployTxArgs {
     }
 }
 
+/// Utility macro for creating `DeployAccountTxArgs` to reduce boilerplate.
+#[macro_export]
+macro_rules! deploy_account_tx_args {
+    ($($field:ident $(: $value:expr)?),* $(,)?) => {
+        $crate::test_utils::deploy_account::DeployAccountTxArgs {
+            $($field $(: $value)?,)*
+            ..Default::default()
+        }
+    };
+    ($($field:ident $(: $value:expr)?),* , ..$defaults:expr) => {
+        $crate::test_utils::deploy_account::DeployAccountTxArgs {
+            $($field $(: $value)?,)*
+            ..$defaults
+        }
+    };
+}
+
 pub fn deploy_account_tx(
-    deploy_tx_args: DeployTxArgs,
+    deploy_tx_args: DeployAccountTxArgs,
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     let contract_address = calculate_contract_address(
