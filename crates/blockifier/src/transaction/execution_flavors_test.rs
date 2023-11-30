@@ -15,7 +15,6 @@ use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
-use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
