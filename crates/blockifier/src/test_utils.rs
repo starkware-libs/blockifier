@@ -42,7 +42,6 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
-pub const TEST_PAIR_SKELETON_CONTRACT_ADDRESS1: &str = "0x1003";
 
 // Class hashes.
 pub const TEST_CLASS_HASH: &str = "0x110";
@@ -55,7 +54,6 @@ pub const LEGACY_TEST_CLASS_HASH: &str = "0x116";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
-pub const TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH: &str = "0x1011";
 
 // Paths.
 pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
@@ -80,8 +78,6 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
-pub const TEST_PAIR_SKELETON_CONTRACT_PATH: &str =
-    "./feature_contracts/cairo0/compiled/test_pair_skeleton_compiled.json";
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
@@ -109,10 +105,6 @@ pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in 
 
 // The block number of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
-
-// The reserves values in the mocked STRK-ETH pair contract.
-pub const RESERVE_0: u32 = 100000;
-pub const RESERVE_1: u32 = 100;
 
 // The block timestamp of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_TIMESTAMP: u64 = 1072023;
