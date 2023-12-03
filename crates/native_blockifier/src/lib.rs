@@ -16,6 +16,7 @@ pub mod storage;
 pub mod test_utils;
 pub mod transaction_executor;
 
+use blockifier::fee::os_resources::OS_RESOURCES_JSON;
 use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;
 use py_transaction_execution_info::{
@@ -35,6 +36,10 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     // Usage: just create a Python logger as usual, and it'll capture Rust prints.
     pyo3_log::init();
 
+    // Constants.
+    py_module.add("OS_RESOURCES_JSON", OS_RESOURCES_JSON)?;
+
+    // Classes.
     py_module.add_class::<PyBlockExecutor>()?;
     py_module.add_class::<PyCallInfo>()?;
     py_module.add_class::<PyOrderedEvent>()?;
@@ -44,9 +49,12 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyValidator>()?;
     py_module.add_class::<PyVmExecutionResources>()?;
     py_module.add_class::<StorageConfig>()?;
+
+    // Exceptions.
     py_module.add("UndeclaredClassHashError", py.get_type::<UndeclaredClassHashError>())?;
     add_py_exceptions(py, py_module)?;
 
+    // Test utils.
     // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, gate this code
     //   with #[cfg(test)].
     py_module.add_function(wrap_pyfunction!(raise_error_for_testing, py)?)?;
