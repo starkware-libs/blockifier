@@ -42,7 +42,7 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, NonceManager,
+    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, CairoVersion, NonceManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_ADDRESS,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
@@ -72,11 +72,6 @@ use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, ExecutableTransaction, L1HandlerTransaction,
 };
 use crate::{invoke_tx_args, retdata};
-
-enum CairoVersion {
-    Cairo0,
-    Cairo1,
-}
 
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
