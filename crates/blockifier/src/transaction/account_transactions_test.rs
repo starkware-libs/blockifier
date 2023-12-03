@@ -23,7 +23,6 @@ use crate::invoke_tx_args;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
-use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
