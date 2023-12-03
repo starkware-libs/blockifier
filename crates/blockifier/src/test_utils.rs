@@ -59,7 +59,7 @@ pub const TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH: &str = "0x1011";
 
 // Paths.
 pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/account_contract.casm.json";
+    "./feature_contracts/cairo1/compiled/account_without_validations.casm.json";
 pub const ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
 pub const GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
