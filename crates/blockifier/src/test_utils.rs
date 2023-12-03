@@ -1,7 +1,9 @@
 pub mod cached_state;
+pub mod contracts;
 pub mod declare;
 pub mod deploy_account;
 pub mod dict_state_reader;
+pub mod initial_test_state;
 pub mod invoke;
 pub mod struct_impls;
 
@@ -19,6 +21,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Resource, ResourceBounds, ResourceBoundsMapping};
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
+use strum_macros::EnumIter;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants::{self};
@@ -72,6 +75,18 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+
+#[derive(Copy, Clone, Debug, EnumIter, PartialEq)]
+pub enum CairoVersion {
+    Cairo0,
+    Cairo1,
+}
+
+impl Default for CairoVersion {
+    fn default() -> Self {
+        Self::Cairo0
+    }
+}
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {

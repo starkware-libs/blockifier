@@ -25,6 +25,7 @@ pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 /// Writer functionality is builtin, whereas Reader functionality is injected through
 /// initialization.
 #[derive(Debug)]
+#[cfg_attr(any(feature = "testing", test), derive(Clone))]
 pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
@@ -381,6 +382,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 
 // Invariant: keys cannot be deleted from fields (only used internally by the cached state).
 #[derive(Debug, Default, PartialEq, Eq)]
+#[cfg_attr(any(feature = "testing", test), derive(Clone))]
 pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
