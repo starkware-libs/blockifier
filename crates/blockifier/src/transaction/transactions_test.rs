@@ -74,6 +74,7 @@ use crate::transaction::transactions::{
 };
 use crate::{invoke_tx_args, retdata};
 
+#[derive(Clone, Copy)]
 enum CairoVersion {
     Cairo0,
     Cairo1,
@@ -728,6 +729,67 @@ fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
     );
 }
 
+/// Returns the expected number of range checks in a declare transaction.
+fn declare_expected_range_check_builtin(
+    version: TransactionVersion,
+    declared_contract_version: CairoVersion,
+) -> usize {
+    // Cairo1 account has a vector as input in `__validate__`, so extra range checks needed.
+    // Not relevant in v0 transactions (no validate).
+    if version > TransactionVersion::ZERO
+        && matches!(declared_contract_version, CairoVersion::Cairo1)
+    {
+        65
+    } else {
+        63
+    }
+}
+
+/// Returns the expected number of cairo steps in a declare transaction.
+fn declare_n_steps(version: TransactionVersion, declared_contract_version: CairoVersion) -> usize {
+    if version == TransactionVersion::ZERO {
+        2797 // No `__validate__`. Same number of steps, regardless of declared contract version.
+    } else {
+        match declared_contract_version {
+            CairoVersion::Cairo0 => 2809,
+            CairoVersion::Cairo1 => 2847,
+        }
+    }
+}
+
+/// Expected CallInfo for `__validate__` call in a declare transaction.
+fn declare_validate_callinfo(
+    version: TransactionVersion,
+    declared_contract_version: CairoVersion,
+    declared_class_hash: ClassHash,
+    account_class_hash: ClassHash,
+    account_address: ContractAddress,
+) -> Option<CallInfo> {
+    // V0 transactions do not run validate.
+    if version == TransactionVersion::ZERO {
+        None
+    } else {
+        expected_validate_call_info(
+            account_class_hash,
+            constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
+            0,
+            calldata![declared_class_hash.0],
+            account_address,
+            declared_contract_version,
+        )
+    }
+}
+
+/// Expected amount of memory words changed during execution of a declare transaction.
+fn declare_expected_memory_words(version: TransactionVersion) -> usize {
+    2 * match version {
+        TransactionVersion::ZERO => 1, // 1 storage update (sender balance), no nonce change.
+        TransactionVersion::ONE => 2,  // 1 modified contract (nonce), 1 sender balance update.
+        TransactionVersion::TWO | TransactionVersion::THREE => 3, // Also set compiled class hash.
+        version => panic!("Unsupported version {version:?}."),
+    }
+}
+
 #[rstest]
 #[case(&mut create_state_with_trivial_validation_account(), CairoVersion::Cairo0)]
 #[case(&mut create_state_with_cairo1_account(), CairoVersion::Cairo1)]
@@ -749,31 +811,6 @@ fn test_declare_tx(
         ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH))
     } else {
         ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH))
-    };
-
-    // Expected resource usage, depending on Cairo version and transaction version.
-    let expected_range_check_builtin = match cairo_version {
-        CairoVersion::Cairo0 => 63,
-        CairoVersion::Cairo1 => {
-            if version == TransactionVersion::ZERO {
-                63
-            } else {
-                // Cairo1 account returns a value in `__validate__`, so extra range checks needed.
-                // Not relevant in v0 transactions (no validate).
-                65
-            }
-        }
-    };
-    let expected_n_steps_resource = if version == TransactionVersion::ZERO {
-        // No `__validate__`.
-        2797
-    } else {
-        match cairo_version {
-            // Cairo0 account `__validate__`.
-            CairoVersion::Cairo0 => 2809,
-            // Cairo1 account `__validate__`.
-            CairoVersion::Cairo1 => 2847,
-        }
     };
 
     let account_tx = declare_tx(
@@ -798,22 +835,14 @@ fn test_declare_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_account_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
-    let expected_gas_consumed = 0;
-    // V0 transactions do not run validate.
-    let expected_validate_call_info = if version == TransactionVersion::ZERO {
-        None
-    } else {
-        expected_validate_call_info(
-            expected_account_class_hash,
-            constants::VALIDATE_DECLARE_ENTRY_POINT_NAME,
-            expected_gas_consumed,
-            calldata![class_hash.0],
-            expected_account_address,
-            cairo_version,
-        )
-    };
+    let expected_validate_call_info = declare_validate_callinfo(
+        version,
+        cairo_version,
+        class_hash,
+        class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+        expected_account_address,
+    );
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
@@ -833,12 +862,6 @@ fn test_declare_tx(
         fee_type,
     );
 
-    let expected_memory_words = 2 * match version {
-        TransactionVersion::ZERO => 1, // 1 storage update (sender balance), no nonce change.
-        TransactionVersion::ONE => 2,  // 1 modified contract (nonce), 1 sender balance update.
-        TransactionVersion::TWO | TransactionVersion::THREE => 3, // Also set compiled class hash.
-        version => panic!("Unsupported version {version:?}."),
-    };
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -848,11 +871,15 @@ fn test_declare_tx(
         actual_resources: ResourcesMapping(HashMap::from([
             (
                 abi_constants::GAS_USAGE.to_string(),
-                expected_memory_words * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
+                declare_expected_memory_words(version)
+                    * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
             ),
             (HASH_BUILTIN_NAME.to_string(), 15),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
+            (
+                RANGE_CHECK_BUILTIN_NAME.to_string(),
+                declare_expected_range_check_builtin(version, cairo_version),
+            ),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), declare_n_steps(version, cairo_version)),
         ])),
     };
 
@@ -860,11 +887,8 @@ fn test_declare_tx(
     assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update. V0 transactions do not update nonce.
-    let expected_nonce = Nonce(stark_felt!(match version {
-        TransactionVersion::ZERO => 0_u8,
-        TransactionVersion::ONE | TransactionVersion::TWO | TransactionVersion::THREE => 1_u8,
-        version => panic!("Unsupported version {version:?}."),
-    }));
+    let expected_nonce =
+        Nonce(stark_felt!(if version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 }));
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
     assert_eq!(nonce_from_state, expected_nonce);
 
