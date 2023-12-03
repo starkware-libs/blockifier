@@ -5,13 +5,29 @@ const FEATURE_CONTRACTS_DIR: &str = "feature_contracts/cairo0";
 const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
 const FIX_COMMAND: &str = "FIX_FEATURE_TEST=1 cargo test -- --ignored";
 
-// To fix feature contracts, first enter a python venv and install the requirements:
+// To fix Cairo0 feature contracts, first enter a python venv and install the requirements:
 // ```
 // python -m venv tmp_venv
 // . tmp_venv/bin/activate
 // pip install -r crates/blockifier/tests/requirements.txt
 // ```
 // Then, run the FIX_COMMAND above.
+
+// To fix Cairo1 feature contracts, need to compile them one by one:
+// 1. Clone the [cairo repo](https://github.com/starkware-libs/cairo).
+// 2. Checkout the commit defined in [the root Cargo.toml](../../../../Cargo.toml).
+// 3. From within the compiler repo root directory, run:
+// ```
+// PREFIX=/home/<you>/workspace/blockifier/crates/blockifier/feature_contracts/cairo1
+// CONTRACT_NAME=<contract_base_filename>
+// cargo run --release --bin starknet-compile -- --single-file \
+//   $PREFIX/$CONTRACT_NAME.cairo \
+//   $PREF/compiled/$CONTRACT_NAME.sierra.json
+// cargo run --release --bin starknet-sierra-compile \
+//   $PREFIX/compiled/$CONTRACT_NAME.sierra.json \
+//   $PREFIX/compiled/$CONTRACT_NAME.casm.json
+// ```
+// TODO(Gilad, 1/1/2024): New year's resolution: support Cairo1 in the test.
 
 // Checks that:
 // 1. `TEST_CONTRACTS` dir exists and contains only `.cairo` files and the subdirectory
