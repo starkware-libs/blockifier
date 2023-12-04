@@ -14,10 +14,10 @@ fn os_resources() -> serde_json::Value {
         "execute_syscalls": {
             "CallContract": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check_builtin": 20
                 },
-                "n_memory_holes": 0,
-                "n_steps": 691
+                "n_memory_holes": 4,
+                "n_steps": 760
             },
             "DelegateCall": {
                 "builtin_instance_counter": {
@@ -36,15 +36,17 @@ fn os_resources() -> serde_json::Value {
             "Deploy": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 7,
-                    "range_check_builtin": 18
+                    "range_check_builtin": 19
                 },
-                "n_memory_holes": 0,
-                "n_steps": 944
+                "n_memory_holes": 13,
+                "n_steps": 1010
             },
             "EmitEvent": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 19
+                "n_steps": 61
             },
             "GetBlockHash": {
                 "builtin_instance_counter": {
@@ -64,19 +66,25 @@ fn os_resources() -> serde_json::Value {
                 "n_steps": 38
             },
             "GetCallerAddress": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 32
+                "n_steps": 62
             },
             "GetContractAddress": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 36
+                "n_steps": 62
             },
             "GetExecutionInfo": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 29
+                "n_steps": 62
             },
             "GetSequencerAddress": {
                 "builtin_instance_counter": {},
@@ -84,17 +92,17 @@ fn os_resources() -> serde_json::Value {
                 "n_steps": 34
             },
             "GetTxInfo": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 29
+                "n_steps": 62
             },
             "GetTxSignature": {
                 "builtin_instance_counter": {},
                 "n_memory_holes": 0,
                 "n_steps": 44
             },
-            // The following is the cost of one Keccak round.
-            // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
             "Keccak": {
                 "builtin_instance_counter": {
                     "bitwise_builtin": 6,
@@ -106,10 +114,10 @@ fn os_resources() -> serde_json::Value {
             },
             "LibraryCall": {
                 "builtin_instance_counter": {
-                    "range_check_builtin": 19
+                    "range_check_builtin": 20
                 },
-                "n_memory_holes": 0,
-                "n_steps": 680
+                "n_memory_holes": 4,
+                "n_steps": 751
             },
             "LibraryCallL1Handler": {
                 "builtin_instance_counter": {
@@ -119,9 +127,11 @@ fn os_resources() -> serde_json::Value {
                 "n_steps": 659
             },
             "ReplaceClass": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 73
+                "n_steps": 98
             },
             "Secp256k1Add": {
                 "builtin_instance_counter": {
@@ -134,7 +144,7 @@ fn os_resources() -> serde_json::Value {
                 "builtin_instance_counter": {
                     "range_check_builtin": 30
                 },
-                "n_memory_holes": 20,
+                "n_memory_holes": 18,
                 "n_steps": 391
             },
             "Secp256k1GetXy": {
@@ -148,8 +158,8 @@ fn os_resources() -> serde_json::Value {
                 "builtin_instance_counter": {
                     "range_check_builtin": 7045
                 },
-                "n_memory_holes": 0,
-                "n_steps": 76401
+                "n_memory_holes": 2,
+                "n_steps": 76501
             },
             "Secp256k1New": {
                 "builtin_instance_counter": {
@@ -183,8 +193,8 @@ fn os_resources() -> serde_json::Value {
                 "builtin_instance_counter": {
                     "range_check_builtin": 13961
                 },
-                "n_memory_holes": 0,
-                "n_steps": 125240
+                "n_memory_holes": 2,
+                "n_steps": 125340
             },
             "Secp256r1New": {
                 "builtin_instance_counter": {
@@ -194,19 +204,25 @@ fn os_resources() -> serde_json::Value {
                 "n_steps": 594
             },
             "SendMessageToL1": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 84
+                "n_steps": 139
             },
             "StorageRead": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 44
+                "n_steps": 87
             },
             "StorageWrite": {
-                "builtin_instance_counter": {},
+                "builtin_instance_counter": {
+                    "range_check_builtin": 1
+                },
                 "n_memory_holes": 0,
-                "n_steps": 46
+                "n_steps": 89
             }
         },
         "execute_txs_inner": {
@@ -215,24 +231,24 @@ fn os_resources() -> serde_json::Value {
                     "pedersen_builtin": 15,
                     "range_check_builtin": 63
                 },
-                "n_memory_holes": 0,
-                "n_steps": 2797
+                "n_memory_holes": 66,
+                "n_steps": 2843
             },
             "DeployAccount": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 23,
                     "range_check_builtin": 83
                 },
-                "n_memory_holes": 0,
-                "n_steps": 3743
+                "n_memory_holes": 82,
+                "n_steps": 3798
             },
             "InvokeFunction": {
                 "builtin_instance_counter": {
                     "pedersen_builtin": 16,
-                    "range_check_builtin": 80,
+                    "range_check_builtin": 80
                 },
-                "n_memory_holes": 0,
-                "n_steps": 3496
+                "n_memory_holes": 68,
+                "n_steps": 3549
             },
             "L1Handler": {
                 "builtin_instance_counter": {
@@ -240,8 +256,9 @@ fn os_resources() -> serde_json::Value {
                     "range_check_builtin": 17
                 },
                 "n_memory_holes": 0,
-                "n_steps": 1114
+                "n_steps": 1157
             }
         }
-    })
+    }
+    )
 }
