@@ -1,16 +1,21 @@
 use assert_matches::assert_matches;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
-use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
+};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, DeclareTransactionV2, Fee, ResourceBoundsMapping, TransactionHash, TransactionVersion,
+    Calldata, ContractAddressSalt, DeclareTransactionV2, Fee, ResourceBoundsMapping,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::abi_utils::{
+    get_fee_token_var_address, get_storage_var_address, selector_from_name,
+};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
@@ -300,6 +305,8 @@ fn test_max_fee_limit_validate(
 
     // Deploy grindy account with a lot of grind in the constructor.
     // Expect this to fail without bumping nonce, so pass a temporary nonce manager.
+    let mut ctor_grind_arg = stark_felt!(1_u8); // Grind in deploy phase.
+    let validate_grind_arg = stark_felt!(1_u8); // Not relevant for this test.
     let (deploy_account_tx, _) = deploy_and_fund_account(
         &mut state,
         &mut NonceManager::default(),
@@ -307,7 +314,7 @@ fn test_max_fee_limit_validate(
         deploy_account_tx_args! {
             class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
             max_fee,
-            constructor_calldata: calldata![stark_felt!(1_u8)], // Grind in deploy phase.
+            constructor_calldata: calldata![ctor_grind_arg, validate_grind_arg],
         },
     );
     let error = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
@@ -320,6 +327,7 @@ fn test_max_fee_limit_validate(
     );
 
     // Deploy grindy account successfully this time.
+    ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
     let (deploy_account_tx, grindy_account_address) = deploy_and_fund_account(
         &mut state,
         &mut nonce_manager,
@@ -327,7 +335,7 @@ fn test_max_fee_limit_validate(
         deploy_account_tx_args! {
             class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
             max_fee,
-            constructor_calldata: calldata![stark_felt!(0_u8)], // Do not grind in deploy phase.
+            constructor_calldata: calldata![ctor_grind_arg, validate_grind_arg],
         },
     );
     deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap();
@@ -1276,4 +1284,37 @@ fn test_revert_on_resource_overuse(
             if (max_fee, fee_in_error) == (low_max_fee, actual_fee)
         );
     }
+}
+
+#[rstest]
+fn test_deploy_account_constructor_storage_write(max_fee: Fee, block_context: BlockContext) {
+    let mut state = create_state(block_context.clone());
+
+    let class_hash = class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
+    let validate_grind_arg = stark_felt!(1_u8);
+    let ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
+    let constructor_calldata = calldata![ctor_grind_arg, validate_grind_arg];
+    let (deploy_account_tx, _) = deploy_and_fund_account(
+        &mut state,
+        &mut NonceManager::default(),
+        &block_context,
+        deploy_account_tx_args! {
+            class_hash,
+            max_fee,
+            constructor_calldata: constructor_calldata.clone(),
+        },
+    );
+    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap();
+
+    // Check that the constructor wrote ctor_arg to the storage.
+    let storage_key = get_storage_var_address("ctor_arg", &[]);
+    let deployed_contract_address = calculate_contract_address(
+        ContractAddressSalt::default(),
+        class_hash,
+        &constructor_calldata,
+        ContractAddress::default(),
+    )
+    .unwrap();
+    let read_storage_arg = state.get_storage_at(deployed_contract_address, storage_key).unwrap();
+    assert_eq!(validate_grind_arg, read_storage_arg);
 }

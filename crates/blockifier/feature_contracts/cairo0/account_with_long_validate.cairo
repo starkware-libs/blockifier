@@ -13,12 +13,18 @@ from starkware.starknet.common.syscalls import (
     storage_write,
 )
 
+@storage_var
+    func ctor_arg() -> (arg: felt) {
+}
+
 const GRIND_DEPTH = 10000000;
 
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    grind_on_deploy: felt
+    grind_on_deploy: felt,
+    arg: felt,
 ) {
+    ctor_arg.write(arg);
     return ();
 }
 
@@ -49,7 +55,7 @@ func __validate_declare__(class_hash: felt) {
 
 @external
 func __validate_deploy__(
-    class_hash: felt, contract_address_salt: felt, grind_on_deploy: felt
+    class_hash: felt, contract_address_salt: felt, grind_on_deploy: felt, arg: felt
 ) {
     if (grind_on_deploy != 0) {
         grind();
