@@ -10,8 +10,9 @@ use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 use crate::block_context::BlockContext;
 use crate::state::cached_state::*;
 use crate::test_utils::cached_state::deprecated_create_test_state;
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::{get_test_contract_class, TEST_CLASS_HASH, TEST_EMPTY_CONTRACT_CLASS_HASH};
+use crate::test_utils::{get_test_contract_class, CairoVersion};
 
 fn set_initial_state_values(
     state: &mut CachedState<DictStateReader>,
@@ -136,7 +137,7 @@ fn get_and_increment_nonce() {
 #[test]
 fn get_contract_class() {
     // Positive flow.
-    let existing_class_hash = class_hash!(TEST_CLASS_HASH);
+    let existing_class_hash = FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
     let mut state = deprecated_create_test_state();
     assert_eq!(
         state.get_compiled_contract_class(&existing_class_hash).unwrap(),
@@ -185,7 +186,7 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
 fn cached_state_state_diff_conversion() {
     // This will not appear in the diff, since this mapping is immutable for the current version we
     // are aligned with.
-    let test_class_hash = class_hash!(TEST_CLASS_HASH);
+    let test_class_hash = FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
     let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class())]);
 
     let nonce_initial_values = HashMap::new();
@@ -229,7 +230,7 @@ fn cached_state_state_diff_conversion() {
     );
 
     // Declare a new class.
-    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let class_hash = FeatureContractId::Empty.get_class_hash(CairoVersion::Cairo0);
     let compiled_class_hash = CompiledClassHash(stark_felt!(1_u8));
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
@@ -370,8 +371,10 @@ fn global_contract_cache_is_used() {
     // Initialize the global cache with a single class, and initialize an empty state with this
     // cache.
     let global_cache = GlobalContractCache::default();
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    let contract_class = get_test_contract_class();
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
+    let class_hash = test_contract.class_hash;
+    let contract_class = test_contract.get_class();
     global_cache.lock().unwrap().cache_set(class_hash, contract_class.clone());
     assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
     let mut state = CachedState::new(DictStateReader::default(), global_cache.clone());

@@ -6,17 +6,15 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
+use super::contracts::FeatureContract;
+use super::CairoVersion;
 use crate::abi::abi_utils::get_storage_var_address;
-use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::ContractClassV0;
 use crate::state::cached_state::{CachedState, ContractClassMapping};
+use crate::test_utils::contracts::FeatureContractId;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
-    LEGACY_TEST_CLASS_HASH, LEGACY_TEST_CONTRACT_ADDRESS, LEGACY_TEST_CONTRACT_CAIRO1_PATH,
-    RESERVE_0, RESERVE_1, SECURITY_TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_ADDRESS,
-    SECURITY_TEST_CONTRACT_CAIRO0_PATH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_ADDRESS_2, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_PAIR_SKELETON_CONTRACT_ADDRESS1,
+    RESERVE_0, RESERVE_1, TEST_PAIR_SKELETON_CONTRACT_ADDRESS1,
     TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH, TEST_PAIR_SKELETON_CONTRACT_PATH,
 };
 
@@ -37,10 +35,9 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v1_class_mapping();
 
     let mut address_to_class_hash = common_map_setup();
-    address_to_class_hash.insert(
-        contract_address!(LEGACY_TEST_CONTRACT_ADDRESS),
-        class_hash!(LEGACY_TEST_CLASS_HASH),
-    );
+    let legacy_contract =
+        FeatureContract::new(FeatureContractId::LegacyTestContract, CairoVersion::Cairo0, 0);
+    address_to_class_hash.insert(legacy_contract.address, legacy_contract.class_hash);
 
     CachedState::from(DictStateReader {
         class_hash_to_class,
@@ -62,8 +59,8 @@ pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
 fn create_deploy_test_state_from_classes(
     class_hash_to_class: ContractClassMapping,
 ) -> CachedState<DictStateReader> {
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    let class_hash = FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
+    let contract_address = FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
     let another_contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash,
@@ -71,7 +68,7 @@ fn create_deploy_test_state_from_classes(
             stark_felt!(3_u8), // Calldata: address.
             stark_felt!(3_u8)  // Calldata: value.
         ],
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
     )
     .unwrap();
     let address_to_class_hash =
@@ -85,9 +82,13 @@ fn create_deploy_test_state_from_classes(
 }
 
 fn common_map_setup() -> HashMap<ContractAddress, ClassHash> {
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
+    let other_test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 1);
     HashMap::from([
-        (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
-        (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
+        (test_contract.address, test_contract.class_hash),
+        (other_test_contract.address, other_test_contract.class_hash),
         (
             contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1),
             class_hash!(TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH),
@@ -96,19 +97,15 @@ fn common_map_setup() -> HashMap<ContractAddress, ClassHash> {
 }
 
 fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
+    let security_test_contract =
+        FeatureContract::new(FeatureContractId::SecurityTests, CairoVersion::Cairo0, 0);
+    let empty_contract = FeatureContract::new(FeatureContractId::Empty, CairoVersion::Cairo0, 0);
     HashMap::from([
-        (
-            class_hash!(TEST_CLASS_HASH),
-            ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
-        ),
-        (
-            class_hash!(SECURITY_TEST_CLASS_HASH),
-            ContractClassV0::from_file(SECURITY_TEST_CONTRACT_CAIRO0_PATH).into(),
-        ),
-        (
-            class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-            ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into(),
-        ),
+        (test_contract.class_hash, test_contract.get_class()),
+        (security_test_contract.class_hash, security_test_contract.get_class()),
+        (empty_contract.class_hash, empty_contract.get_class()),
         (
             class_hash!(TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH),
             ContractClassV0::from_file(TEST_PAIR_SKELETON_CONTRACT_PATH).into(),
@@ -117,28 +114,23 @@ fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
 }
 
 fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo1, 0);
+    let empty_contract = FeatureContract::new(FeatureContractId::Empty, CairoVersion::Cairo1, 0);
+    let legacy_contract =
+        FeatureContract::new(FeatureContractId::LegacyTestContract, CairoVersion::Cairo1, 0);
     HashMap::from([
-        (
-            class_hash!(TEST_CLASS_HASH),
-            ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
-        ),
-        (
-            class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-            ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
-        ),
-        (
-            class_hash!(LEGACY_TEST_CLASS_HASH),
-            ContractClassV1::from_file(LEGACY_TEST_CONTRACT_CAIRO1_PATH).into(),
-        ),
+        (test_contract.class_hash, test_contract.get_class()),
+        (empty_contract.class_hash, empty_contract.get_class()),
+        (legacy_contract.class_hash, legacy_contract.get_class()),
     ])
 }
 
 fn get_address_to_v0_class_hash() -> HashMap<ContractAddress, ClassHash> {
     let mut address_to_class_hash = common_map_setup();
-    address_to_class_hash.insert(
-        contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
-        class_hash!(SECURITY_TEST_CLASS_HASH),
-    );
+    let security_test_contract =
+        FeatureContract::new(FeatureContractId::SecurityTests, CairoVersion::Cairo0, 0);
+    address_to_class_hash.insert(security_test_contract.address, security_test_contract.class_hash);
     address_to_class_hash
 }
 

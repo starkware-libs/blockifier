@@ -1,10 +1,10 @@
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use rstest::rstest;
-use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
-use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -15,10 +15,10 @@ use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    create_calldata, CairoVersion, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -280,12 +280,13 @@ fn test_simulate_validate_charge_fee_fail_validate(
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
+    let faulty_account =
+        FeatureContract::new(FeatureContractId::FaultyAccount, CairoVersion::Cairo0, 0);
 
     // Create a state with a contract that can fail validation on demand.
     let TestInitData { mut nonce_manager, block_context, .. } =
         create_test_init_data(max_fee, block_context);
     let mut falliable_state = create_state_with_falliable_validation_account();
-    let falliable_sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
 
     // Validation scenario: fallible validation.
     let (actual_gas_used, actual_fee) = gas_and_fee(31450, validate, &fee_type);
@@ -296,14 +297,14 @@ fn test_simulate_validate_charge_fee_fail_validate(
             StarkFelt::from(INVALID),
             StarkFelt::ZERO
         ]),
-        sender_address: falliable_sender_address,
+        sender_address: faulty_account.address,
         calldata: calldata![
-            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
+            *faulty_account.address.0.key(), // Contract address.
             selector_from_name("foo").0,                       // EP selector.
             stark_felt!(0_u8)                                  // Calldata length.
         ],
         version,
-        nonce: nonce_manager.next(falliable_sender_address),
+        nonce: nonce_manager.next(faulty_account.address),
         only_query,
     })
     .execute(&mut falliable_state, &block_context, charge_fee, validate);

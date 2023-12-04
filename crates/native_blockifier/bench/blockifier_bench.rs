@@ -15,20 +15,21 @@ use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
+use blockifier::test_utils::contracts::{FeatureContract, FeatureContractId};
 use blockifier::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use blockifier::test_utils::{
-    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    CairoVersion, NonceManager, BALANCE, ERC20_CONTRACT_PATH, MAX_FEE,
+    TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use criterion::{criterion_group, criterion_main, Criterion};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{calldata, class_hash, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 const N_ACCOUNTS: usize = 10000;
 
@@ -36,10 +37,11 @@ fn create_state() -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_account_testing();
 
     // Declare all the needed contracts.
-    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let account_contract =
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo0, 0);
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
+        (account_contract.class_hash, account_contract.get_class()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the ERC20 contract.
@@ -119,13 +121,14 @@ fn prepare_accounts(
     let mut nonces = vec![];
     for account_salt in 0..N_ACCOUNTS {
         // Deploy an account contract.
-        let class_hash = TEST_ACCOUNT_CONTRACT_CLASS_HASH;
+        let class_hash =
+            FeatureContractId::AccountWithoutValidations.get_class_hash(CairoVersion::Cairo0);
         let max_fee = Fee(MAX_FEE);
         let constructor_address_salt = ContractAddressSalt(stark_felt!(account_salt as u64));
         let nonce_manager = &mut NonceManager::default();
         let deploy_account_tx = deploy_account_tx(
             DeployTxArgs {
-                class_hash: class_hash!(class_hash),
+                class_hash,
                 max_fee,
                 contract_address_salt: constructor_address_salt,
                 ..Default::default()

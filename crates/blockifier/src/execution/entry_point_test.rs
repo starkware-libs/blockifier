@@ -3,12 +3,12 @@ use std::collections::HashSet;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -19,11 +19,11 @@ use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{create_test_state, deprecated_create_test_state};
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     create_calldata, pad_address_to_64, trivial_external_entry_point,
-    trivial_external_entry_point_security_test, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
+    trivial_external_entry_point_security_test, CairoVersion,
 };
 
 #[test]
@@ -516,13 +516,17 @@ fn test_stack_trace() {
     // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
     let call_contract_function_name = "test_call_contract";
     let inner_entry_point_selector = selector_from_name("foo");
+    let other_test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 1);
+    let security_test_contract_address =
+        FeatureContractId::SecurityTests.get_address(CairoVersion::Cairo0, 0);
     let calldata = create_calldata(
-        contract_address!(TEST_CONTRACT_ADDRESS_2),
+        other_test_contract.address,
         call_contract_function_name,
         &[
-            stark_felt!(SECURITY_TEST_CONTRACT_ADDRESS), // Contract address.
-            inner_entry_point_selector.0,                // Function selector.
-            stark_felt!(0_u8),                           // Innermost calldata length.
+            *security_test_contract_address.0.key(), // Contract address.
+            inner_entry_point_selector.0,            // Function selector.
+            stark_felt!(0_u8),                       // Innermost calldata length.
         ],
     );
     let entry_point_call = CallEntryPoint {
@@ -534,7 +538,8 @@ fn test_stack_trace() {
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
     // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
     // this computation should be stable.
-    let contract_class = state.get_compiled_contract_class(&class_hash!(TEST_CLASS_HASH)).unwrap();
+    let contract_class =
+        state.get_compiled_contract_class(&other_test_contract.class_hash).unwrap();
     let entry_point_offset = match contract_class {
         ContractClass::V0(class) => {
             class
@@ -573,9 +578,9 @@ An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:62)
 ",
-        pad_address_to_64(TEST_CONTRACT_ADDRESS),
-        pad_address_to_64(TEST_CONTRACT_ADDRESS_2),
-        pad_address_to_64(SECURITY_TEST_CONTRACT_ADDRESS)
+        pad_address_to_64(FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0)),
+        pad_address_to_64(other_test_contract.address),
+        pad_address_to_64(security_test_contract_address)
     );
     match entry_point_call.execute_directly(&mut state).unwrap_err() {
         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source: _ } => {

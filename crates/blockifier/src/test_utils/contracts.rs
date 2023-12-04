@@ -1,9 +1,10 @@
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
-use crate::test_utils::CairoVersion;
+use crate::test_utils::{get_deprecated_contract_class, CairoVersion};
 
 // Bit to set on class hashes and addresses of feature contracts to indicate the Cairo1 variant.
 const CAIRO1_BIT: u32 = 1 << 31;
@@ -43,22 +44,15 @@ pub enum FeatureContractId {
     TestContract,
 }
 
-/// Represents an instance of a feature contract. Create with `::new()`.
-pub struct FeatureContract {
-    pub class_hash: ClassHash,
-    pub address: ContractAddress,
-    pub class: ContractClass,
-}
+impl FeatureContractId {
+    pub fn get_class_hash(&self, cairo_version: CairoVersion) -> ClassHash {
+        class_hash!(self.get_integer_base(cairo_version))
+    }
 
-impl FeatureContract {
-    /// To create a new instance of a feature contract, use this function. Use unique instance IDs
-    /// to allow multiple deployments of the same contract class (different addresses).
-    pub fn new(id: FeatureContractId, cairo_version: CairoVersion, instance_id: u8) -> Self {
-        Self {
-            class_hash: Self::get_class_hash(id, cairo_version),
-            address: Self::get_address(id, cairo_version, instance_id),
-            class: Self::get_class(id, cairo_version),
-        }
+    /// To allow multiple deployments of the same contract class, the address also depends on
+    /// instance ID.
+    pub fn get_address(self, cairo_version: CairoVersion, instance_id: u8) -> ContractAddress {
+        contract_address!(self.get_integer_base(cairo_version) + instance_id as u32 + ADDRESS_BIT)
     }
 
     fn get_relative_path(contract_name: &str, cairo_version: CairoVersion) -> String {
@@ -84,9 +78,9 @@ impl FeatureContract {
     }
 
     /// Unique integer representing each unique contract. Used to derive "class hash" and "address".
-    fn get_integer_base(id: FeatureContractId, cairo_version: CairoVersion) -> u32 {
+    fn get_integer_base(&self, cairo_version: CairoVersion) -> u32 {
         Self::get_cairo_version_bit(cairo_version)
-            + match id {
+            + match self {
                 FeatureContractId::AccountWithLongValidate => ACCOUNT_LONG_VALIDATE_BASE,
                 FeatureContractId::AccountWithoutValidations => ACCOUNT_WITHOUT_VALIDATIONS_BASE,
                 FeatureContractId::Empty => EMPTY_CONTRACT_BASE,
@@ -97,9 +91,9 @@ impl FeatureContract {
             }
     }
 
-    fn get_compiled_path(id: FeatureContractId, cairo_version: CairoVersion) -> String {
+    pub fn get_compiled_path(self, cairo_version: CairoVersion) -> String {
         Self::get_relative_path(
-            match id {
+            match self {
                 FeatureContractId::AccountWithLongValidate => ACCOUNT_LONG_VALIDATE_NAME,
                 FeatureContractId::AccountWithoutValidations => ACCOUNT_WITHOUT_VALIDATIONS_NAME,
                 FeatureContractId::Empty => EMPTY_CONTRACT_NAME,
@@ -111,31 +105,45 @@ impl FeatureContract {
             cairo_version,
         )
     }
+}
 
-    fn get_class_hash(id: FeatureContractId, cairo_version: CairoVersion) -> ClassHash {
-        class_hash!(Self::get_integer_base(id, cairo_version))
+/// Represents an instance of a feature contract. Create with `::new()`.
+pub struct FeatureContract {
+    pub id: FeatureContractId,
+    pub cairo_version: CairoVersion,
+    pub class_hash: ClassHash,
+    pub address: ContractAddress,
+}
+
+impl FeatureContract {
+    /// To create a new instance of a feature contract, use this function. Use unique instance IDs
+    /// to allow multiple deployments of the same contract class (different addresses).
+    pub fn new(id: FeatureContractId, cairo_version: CairoVersion, instance_id: u8) -> Self {
+        Self {
+            id,
+            cairo_version,
+            class_hash: id.get_class_hash(cairo_version),
+            address: id.get_address(cairo_version, instance_id),
+        }
     }
 
-    /// To allow multiple deployments of the same contract class, the address also depends on
-    /// instance ID.
-    fn get_address(
-        id: FeatureContractId,
-        cairo_version: CairoVersion,
-        instance_id: u8,
-    ) -> ContractAddress {
-        contract_address!(
-            Self::get_integer_base(id, cairo_version) + instance_id as u32 + ADDRESS_BIT
-        )
-    }
-
-    fn get_class(id: FeatureContractId, cairo_version: CairoVersion) -> ContractClass {
-        match cairo_version {
+    pub fn get_class(&self) -> ContractClass {
+        match self.cairo_version {
             CairoVersion::Cairo0 => {
-                ContractClassV0::from_file(&Self::get_compiled_path(id, cairo_version)).into()
+                ContractClassV0::from_file(&self.id.get_compiled_path(self.cairo_version)).into()
             }
             CairoVersion::Cairo1 => {
-                ContractClassV1::from_file(&Self::get_compiled_path(id, cairo_version)).into()
+                ContractClassV1::from_file(&self.id.get_compiled_path(self.cairo_version)).into()
             }
         }
+    }
+
+    pub fn get_deprecated_contract_class(&self) -> DeprecatedContractClass {
+        let path = self.id.get_compiled_path(self.cairo_version);
+        get_deprecated_contract_class(&path)
+    }
+
+    pub fn get_compiled_path(&self) -> String {
+        self.id.get_compiled_path(self.cairo_version)
     }
 }

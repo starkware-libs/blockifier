@@ -1,7 +1,7 @@
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, class_hash, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::execution::call_info::{CallExecution, Retdata};
@@ -9,8 +9,9 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::cached_state::deprecated_create_test_state;
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::{trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS};
+use crate::test_utils::{trivial_external_entry_point, CairoVersion};
 
 #[test]
 fn test_calculate_contract_address() {
@@ -40,27 +41,41 @@ fn test_calculate_contract_address() {
     }
 
     let salt = ContractAddressSalt::default();
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    let deployer_address = ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap();
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
 
     // Without constructor.
     let calldata_no_constructor = calldata![
-        salt.0,                    // Contract_address_salt.
-        class_hash.0,              // Class hash.
-        stark_felt!(0_u8),         // Calldata length.
-        *deployer_address.0.key()  // deployer_address.
+        salt.0,                         // Contract_address_salt.
+        test_contract.class_hash.0,     // Class hash.
+        stark_felt!(0_u8),              // Calldata length.
+        *test_contract.address.0.key()  // deployer_address.
     ];
-    run_test(salt, class_hash, &calldata![], calldata_no_constructor, deployer_address, &mut state);
+    run_test(
+        salt,
+        test_contract.class_hash,
+        &calldata![],
+        calldata_no_constructor,
+        test_contract.address,
+        &mut state,
+    );
 
     // With constructor.
     let constructor_calldata = calldata![stark_felt!(1_u8), stark_felt!(1_u8)];
     let calldata = calldata![
-        salt.0,                    // Contract_address_salt.
-        class_hash.0,              // Class hash.
-        stark_felt!(2_u8),         // Calldata length.
-        stark_felt!(1_u8),         // Calldata: address.
-        stark_felt!(1_u8),         // Calldata: value.
-        *deployer_address.0.key()  // deployer_address.
+        salt.0,                         // Contract_address_salt.
+        test_contract.class_hash.0,     // Class hash.
+        stark_felt!(2_u8),              // Calldata length.
+        stark_felt!(1_u8),              // Calldata: address.
+        stark_felt!(1_u8),              // Calldata: value.
+        *test_contract.address.0.key()  // deployer_address.
     ];
-    run_test(salt, class_hash, &constructor_calldata, calldata, deployer_address, &mut state);
+    run_test(
+        salt,
+        test_contract.class_hash,
+        &constructor_calldata,
+        calldata,
+        test_contract.address,
+        &mut state,
+    );
 }

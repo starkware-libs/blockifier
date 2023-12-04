@@ -30,7 +30,6 @@ use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -40,12 +39,11 @@ use crate::execution::syscalls::hint_processor::{
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::{
     check_entry_point_execution_error_for_custom_hint, create_calldata,
-    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
-    LEGACY_TEST_CONTRACT_ADDRESS, LEGACY_TEST_CONTRACT_CAIRO1_PATH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    trivial_external_entry_point, CairoVersion, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -90,7 +88,7 @@ fn test_call_contract() {
 
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let calldata = create_calldata(
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
         "test_storage_read_write",
         &[
             stark_felt!(405_u16), // Calldata: address.
@@ -290,8 +288,10 @@ fn test_get_execution_info(
     ];
 
     let mut expected_unsupported_fields: Vec<StarkFelt> = vec![];
+    let legacy_contract =
+        FeatureContract::new(FeatureContractId::LegacyTestContract, CairoVersion::Cairo1, 0);
     if is_legacy {
-        verify_compiler_version(LEGACY_TEST_CONTRACT_CAIRO1_PATH, "2.1.0");
+        verify_compiler_version(&legacy_contract.get_compiled_path(), "2.1.0");
     } else {
         expected_unsupported_fields = vec![
             StarkFelt::ZERO, // Tip.
@@ -302,8 +302,11 @@ fn test_get_execution_info(
         ];
     }
 
-    let test_contract_address =
-        if is_legacy { LEGACY_TEST_CONTRACT_ADDRESS } else { TEST_CONTRACT_ADDRESS };
+    let test_contract_address = if is_legacy {
+        legacy_contract.address
+    } else {
+        FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0)
+    };
 
     if only_query {
         let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
@@ -314,7 +317,7 @@ fn test_get_execution_info(
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(42);
     let nonce = Nonce(stark_felt!(3_u16));
-    let sender_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    let sender_address = FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
 
     let expected_tx_info: Vec<StarkFelt>;
     let mut expected_resource_bounds: Vec<StarkFelt> = vec![];
@@ -399,12 +402,12 @@ fn test_get_execution_info(
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
         stark_felt!(0_u16),                  // Caller address.
-        stark_felt!(test_contract_address),  // Storage address.
+        *test_contract_address.0.key(),      // Storage address.
         stark_felt!(entry_point_selector.0), // Entry point selector.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
-        storage_address: contract_address!(test_contract_address),
+        storage_address: test_contract_address,
         calldata: Calldata(
             [
                 expected_block_info.to_vec(),
@@ -442,7 +445,7 @@ fn test_library_call() {
 
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0).0, // Class hash.
         inner_entry_point_selector.0, // Function selector.
         stark_felt!(2_u8),            // Calldata length.
         stark_felt!(1234_u16),        // Calldata: address.
@@ -451,7 +454,7 @@ fn test_library_call() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0)),
         ..trivial_external_entry_point()
     };
 
@@ -470,7 +473,7 @@ fn test_library_call_assert_fails() {
     let mut state = create_test_state();
     let inner_entry_point_selector = selector_from_name("assert_eq");
     let calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0).0, // Class hash.
         inner_entry_point_selector.0, // Function selector.
         stark_felt!(2_u8),            // Calldata length.
         stark_felt!(0_u8),            // Calldata: first assert value.
@@ -479,7 +482,7 @@ fn test_library_call_assert_fails() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0)),
         ..trivial_external_entry_point()
     };
 
@@ -493,11 +496,13 @@ fn test_library_call_assert_fails() {
 fn test_nested_library_call() {
     let mut state = create_test_state();
 
+    let test_class_hash = FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
+
     let (key, value) = (255_u64, 44_u64);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let main_entry_point_calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        test_class_hash.0,            // Class hash.
         outer_entry_point_selector.0, // Library call function selector.
         inner_entry_point_selector.0, // Storage function selector.
         stark_felt!(key),             // Calldata: address.
@@ -508,14 +513,14 @@ fn test_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(test_class_hash),
         initial_gas: 9999906600,
         ..trivial_external_entry_point()
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: inner_entry_point_selector,
         calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
         initial_gas: 9999720720,
@@ -524,13 +529,13 @@ fn test_nested_library_call() {
     let library_entry_point = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata: calldata![
-            stark_felt!(TEST_CLASS_HASH), // Class hash.
+            test_class_hash.0,            // Class hash.
             inner_entry_point_selector.0, // Storage function selector.
             stark_felt!(2_u8),            // Calldata: address.
             stark_felt!(key + 1),         // Calldata: address.
             stark_felt!(value + 1)        // Calldata: value.
         ],
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
         initial_gas: 9999814150,
@@ -624,7 +629,8 @@ fn test_replace_class() {
 
     // Replace with Cairo 0 class hash.
     let v0_class_hash = class_hash!(5678_u16);
-    let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into();
+    let v0_contract_class =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0).get_class();
     state.set_contract_class(&v0_class_hash, v0_contract_class).unwrap();
 
     let entry_point_call = CallEntryPoint {
@@ -636,9 +642,9 @@ fn test_replace_class() {
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 
     // Positive flow.
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    let old_class_hash = class_hash!(TEST_CLASS_HASH);
-    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let contract_address = FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
+    let old_class_hash = FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
+    let new_class_hash = FeatureContractId::Empty.get_class_hash(CairoVersion::Cairo0);
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
@@ -715,21 +721,17 @@ fn test_send_message_to_l1() {
 }
 
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-    calldata![
-    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-    ContractAddressSalt::default().0,            // Contract_address_salt.
-    stark_felt!(0_u8),                           // Calldata length.
-    stark_felt!(0_u8)                            // deploy_from_zero.
+    FeatureContractId::Empty.get_class_hash(CairoVersion::Cairo0),
+    vec![
+        stark_felt!(0_u8),                           // Calldata length.
+        stark_felt!(0_u8)                            // deploy_from_zero.
     ],
     calldata![],
     None ;
     "No constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-        ContractAddressSalt::default().0,            // Contract_address_salt.
+    FeatureContractId::Empty.get_class_hash(CairoVersion::Cairo0),
+    vec![
         stark_felt!(2_u8),                           // Calldata length.
         stark_felt!(2_u8),                           // Calldata: address.
         stark_felt!(1_u8),                           // Calldata: value.
@@ -743,10 +745,8 @@ fn test_send_message_to_l1() {
     "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
     "No constructor: Negative flow: nonempty calldata")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
-        ContractAddressSalt::default().0, // Contract_address_salt.
+    FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0),
+    vec![
         stark_felt!(2_u8),                // Calldata length.
         stark_felt!(1_u8),                // Calldata: arg1.
         stark_felt!(1_u8),                // Calldata: arg2.
@@ -759,10 +759,8 @@ fn test_send_message_to_l1() {
     None;
     "With constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
-        ContractAddressSalt::default().0, // Contract_address_salt.
+    FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0),
+    vec![
         stark_felt!(2_u8),                // Calldata length.
         stark_felt!(3_u8),                // Calldata: arg1.
         stark_felt!(3_u8),                // Calldata: arg2.
@@ -776,11 +774,17 @@ fn test_send_message_to_l1() {
     "With constructor: Negative flow: deploy to the same address")]
 fn test_deploy(
     class_hash: ClassHash,
-    calldata: Calldata,
+    calldata_suffix: Vec<StarkFelt>,
     constructor_calldata: Calldata,
     expected_error: Option<&str>,
 ) {
     let mut state = create_deploy_test_state();
+    let mut calldata = vec![
+        FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0).0,
+        ContractAddressSalt::default().0,
+    ];
+    calldata.extend(calldata_suffix);
+    let calldata = Calldata(calldata.into());
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
@@ -798,7 +802,7 @@ fn test_deploy(
         ContractAddressSalt::default(),
         class_hash,
         &constructor_calldata,
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
     )
     .unwrap();
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];

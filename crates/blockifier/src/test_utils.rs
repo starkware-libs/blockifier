@@ -28,58 +28,26 @@ use strum_macros::EnumIter;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants::{self};
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::utils::const_max;
 
 // Addresses.
-pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
-pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
-pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
-pub const LEGACY_TEST_CONTRACT_ADDRESS: &str = "0x400";
-pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
 pub const TEST_PAIR_SKELETON_CONTRACT_ADDRESS1: &str = "0x1003";
 
 // Class hashes.
-pub const TEST_CLASS_HASH: &str = "0x110";
-pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
-pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
-pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
-pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x115";
-pub const LEGACY_TEST_CLASS_HASH: &str = "0x116";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 pub const TEST_PAIR_SKELETON_CONTRACT_CLASS_HASH: &str = "0x1011";
 
 // Paths.
-pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/account_contract.casm.json";
-pub const ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/account_without_validations_compiled.json";
-pub const GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/account_with_long_validate_compiled.json";
-pub const TEST_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
-pub const TEST_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/test_contract.casm.json";
-pub const LEGACY_TEST_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/legacy_test_contract.casm.json";
-pub const SECURITY_TEST_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
-pub const TEST_EMPTY_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
-pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 pub const TEST_PAIR_SKELETON_CONTRACT_PATH: &str =
@@ -96,10 +64,14 @@ pub fn test_erc20_sequencer_balance_key() -> StorageKey {
     get_fee_token_var_address(&contract_address!(TEST_SEQUENCER_ADDRESS))
 }
 pub fn test_erc20_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
+    let account =
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo0, 0);
+    get_fee_token_var_address(&account.address)
 }
 pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
+    let faulty_account =
+        FeatureContract::new(FeatureContractId::FaultyAccount, CairoVersion::Cairo0, 0);
+    get_fee_token_var_address(&faulty_account.address)
 }
 
 // The max_fee / resource bounds used for txs in this test.
@@ -151,8 +123,9 @@ impl NonceManager {
     }
 }
 
-pub fn pad_address_to_64(address: &str) -> String {
-    let trimmed_address = address.strip_prefix("0x").unwrap_or(address);
+pub fn pad_address_to_64(address: ContractAddress) -> String {
+    let hex = format!("{:?}", address);
+    let trimmed_address = hex.strip_prefix("0x").unwrap_or(hex.as_str());
     String::from("0x") + format!("{trimmed_address:0>64}").as_str()
 }
 
@@ -176,11 +149,11 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
 }
 
 pub fn get_test_contract_class() -> ContractClass {
-    ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()
+    FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0).get_class()
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    let contract_address = FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -196,7 +169,12 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
 
 pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
     CallEntryPoint {
-        storage_address: contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
+        storage_address: FeatureContract::new(
+            FeatureContractId::SecurityTests,
+            CairoVersion::Cairo0,
+            0,
+        )
+        .address,
         ..trivial_external_entry_point()
     }
 }

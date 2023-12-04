@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -10,27 +8,23 @@ use starknet_api::transaction::{
     InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, stark_felt};
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+    CairoVersion, NonceManager, BALANCE, ERC20_CONTRACT_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -99,16 +93,14 @@ pub fn deploy_and_fund_account(
 /// Sets up account and test contracts ("declare" + "deploy").
 pub fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
-    let test_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
-    let test_grindy_validate_account_class_hash =
-        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
+    let account_contract =
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo0, 0);
+    let grindy_validate_contract =
+        FeatureContract::new(FeatureContractId::AccountWithLongValidate, CairoVersion::Cairo0, 0);
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
-        (
-            test_grindy_validate_account_class_hash,
-            ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
-        ),
+        (account_contract.class_hash, account_contract.get_class()),
+        (grindy_validate_contract.class_hash, grindy_validate_contract.get_class()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the erc20 contracts.
@@ -131,36 +123,33 @@ pub fn create_state(block_context: BlockContext) -> CachedState<DictStateReader>
 pub fn create_test_init_data(max_fee: Fee, block_context: BlockContext) -> TestInitData {
     let mut state = create_state(block_context.clone());
     let mut nonce_manager = NonceManager::default();
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
 
     let (account_tx, account_address) = deploy_and_fund_account(
         &mut state,
         &mut nonce_manager,
         &block_context,
-        DeployTxArgs {
-            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
-            max_fee,
-            ..Default::default()
-        },
+        DeployTxArgs { class_hash: test_contract.class_hash, max_fee, ..Default::default() },
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Declare a contract.
-    let contract_class = ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into();
     let account_tx = declare_tx(
         DeclareTxArgs {
-            class_hash: class_hash!(TEST_CLASS_HASH),
+            class_hash: FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0),
             sender_address: account_address,
             max_fee,
             nonce: nonce_manager.next(account_address),
             ..Default::default()
         },
-        contract_class,
+        test_contract.get_class(),
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
     // Deploy a contract using syscall deploy.
     let salt = ContractAddressSalt::default();
-    let class_hash = class_hash!(TEST_CLASS_HASH);
+    let class_hash = FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
     run_invoke_tx(
         &mut state,
         &block_context,
@@ -198,31 +187,31 @@ pub fn create_test_init_data(max_fee: Fee, block_context: BlockContext) -> TestI
 
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
-    account_class_hash: &str,
-    account_address: &str,
+    account_class_hash: ClassHash,
+    account_address: ContractAddress,
     erc20_account_balance_key: StorageKey,
     initial_account_balance: u128,
     test_contract_class: ContractClass,
 ) -> CachedState<DictStateReader> {
     let block_context = BlockContext::create_for_testing();
 
-    let test_contract_class_hash = class_hash!(TEST_CLASS_HASH);
-    let test_account_class_hash = class_hash!(account_class_hash);
+    let test_contract_class_hash =
+        FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0);
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, account_class),
+        (account_class_hash, account_class),
         (test_contract_class_hash, test_contract_class),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
-    let test_contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    let test_contract_address =
+        FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
-    let test_account_address = contract_address!(account_address);
     let test_strk_token_address = block_context.fee_token_addresses.strk_fee_token_address;
     let test_eth_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
-        (test_account_address, test_account_class_hash),
+        (account_address, account_class_hash),
         (test_strk_token_address, test_erc20_class_hash),
         (test_eth_token_address, test_erc20_class_hash),
     ]);
@@ -233,8 +222,8 @@ pub fn create_account_tx_test_state(
         ((test_strk_token_address, erc20_account_balance_key), initial_balance_felt),
         ((test_eth_token_address, erc20_account_balance_key), initial_balance_felt),
         // Give the account mint permission.
-        ((test_strk_token_address, minter_var_address), *test_account_address.0.key()),
-        ((test_eth_token_address, minter_var_address), *test_account_address.0.key()),
+        ((test_strk_token_address, minter_var_address), *account_address.0.key()),
+        ((test_eth_token_address, minter_var_address), *account_address.0.key()),
     ]);
     CachedState::from(DictStateReader {
         address_to_class_hash,
@@ -246,41 +235,53 @@ pub fn create_account_tx_test_state(
 
 pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
+    let account_contract =
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo0, 0);
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
     create_account_tx_test_state(
-        ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
+        account_contract.get_class(),
+        account_contract.class_hash,
+        account_contract.address,
         test_erc20_account_balance_key(),
         account_balance,
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
+        test_contract.get_class(),
     )
 }
 
 pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
+    let account_contract =
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo1, 0);
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
     create_account_tx_test_state(
-        ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
+        account_contract.get_class(),
+        account_contract.class_hash,
+        account_contract.address,
         test_erc20_account_balance_key(),
         account_balance,
         // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract.
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
+        test_contract.get_class(),
     )
 }
 
 pub fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
+    let faulty_account_contract =
+        FeatureContract::new(FeatureContractId::FaultyAccount, CairoVersion::Cairo0, 0);
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
     create_account_tx_test_state(
-        ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
-        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+        faulty_account_contract.get_class(),
+        faulty_account_contract.class_hash,
+        faulty_account_contract.address,
         test_erc20_faulty_account_balance_key(),
         account_balance * 2,
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
+        test_contract.get_class(),
     )
 }
 
@@ -297,26 +298,23 @@ pub fn create_account_tx_for_validate_test(
         // Assumes the default value of StarkFelt is 0.
         additional_data.unwrap_or_default(),
     ]);
+    let faulty_account_contract =
+        FeatureContract::new(FeatureContractId::FaultyAccount, CairoVersion::Cairo0, 0);
 
     match tx_type {
-        TransactionType::Declare => {
-            let contract_class =
-                ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
-            let sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
-            declare_tx(
-                DeclareTxArgs {
-                    class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
-                    sender_address,
-                    signature,
-                    ..Default::default()
-                },
-                contract_class,
-            )
-        }
+        TransactionType::Declare => declare_tx(
+            DeclareTxArgs {
+                class_hash: faulty_account_contract.class_hash,
+                sender_address: faulty_account_contract.address,
+                signature,
+                ..Default::default()
+            },
+            faulty_account_contract.get_class(),
+        ),
         TransactionType::DeployAccount => {
             let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
                 DeployTxArgs {
-                    class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
+                    class_hash: faulty_account_contract.class_hash,
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
                     ..Default::default()
@@ -326,14 +324,10 @@ pub fn create_account_tx_for_validate_test(
             AccountTransaction::DeployAccount(deploy_account_tx)
         }
         TransactionType::InvokeFunction => {
-            let execute_calldata = create_calldata(
-                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-                "foo",
-                &[],
-            );
+            let execute_calldata = create_calldata(faulty_account_contract.address, "foo", &[]);
             let invoke_tx = crate::test_utils::invoke::invoke_tx(invoke_tx_args! {
                 signature,
-                sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                sender_address: faulty_account_contract.address,
                 calldata: execute_calldata,
                 version: TransactionVersion::ONE,
                 nonce: Nonce::default(),

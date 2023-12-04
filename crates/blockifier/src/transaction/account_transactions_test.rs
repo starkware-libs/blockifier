@@ -7,13 +7,13 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, DeclareTransactionV2, Fee, ResourceBoundsMapping, TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_checks::FeeCheckError;
@@ -21,14 +21,13 @@ use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::invoke_tx_args;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::contracts::{FeatureContract, FeatureContractId};
 use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
-    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
@@ -65,7 +64,8 @@ fn test_fee_enforcement(
     let mut state = create_state(block_context.clone());
     let deploy_account_tx = deploy_account_tx(
         DeployTxArgs {
-            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: FeatureContractId::AccountWithoutValidations
+                .get_class_hash(CairoVersion::Cairo0),
             max_fee: Fee(u128::from(!zero_bounds)),
             resource_bounds: l1_resource_bounds(u64::from(!zero_bounds), DEFAULT_STRK_L1_GAS_PRICE),
             version,
@@ -286,18 +286,19 @@ fn test_max_fee_limit_validate(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context);
+    let grindy_account_contract =
+        FeatureContract::new(FeatureContractId::AccountWithLongValidate, CairoVersion::Cairo0, 0);
 
     // Declare the grindy-validation account.
-    let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
     let account_tx = declare_tx(
         DeclareTxArgs {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: grindy_account_contract.class_hash,
             sender_address: account_address,
             max_fee: Fee(MAX_FEE),
             nonce: nonce_manager.next(account_address),
             ..Default::default()
         },
-        contract_class,
+        grindy_account_contract.get_class(),
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
@@ -308,7 +309,7 @@ fn test_max_fee_limit_validate(
         &mut NonceManager::default(),
         &block_context,
         DeployTxArgs {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: grindy_account_contract.class_hash,
             max_fee,
             constructor_calldata: calldata![stark_felt!(1_u8)], // Grind in deploy phase.
             ..Default::default()
@@ -329,7 +330,7 @@ fn test_max_fee_limit_validate(
         &mut nonce_manager,
         &block_context,
         DeployTxArgs {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: grindy_account_contract.class_hash,
             max_fee,
             constructor_calldata: calldata![stark_felt!(0_u8)], // Do not grind in deploy phase.
             ..Default::default()
@@ -467,7 +468,8 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
         DeployTxArgs {
-            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: FeatureContractId::AccountWithoutValidations
+                .get_class_hash(CairoVersion::Cairo0),
             max_fee,
             ..Default::default()
         },
@@ -533,7 +535,7 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
         stark_felt!(0_u8),
         state
             .get_storage_at(
-                contract_address!(TEST_CONTRACT_ADDRESS),
+                FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
                 StorageKey::try_from(storage_key).unwrap(),
             )
             .unwrap()
@@ -545,8 +547,10 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
 fn test_fail_deploy_account(block_context: BlockContext) {
     let mut state = create_state_with_falliable_validation_account();
 
+    let faulty_account_address =
+        FeatureContractId::FaultyAccount.get_address(CairoVersion::Cairo0, 0);
     let deployed_account_address =
-        ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
+        ContractAddress::try_from(*faulty_account_address.0.key()).unwrap();
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
