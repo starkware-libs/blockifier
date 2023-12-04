@@ -140,7 +140,10 @@ impl<'a> ActualCostBuilder<'a> {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let actual_fee = if self.account_tx_context.enforce_fee()? {
+        let actual_fee = if self.account_tx_context.enforce_fee()?
+        // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
+            || self.tx_type == TransactionType::L1Handler
+        {
             self.account_tx_context.calculate_tx_fee(&actual_resources, &self.block_context)?
         } else {
             Fee(0)
