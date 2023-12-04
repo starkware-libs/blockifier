@@ -1399,6 +1399,6 @@ fn test_l1_handler() {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(0)
+            if paid_fee == Fee(0) && actual_fee == Fee(1732700000000000)
     );
 }
