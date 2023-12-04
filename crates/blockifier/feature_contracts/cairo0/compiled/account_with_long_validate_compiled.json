@@ -5,6 +5,10 @@
                 {
                     "name": "grind_on_deploy",
                     "type": "felt"
+                },
+                {
+                    "name": "arg",
+                    "type": "felt"
                 }
             ],
             "name": "constructor",
@@ -41,6 +45,10 @@
                 },
                 {
                     "name": "grind_on_deploy",
+                    "type": "felt"
+                },
+                {
+                    "name": "arg",
                     "type": "felt"
                 }
             ],
@@ -135,33 +143,33 @@
     "entry_points_by_type": {
         "CONSTRUCTOR": [
             {
-                "offset": 58,
+                "offset": 78,
                 "selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
             }
         ],
         "EXTERNAL": [
             {
-                "offset": 195,
+                "offset": 217,
                 "selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
             },
             {
-                "offset": 156,
+                "offset": 178,
                 "selector": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"
             },
             {
-                "offset": 237,
+                "offset": 259,
                 "selector": "0x2730079d734ee55315f4f141eaed376bddd8c2133523d223a344c5604e0f7f8"
             },
             {
-                "offset": 114,
+                "offset": 135,
                 "selector": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3"
             },
             {
-                "offset": 85,
+                "offset": 106,
                 "selector": "0x2de154d8a89be65c1724e962dc4c65637c05532a6c2825d0a7b7d774169dbba"
             },
             {
-                "offset": 136,
+                "offset": 157,
                 "selector": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895"
             }
         ],
@@ -229,19 +237,40 @@
             "0x482680017ffb8000",
             "0x3",
             "0x208b7fff7fff7ffe",
-            "0x480a7ffa7fff8000",
+            "0x480a7ffc7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x480680017fff8000",
+            "0x38077b29e57bba3aa860b08652a77bd1076d0f70e38f019ba9920b820cf78f6",
+            "0x208b7fff7fff7ffe",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffa",
+            "0x480a7ffa7fff8000",
+            "0x48127ffe7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffed",
+            "0x48127ff67fff8000",
+            "0x48127ff67fff8000",
+            "0x208b7fff7fff7ffe",
+            "0x480a7ff97fff8000",
+            "0x480a7ffa7fff8000",
+            "0x480a7ffb7fff8000",
+            "0x480a7ffd7fff8000",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff1",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
-            "0x1",
+            "0x2",
             "0x402a7ffd7ffc7fff",
             "0x480280007ffb8000",
             "0x480280017ffb8000",
             "0x480280027ffb8000",
             "0x480280007ffd8000",
+            "0x480280017ffd8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff6",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff2",
             "0x40780017fff7fff",
             "0x1",
             "0x48127ffc7fff8000",
@@ -253,10 +282,10 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffd3",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffbe",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffc9",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffb4",
             "0x40127fff7fff7ff9",
             "0x48127ffe7fff8000",
             "0x208b7fff7fff7ffe",
@@ -304,7 +333,7 @@
             "0x0",
             "0x48127ffb7fff8000",
             "0x208b7fff7fff7ffe",
-            "0x20780017fff7ffd",
+            "0x20780017fff7ffc",
             "0x4",
             "0x10780017fff7fff",
             "0x4",
@@ -312,13 +341,14 @@
             "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffde",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
-            "0x3",
+            "0x4",
             "0x402a7ffd7ffc7fff",
             "0x480280007ffd8000",
             "0x480280017ffd8000",
             "0x480280027ffd8000",
+            "0x480280037ffd8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff4",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff3",
             "0x40780017fff7fff",
             "0x1",
             "0x480280007ffb8000",
@@ -329,7 +359,7 @@
             "0x48127ffb7fff8000",
             "0x208b7fff7fff7ffe",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffca",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffc9",
             "0x208b7fff7fff7ffe",
             "0x480280027ffb8000",
             "0x480280027ffd8000",
@@ -363,7 +393,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff46",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff30",
             "0x48127ffd7fff8000",
             "0x480a7ff87fff8000",
             "0x480a7ff97fff8000",
@@ -393,7 +423,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ff97fff8000",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff74",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff73",
             "0x480a7ffa7fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
@@ -401,7 +431,7 @@
             "0x480680017fff8000",
             "0x0",
             "0x1104800180018000",
-            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff2c",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffff16",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x1",
@@ -551,7 +581,7 @@
                     }
                 }
             ],
-            "67": [
+            "88": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -562,14 +592,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 7,
-                            "offset": 10
+                            "group": 9,
+                            "offset": 30
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "89": [
+            "110": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -580,14 +610,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 9,
+                            "group": 11,
                             "offset": 16
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "120": [
+            "141": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -598,14 +628,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 17,
+                            "group": 19,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "144": [
+            "166": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -616,14 +646,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 22,
+                            "group": 24,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "171": [
+            "193": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -634,14 +664,14 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 26,
+                            "group": 28,
                             "offset": 0
                         },
                         "reference_ids": {}
                     }
                 }
             ],
-            "228": [
+            "250": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -652,7 +682,7 @@
                     "code": "memory[ap] = segments.add()",
                     "flow_tracking_data": {
                         "ap_tracking": {
-                            "group": 30,
+                            "group": 32,
                             "offset": 0
                         },
                         "reference_ids": {}
@@ -678,7 +708,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 182,
+                "pc": 204,
                 "type": "function"
             },
             "__main__.__execute__.Args": {
@@ -735,7 +765,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 153,
+                "pc": 175,
                 "type": "function"
             },
             "__main__.__validate__.Args": {
@@ -779,7 +809,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 111,
+                "pc": 132,
                 "type": "function"
             },
             "__main__.__validate_declare__.Args": {
@@ -811,12 +841,16 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 129,
+                "pc": 150,
                 "type": "function"
             },
             "__main__.__validate_deploy__.Args": {
                 "full_name": "__main__.__validate_deploy__.Args",
                 "members": {
+                    "arg": {
+                        "cairo_type": "felt",
+                        "offset": 3
+                    },
                     "class_hash": {
                         "cairo_type": "felt",
                         "offset": 0
@@ -830,7 +864,7 @@
                         "offset": 2
                     }
                 },
-                "size": 3,
+                "size": 4,
                 "type": "struct"
             },
             "__main__.__validate_deploy__.ImplicitArgs": {
@@ -851,7 +885,7 @@
                 "decorators": [
                     "view"
                 ],
-                "pc": 76,
+                "pc": 97,
                 "type": "function"
             },
             "__main__.assert_only_self.Args": {
@@ -887,18 +921,22 @@
                 "decorators": [
                     "constructor"
                 ],
-                "pc": 54,
+                "pc": 71,
                 "type": "function"
             },
             "__main__.constructor.Args": {
                 "full_name": "__main__.constructor.Args",
                 "members": {
+                    "arg": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    },
                     "grind_on_deploy": {
                         "cairo_type": "felt",
                         "offset": 0
                     }
                 },
-                "size": 1,
+                "size": 2,
                 "type": "struct"
             },
             "__main__.constructor.ImplicitArgs": {
@@ -928,6 +966,126 @@
                 "type": "const",
                 "value": 0
             },
+            "__main__.ctor_arg": {
+                "type": "namespace"
+            },
+            "__main__.ctor_arg.Args": {
+                "full_name": "__main__.ctor_arg.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.ctor_arg.HashBuiltin": {
+                "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+                "type": "alias"
+            },
+            "__main__.ctor_arg.ImplicitArgs": {
+                "full_name": "__main__.ctor_arg.ImplicitArgs",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.ctor_arg.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.ctor_arg.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.ctor_arg.addr": {
+                "decorators": [],
+                "pc": 54,
+                "type": "function"
+            },
+            "__main__.ctor_arg.addr.Args": {
+                "full_name": "__main__.ctor_arg.addr.Args",
+                "members": {},
+                "size": 0,
+                "type": "struct"
+            },
+            "__main__.ctor_arg.addr.ImplicitArgs": {
+                "full_name": "__main__.ctor_arg.addr.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 0
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 1
+                    }
+                },
+                "size": 2,
+                "type": "struct"
+            },
+            "__main__.ctor_arg.addr.Return": {
+                "cairo_type": "(res: felt)",
+                "type": "type_definition"
+            },
+            "__main__.ctor_arg.addr.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
+            "__main__.ctor_arg.hash2": {
+                "destination": "starkware.cairo.common.hash.hash2",
+                "type": "alias"
+            },
+            "__main__.ctor_arg.normalize_address": {
+                "destination": "starkware.starknet.common.storage.normalize_address",
+                "type": "alias"
+            },
+            "__main__.ctor_arg.storage_read": {
+                "destination": "starkware.starknet.common.syscalls.storage_read",
+                "type": "alias"
+            },
+            "__main__.ctor_arg.storage_write": {
+                "destination": "starkware.starknet.common.syscalls.storage_write",
+                "type": "alias"
+            },
+            "__main__.ctor_arg.write": {
+                "decorators": [],
+                "pc": 59,
+                "type": "function"
+            },
+            "__main__.ctor_arg.write.Args": {
+                "full_name": "__main__.ctor_arg.write.Args",
+                "members": {
+                    "value": {
+                        "cairo_type": "felt",
+                        "offset": 0
+                    }
+                },
+                "size": 1,
+                "type": "struct"
+            },
+            "__main__.ctor_arg.write.ImplicitArgs": {
+                "full_name": "__main__.ctor_arg.write.ImplicitArgs",
+                "members": {
+                    "pedersen_ptr": {
+                        "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
+                        "offset": 1
+                    },
+                    "range_check_ptr": {
+                        "cairo_type": "felt",
+                        "offset": 2
+                    },
+                    "syscall_ptr": {
+                        "cairo_type": "felt*",
+                        "offset": 0
+                    }
+                },
+                "size": 3,
+                "type": "struct"
+            },
+            "__main__.ctor_arg.write.Return": {
+                "cairo_type": "()",
+                "type": "type_definition"
+            },
+            "__main__.ctor_arg.write.SIZEOF_LOCALS": {
+                "type": "const",
+                "value": 0
+            },
             "__main__.deploy": {
                 "destination": "starkware.starknet.common.syscalls.deploy",
                 "type": "alias"
@@ -936,7 +1094,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 216,
+                "pc": 238,
                 "type": "function"
             },
             "__main__.deploy_contract.Args": {
@@ -991,7 +1149,7 @@
             },
             "__main__.grind": {
                 "decorators": [],
-                "pc": 98,
+                "pc": 119,
                 "type": "function"
             },
             "__main__.grind.Args": {
@@ -1016,7 +1174,7 @@
             },
             "__main__.grind_recurse": {
                 "decorators": [],
-                "pc": 103,
+                "pc": 124,
                 "type": "function"
             },
             "__main__.grind_recurse.Args": {
@@ -1057,7 +1215,7 @@
                     "external",
                     "raw_output"
                 ],
-                "pc": 195,
+                "pc": 217,
                 "type": "function"
             },
             "__wrappers__.__execute__.Args": {
@@ -1092,7 +1250,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 156,
+                "pc": 178,
                 "type": "function"
             },
             "__wrappers__.__validate__.Args": {
@@ -1127,7 +1285,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 114,
+                "pc": 135,
                 "type": "function"
             },
             "__wrappers__.__validate_declare__.Args": {
@@ -1162,7 +1320,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 136,
+                "pc": 157,
                 "type": "function"
             },
             "__wrappers__.__validate_deploy__.Args": {
@@ -1197,7 +1355,7 @@
                 "decorators": [
                     "view"
                 ],
-                "pc": 85,
+                "pc": 106,
                 "type": "function"
             },
             "__wrappers__.assert_only_self.Args": {
@@ -1232,7 +1390,7 @@
                 "decorators": [
                     "constructor"
                 ],
-                "pc": 58,
+                "pc": 78,
                 "type": "function"
             },
             "__wrappers__.constructor.Args": {
@@ -1267,7 +1425,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 237,
+                "pc": 259,
                 "type": "function"
             },
             "__wrappers__.deploy_contract.Args": {
@@ -1296,7 +1454,7 @@
             },
             "__wrappers__.deploy_contract_encode_return": {
                 "decorators": [],
-                "pc": 228,
+                "pc": 250,
                 "type": "function"
             },
             "__wrappers__.deploy_contract_encode_return.Args": {
