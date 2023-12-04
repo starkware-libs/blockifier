@@ -1,3 +1,4 @@
+use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::GlobalContractCache;
@@ -12,10 +13,8 @@ use starknet_api::hash::StarkFelt;
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::{py_account_tx, PyActualCost};
-use crate::py_transaction_execution_info::{
-    PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
-};
+use crate::py_transaction::py_account_tx;
+use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
@@ -82,37 +81,6 @@ impl PyValidator {
         self.tx_executor = None;
     }
 
-    /// Applicable solely to account deployment transactions: the execution of the constructor
-    // is required before they can be validated.
-    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
-    // #[pyo3(...)].
-    #[pyo3(signature = (tx, raw_contract_class))]
-    pub fn execute(
-        &mut self,
-        tx: &PyAny,
-        raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
-        let limit_execution_steps_by_resource_bounds = true;
-        self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
-    }
-
-    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
-    // #[pyo3(...)] and pass an account transaction instead of PyAny.
-    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
-    pub fn validate(
-        &mut self,
-        tx: &PyAny,
-        remaining_gas: u64,
-        raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
-        let account_tx = py_account_tx(tx, raw_contract_class)?;
-        let (optional_call_info, actual_cost) =
-            self.tx_executor().validate(&account_tx, remaining_gas)?;
-        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
-
-        Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
-    }
-
     pub fn close(&mut self) {
         log::debug!("Closing validator.");
         self.teardown_validation_context();
@@ -152,12 +120,12 @@ impl PyValidator {
         }
 
         // `__validate__` call.
-        let (_py_optional_call_info, py_actual_cost) =
-            self.validate(tx, Transaction::initial_gas(), raw_contract_class)?;
+        let (_optional_call_info, actual_cost) =
+            self.validate(account_tx, Transaction::initial_gas())?;
 
         // Post validations.
         // TODO(Ayelet, 09/11/2023): Check call succeeded.
-        self.perform_post_validation_stage(&account_tx_context, &ActualCost::from(py_actual_cost))?;
+        self.perform_post_validation_stage(&account_tx_context, &actual_cost)?;
 
         Ok(())
     }
@@ -179,6 +147,17 @@ impl PyValidator {
 impl PyValidator {
     fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+    /// Applicable solely to account deployment transactions: the execution of the constructor
+    // is required before they can be validated.
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+        let limit_execution_steps_by_resource_bounds = true;
+        self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
 
     fn perform_pre_validation_stage(
@@ -224,6 +203,17 @@ impl PyValidator {
             && nonce_small_enough_to_qualify_for_validation_skip;
 
         Ok(skip_validate)
+    }
+
+    pub fn validate(
+        &mut self,
+        account_tx: AccountTransaction,
+        remaining_gas: u64,
+    ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
+        let (optional_call_info, actual_cost) =
+            self.tx_executor().validate(&account_tx, remaining_gas)?;
+
+        Ok((optional_call_info, actual_cost))
     }
 
     fn perform_post_validation_stage(
