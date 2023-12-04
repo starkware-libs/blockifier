@@ -19,10 +19,9 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
-use crate::invoke_tx_args;
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::declare::{declare_tx, DeclareTxArgs};
-use crate::test_utils::deploy_account::{deploy_account_tx, DeployTxArgs};
+use crate::test_utils::declare::declare_tx;
+use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::{
     create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
@@ -39,6 +38,7 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 
 #[fixture]
 fn max_fee() -> Fee {
@@ -63,12 +63,11 @@ fn test_fee_enforcement(
 ) {
     let mut state = create_state(block_context.clone());
     let deploy_account_tx = deploy_account_tx(
-        DeployTxArgs {
+        deploy_account_tx_args! {
             class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
             max_fee: Fee(u128::from(!zero_bounds)),
             resource_bounds: l1_resource_bounds(u64::from(!zero_bounds), DEFAULT_STRK_L1_GAS_PRICE),
             version,
-            ..Default::default()
         },
         &mut NonceManager::default(),
     );
@@ -289,12 +288,11 @@ fn test_max_fee_limit_validate(
     // Declare the grindy-validation account.
     let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
     let account_tx = declare_tx(
-        DeclareTxArgs {
+        declare_tx_args! {
             class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
             sender_address: account_address,
             max_fee: Fee(MAX_FEE),
             nonce: nonce_manager.next(account_address),
-            ..Default::default()
         },
         contract_class,
     );
@@ -306,11 +304,10 @@ fn test_max_fee_limit_validate(
         &mut state,
         &mut NonceManager::default(),
         &block_context,
-        DeployTxArgs {
+        deploy_account_tx_args! {
             class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
             max_fee,
             constructor_calldata: calldata![stark_felt!(1_u8)], // Grind in deploy phase.
-            ..Default::default()
         },
     );
     let error = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
@@ -327,11 +324,10 @@ fn test_max_fee_limit_validate(
         &mut state,
         &mut nonce_manager,
         &block_context,
-        DeployTxArgs {
+        deploy_account_tx_args! {
             class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
             max_fee,
             constructor_calldata: calldata![stark_felt!(0_u8)], // Do not grind in deploy phase.
-            ..Default::default()
         },
     );
     deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap();
@@ -465,10 +461,9 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
-        DeployTxArgs {
+        deploy_account_tx_args! {
             class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
             max_fee,
-            ..Default::default()
         },
         &mut nonce_manager,
     );
