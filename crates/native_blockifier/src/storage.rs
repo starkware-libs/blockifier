@@ -34,6 +34,7 @@ impl PapyrusStorage {
         log::debug!("Initializing Blockifier storage...");
         let db_config = papyrus_storage::db::DbConfig {
             path_prefix: config.path_prefix,
+            enforce_file_exists: config.enforce_file_exists,
             chain_id: config.chain_id,
             min_size: 1 << 20, // 1MB.
             max_size: config.max_size,
@@ -62,6 +63,7 @@ impl PapyrusStorage {
         let db_config = papyrus_storage::db::DbConfig {
             path_prefix,
             chain_id: chain_id.clone(),
+            enforce_file_exists: false,
             min_size: 1 << 20,    // 1MB
             max_size: 1 << 35,    // 32GB
             growth_step: 1 << 26, // 64MB
@@ -252,19 +254,21 @@ impl Storage for PapyrusStorage {
 pub struct StorageConfig {
     path_prefix: PathBuf,
     chain_id: ChainId,
+    enforce_file_exists: bool,
     max_size: usize,
 }
 
 #[pymethods]
 impl StorageConfig {
     #[new]
-    #[pyo3(signature = (path_prefix, chain_id, max_size))]
+    #[pyo3(signature = (path_prefix, chain_id, enforce_file_exists, max_size))]
     pub fn new(
         path_prefix: PathBuf,
         #[pyo3(from_py_with = "int_to_chain_id")] chain_id: ChainId,
+        enforce_file_exists: bool,
         max_size: usize,
     ) -> Self {
-        Self { path_prefix, chain_id, max_size }
+        Self { path_prefix, chain_id, enforce_file_exists, max_size }
     }
 }
 
