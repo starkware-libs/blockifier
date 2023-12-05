@@ -27,7 +27,7 @@ use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
-/// Represents a runnable StarkNet contract class (meaning, the program is runnable by the VM).
+/// Represents a runnable Starknet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.

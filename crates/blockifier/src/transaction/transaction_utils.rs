@@ -33,7 +33,7 @@ pub fn calculate_l1_gas_usage(
     Ok(l1_gas_usage)
 }
 
-/// Calculates the total resources needed to include the transaction in a StarkNet block as
+/// Calculates the total resources needed to include the transaction in a Starknet block as
 /// most-recent (recent w.r.t. application on the given state).
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(

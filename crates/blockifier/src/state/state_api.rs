@@ -16,7 +16,7 @@ pub enum DataAvailabilityMode {
     L2 = 1,
 }
 
-/// A read-only API for accessing StarkNet global state.
+/// A read-only API for accessing Starknet global state.
 ///
 /// The `self` argument is mutable for flexibility during reads (for example, caching reads),
 /// and to allow for the `State` trait below to also be considered a `StateReader`.
@@ -64,7 +64,7 @@ pub trait StateReader {
     }
 }
 
-/// A class defining the API for writing to StarkNet global state.
+/// A class defining the API for writing to Starknet global state.
 ///
 /// Reader functionality should be delegated to the associated type; which is passed in by
 /// dependency-injection.

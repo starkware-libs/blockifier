@@ -83,7 +83,7 @@ impl From<DeprecatedSyscallExecutionError> for HintError {
     }
 }
 
-/// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
+/// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct DeprecatedSyscallHintProcessor<'a> {
     // Input for execution.

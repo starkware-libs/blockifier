@@ -44,7 +44,7 @@ mod test;
 #[path = "execution_flavors_test.rs"]
 mod flavors_test;
 
-/// Represents a paid StarkNet transaction.
+/// Represents a paid Starknet transaction.
 #[derive(Debug)]
 pub enum AccountTransaction {
     Declare(DeclareTransaction),

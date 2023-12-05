@@ -79,7 +79,7 @@ impl CallInfo {
         class_hashes
     }
 
-    /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
+    /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
     pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
         let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
