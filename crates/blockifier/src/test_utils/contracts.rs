@@ -2,6 +2,7 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
+use strum_macros::EnumIter;
 
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::test_utils::{get_deprecated_contract_class, CairoVersion};
@@ -33,7 +34,7 @@ const SECURITY_TEST_CONTRACT_NAME: &str = "security_tests_contract";
 const TEST_CONTRACT_NAME: &str = "test_contract";
 
 /// Enum representing all feature contracts. Each one may be implemented in multiple Cairo versions.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, EnumIter, PartialEq)]
 pub enum FeatureContractId {
     AccountWithLongValidate,
     AccountWithoutValidations,

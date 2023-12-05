@@ -28,7 +28,7 @@ fn test_calculate_contract_address() {
         let entry_point_call = CallEntryPoint {
             calldata,
             entry_point_selector: selector_from_name("test_contract_address"),
-            ..trivial_external_entry_point()
+            ..trivial_external_entry_point(CairoVersion::Cairo0)
         };
         let contract_address =
             calculate_contract_address(salt, class_hash, constructor_calldata, deployer_address)

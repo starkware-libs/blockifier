@@ -19,8 +19,8 @@ use crate::state_readers::papyrus_state::PapyrusReader;
 #[test]
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let ((storage_reader, mut storage_writer), _) = papyrus_storage::test_utils::get_test_storage();
-    let test_contract =
-        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
+    let cairo_version = CairoVersion::Cairo0;
+    let test_contract = FeatureContract::new(FeatureContractId::TestContract, cairo_version, 0);
 
     // Initialize Storage: add test contract and class.
     let deployed_contracts = IndexMap::from([(test_contract.address, test_contract.class_hash)]);
@@ -45,7 +45,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(cairo_version)
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
