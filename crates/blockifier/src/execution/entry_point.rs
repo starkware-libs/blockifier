@@ -41,7 +41,7 @@ pub enum CallType {
     Call = 0,
     Delegate = 1,
 }
-/// Represents a call to an entry point of a StarkNet contract.
+/// Represents a call to an entry point of a Starknet contract.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.

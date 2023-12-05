@@ -2,4 +2,4 @@
 
 ## Description
 
-The transaction-executing component in the StarkNet sequencer.
+The transaction-executing component in the Starknet sequencer.

@@ -17,9 +17,9 @@ use crate::transaction::objects::{
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-/// Returns an estimation of the L1 gas amount that will be used (by StarkNet's update state and
+/// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
-/// e.g., a message from L2 to L1 is followed by a storage write operation in StarkNet L1 contract
+/// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
 /// which requires gas.
 pub fn calculate_tx_gas_usage(
     l2_to_l1_payloads_length: &[usize],
@@ -37,11 +37,11 @@ pub fn calculate_tx_gas_usage(
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
     let starknet_gas_usage =
-    // StarkNet's updateState gets the message segment as an argument.
+    // Starknet's updateState gets the message segment as an argument.
     residual_message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
-    // StarkNet's updateState increases a (storage) counter for each L2-to-L1 message.
+    // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
     + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
-    // StarkNet's updateState decreases a (storage) counter for each L1-to-L2 consumed message.
+    // Starknet's updateState decreases a (storage) counter for each L1-to-L2 consumed message.
     // (Note that we will probably get a refund of 15,000 gas for each consumed message but we
     // ignore it since refunded gas cannot be used for the current transaction execution).
     + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE

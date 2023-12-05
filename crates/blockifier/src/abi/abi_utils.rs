@@ -12,7 +12,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 #[path = "abi_utils_test.rs"]
 mod test;
 
-/// A variant of eth-keccak that computes a value that fits in a StarkNet field element.
+/// A variant of eth-keccak that computes a value that fits in a Starknet field element.
 pub fn starknet_keccak(data: &[u8]) -> Felt252 {
     let mut hasher = Keccak256::new();
     hasher.update(data);
@@ -37,7 +37,7 @@ pub fn selector_from_name(entry_point_name: &str) -> EntryPointSelector {
     }
 }
 
-/// Returns the storage address of a StarkNet storage variable given its name and arguments.
+/// Returns the storage address of a Starknet storage variable given its name and arguments.
 pub fn get_storage_var_address(storage_var_name: &str, args: &[StarkFelt]) -> StorageKey {
     let storage_var_name_hash = starknet_keccak(storage_var_name.as_bytes());
     let storage_var_name_hash = felt_to_stark_felt(&storage_var_name_hash);

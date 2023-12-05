@@ -113,7 +113,7 @@ pub const L1_GAS: &str = "0x0000000000000000000000000000000000000000000000000000
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
 
-/// Executes StarkNet syscalls (stateful protocol hints) during the execution of an entry point
+/// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
     // Input for execution.

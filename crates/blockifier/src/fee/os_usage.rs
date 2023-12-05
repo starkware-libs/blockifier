@@ -32,7 +32,7 @@ impl OsResources {
 }
 
 /// Calculates the additional resources needed for the OS to run the given syscalls;
-/// i.e., the resources of the StarkNet OS function `execute_syscalls`.
+/// i.e., the resources of the Starknet OS function `execute_syscalls`.
 pub fn get_additional_os_resources(
     syscall_counter: &SyscallCounter,
     tx_type: TransactionType,
@@ -47,7 +47,7 @@ pub fn get_additional_os_resources(
     }
 
     // Calculates the additional resources needed for the OS to run the given transaction;
-    // i.e., the resources of the StarkNet OS function `execute_transactions_inner`.
+    // i.e., the resources of the Starknet OS function `execute_transactions_inner`.
     // Also adds the resources needed for the fee transfer execution, performed in the end·
     // of every transaction.
     let os_resources = OS_RESOURCES.resources_for_tx_type(&tx_type);

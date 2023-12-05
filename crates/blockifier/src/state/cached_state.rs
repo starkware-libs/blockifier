@@ -623,7 +623,7 @@ pub struct StagedTransactionalState {
     pub tx_executed_class_hashes: HashSet<ClassHash>,
 }
 
-/// Holds uncommitted changes induced on StarkNet contracts.
+/// Holds uncommitted changes induced on Starknet contracts.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitmentStateDiff {
     // Contract instance attributes (per address).
