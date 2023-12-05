@@ -2,16 +2,8 @@
 
 %lang starknet
 
-from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import (
-    call_contract,
-    deploy,
-    get_caller_address,
-    get_contract_address,
-    storage_read,
-    storage_write,
-)
+from starkware.starknet.common.syscalls import call_contract
 
 @storage_var
     func ctor_arg() -> (arg: felt) {
@@ -25,14 +17,6 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     arg: felt,
 ) {
     ctor_arg.write(arg);
-    return ();
-}
-
-@view
-func assert_only_self{syscall_ptr: felt*}() {
-    let (self) = get_contract_address();
-    let (caller) = get_caller_address();
-    assert self = caller;
     return ();
 }
 
@@ -81,22 +65,4 @@ func __execute__{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         calldata=calldata,
     );
     return (retdata_size=retdata_size, retdata=retdata);
-}
-
-@external
-func deploy_contract{syscall_ptr: felt*}(
-    class_hash: felt,
-    contract_address_salt: felt,
-    constructor_calldata_len: felt,
-    constructor_calldata: felt*,
-) -> (contract_address: felt) {
-    assert_only_self();
-    let (contract_address) = deploy(
-        class_hash=class_hash,
-        contract_address_salt=contract_address_salt,
-        constructor_calldata_size=constructor_calldata_len,
-        constructor_calldata=constructor_calldata,
-        deploy_from_zero=FALSE,
-    );
-    return (contract_address=contract_address);
 }
