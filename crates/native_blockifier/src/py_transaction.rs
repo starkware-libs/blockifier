@@ -1,13 +1,11 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
-use blockifier::fee::actual_cost::ActualCost;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::ResourcesMapping;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use starknet_api::transaction::{Fee, Resource, ResourceBounds};
+use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
@@ -100,35 +98,6 @@ impl From<PyDataAvailabilityMode> for starknet_api::data_availability::DataAvail
         match py_data_availability_mode {
             PyDataAvailabilityMode::L1 => starknet_api::data_availability::DataAvailabilityMode::L1,
             PyDataAvailabilityMode::L2 => starknet_api::data_availability::DataAvailabilityMode::L2,
-        }
-    }
-}
-
-// TODO(Noa, 20/11/23): Remove when the validate method of `Pyvalidator` is no longer externalized
-// to Python.
-#[pyclass]
-#[derive(Clone, Default)]
-pub struct PyActualCost {
-    #[pyo3(get)]
-    pub actual_fee: u128,
-    #[pyo3(get)]
-    pub actual_resources: HashMap<String, usize>,
-}
-
-impl From<ActualCost> for PyActualCost {
-    fn from(actual_cost: ActualCost) -> Self {
-        Self {
-            actual_fee: actual_cost.actual_fee.0,
-            actual_resources: actual_cost.actual_resources.0,
-        }
-    }
-}
-
-impl From<PyActualCost> for ActualCost {
-    fn from(py_actual_cost: PyActualCost) -> Self {
-        Self {
-            actual_fee: Fee(py_actual_cost.actual_fee),
-            actual_resources: ResourcesMapping(py_actual_cost.actual_resources),
         }
     }
 }
