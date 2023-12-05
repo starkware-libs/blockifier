@@ -1,5 +1,6 @@
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -155,7 +156,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     );
 
     // Second scenario: minimal fee not covered. Actual fee is precomputed.
-    let (actual_gas_used, actual_fee) = gas_and_fee(6696, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(6890, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(10),
         resource_bounds: l1_resource_bounds(10, 10),
@@ -287,7 +288,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     let falliable_sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
 
     // Validation scenario: fallible validation.
-    let (actual_gas_used, actual_fee) = gas_and_fee(31450, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(31626, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
@@ -367,7 +368,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     };
 
     // First scenario: logic error. Should result in revert; actual fee should be shown.
-    let (revert_gas_used, revert_fee) = gas_and_fee(5987, validate, &fee_type);
+    let (revert_gas_used, revert_fee) = gas_and_fee(6108, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         calldata: recurse_calldata(contract_address, true, 3),
         nonce: nonce_manager.next(account_address),
@@ -399,7 +400,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // If `charge_fee` is true, execution is limited by sender bounds, so less resources will be
     // used. Otherwise, execution is limited by block bounds, so more resources will be used.
     let (limited_gas_used, limited_fee) = gas_and_fee(8392, validate, &fee_type);
-    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10688, validate, &fee_type);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10882, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
         resource_bounds: l1_resource_bounds(gas_bound, gas_price),
