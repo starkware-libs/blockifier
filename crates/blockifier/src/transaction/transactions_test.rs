@@ -294,8 +294,8 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     ExpectedResultTestInvokeTx{
-        range_check: 101,
-        n_steps: 4269,
+        range_check: 102,
+        n_steps: 4463,
         vm_resources: VmExecutionResources {
             n_steps:  61,
             n_memory_holes:  0,
@@ -310,8 +310,8 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
 #[test_case(
     &mut create_state_with_cairo1_account(),
     ExpectedResultTestInvokeTx{
-        range_check: 113,
-        n_steps: 4689,
+        range_check: 115,
+        n_steps: 4916,
         vm_resources: VmExecutionResources {
             n_steps: 283,
             n_memory_holes: 1,
@@ -746,11 +746,11 @@ fn declare_expected_range_check_builtin(
 /// Returns the expected number of cairo steps in a declare transaction.
 fn declare_n_steps(version: TransactionVersion, declared_contract_version: CairoVersion) -> usize {
     if version == TransactionVersion::ZERO {
-        2797 // No `__validate__`. Same number of steps, regardless of declared contract version.
+        2909 // No `__validate__`. Same number of steps, regardless of declared contract version.
     } else {
         match declared_contract_version {
-            CairoVersion::Cairo0 => 2809,
-            CairoVersion::Cairo1 => 2847,
+            CairoVersion::Cairo0 => 2921,
+            CairoVersion::Cairo1 => 2959,
         }
     }
 }
@@ -925,13 +925,13 @@ fn deploy_account_tx(
 #[test_case(
     &mut create_state_with_trivial_validation_account(),
     83, // range_check_builtin
-    3756, // n_steps
+    3893, // n_steps
     CairoVersion::Cairo0;
     "With Cairo0 account")]
 #[test_case(
     &mut create_state_with_cairo1_account(),
     85, // range_check_builtin
-    3812, // n_steps
+    3949, // n_steps
     CairoVersion::Cairo1;
     "With Cairo1 account")]
 fn test_deploy_account_tx(
@@ -1379,8 +1379,8 @@ fn test_l1_handler() {
     // Build the expected resource mapping.
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 1304),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 22),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
+        (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
         (abi_constants::GAS_USAGE.to_string(), 18471),
     ]));
 
@@ -1416,6 +1416,6 @@ fn test_l1_handler() {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1732700000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1741300000000000)
     );
 }
