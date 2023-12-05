@@ -234,16 +234,16 @@ pub fn create_account_tx_test_state(
 }
 
 pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
+    let cairo_version = CairoVersion::Cairo0;
     let account_balance = BALANCE;
     let account_contract =
-        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo0, 0);
-    let test_contract =
-        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, cairo_version, 0);
+    let test_contract = FeatureContract::new(FeatureContractId::TestContract, cairo_version, 0);
     create_account_tx_test_state(
         account_contract.get_class(),
         account_contract.class_hash,
         account_contract.address,
-        test_erc20_account_balance_key(),
+        test_erc20_account_balance_key(cairo_version),
         account_balance,
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
         test_contract.get_class(),
@@ -251,16 +251,21 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
 }
 
 pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
+    let test_contract_cairo_version = CairoVersion::Cairo0;
+    let account_cairo_version = CairoVersion::Cairo1;
     let account_balance = BALANCE;
-    let account_contract =
-        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo1, 0);
+    let account_contract = FeatureContract::new(
+        FeatureContractId::AccountWithoutValidations,
+        account_cairo_version,
+        0,
+    );
     let test_contract =
-        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0);
+        FeatureContract::new(FeatureContractId::TestContract, test_contract_cairo_version, 0);
     create_account_tx_test_state(
         account_contract.get_class(),
         account_contract.class_hash,
         account_contract.address,
-        test_erc20_account_balance_key(),
+        test_erc20_account_balance_key(account_cairo_version),
         account_balance,
         // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract.
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.

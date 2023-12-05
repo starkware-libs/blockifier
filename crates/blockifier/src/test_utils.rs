@@ -63,9 +63,9 @@ pub enum CairoVersion {
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
     get_fee_token_var_address(&contract_address!(TEST_SEQUENCER_ADDRESS))
 }
-pub fn test_erc20_account_balance_key() -> StorageKey {
+pub fn test_erc20_account_balance_key(cairo_version: CairoVersion) -> StorageKey {
     let account =
-        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo0, 0);
+        FeatureContract::new(FeatureContractId::AccountWithoutValidations, cairo_version, 0);
     get_fee_token_var_address(&account.address)
 }
 pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
@@ -124,7 +124,7 @@ impl NonceManager {
 }
 
 pub fn pad_address_to_64(address: ContractAddress) -> String {
-    let hex = format!("{:?}", address);
+    let hex = format!("{}", address.0.key());
     let trimmed_address = hex.strip_prefix("0x").unwrap_or(hex.as_str());
     String::from("0x") + format!("{trimmed_address:0>64}").as_str()
 }
@@ -152,8 +152,8 @@ pub fn get_test_contract_class() -> ContractClass {
     FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo0, 0).get_class()
 }
 
-pub fn trivial_external_entry_point() -> CallEntryPoint {
-    let contract_address = FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
+pub fn trivial_external_entry_point(cairo_version: CairoVersion) -> CallEntryPoint {
+    let contract_address = FeatureContractId::TestContract.get_address(cairo_version, 0);
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -167,7 +167,7 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
     }
 }
 
-pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
+pub fn trivial_external_entry_point_security_test(cairo_version: CairoVersion) -> CallEntryPoint {
     CallEntryPoint {
         storage_address: FeatureContract::new(
             FeatureContractId::SecurityTests,
@@ -175,7 +175,7 @@ pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
             0,
         )
         .address,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(cairo_version)
     }
 }
 

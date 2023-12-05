@@ -265,9 +265,12 @@ fn validate_final_balances(
     }
 }
 
-fn default_invoke_tx_args() -> InvokeTxArgs {
+fn default_invoke_tx_args(
+    account_cairo_version: CairoVersion,
+    test_contract_cairo_version: CairoVersion,
+) -> InvokeTxArgs {
     let execute_calldata = create_calldata(
-        FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
+        FeatureContractId::TestContract.get_address(test_contract_cairo_version, 0),
         "return_result",
         &[stark_felt!(2_u8)], // Calldata: num.
     );
@@ -276,7 +279,7 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
         max_fee: Fee(MAX_FEE),
         signature: TransactionSignature::default(),
         nonce: Nonce::default(),
-        sender_address: FeatureContractId::AccountWithoutValidations.get_address(CairoVersion::Cairo0, 0),
+        sender_address: FeatureContractId::AccountWithoutValidations.get_address(account_cairo_version, 0),
         calldata: execute_calldata,
     }
 }
@@ -317,10 +320,13 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
 fn test_invoke_tx(
     state: &mut CachedState<DictStateReader>,
     expected_arguments: ExpectedResultTestInvokeTx,
-    cairo_version: CairoVersion,
+    account_cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
-    let invoke_tx = invoke_tx(default_invoke_tx_args());
+    let test_cairo_version = CairoVersion::Cairo0;
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, test_cairo_version, 0);
+    let invoke_tx = invoke_tx(default_invoke_tx_args(account_cairo_version, test_cairo_version));
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -333,22 +339,22 @@ fn test_invoke_tx(
 
     // Build expected validate call info.
     let expected_account_class_hash =
-        FeatureContractId::AccountWithoutValidations.get_class_hash(CairoVersion::Cairo0);
+        FeatureContractId::AccountWithoutValidations.get_class_hash(account_cairo_version);
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
         constants::VALIDATE_ENTRY_POINT_NAME,
         expected_arguments.validate_gas_consumed,
         calldata,
         sender_address,
-        cairo_version,
+        account_cairo_version,
     );
 
     // Build expected execute call info.
     let expected_return_result_calldata = vec![stark_felt!(2_u8)];
-    let storage_address = FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0);
+    let storage_address = test_contract.address;
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
-        class_hash: Some(FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0)),
+        class_hash: Some(test_contract.class_hash),
         code_address: Some(storage_address),
         entry_point_type: EntryPointType::External,
         calldata: Calldata(expected_return_result_calldata.clone().into()),
@@ -429,20 +435,20 @@ fn test_invoke_tx(
         state,
         block_context,
         expected_actual_fee,
-        test_erc20_account_balance_key(),
+        test_erc20_account_balance_key(account_cairo_version),
         fee_type,
         BALANCE,
         BALANCE,
     );
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
+#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
+#[test_case( CairoVersion::Cairo1; "With Cairo1 account")]
+fn test_state_get_fee_token_balance(account_cairo_version: CairoVersion) {
+    let mut state = match account_cairo_version {
+        CairoVersion::Cairo0 => create_state_with_trivial_validation_account(),
+        CairoVersion::Cairo1 => create_state_with_cairo1_account(),
+    };
     let block_context = &BlockContext::create_for_account_testing();
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
@@ -455,13 +461,13 @@ fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
     );
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
-        sender_address: FeatureContractId::AccountWithoutValidations.get_address(CairoVersion::Cairo0, 0),
+        sender_address: FeatureContractId::AccountWithoutValidations.get_address(account_cairo_version, 0),
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
         nonce: Nonce::default(),
     });
     let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
-    account_tx.execute(state, block_context, true, true).unwrap();
+    account_tx.execute(&mut state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
     let (low, high) =
@@ -499,13 +505,14 @@ fn assert_failure_if_resource_bounds_exceed_balance(
     };
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
+#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
+#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
+fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
+    let test_contract_cairo_version = CairoVersion::Cairo0;
+    let mut state = match account_cairo_version {
+        CairoVersion::Cairo0 => create_state_with_trivial_validation_account(),
+        CairoVersion::Cairo1 => create_state_with_cairo1_account(),
+    };
     let block_context = &BlockContext::create_for_account_testing();
     let invalid_max_fee = Fee(BALANCE + 1);
     let invalid_resource_bounds =
@@ -515,17 +522,17 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
     let invalid_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: invalid_max_fee,
         version: TransactionVersion::ONE,
-        ..default_invoke_tx_args()
+        ..default_invoke_tx_args(account_cairo_version, test_contract_cairo_version)
     });
-    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
+    assert_failure_if_resource_bounds_exceed_balance(&mut state, block_context, invalid_tx);
 
     // V3 invoke.
     let invalid_tx = account_invoke_tx(invoke_tx_args! {
         resource_bounds: invalid_resource_bounds,
         version: TransactionVersion::THREE,
-        ..default_invoke_tx_args()
+        ..default_invoke_tx_args(account_cairo_version, test_contract_cairo_version)
     });
-    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
+    assert_failure_if_resource_bounds_exceed_balance(&mut state, block_context, invalid_tx);
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
@@ -534,7 +541,7 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
         None,
         &mut NonceManager::default(),
     ));
-    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
+    assert_failure_if_resource_bounds_exceed_balance(&mut state, block_context, invalid_tx);
 
     // Declare.
     let sender_address =
@@ -548,18 +555,20 @@ fn test_max_fee_exceeds_balance(state: &mut CachedState<DictStateReader>) {
         },
         FeatureContract::new(FeatureContractId::Empty, CairoVersion::Cairo0, 0).get_class(),
     );
-    assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
+    assert_failure_if_resource_bounds_exceed_balance(&mut state, block_context, invalid_tx);
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
+#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
+#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
+fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
+    let test_contract_cairo_version = CairoVersion::Cairo0;
+    let mut state = match account_cairo_version {
+        CairoVersion::Cairo0 => create_state_with_trivial_validation_account(),
+        CairoVersion::Cairo1 => create_state_with_cairo1_account(),
+    };
     let block_context = &BlockContext::create_for_account_testing();
-    let valid_invoke_tx_args = default_invoke_tx_args();
+    let valid_invoke_tx_args =
+        default_invoke_tx_args(account_cairo_version, test_contract_cairo_version);
     // The minimal gas estimate does not depend on tx version.
     let minimal_l1_gas =
         estimate_minimal_l1_gas(block_context, &account_invoke_tx(valid_invoke_tx_args.clone()))
@@ -573,7 +582,7 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
     let invalid_v1_tx = account_invoke_tx(
         invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
     );
-    let execution_error = invalid_v1_tx.execute(state, block_context, true, true).unwrap_err();
+    let execution_error = invalid_v1_tx.execute(&mut state, block_context, true, true).unwrap_err();
 
     // Test error.
     assert_matches!(
@@ -594,7 +603,7 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
         version: TransactionVersion::THREE,
         ..valid_invoke_tx_args.clone()
     });
-    let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
+    let execution_error = invalid_v3_tx.execute(&mut state, block_context, true, true).unwrap_err();
     assert_matches!(
         execution_error,
         TransactionExecutionError::TransactionPreValidationError(
@@ -612,7 +621,7 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
         version: TransactionVersion::THREE,
         ..valid_invoke_tx_args
     });
-    let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
+    let execution_error = invalid_v3_tx.execute(&mut state, block_context, true, true).unwrap_err();
     assert_matches!(
         execution_error,
         TransactionExecutionError::TransactionPreValidationError(
@@ -623,22 +632,23 @@ fn test_insufficient_resource_bounds(state: &mut CachedState<DictStateReader>) {
     );
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_actual_fee_gt_resource_bounds(state: &mut CachedState<DictStateReader>) {
+#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
+#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
+fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
+    let test_contract_cairo_version = CairoVersion::Cairo0;
+    let mut state = match account_cairo_version {
+        CairoVersion::Cairo0 => create_state_with_trivial_validation_account(),
+        CairoVersion::Cairo1 => create_state_with_cairo1_account(),
+    };
     let block_context = &BlockContext::create_for_account_testing();
-    let invoke_tx_args = default_invoke_tx_args();
+    let invoke_tx_args = default_invoke_tx_args(account_cairo_version, test_contract_cairo_version);
     let minimal_l1_gas =
         estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone())).unwrap();
     let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
 
-    let execution_result = invalid_tx.execute(state, block_context, true, true).unwrap();
+    let execution_result = invalid_tx.execute(&mut state, block_context, true, true).unwrap();
     let execution_error = execution_result.revert_error.unwrap();
     // Test error.
     assert!(execution_error.starts_with("Insufficient max fee:"));
@@ -646,16 +656,18 @@ fn test_actual_fee_gt_resource_bounds(state: &mut CachedState<DictStateReader>) 
     assert_eq!(execution_result.actual_fee, minimal_fee);
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_invalid_nonce(state: &mut CachedState<DictStateReader>) {
-    let mut transactional_state = CachedState::create_transactional(state);
+#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
+#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
+fn test_invalid_nonce(account_cairo_version: CairoVersion) {
+    let test_contract_cairo_version = CairoVersion::Cairo0;
+    let mut state = match account_cairo_version {
+        CairoVersion::Cairo0 => create_state_with_trivial_validation_account(),
+        CairoVersion::Cairo1 => create_state_with_cairo1_account(),
+    };
+    let mut transactional_state = CachedState::create_transactional(&mut state);
     let block_context = &BlockContext::create_for_account_testing();
-    let valid_invoke_tx_args = default_invoke_tx_args();
+    let valid_invoke_tx_args =
+        default_invoke_tx_args(account_cairo_version, test_contract_cairo_version);
 
     // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
     let invalid_nonce = Nonce(stark_felt!(1_u8));
@@ -736,14 +748,18 @@ fn test_declare_tx(
     state: &mut CachedState<DictStateReader>,
     expected_range_check_builtin: usize,
     expected_n_steps_resource: usize,
-    cairo_version: CairoVersion,
+    account_cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
-    let class_hash = FeatureContractId::Empty.get_class_hash(CairoVersion::Cairo0);
-    let sender_address =
-        FeatureContractId::AccountWithoutValidations.get_address(CairoVersion::Cairo0, 0);
-    let contract_class =
-        FeatureContract::new(FeatureContractId::Empty, CairoVersion::Cairo0, 0).get_class();
+    let account_contract = FeatureContract::new(
+        FeatureContractId::AccountWithoutValidations,
+        account_cairo_version,
+        0,
+    );
+    let empty_contract = FeatureContract::new(FeatureContractId::Empty, CairoVersion::Cairo0, 0);
+    let class_hash = empty_contract.class_hash;
+    let sender_address = account_contract.address;
+    let contract_class = empty_contract.get_class();
     let account_tx = declare_tx(
         DeclareTxArgs { class_hash, sender_address, max_fee: Fee(MAX_FEE), ..Default::default() },
         contract_class.clone(),
@@ -759,10 +775,8 @@ fn test_declare_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_class_hash =
-        FeatureContractId::AccountWithoutValidations.get_class_hash(CairoVersion::Cairo0);
-    let expected_account_address =
-        FeatureContractId::AccountWithoutValidations.get_address(CairoVersion::Cairo0, 0);
+    let expected_account_class_hash = account_contract.class_hash;
+    let expected_account_address = account_contract.address;
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         expected_account_class_hash,
@@ -770,7 +784,7 @@ fn test_declare_tx(
         expected_gas_consumed,
         calldata![class_hash.0],
         expected_account_address,
-        cairo_version,
+        account_cairo_version,
     );
 
     // Build expected fee transfer call info.
@@ -818,7 +832,7 @@ fn test_declare_tx(
         state,
         block_context,
         expected_actual_fee,
-        test_erc20_account_balance_key(),
+        test_erc20_account_balance_key(account_cairo_version),
         fee_type,
         BALANCE,
         BALANCE,
@@ -1171,11 +1185,16 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
 #[test]
 fn test_calculate_tx_gas_usage() {
     let state = &mut create_state_with_trivial_validation_account();
+    let account_cairo_version = CairoVersion::Cairo0;
+    let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing();
     // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT fee token address should depend on tx version.
     let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args());
+    let account_tx = account_invoke_tx(default_invoke_tx_args(
+        account_cairo_version,
+        test_contract_cairo_version,
+    ));
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     let n_storage_updates = 1; // For the account balance update.
@@ -1192,7 +1211,7 @@ fn test_calculate_tx_gas_usage() {
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address =
-        *FeatureContractId::FaultyAccount.get_address(CairoVersion::Cairo0, 0).0.key();
+        *FeatureContractId::FaultyAccount.get_address(account_cairo_version, 0).0.key();
     let execute_calldata = create_calldata(
         fee_token_address,
         constants::TRANSFER_ENTRY_POINT_NAME,
@@ -1205,7 +1224,7 @@ fn test_calculate_tx_gas_usage() {
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
-        sender_address: FeatureContractId::AccountWithoutValidations.get_address(CairoVersion::Cairo0, 0),
+        sender_address: FeatureContractId::AccountWithoutValidations.get_address(account_cairo_version, 0),
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
         nonce: Nonce(stark_felt!(1_u8)),
@@ -1230,8 +1249,11 @@ fn test_calculate_tx_gas_usage() {
 #[test]
 fn test_valid_flag() {
     let state = &mut create_state_with_cairo1_account();
+    let account_cairo_version = CairoVersion::Cairo1;
+    let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing();
-    let invoke_tx = invoke_tx(default_invoke_tx_args());
+    let invoke_tx =
+        invoke_tx(default_invoke_tx_args(account_cairo_version, test_contract_cairo_version));
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
     let actual_execution_info = account_tx.execute(state, block_context, true, false).unwrap();
@@ -1244,14 +1266,18 @@ fn test_valid_flag() {
 #[case(true)]
 #[case(false)]
 fn test_only_query_flag(#[case] only_query: bool) {
+    let account_cairo_version = CairoVersion::Cairo1;
     let account_balance = BALANCE;
-    let account_contract =
-        FeatureContract::new(FeatureContractId::AccountWithoutValidations, CairoVersion::Cairo1, 0);
+    let account_contract = FeatureContract::new(
+        FeatureContractId::AccountWithoutValidations,
+        account_cairo_version,
+        0,
+    );
     let state = &mut create_account_tx_test_state(
         account_contract.get_class(),
         account_contract.class_hash,
         account_contract.address,
-        test_erc20_account_balance_key(),
+        test_erc20_account_balance_key(account_cairo_version),
         account_balance,
         FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo1, 0).get_class(),
     );
@@ -1261,8 +1287,7 @@ fn test_only_query_flag(#[case] only_query: bool) {
         let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
         version += query_version_base;
     }
-    let sender_address =
-        FeatureContractId::AccountWithoutValidations.get_address(CairoVersion::Cairo0, 0);
+    let sender_address = account_contract.address;
     let max_fee = Fee(MAX_FEE);
     let expected_tx_info = vec![
         felt_to_stark_felt(&version), // Transaction version.
@@ -1319,11 +1344,13 @@ fn test_only_query_flag(#[case] only_query: bool) {
 }
 
 fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
+    let test_contract_cairo_version = CairoVersion::Cairo1;
     L1HandlerTransaction {
         tx: starknet_api::transaction::L1HandlerTransaction {
             version: TransactionVersion::ZERO,
             nonce: Nonce::default(),
-            contract_address: FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
+            contract_address: FeatureContractId::TestContract
+                .get_address(test_contract_cairo_version, 0),
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
         },
@@ -1336,6 +1363,8 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
 fn test_l1_handler() {
     let state = &mut create_test_state();
     let block_context = &BlockContext::create_for_account_testing();
+    let test_contract =
+        FeatureContract::new(FeatureContractId::TestContract, CairoVersion::Cairo1, 0);
     let from_address = StarkFelt::from_u128(0x123);
     let key = StarkFelt::from_u128(0x876);
     let value = StarkFelt::from_u128(0x44);
@@ -1348,12 +1377,12 @@ fn test_l1_handler() {
     let accessed_storage_key = StorageKey::try_from(key).unwrap();
     let expected_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(FeatureContractId::TestContract.get_class_hash(CairoVersion::Cairo0)),
+            class_hash: Some(test_contract.class_hash),
             code_address: None,
             entry_point_type: EntryPointType::L1Handler,
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
-            storage_address: FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
+            storage_address: test_contract.address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: Transaction::initial_gas(),
@@ -1395,12 +1424,7 @@ fn test_l1_handler() {
 
     // Check the state changes.
     assert_eq!(
-        state
-            .get_storage_at(
-                FeatureContractId::TestContract.get_address(CairoVersion::Cairo0, 0),
-                StorageKey::try_from(key).unwrap(),
-            )
-            .unwrap(),
+        state.get_storage_at(test_contract.address, StorageKey::try_from(key).unwrap(),).unwrap(),
         value,
     );
 

@@ -64,7 +64,7 @@ fn test_entry_point_without_arg() {
     let mut state = deprecated_create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("without_arg"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -79,7 +79,7 @@ fn test_entry_point_with_arg() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("with_arg"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -94,7 +94,7 @@ fn test_long_retdata() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_long_retdata"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -115,7 +115,7 @@ fn test_entry_point_with_builtin() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("bitwise_and"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -130,7 +130,7 @@ fn test_entry_point_with_hint() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("sqrt"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -145,7 +145,7 @@ fn test_entry_point_with_return_value() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("return_result"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -157,8 +157,10 @@ fn test_entry_point_with_return_value() {
 fn test_entry_point_not_found_in_contract() {
     let mut state = deprecated_create_test_state();
     let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
-    let entry_point_call =
-        CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector,
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
+    };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_eq!(
         format!("Entry point {entry_point_selector:?} not found in contract."),
@@ -171,7 +173,7 @@ fn test_storage_var() {
     let mut state = deprecated_create_test_state();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_storage_var"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -189,7 +191,7 @@ fn run_security_test(
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
-        ..trivial_external_entry_point_security_test()
+        ..trivial_external_entry_point_security_test(CairoVersion::Cairo0)
     };
     let error = match entry_point_call.execute_directly(state) {
         Err(error) => error.to_string(),
@@ -460,11 +462,12 @@ fn test_post_run_validation_security_failure() {
 #[test]
 fn test_storage_related_members() {
     let mut state = deprecated_create_test_state();
+    let cairo_version = CairoVersion::Cairo0;
 
     // Test storage variable.
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_storage_var"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(cairo_version)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), stark_felt!(39_u8)]);
@@ -480,7 +483,7 @@ fn test_storage_related_members() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(cairo_version)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), value]);
@@ -497,7 +500,7 @@ fn test_cairo1_entry_point_segment_arena() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("segment_arena_builtin"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo1)
     };
 
     assert!(
@@ -532,7 +535,7 @@ fn test_stack_trace() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(call_contract_function_name),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point(CairoVersion::Cairo0)
     };
 
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
