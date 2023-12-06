@@ -1,6 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use num_traits::Pow;
@@ -21,21 +25,21 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
 };
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, trivial_external_entry_point, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
+    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
     AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
 };
+use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
 #[test]
 fn test_storage_read_write() {
@@ -408,12 +412,12 @@ fn test_block_info_syscalls(
 
     if execution_mode == ExecutionMode::Validate && block_info_member_name == "sequencer_address" {
         let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
-        check_entry_point_execution_error_for_custom_hint(
+        check_entry_point_execution_error_for_custom_hint!(
             &error,
             &format!(
                 "Unauthorized syscall get_{} in execution mode Validate.",
                 block_info_member_name
-            ),
+            )
         );
     } else {
         assert_eq!(
