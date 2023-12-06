@@ -10,10 +10,6 @@ use std::fs;
 use std::path::PathBuf;
 
 use cairo_felt::Felt252;
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::errors::vm_exception::VmException;
 use num_traits::{One, Zero};
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
@@ -28,11 +24,8 @@ use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants::{self};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::transaction::errors::TransactionExecutionError;
 use crate::utils::const_max;
-
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
@@ -198,58 +191,59 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 
 // Transactions.
 
-pub fn check_transaction_execution_error_for_custom_hint(
-    error: &TransactionExecutionError,
-    expected_hint: &str,
-) {
-    match error {
-        TransactionExecutionError::ContractConstructorExecutionFailed(error)
-        | TransactionExecutionError::ValidateTransactionError(error) => {
-            check_entry_point_execution_error_for_custom_hint(error, expected_hint)
-        }
-        _ => panic!("Unexpected structure for error: {:?}", error),
-    }
-}
-
 /// Checks that the given error is a `HintError::CustomHint` with the given hint.
-pub fn check_entry_point_execution_error_for_custom_hint(
-    error: &EntryPointExecutionError,
-    expected_hint: &str,
-) {
-    if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-        source:
-            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                inner_exc: VirtualMachineError::Hint(hint),
-                ..
-            })),
-        ..
-    } = error
-    {
-        if let HintError::CustomHint(custom_hint) = &hint.1 {
-            assert_eq!(custom_hint.as_ref(), expected_hint)
-        } else {
-            panic!("Unexpected hint: {:?}", hint);
-        }
-    } else {
-        panic!("Unexpected structure for error: {:?}", error);
-    }
-}
-
-pub fn check_transaction_execution_error_for_diff_assert_values(error: &TransactionExecutionError) {
-    if let TransactionExecutionError::ValidateTransactionError(
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+#[macro_export]
+macro_rules! check_entry_point_execution_error_for_custom_hint {
+    ($error:expr, $expected_hint:expr $(,)?) => {
+        if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
             source:
                 VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                    inner_exc: VirtualMachineError::DiffAssertValues(_),
+                    inner_exc: VirtualMachineError::Hint(hint),
                     ..
                 })),
             ..
-        },
-    ) = error
-    {
-    } else {
-        panic!("Unexpected structure for error: {:?}", error);
-    }
+        } = $error
+        {
+            if let HintError::CustomHint(custom_hint) = &hint.1 {
+                assert_eq!(custom_hint.as_ref(), $expected_hint)
+            } else {
+                panic!("Unexpected hint: {:?}", hint);
+            }
+        } else {
+            panic!("Unexpected structure for error: {:?}", $error);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_transaction_execution_error_for_custom_hint {
+    ($error:expr, $expected_hint:expr, $variant:ident, $(,)?) => {
+        match $error {
+            TransactionExecutionError::$variant(error) => {
+                check_entry_point_execution_error_for_custom_hint!(error, $expected_hint)
+            }
+            _ => panic!("Unexpected structure for error: {:?}", $error),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_transaction_execution_error_for_diff_assert_values {
+    ($error:expr $(,)?) => {
+        if let TransactionExecutionError::ValidateTransactionError(
+            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                source:
+                    VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
+                        VmException { inner_exc: VirtualMachineError::DiffAssertValues(_), .. },
+                    )),
+                ..
+            },
+        ) = $error
+        {
+        } else {
+            panic!("Unexpected structure for error: {:?}", $error);
+        }
+    };
 }
 
 pub fn create_calldata(
