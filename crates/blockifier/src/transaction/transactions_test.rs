@@ -3,6 +3,10 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -28,7 +32,7 @@ use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -41,9 +45,8 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, create_calldata,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, NonceManager,
-    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
+    NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
@@ -71,7 +74,12 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{
     DeployAccountTransaction, ExecutableTransaction, L1HandlerTransaction,
 };
-use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args, retdata};
+use crate::{
+    check_entry_point_execution_error_for_custom_hint,
+    check_transaction_execution_error_for_custom_hint,
+    check_transaction_execution_error_for_diff_assert_values, declare_tx_args,
+    deploy_account_tx_args, invoke_tx_args, retdata,
+};
 
 #[derive(Clone, Copy)]
 enum CairoVersion {
@@ -1125,8 +1133,7 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
     let account_tx =
         create_account_tx_for_validate_test(tx_type, INVALID, None, &mut NonceManager::default());
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    // TODO(Noa,01/05/2023): Test the exact failure reason.
-    assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+    check_transaction_execution_error_for_diff_assert_values!(&error);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1136,14 +1143,11 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         &mut NonceManager::default(),
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    if let TransactionExecutionError::ValidateTransactionError(error) = error {
-        check_entry_point_execution_error_for_custom_hint(
-            &error,
-            "Unauthorized syscall call_contract in execution mode Validate.",
-        );
-    } else {
-        panic!("Expected ValidateTransactionError.")
-    }
+    check_transaction_execution_error_for_custom_hint!(
+        &error,
+        "Unauthorized syscall call_contract in execution mode Validate.",
+        ValidateTransactionError,
+    );
 
     // Verify that the contract does not call another contract in the constructor of deploy account
     // as well.
@@ -1165,14 +1169,11 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         );
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
-            check_entry_point_execution_error_for_custom_hint(
-                &error,
-                "Unauthorized syscall call_contract in execution mode Validate.",
-            );
-        } else {
-            panic!("Expected ContractConstructorExecutionFailed.")
-        }
+        check_transaction_execution_error_for_custom_hint!(
+            &error,
+            "Unauthorized syscall call_contract in execution mode Validate.",
+            ContractConstructorExecutionFailed,
+        );
     }
 }
 
