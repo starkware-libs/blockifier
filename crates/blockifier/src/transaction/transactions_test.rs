@@ -40,7 +40,8 @@ use crate::test_utils::deploy_account::DeployTxArgs;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    check_entry_point_execution_error_for_custom_hint, create_calldata,
+    check_transaction_execution_error_for_custom_hint,
+    check_transaction_execution_error_for_diff_assert_values, create_calldata,
     test_erc20_account_balance_key, test_erc20_sequencer_balance_key, NonceManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_ADDRESS,
@@ -1106,8 +1107,7 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
     let account_tx =
         create_account_tx_for_validate_test(tx_type, INVALID, None, &mut NonceManager::default());
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    // TODO(Noa,01/05/2023): Test the exact failure reason.
-    assert_matches!(error, TransactionExecutionError::ValidateTransactionError(_));
+    check_transaction_execution_error_for_diff_assert_values(&error);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1116,15 +1116,12 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
         &mut NonceManager::default(),
     );
-    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    if let TransactionExecutionError::ValidateTransactionError(error) = error {
-        check_entry_point_execution_error_for_custom_hint(
-            &error,
-            "Unauthorized syscall call_contract in execution mode Validate.",
-        );
-    } else {
-        panic!("Expected ValidateTransactionError.")
-    }
+    let error: TransactionExecutionError =
+        account_tx.execute(state, block_context, true, true).unwrap_err();
+    check_transaction_execution_error_for_custom_hint(
+        &error,
+        "Unauthorized syscall call_contract in execution mode Validate.",
+    );
 
     // Verify that the contract does not call another contract in the constructor of deploy account
     // as well.
@@ -1147,14 +1144,10 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
         );
         let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        if let TransactionExecutionError::ContractConstructorExecutionFailed(error) = error {
-            check_entry_point_execution_error_for_custom_hint(
-                &error,
-                "Unauthorized syscall call_contract in execution mode Validate.",
-            );
-        } else {
-            panic!("Expected ContractConstructorExecutionFailed.")
-        }
+        check_transaction_execution_error_for_custom_hint(
+            &error,
+            "Unauthorized syscall call_contract in execution mode Validate.",
+        );
     }
 }
 
