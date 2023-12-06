@@ -30,6 +30,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::utils::const_max;
 
 // Addresses.
@@ -197,6 +198,19 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 
 // Transactions.
 
+pub fn check_transaction_execution_error_for_custom_hint(
+    error: &TransactionExecutionError,
+    expected_hint: &str,
+) {
+    match error {
+        TransactionExecutionError::ContractConstructorExecutionFailed(error)
+        | TransactionExecutionError::ValidateTransactionError(error) => {
+            check_entry_point_execution_error_for_custom_hint(error, expected_hint)
+        }
+        _ => panic!("Unexpected structure for error: {:?}", error),
+    }
+}
+
 /// Checks that the given error is a `HintError::CustomHint` with the given hint.
 pub fn check_entry_point_execution_error_for_custom_hint(
     error: &EntryPointExecutionError,
@@ -216,6 +230,23 @@ pub fn check_entry_point_execution_error_for_custom_hint(
         } else {
             panic!("Unexpected hint: {:?}", hint);
         }
+    } else {
+        panic!("Unexpected structure for error: {:?}", error);
+    }
+}
+
+pub fn check_transaction_execution_error_for_diff_assert_values(error: &TransactionExecutionError) {
+    if let TransactionExecutionError::ValidateTransactionError(
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+            source:
+                VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
+                    inner_exc: VirtualMachineError::DiffAssertValues(_),
+                    ..
+                })),
+            ..
+        },
+    ) = error
+    {
     } else {
         panic!("Unexpected structure for error: {:?}", error);
     }
