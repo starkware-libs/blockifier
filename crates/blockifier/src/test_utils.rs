@@ -216,15 +216,8 @@ pub fn check_entry_point_execution_error_for_custom_hint(
     error: &EntryPointExecutionError,
     expected_hint: &str,
 ) {
-    if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-        source:
-            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                inner_exc: VirtualMachineError::Hint(hint),
-                ..
-            })),
-        ..
-    } = error
-    {
+    let inner_exc = extract_inner_exc_from_entry_point_execution_error(error);
+    if let VirtualMachineError::Hint(hint) = inner_exc {
         if let HintError::CustomHint(custom_hint) = &hint.1 {
             assert_eq!(custom_hint.as_ref(), expected_hint)
         } else {
@@ -236,17 +229,36 @@ pub fn check_entry_point_execution_error_for_custom_hint(
 }
 
 pub fn check_transaction_execution_error_for_diff_assert_values(error: &TransactionExecutionError) {
-    if let TransactionExecutionError::ValidateTransactionError(
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-            source:
-                VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                    inner_exc: VirtualMachineError::DiffAssertValues(_),
-                    ..
-                })),
-            ..
-        },
-    ) = error
+    let inner_exc = extract_inner_exc_from_transaction_execution_error(error);
+    if let VirtualMachineError::DiffAssertValues(_) = inner_exc {
+    } else {
+        panic!("Unexpected structure for error: {:?}", error);
+    }
+}
+
+pub fn extract_inner_exc_from_transaction_execution_error(
+    error: &TransactionExecutionError,
+) -> &VirtualMachineError {
+    if let TransactionExecutionError::ValidateTransactionError(error) = error {
+        extract_inner_exc_from_entry_point_execution_error(error)
+    } else {
+        panic!("Unexpected structure for error: {:?}", error);
+    }
+}
+
+pub fn extract_inner_exc_from_entry_point_execution_error(
+    error: &EntryPointExecutionError,
+) -> &VirtualMachineError {
+    if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+        source:
+            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
+                inner_exc,
+                ..
+            })),
+        ..
+    } = error
     {
+        inner_exc
     } else {
         panic!("Unexpected structure for error: {:?}", error);
     }
