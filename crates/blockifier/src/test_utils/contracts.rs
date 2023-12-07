@@ -129,9 +129,8 @@ impl FeatureContract {
         class_hash!(self.get_integer_base())
     }
 
-    /// To allow multiple deployments of the same contract class, the address also depends on
-    /// instance ID.
-    pub fn get_address(&self, instance_id: u8) -> ContractAddress {
+    /// Returns the address of the instance with the given instance ID.
+    pub fn get_instance_address(&self, instance_id: u8) -> ContractAddress {
         contract_address!(self.get_integer_base() + instance_id as u32 + ADDRESS_BIT)
     }
 
