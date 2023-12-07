@@ -1,10 +1,10 @@
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use rstest::rstest;
-use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
-use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::block_context::BlockContext;
@@ -15,21 +15,49 @@ use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE,
 };
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{FeeType, TransactionExecutionInfo};
-use crate::transaction::test_utils::{
-    account_invoke_tx, create_state_with_falliable_validation_account, create_test_init_data,
-    l1_resource_bounds, TestInitData, INVALID,
-};
+use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds, INVALID};
 use crate::transaction::transactions::ExecutableTransaction;
-
 const VALIDATE_GAS_OVERHEAD: u64 = 21;
+
+struct FlavorTestInitialState {
+    pub state: CachedState<DictStateReader>,
+    pub account_address: ContractAddress,
+    pub faulty_account_address: ContractAddress,
+    pub test_contract_address: ContractAddress,
+    pub nonce_manager: NonceManager,
+}
+
+fn create_flavors_test_state(
+    block_context: &BlockContext,
+    cairo_version: CairoVersion,
+) -> FlavorTestInitialState {
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let faulty_account_contract = FeatureContract::FaultyAccount(cairo_version);
+    let state = test_state(
+        &block_context,
+        BALANCE,
+        &[(account_contract, 1), (faulty_account_contract, 1), (test_contract, 1)],
+    );
+    FlavorTestInitialState {
+        state,
+        account_address: account_contract.get_instance_address(0),
+        faulty_account_address: faulty_account_contract.get_instance_address(0),
+        test_contract_address: test_contract.get_instance_address(0),
+        nonce_manager: NonceManager::default(),
+    }
+}
 
 /// Checks that balance of the account decreased if and only if `charge_fee` is true.
 /// Returns the new balance.
@@ -101,6 +129,8 @@ fn test_simulate_validate_charge_fee_pre_validate(
     #[values(true, false)] only_query: bool,
     #[values(true, false)] validate: bool,
     #[values(true, false)] charge_fee: bool,
+    // TODO(Dori, 1/1/2024): Add Cairo1 case, after price abstraction is implemented.
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
     #[case] is_deprecated: bool,
@@ -108,13 +138,13 @@ fn test_simulate_validate_charge_fee_pre_validate(
     let block_context = BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
     let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
-    let TestInitData {
+    let FlavorTestInitialState {
         mut state,
         account_address,
-        contract_address,
+        test_contract_address,
         mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+        ..
+    } = create_flavors_test_state(&block_context, cairo_version);
 
     // Pre-validation scenarios.
     // 1. Invalid nonce.
@@ -127,10 +157,10 @@ fn test_simulate_validate_charge_fee_pre_validate(
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         sender_address: account_address,
         calldata: calldata![
-            *contract_address.0.key(),              // Contract address.
-            selector_from_name("return_result").0,  // EP selector.
-            stark_felt!(1_u8),                      // Calldata length.
-            stark_felt!(2_u8)                       // Calldata: num.
+            *test_contract_address.0.key(), // Contract address.
+            selector_from_name("return_result").0,          // EP selector.
+            stark_felt!(1_u8),                              // Calldata length.
+            stark_felt!(2_u8)                               // Calldata: num.
         ],
         version,
         only_query,
@@ -274,6 +304,8 @@ fn test_simulate_validate_charge_fee_fail_validate(
     #[values(true, false)] only_query: bool,
     #[values(true, false)] validate: bool,
     #[values(true, false)] charge_fee: bool,
+    // TODO(Dori, 1/1/2024): Add Cairo1 case, after price abstraction is implemented.
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
 ) {
@@ -281,10 +313,12 @@ fn test_simulate_validate_charge_fee_fail_validate(
     let max_fee = Fee(MAX_FEE);
 
     // Create a state with a contract that can fail validation on demand.
-    let TestInitData { mut nonce_manager, block_context, .. } =
-        create_test_init_data(max_fee, block_context);
-    let mut falliable_state = create_state_with_falliable_validation_account();
-    let falliable_sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
+    let FlavorTestInitialState {
+        state: mut falliable_state,
+        faulty_account_address,
+        mut nonce_manager,
+        ..
+    } = create_flavors_test_state(&block_context, cairo_version);
 
     // Validation scenario: fallible validation.
     let (actual_gas_used, actual_fee) = gas_and_fee(31450, validate, &fee_type);
@@ -295,14 +329,14 @@ fn test_simulate_validate_charge_fee_fail_validate(
             StarkFelt::from(INVALID),
             StarkFelt::ZERO
         ]),
-        sender_address: falliable_sender_address,
+        sender_address: faulty_account_address,
         calldata: calldata![
-            stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS), // Contract address.
-            selector_from_name("foo").0,                       // EP selector.
-            stark_felt!(0_u8)                                  // Calldata length.
+            *faulty_account_address.0.key(), // Contract address.
+            selector_from_name("foo").0,        // EP selector.
+            stark_felt!(0_u8)                   // Calldata length.
         ],
         version,
-        nonce: nonce_manager.next(falliable_sender_address),
+        nonce: nonce_manager.next(faulty_account_address),
         only_query,
     })
     .execute(&mut falliable_state, &block_context, charge_fee, validate);
@@ -335,19 +369,20 @@ fn test_simulate_validate_charge_fee_mid_execution(
     #[values(true, false)] only_query: bool,
     #[values(true, false)] validate: bool,
     #[values(true, false)] charge_fee: bool,
+    // TODO(Dori, 1/1/2024): Add Cairo1 case, after price abstraction is implemented.
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
 ) {
     let block_context = BlockContext::create_for_account_testing();
-    let max_fee = Fee(MAX_FEE);
     let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
-    let TestInitData {
+    let FlavorTestInitialState {
         mut state,
         account_address,
-        contract_address,
+        test_contract_address,
         mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+        ..
+    } = create_flavors_test_state(&block_context, cairo_version);
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) = state
@@ -369,7 +404,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // First scenario: logic error. Should result in revert; actual fee should be shown.
     let (revert_gas_used, revert_fee) = gas_and_fee(5987, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
-        calldata: recurse_calldata(contract_address, true, 3),
+        calldata: recurse_calldata(test_contract_address, true, 3),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
     })
@@ -403,7 +438,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
         resource_bounds: l1_resource_bounds(gas_bound, gas_price),
-        calldata: recurse_calldata(contract_address, false, 1000),
+        calldata: recurse_calldata(test_contract_address, false, 1000),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
     })
@@ -451,7 +486,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
-        calldata: recurse_calldata(contract_address, false, 10000),
+        calldata: recurse_calldata(test_contract_address, false, 10000),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
     })
@@ -486,21 +521,23 @@ fn test_simulate_validate_charge_fee_post_execution(
     #[values(true, false)] only_query: bool,
     #[values(true, false)] validate: bool,
     #[values(true, false)] charge_fee: bool,
+    // TODO(Dori, 1/1/2024): Add Cairo1 case, after price abstraction is implemented.
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
     #[case] is_deprecated: bool,
 ) {
     let block_context = BlockContext::create_for_account_testing();
-    let max_fee = Fee(MAX_FEE);
     let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
-    let TestInitData {
+    let fee_token_address = block_context.fee_token_address(&fee_type);
+
+    let FlavorTestInitialState {
         mut state,
         account_address,
-        contract_address,
+        test_contract_address,
         mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
-    let fee_token_address = block_context.fee_token_address(&fee_type);
+        ..
+    } = create_flavors_test_state(&block_context, cairo_version);
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) =
@@ -525,7 +562,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: just_not_enough_fee_bound,
         resource_bounds: l1_resource_bounds(just_not_enough_gas_bound, gas_price),
-        calldata: recurse_calldata(contract_address, false, 1000),
+        calldata: recurse_calldata(test_contract_address, false, 1000),
         nonce: nonce_manager.next(account_address),
         sender_address: account_address,
         version,
