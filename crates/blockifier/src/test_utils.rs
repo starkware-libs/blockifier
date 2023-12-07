@@ -1,4 +1,5 @@
 pub mod cached_state;
+pub mod contracts;
 pub mod declare;
 pub mod deploy_account;
 pub mod dict_state_reader;
@@ -26,6 +27,9 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::utils::const_max;
+
+// TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
+//   `initial_test_state` modules for testing.
 // Addresses.
 pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
 pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
@@ -75,6 +79,12 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+
+#[derive(Clone, Copy, Debug)]
+pub enum CairoVersion {
+    Cairo0,
+    Cairo1,
+}
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
