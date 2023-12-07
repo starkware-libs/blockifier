@@ -2,7 +2,7 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_errors::{VirtualMachineError, HINT_ERROR_STR};
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -91,9 +91,9 @@ impl VirtualMachineExecutionError {
                 // to append inner representation.
                 // Otherwise, add the inner representation. Prefer using the error attribute as the
                 // description of the error; if it is unavailable, use the inner exception string.
-                let outer_call_prefix = "Got an exception while executing a hint: Custom Hint \
-                                         Error: Error in the called contract";
-                if inner_exc_string.starts_with(outer_call_prefix) {
+                let outer_call_prefix =
+                    format!("{HINT_ERROR_STR}Hint Error: Error in the called contract");
+                if inner_exc_string.starts_with(&outer_call_prefix) {
                     trace_string += "Got an exception while executing a hint.";
                 } else if let Some(error_attribute) = &exception.error_attr_value {
                     trace_string += error_attribute;

@@ -338,14 +338,14 @@ fn test_syscall_execution_security_failures() {
     for perform_inner_call_to_foo in 0..2 {
         let calldata = calldata![stark_felt!(perform_inner_call_to_foo as u8)];
         run_security_test(
-            "Custom Hint Error: Out of range",
+            "Hint Error: Out of range",
             "test_read_bad_address",
             calldata.clone(),
             &mut state,
         );
 
         run_security_test(
-            "Custom Hint Error: Expected integer",
+            "Hint Error: Expected integer",
             "test_relocatable_storage_address",
             calldata,
             &mut state,
@@ -362,7 +362,7 @@ fn test_syscall_execution_security_failures() {
     );
 
     run_security_test(
-        "Custom Hint Error: Expected relocatable",
+        "Hint Error: Expected relocatable",
         "test_bad_syscall_request_arg_type",
         calldata![],
         &mut state,
