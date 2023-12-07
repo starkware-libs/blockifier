@@ -73,7 +73,8 @@ pub fn test_state(
             // If it's an account, set it as privileged.
             match contract {
                 FeatureContract::AccountWithLongValidate(_)
-                | FeatureContract::AccountWithoutValidations(_) => {
+                | FeatureContract::AccountWithoutValidations(_)
+                | FeatureContract::FaultyAccount(_) => {
                     privileged_account(
                         block_context,
                         instance_address,
