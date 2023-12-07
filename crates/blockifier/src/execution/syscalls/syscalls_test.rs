@@ -668,13 +668,7 @@ fn test_secp256k1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-<<<<<<< HEAD
-        CallExecution { gas_consumed: 23008150_u64, ..Default::default() }
-||||||| 0ebc4925
-        CallExecution { gas_consumed: 22988110_u64, ..Default::default() }
-=======
-        CallExecution { gas_consumed: 17190860_u64, ..Default::default() }
->>>>>>> origin/main-v0.13.0
+        CallExecution { gas_consumed: 17210900_u64, ..Default::default() }
     );
 }
 
@@ -691,13 +685,7 @@ fn test_secp256r1() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-<<<<<<< HEAD
-        CallExecution { gas_consumed: 33619500_u64, ..Default::default() }
-||||||| 0ebc4925
-        CallExecution { gas_consumed: 33599460_u64, ..Default::default() }
-=======
-        CallExecution { gas_consumed: 27630350_u64, ..Default::default() }
->>>>>>> origin/main-v0.13.0
+        CallExecution { gas_consumed: 27650390_u64, ..Default::default() }
     );
 }
 
