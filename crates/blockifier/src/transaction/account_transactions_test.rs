@@ -545,6 +545,8 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
 #[rstest]
 /// Tests that failing account deployment should not change state (no fee charge or nonce bump).
 fn test_fail_deploy_account(block_context: BlockContext) {
+    // TODO(Arni, 11/12/2023): Use crate::test_utils::initial_test_state::test_state to create the
+    // initial state.
     let mut state = create_state_with_falliable_validation_account();
 
     let deployed_account_address =
@@ -556,6 +558,7 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         INVALID,
         None,
         &mut NonceManager::default(),
+        deployed_account_address,
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 
