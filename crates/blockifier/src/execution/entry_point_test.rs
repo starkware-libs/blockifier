@@ -555,14 +555,14 @@ fn test_stack_trace() {
     let expected_trace = format!(
         "Error in the called contract ({}):
 Error at pc=0:34:
-Got an exception while executing a hint.
+Got an exception while executing a syscall.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({}):
 Error at pc=0:34:
-Got an exception while executing a hint.
+Got an exception while executing a syscall.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
