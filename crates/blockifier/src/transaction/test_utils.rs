@@ -23,10 +23,11 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH,
+    GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
     TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
@@ -308,8 +309,9 @@ pub fn create_account_tx_for_validate_test(
     match tx_type {
         TransactionType::Declare => {
             // It does not matter which class is declared for this test.
-            let class_hash = faulty_account.get_class_hash();
-            let contract_class = faulty_account.get_class();
+            let declared_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+            let class_hash = declared_contract.get_class_hash();
+            let contract_class = declared_contract.get_class();
             declare_tx(
                 declare_tx_args! {
                     class_hash,
