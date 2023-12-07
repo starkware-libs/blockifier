@@ -43,8 +43,9 @@ pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
 pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
 pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
-pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x115";
-pub const LEGACY_TEST_CLASS_HASH: &str = "0x116";
+pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0: &str = "0x115";
+pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1: &str = "0x116";
+pub const LEGACY_TEST_CLASS_HASH: &str = "0x117";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
@@ -56,6 +57,8 @@ pub const ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_with_dummy_validate_compiled.json";
 pub const GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_with_long_validate_compiled.json";
+pub const GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
+    "./feature_contracts/cairo1/compiled/account_with_long_validate.casm.json";
 pub const TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
 pub const TEST_CONTRACT_CAIRO1_PATH: &str =

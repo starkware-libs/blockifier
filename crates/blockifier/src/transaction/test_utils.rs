@@ -25,11 +25,12 @@ use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -100,14 +101,20 @@ pub fn deploy_and_fund_account(
 pub fn create_state(block_context: BlockContext) -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
     let test_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
-    let test_grindy_validate_account_class_hash =
-        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
+    let test_grindy_validate_account_class_hash_cairo0 =
+        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0);
+    let test_grindy_validate_account_class_hash_cairo1 =
+        class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1);
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
         (
-            test_grindy_validate_account_class_hash,
+            test_grindy_validate_account_class_hash_cairo0,
             ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
+        ),
+        (
+            test_grindy_validate_account_class_hash_cairo1,
+            ContractClassV1::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
         ),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);

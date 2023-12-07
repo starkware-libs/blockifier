@@ -31,7 +31,7 @@ use crate::test_utils::{
     create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
@@ -294,7 +294,7 @@ fn test_max_fee_limit_validate(
     let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
     let account_tx = declare_tx(
         declare_tx_args! {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0),
             sender_address: account_address,
             max_fee: Fee(MAX_FEE),
             nonce: nonce_manager.next(account_address),
@@ -312,7 +312,7 @@ fn test_max_fee_limit_validate(
         &mut NonceManager::default(),
         &block_context,
         deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0),
             max_fee,
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
@@ -333,7 +333,7 @@ fn test_max_fee_limit_validate(
         &mut nonce_manager,
         &block_context,
         deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0),
             max_fee,
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
@@ -1287,10 +1287,15 @@ fn test_revert_on_resource_overuse(
 }
 
 #[rstest]
-fn test_deploy_account_constructor_storage_write(max_fee: Fee, block_context: BlockContext) {
+#[case(class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0))]
+#[case(class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1))]
+fn test_deploy_account_constructor_storage_write(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[case] class_hash: ClassHash,
+) {
     let mut state = create_state(block_context.clone());
 
-    let class_hash = class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH);
     let ctor_storage_arg = stark_felt!(1_u8);
     let ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
     let constructor_calldata = calldata![ctor_grind_arg, ctor_storage_arg];

@@ -8,6 +8,7 @@ mod Account {
 
     #[storage]
     struct Storage {
+        ctor_arg: felt252,
     }
 
     fn grind() {
@@ -22,14 +23,17 @@ mod Account {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, grind_on_deploy: felt252) {}
+    fn constructor(ref self: ContractState, grind_on_deploy: felt252, arg: felt252) {
+        self.ctor_arg.write(arg);
+    }
 
     #[external(v0)]
     fn __validate_deploy__(
         self: @ContractState,
         class_hash: felt252,
         contract_address_salt: felt252,
-        grind_on_deploy: felt252
+        grind_on_deploy: felt252,
+        arg: felt252
     ) -> felt252 {
         if grind_on_deploy != 0 {
             grind();
