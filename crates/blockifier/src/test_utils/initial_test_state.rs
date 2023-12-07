@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use memoize::memoize;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
@@ -22,6 +23,7 @@ pub const N_INSTANCES: u8 = 2;
 /// setup of the token contracts.
 /// Takes the state from `full_unfunded_test_state` and sets a non-zero fee token balance for each
 /// account contract.
+#[memoize]
 fn full_test_state_aux(
     fee_token_address: ContractAddress,
     deprecated_fee_token_address: ContractAddress,
