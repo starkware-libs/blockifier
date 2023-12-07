@@ -77,11 +77,49 @@ mod TestContract {
         assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
 
         let tx_info = execution_info.tx_info.unbox();
+<<<<<<< HEAD
         assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
 
         assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
         assert(execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH');
         assert(execution_info.entry_point_selector == expected_entry_point_selector, 'SELECTOR_MISMATCH');
+||||||| 0ebc4925
+        assert(tx_info.version == version, 'VERSION_MISMATCH');
+        assert(tx_info.account_contract_address.into() == account_address, 'ACCOUNT_MISMATCH');
+        assert(tx_info.signature.len() == 0_u32, 'SIGNATURE_MISMATCH');
+        assert(tx_info.transaction_hash == transaction_hash, 'TRANSACTION_HASH_MISMATCH');
+        assert(tx_info.chain_id == chain_id, 'CHAIN_ID_MISMATCH');
+        assert(tx_info.nonce == nonce, 'NONCE_MISMATCH');
+        assert(tx_info.resource_bounds == resource_bounds, 'RESOURCE_BOUND_MISMATCH');
+        assert(tx_info.max_fee.into() == max_fee, 'MAX_FEE_MISMATCH');
+        assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
+        assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
+        assert(tx_info.nonce_data_availabilty_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
+        assert(tx_info.fee_data_availabilty_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
+        assert(tx_info.account_deployment_data.len() == 0_u32, 'DEPLOYMENT_DATA_MISMATCH');
+
+        assert(execution_info.caller_address.into() == caller_address, 'CALLER_MISMATCH');
+        assert(execution_info.contract_address.into() == contract_address, 'CONTRACT_MISMATCH');
+        assert(execution_info.entry_point_selector == entry_point_selector, 'SELECTOR_MISMATCH');
+=======
+        assert(tx_info.version == version, 'VERSION_MISMATCH');
+        assert(tx_info.account_contract_address.into() == account_address, 'ACCOUNT_MISMATCH');
+        assert(tx_info.signature.len() == 0_u32, 'SIGNATURE_MISMATCH');
+        assert(tx_info.transaction_hash == transaction_hash, 'TRANSACTION_HASH_MISMATCH');
+        assert(tx_info.chain_id == chain_id, 'CHAIN_ID_MISMATCH');
+        assert(tx_info.nonce == nonce, 'NONCE_MISMATCH');
+        assert(tx_info.resource_bounds == resource_bounds, 'RESOURCE_BOUND_MISMATCH');
+        assert(tx_info.max_fee.into() == max_fee, 'MAX_FEE_MISMATCH');
+        assert(tx_info.tip == 0_u128, 'TIP_MISMATCH');
+        assert(tx_info.paymaster_data.len() == 0_u32, 'PAYMASTER_DATA_MISMATCH');
+        assert(tx_info.nonce_data_availability_mode == 0_u32, 'NONCE_DA_MODE_MISMATCH');
+        assert(tx_info.fee_data_availability_mode == 0_u32, 'FEE_DA_MODE_MISMATCH');
+        assert(tx_info.account_deployment_data.len() == 0_u32, 'DEPLOYMENT_DATA_MISMATCH');
+
+        assert(execution_info.caller_address.into() == caller_address, 'CALLER_MISMATCH');
+        assert(execution_info.contract_address.into() == contract_address, 'CONTRACT_MISMATCH');
+        assert(execution_info.entry_point_selector == entry_point_selector, 'SELECTOR_MISMATCH');
+>>>>>>> origin/main-v0.13.0
     }
 
     #[external(v0)]
