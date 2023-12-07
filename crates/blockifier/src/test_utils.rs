@@ -73,8 +73,16 @@ pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
 pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_PATH: &str =
+    "./feature_contracts/cairo1/compiled/account_faulty.casm.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+
+#[derive(Clone, Copy, Debug)]
+pub enum CairoVersion {
+    Cairo0,
+    Cairo1,
+}
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
@@ -230,21 +238,39 @@ macro_rules! check_transaction_execution_error_for_custom_hint {
     };
 }
 
+/// Checks that a given error is an assertion error with the expected message.
+/// Formatted for test_validate_accounts_tx.
 #[macro_export]
-macro_rules! check_transaction_execution_error_for_diff_assert_values {
-    ($error:expr $(,)?) => {
-        if let TransactionExecutionError::ValidateTransactionError(
-            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                source:
-                    VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
-                        VmException { inner_exc: VirtualMachineError::DiffAssertValues(_), .. },
-                    )),
-                ..
-            },
-        ) = $error
-        {
-        } else {
-            panic!("Unexpected structure for error: {:?}", $error);
+macro_rules! check_transaction_execution_error_for_invalid_scenario {
+    ($cairo_version:expr, $error:expr) => {
+        match $cairo_version {
+            CairoVersion::Cairo0 => {
+                if let TransactionExecutionError::ValidateTransactionError(
+                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                        source:
+                            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
+                                VmException {
+                                    inner_exc: VirtualMachineError::DiffAssertValues(_),
+                                    ..
+                                },
+                            )),
+                        ..
+                    },
+                ) = $error
+                {
+                } else {
+                    panic!("Unexpected structure for error: {:?}", $error);
+                }
+            }
+            CairoVersion::Cairo1 => {
+                if let TransactionExecutionError::ValidateTransactionError(error) = $error {
+                    assert_eq!(
+                        error.to_string(),
+                        "Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f \
+                         ('Invalid scenario')."
+                    )
+                }
+            }
         }
     };
 }

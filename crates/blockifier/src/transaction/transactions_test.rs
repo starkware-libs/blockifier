@@ -46,8 +46,8 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
-    NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
     TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
@@ -65,9 +65,8 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_account_tx_test_state,
-    create_state_with_cairo1_account, create_state_with_falliable_validation_account,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    create_state_with_cairo1_account, create_state_with_trivial_validation_account,
+    l1_resource_bounds, state_with_falliable_account_creator, CALL_CONTRACT, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -77,15 +76,9 @@ use crate::transaction::transactions::{
 use crate::{
     check_entry_point_execution_error_for_custom_hint,
     check_transaction_execution_error_for_custom_hint,
-    check_transaction_execution_error_for_diff_assert_values, declare_tx_args,
+    check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
     deploy_account_tx_args, invoke_tx_args, retdata,
 };
-
-#[derive(Clone, Copy)]
-enum CairoVersion {
-    Cairo0,
-    Cairo1,
-}
 
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
@@ -1098,25 +1091,28 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     );
 }
 
-// TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
-// another contract flow.
 #[rstest]
-#[case(TransactionType::InvokeFunction)]
-#[case(TransactionType::Declare)]
-#[case(TransactionType::DeployAccount)]
-fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
+fn test_validate_accounts_tx(
+    #[values(
+        TransactionType::InvokeFunction,
+        TransactionType::Declare,
+        TransactionType::DeployAccount
+    )]
+    tx_type: TransactionType,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
 
     // Positive flows.
     // Valid logic.
-    let state = &mut create_state_with_falliable_validation_account();
+    let state = &mut state_with_falliable_account_creator(cairo_version);
     let account_tx =
         create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
     account_tx.execute(state, block_context, true, true).unwrap();
 
     if tx_type != TransactionType::DeployAccount {
         // Calling self (allowed).
-        let state = &mut create_state_with_falliable_validation_account();
+        let state = &mut state_with_falliable_account_creator(cairo_version);
         let account_tx = create_account_tx_for_validate_test(
             tx_type,
             CALL_CONTRACT,
@@ -1129,11 +1125,11 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
     // Negative flows.
 
     // Logic failure.
-    let state = &mut create_state_with_falliable_validation_account();
+    let state = &mut state_with_falliable_account_creator(cairo_version);
     let account_tx =
         create_account_tx_for_validate_test(tx_type, INVALID, None, &mut NonceManager::default());
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_diff_assert_values!(&error);
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(

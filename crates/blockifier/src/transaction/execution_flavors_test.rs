@@ -24,8 +24,8 @@ use crate::transaction::errors::{
 };
 use crate::transaction::objects::{FeeType, TransactionExecutionInfo};
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_state_with_falliable_validation_account, create_test_init_data,
-    l1_resource_bounds, TestInitData, INVALID,
+    account_invoke_tx, create_state_with_cairo0_falliable_validation_account,
+    create_test_init_data, l1_resource_bounds, TestInitData, INVALID,
 };
 use crate::transaction::transactions::ExecutableTransaction;
 
@@ -283,7 +283,8 @@ fn test_simulate_validate_charge_fee_fail_validate(
     // Create a state with a contract that can fail validation on demand.
     let TestInitData { mut nonce_manager, block_context, .. } =
         create_test_init_data(max_fee, block_context);
-    let mut falliable_state = create_state_with_falliable_validation_account();
+    // TODO(Arni, 11/12/2023): Use the Cairo 1 contract.
+    let mut falliable_state = create_state_with_cairo0_falliable_validation_account();
     let falliable_sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
 
     // Validation scenario: fallible validation.

@@ -38,8 +38,8 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_state,
-    create_state_with_falliable_validation_account, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, run_invoke_tx, TestInitData, INVALID,
+    create_state_with_cairo0_falliable_validation_account, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, run_invoke_tx, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -545,7 +545,8 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
 #[rstest]
 /// Tests that failing account deployment should not change state (no fee charge or nonce bump).
 fn test_fail_deploy_account(block_context: BlockContext) {
-    let mut state = create_state_with_falliable_validation_account();
+    // TODO(Arni, 11/12/2023): Use the Cairo 1 contract.
+    let mut state = create_state_with_cairo0_falliable_validation_account();
 
     let deployed_account_address =
         ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();

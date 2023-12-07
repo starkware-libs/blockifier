@@ -24,13 +24,14 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE,
-    ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
+    BALANCE, ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH,
+    GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
+    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_PATH,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -276,7 +277,7 @@ pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
     )
 }
 
-pub fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
+pub fn create_state_with_cairo0_falliable_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
         ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
@@ -287,6 +288,28 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
         ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
     )
+}
+
+pub fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
+    let account_balance = BALANCE;
+    create_account_tx_test_state(
+        ContractClassV1::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_PATH).into(),
+        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+        TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+        test_erc20_faulty_account_balance_key(),
+        account_balance * 2,
+        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
+        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
+    )
+}
+
+pub fn state_with_falliable_account_creator(
+    cairo_version: CairoVersion,
+) -> CachedState<DictStateReader> {
+    match cairo_version {
+        CairoVersion::Cairo0 => create_state_with_cairo0_falliable_validation_account(),
+        CairoVersion::Cairo1 => create_state_with_falliable_validation_account(),
+    }
 }
 
 pub fn create_account_tx_for_validate_test(
