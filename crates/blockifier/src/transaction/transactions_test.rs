@@ -41,18 +41,20 @@ use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::create_test_state;
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
-    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    CairoVersion, NonceManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -64,10 +66,9 @@ use crate::transaction::objects::{
     TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test, create_account_tx_test_state,
-    create_state_with_cairo1_account, create_state_with_falliable_validation_account,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
+    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
+    l1_resource_bounds, CALL_CONTRACT, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -1249,21 +1250,18 @@ fn test_valid_flag() {
 #[case(false)]
 fn test_only_query_flag(#[case] only_query: bool) {
     let account_balance = BALANCE;
-    let state = &mut create_account_tx_test_state(
-        ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
-        test_erc20_account_balance_key(),
-        account_balance,
-        ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
-    );
     let block_context = &BlockContext::create_for_account_testing();
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let state =
+        &mut test_state(block_context, account_balance, &[(account, 1), (test_contract, 1)]);
     let mut version = Felt252::from(1_u8);
     if only_query {
         let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
         version += query_version_base;
     }
-    let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+    let sender_address = account.get_instance_address(0);
+    let test_contract_address = test_contract.get_instance_address(0);
     let max_fee = Fee(MAX_FEE);
     let expected_tx_info = vec![
         felt_to_stark_felt(&version), // Transaction version.
@@ -1283,7 +1281,7 @@ fn test_only_query_flag(#[case] only_query: bool) {
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
         *sender_address.0.key(),             // Caller address.
-        stark_felt!(TEST_CONTRACT_ADDRESS),  // Storage address.
+        *test_contract_address.0.key(),      // Storage address.
         stark_felt!(entry_point_selector.0), // Entry point selector.
     ];
     let expected_block_info = [
@@ -1294,9 +1292,9 @@ fn test_only_query_flag(#[case] only_query: bool) {
     let calldata_len =
         expected_block_info.len() + expected_tx_info.len() + expected_call_info.len();
     let execute_calldata = vec![
-        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
-        entry_point_selector.0,             // EP selector.
-        stark_felt!(calldata_len as u64),   // Calldata length.
+        *test_contract_address.0.key(),   // Contract address.
+        entry_point_selector.0,           // EP selector.
+        stark_felt!(calldata_len as u64), // Calldata length.
     ];
     let execute_calldata = Calldata(
         [

@@ -3,6 +3,7 @@ pub mod contracts;
 pub mod declare;
 pub mod deploy_account;
 pub mod dict_state_reader;
+pub mod initial_test_state;
 pub mod invoke;
 pub mod struct_impls;
 
@@ -84,6 +85,12 @@ pub const ERC20_CONTRACT_PATH: &str =
 pub enum CairoVersion {
     Cairo0,
     Cairo1,
+}
+
+impl Default for CairoVersion {
+    fn default() -> Self {
+        Self::Cairo0
+    }
 }
 
 // Storage keys.
