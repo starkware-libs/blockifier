@@ -159,7 +159,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             self.state.move_classes_to_global_cache();
         }
 
-        PyStateDiff::from(self.state.to_state_diff())
+        PyStateDiff::from(self.state.cached_state_diff())
     }
 
     // Block pre-processing; see `block_execution::pre_process_block` documentation.
