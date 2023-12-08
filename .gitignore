@@ -8,4 +8,3 @@ target
 *.DS_Store
 
 tmp_venv/*
-

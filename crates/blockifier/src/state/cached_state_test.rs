@@ -20,17 +20,21 @@ fn set_initial_state_values(
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     storage_initial_values: HashMap<StorageEntry, StarkFelt>,
 ) {
-    assert!(state.cache == StateCache::default(), "Cache already initialized.");
+    let cache = state.cache.get_mut();
+    assert_eq!(cache.class_hash_to_class, Default::default(), "Cache already initialized");
+    assert_eq!(cache.class_hash_initial_values, Default::default(), "Cache already initialized");
+    assert_eq!(cache.nonce_initial_values, Default::default(), "Cache already initialized");
+    assert_eq!(cache.storage_initial_values, Default::default(), "Cache already initialized");
 
-    state.class_hash_to_class = class_hash_to_class;
-    state.cache.class_hash_initial_values.extend(class_hash_initial_values);
-    state.cache.nonce_initial_values.extend(nonce_initial_values);
-    state.cache.storage_initial_values.extend(storage_initial_values);
+    cache.class_hash_to_class = class_hash_to_class;
+    cache.class_hash_initial_values.extend(class_hash_initial_values);
+    cache.nonce_initial_values.extend(nonce_initial_values);
+    cache.storage_initial_values.extend(storage_initial_values);
 }
 
 #[test]
 fn get_uninitialized_storage_value() {
-    let mut state: CachedState<DictStateReader> = CachedState::default();
+    let state: CachedState<DictStateReader> = CachedState::default();
     let contract_address = contract_address!("0x1");
     let key = StorageKey(patricia_key!("0x10"));
 
@@ -95,7 +99,7 @@ fn cast_between_storage_mapping_types() {
 
 #[test]
 fn get_uninitialized_value() {
-    let mut state: CachedState<DictStateReader> = CachedState::default();
+    let state: CachedState<DictStateReader> = CachedState::default();
     let contract_address = contract_address!("0x1");
 
     assert_eq!(state.get_nonce_at(contract_address).unwrap(), Nonce::default());
@@ -137,7 +141,7 @@ fn get_and_increment_nonce() {
 fn get_contract_class() {
     // Positive flow.
     let existing_class_hash = class_hash!(TEST_CLASS_HASH);
-    let mut state = deprecated_create_test_state();
+    let state = deprecated_create_test_state();
     assert_eq!(
         state.get_compiled_contract_class(existing_class_hash).unwrap(),
         get_test_contract_class()
@@ -153,7 +157,7 @@ fn get_contract_class() {
 
 #[test]
 fn get_uninitialized_class_hash_value() {
-    let mut state: CachedState<DictStateReader> = CachedState::default();
+    let state: CachedState<DictStateReader> = CachedState::default();
     let valid_contract_address = contract_address!("0x1");
 
     assert_eq!(state.get_class_hash_at(valid_contract_address).unwrap(), ClassHash::default());
@@ -252,7 +256,7 @@ fn cached_state_state_diff_conversion() {
         address_to_nonce: IndexMap::from_iter([(contract_address2, Nonce(StarkFelt::from(1_u64)))]),
     };
 
-    assert_eq!(expected_state_diff, state.to_state_diff());
+    assert_eq!(expected_state_diff, state.cached_state_diff());
 }
 
 fn create_state_changes_for_test<S: StateReader>(
@@ -375,7 +379,7 @@ fn test_state_changes_merge() {
 fn global_contract_cache_is_used() {
     // Initialize the global cache with a single class, and initialize an empty state with this
     // cache.
-    let mut global_cache = GlobalContractCache::default();
+    let global_cache = GlobalContractCache::default();
     let class_hash = class_hash!(TEST_CLASS_HASH);
     let contract_class = get_test_contract_class();
     global_cache.lock().cache_set(class_hash, contract_class.clone());
@@ -383,14 +387,17 @@ fn global_contract_cache_is_used() {
     let mut state = CachedState::new(DictStateReader::default(), global_cache.clone());
 
     // Assert local cache is initialized empty even if global cache is not empty.
-    assert!(state.class_hash_to_class.get(&class_hash).is_none());
+    assert!(state.cache.get_mut().class_hash_to_class.get(&class_hash).is_none());
 
     // Check state uses the global cache.
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
     assert_eq!(global_cache.lock().cache_hits().unwrap(), 1);
     assert_eq!(global_cache.lock().cache_size(), 1);
     // Verify local cache is also updated.
-    assert_eq!(state.class_hash_to_class.get(&class_hash).unwrap(), &contract_class);
+    assert_eq!(
+        state.cache.get_mut().class_hash_to_class.get(&class_hash).unwrap(),
+        &contract_class
+    );
 
     // Idempotency: getting the same class again uses the local cache.
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
