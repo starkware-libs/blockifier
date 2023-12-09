@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -104,4 +106,7 @@ pub trait State: StateReader {
     ) -> StateResult<()>;
 
     fn to_state_diff(&mut self) -> CommitmentStateDiff;
+
+    /// Marks the given set of PC values as visited for the given class hash.
+    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>);
 }
