@@ -90,7 +90,9 @@ impl PyBlockExecutor {
         self.tx_executor().execute(tx, raw_contract_class, charge_fee)
     }
 
-    pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
+    /// Returns the state diff and a list of contract class hash with the corresponding list of
+    /// used PC values.
+    pub fn finalize(&mut self, is_pending_block: bool) -> (PyStateDiff, Vec<(PyFelt, Vec<usize>)>) {
         log::debug!("Finalizing execution...");
         let finalized_state = self.tx_executor().finalize(is_pending_block);
         log::debug!("Finalized execution.");

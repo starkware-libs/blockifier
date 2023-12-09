@@ -2,6 +2,7 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
+use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -124,6 +125,8 @@ impl VirtualMachineExecutionError {
 pub enum EntryPointExecutionError {
     #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
     ExecutionFailed { error_data: Vec<StarkFelt> },
+    #[error(transparent)]
+    TraceError(#[from] TraceError),
     #[error("Invalid input: {input_descriptor}; {info}")]
     InvalidExecutionInput { input_descriptor: String, info: String },
     #[error(transparent)]
@@ -143,4 +146,6 @@ pub enum EntryPointExecutionError {
         #[source]
         source: VirtualMachineExecutionError,
     },
+    #[error("Internal error: {0}")]
+    InternalError(String),
 }

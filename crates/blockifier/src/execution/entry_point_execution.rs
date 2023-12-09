@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
@@ -52,6 +54,11 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
+    // Fetch the class hash from `call`.
+    let class_hash = call.class_hash.ok_or(EntryPointExecutionError::InternalError(
+        "CallEntryPoint::class_hash must not be None when calling execute_entry_point_call.".into(),
+    ))?;
+
     let VmExecutionContext {
         mut runner,
         mut vm,
@@ -74,7 +81,8 @@ pub fn execute_entry_point_call(
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
 
     // Execute.
-    let program_segment_size = contract_class.bytecode_length() + program_extra_data_length;
+    let bytecode_length = contract_class.bytecode_length();
+    let program_segment_size = bytecode_length + program_extra_data_length;
     run_entry_point(
         &mut vm,
         &mut runner,
@@ -83,6 +91,24 @@ pub fn execute_entry_point_call(
         args,
         program_segment_size,
     )?;
+
+    // Collect the set PC values that were used by the entry point.
+    let mut class_used_pcs = HashSet::new();
+    vm.relocate_trace(&[1, 1 + program_segment_size])?;
+    for trace_entry in vm.get_relocated_trace()? {
+        let pc = trace_entry.pc;
+        if pc < 1 {
+            return Err(EntryPointExecutionError::InternalError(format!(
+                "Invalid PC value {pc} in trace."
+            )));
+        }
+        let real_pc = pc - 1;
+        if real_pc < bytecode_length {
+            class_used_pcs.insert(real_pc);
+        }
+    }
+
+    syscall_handler.state.add_used_pcs(class_hash, &class_used_pcs);
 
     let call_info = finalize_execution(
         vm,
@@ -114,7 +140,7 @@ pub fn initialize_execution_context<'a>(
     let proof_mode = false;
     let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
 
-    let trace_enabled = false;
+    let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
 
     // Initialize program with all builtins.
