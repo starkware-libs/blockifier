@@ -1,20 +1,26 @@
+use rstest::rstest;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, class_hash, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::test_utils::cached_state::deprecated_create_test_state;
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::{trivial_external_entry_point, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS};
+use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::{CairoVersion, BALANCE};
 
-#[test]
+#[rstest]
 fn test_calculate_contract_address() {
-    let mut state = deprecated_create_test_state();
+    let block_context = &BlockContext::create_for_account_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(block_context, BALANCE, &[(test_contract, 1)]);
 
     fn run_test(
         salt: ContractAddressSalt,
@@ -27,7 +33,9 @@ fn test_calculate_contract_address() {
         let entry_point_call = CallEntryPoint {
             calldata,
             entry_point_selector: selector_from_name("test_contract_address"),
-            ..trivial_external_entry_point()
+            storage_address: deployer_address,
+            initial_gas: constants::INITIAL_GAS_COST,
+            ..Default::default()
         };
         let contract_address =
             calculate_contract_address(salt, class_hash, constructor_calldata, deployer_address)
@@ -40,8 +48,8 @@ fn test_calculate_contract_address() {
     }
 
     let salt = ContractAddressSalt::default();
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    let deployer_address = ContractAddress::try_from(stark_felt!(TEST_CONTRACT_ADDRESS)).unwrap();
+    let class_hash = test_contract.get_class_hash();
+    let deployer_address = test_contract.get_instance_address(0);
 
     // Without constructor.
     let calldata_no_constructor = calldata![
