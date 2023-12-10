@@ -305,8 +305,8 @@ mod TestContract {
                 (*lhs.transaction_hash == *rhs.transaction_hash) && (*lhs.chain_id == *rhs.chain_id) &&
                 (*lhs.nonce == *rhs.nonce) && (*lhs.resource_bounds == *rhs.resource_bounds) &&
                 (*lhs.tip == *rhs.tip) && (*lhs.paymaster_data == *rhs.paymaster_data) &&
-                (*lhs.nonce_data_availabilty_mode == *rhs.nonce_data_availabilty_mode) &&
-                (*lhs.fee_data_availabilty_mode == *rhs.fee_data_availabilty_mode) &&
+                (*lhs.nonce_data_availability_mode == *rhs.nonce_data_availability_mode) &&
+                (*lhs.fee_data_availability_mode == *rhs.fee_data_availability_mode) &&
                 (*lhs.account_deployment_data == *rhs.account_deployment_data)
         }
         #[inline(always)]
