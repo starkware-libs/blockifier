@@ -11,19 +11,23 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{create_test_state, deprecated_create_test_state};
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, pad_address_to_64, trivial_external_entry_point,
-    trivial_external_entry_point_security_test, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
+    create_calldata, pad_address_to_64, trivial_external_entry_point, CairoVersion, BALANCE,
+    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_ADDRESS_2,
 };
 
 #[test]
@@ -189,7 +193,15 @@ fn run_security_test(
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
-        ..trivial_external_entry_point_security_test()
+        storage_address: FeatureContract::SecurityTests.get_instance_address(0),
+        class_hash: None,
+        code_address: Some(
+            FeatureContract::TestContract(CairoVersion::Cairo0).get_instance_address(0),
+        ),
+        entry_point_type: EntryPointType::External,
+        caller_address: ContractAddress::default(),
+        call_type: CallType::Call,
+        initial_gas: constants::INITIAL_GAS_COST,
     };
     let error = match entry_point_call.execute_directly(state) {
         Err(error) => error.to_string(),
@@ -202,9 +214,15 @@ fn run_security_test(
     }
 }
 
+fn security_test_state() -> CachedState<DictStateReader> {
+    let block_context = BlockContext::create_for_testing();
+    let security_contract = FeatureContract::SecurityTests;
+    test_state(&block_context, BALANCE, &[(security_contract, 1)])
+}
+
 #[test]
 fn test_vm_execution_security_failures() {
-    let mut state = deprecated_create_test_state();
+    let mut state = security_test_state();
 
     run_security_test(
         "Expected relocatable",
@@ -281,7 +299,7 @@ fn test_vm_execution_security_failures() {
 
 #[test]
 fn test_builtin_execution_security_failures() {
-    let mut state = deprecated_create_test_state();
+    let mut state = security_test_state();
 
     run_security_test(
         "Inconsistent auto-deduction for builtin pedersen",
@@ -333,7 +351,7 @@ fn test_builtin_execution_security_failures() {
 
 #[test]
 fn test_syscall_execution_security_failures() {
-    let mut state = deprecated_create_test_state();
+    let mut state = security_test_state();
 
     for perform_inner_call_to_foo in 0..2 {
         let calldata = calldata![stark_felt!(perform_inner_call_to_foo as u8)];
@@ -388,7 +406,7 @@ fn test_syscall_execution_security_failures() {
 
 #[test]
 fn test_post_run_validation_security_failure() {
-    let mut state = deprecated_create_test_state();
+    let mut state = security_test_state();
 
     run_security_test(
         "Missing memory cells for builtin range_check",
