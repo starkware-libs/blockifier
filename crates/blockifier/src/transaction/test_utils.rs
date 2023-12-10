@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rstest::fixture;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
@@ -25,9 +26,9 @@ use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
     CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
     BALANCE, ERC20_CONTRACT_PATH, GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH, TEST_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
     TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
@@ -62,6 +63,23 @@ impl_from_versioned_tx!(
     (InvokeTransactionV1, V1),
     (InvokeTransactionV3, V3)
 );
+
+/// Test fixtures.
+
+#[fixture]
+pub fn max_fee() -> Fee {
+    Fee(MAX_FEE)
+}
+
+#[fixture]
+pub fn max_resource_bounds() -> ResourceBoundsMapping {
+    l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE)
+}
+
+#[fixture]
+pub fn block_context() -> BlockContext {
+    BlockContext::create_for_account_testing()
+}
 
 /// Struct containing the data usually needed to initialize a test.
 pub struct TestInitData {
