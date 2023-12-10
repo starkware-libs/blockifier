@@ -192,13 +192,6 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
     }
 }
 
-pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
-    CallEntryPoint {
-        storage_address: contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
-        ..trivial_external_entry_point()
-    }
-}
-
 fn default_testing_resource_bounds() -> ResourceBoundsMapping {
     ResourceBoundsMapping::try_from(vec![
         (Resource::L1Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 1 }),
