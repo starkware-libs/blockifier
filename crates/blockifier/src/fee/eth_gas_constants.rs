@@ -1,3 +1,4 @@
+pub const GAS_PER_MEMORY_ZERO_BYTE: usize = 4;
 pub const GAS_PER_MEMORY_BYTE: usize = 16;
 pub const WORD_WIDTH: usize = 32;
 pub const GAS_PER_MEMORY_WORD: usize = GAS_PER_MEMORY_BYTE * WORD_WIDTH;
@@ -13,3 +14,9 @@ pub const GAS_PER_LOG: usize = 375;
 pub const GAS_PER_LOG_TOPIC: usize = 375;
 pub const GAS_PER_LOG_DATA_BYTE: usize = 8;
 pub const GAS_PER_LOG_DATA_WORD: usize = GAS_PER_LOG_DATA_BYTE * WORD_WIDTH;
+
+// TODO(Yoni, 1/1/2025): rename this file to `_utils`.
+pub fn get_calldata_word_cost(n_nonzero_bytes: usize) -> usize {
+    n_nonzero_bytes * GAS_PER_MEMORY_BYTE
+        + (WORD_WIDTH - n_nonzero_bytes) * GAS_PER_MEMORY_ZERO_BYTE
+}

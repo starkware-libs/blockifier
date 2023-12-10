@@ -30,9 +30,6 @@ pub fn calculate_tx_gas_usage(
     let residual_message_segment_length =
         get_message_segment_length(l2_to_l1_payloads_length, l1_handler_payload_size);
 
-    // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
-
     let n_l2_to_l1_messages = l2_to_l1_payloads_length.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
@@ -48,9 +45,12 @@ pub fn calculate_tx_gas_usage(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(l2_to_l1_payloads_length);
 
+    // Calculate the effect of the transaction on the output data availability segment.
+    let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
+
     let sharp_gas_usage = residual_message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + residual_onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
+        + residual_onchain_data_cost;
 
     starknet_gas_usage + sharp_gas_usage
 }
@@ -58,9 +58,7 @@ pub fn calculate_tx_gas_usage(
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
 /// modified contracts - are not counted.
-/// This segment consists of deployment info (of contracts deployed by the transaction) and
-/// storage updates.
-pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
+fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
     // For each newly modified contract:
     // contract address (1 word).
     // + 1 word with the following info: A flag indicating whether the class hash was updated, the
@@ -75,6 +73,31 @@ pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -
     onchain_data_segment_length += state_changes_count.n_compiled_class_hash_updates * 2;
 
     onchain_data_segment_length
+}
+
+/// Returns the gas cost of publishing the onchain data on L1.
+pub fn get_onchain_data_cost(state_changes_count: StateChangesCount) -> usize {
+    let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    // TODO(Yoni, 1/5/2024): count the exact amount of nonzero bytes for each DA entry.
+    let naive_cost = onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
+
+    // For each modified contract, the expected non-zeros bytes in the second word are:
+    // 1 bytes for class hash flag; 2 for number of storage updates (up to 64K);
+    // 3 for nonce update (up to 16M).
+    let nonce_felt_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
+    let nonce_felt_discount = eth_gas_constants::GAS_PER_MEMORY_WORD - nonce_felt_cost;
+    let mut discount = state_changes_count.n_modified_contracts * nonce_felt_discount;
+
+    // Up to balance of 8*(10**10) ETH.
+    let fee_balance_value_cost = eth_gas_constants::get_calldata_word_cost(12);
+    discount += eth_gas_constants::GAS_PER_MEMORY_WORD - fee_balance_value_cost;
+
+    if naive_cost < discount {
+        // Cost must be non-negative after discount.
+        0
+    } else {
+        naive_cost - discount
+    }
 }
 
 /// Returns the number of felts added to the output messages segment as a result of adding
