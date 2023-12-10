@@ -5,6 +5,7 @@ pub mod deploy_account;
 pub mod dict_state_reader;
 pub mod initial_test_state;
 pub mod invoke;
+pub mod price_abstraction;
 pub mod struct_impls;
 
 use std::collections::HashMap;
