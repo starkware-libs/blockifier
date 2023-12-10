@@ -77,7 +77,7 @@ use crate::transaction::transactions::{
 use crate::{
     check_entry_point_execution_error_for_custom_hint,
     check_transaction_execution_error_for_custom_hint,
-    check_transaction_execution_error_for_diff_assert_values, declare_tx_args,
+    check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
     deploy_account_tx_args, invoke_tx_args, retdata,
 };
 
@@ -1092,8 +1092,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     );
 }
 
-// TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
-// another contract flow.
+// TODO(Arni, 1/1/2024): Consider converting this test to use V3 txs.
 #[rstest]
 fn test_validate_accounts_tx(
     #[values(
@@ -1102,7 +1101,7 @@ fn test_validate_accounts_tx(
         TransactionType::DeployAccount
     )]
     tx_type: TransactionType,
-    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let account_balance = 0;
@@ -1128,7 +1127,7 @@ fn test_validate_accounts_tx(
         instance_id_for_negative_scenarios,
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_diff_assert_values!(&error);
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(

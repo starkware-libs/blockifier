@@ -247,21 +247,39 @@ macro_rules! check_transaction_execution_error_for_custom_hint {
     };
 }
 
+/// Checks that a given error is an assertion error with the expected message.
+/// Formatted for test_validate_accounts_tx.
 #[macro_export]
-macro_rules! check_transaction_execution_error_for_diff_assert_values {
-    ($error:expr $(,)?) => {
-        if let TransactionExecutionError::ValidateTransactionError(
-            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                source:
-                    VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
-                        VmException { inner_exc: VirtualMachineError::DiffAssertValues(_), .. },
-                    )),
-                ..
-            },
-        ) = $error
-        {
-        } else {
-            panic!("Unexpected structure for error: {:?}", $error);
+macro_rules! check_transaction_execution_error_for_invalid_scenario {
+    ($cairo_version:expr, $error:expr) => {
+        match $cairo_version {
+            CairoVersion::Cairo0 => {
+                if let TransactionExecutionError::ValidateTransactionError(
+                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+                        source:
+                            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
+                                VmException {
+                                    inner_exc: VirtualMachineError::DiffAssertValues(_),
+                                    ..
+                                },
+                            )),
+                        ..
+                    },
+                ) = $error
+                {
+                } else {
+                    panic!("Unexpected structure for error: {:?}", $error);
+                }
+            }
+            CairoVersion::Cairo1 => {
+                if let TransactionExecutionError::ValidateTransactionError(error) = $error {
+                    assert_eq!(
+                        error.to_string(),
+                        "Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f \
+                         ('Invalid scenario')."
+                    )
+                }
+            }
         }
     };
 }
