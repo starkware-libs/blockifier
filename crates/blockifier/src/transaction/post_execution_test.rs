@@ -12,15 +12,30 @@ use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::calculate_tx_l1_gas_usage;
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::fixtures::{block_context, max_fee, max_resource_bounds};
-use crate::test_utils::{create_calldata, BALANCE, MAX_L1_GAS_PRICE};
+use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::{create_calldata, CairoVersion, BALANCE, MAX_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_test_init_data, l1_resource_bounds, run_invoke_tx, TestInitData,
+    account_invoke_tx, l1_resource_bounds, run_invoke_tx, TestInitData,
 };
 use crate::transaction::transactions::ExecutableTransaction;
+
+fn state(block_context: BlockContext, cairo_version: CairoVersion) -> TestInitData {
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let state = test_state(&block_context, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    TestInitData {
+        state,
+        account_address: account_contract.get_instance_address(0),
+        contract_address: test_contract.get_instance_address(0),
+        nonce_manager: Default::default(),
+        block_context,
+    }
+}
 
 fn calldata_for_write_and_transfer(
     test_contract_address: ContractAddress,
@@ -54,6 +69,7 @@ fn test_revert_on_overdraft(
     block_context: BlockContext,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
 ) {
     let fee_token_address = block_context.fee_token_addresses.get_by_fee_type(&fee_type);
     // An address to be written into to observe state changes.
@@ -73,7 +89,7 @@ fn test_revert_on_overdraft(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(max_fee, block_context);
+    } = state(block_context, cairo_version);
 
     // Verify the contract's storage key initial value is empty.
     assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
@@ -205,6 +221,7 @@ fn test_revert_on_resource_overuse(
     #[case] version: TransactionVersion,
     #[case] expected_error_prefix: &str,
     #[case] is_revertible: bool,
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
 ) {
     let TestInitData {
         mut state,
@@ -212,7 +229,7 @@ fn test_revert_on_resource_overuse(
         contract_address,
         mut nonce_manager,
         block_context,
-    } = create_test_init_data(max_fee, block_context);
+    } = state(block_context, cairo_version);
 
     let n_writes = 5_u8;
     let base_args = invoke_tx_args! { sender_address: account_address, version };
