@@ -3,6 +3,8 @@ pub mod contracts;
 pub mod declare;
 pub mod deploy_account;
 pub mod dict_state_reader;
+#[cfg(test)]
+pub mod fixtures;
 pub mod initial_test_state;
 pub mod invoke;
 pub mod struct_impls;
