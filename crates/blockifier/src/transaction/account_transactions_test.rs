@@ -25,12 +25,13 @@ use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::{
-    create_calldata, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
+    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -544,11 +545,16 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
 
 #[rstest]
 /// Tests that failing account deployment should not change state (no fee charge or nonce bump).
-fn test_fail_deploy_account(block_context: BlockContext) {
+fn test_fail_deploy_account(
+    block_context: BlockContext,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
     let mut state = create_state_with_falliable_validation_account();
 
+    let deployed_account_instance_id = 0;
+    let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
     let deployed_account_address =
-        ContractAddress::try_from(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)).unwrap();
+        faulty_account_feature_contract.get_instance_address(deployed_account_instance_id);
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -556,6 +562,8 @@ fn test_fail_deploy_account(block_context: BlockContext) {
         INVALID,
         None,
         &mut NonceManager::default(),
+        faulty_account_feature_contract,
+        deployed_account_instance_id,
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 

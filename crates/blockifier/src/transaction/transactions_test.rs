@@ -53,8 +53,7 @@ use crate::test_utils::{
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -67,8 +66,8 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_falliable_validation_account, create_state_with_trivial_validation_account,
-    l1_resource_bounds, CALL_CONTRACT, INVALID, VALID,
+    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
+    VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -1096,37 +1095,38 @@ fn test_fail_deploy_account_undeclared_class_hash() {
 // TODO(Arni, 01/10/23): Modify test to cover Cairo 1 contracts. For example in the Trying to call
 // another contract flow.
 #[rstest]
-#[case(TransactionType::InvokeFunction)]
-#[case(TransactionType::Declare)]
-#[case(TransactionType::DeployAccount)]
-fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
+fn test_validate_accounts_tx(
+    #[values(
+        TransactionType::InvokeFunction,
+        TransactionType::Declare,
+        TransactionType::DeployAccount
+    )]
+    tx_type: TransactionType,
+    #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
+    let account_balance = 0;
+    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let instance_id_for_negative_scenarios = 0;
+    let instance_id_for_positive_scenarios = 1;
+    let state = &mut test_state(block_context, account_balance, &[(faulty_account, 2)]);
 
-    // Positive flows.
-    // Valid logic.
-    let state = &mut create_state_with_falliable_validation_account();
-    let account_tx =
-        create_account_tx_for_validate_test(tx_type, VALID, None, &mut NonceManager::default());
-    account_tx.execute(state, block_context, true, true).unwrap();
-
-    if tx_type != TransactionType::DeployAccount {
-        // Calling self (allowed).
-        let state = &mut create_state_with_falliable_validation_account();
-        let account_tx = create_account_tx_for_validate_test(
-            tx_type,
-            CALL_CONTRACT,
-            Some(stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS)),
-            &mut NonceManager::default(),
-        );
-        account_tx.execute(state, block_context, true, true).unwrap();
-    }
+    // The negative flows are done first for the deploy account transaction type. If the positive
+    // flow will occur first, the deploy will succeed, and the nonce of the deployed contract will
+    // be advanced. This will cause the negative flow to fail, as the nonce of a deployed contract
+    // must be zero.
 
     // Negative flows.
 
     // Logic failure.
-    let state = &mut create_state_with_falliable_validation_account();
-    let account_tx =
-        create_account_tx_for_validate_test(tx_type, INVALID, None, &mut NonceManager::default());
+    let account_tx = create_account_tx_for_validate_test(
+        tx_type,
+        INVALID,
+        None,
+        &mut NonceManager::default(),
+        faulty_account,
+        instance_id_for_negative_scenarios,
+    );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_diff_assert_values!(&error);
 
@@ -1134,8 +1134,10 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
     let account_tx = create_account_tx_for_validate_test(
         tx_type,
         CALL_CONTRACT,
-        Some(stark_felt!(TEST_CONTRACT_ADDRESS)),
+        Some(stark_felt!("0x1991")), // Some address different than the address of faulty_account.
         &mut NonceManager::default(),
+        faulty_account,
+        instance_id_for_negative_scenarios,
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
@@ -1149,15 +1151,16 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
     if tx_type == TransactionType::DeployAccount {
         // Deploy another instance of 'faulty_account' and trying to call other contract in the
         // constructor (forbidden).
-
+        let sender_address =
+            faulty_account.get_instance_address(instance_id_for_negative_scenarios);
         let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
             deploy_account_tx_args! {
-                class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
+                class_hash: faulty_account.get_class_hash(),
                 constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
                 // Run faulty_validate() in the constructor.
                 signature: TransactionSignature(vec![
                     stark_felt!(CALL_CONTRACT),
-                    stark_felt!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                    *sender_address.0.key(),
                 ]),
             },
             &mut NonceManager::default(),
@@ -1169,6 +1172,35 @@ fn test_validate_accounts_tx(#[case] tx_type: TransactionType) {
             "Unauthorized syscall call_contract in execution mode Validate.",
             ContractConstructorExecutionFailed,
         );
+    }
+
+    // Positive flows.
+
+    // Valid logic.
+    let nonce_manager = &mut NonceManager::default();
+    let account_tx = create_account_tx_for_validate_test(
+        tx_type,
+        VALID,
+        None,
+        nonce_manager,
+        faulty_account,
+        instance_id_for_positive_scenarios,
+    );
+    account_tx.execute(state, block_context, true, true).unwrap();
+
+    if tx_type != TransactionType::DeployAccount {
+        // Calling self (allowed).
+        let sender_address =
+            faulty_account.get_instance_address(instance_id_for_positive_scenarios);
+        let account_tx = create_account_tx_for_validate_test(
+            tx_type,
+            CALL_CONTRACT,
+            Some(*sender_address.0.key()),
+            nonce_manager,
+            faulty_account,
+            instance_id_for_positive_scenarios,
+        );
+        account_tx.execute(state, block_context, true, true).unwrap();
     }
 }
 

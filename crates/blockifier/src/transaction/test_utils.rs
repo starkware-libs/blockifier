@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -18,6 +16,7 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployAccountTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
@@ -294,7 +293,10 @@ pub fn create_account_tx_for_validate_test(
     scenario: u64,
     additional_data: Option<StarkFelt>,
     nonce_manager: &mut NonceManager,
+    faulty_account: FeatureContract,
+    instance_id: u8,
 ) -> AccountTransaction {
+    let sender_address = faulty_account.get_instance_address(instance_id);
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
     let signature = TransactionSignature(vec![
@@ -305,22 +307,25 @@ pub fn create_account_tx_for_validate_test(
 
     match tx_type {
         TransactionType::Declare => {
-            let contract_class =
-                ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
-            let sender_address = contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS);
+            // It does not matter which class is declared for this test.
+            let class_hash = faulty_account.get_class_hash();
+            let contract_class = faulty_account.get_class();
             declare_tx(
                 declare_tx_args! {
-                    class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+                    class_hash,
                     sender_address,
                     signature,
+                    nonce: nonce_manager.next(sender_address)
                 },
                 contract_class,
             )
         }
         TransactionType::DeployAccount => {
-            let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
+            // We do not use the sender address here because the transaction generates the actual
+            // sender address.
+            let deploy_account_tx = deploy_account_tx(
                 deploy_account_tx_args! {
-                    class_hash: class_hash!(TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH),
+                    class_hash: faulty_account.get_class_hash(),
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
                 },
@@ -329,17 +334,13 @@ pub fn create_account_tx_for_validate_test(
             AccountTransaction::DeployAccount(deploy_account_tx)
         }
         TransactionType::InvokeFunction => {
-            let execute_calldata = create_calldata(
-                contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
-                "foo",
-                &[],
-            );
-            let invoke_tx = crate::test_utils::invoke::invoke_tx(invoke_tx_args! {
+            let execute_calldata = create_calldata(sender_address, "foo", &[]);
+            let invoke_tx = invoke_tx(invoke_tx_args! {
                 signature,
-                sender_address: contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS),
+                sender_address,
                 calldata: execute_calldata,
                 version: TransactionVersion::ONE,
-                nonce: Nonce::default(),
+                nonce: nonce_manager.next(sender_address),
             });
             AccountTransaction::Invoke(invoke_tx)
         }
