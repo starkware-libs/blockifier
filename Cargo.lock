@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.1.0-rc0"
+version = "0.1.0-rc4"
 dependencies = [
  "ark-ff",
  "ark-secp256k1",
@@ -391,9 +391,9 @@ checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cairo-felt"
-version = "0.8.4"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e94302e7afa60e9f6999ed4f2d6dcf0aacac726648e342a42e7f29a0c7db4eed"
+checksum = "9ce04b099042dc52ad1579cfa54aca08a1049b0026c4c62d0f64944621c05de2"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -856,9 +856,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "656c25c13b6ffcc75e081292f3c23f27e429b3d4b8d69ecdc327a441798e91f4"
+checksum = "1881cf12c80a09c0e04673e7830119f15796ad929aeb05ebb97e3bad626f75d3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1929,7 +1929,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.1.0-rc0"
+version = "0.1.0-rc4"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet",
