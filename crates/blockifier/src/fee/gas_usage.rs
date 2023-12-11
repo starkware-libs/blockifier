@@ -84,9 +84,10 @@ pub fn get_onchain_data_cost(state_changes_count: StateChangesCount) -> usize {
     // For each modified contract, the expected non-zeros bytes in the second word are:
     // 1 bytes for class hash flag; 2 for number of storage updates (up to 64K);
     // 3 for nonce update (up to 16M).
-    let nonce_felt_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
-    let nonce_felt_discount = eth_gas_constants::GAS_PER_MEMORY_WORD - nonce_felt_cost;
-    let mut discount = state_changes_count.n_modified_contracts * nonce_felt_discount;
+    let modified_contract_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
+    let modified_contract_discount =
+        eth_gas_constants::GAS_PER_MEMORY_WORD - modified_contract_cost;
+    let mut discount = state_changes_count.n_modified_contracts * modified_contract_discount;
 
     // Up to balance of 8*(10**10) ETH.
     let fee_balance_value_cost = eth_gas_constants::get_calldata_word_cost(12);
@@ -171,37 +172,32 @@ pub fn estimate_minimal_l1_gas(
         .get(&tx.tx_type())
         .expect("`OS_RESOURCES` must contain all transaction types.")
         .n_steps;
-    let gas_for_type: usize = match tx {
+    let gas_cost: usize = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
         // contract modification since it occurs for every tx).
-        AccountTransaction::Declare(_) => get_onchain_data_segment_length(StateChangesCount {
+        AccountTransaction::Declare(_) => get_onchain_data_cost(StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
-        AccountTransaction::Invoke(_) => get_onchain_data_segment_length(StateChangesCount {
+        AccountTransaction::Invoke(_) => get_onchain_data_cost(StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
         // DeployAccount also updates the address -> class hash mapping.
-        AccountTransaction::DeployAccount(_) => {
-            get_onchain_data_segment_length(StateChangesCount {
-                n_storage_updates: 1,
-                n_class_hash_updates: 1,
-                n_compiled_class_hash_updates: 0,
-                n_modified_contracts: 1,
-            })
-        }
+        AccountTransaction::DeployAccount(_) => get_onchain_data_cost(StateChangesCount {
+            n_storage_updates: 1,
+            n_class_hash_updates: 1,
+            n_compiled_class_hash_updates: 0,
+            n_modified_contracts: 1,
+        }),
     };
     let resources = ResourcesMapping(HashMap::from([
-        (
-            constants::GAS_USAGE.to_string(),
-            gas_for_type * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-        ),
+        (constants::GAS_USAGE.to_string(), gas_cost),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 

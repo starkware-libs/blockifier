@@ -1016,7 +1016,7 @@ fn test_max_fee_to_max_steps_conversion(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context, state);
-    let actual_gas_used = 6043;
+    let actual_gas_used = 5803;
     let actual_fee = actual_gas_used as u128 * 100000000000;
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
     let execute_calldata = create_calldata(

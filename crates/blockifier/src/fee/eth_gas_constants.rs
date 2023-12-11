@@ -3,8 +3,10 @@ pub const GAS_PER_MEMORY_BYTE: usize = 16;
 pub const WORD_WIDTH: usize = 32;
 pub const GAS_PER_MEMORY_WORD: usize = GAS_PER_MEMORY_BYTE * WORD_WIDTH;
 pub const SHARP_ADDITIONAL_GAS_PER_MEMORY_WORD: usize = 100; // This value is not accurate.
+// Should be about 10% of the actual price.
+pub const DISCOUNT_PER_MEMORY_WORD: usize = 60;
 pub const SHARP_GAS_PER_MEMORY_WORD: usize =
-    GAS_PER_MEMORY_WORD + SHARP_ADDITIONAL_GAS_PER_MEMORY_WORD;
+    GAS_PER_MEMORY_WORD + SHARP_ADDITIONAL_GAS_PER_MEMORY_WORD - DISCOUNT_PER_MEMORY_WORD;
 pub const GAS_PER_ZERO_TO_NONZERO_STORAGE_SET: usize = 20000;
 pub const GAS_PER_COLD_STORAGE_ACCESS: usize = 2100;
 pub const GAS_PER_NONZERO_TO_INT_STORAGE_SET: usize = 2900;
