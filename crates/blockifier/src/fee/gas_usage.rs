@@ -84,9 +84,10 @@ pub fn get_onchain_data_cost(state_changes_count: StateChangesCount) -> usize {
     // For each modified contract, the expected non-zeros bytes in the second word are:
     // 1 bytes for class hash flag; 2 for number of storage updates (up to 64K);
     // 3 for nonce update (up to 16M).
-    let nonce_felt_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
-    let nonce_felt_discount = eth_gas_constants::GAS_PER_MEMORY_WORD - nonce_felt_cost;
-    let mut discount = state_changes_count.n_modified_contracts * nonce_felt_discount;
+    let modified_contract_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
+    let modified_contract_discount =
+        eth_gas_constants::GAS_PER_MEMORY_WORD - modified_contract_cost;
+    let mut discount = state_changes_count.n_modified_contracts * modified_contract_discount;
 
     // Up to balance of 8*(10**10) ETH.
     let fee_balance_value_cost = eth_gas_constants::get_calldata_word_cost(12);
