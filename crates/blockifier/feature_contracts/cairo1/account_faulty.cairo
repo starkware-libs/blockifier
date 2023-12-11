@@ -11,7 +11,7 @@ mod Account {
     use option::{Option, OptionTrait};
 
     use starknet::{ContractAddress, call_contract_syscall, send_message_to_l1_syscall, TxInfo,
-        get_tx_info, contract_address_try_from_felt252};
+        get_tx_info, contract_address_try_from_felt252, info::SyscallResultTrait};
 
     // Validate Scenarios.
 
@@ -21,6 +21,8 @@ mod Account {
     const INVALID: felt252 = 1;
     // Make a contract call.
     const CALL_CONTRACT: felt252 = 2;
+    // Use get_block_hash syscall.
+    const GET_BLOCK_HASH: felt252 = 3;
 
     // get_selector_from_name('foo').
     const FOO_ENTRY_POINT_SELECTOR: felt252 = (
@@ -107,16 +109,20 @@ mod Account {
             assert (0 == 1, 'Invalid scenario');
             return 'INVALID';
         }
-
-        assert (scenario == CALL_CONTRACT, 'Unknown scenario');
-        let contract_address: felt252 = *signature[1_u32];
-        let mut calldata = Default::default();
-        call_contract_syscall(
-            address: contract_address_try_from_felt252(contract_address).unwrap(),
-            entry_point_selector: FOO_ENTRY_POINT_SELECTOR,
-            calldata: calldata.span()
-        )
-            .unwrap();
+        if (scenario == CALL_CONTRACT) {
+            let contract_address: felt252 = *signature[1_u32];
+            let mut calldata = Default::default();
+            call_contract_syscall(
+                address: contract_address_try_from_felt252(contract_address).unwrap(),
+                entry_point_selector: FOO_ENTRY_POINT_SELECTOR,
+                calldata: calldata.span()
+            )
+                .unwrap();
+            return starknet::VALIDATED;
+        }
+        assert (scenario == GET_BLOCK_HASH, 'Unknown scenario');
+        let block_number: u64 = 0;
+        starknet::syscalls::get_block_hash_syscall(block_number).unwrap_syscall();
 
         starknet::VALIDATED
     }
