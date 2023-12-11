@@ -44,6 +44,7 @@ use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+pub const GET_BLOCK_HASH: u64 = 3;
 
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {

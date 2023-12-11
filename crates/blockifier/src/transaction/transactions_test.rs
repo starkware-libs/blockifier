@@ -68,8 +68,8 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT,
+    GET_BLOCK_HASH, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -1226,6 +1226,26 @@ fn test_validate_accounts_tx(
             &error,
             "Unauthorized syscall call_contract in execution mode Validate.",
             ContractConstructorExecutionFailed,
+        );
+    }
+
+    if let CairoVersion::Cairo1 = cairo_version {
+        // Trying to use the syscall get_block_hash (forbidden).
+        // TODO(Arni, 12/12/2023): Test this scenario with the constructor.
+        let account_tx = create_account_tx_for_validate_test(
+            tx_type,
+            GET_BLOCK_HASH,
+            None,
+            &mut NonceManager::default(),
+            faulty_account,
+            sender_address,
+            salt_manager.next_salt(),
+        );
+        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+        check_transaction_execution_error_for_custom_hint!(
+            &error,
+            "Unauthorized syscall get_block_hash in execution mode Validate.",
+            ValidateTransactionError,
         );
     }
 
