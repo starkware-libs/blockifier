@@ -229,13 +229,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
                         state.set_compiled_class_hash(class_hash, *compiled_class_hash)?;
                         Ok(None)
                     }
-<<<<<<< HEAD
                     Err(error) => Err(error)?,
-||||||| 0cf631d1
-                    Err(error) => Err(error).map_err(TransactionExecutionError::from),
-=======
-                    Err(error) => Err(TransactionExecutionError::from(error)),
->>>>>>> origin/main-v0.12.3
                     Ok(_) => {
                         // Class is already declared, cannot redeclare
                         // (i.e., make sure the leaf is uninitialized).
