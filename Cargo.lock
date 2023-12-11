@@ -386,7 +386,13 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
+<<<<<<< HEAD
 version = "0.4.0-rc9.2"
+||||||| 0cf631d1
+version = "0.4.0-rc0"
+=======
+version = "0.3.0-rc2"
+>>>>>>> origin/main-v0.12.3
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -485,9 +491,21 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 
 [[package]]
 name = "cairo-felt"
+<<<<<<< HEAD
 version = "0.8.7"
+||||||| 0cf631d1
+version = "0.8.4"
+=======
+version = "0.8.3"
+>>>>>>> origin/main-v0.12.3
 source = "registry+https://github.com/rust-lang/crates.io-index"
+<<<<<<< HEAD
 checksum = "5972097b8800ca5dffb458040e74c724a2ac4fa4b5b480b50f5b96c7e67d6427"
+||||||| 0cf631d1
+checksum = "e94302e7afa60e9f6999ed4f2d6dcf0aacac726648e342a42e7f29a0c7db4eed"
+=======
+checksum = "9ce04b099042dc52ad1579cfa54aca08a1049b0026c4c62d0f64944621c05de2"
+>>>>>>> origin/main-v0.12.3
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -928,9 +946,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "656c25c13b6ffcc75e081292f3c23f27e429b3d4b8d69ecdc327a441798e91f4"
+checksum = "1881cf12c80a09c0e04673e7830119f15796ad929aeb05ebb97e3bad626f75d3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2100,7 +2118,13 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
+<<<<<<< HEAD
 version = "0.4.0-rc9.2"
+||||||| 0cf631d1
+version = "0.4.0-rc0"
+=======
+version = "0.3.0-rc2"
+>>>>>>> origin/main-v0.12.3
 dependencies = [
  "blockifier",
  "cached",
