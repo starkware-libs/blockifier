@@ -11,6 +11,8 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
+use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
@@ -19,11 +21,13 @@ use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{create_test_state, deprecated_create_test_state};
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, pad_address_to_64, trivial_external_entry_point,
-    trivial_external_entry_point_security_test, SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2,
+    create_calldata, pad_address_to_64, trivial_external_entry_point, BALANCE,
+    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_ADDRESS_2,
 };
 
 #[test]
@@ -181,15 +185,18 @@ fn test_storage_var() {
 
 /// Runs test scenarios that could fail the OS run and therefore must be caught in the Blockifier.
 fn run_security_test(
+    state: &mut CachedState<DictStateReader>,
+    security_contract: FeatureContract,
     expected_error: &str,
     entry_point_name: &str,
     calldata: Calldata,
-    state: &mut CachedState<DictStateReader>,
 ) {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
-        ..trivial_external_entry_point_security_test()
+        storage_address: security_contract.get_instance_address(0),
+        initial_gas: constants::INITIAL_GAS_COST,
+        ..Default::default()
     };
     let error = match entry_point_call.execute_directly(state) {
         Err(error) => error.to_string(),
@@ -204,254 +211,273 @@ fn run_security_test(
 
 #[test]
 fn test_vm_execution_security_failures() {
-    let mut state = deprecated_create_test_state();
+    let block_context = BlockContext::create_for_testing();
+    let security_contract = FeatureContract::SecurityTests;
+    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
 
     run_security_test(
+        state,
+        security_contract,
         "Expected relocatable",
         "test_nonrelocatable_syscall_ptr",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Unknown value for memory cell",
         "test_unknown_memory",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "can't subtract two relocatable values with different segment indexes",
         "test_subtraction_between_relocatables",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "can't add two relocatable values",
         "test_relocatables_addition_failure",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "op0 must be known in double dereference",
         "test_op0_unknown_double_dereference",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Out of bounds access to program segment",
         "test_write_to_program_segment",
         calldata![],
-        &mut state,
     );
-
-    run_security_test("Cannot exit main scope.", "test_exit_main_scope", calldata![], &mut state);
-
     run_security_test(
+        state,
+        security_contract,
+        "Cannot exit main scope.",
+        "test_exit_main_scope",
+        calldata![],
+    );
+    run_security_test(
+        state,
+        security_contract,
         "Every enter_scope() requires a corresponding exit_scope()",
         "test_missing_exit_scope",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "maximum offset value exceeded",
         "test_out_of_bound_memory_value",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Memory addresses must be relocatable",
         "test_non_relocatable_memory_address",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Bad expr: {test}. (Cannot evaluate ap-based or complex references: ['test'])",
         "test_bad_expr_eval",
         calldata![],
-        &mut state,
     );
 }
 
 #[test]
 fn test_builtin_execution_security_failures() {
-    let mut state = deprecated_create_test_state();
+    let block_context = BlockContext::create_for_testing();
+    let security_contract = FeatureContract::SecurityTests;
+    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
 
     run_security_test(
+        state,
+        security_contract,
         "Inconsistent auto-deduction for builtin pedersen",
         "test_bad_pedersen_values",
         calldata![],
-        &mut state,
     );
-
     let u128_bound: BigInt = BigInt::from(u128::MAX) + 1;
     let u123_bound_plus_one = u128_bound.clone() + 1;
     run_security_test(
+        state,
+        security_contract,
         &format!(
             "Range-check validation failed, number {u123_bound_plus_one} is out of valid range \
              [0, {u128_bound}]"
         ),
         "test_bad_range_check_values",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Signature hint is missing",
         "test_missing_signature_hint",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Signature hint must point to the signature builtin segment",
         "test_signature_hint_on_wrong_segment",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Cannot apply EC operation: computation reached two points with the same x coordinate",
         "test_ec_op_invalid_input",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "is not on the curve",
         "test_ec_op_point_not_on_curve",
         calldata![],
-        &mut state,
     );
 }
 
 #[test]
 fn test_syscall_execution_security_failures() {
-    let mut state = deprecated_create_test_state();
+    let block_context = BlockContext::create_for_testing();
+    let security_contract = FeatureContract::SecurityTests;
+    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
 
     for perform_inner_call_to_foo in 0..2 {
         let calldata = calldata![stark_felt!(perform_inner_call_to_foo as u8)];
         run_security_test(
+            state,
+            security_contract,
             "Hint Error: Out of range",
             "test_read_bad_address",
             calldata.clone(),
-            &mut state,
         );
 
         run_security_test(
+            state,
+            security_contract,
             "Hint Error: Expected integer",
             "test_relocatable_storage_address",
             calldata,
-            &mut state,
         );
     }
 
     run_security_test(
+        state,
+        security_contract,
         "Requested contract address \
          ContractAddress(PatriciaKey(StarkFelt(\"\
          0x0000000000000000000000000000000000000000000000000000000000000017\"))) is not deployed",
         "test_bad_call_address",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Hint Error: Expected relocatable",
         "test_bad_syscall_request_arg_type",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Entry point \
          EntryPointSelector(StarkFelt(\"\
          0x0000000000000000000000000000000000000000000000000000000000000019\")) not found in \
          contract",
         "test_bad_call_selector",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "The deploy_from_zero field in the deploy system call must be 0 or 1.",
         "test_bad_deploy_from_zero_field",
         calldata![],
-        &mut state,
     );
 }
 
 #[test]
 fn test_post_run_validation_security_failure() {
-    let mut state = deprecated_create_test_state();
+    let block_context = BlockContext::create_for_testing();
+    let security_contract = FeatureContract::SecurityTests;
+    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
 
     run_security_test(
+        state,
+        security_contract,
         "Missing memory cells for builtin range_check",
         "test_builtin_hole",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Missing memory cells for builtin pedersen",
         "test_missing_pedersen_values",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Invalid stop pointer for range_check",
         "test_bad_builtin_stop_ptr",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Syscall segment size",
         "test_access_after_syscall_stop_ptr",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Syscall segment end",
         "test_bad_syscall_stop_ptr",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Read-only segments",
         "test_out_of_bounds_write_to_signature_segment",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Read-only segments",
         "test_out_of_bounds_write_to_tx_info_segment",
         calldata![],
-        &mut state,
     );
-
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Read-only segments",
         "test_write_to_call_contract_return_value",
         calldata![],
-        &mut state,
     );
-
     let calldata = calldata![stark_felt!(1_u8), stark_felt!(1_u8)];
     run_security_test(
+        state,
+        security_contract,
         "Validation failed: Read-only segments",
         "test_out_of_bounds_write_to_calldata_segment",
         calldata,
-        &mut state,
     );
 }
 
