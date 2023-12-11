@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.4.0-rc0"
+version = "0.3.0-rc3"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -858,9 +858,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "656c25c13b6ffcc75e081292f3c23f27e429b3d4b8d69ecdc327a441798e91f4"
+checksum = "1881cf12c80a09c0e04673e7830119f15796ad929aeb05ebb97e3bad626f75d3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1931,7 +1931,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.4.0-rc0"
+version = "0.3.0-rc3"
 dependencies = [
  "blockifier",
  "cairo-lang-starknet",
