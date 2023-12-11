@@ -1,7 +1,12 @@
 %lang starknet
 
+from starkware.cairo.common.bitwise import bitwise_xor
 from starkware.cairo.common.bool import FALSE
-from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin, EcOpBuiltin
+from starkware.cairo.common.ec import ec_op
+from starkware.cairo.common.ec_point import EcPoint
+from starkware.cairo.common.registers import get_fp_and_pc
+from starkware.starknet.common.messages import send_message_to_l1
 from starkware.starknet.common.syscalls import (
     TxInfo,
     storage_read,
@@ -15,6 +20,7 @@ from starkware.starknet.common.syscalls import (
     get_sequencer_address,
     replace_class,
     get_tx_info,
+    get_tx_signature,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -315,11 +321,99 @@ func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(
     return ();
 }
 
-
 @external
 func test_tx_version{syscall_ptr: felt*}(expected_version: felt) {
     let (tx_info: TxInfo*) = get_tx_info();
     assert tx_info.version = expected_version;
+    return();
+}
 
+struct IndexAndValues {
+    index: felt,
+    values: (x: felt, y: felt),
+}
+
+@contract_interface
+namespace MyContract {
+    func xor_counters(index_and_x: IndexAndValues) {
+    }
+}
+
+@storage_var
+func two_counters(index: felt) -> (res: (felt, felt)) {
+}
+
+@storage_var
+func ec_point() -> (res: EcPoint) {
+}
+
+// Advances the 'two_counters' storage variable by 'diff'.
+@external
+func advance_counter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt, diffs_len: felt, diffs: felt*
+) {
+    assert diffs_len = 2;
+    let (val) = two_counters.read(index);
+    two_counters.write(index, (val[0] + diffs[0], val[1] + diffs[1]));
+    return ();
+}
+
+@external
+func xor_counters{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}(index_and_x: IndexAndValues) {
+    let index = index_and_x.index;
+    let x0 = index_and_x.values[0];
+    let x1 = index_and_x.values[1];
+    let (val) = two_counters.read(index);
+    let (res0) = bitwise_xor(val[0], x0);
+    let (res1) = bitwise_xor(val[1], x1);
+    two_counters.write(index, (res0, res1));
+    return ();
+}
+
+@external
+func call_xor_counters{syscall_ptr: felt*, range_check_ptr}(
+    address: felt, index_and_x: IndexAndValues
+) {
+    MyContract.xor_counters(address, index_and_x);
+    return ();
+}
+
+@external
+func test_ec_op{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ec_op_ptr: EcOpBuiltin*
+}() {
+    let p = EcPoint(
+        0x654fd7e67a123dd13868093b3b7777f1ffef596c2e324f25ceaf9146698482c,
+        0x4fad269cbf860980e38768fe9cb6b0b9ab03ee3fe84cfde2eccce597c874fd8,
+    );
+    let q = EcPoint(
+        0x3dbce56de34e1cfe252ead5a1f14fd261d520d343ff6b7652174e62976ef44d,
+        0x4b5810004d9272776dec83ecc20c19353453b956e594188890b48467cb53c19,
+    );
+    let m = 0x6d232c016ef1b12aec4b7f88cc0b3ab662be3b7dd7adbce5209fcfdbd42a504;
+    let (res) = ec_op(p=p, m=m, q=q);
+    ec_point.write(res);
+    return ();
+}
+
+@external
+func add_signature_to_counters{pedersen_ptr: HashBuiltin*, range_check_ptr, syscall_ptr: felt*}(
+    index: felt
+) {
+    let (signature_len: felt, signature: felt*) = get_tx_signature();
+    assert signature_len = 2;
+    let (val) = two_counters.read(index);
+    two_counters.write(index, (val[0] + signature[0], val[1] + signature[1]));
+    return ();
+}
+
+@external
+func send_message{syscall_ptr: felt*}(to_address: felt) {
+    alloc_locals;
+    local payload: (felt, felt) = (12, 34);
+    let (__fp__, _) = get_fp_and_pc();
+    send_message_to_l1(to_address=to_address, payload_size=2, payload=cast(&payload, felt*));
     return ();
 }

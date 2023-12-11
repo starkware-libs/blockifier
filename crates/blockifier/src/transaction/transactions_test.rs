@@ -13,23 +13,27 @@ use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
 use test_case::test_case;
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::abi_utils::{
+    get_fee_token_var_address, get_storage_var_address, selector_from_name,
+};
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
 use crate::block_context::BlockContext;
-use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
+use crate::execution::call_info::{
+    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
+};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
@@ -297,9 +301,9 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_trivial_validation_account(),
     ExpectedResultTestInvokeTx{
         range_check: 101,
-        n_steps: 4269,
+        n_steps: 4270,
         vm_resources: VmExecutionResources {
-            n_steps:  61,
+            n_steps:  62,
             n_memory_holes:  0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
@@ -313,9 +317,9 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_cairo1_account(),
     ExpectedResultTestInvokeTx{
         range_check: 113,
-        n_steps: 4689,
+        n_steps: 4690,
         vm_resources: VmExecutionResources {
-            n_steps: 283,
+            n_steps: 284,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
         },
@@ -386,7 +390,7 @@ fn test_invoke_tx(
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
             vm_resources: VmExecutionResources {
-                n_steps: 22,
+                n_steps: 23,
                 n_memory_holes: 0,
                 ..Default::default()
             },
@@ -444,6 +448,212 @@ fn test_invoke_tx(
         fee_type,
         BALANCE,
         BALANCE,
+    );
+}
+
+// Verifies the storage after each invoke execution in test_invoke_tx_advanced_operations
+fn verify_storage_after_invoke(
+    state: &mut CachedState<DictStateReader>,
+    contract_address: ContractAddress,
+    account_address: ContractAddress,
+    index: StarkFelt,
+    expected_counters: [StarkFelt; 2],
+    expected_ec_point: [StarkFelt; 2],
+    last_used_nonce: Nonce,
+) {
+    // Verify the two_counters values in storage.
+    let key = get_storage_var_address("two_counters", &[index]);
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_counters[0]);
+    let key = next_storage_key(&key).unwrap();
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_counters[1]);
+    // Verify the ec_point values in storage.
+    let key = get_storage_var_address("ec_point", &[]);
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_ec_point[0]);
+    let key = next_storage_key(&key).unwrap();
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_ec_point[1]);
+    // Verify the nonce value in storage.
+    let nonce_from_state = state.get_nonce_at(account_address).unwrap();
+    assert_eq!(nonce_from_state, last_used_nonce.try_increment().unwrap());
+}
+
+#[test]
+fn test_invoke_tx_advanced_operations() {
+    let cairo_version = CairoVersion::Cairo0;
+    let block_context = &BlockContext::create_for_account_testing();
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let sender_address = account.get_instance_address(0);
+    let contract_address = test_contract.get_instance_address(0);
+    let index = stark_felt!(123_u32);
+
+    // Invoke advance_counter function.
+    let nonce = Nonce::default();
+    let len = stark_felt!(2_u8);
+    let counter_diffs = [101_u32, 102_u32];
+    let initial_counters = [stark_felt!(counter_diffs[0]), stark_felt!(counter_diffs[1])];
+    let initial_ec_point = [StarkFelt::ZERO, StarkFelt::ZERO];
+    let calldata_args = vec![index, len, initial_counters[0], initial_counters[1]];
+
+    let invoke_tx_args = invoke_tx_args!(
+        max_fee: Fee(MAX_FEE),
+        nonce,
+        sender_address,
+        calldata:
+            create_calldata(contract_address, "advance_counter", &calldata_args),
+    );
+    let tx = AccountTransaction::Invoke(invoke_tx(invoke_tx_args.clone()));
+    tx.execute(state, block_context, true, true).unwrap();
+
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        sender_address,
+        index,
+        initial_counters,
+        initial_ec_point,
+        nonce,
+    );
+
+    // Invoke call_xor_counters function.
+    let nonce = nonce.try_increment().unwrap();
+    let xor_values = [31_u32, 32_u32];
+    let calldata_args = vec![
+        *contract_address.0.key(),
+        index,
+        stark_felt!(xor_values[0]),
+        stark_felt!(xor_values[1]),
+    ];
+    let expected_counters = [
+        stark_felt!(counter_diffs[0] ^ xor_values[0]),
+        stark_felt!(counter_diffs[1] ^ xor_values[1]),
+    ];
+
+    let invoke_tx_args = invoke_tx_args!(
+        max_fee: Fee(MAX_FEE),
+        nonce,
+        sender_address,
+        calldata:
+            create_calldata(contract_address, "call_xor_counters", &calldata_args),
+    );
+    let tx = AccountTransaction::Invoke(invoke_tx(invoke_tx_args.clone()));
+    tx.execute(state, block_context, true, true).unwrap();
+
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        sender_address,
+        index,
+        expected_counters,
+        initial_ec_point,
+        nonce,
+    );
+
+    // Invoke test_ec_op function.
+    let nonce = nonce.try_increment().unwrap();
+    let expected_ec_point = [
+        StarkFelt::new([
+            0x05, 0x07, 0xF8, 0x28, 0xEA, 0xE0, 0x0C, 0x08, 0xED, 0x10, 0x60, 0x5B, 0xAA, 0xD4,
+            0x80, 0xB7, 0x4B, 0x0E, 0x9B, 0x61, 0x9C, 0x1A, 0x2C, 0x53, 0xFB, 0x75, 0x86, 0xE3,
+            0xEE, 0x1A, 0x82, 0xBA,
+        ])
+        .unwrap(),
+        StarkFelt::new([
+            0x05, 0x43, 0x9A, 0x5D, 0xC0, 0x8C, 0xC1, 0x35, 0x64, 0x11, 0xA4, 0x57, 0x8F, 0x50,
+            0x71, 0x54, 0xB4, 0x84, 0x7B, 0xAA, 0x73, 0x70, 0x68, 0x17, 0x1D, 0xFA, 0x6C, 0x8A,
+            0xB3, 0x49, 0x9D, 0x8B,
+        ])
+        .unwrap(),
+    ];
+
+    let invoke_tx_args = invoke_tx_args!(
+        max_fee: Fee(MAX_FEE),
+        nonce,
+        sender_address,
+        calldata:
+            create_calldata(contract_address, "test_ec_op", &[]),
+    );
+    let tx = AccountTransaction::Invoke(invoke_tx(invoke_tx_args.clone()));
+    tx.execute(state, block_context, true, true).unwrap();
+
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        sender_address,
+        index,
+        expected_counters,
+        expected_ec_point,
+        nonce,
+    );
+
+    // Invoke add_signature_to_counters function.
+    let nonce = nonce.try_increment().unwrap();
+    let signature_values = [200_u64, 300_u64];
+    let signature = TransactionSignature(vec![
+        stark_felt!(signature_values[0]),
+        stark_felt!(signature_values[1]),
+    ]);
+    let expected_counters = [
+        stark_felt!(u64::try_from(expected_counters[0]).unwrap() + signature_values[0]),
+        stark_felt!(u64::try_from(expected_counters[1]).unwrap() + signature_values[1]),
+    ];
+
+    let invoke_tx_args = invoke_tx_args!(
+        max_fee: Fee(MAX_FEE),
+        signature,
+        nonce,
+        sender_address,
+        calldata:
+            create_calldata(contract_address, "add_signature_to_counters", &[index]),
+    );
+    let tx = AccountTransaction::Invoke(invoke_tx(invoke_tx_args.clone()));
+    tx.execute(state, block_context, true, true).unwrap();
+
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        sender_address,
+        index,
+        expected_counters,
+        expected_ec_point,
+        nonce,
+    );
+
+    // Invoke send_message function that send a message to L1.
+    let nonce = nonce.try_increment().unwrap();
+    let to_address = 85_u32;
+    let invoke_tx_args = invoke_tx_args!(
+        max_fee: Fee(MAX_FEE),
+        nonce,
+        sender_address,
+        calldata:
+            create_calldata(contract_address, "send_message", &[stark_felt!(to_address)]),
+    );
+    let tx = AccountTransaction::Invoke(invoke_tx(invoke_tx_args.clone()));
+    let execution_info = tx.execute(state, block_context, true, true).unwrap();
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        sender_address,
+        index,
+        expected_counters,
+        expected_ec_point,
+        nonce,
+    );
+    let expected_msg = OrderedL2ToL1Message {
+        order: 0,
+        message: MessageToL1 {
+            to_address: EthAddress::try_from(stark_felt!(to_address)).unwrap(),
+            payload: L2ToL1Payload(vec![stark_felt!(12_u32), stark_felt!(34_u32)]),
+        },
+    };
+    assert_eq!(
+        expected_msg,
+        execution_info.execute_call_info.unwrap().inner_calls[0].execution.l2_to_l1_messages[0]
     );
 }
 
