@@ -31,7 +31,9 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
+use crate::fee::gas_usage::{
+    calculate_tx_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
+};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -411,8 +413,14 @@ fn test_invoke_tx(
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            // 1 modified contract, 1 storage update (sender balance).
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+            (
+                abi_constants::GAS_USAGE.to_string(),
+                get_onchain_data_cost(StateChangesCount {
+                    n_storage_updates: 1,
+                    n_modified_contracts: 1,
+                    ..StateChangesCount::default()
+                }),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -821,8 +829,14 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            // 1 modified contract, 1 storage update (sender balance).
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+            (
+                abi_constants::GAS_USAGE.to_string(),
+                get_onchain_data_cost(StateChangesCount {
+                    n_storage_updates: 1,
+                    n_modified_contracts: 1,
+                    ..StateChangesCount::default()
+                }),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -887,8 +901,15 @@ fn test_declare_tx_v2() {
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     let expected_actual_resources = ResourcesMapping(HashMap::from([
-        // 1 modified contract, 1 storage update (sender balance) + 1 compiled_class_hash update.
-        (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 2) * 612),
+        (
+            abi_constants::GAS_USAGE.to_string(),
+            get_onchain_data_cost(StateChangesCount {
+                n_storage_updates: 1,
+                n_modified_contracts: 1,
+                n_compiled_class_hash_updates: 1,
+                ..StateChangesCount::default()
+            }),
+        ),
         (HASH_BUILTIN_NAME.to_string(), 15),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 2761),
@@ -1018,8 +1039,15 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            // 1 modified contract, 1 storage update (sender balance) + 1 class_hash update.
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 1) * 612),
+            (
+                abi_constants::GAS_USAGE.to_string(),
+                get_onchain_data_cost(StateChangesCount {
+                    n_storage_updates: 1,
+                    n_modified_contracts: 1,
+                    n_class_hash_updates: 1,
+                    ..StateChangesCount::default()
+                }),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
