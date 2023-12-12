@@ -1,4 +1,7 @@
+use std::collections::{HashMap, HashSet};
+
 use assert_matches::assert_matches;
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use rstest::{fixture, rstest};
 use starknet_api::core::{
@@ -12,6 +15,7 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
+
 
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
@@ -1330,4 +1334,142 @@ fn test_deploy_account_constructor_storage_write(
     .unwrap();
     let read_storage_arg = state.get_storage_at(deployed_contract_address, storage_key).unwrap();
     assert_eq!(ctor_storage_arg, read_storage_arg);
+}
+
+// Test for counting actual storage changes
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::state::cached_state::CachedState;
+use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_count_actual_storage_changes(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+) {
+    // FeeType according to version
+    let fee_type_addr = block_context.fee_token_address(&fee_type);
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(max_fee, block_context);
+    let initial_seq_fee = stark_felt_to_felt(
+        state.get_fee_token_balance(&block_context.sequencer_address, &fee_type_addr).unwrap().0,
+    );
+
+    // Transaction types
+    // 1. write '1' to cell 0xf
+    let tx = || create_calldata(contract_address, "test_count_actual_storage_changes", &[]);
+    // 2. transfer
+    let recipient = stark_felt!(435_u16);
+    let transfer_amount: Felt252 = 1.into();
+    let tx_transfer = || {
+        create_calldata(
+            fee_type_addr,
+            TRANSFER_ENTRY_POINT_NAME,
+            &[recipient, felt_to_stark_felt(&transfer_amount), stark_felt!(0_u8)],
+        )
+    };
+
+    // run transactions
+    let mut state = CachedState::create_transactional(&mut state);
+    let mut args = invoke_tx_args! {
+        max_fee,
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version,
+        sender_address: account_address,
+        calldata: tx(),
+        nonce: nonce_manager.next(account_address),
+    };
+    let account_tx = account_invoke_tx(args.clone());
+    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true); //execute write to unwritten cell
+    let fee_1 = execution_info.unwrap().actual_fee;
+
+    let storage_updates_1 = &state
+        .get_actual_state_changes_for_fee_charge(fee_type_addr, Some(account_address))
+        .unwrap();
+
+    let expected_modified_contracts = HashSet::from([account_address, contract_address]);
+    pretty_assertions::assert_eq!(
+        expected_modified_contracts,
+        storage_updates_1.modified_contracts
+    );
+
+    let cell_write_storage_change =
+        ((contract_address, StorageKey(patricia_key!(stark_felt!(0xf_u8)))), stark_felt!(1_u8));
+    let fee_nullify_storage_change =
+        ((fee_type_addr, get_fee_token_var_address(&account_address)), stark_felt!(0_u8));
+    let mut expected_sequencer_total_fee = initial_seq_fee + Felt252::from(fee_1.0);
+    let mut sequencer_fee_update = (
+        (fee_type_addr, get_fee_token_var_address(&block_context.sequencer_address)),
+        felt_to_stark_felt(&expected_sequencer_total_fee),
+    );
+
+    let expected_storage_updates_1 = HashMap::from([
+        cell_write_storage_change,
+        fee_nullify_storage_change,
+        sequencer_fee_update,
+    ]);
+    pretty_assertions::assert_eq!(expected_storage_updates_1, storage_updates_1.storage_updates);
+
+    let mut state = CachedState::create_transactional(&mut state);
+    args = invoke_tx_args!(nonce:nonce_manager.next(account_address),..args);
+    let account_tx = account_invoke_tx(args.clone());
+
+    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true); //execute write to written cell
+    let fee_2 = execution_info.unwrap().actual_fee;
+
+    let storage_updates_2 = &state
+        .get_actual_state_changes_for_fee_charge(fee_type_addr, Some(account_address))
+        .unwrap();
+
+    let expected_modified_contracts_2 = HashSet::from([account_address]);
+    pretty_assertions::assert_eq!(
+        expected_modified_contracts_2,
+        storage_updates_2.modified_contracts
+    );
+
+    expected_sequencer_total_fee += Felt252::from(fee_2.0);
+    sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+    let expected_storage_updates_2 =
+        HashMap::from([fee_nullify_storage_change, sequencer_fee_update]);
+    pretty_assertions::assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
+
+    let mut state = CachedState::create_transactional(&mut state);
+    args = invoke_tx_args!(nonce:nonce_manager.next(account_address), calldata:
+    tx_transfer(),..args);
+    let account_tx = account_invoke_tx(args.clone());
+    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true); //execute transfer
+
+    let fee_transfer = execution_info.unwrap().actual_fee;
+    let storage_updates_transfer = &state
+        .get_actual_state_changes_for_fee_charge(fee_type_addr, Some(account_address))
+        .unwrap();
+
+    let expected_modified_contracts_transfer = HashSet::from([account_address]);
+    pretty_assertions::assert_eq!(
+        expected_modified_contracts_transfer,
+        storage_updates_transfer.modified_contracts
+    );
+
+    let transfer_receipient_storage_change = (
+        (fee_type_addr, get_fee_token_var_address(&contract_address!(recipient))),
+        stark_felt!(transfer_amount.bits()),
+    );
+    expected_sequencer_total_fee += Felt252::from(fee_transfer.0);
+    sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+    let expected_storage_update_transfer = HashMap::from([
+        transfer_receipient_storage_change,
+        fee_nullify_storage_change,
+        sequencer_fee_update,
+    ]);
+    pretty_assertions::assert_eq!(
+        expected_storage_update_transfer,
+        storage_updates_transfer.storage_updates
+    );
 }
