@@ -1443,3 +1443,36 @@ fn test_l1_handler() {
             if paid_fee == Fee(0) && actual_fee == Fee(1732700000000000)
     );
 }
+
+pub const INVALID_TRANSACTION_VERSION: u64 = 12345;
+
+#[test]
+#[should_panic]
+fn test_invoke_tx_with_invalid_transaction_version() {
+    let mut invoke_tx_args = default_invoke_tx_args();
+    invoke_tx_args.version = TransactionVersion(stark_felt!(INVALID_TRANSACTION_VERSION));
+    invoke_tx(invoke_tx_args);
+}
+
+#[test]
+fn test_execute_tx_with_invalid_transaction_version() {
+    let state = &mut create_state_with_trivial_validation_account();
+    let block_context = &BlockContext::create_for_account_testing();
+    let calldata = create_calldata(
+        contract_address!(TEST_CONTRACT_ADDRESS),
+        "test_tx_version",
+        &[stark_felt!(INVALID_TRANSACTION_VERSION)],
+    );
+    let invoke_tx_args = invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        calldata,
+    };
+
+    let invoke_tx = invoke_tx(invoke_tx_args);
+    let account_tx = AccountTransaction::Invoke(invoke_tx);
+    let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+    assert!(execution_info.revert_error.unwrap().contains(
+        format!("ASSERT_EQ instruction failed: {} != 1.", INVALID_TRANSACTION_VERSION).as_str()
+    ));
+}
