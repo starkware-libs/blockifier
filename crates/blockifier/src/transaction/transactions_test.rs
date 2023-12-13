@@ -1392,33 +1392,6 @@ fn test_validate_accounts_tx(
         ValidateTransactionError,
     );
 
-    // Verify that the contract does not call another contract in the constructor of deploy account
-    // as well.
-    if tx_type == TransactionType::DeployAccount {
-        // Deploy another instance of 'faulty_account' and trying to call other contract in the
-        // constructor (forbidden).
-        let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
-            deploy_account_tx_args! {
-                class_hash,
-                constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
-                // Run faulty_validate() in the constructor.
-                signature: TransactionSignature(vec![
-                    stark_felt!(CALL_CONTRACT),
-                    *sender_address.0.key(),
-                ]),
-                contract_address_salt: salt_manager.next_salt(),
-            },
-            &mut NonceManager::default(),
-        );
-        let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        check_transaction_execution_error_for_custom_hint!(
-            &error,
-            "Unauthorized syscall call_contract in execution mode Validate.",
-            ContractConstructorExecutionFailed,
-        );
-    }
-
     if let CairoVersion::Cairo1 = cairo_version {
         // Trying to use the syscall get_block_hash (forbidden).
         // TODO(Arni, 12/12/2023): Test this scenario with the constructor.
@@ -1464,6 +1437,42 @@ fn test_validate_accounts_tx(
         );
         account_tx.execute(state, block_context, true, true).unwrap();
     }
+}
+
+#[rstest]
+fn test_constructor_on_deploy_account_acts_as_validate(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let block_context = &BlockContext::create_for_account_testing();
+    let account_balance = 0;
+    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let sender_address = faulty_account.get_instance_address(0);
+    let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
+    let salt_manager = &mut SaltManager::default();
+
+    // Verify that the contract does not call another contract in the constructor of deploy account.
+    // Deploy another instance of 'faulty_account' and try to call other contract in the
+    // constructor (forbidden).
+    let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: faulty_account.get_class_hash(),
+            constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
+            // Run faulty_validate() in the constructor.
+            signature: TransactionSignature(vec![
+                stark_felt!(CALL_CONTRACT),
+                *sender_address.0.key(),
+            ]),
+            contract_address_salt: salt_manager.next_salt(),
+        },
+        &mut NonceManager::default(),
+    );
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    check_transaction_execution_error_for_custom_hint!(
+        &error,
+        "Unauthorized syscall call_contract in execution mode Validate.",
+        ContractConstructorExecutionFailed,
+    );
 }
 
 // Test that we exclude the fee token contract modification and adds the account’s balance change
