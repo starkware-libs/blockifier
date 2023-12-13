@@ -1443,3 +1443,31 @@ fn test_l1_handler() {
             if paid_fee == Fee(0) && actual_fee == Fee(1732700000000000)
     );
 }
+
+#[test]
+fn test_execute_tx_with_invalid_transaction_version() {
+    let cairo_version = CairoVersion::Cairo0;
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let block_context = &BlockContext::create_for_account_testing();
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let invalid_version = 12345_u64;
+    let calldata = create_calldata(
+        test_contract.get_instance_address(0),
+        "test_tx_version",
+        &[stark_felt!(invalid_version)],
+    );
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        sender_address: account.get_instance_address(0),
+        calldata,
+    });
+
+    let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+    assert!(
+        execution_info
+            .revert_error
+            .unwrap()
+            .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str())
+    );
+}
