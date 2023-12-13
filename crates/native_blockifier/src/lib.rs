@@ -47,9 +47,19 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add("UndeclaredClassHashError", py.get_type::<UndeclaredClassHashError>())?;
     add_py_exceptions(py, py_module)?;
 
+    py_module.add_function(wrap_pyfunction!(blockifier_version, py)?)?;
+
     // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, gate this code
     //   with #[cfg(test)].
     py_module.add_function(wrap_pyfunction!(raise_error_for_testing, py)?)?;
 
     Ok(())
+}
+
+/// Return the version of blockifier that native_blockifier was built with.
+// Assumption: both the blockifier and the native_blockifier use `version.workspace` in the package
+// section of their Cargo.toml.
+#[pyfunction]
+pub fn blockifier_version() -> PyResult<String> {
+    Ok(env!("CARGO_PKG_VERSION").to_string())
 }
