@@ -1183,7 +1183,11 @@ fn test_validate_accounts_tx(
         salt_manager.next_salt(),
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        ValidateTransactionError,
+    );
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1242,6 +1246,25 @@ fn test_constructor_on_deploy_account_acts_as_validate(
     let sender_address = faulty_account.get_instance_address(0);
     let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
     let salt_manager = &mut SaltManager::default();
+
+    // Logic failure.
+    let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: faulty_account.get_class_hash(),
+            constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
+            // Run faulty_validate() in the constructor.
+            signature: TransactionSignature(vec![stark_felt!(INVALID)]),
+            contract_address_salt: salt_manager.next_salt(),
+        },
+        &mut NonceManager::default(),
+    );
+    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        ContractConstructorExecutionFailed,
+    );
 
     // Verify that the contract does not call another contract in the constructor of deploy account.
     // Deploy another instance of 'faulty_account' and try to call other contract in the
