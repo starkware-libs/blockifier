@@ -251,10 +251,10 @@ macro_rules! check_transaction_execution_error_for_custom_hint {
 /// Formatted for test_validate_accounts_tx.
 #[macro_export]
 macro_rules! check_transaction_execution_error_for_invalid_scenario {
-    ($cairo_version:expr, $error:expr) => {
+    ($cairo_version:expr, $error:expr, $variant:ident, $(,)?) => {
         match $cairo_version {
             CairoVersion::Cairo0 => {
-                if let TransactionExecutionError::ValidateTransactionError(
+                if let TransactionExecutionError::$variant(
                     EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
                         source:
                             VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
