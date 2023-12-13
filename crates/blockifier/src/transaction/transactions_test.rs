@@ -76,9 +76,11 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use crate::{
     check_entry_point_execution_error_for_custom_hint,
+    check_entry_point_execution_error_for_invalid_scenario,
     check_transaction_execution_error_for_custom_hint,
-    check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
-    deploy_account_tx_args, invoke_tx_args, retdata,
+    check_transaction_execution_error_for_invalid_scenario,
+    check_transaction_execution_error_inner, declare_tx_args, deploy_account_tx_args,
+    invoke_tx_args, retdata,
 };
 
 struct ExpectedResultTestInvokeTx {
@@ -1340,11 +1342,7 @@ fn test_validate_accounts_tx(
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(
-        cairo_version,
-        error,
-        ValidateTransactionError,
-    );
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, false,);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1361,7 +1359,7 @@ fn test_validate_accounts_tx(
     check_transaction_execution_error_for_custom_hint!(
         &error,
         "Unauthorized syscall call_contract in execution mode Validate.",
-        ValidateTransactionError,
+        false,
     );
 
     if let CairoVersion::Cairo1 = cairo_version {
@@ -1379,7 +1377,7 @@ fn test_validate_accounts_tx(
         check_transaction_execution_error_for_custom_hint!(
             &error,
             "Unauthorized syscall get_block_hash in execution mode Validate.",
-            ValidateTransactionError,
+            false,
         );
     }
 
@@ -1441,11 +1439,7 @@ fn test_constructor_on_deploy_account_runs_in_validate_mode(
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(
-        cairo_version,
-        error,
-        ContractConstructorExecutionFailed,
-    );
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, true,);
 
     // Verify that the contract can not call another contract in the constructor of deploy account.
     // Deploy another instance of 'faulty_account' and try to call other contract in the
@@ -1464,7 +1458,7 @@ fn test_constructor_on_deploy_account_runs_in_validate_mode(
     check_transaction_execution_error_for_custom_hint!(
         &error,
         "Unauthorized syscall call_contract in execution mode Validate.",
-        ContractConstructorExecutionFailed,
+        true,
     );
 
     if let CairoVersion::Cairo1 = cairo_version {
@@ -1482,7 +1476,7 @@ fn test_constructor_on_deploy_account_runs_in_validate_mode(
         check_transaction_execution_error_for_custom_hint!(
             &error,
             "Unauthorized syscall get_block_hash in execution mode Validate.",
-            ContractConstructorExecutionFailed,
+            true,
         );
     }
 }
