@@ -201,6 +201,8 @@ pub struct FaultyAccountTxCreatorArgs {
     pub class_hash: ClassHash,
     // Should be used with tx_type DeployAccount.
     pub contract_address_salt: ContractAddressSalt,
+    // Should be used with tx_type DeployAccount.
+    pub validate_constructor: bool,
     pub max_fee: Fee,
 }
 
@@ -213,6 +215,7 @@ impl Default for FaultyAccountTxCreatorArgs {
             sender_address: ContractAddress::default(),
             class_hash: ClassHash::default(),
             contract_address_salt: ContractAddressSalt::default(),
+            validate_constructor: false,
             max_fee: Fee::default(),
         }
     }
@@ -232,6 +235,7 @@ pub fn create_account_tx_for_validate_test(
         sender_address,
         class_hash,
         contract_address_salt,
+        validate_constructor,
         max_fee,
     } = faulty_account_tx_creator_args;
 
@@ -263,10 +267,14 @@ pub fn create_account_tx_for_validate_test(
         TransactionType::DeployAccount => {
             // We do not use the sender address here because the transaction generates the actual
             // sender address.
+            let constructor_calldata = calldata![stark_felt!(match validate_constructor {
+                true => constants::FELT_TRUE,
+                false => constants::FELT_FALSE,
+            })];
             let deploy_account_tx = deploy_account_tx(
                 deploy_account_tx_args! {
                     class_hash,
-                    constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
+                    constructor_calldata,
                     signature,
                     contract_address_salt,
                     max_fee,
