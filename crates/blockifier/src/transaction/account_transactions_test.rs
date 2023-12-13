@@ -519,7 +519,11 @@ fn test_fail_deploy_account(
 
     let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
     // Check the error is as expected. Assure the error message is not nonce or fee related.
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        ValidateTransactionError,
+    );
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
