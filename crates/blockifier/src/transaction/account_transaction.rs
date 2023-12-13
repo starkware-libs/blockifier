@@ -306,7 +306,11 @@ impl AccountTransaction {
         let mut context =
             EntryPointExecutionContext::new_invoke(block_context, &account_tx_context, true)?;
 
-        Ok(fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?)
+        log::debug!("Fee transfer: Initializing Fee Transfer Call Execution...");
+        let res =
+            fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context)?;
+        log::debug!("Fee transfer: Finalizing Fee Transfer Call Execution...");
+        Ok(res)
     }
 
     fn run_execute<S: State>(
