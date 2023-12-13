@@ -1340,7 +1340,11 @@ fn test_validate_accounts_tx(
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        ValidateTransactionError,
+    );
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1407,6 +1411,9 @@ fn test_validate_accounts_tx(
     }
 }
 
+/// Tests the contract constructor is run with the same restriction as the validate_deploy function
+/// during the execution of a deploy account transaction.
+/// Note: the positive flow is already covered in 'test_validate_accounts_tx'.
 #[rstest]
 fn test_constructor_on_deploy_account_runs_in_validate_mode(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
@@ -1423,6 +1430,38 @@ fn test_constructor_on_deploy_account_runs_in_validate_mode(
         validate_constructor: true,
         ..Default::default()
     };
+
+    // Logic failure.
+    let account_tx = create_account_tx_for_validate_test(
+        &mut NonceManager::default(),
+        FaultyAccountTxCreatorArgs {
+            scenario: INVALID,
+            contract_address_salt: salt_manager.next_salt(),
+            ..default_args
+        },
+    );
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        ContractConstructorExecutionFailed,
+    );
+
+    // Logic failure.
+    let account_tx = create_account_tx_for_validate_test(
+        &mut NonceManager::default(),
+        FaultyAccountTxCreatorArgs {
+            scenario: INVALID,
+            contract_address_salt: salt_manager.next_salt(),
+            ..default_args
+        },
+    );
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        ContractConstructorExecutionFailed,
+    );
 
     // Verify that the contract can not call another contract in the constructor of deploy account.
     // Deploy another instance of 'faulty_account' and try to call other contract in the
