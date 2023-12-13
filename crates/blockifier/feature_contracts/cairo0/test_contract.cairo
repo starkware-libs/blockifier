@@ -2,6 +2,7 @@
 
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
+from starkware.cairo.common.ec_point import EcPoint
 from starkware.starknet.common.syscalls import (
     TxInfo,
     storage_read,
@@ -321,5 +322,24 @@ func test_tx_version{syscall_ptr: felt*}(expected_version: felt) {
     let (tx_info: TxInfo*) = get_tx_info();
     assert tx_info.version = expected_version;
 
+    return ();
+}
+
+@storage_var
+func two_counters(index: felt) -> (res: (felt, felt)) {
+}
+
+@storage_var
+func ec_point() -> (res: EcPoint) {
+}
+
+// Advances the 'two_counters' storage variable by 'diff'.
+@external
+func advance_counter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt, diffs_len: felt, diff_0: felt, diff_1: felt
+) {
+    assert diffs_len = 2;
+    let (val) = two_counters.read(index);
+    two_counters.write(index, (val[0] + diff_0, val[1] + diff_1));
     return ();
 }
