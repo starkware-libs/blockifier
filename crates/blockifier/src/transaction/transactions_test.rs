@@ -25,7 +25,9 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use strum::IntoEnumIterator;
 use test_case::test_case;
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::abi_utils::{
+    get_fee_token_var_address, get_storage_var_address, selector_from_name,
+};
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
 use crate::block_context::BlockContext;
@@ -444,6 +446,75 @@ fn test_invoke_tx(
         fee_type,
         BALANCE,
         BALANCE,
+    );
+}
+
+// Verifies the storage after each invoke execution in test_invoke_tx_advanced_operations
+fn verify_storage_after_invoke(
+    state: &mut CachedState<DictStateReader>,
+    contract_address: ContractAddress,
+    account_address: ContractAddress,
+    index: StarkFelt,
+    expected_counters: [StarkFelt; 2],
+    expected_ec_point: [StarkFelt; 2],
+    last_used_nonce: Nonce,
+) {
+    // Verify the two_counters values in storage.
+    let key = get_storage_var_address("two_counters", &[index]);
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_counters[0]);
+    let key = next_storage_key(&key).unwrap();
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_counters[1]);
+    // Verify the ec_point values in storage.
+    let key = get_storage_var_address("ec_point", &[]);
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_ec_point[0]);
+    let key = next_storage_key(&key).unwrap();
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_ec_point[1]);
+    // Verify the nonce value in storage.
+    let nonce_from_state = state.get_nonce_at(account_address).unwrap();
+    assert_eq!(nonce_from_state, last_used_nonce.try_increment().unwrap());
+}
+
+#[test]
+fn test_invoke_tx_advanced_operations() {
+    let cairo_version = CairoVersion::Cairo0;
+    let block_context = &BlockContext::create_for_account_testing();
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let sender_address = account.get_instance_address(0);
+    let contract_address = test_contract.get_instance_address(0);
+    let index = stark_felt!(123_u32);
+
+    // Invoke advance_counter function.
+    let nonce = Nonce::default();
+    let len = stark_felt!(2_u8);
+    let counter_diffs = [101_u32, 102_u32];
+    let initial_counters = [stark_felt!(counter_diffs[0]), stark_felt!(counter_diffs[1])];
+    let initial_ec_point = [StarkFelt::ZERO, StarkFelt::ZERO];
+    let calldata_args = vec![index, len, initial_counters[0], initial_counters[1]];
+
+    let invoke_tx_args = invoke_tx_args!(
+        max_fee: Fee(MAX_FEE),
+        nonce,
+        sender_address,
+        calldata:
+            create_calldata(contract_address, "advance_counter", &calldata_args),
+    );
+    let tx = AccountTransaction::Invoke(invoke_tx(invoke_tx_args.clone()));
+    tx.execute(state, block_context, true, true).unwrap();
+
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        sender_address,
+        index,
+        initial_counters,
+        initial_ec_point,
+        nonce,
     );
 }
 
