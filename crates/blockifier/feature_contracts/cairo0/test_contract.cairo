@@ -2,6 +2,7 @@
 
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
+from starkware.cairo.common.ec_point import EcPoint
 from starkware.starknet.common.syscalls import (
     TxInfo,
     storage_read,
@@ -328,5 +329,23 @@ func test_count_actual_storage_changes{syscall_ptr: felt*, pedersen_ptr: HashBui
     const address = 15;
     storage_write(address=address, value=0);
     storage_write(address=address, value=1);
+    return ();
+}
+
+@storage_var
+func two_counters(index: felt) -> (res: (felt, felt)) {
+}
+
+@storage_var
+func ec_point() -> (res: EcPoint) {
+}
+
+// Advances the 'two_counters' storage variable by 'diff'.
+@external
+func advance_counter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt, diff_0: felt, diff_1: felt
+) {
+    let (val) = two_counters.read(index);
+    two_counters.write(index, (val[0] + diff_0, val[1] + diff_1));
     return ();
 }
