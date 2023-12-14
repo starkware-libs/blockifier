@@ -883,8 +883,8 @@ fn test_max_fee_to_max_steps_conversion(
         mut nonce_manager,
         block_context,
     } = create_test_init_data(Fee(MAX_FEE), block_context);
-    let actual_fee = 670900000000000;
-    let actual_gas_used = 6709;
+    let actual_fee = 690300000000000;
+    let actual_gas_used = 6903;
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
     let execute_calldata = create_calldata(
         contract_address,
@@ -992,7 +992,7 @@ fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
     assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
     assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
 
-    // Invoke the `recurse` function with depth of 800 and the actual fee of depth 1 as max_fee.
+    // Invoke the `recurse` function with depth of 824 and the actual fee of depth 1 as max_fee.
     // This call should fail due to no remaining steps (execution steps based on max_fee are bounded
     // well enough to catch this mid-execution).
     let tx_execution_info3 = run_invoke_tx(
@@ -1001,7 +1001,7 @@ fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
         invoke_tx_args! {
             max_fee: actual_fee_depth1,
             nonce: nonce_manager.next(account_address),
-            calldata: recursive_function_calldata(&contract_address, 800, false),
+            calldata: recursive_function_calldata(&contract_address, 824, false),
             ..recursion_base_args
         },
     )

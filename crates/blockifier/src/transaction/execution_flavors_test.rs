@@ -1,5 +1,6 @@
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
@@ -179,7 +180,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     );
 
     // Second scenario: minimal fee not covered. Actual fee is precomputed.
-    let (actual_gas_used, actual_fee) = gas_and_fee(6696, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(6890, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(10),
         resource_bounds: l1_resource_bounds(10, 10),
@@ -315,7 +316,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     } = create_flavors_test_state(&block_context, cairo_version);
 
     // Validation scenario: fallible validation.
-    let (actual_gas_used, actual_fee) = gas_and_fee(31450, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(31626, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
@@ -392,7 +393,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     };
 
     // First scenario: logic error. Should result in revert; actual fee should be shown.
-    let (revert_gas_used, revert_fee) = gas_and_fee(5987, validate, &fee_type);
+    let (revert_gas_used, revert_fee) = gas_and_fee(6108, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         calldata: recurse_calldata(test_contract_address, true, 3),
         nonce: nonce_manager.next(account_address),
@@ -420,11 +421,11 @@ fn test_simulate_validate_charge_fee_mid_execution(
 
     // Second scenario: limit resources via sender bounds. Should revert if and only if step limit
     // is derived from sender bounds (`charge_fee` mode).
-    let (gas_bound, fee_bound) = gas_and_fee(5944, validate, &fee_type);
+    let (gas_bound, fee_bound) = gas_and_fee(6000, validate, &fee_type);
     // If `charge_fee` is true, execution is limited by sender bounds, so less resources will be
     // used. Otherwise, execution is limited by block bounds, so more resources will be used.
-    let (limited_gas_used, limited_fee) = gas_and_fee(8392, validate, &fee_type);
-    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10688, validate, &fee_type);
+    let (limited_gas_used, limited_fee) = gas_and_fee(8516, validate, &fee_type);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10882, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
         resource_bounds: l1_resource_bounds(gas_bound, gas_price),
@@ -470,7 +471,8 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // step limit during execution anyway. The actual limit when execution phase starts is slightly
     // lower when `validate` is true, but this is not reflected in the actual gas usage.
     let block_limit_gas = low_step_block_context.invoke_tx_max_n_steps as u64
-        + 4 * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD as u64;
+        + 4 * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD as u64
+        + 68; // Number of memory holes, they are counted as steps.
     let block_limit_fee =
         get_fee_by_l1_gas_usage(&block_context, block_limit_gas as u128, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
@@ -541,14 +543,14 @@ fn test_simulate_validate_charge_fee_post_execution(
     // If `charge_fee` is false - we do not revert, and simply report the fee and resources as used.
     // If `charge_fee` is true, we revert, charge the maximal allowed fee (derived from sender
     // bounds), and report resources base on execution steps reverted + other overhead.
-    let base_gas_bound = 10000;
+    let base_gas_bound = 10115;
     let (just_not_enough_gas_bound, just_not_enough_fee_bound) =
         gas_and_fee(base_gas_bound, validate, &fee_type);
-    // `__validate__` and overhead resources + number of reverted steps, comes out slightly less
+    // `__validate__` and overhead resources + number of reverted steps, comes out slightly more
     // than the gas bound.
-    let (revert_gas_usage, revert_fee) = gas_and_fee(base_gas_bound - 3, validate, &fee_type);
+    let (revert_gas_usage, revert_fee) = gas_and_fee(base_gas_bound + 3, validate, &fee_type);
     let (unlimited_gas_used, unlimited_fee) =
-        gas_and_fee(base_gas_bound + 688, validate, &fee_type);
+        gas_and_fee(base_gas_bound + 767, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: just_not_enough_fee_bound,
         resource_bounds: l1_resource_bounds(just_not_enough_gas_bound, gas_price),
@@ -587,8 +589,8 @@ fn test_simulate_validate_charge_fee_post_execution(
 
     // Second scenario: balance too low.
     // Execute a transfer, and make sure we get the expected result.
-    let (success_actual_gas, actual_fee) = gas_and_fee(8893, validate, &fee_type);
-    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(6508, validate, &fee_type);
+    let (success_actual_gas, actual_fee) = gas_and_fee(9503, validate, &fee_type);
+    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(6629, validate, &fee_type);
     assert!(stark_felt!(actual_fee) < current_balance);
     let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
     let recipient = stark_felt!(7_u8);
