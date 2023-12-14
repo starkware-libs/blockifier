@@ -447,7 +447,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // lower when `validate` is true, but this is not reflected in the actual gas usage.
     let block_limit_gas = low_step_block_context.invoke_tx_max_n_steps as u64
         + 4 * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD as u64
-        + 68;
+        + 68; // Number of memory holes, they are counted as steps.
     let block_limit_fee =
         get_fee_by_l1_gas_usage(&block_context, block_limit_gas as u128, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
