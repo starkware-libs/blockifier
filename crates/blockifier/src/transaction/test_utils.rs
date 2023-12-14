@@ -106,7 +106,7 @@ pub fn deploy_and_fund_account(
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
     // Set balance in all fee types.
-    let deployed_account_balance_key = get_fee_token_var_address(&account_address);
+    let deployed_account_balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
         let fee_token_address = block_context.fee_token_address(&fee_type);
         state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));

@@ -131,8 +131,8 @@ fn test_revert_on_overdraft(
     // Check the current balance, before next transaction.
     let (balance, _) = state
         .get_fee_token_balance(
-            &account_address,
-            &block_context.fee_token_address(&account_tx_context.fee_type()),
+            account_address,
+            block_context.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
 
@@ -175,8 +175,8 @@ fn test_revert_on_overdraft(
     assert_eq!(
         state
             .get_fee_token_balance(
-                &account_address,
-                &block_context.fee_token_address(&account_tx_context.fee_type()),
+                account_address,
+                block_context.fee_token_address(&account_tx_context.fee_type()),
             )
             .unwrap(),
         (expected_new_balance, stark_felt!(0_u8))
@@ -184,8 +184,8 @@ fn test_revert_on_overdraft(
     assert_eq!(
         state
             .get_fee_token_balance(
-                &recipient_address,
-                &block_context.fee_token_address(&account_tx_context.fee_type())
+                recipient_address,
+                block_context.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         (final_received_amount, stark_felt!(0_u8))
@@ -289,9 +289,11 @@ fn test_revert_on_resource_overuse(
 
     // Assert the transaction was reverted with the correct error.
     if is_revertible {
-        assert!(
-            execution_info_result.unwrap().revert_error.unwrap().starts_with(expected_error_prefix)
-        );
+        assert!(execution_info_result
+            .unwrap()
+            .revert_error
+            .unwrap()
+            .starts_with(expected_error_prefix));
     } else {
         assert_matches!(
             execution_info_result.unwrap_err(),

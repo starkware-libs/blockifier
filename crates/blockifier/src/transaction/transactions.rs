@@ -211,7 +211,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
             // No class commitment, so no need to check if the class is already declared.
             starknet_api::transaction::DeclareTransaction::V0(_)
             | starknet_api::transaction::DeclareTransaction::V1(_) => {
-                state.set_contract_class(&class_hash, self.contract_class.clone())?;
+                state.set_contract_class(class_hash, self.contract_class.clone())?;
                 Ok(None)
             }
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
@@ -222,10 +222,10 @@ impl<S: State> Executable<S> for DeclareTransaction {
                 compiled_class_hash,
                 ..
             }) => {
-                match state.get_compiled_contract_class(&class_hash) {
+                match state.get_compiled_contract_class(class_hash) {
                     Err(StateError::UndeclaredClassHash(_)) => {
                         // Class is undeclared; declare it.
-                        state.set_contract_class(&class_hash, self.contract_class.clone())?;
+                        state.set_contract_class(class_hash, self.contract_class.clone())?;
                         state.set_compiled_class_hash(class_hash, *compiled_class_hash)?;
                         Ok(None)
                     }

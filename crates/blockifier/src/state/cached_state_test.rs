@@ -139,14 +139,14 @@ fn get_contract_class() {
     let existing_class_hash = class_hash!(TEST_CLASS_HASH);
     let mut state = deprecated_create_test_state();
     assert_eq!(
-        state.get_compiled_contract_class(&existing_class_hash).unwrap(),
+        state.get_compiled_contract_class(existing_class_hash).unwrap(),
         get_test_contract_class()
     );
 
     // Negative flow.
     let missing_class_hash = class_hash!("0x101");
     assert_matches!(
-        state.get_compiled_contract_class(&missing_class_hash).unwrap_err(),
+        state.get_compiled_contract_class(missing_class_hash).unwrap_err(),
         StateError::UndeclaredClassHash(undeclared) if undeclared == missing_class_hash
     );
 }
@@ -380,14 +380,14 @@ fn global_contract_cache_is_used() {
     assert!(state.class_hash_to_class.get(&class_hash).is_none());
 
     // Check state uses the global cache.
-    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
+    assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
     assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
     assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
     // Verify local cache is also updated.
     assert_eq!(state.class_hash_to_class.get(&class_hash).unwrap(), &contract_class);
 
     // Idempotency: getting the same class again uses the local cache.
-    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
+    assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
     assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
     assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
 }

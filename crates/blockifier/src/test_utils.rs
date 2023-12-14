@@ -97,13 +97,13 @@ impl Default for CairoVersion {
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_SEQUENCER_ADDRESS))
+    get_fee_token_var_address(contract_address!(TEST_SEQUENCER_ADDRESS))
 }
 pub fn test_erc20_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
+    get_fee_token_var_address(contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
 }
 pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
+    get_fee_token_var_address(contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
 }
 
 // The max_fee / resource bounds used for txs in this test.

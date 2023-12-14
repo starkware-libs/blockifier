@@ -70,7 +70,7 @@ fn check_balance<S: StateReader>(
     charge_fee: bool,
 ) -> StarkFelt {
     let (new_balance, _) = state
-        .get_fee_token_balance(&account_address, &block_context.fee_token_address(fee_type))
+        .get_fee_token_balance(account_address, block_context.fee_token_address(fee_type))
         .unwrap();
     if charge_fee {
         assert!(new_balance < current_balance);
@@ -377,7 +377,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) = state
-        .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
+        .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
         .unwrap();
 
     // Execution scenarios.
@@ -533,7 +533,7 @@ fn test_simulate_validate_charge_fee_post_execution(
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) =
-        state.get_fee_token_balance(&account_address, &fee_token_address).unwrap();
+        state.get_fee_token_balance(account_address, fee_token_address).unwrap();
 
     // Post-execution scenarios:
     // 1. Consumed too many resources (more than resource bounds).
@@ -616,13 +616,11 @@ fn test_simulate_validate_charge_fee_post_execution(
     .unwrap();
     assert_eq!(tx_execution_info.is_reverted(), charge_fee);
     if charge_fee {
-        assert!(
-            tx_execution_info
-                .revert_error
-                .clone()
-                .unwrap()
-                .contains("Insufficient fee token balance.")
-        );
+        assert!(tx_execution_info
+            .revert_error
+            .clone()
+            .unwrap()
+            .contains("Insufficient fee token balance."));
     }
     check_gas_and_fee(
         &block_context,

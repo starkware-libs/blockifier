@@ -21,7 +21,7 @@ fn privileged_account(
     storage_view: &mut HashMap<(ContractAddress, StorageKey), StarkFelt>,
 ) {
     let minter_var_address = get_storage_var_address("permitted_minter", &[]);
-    let balance_key = get_fee_token_var_address(&account_address);
+    let balance_key = get_fee_token_var_address(account_address);
     for fee_token in &[
         block_context.fee_token_address(&FeeType::Strk),
         block_context.fee_token_address(&FeeType::Eth),

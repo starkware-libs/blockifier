@@ -95,7 +95,7 @@ impl CallEntryPoint {
         }
         // Add class hash to the call, that will appear in the output (call info).
         self.class_hash = Some(class_hash);
-        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+        let contract_class = state.get_compiled_contract_class(class_hash)?;
 
         execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
             match error {
@@ -315,7 +315,7 @@ pub fn execute_constructor_entry_point(
     remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_compiled_contract_class(&ctor_context.class_hash)?;
+    let contract_class = state.get_compiled_contract_class(ctor_context.class_hash)?;
     let Some(constructor_selector) = contract_class.constructor_selector() else {
         // Contract has no constructor.
         return handle_empty_constructor(ctor_context, calldata, remaining_gas);
