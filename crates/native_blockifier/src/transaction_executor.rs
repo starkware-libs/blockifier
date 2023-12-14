@@ -148,7 +148,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         let old_block_number_and_hash = old_block_number_and_hash
             .map(|(block_number, block_hash)| (BlockNumber(block_number), BlockHash(block_hash.0)));
 
-        pre_process_block(&mut self.state, old_block_number_and_hash);
+        pre_process_block(&mut self.state, old_block_number_and_hash)?;
 
         Ok(())
     }

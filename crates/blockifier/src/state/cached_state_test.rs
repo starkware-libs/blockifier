@@ -57,12 +57,12 @@ fn get_and_set_storage_value() {
     assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
 
     let modified_storage_value0 = stark_felt!("0xA");
-    state.set_storage_at(contract_address0, key0, modified_storage_value0);
+    state.set_storage_at(contract_address0, key0, modified_storage_value0).unwrap();
     assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
     assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
 
     let modified_storage_value1 = stark_felt!("0x7");
-    state.set_storage_at(contract_address1, key1, modified_storage_value1);
+    state.set_storage_at(contract_address1, key1, modified_storage_value1).unwrap();
     assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
     assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
 }
@@ -234,11 +234,11 @@ fn cached_state_state_diff_conversion() {
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Write the initial value using key contract_address1.
-    state.set_storage_at(contract_address1, key_y, storage_val1);
+    state.set_storage_at(contract_address1, key_y, storage_val1).unwrap();
 
     // Write new values using key contract_address2.
     let new_value = stark_felt!("0x12345678");
-    state.set_storage_at(contract_address2, key_y, new_value);
+    state.set_storage_at(contract_address2, key_y, new_value).unwrap();
     assert!(state.increment_nonce(contract_address2).is_ok());
     let new_class_hash = class_hash!("0x11111111");
     assert!(state.set_class_hash_at(contract_address2, new_class_hash).is_ok());
@@ -267,15 +267,15 @@ fn create_state_changes_for_test<S: StateReader>(
     let storage_val: StarkFelt = stark_felt!("0x1");
 
     state.set_class_hash_at(contract_address, class_hash).unwrap();
-    state.set_storage_at(contract_address, key, storage_val);
+    state.set_storage_at(contract_address, key, storage_val).unwrap();
     state.increment_nonce(contract_address2).unwrap();
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Assign the existing value to the storage (this shouldn't be considered a change).
     // As the first access:
-    state.set_storage_at(contract_address2, key, StarkFelt::default());
+    state.set_storage_at(contract_address2, key, StarkFelt::default()).unwrap();
     // As the second access:
-    state.set_storage_at(contract_address, key, storage_val);
+    state.set_storage_at(contract_address, key, storage_val).unwrap();
 
     // Return the resulting state changes.
     state
@@ -336,9 +336,15 @@ fn test_state_changes_merge() {
     let new_contract_address = ContractAddress(patricia_key!("0x111"));
 
     // Overwrite existing and new storage values.
-    transactional_state.set_storage_at(contract_address, storage_key, stark_felt!("0x1234"));
-    transactional_state.set_storage_at(contract_address2, storage_key2, stark_felt!("0x4321"));
-    transactional_state.set_storage_at(new_contract_address, storage_key, stark_felt!("0x43210"));
+    transactional_state
+        .set_storage_at(contract_address, storage_key, stark_felt!("0x1234"))
+        .unwrap();
+    transactional_state
+        .set_storage_at(contract_address2, storage_key2, stark_felt!("0x4321"))
+        .unwrap();
+    transactional_state
+        .set_storage_at(new_contract_address, storage_key, stark_felt!("0x43210"))
+        .unwrap();
     transactional_state.increment_nonce(contract_address).unwrap();
     // Get the new state changes and then commit the transactional state.
     let state_changes3 = transactional_state

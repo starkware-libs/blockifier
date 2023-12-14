@@ -1022,11 +1022,13 @@ fn test_deploy_account_tx(
     // can pay for the transaction execution.
     let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
     for fee_type in FeeType::iter() {
-        state.set_storage_at(
-            block_context.fee_token_address(&fee_type),
-            deployed_account_balance_key,
-            stark_felt!(BALANCE),
-        );
+        state
+            .set_storage_at(
+                block_context.fee_token_address(&fee_type),
+                deployed_account_balance_key,
+                stark_felt!(BALANCE),
+            )
+            .unwrap();
     }
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
@@ -1139,11 +1141,13 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     let deploy_account = deploy_account_tx(undeclared_hash, None, None, &mut nonce_manager);
 
     // Fund account, so as not to fail pre-validation.
-    state.set_storage_at(
-        block_context.fee_token_address(&FeeType::Eth),
-        get_fee_token_var_address(deploy_account.contract_address),
-        stark_felt!(BALANCE),
-    );
+    state
+        .set_storage_at(
+            block_context.fee_token_address(&FeeType::Eth),
+            get_fee_token_var_address(deploy_account.contract_address),
+            stark_felt!(BALANCE),
+        )
+        .unwrap();
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(&mut state, block_context, true, true).unwrap_err();

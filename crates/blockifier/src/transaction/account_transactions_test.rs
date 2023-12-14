@@ -471,7 +471,9 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
     let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
-    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
+    state
+        .set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE))
+        .unwrap();
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let account_tx_context = account_tx.get_account_tx_context();
