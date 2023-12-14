@@ -3,32 +3,44 @@ use std::collections::HashSet;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, Fee, TransactionSignature};
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use strum::IntoEnumIterator;
 
-use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
-use crate::abi::constants;
+use crate::abi::abi_utils::{
+    get_fee_token_var_address, get_storage_var_address, selector_from_name,
+};
+use crate::abi::constants::{self, INITIAL_GAS_COST};
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::entry_point::{
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
+};
 use crate::execution::errors::EntryPointExecutionError;
-use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_test_state, deprecated_create_test_state};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    create_calldata, pad_address_to_64, trivial_external_entry_point, BALANCE,
-    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_calldata, pad_address_to_64, trivial_external_entry_point, NonceManager, BALANCE,
+    MAX_FEE, SECURITY_TEST_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_CONTRACT_ADDRESS_2,
 };
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
+use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::test_utils::create_state_with_trivial_validation_account;
+use crate::transaction::transactions::DeployAccountTransaction;
+use crate::{deploy_account_tx_args, invoke_tx_args, retdata};
 
 #[test]
 fn test_call_info_iteration() {
@@ -609,4 +621,90 @@ Unknown location (pc=0:62)
         }
         other_error => panic!("Unexpected error type: {other_error:?}"),
     }
+}
+
+fn default_invoke_tx_args() -> InvokeTxArgs {
+    let execute_calldata = create_calldata(
+        contract_address!(TEST_CONTRACT_ADDRESS),
+        "return_result",
+        &[stark_felt!(2_u8)], // Calldata: num.
+    );
+
+    invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        signature: TransactionSignature::default(),
+        nonce: Nonce::default(),
+        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        calldata: execute_calldata,
+    }
+}
+
+fn deploy_account_tx(
+    account_class_hash: &str,
+    constructor_calldata: Option<Calldata>,
+    signature: Option<TransactionSignature>,
+    nonce_manager: &mut NonceManager,
+) -> DeployAccountTransaction {
+    crate::test_utils::deploy_account::deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: class_hash!(account_class_hash),
+            max_fee: Fee(MAX_FEE),
+            constructor_calldata: constructor_calldata.unwrap_or_default(),
+            signature: signature.unwrap_or_default(),
+        },
+        nonce_manager,
+    )
+}
+
+#[test]
+fn test_noa() {
+    let state = &mut create_state_with_trivial_validation_account();
+    let block_context = BlockContext::create_for_account_testing();
+    let mut nonce_manager = NonceManager::default();
+    let invoke_tx = invoke_tx(default_invoke_tx_args());
+    let tx = deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
+    // let account_tx = AccountTransaction::Invoke(tx);
+    let deployed_account_address = tx.contract_address;
+    let account_tx = AccountTransaction::DeployAccount(tx);
+    let account_tx_context = account_tx.get_account_tx_context();
+    dbg!(&account_tx_context);
+    // let actual_fee = Fee(736400000000000); // Invoke
+    let actual_fee = Fee(695300000000000);
+    let lsb_amount = StarkFelt::from(actual_fee.0);
+    let msb_amount = StarkFelt::from(0_u8);
+    let storage_address = block_context.fee_token_address(&account_tx_context.fee_type());
+    let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
+    for fee_type in FeeType::iter() {
+        state.set_storage_at(
+            block_context.fee_token_address(&fee_type),
+            deployed_account_balance_key,
+            stark_felt!(BALANCE),
+        );
+    }
+
+    let fee_transfer_call = CallEntryPoint {
+        class_hash: None,
+        code_address: None,
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: selector_from_name(TRANSFER_ENTRY_POINT_NAME),
+        calldata: calldata![
+            *block_context.sequencer_address.0.key(), // Recipient.
+            lsb_amount,
+            msb_amount
+        ],
+        storage_address,
+        caller_address: invoke_tx.sender_address(),
+        call_type: CallType::Call,
+        // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
+        initial_gas: INITIAL_GAS_COST,
+    };
+
+    let mut context =
+        EntryPointExecutionContext::new_invoke(&block_context, &account_tx_context, true).unwrap();
+
+    let call_info =
+        fee_transfer_call.execute(state, &mut ExecutionResources::default(), &mut context).unwrap();
+
+    dbg!(call_info.vm_resources);
+    panic!();
 }

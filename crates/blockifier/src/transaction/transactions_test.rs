@@ -398,6 +398,8 @@ fn test_invoke_tx(
     // Build expected fee transfer call info.
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
+    dbg!(expected_actual_fee);
+
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         sender_address,
@@ -445,6 +447,7 @@ fn test_invoke_tx(
         BALANCE,
         BALANCE,
     );
+    panic!();
 }
 
 #[test_case(
@@ -1000,6 +1003,7 @@ fn test_deploy_account_tx(
     // Build expected fee transfer call info.
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
+    dbg!(expected_actual_fee);
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
         deployed_account_address,
@@ -1064,6 +1068,7 @@ fn test_deploy_account_tx(
             EntryPointExecutionError::StateError(StateError::UnavailableContractAddress(_))
         )
     );
+    panic!();
 }
 
 #[rstest]
