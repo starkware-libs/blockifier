@@ -315,11 +315,18 @@ func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(
     return ();
 }
 
-
 @external
 func test_tx_version{syscall_ptr: felt*}(expected_version: felt) {
     let (tx_info: TxInfo*) = get_tx_info();
     assert tx_info.version = expected_version;
 
+    return ();
+}
+
+@external
+func test_count_actual_storage_changes{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*}() {
+    const address = 15;
+    storage_write(address=address, value=0);
+    storage_write(address=address, value=1);
     return ();
 }

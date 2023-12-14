@@ -1,5 +1,9 @@
+use std::collections::{HashMap, HashSet};
+
 use assert_matches::assert_matches;
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
@@ -20,19 +24,24 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
+use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
+use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
-    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
+    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
 };
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
@@ -1032,4 +1041,140 @@ fn test_deploy_account_constructor_storage_write(
     .unwrap();
     let read_storage_arg = state.get_storage_at(deployed_contract_address, storage_key).unwrap();
     assert_eq!(ctor_storage_arg, read_storage_arg);
+}
+
+// Test for counting actual storage changes.
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth, CairoVersion::Cairo0)]
+#[case(TransactionVersion::THREE, FeeType::Strk, CairoVersion::Cairo0)]
+fn test_count_actual_storage_changes(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+    #[case] cairo_version: CairoVersion,
+) {
+    // FeeType according to version.
+    let fee_token_address = block_context.fee_token_address(&fee_type);
+
+    // Create initial state
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let mut state =
+        test_state(&block_context, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let account_address = account_contract.get_instance_address(0);
+    let contract_address = test_contract.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+
+    let initial_sequencer_balance = stark_felt_to_felt(
+        state
+            .get_fee_token_balance(&block_context.sequencer_address, &fee_token_address)
+            .unwrap()
+            .0,
+    );
+
+    // Calldata types.
+    let write_1_calldata =
+        create_calldata(contract_address, "test_count_actual_storage_changes", &[]);
+    let recipient = stark_felt!(435_u16);
+    let transfer_amount: Felt252 = 1.into();
+    let transfer_calldata = create_calldata(
+        fee_token_address,
+        TRANSFER_ENTRY_POINT_NAME,
+        &[recipient, felt_to_stark_felt(&transfer_amount), stark_felt!(0_u8)],
+    );
+
+    // Run transactions; using transactional state to count only storage changes of the current
+    // transaction.
+    // First transaction: storage cell value changes from 0 to 1.
+    let mut state = CachedState::create_transactional(&mut state);
+    let invoke_args = invoke_tx_args! {
+        max_fee,
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version,
+        sender_address: account_address,
+        calldata: write_1_calldata,
+        nonce: nonce_manager.next(account_address),
+    };
+    let account_tx = account_invoke_tx(invoke_args.clone());
+    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
+
+    let fee_1 = execution_info.actual_fee;
+    let storage_updates_1 = &state
+        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
+        .unwrap();
+
+    let cell_write_storage_change =
+        ((contract_address, StorageKey(patricia_key!(15_u8))), stark_felt!(1_u8));
+    let fee_nullify_storage_change =
+        ((fee_token_address, get_fee_token_var_address(&account_address)), stark_felt!(0_u8));
+    let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
+    let mut expected_sequencer_fee_update = (
+        (fee_token_address, get_fee_token_var_address(&block_context.sequencer_address)),
+        felt_to_stark_felt(&expected_sequencer_total_fee),
+    );
+
+    let expected_modified_contracts = HashSet::from([account_address, contract_address]);
+    let expected_storage_updates_1 = HashMap::from([
+        cell_write_storage_change,
+        fee_nullify_storage_change,
+        expected_sequencer_fee_update,
+    ]);
+
+    assert_eq!(expected_modified_contracts, storage_updates_1.modified_contracts);
+    assert_eq!(expected_storage_updates_1, storage_updates_1.storage_updates);
+
+    // Second transaction: storage cell starts and ends with value 1.
+    let mut state = CachedState::create_transactional(&mut state);
+    let account_tx = account_invoke_tx(InvokeTxArgs {
+        nonce: nonce_manager.next(account_address),
+        ..invoke_args.clone()
+    });
+    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
+
+    let fee_2 = execution_info.actual_fee;
+    let storage_updates_2 = &state
+        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
+        .unwrap();
+
+    expected_sequencer_total_fee += Felt252::from(fee_2.0);
+    expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+
+    let expected_modified_contracts_2 = HashSet::from([account_address]);
+    let expected_storage_updates_2 =
+        HashMap::from([fee_nullify_storage_change, expected_sequencer_fee_update]);
+
+    assert_eq!(expected_modified_contracts_2, storage_updates_2.modified_contracts);
+    assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
+
+    // Transfer transaction: transfer 1 ETH to recepient.
+    let mut state = CachedState::create_transactional(&mut state);
+    let account_tx = account_invoke_tx(InvokeTxArgs {
+        nonce: nonce_manager.next(account_address),
+        calldata: transfer_calldata,
+        ..invoke_args.clone()
+    });
+    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
+
+    let fee_transfer = execution_info.actual_fee;
+    let storage_updates_transfer = &state
+        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
+        .unwrap();
+    let transfer_receipient_storage_change = (
+        (fee_token_address, get_fee_token_var_address(&contract_address!(recipient))),
+        felt_to_stark_felt(&transfer_amount),
+    );
+
+    expected_sequencer_total_fee += Felt252::from(fee_transfer.0);
+    expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+
+    let expected_modified_contracts_transfer = HashSet::from([account_address]);
+    let expected_storage_update_transfer = HashMap::from([
+        transfer_receipient_storage_change,
+        fee_nullify_storage_change,
+        expected_sequencer_fee_update,
+    ]);
+
+    assert_eq!(expected_modified_contracts_transfer, storage_updates_transfer.modified_contracts);
+    assert_eq!(expected_storage_update_transfer, storage_updates_transfer.storage_updates);
 }
