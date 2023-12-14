@@ -44,6 +44,10 @@ mod test;
 #[path = "execution_flavors_test.rs"]
 mod flavors_test;
 
+#[cfg(test)]
+#[path = "post_execution_test.rs"]
+mod post_execution_test;
+
 /// Represents a paid Starknet transaction.
 #[derive(Debug)]
 pub enum AccountTransaction {
