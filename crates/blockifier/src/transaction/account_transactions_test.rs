@@ -984,7 +984,7 @@ fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
     assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
     assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
 
-    // Invoke the `recurse` function with depth of 800 and the actual fee of depth 1 as max_fee.
+    // Invoke the `recurse` function with depth of 824 and the actual fee of depth 1 as max_fee.
     // This call should fail due to no remaining steps (execution steps based on max_fee are bounded
     // well enough to catch this mid-execution).
     let tx_execution_info3 = run_invoke_tx(
