@@ -19,7 +19,9 @@ use starknet_api::deprecated_contract_class::{
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, Resource, ResourceBounds, ResourceBoundsMapping};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
+};
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
@@ -146,6 +148,19 @@ impl NonceManager {
         if !current.is_zero() {
             self.next_nonce.insert(account_address, current - 1);
         }
+    }
+}
+
+#[derive(Default)]
+pub struct SaltManager {
+    next_salt: u8,
+}
+
+impl SaltManager {
+    pub fn next_salt(&mut self) -> ContractAddressSalt {
+        let next_contract_address_salt = ContractAddressSalt(stark_felt!(self.next_salt));
+        self.next_salt += 1;
+        next_contract_address_salt
     }
 }
 
