@@ -289,15 +289,18 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
     )
 }
 
+/// Creates an account transaction to test the 'validate' method of account transactions. These
+/// transactions should be used for unit tests. For example, it is not intended to deploy a contract
+/// and later call it.
 pub fn create_account_tx_for_validate_test(
     tx_type: TransactionType,
     scenario: u64,
     additional_data: Option<StarkFelt>,
     nonce_manager: &mut NonceManager,
     faulty_account: FeatureContract,
-    instance_id: u8,
+    sender_address: ContractAddress,
+    contract_address_salt: ContractAddressSalt,
 ) -> AccountTransaction {
-    let sender_address = faulty_account.get_instance_address(instance_id);
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
     let signature = TransactionSignature(vec![
@@ -330,6 +333,7 @@ pub fn create_account_tx_for_validate_test(
                     class_hash: faulty_account.get_class_hash(),
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
+                    contract_address_salt,
                 },
                 nonce_manager,
             );
