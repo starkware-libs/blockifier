@@ -543,10 +543,8 @@ fn test_fail_deploy_account(
 ) {
     let mut state = create_state_with_falliable_validation_account();
 
-    let deployed_account_instance_id = 0;
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
-    let deployed_account_address =
-        faulty_account_feature_contract.get_instance_address(deployed_account_instance_id);
+    let deployed_account_address = faulty_account_feature_contract.get_instance_address(0);
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -555,7 +553,8 @@ fn test_fail_deploy_account(
         None,
         &mut NonceManager::default(),
         faulty_account_feature_contract,
-        deployed_account_instance_id,
+        deployed_account_address,
+        ContractAddressSalt::default(),
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 

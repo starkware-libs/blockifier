@@ -18,8 +18,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, TransactionHash, TransactionSignature,
-    TransactionVersion,
+    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -48,7 +48,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
-    CairoVersion, NonceManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CairoVersion, NonceManager, SaltManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
@@ -1106,14 +1106,9 @@ fn test_validate_accounts_tx(
     let block_context = &BlockContext::create_for_account_testing();
     let account_balance = 0;
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
-    let instance_id_for_negative_scenarios = 0;
-    let instance_id_for_positive_scenarios = 1;
-    let state = &mut test_state(block_context, account_balance, &[(faulty_account, 2)]);
-
-    // The negative flows are done first for the deploy account transaction type. If the positive
-    // flow will occur first, the deploy will succeed, and the nonce of the deployed contract will
-    // be advanced. This will cause the negative flow to fail, as the nonce of a deployed contract
-    // must be zero.
+    let sender_address = faulty_account.get_instance_address(0);
+    let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
+    let salt_manager = &mut SaltManager::default();
 
     // Negative flows.
 
@@ -1124,7 +1119,8 @@ fn test_validate_accounts_tx(
         None,
         &mut NonceManager::default(),
         faulty_account,
-        instance_id_for_negative_scenarios,
+        sender_address,
+        salt_manager.next_salt(),
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
@@ -1136,7 +1132,8 @@ fn test_validate_accounts_tx(
         Some(stark_felt!("0x1991")), // Some address different than the address of faulty_account.
         &mut NonceManager::default(),
         faulty_account,
-        instance_id_for_negative_scenarios,
+        sender_address,
+        salt_manager.next_salt(),
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
@@ -1150,8 +1147,6 @@ fn test_validate_accounts_tx(
     if tx_type == TransactionType::DeployAccount {
         // Deploy another instance of 'faulty_account' and trying to call other contract in the
         // constructor (forbidden).
-        let sender_address =
-            faulty_account.get_instance_address(instance_id_for_negative_scenarios);
         let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
             deploy_account_tx_args! {
                 class_hash: faulty_account.get_class_hash(),
@@ -1161,6 +1156,7 @@ fn test_validate_accounts_tx(
                     stark_felt!(CALL_CONTRACT),
                     *sender_address.0.key(),
                 ]),
+                contract_address_salt: salt_manager.next_salt(),
             },
             &mut NonceManager::default(),
         );
@@ -1183,21 +1179,21 @@ fn test_validate_accounts_tx(
         None,
         nonce_manager,
         faulty_account,
-        instance_id_for_positive_scenarios,
+        sender_address,
+        salt_manager.next_salt(),
     );
     account_tx.execute(state, block_context, true, true).unwrap();
 
     if tx_type != TransactionType::DeployAccount {
         // Calling self (allowed).
-        let sender_address =
-            faulty_account.get_instance_address(instance_id_for_positive_scenarios);
         let account_tx = create_account_tx_for_validate_test(
             tx_type,
             CALL_CONTRACT,
             Some(*sender_address.0.key()),
             nonce_manager,
             faulty_account,
-            instance_id_for_positive_scenarios,
+            sender_address,
+            ContractAddressSalt::default(),
         );
         account_tx.execute(state, block_context, true, true).unwrap();
     }
