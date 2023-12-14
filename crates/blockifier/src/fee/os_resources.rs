@@ -1,12 +1,12 @@
+use once_cell::sync::Lazy;
 use serde_json::json;
 
 use crate::fee::os_usage::OsResources;
 
-#[ctor::ctor]
-pub static OS_RESOURCES: OsResources = {
+pub static OS_RESOURCES: Lazy<OsResources> = Lazy::new(|| {
     serde_json::from_value(os_resources())
         .expect("os_resources json does not exist or cannot be deserialized.")
-};
+});
 
 // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
 fn os_resources() -> serde_json::Value {
