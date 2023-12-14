@@ -299,9 +299,9 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_trivial_validation_account(),
     ExpectedResultTestInvokeTx{
         range_check: 102,
-        n_steps: 4463,
+        n_steps: 4464,
         vm_resources: VmExecutionResources {
-            n_steps:  61,
+            n_steps:  62,
             n_memory_holes:  0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
@@ -315,9 +315,9 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_cairo1_account(),
     ExpectedResultTestInvokeTx{
         range_check: 115,
-        n_steps: 4916,
+        n_steps: 4917,
         vm_resources: VmExecutionResources {
-            n_steps: 283,
+            n_steps: 284,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
         },
@@ -388,7 +388,7 @@ fn test_invoke_tx(
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
             vm_resources: VmExecutionResources {
-                n_steps: 22,
+                n_steps: 23,
                 n_memory_holes: 0,
                 ..Default::default()
             },
@@ -456,6 +456,7 @@ fn verify_storage_after_invoke(
     account_address: ContractAddress,
     index: StarkFelt,
     expected_counters: [StarkFelt; 2],
+    expected_ec_point: [StarkFelt; 2],
     expected_nonce: Nonce,
 ) {
     // Verify the two_counters values in storage.
@@ -465,6 +466,15 @@ fn verify_storage_after_invoke(
     let key = next_storage_key(&key).unwrap();
     let value = state.get_storage_at(contract_address, key).unwrap();
     assert_eq!(value, expected_counters[1]);
+
+    // Verify the ec_point values in storage.
+    let key = get_storage_var_address("ec_point", &[]);
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_ec_point[0]);
+    let key = next_storage_key(&key).unwrap();
+    let value = state.get_storage_at(contract_address, key).unwrap();
+    assert_eq!(value, expected_ec_point[1]);
+
     // Verify the nonce value in storage.
     let nonce_from_state = state.get_nonce_at(account_address).unwrap();
     assert_eq!(nonce_from_state, expected_nonce);
@@ -495,14 +505,84 @@ fn test_invoke_tx_advanced_operations() {
             create_calldata(contract_address, "advance_counter", &calldata_args),
     });
     account_tx.execute(state, block_context, true, true).unwrap();
-    let next_nonce = nonce_manager.next(account_address);
 
+    let next_nonce = nonce_manager.next(account_address);
+    let initial_ec_point = [StarkFelt::ZERO, StarkFelt::ZERO];
     verify_storage_after_invoke(
         state,
         contract_address,
         account_address,
         index,
         initial_counters,
+        initial_ec_point,
+        next_nonce,
+    );
+
+    // Invoke call_xor_counters function.
+    let xor_values = [31_u32, 32_u32];
+    let calldata_args = vec![
+        *contract_address.0.key(),
+        index,
+        stark_felt!(xor_values[0]),
+        stark_felt!(xor_values[1]),
+    ];
+
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        nonce: next_nonce,
+        sender_address: account_address,
+        calldata:
+            create_calldata(contract_address, "call_xor_counters", &calldata_args),
+    });
+    account_tx.execute(state, block_context, true, true).unwrap();
+
+    let expected_counters = [
+        stark_felt!(counter_diffs[0] ^ xor_values[0]),
+        stark_felt!(counter_diffs[1] ^ xor_values[1]),
+    ];
+    let next_nonce = nonce_manager.next(account_address);
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        account_address,
+        index,
+        expected_counters,
+        initial_ec_point,
+        next_nonce,
+    );
+
+    // Invoke test_ec_op function.
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        nonce: next_nonce,
+        sender_address: account_address,
+        calldata:
+            create_calldata(contract_address, "test_ec_op", &[]),
+    });
+    account_tx.execute(state, block_context, true, true).unwrap();
+
+    let expected_ec_point = [
+        StarkFelt::new([
+            0x05, 0x07, 0xF8, 0x28, 0xEA, 0xE0, 0x0C, 0x08, 0xED, 0x10, 0x60, 0x5B, 0xAA, 0xD4,
+            0x80, 0xB7, 0x4B, 0x0E, 0x9B, 0x61, 0x9C, 0x1A, 0x2C, 0x53, 0xFB, 0x75, 0x86, 0xE3,
+            0xEE, 0x1A, 0x82, 0xBA,
+        ])
+        .unwrap(),
+        StarkFelt::new([
+            0x05, 0x43, 0x9A, 0x5D, 0xC0, 0x8C, 0xC1, 0x35, 0x64, 0x11, 0xA4, 0x57, 0x8F, 0x50,
+            0x71, 0x54, 0xB4, 0x84, 0x7B, 0xAA, 0x73, 0x70, 0x68, 0x17, 0x1D, 0xFA, 0x6C, 0x8A,
+            0xB3, 0x49, 0x9D, 0x8B,
+        ])
+        .unwrap(),
+    ];
+    let next_nonce = nonce_manager.next(account_address);
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        account_address,
+        index,
+        expected_counters,
+        expected_ec_point,
         next_nonce,
     );
 }
