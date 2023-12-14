@@ -296,6 +296,7 @@ pub fn create_account_tx_for_validate_test(
     nonce_manager: &mut NonceManager,
     faulty_account: FeatureContract,
     instance_id: u8,
+    contract_address_salt: ContractAddressSalt,
 ) -> AccountTransaction {
     let sender_address = faulty_account.get_instance_address(instance_id);
     // The first felt of the signature is used to set the scenario. If the scenario is
@@ -330,6 +331,7 @@ pub fn create_account_tx_for_validate_test(
                     class_hash: faulty_account.get_class_hash(),
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
+                    contract_address_salt,
                 },
                 nonce_manager,
             );

@@ -564,6 +564,7 @@ fn test_fail_deploy_account(
         &mut NonceManager::default(),
         faulty_account_feature_contract,
         deployed_account_instance_id,
+        ContractAddressSalt::default(),
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 
