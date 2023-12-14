@@ -50,3 +50,4 @@ assert_matches.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
 test-case.workspace = true
+tempfile.workspace = true

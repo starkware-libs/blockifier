@@ -419,6 +419,7 @@ dependencies = [
  "starknet_api",
  "strum",
  "strum_macros 0.24.3",
+ "tempfile",
  "test-case",
  "thiserror",
 ]
