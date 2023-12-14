@@ -47,8 +47,7 @@ mod Account {
             address: contract_address,
             entry_point_selector: selector,
             calldata: calldata.span()
-        )
-            .unwrap_syscall()
+        ).unwrap()
     }
 }
 

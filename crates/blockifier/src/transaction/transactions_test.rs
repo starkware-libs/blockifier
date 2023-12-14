@@ -313,16 +313,16 @@ fn default_invoke_tx_args() -> InvokeTxArgs {
     &mut create_state_with_cairo1_account(),
     ExpectedResultTestInvokeTx{
         range_check: 113,
-        n_steps: 4689,
+        n_steps: 4701,
         vm_resources: VmExecutionResources {
-            n_steps: 283,
-            n_memory_holes: 1,
+            n_steps: 294,
+            n_memory_holes: 2,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
             // arguments.
-        execute_gas_consumed: 103660,
-        inner_call_initial_gas: 9999681980,
+        execute_gas_consumed: 104860,
+        inner_call_initial_gas: 9999680780,
     },
     CairoVersion::Cairo1;
     "With Cairo1 account")]
