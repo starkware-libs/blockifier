@@ -188,7 +188,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     let mut casm_hash_computation_resources = VmExecutionResources::default();
 
     for class_hash in newly_executed_class_hashes {
-        let class = state.get_compiled_contract_class(class_hash)?;
+        let class = state.get_compiled_contract_class(*class_hash)?;
         casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
     }
 

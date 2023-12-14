@@ -62,12 +62,9 @@ impl StateReader for PyStateReader {
         .map_err(|err| StateError::StateReadError(err.to_string()))
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         Python::with_gil(|py| -> Result<ContractClass, PyErr> {
-            let args = (PyFelt::from(*class_hash),);
+            let args = (PyFelt::from(class_hash),);
             let py_raw_compiled_class: PyRawCompiledClass = self
                 .state_reader_proxy
                 .as_ref(py)
@@ -78,7 +75,7 @@ impl StateReader for PyStateReader {
         })
         .map_err(|err| {
             if Python::with_gil(|py| err.is_instance_of::<UndeclaredClassHashError>(py)) {
-                StateError::UndeclaredClassHash(*class_hash)
+                StateError::UndeclaredClassHash(class_hash)
             } else {
                 StateError::StateReadError(err.to_string())
             }

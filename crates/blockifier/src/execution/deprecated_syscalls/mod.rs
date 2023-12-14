@@ -610,7 +610,7 @@ pub fn replace_class(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<ReplaceClassResponse> {
     // Ensure the class is declared (by reading it).
-    syscall_handler.state.get_compiled_contract_class(&request.class_hash)?;
+    syscall_handler.state.get_compiled_contract_class(request.class_hash)?;
     syscall_handler.state.set_class_hash_at(syscall_handler.storage_address, request.class_hash)?;
 
     Ok(ReplaceClassResponse {})

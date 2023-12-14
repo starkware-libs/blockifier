@@ -526,14 +526,12 @@ fn test_cairo1_entry_point_segment_arena() {
         ..trivial_external_entry_point()
     };
 
-    assert!(
-        entry_point_call
-            .execute_directly(&mut state)
-            .unwrap()
-            .vm_resources
-            .builtin_instance_counter
-            .contains_key(BuiltinName::segment_arena.name())
-    );
+    assert!(entry_point_call
+        .execute_directly(&mut state)
+        .unwrap()
+        .vm_resources
+        .builtin_instance_counter
+        .contains_key(BuiltinName::segment_arena.name()));
 }
 
 #[test]
@@ -560,7 +558,7 @@ fn test_stack_trace() {
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
     // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
     // this computation should be stable.
-    let contract_class = state.get_compiled_contract_class(&class_hash!(TEST_CLASS_HASH)).unwrap();
+    let contract_class = state.get_compiled_contract_class(class_hash!(TEST_CLASS_HASH)).unwrap();
     let entry_point_offset = match contract_class {
         ContractClass::V0(class) => {
             class

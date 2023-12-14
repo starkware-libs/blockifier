@@ -84,7 +84,7 @@ impl<S: StateReader> CachedState<S> {
         // and the balance of the sender contract, but we don't charge the sender for the
         // sequencer balance change as it is amortized across the block.
         if let Some(sender_address) = sender_address {
-            let sender_balance_key = get_fee_token_var_address(&sender_address);
+            let sender_balance_key = get_fee_token_var_address(sender_address);
             // StarkFelt::default() value is zero, which must be different from the initial balance,
             // otherwise the transaction would have failed the "max fee lower than
             // balance" validation.
@@ -226,28 +226,25 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*class_hash)
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.global_class_hash_to_class().cache_get(class_hash).cloned();
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        if !self.class_hash_to_class.contains_key(&class_hash) {
+            let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
 
             match contract_class {
                 Some(contract_class_from_global_cache) => {
-                    self.class_hash_to_class.insert(*class_hash, contract_class_from_global_cache);
+                    self.class_hash_to_class.insert(class_hash, contract_class_from_global_cache);
                 }
                 None => {
                     let contract_class_from_db =
                         self.state.get_compiled_contract_class(class_hash)?;
-                    self.class_hash_to_class.insert(*class_hash, contract_class_from_db);
+                    self.class_hash_to_class.insert(class_hash, contract_class_from_db);
                 }
             }
         }
 
         let contract_class = self
             .class_hash_to_class
-            .get(class_hash)
+            .get(&class_hash)
             .cloned()
             .expect("The class hash must appear in the cache.");
 
@@ -303,10 +300,10 @@ impl<S: StateReader> State for CachedState<S> {
 
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        self.class_hash_to_class.insert(*class_hash, contract_class);
+        self.class_hash_to_class.insert(class_hash, contract_class);
         Ok(())
     }
 
@@ -529,10 +526,7 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
         self.0.get_class_hash_at(contract_address)
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         self.0.get_compiled_contract_class(class_hash)
     }
 
@@ -565,7 +559,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
 
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.0.set_contract_class(class_hash, contract_class)

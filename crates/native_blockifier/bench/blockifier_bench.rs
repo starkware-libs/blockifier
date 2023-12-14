@@ -136,7 +136,7 @@ fn prepare_accounts(
         let deployed_account_address = deploy_account_tx.contract_address;
         addresses.push(deployed_account_address);
         nonces.push(1_u64);
-        let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
+        let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
         state.set_storage_at(
             block_context.fee_token_addresses.eth_fee_token_address,
             deployed_account_balance_key,

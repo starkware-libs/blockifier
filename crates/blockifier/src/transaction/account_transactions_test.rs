@@ -237,12 +237,10 @@ fn test_infinite_recursion(
     if success {
         assert!(tx_execution_info.revert_error.is_none());
     } else {
-        assert!(
-            tx_execution_info
-                .revert_error
-                .unwrap()
-                .contains("RunResources has no remaining steps.")
-        );
+        assert!(tx_execution_info
+            .revert_error
+            .unwrap()
+            .contains("RunResources has no remaining steps."));
     }
 }
 
@@ -472,7 +470,7 @@ fn test_revert_invoke(
     // Check that the nonce was increased and the fee was deducted.
     assert_eq!(
         state
-            .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
+            .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
             .unwrap(),
         (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
     );
@@ -515,7 +513,7 @@ fn test_fail_deploy_account(
     };
     fund_account(&block_context, deploy_address, BALANCE * 2, state);
 
-    let initial_balance = state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap();
+    let initial_balance = state.get_fee_token_balance(deploy_address, fee_token_address).unwrap();
 
     let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
     // Check the error is as expected. Assure the error message is not nonce or fee related.
@@ -524,7 +522,7 @@ fn test_fail_deploy_account(
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
     assert_eq!(
-        state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap(),
+        state.get_fee_token_balance(deploy_address, fee_token_address).unwrap(),
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
@@ -546,7 +544,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
         sender_address: account_address,
         ..Default::default()
     };
-    state.set_contract_class(&class_hash, contract_class.clone()).unwrap();
+    state.set_contract_class(class_hash, contract_class.clone()).unwrap();
     state.set_compiled_class_hash(class_hash, declare_tx.compiled_class_hash).unwrap();
     let declare_account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
@@ -564,8 +562,8 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     let account_tx_context = declare_account_tx.get_account_tx_context();
     let initial_balance = state
         .get_fee_token_balance(
-            &account_address,
-            &block_context.fee_token_address(&account_tx_context.fee_type()),
+            account_address,
+            block_context.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
@@ -574,8 +572,8 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     assert_eq!(
         state
             .get_fee_token_balance(
-                &account_address,
-                &block_context.fee_token_address(&account_tx_context.fee_type())
+                account_address,
+                block_context.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         initial_balance
@@ -941,9 +939,10 @@ fn test_insufficient_max_fee_reverts(
     .unwrap();
     assert!(tx_execution_info3.is_reverted());
     assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
-    assert!(
-        tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
-    );
+    assert!(tx_execution_info3
+        .revert_error
+        .unwrap()
+        .contains("RunResources has no remaining steps."));
 }
 
 #[rstest]
@@ -1008,10 +1007,7 @@ fn test_count_actual_storage_changes(
     let mut nonce_manager = NonceManager::default();
 
     let initial_sequencer_balance = stark_felt_to_felt(
-        state
-            .get_fee_token_balance(&block_context.sequencer_address, &fee_token_address)
-            .unwrap()
-            .0,
+        state.get_fee_token_balance(block_context.sequencer_address, fee_token_address).unwrap().0,
     );
 
     // Calldata types.
@@ -1048,10 +1044,10 @@ fn test_count_actual_storage_changes(
     let cell_write_storage_change =
         ((contract_address, StorageKey(patricia_key!(15_u8))), stark_felt!(1_u8));
     let fee_nullify_storage_change =
-        ((fee_token_address, get_fee_token_var_address(&account_address)), stark_felt!(0_u8));
+        ((fee_token_address, get_fee_token_var_address(account_address)), stark_felt!(0_u8));
     let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
     let mut expected_sequencer_fee_update = (
-        (fee_token_address, get_fee_token_var_address(&block_context.sequencer_address)),
+        (fee_token_address, get_fee_token_var_address(block_context.sequencer_address)),
         felt_to_stark_felt(&expected_sequencer_total_fee),
     );
 
@@ -1102,7 +1098,7 @@ fn test_count_actual_storage_changes(
         .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
         .unwrap();
     let transfer_receipient_storage_change = (
-        (fee_token_address, get_fee_token_var_address(&contract_address!(recipient))),
+        (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
         felt_to_stark_felt(&transfer_amount),
     );
 

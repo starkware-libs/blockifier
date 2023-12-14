@@ -106,7 +106,11 @@ fn expected_validate_call_info(
             usize::from(entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME)
         }
         CairoVersion::Cairo1 => {
-            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME { 7 } else { 2 }
+            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME {
+                7
+            } else {
+                2
+            }
         }
     };
     let n_memory_holes = match cairo_version {
@@ -198,10 +202,10 @@ fn expected_fee_transfer_call_info(
         },
     };
 
-    let sender_balance_key_low = get_fee_token_var_address(&account_address);
+    let sender_balance_key_low = get_fee_token_var_address(account_address);
     let sender_balance_key_high =
         next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
-    let sequencer_balance_key_low = get_fee_token_var_address(&block_context.sequencer_address);
+    let sequencer_balance_key_low = get_fee_token_var_address(block_context.sequencer_address);
     let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
         .expect("Cannot get sequencer balance high key.");
     Some(CallInfo {
@@ -456,7 +460,7 @@ fn test_invoke_tx(
         state,
         block_context,
         expected_actual_fee,
-        get_fee_token_var_address(&account_contract_address),
+        get_fee_token_var_address(account_contract_address),
         fee_type,
         BALANCE,
         BALANCE,
@@ -703,7 +707,7 @@ fn test_state_get_fee_token_balance(
 
     // Get balance from state, and validate.
     let (low, high) =
-        state.get_fee_token_balance(&contract_address!(recipient), &fee_token_address).unwrap();
+        state.get_fee_token_balance(contract_address!(recipient), fee_token_address).unwrap();
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);
@@ -1064,7 +1068,7 @@ fn test_declare_tx(
 
     // Check state before transaction application.
     assert_matches!(
-        state.get_compiled_contract_class(&class_hash).unwrap_err(),
+        state.get_compiled_contract_class(class_hash).unwrap_err(),
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
@@ -1148,14 +1152,14 @@ fn test_declare_tx(
         state,
         block_context,
         expected_actual_fee,
-        get_fee_token_var_address(&sender_address),
+        get_fee_token_var_address(sender_address),
         fee_type,
         BALANCE,
         BALANCE,
     );
 
     // Verify class declaration.
-    let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
+    let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
     assert_eq!(contract_class_from_state, contract_class);
 }
 
@@ -1186,7 +1190,7 @@ fn test_deploy_account_tx(
 
     // Update the balance of the about to be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
-    let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
+    let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
     for fee_type in FeeType::iter() {
         state.set_storage_at(
             block_context.fee_token_address(&fee_type),
@@ -1323,7 +1327,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     // Fund account, so as not to fail pre-validation.
     state.set_storage_at(
         block_context.fee_token_address(&FeeType::Eth),
-        get_fee_token_var_address(&deploy_account.contract_address),
+        get_fee_token_var_address(deploy_account.contract_address),
         stark_felt!(BALANCE),
     );
 
@@ -1744,10 +1748,8 @@ fn test_execute_tx_with_invalid_transaction_version() {
     });
 
     let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-    assert!(
-        execution_info
-            .revert_error
-            .unwrap()
-            .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str())
-    );
+    assert!(execution_info
+        .revert_error
+        .unwrap()
+        .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str()));
 }

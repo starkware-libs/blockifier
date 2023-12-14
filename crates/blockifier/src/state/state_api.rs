@@ -39,8 +39,7 @@ pub trait StateReader {
     fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash>;
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(&mut self, class_hash: &ClassHash)
-    -> StateResult<ContractClass>;
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass>;
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
@@ -52,13 +51,13 @@ pub trait StateReader {
     //   once v3 is introduced.
     fn get_fee_token_balance(
         &mut self,
-        contract_address: &ContractAddress,
-        fee_token_address: &ContractAddress,
+        contract_address: ContractAddress,
+        fee_token_address: ContractAddress,
     ) -> Result<(StarkFelt, StarkFelt), StateError> {
         let low_key = get_fee_token_var_address(contract_address);
         let high_key = next_storage_key(&low_key)?;
-        let low = self.get_storage_at(*fee_token_address, low_key)?;
-        let high = self.get_storage_at(*fee_token_address, high_key)?;
+        let low = self.get_storage_at(fee_token_address, low_key)?;
+        let high = self.get_storage_at(fee_token_address, high_key)?;
 
         Ok((low, high))
     }
@@ -92,7 +91,7 @@ pub trait State: StateReader {
     /// Sets the given contract class under the given class hash.
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()>;
 
