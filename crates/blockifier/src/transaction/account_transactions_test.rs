@@ -237,10 +237,12 @@ fn test_infinite_recursion(
     if success {
         assert!(tx_execution_info.revert_error.is_none());
     } else {
-        assert!(tx_execution_info
-            .revert_error
-            .unwrap()
-            .contains("RunResources has no remaining steps."));
+        assert!(
+            tx_execution_info
+                .revert_error
+                .unwrap()
+                .contains("RunResources has no remaining steps.")
+        );
     }
 }
 
@@ -939,10 +941,9 @@ fn test_insufficient_max_fee_reverts(
     .unwrap();
     assert!(tx_execution_info3.is_reverted());
     assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
-    assert!(tx_execution_info3
-        .revert_error
-        .unwrap()
-        .contains("RunResources has no remaining steps."));
+    assert!(
+        tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
+    );
 }
 
 #[rstest]
@@ -1089,7 +1090,7 @@ fn test_count_actual_storage_changes(
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
         calldata: transfer_calldata,
-        ..invoke_args.clone()
+        ..invoke_args
     });
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 

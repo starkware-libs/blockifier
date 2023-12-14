@@ -265,7 +265,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
         let result = account_invoke_tx(invoke_tx_args! {
             resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, gas_price - 1),
             nonce: nonce_manager.next(account_address),
-            ..pre_validation_base_args.clone()
+            ..pre_validation_base_args
         })
         .execute(&mut state, &block_context, charge_fee, validate);
         if !charge_fee {
@@ -480,7 +480,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
         calldata: recurse_calldata(test_contract_address, false, 10000),
         nonce: nonce_manager.next(account_address),
-        ..execution_base_args.clone()
+        ..execution_base_args
     })
     .execute(&mut state, &low_step_block_context, charge_fee, validate)
     .unwrap();
@@ -616,11 +616,13 @@ fn test_simulate_validate_charge_fee_post_execution(
     .unwrap();
     assert_eq!(tx_execution_info.is_reverted(), charge_fee);
     if charge_fee {
-        assert!(tx_execution_info
-            .revert_error
-            .clone()
-            .unwrap()
-            .contains("Insufficient fee token balance."));
+        assert!(
+            tx_execution_info
+                .revert_error
+                .clone()
+                .unwrap()
+                .contains("Insufficient fee token balance.")
+        );
     }
     check_gas_and_fee(
         &block_context,

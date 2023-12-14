@@ -375,7 +375,7 @@ struct RecursionDepthGuard {
 
 impl RecursionDepthGuard {
     fn new(current_depth: Arc<RefCell<usize>>, max_depth: usize) -> Self {
-        Self { current_depth: current_depth.clone(), max_depth }
+        Self { current_depth, max_depth }
     }
 
     // Tries to increment the current recursion depth and returns an error if the maximum depth

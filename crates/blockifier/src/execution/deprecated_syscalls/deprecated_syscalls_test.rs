@@ -199,7 +199,7 @@ fn test_call_contract() {
         calldata: calldata.clone(),
         ..trivial_external_entry_point()
     };
-    let call_info = entry_point_call.clone().execute_directly(&mut state).unwrap();
+    let call_info = entry_point_call.execute_directly(&mut state).unwrap();
 
     let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
     let expected_inner_call_info = CallInfo {
