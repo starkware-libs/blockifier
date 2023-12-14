@@ -110,11 +110,7 @@ fn expected_validate_call_info(
             usize::from(entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME)
         }
         CairoVersion::Cairo1 => {
-            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME {
-                7
-            } else {
-                2
-            }
+            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME { 7 } else { 2 }
         }
     };
     let n_memory_holes = match cairo_version {
@@ -1395,7 +1391,7 @@ fn test_only_query_flag(#[case] only_query: bool) {
         [
             execute_calldata,
             expected_block_info.clone().to_vec(),
-            expected_tx_info.clone(),
+            expected_tx_info,
             expected_call_info,
         ]
         .concat()
@@ -1528,8 +1524,10 @@ fn test_execute_tx_with_invalid_transaction_version() {
     });
 
     let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-    assert!(execution_info
-        .revert_error
-        .unwrap()
-        .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str()));
+    assert!(
+        execution_info
+            .revert_error
+            .unwrap()
+            .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str())
+    );
 }

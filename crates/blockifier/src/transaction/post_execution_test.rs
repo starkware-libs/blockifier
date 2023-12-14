@@ -153,7 +153,7 @@ fn test_revert_on_overdraft(
                 fee_token_address
             ),
             version,
-            resource_bounds: max_resource_bounds.clone(),
+            resource_bounds: max_resource_bounds,
             nonce: nonce_manager.next(account_address),
         },
     )
@@ -239,7 +239,7 @@ fn test_revert_on_resource_overuse(
         &block_context,
         invoke_tx_args! {
             max_fee,
-            resource_bounds: max_resource_bounds.clone(),
+            resource_bounds: max_resource_bounds,
             nonce: nonce_manager.next(account_address),
             calldata: write_a_lot_calldata(),
             ..base_args.clone()
@@ -289,11 +289,9 @@ fn test_revert_on_resource_overuse(
 
     // Assert the transaction was reverted with the correct error.
     if is_revertible {
-        assert!(execution_info_result
-            .unwrap()
-            .revert_error
-            .unwrap()
-            .starts_with(expected_error_prefix));
+        assert!(
+            execution_info_result.unwrap().revert_error.unwrap().starts_with(expected_error_prefix)
+        );
     } else {
         assert_matches!(
             execution_info_result.unwrap_err(),
