@@ -271,8 +271,10 @@ impl<S: StateReader> State for CachedState<S> {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    ) {
+    ) -> StateResult<()> {
         self.cache.set_storage_value(contract_address, key, value);
+
+        Ok(())
     }
 
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
@@ -541,7 +543,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    ) {
+    ) -> StateResult<()> {
         self.0.set_storage_at(contract_address, key, value)
     }
 

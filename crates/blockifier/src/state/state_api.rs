@@ -74,7 +74,7 @@ pub trait State: StateReader {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    );
+    ) -> StateResult<()>;
 
     /// Increments the nonce of the given contract instance.
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()>;

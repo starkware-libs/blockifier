@@ -687,11 +687,13 @@ fn test_state_get_fee_token_balance(
     let fee_token_address = block_context.fee_token_address(&fee_type);
 
     // Give the account mint privileges.
-    state.set_storage_at(
-        fee_token_address,
-        get_storage_var_address("permitted_minter", &[]),
-        *account_address.0.key(),
-    );
+    state
+        .set_storage_at(
+            fee_token_address,
+            get_storage_var_address("permitted_minter", &[]),
+            *account_address.0.key(),
+        )
+        .unwrap();
 
     // Mint some tokens.
     let execute_calldata =
@@ -1192,11 +1194,13 @@ fn test_deploy_account_tx(
     // can pay for the transaction execution.
     let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
     for fee_type in FeeType::iter() {
-        state.set_storage_at(
-            block_context.fee_token_address(&fee_type),
-            deployed_account_balance_key,
-            stark_felt!(BALANCE),
-        );
+        state
+            .set_storage_at(
+                block_context.fee_token_address(&fee_type),
+                deployed_account_balance_key,
+                stark_felt!(BALANCE),
+            )
+            .unwrap();
     }
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
@@ -1325,11 +1329,13 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     );
 
     // Fund account, so as not to fail pre-validation.
-    state.set_storage_at(
-        block_context.fee_token_address(&FeeType::Eth),
-        get_fee_token_var_address(deploy_account.contract_address),
-        stark_felt!(BALANCE),
-    );
+    state
+        .set_storage_at(
+            block_context.fee_token_address(&FeeType::Eth),
+            get_fee_token_var_address(deploy_account.contract_address),
+            stark_felt!(BALANCE),
+        )
+        .unwrap();
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();

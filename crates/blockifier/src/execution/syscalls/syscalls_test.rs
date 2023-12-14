@@ -159,7 +159,7 @@ fn test_get_block_hash() {
     let key = StorageKey::try_from(block_number).unwrap();
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
-    state.set_storage_at(block_hash_contract_address, key, block_hash);
+    state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
 
     // Positive flow.
     let calldata = calldata![block_number];
