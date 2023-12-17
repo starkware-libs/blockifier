@@ -48,6 +48,7 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
+use crate::test_utils::prices::Prices;
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
     CairoVersion, NonceManager, SaltManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
@@ -163,7 +164,6 @@ fn expected_fee_transfer_call_info(
     block_context: &BlockContext,
     account_address: ContractAddress,
     actual_fee: Fee,
-    vm_resources: VmExecutionResources,
     fee_type: &FeeType,
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
@@ -215,7 +215,7 @@ fn expected_fee_transfer_call_info(
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
-        vm_resources,
+        vm_resources: Prices::FeeTransfer(account_address).into(),
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
@@ -410,25 +410,6 @@ fn test_invoke_tx(
         block_context,
         sender_address,
         expected_actual_fee,
-        // TODO(Dori, 1/2/2024): The exact resources required in fee transfer depends non-trivially
-        //   on the contract address (see `normalize_address` function in `storage.cairo`; the
-        //   input is the address hashed with other arguments). Currently we differentiate between
-        //   the expected results of the fee transfer call based on the account cairo version, but
-        //   this is incorrect.
-        VmExecutionResources {
-            n_steps: match account_cairo_version {
-                CairoVersion::Cairo0 => 529,
-                CairoVersion::Cairo1 => 525,
-            },
-            n_memory_holes: match account_cairo_version {
-                CairoVersion::Cairo0 => 57,
-                CairoVersion::Cairo1 => 59,
-            },
-            builtin_instance_counter: HashMap::from([
-                (HASH_BUILTIN_NAME.to_string(), 4),
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-            ]),
-        },
         fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
@@ -1056,14 +1037,6 @@ fn test_declare_tx(
         block_context,
         expected_account_address,
         expected_actual_fee,
-        VmExecutionResources {
-            n_steps: 525,
-            n_memory_holes: 59,
-            builtin_instance_counter: HashMap::from([
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-                (HASH_BUILTIN_NAME.to_string(), 4),
-            ]),
-        },
         fee_type,
         class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH),
     );
@@ -1212,14 +1185,6 @@ fn test_deploy_account_tx(
         block_context,
         deployed_account_address,
         expected_actual_fee,
-        VmExecutionResources {
-            n_steps: 529,
-            n_memory_holes: 57,
-            builtin_instance_counter: HashMap::from([
-                (HASH_BUILTIN_NAME.to_string(), 4),
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-            ]),
-        },
         fee_type,
         class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH),
     );
