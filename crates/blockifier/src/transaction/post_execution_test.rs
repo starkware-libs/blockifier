@@ -24,16 +24,15 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transactions::ExecutableTransaction;
 
-fn init_data_by_version(block_context: BlockContext, cairo_version: CairoVersion) -> TestInitData {
+fn init_data_by_version(block_context: &BlockContext, cairo_version: CairoVersion) -> TestInitData {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let state = test_state(&block_context, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state(block_context, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     TestInitData {
         state,
         account_address: account_contract.get_instance_address(0),
         contract_address: test_contract.get_instance_address(0),
         nonce_manager: Default::default(),
-        block_context,
     }
 }
 
@@ -83,13 +82,8 @@ fn test_revert_on_overdraft(
     // Amount expected to be transferred successfully.
     let final_received_amount = stark_felt!(80_u8);
 
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = init_data_by_version(block_context, cairo_version);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        init_data_by_version(&block_context, cairo_version);
 
     // Verify the contract's storage key initial value is empty.
     assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
@@ -223,13 +217,8 @@ fn test_revert_on_resource_overuse(
     #[case] is_revertible: bool,
     #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = init_data_by_version(block_context, cairo_version);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        init_data_by_version(&block_context, cairo_version);
 
     let n_writes = 5_u8;
     let base_args = invoke_tx_args! { sender_address: account_address, version };

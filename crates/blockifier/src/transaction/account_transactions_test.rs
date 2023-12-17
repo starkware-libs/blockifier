@@ -80,18 +80,9 @@ fn test_fee_enforcement(
 #[case(TransactionVersion::ZERO)]
 #[case(TransactionVersion::ONE)]
 #[case(TransactionVersion::THREE)]
-fn test_enforce_fee_false_works(
-    block_context: BlockContext,
-    max_fee: Fee,
-    #[case] version: TransactionVersion,
-) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: TransactionVersion) {
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
@@ -122,13 +113,8 @@ fn test_account_flow_test(
     #[values(TransactionVersion::ZERO, TransactionVersion::ONE)] tx_version: TransactionVersion,
     #[values(true, false)] only_query: bool,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
 
     // Invoke a function from the newly deployed contract.
     run_invoke_tx(
@@ -159,13 +145,8 @@ fn test_invoke_tx_from_non_deployed_account(
     max_fee: Fee,
     #[case] tx_version: TransactionVersion,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address: _,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, contract_address: _, mut nonce_manager } =
+        create_test_init_data(&block_context);
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
 
@@ -217,13 +198,8 @@ fn test_infinite_recursion(
     // Limit the number of execution steps (so we quickly hit the limit).
     block_context.invoke_tx_max_n_steps = 4000;
 
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
 
     let recursion_depth = if success { 3_u32 } else { 1000_u32 };
 
@@ -275,13 +251,8 @@ fn test_max_fee_limit_validate(
     #[case] version: TransactionVersion,
     max_resource_bounds: ResourceBoundsMapping,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
 
     // Declare the grindy-validation account.
     let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
@@ -390,13 +361,8 @@ fn test_recursion_depth_exceeded(
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
 
     // Positive test
 
@@ -558,8 +524,8 @@ fn test_fail_deploy_account(
 #[rstest]
 /// Tests that a failing declare transaction should not change state (no fee charge or nonce bump).
 fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
-    let TestInitData { mut state, account_address, mut nonce_manager, block_context, .. } =
-        create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, mut nonce_manager, .. } =
+        create_test_init_data(&block_context);
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
     let contract_class = ContractClass::V1(ContractClassV1::default());
     let next_nonce = nonce_manager.next(account_address);
@@ -628,16 +594,11 @@ fn recursive_function_calldata(
 fn test_reverted_reach_steps_limit(
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
-    block_context: BlockContext,
+    mut block_context: BlockContext,
     #[case] version: TransactionVersion,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        mut block_context,
-    } = create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
 
     // Limit the number of execution steps (so we quickly hit the limit).
     block_context.invoke_tx_max_n_steps = 5000;
@@ -736,13 +697,8 @@ fn test_reverted_reach_steps_limit(
 /// In this test reverted transactions are recursive function invocations where the innermost call
 /// asserts false. We test deltas between consecutive depths, and further depths.
 fn test_n_reverted_steps(max_fee: Fee, block_context: BlockContext) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(max_fee, block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -846,13 +802,8 @@ fn test_max_fee_to_max_steps_conversion(
     block_context: BlockContext,
     #[case] version: TransactionVersion,
 ) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
     let actual_fee = 690400000000000;
     let actual_gas_used = 6904;
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
@@ -917,13 +868,8 @@ fn test_max_fee_to_max_steps_conversion(
 /// Tests that transactions with insufficient max_fee are reverted, the correct revert_error is
 /// recorded and max_fee is charged.
 fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
-    let TestInitData {
-        mut state,
-        account_address,
-        contract_address,
-        mut nonce_manager,
-        block_context,
-    } = create_test_init_data(Fee(MAX_FEE), block_context);
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context);
     let recursion_base_args = invoke_tx_args! {
         sender_address: account_address,
         version: TransactionVersion::ONE,
