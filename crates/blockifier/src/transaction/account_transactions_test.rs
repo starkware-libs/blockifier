@@ -37,7 +37,6 @@ use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -45,7 +44,7 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_state,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test,
     create_state_with_falliable_validation_account, create_test_init_data, deploy_and_fund_account,
     l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, TestInitData, INVALID,
 };
@@ -456,48 +455,37 @@ fn test_recursion_depth_exceeded(
 #[rstest]
 /// Tests that an account invoke transaction that fails the execution phase, still incurs a nonce
 /// increase and a fee deduction.
-fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
-    let mut state = create_state(block_context.clone());
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_revert_invoke(
+    block_context: BlockContext,
+    max_fee: Fee,
+    #[case] transaction_version: TransactionVersion,
+    #[case] fee_type: FeeType,
+) {
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let state = &mut test_state(&block_context, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let account_address = account.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
-    // Deploy an account contract.
-    let deploy_account_tx = deploy_account_tx(
-        deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
-            max_fee,
-        },
-        &mut nonce_manager,
-    );
-    let deployed_account_address = deploy_account_tx.contract_address;
 
-    // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
-    // can pay for the transaction execution.
-    let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
-    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
-
-    let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let account_tx_context = account_tx.get_account_tx_context();
-    let deploy_execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
-
-    // Invoke a function from the newly deployed contract, that changes the state.
+    // Invoke a function that changes the state and reverts.
     let storage_key = stark_felt!(9_u8);
     let tx_execution_info = run_invoke_tx(
-        &mut state,
+        state,
         &block_context,
         invoke_tx_args! {
             max_fee,
-            sender_address: deployed_account_address,
+            sender_address: account_address,
             calldata: create_calldata(
-                deployed_account_address,
+                test_contract_address,
                 "write_and_revert",
-                &[
-                    storage_key,
-                    stark_felt!(99_u8) // Dummy, non-zero value.
-                ]
+                // Write some non-zero value.
+                &[storage_key, stark_felt!(99_u8)]
             ),
-            version: TransactionVersion::ONE,
-            nonce: nonce_manager.next(deployed_account_address),
+            version: transaction_version,
+            nonce: nonce_manager.next(account_address),
         },
     )
     .unwrap();
@@ -509,29 +497,19 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     assert!(tx_execution_info.revert_error.is_some());
 
     // Check that the nonce was increased and the fee was deducted.
-    let total_deducted_fee = deploy_execution_info.actual_fee.0 + tx_execution_info.actual_fee.0;
     assert_eq!(
         state
-            .get_fee_token_balance(
-                &deployed_account_address,
-                &block_context.fee_token_address(&account_tx_context.fee_type())
-            )
+            .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
             .unwrap(),
-        (stark_felt!(BALANCE - total_deducted_fee), stark_felt!(0_u8))
+        (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
     );
-    assert_eq!(
-        state.get_nonce_at(deployed_account_address).unwrap(),
-        nonce_manager.next(deployed_account_address)
-    );
+    assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
     // Check that execution state changes were reverted.
     assert_eq!(
         stark_felt!(0_u8),
         state
-            .get_storage_at(
-                contract_address!(TEST_CONTRACT_ADDRESS),
-                StorageKey::try_from(storage_key).unwrap(),
-            )
+            .get_storage_at(test_contract_address, StorageKey::try_from(storage_key).unwrap())
             .unwrap()
     );
 }
