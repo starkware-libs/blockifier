@@ -180,7 +180,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     );
 
     // Second scenario: minimal fee not covered. Actual fee is precomputed.
-    let (actual_gas_used, actual_fee) = gas_and_fee(6890, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(6891, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(10),
         resource_bounds: l1_resource_bounds(10, 10),
@@ -421,11 +421,11 @@ fn test_simulate_validate_charge_fee_mid_execution(
 
     // Second scenario: limit resources via sender bounds. Should revert if and only if step limit
     // is derived from sender bounds (`charge_fee` mode).
-    let (gas_bound, fee_bound) = gas_and_fee(6000, validate, &fee_type);
+    let (gas_bound, fee_bound) = gas_and_fee(6001, validate, &fee_type);
     // If `charge_fee` is true, execution is limited by sender bounds, so less resources will be
     // used. Otherwise, execution is limited by block bounds, so more resources will be used.
-    let (limited_gas_used, limited_fee) = gas_and_fee(8516, validate, &fee_type);
-    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10882, validate, &fee_type);
+    let (limited_gas_used, limited_fee) = gas_and_fee(8517, validate, &fee_type);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10883, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
         resource_bounds: l1_resource_bounds(gas_bound, gas_price),
@@ -543,7 +543,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     // If `charge_fee` is false - we do not revert, and simply report the fee and resources as used.
     // If `charge_fee` is true, we revert, charge the maximal allowed fee (derived from sender
     // bounds), and report resources base on execution steps reverted + other overhead.
-    let base_gas_bound = 10115;
+    let base_gas_bound = 10116;
     let (just_not_enough_gas_bound, just_not_enough_fee_bound) =
         gas_and_fee(base_gas_bound, validate, &fee_type);
     // `__validate__` and overhead resources + number of reverted steps, comes out slightly more
