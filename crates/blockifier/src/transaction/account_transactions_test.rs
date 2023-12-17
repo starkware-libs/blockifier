@@ -43,9 +43,9 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test,
-    create_state_with_falliable_validation_account, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, TestInitData, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
+    TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -486,10 +486,9 @@ fn test_fail_deploy_account(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let mut state = create_state_with_falliable_validation_account();
-
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
     let deployed_account_address = faulty_account_feature_contract.get_instance_address(0);
+    let state = &mut test_state(&block_context, BALANCE, &[(faulty_account_feature_contract, 1)]);
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -510,7 +509,7 @@ fn test_fail_deploy_account(
 
     let initial_balance =
         state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap();
-    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
+    deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
