@@ -46,6 +46,7 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
+use crate::test_utils::prices::fee_transfer_resources;
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
     CairoVersion, NonceManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
@@ -408,25 +409,7 @@ fn test_invoke_tx(
         block_context,
         sender_address,
         expected_actual_fee,
-        // TODO(Dori, 1/2/2024): The exact resources required in fee transfer depends non-trivially
-        //   on the contract address (see `normalize_address` function in `storage.cairo`; the
-        //   input is the address hashed with other arguments). Currently we differentiate between
-        //   the expected results of the fee transfer call based on the account cairo version, but
-        //   this is incorrect.
-        VmExecutionResources {
-            n_steps: match account_cairo_version {
-                CairoVersion::Cairo0 => 529,
-                CairoVersion::Cairo1 => 525,
-            },
-            n_memory_holes: match account_cairo_version {
-                CairoVersion::Cairo0 => 57,
-                CairoVersion::Cairo1 => 59,
-            },
-            builtin_instance_counter: HashMap::from([
-                (HASH_BUILTIN_NAME.to_string(), 4),
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-            ]),
-        },
+        fee_transfer_resources(sender_address),
         fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
