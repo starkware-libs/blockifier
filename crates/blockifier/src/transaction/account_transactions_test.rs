@@ -59,10 +59,11 @@ fn test_fee_enforcement(
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
     #[values(true, false)] zero_bounds: bool,
 ) {
-    let mut state = create_state(block_context.clone());
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let state = &mut test_state(&block_context, BALANCE, &[(account, 1)]);
     let deploy_account_tx = deploy_account_tx(
         deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: account.get_class_hash(),
             max_fee: Fee(u128::from(!zero_bounds)),
             resource_bounds: l1_resource_bounds(u64::from(!zero_bounds), DEFAULT_STRK_L1_GAS_PRICE),
             version,
@@ -72,7 +73,7 @@ fn test_fee_enforcement(
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let enforce_fee = account_tx.get_account_tx_context().enforce_fee().unwrap();
-    let result = account_tx.execute(&mut state, &block_context, true, true);
+    let result = account_tx.execute(state, &block_context, true, true);
     assert_eq!(result.is_err(), enforce_fee);
 }
 
