@@ -35,7 +35,7 @@ use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
-use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
@@ -450,7 +450,7 @@ fn test_invoke_tx(
 }
 
 // Verifies the storage after each invoke execution in test_invoke_tx_advanced_operations.
-fn verify_storage_after_invoke(
+fn verify_storage_after_invoke_advanced_operations(
     state: &mut CachedState<DictStateReader>,
     contract_address: ContractAddress,
     account_address: ContractAddress,
@@ -490,6 +490,10 @@ fn test_invoke_tx_advanced_operations() {
     let account_address = account.get_instance_address(0);
     let contract_address = test_contract.get_instance_address(0);
     let index = stark_felt!(123_u32);
+    let base_tx_args = invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        sender_address: account_address,
+    };
 
     // Invoke advance_counter function.
     let mut nonce_manager = NonceManager::default();
@@ -498,17 +502,16 @@ fn test_invoke_tx_advanced_operations() {
     let calldata_args = vec![index, initial_counters[0], initial_counters[1]];
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
         nonce: nonce_manager.next(account_address),
-        sender_address: account_address,
         calldata:
             create_calldata(contract_address, "advance_counter", &calldata_args),
+        ..base_tx_args.clone()
     });
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let next_nonce = nonce_manager.next(account_address);
     let initial_ec_point = [StarkFelt::ZERO, StarkFelt::ZERO];
-    verify_storage_after_invoke(
+    verify_storage_after_invoke_advanced_operations(
         state,
         contract_address,
         account_address,
@@ -528,11 +531,10 @@ fn test_invoke_tx_advanced_operations() {
     ];
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
         nonce: next_nonce,
-        sender_address: account_address,
         calldata:
             create_calldata(contract_address, "call_xor_counters", &calldata_args),
+        ..base_tx_args.clone()
     });
     account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -541,7 +543,7 @@ fn test_invoke_tx_advanced_operations() {
         stark_felt!(counter_diffs[1] ^ xor_values[1]),
     ];
     let next_nonce = nonce_manager.next(account_address);
-    verify_storage_after_invoke(
+    verify_storage_after_invoke_advanced_operations(
         state,
         contract_address,
         account_address,
@@ -553,11 +555,10 @@ fn test_invoke_tx_advanced_operations() {
 
     // Invoke test_ec_op function.
     let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
         nonce: next_nonce,
-        sender_address: account_address,
         calldata:
             create_calldata(contract_address, "test_ec_op", &[]),
+        ..base_tx_args.clone()
     });
     account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -576,7 +577,39 @@ fn test_invoke_tx_advanced_operations() {
         .unwrap(),
     ];
     let next_nonce = nonce_manager.next(account_address);
-    verify_storage_after_invoke(
+    verify_storage_after_invoke_advanced_operations(
+        state,
+        contract_address,
+        account_address,
+        index,
+        expected_counters,
+        expected_ec_point,
+        next_nonce,
+    );
+
+    // Invoke add_signature_to_counters function.
+    let signature_values = [Felt252::from(200_u64), Felt252::from(300_u64)];
+    let signature = TransactionSignature(signature_values.iter().map(felt_to_stark_felt).collect());
+
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        signature,
+        nonce: next_nonce,
+        calldata:
+            create_calldata(contract_address, "add_signature_to_counters", &[index]),
+        ..base_tx_args.clone()
+    });
+    account_tx.execute(state, block_context, true, true).unwrap();
+
+    let expected_counters = [
+        felt_to_stark_felt(
+            &(stark_felt_to_felt(expected_counters[0]) + signature_values[0].clone()),
+        ),
+        felt_to_stark_felt(
+            &(stark_felt_to_felt(expected_counters[1]) + signature_values[1].clone()),
+        ),
+    ];
+    let next_nonce = nonce_manager.next(account_address);
+    verify_storage_after_invoke_advanced_operations(
         state,
         contract_address,
         account_address,
