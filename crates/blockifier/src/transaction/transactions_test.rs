@@ -585,6 +585,38 @@ fn test_invoke_tx_advanced_operations() {
         expected_ec_point,
         next_nonce,
     );
+
+    // Invoke add_signature_to_counters function.
+    let signature_values = [200_u64, 300_u64];
+    let signature = TransactionSignature(vec![
+        stark_felt!(signature_values[0]),
+        stark_felt!(signature_values[1]),
+    ]);
+
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            signature,
+            nonce: next_nonce,
+            sender_address: account_address,
+            calldata:
+                create_calldata(contract_address, "add_signature_to_counters", &[index]),
+    });
+    account_tx.execute(state, block_context, true, true).unwrap();
+
+    let expected_counters = [
+        stark_felt!(u64::try_from(expected_counters[0]).unwrap() + signature_values[0]),
+        stark_felt!(u64::try_from(expected_counters[1]).unwrap() + signature_values[1]),
+    ];
+    let next_nonce = nonce_manager.next(account_address);
+    verify_storage_after_invoke(
+        state,
+        contract_address,
+        account_address,
+        index,
+        expected_counters,
+        expected_ec_point,
+        next_nonce,
+    );
 }
 
 #[test_case(

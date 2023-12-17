@@ -18,6 +18,7 @@ from starkware.starknet.common.syscalls import (
     get_sequencer_address,
     replace_class,
     get_tx_info,
+    get_tx_signature,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -400,5 +401,16 @@ func test_ec_op{
     let m = 0x6d232c016ef1b12aec4b7f88cc0b3ab662be3b7dd7adbce5209fcfdbd42a504;
     let (res) = ec_op(p=p, m=m, q=q);
     ec_point.write(res);
+    return ();
+}
+
+@external
+func add_signature_to_counters{pedersen_ptr: HashBuiltin*, range_check_ptr, syscall_ptr: felt*}(
+    index: felt
+) {
+    let (signature_len: felt, signature: felt*) = get_tx_signature();
+    assert signature_len = 2;
+    let (val) = two_counters.read(index);
+    two_counters.write(index, (val[0] + signature[0], val[1] + signature[1]));
     return ();
 }
