@@ -38,7 +38,7 @@ use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -1005,20 +1005,20 @@ fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
 }
 
 #[rstest]
-#[case(class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0))]
-#[case(class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1))]
 fn test_deploy_account_constructor_storage_write(
     max_fee: Fee,
     block_context: BlockContext,
-    #[case] class_hash: ClassHash,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let mut state = create_state(block_context.clone());
+    let grindy_account = FeatureContract::AccountWithLongValidate(cairo_version);
+    let class_hash = grindy_account.get_class_hash();
+    let state = &mut test_state(&block_context, BALANCE, &[(grindy_account, 1)]);
 
     let ctor_storage_arg = stark_felt!(1_u8);
     let ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
     let constructor_calldata = calldata![ctor_grind_arg, ctor_storage_arg];
     let (deploy_account_tx, _) = deploy_and_fund_account(
-        &mut state,
+        state,
         &mut NonceManager::default(),
         &block_context,
         deploy_account_tx_args! {
@@ -1027,7 +1027,7 @@ fn test_deploy_account_constructor_storage_write(
             constructor_calldata: constructor_calldata.clone(),
         },
     );
-    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    deploy_account_tx.execute(state, &block_context, true, true).unwrap();
 
     // Check that the constructor wrote ctor_arg to the storage.
     let storage_key = get_storage_var_address("ctor_arg", &[]);
