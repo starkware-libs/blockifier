@@ -5,6 +5,8 @@ from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin, EcOpBuiltin
 from starkware.cairo.common.ec import ec_op
 from starkware.cairo.common.ec_point import EcPoint
+from starkware.cairo.common.registers import get_fp_and_pc
+from starkware.starknet.common.messages import send_message_to_l1
 from starkware.starknet.common.syscalls import (
     TxInfo,
     storage_read,
@@ -412,5 +414,14 @@ func add_signature_to_counters{pedersen_ptr: HashBuiltin*, range_check_ptr, sysc
     assert signature_len = 2;
     let (val) = two_counters.read(index);
     two_counters.write(index, (val[0] + signature[0], val[1] + signature[1]));
+    return ();
+}
+
+@external
+func send_message{syscall_ptr: felt*}(to_address: felt) {
+    alloc_locals;
+    local payload: (felt, felt) = (12, 34);
+    let (__fp__, _) = get_fp_and_pc();
+    send_message_to_l1(to_address=to_address, payload_size=2, payload=cast(&payload, felt*));
     return ();
 }

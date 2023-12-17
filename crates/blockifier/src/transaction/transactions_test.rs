@@ -13,13 +13,13 @@ use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, L2ToL1Payload,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -31,7 +31,9 @@ use crate::abi::abi_utils::{
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
 use crate::block_context::BlockContext;
-use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
+use crate::execution::call_info::{
+    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
+};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
@@ -617,6 +619,37 @@ fn test_invoke_tx_advanced_operations() {
         expected_counters,
         expected_ec_point,
         next_nonce,
+    );
+
+    // Invoke send_message function that send a message to L1.
+    let to_address = Felt252::from(85);
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        nonce: next_nonce,
+        calldata:
+            create_calldata(contract_address, "send_message", &[felt_to_stark_felt(&to_address)]),
+        ..base_tx_args
+    });
+    let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+    let next_nonce = nonce_manager.next(account_address);
+    verify_storage_after_invoke_advanced_operations(
+        state,
+        contract_address,
+        account_address,
+        index,
+        expected_counters,
+        expected_ec_point,
+        next_nonce,
+    );
+    let expected_msg = OrderedL2ToL1Message {
+        order: 0,
+        message: MessageToL1 {
+            to_address: EthAddress::try_from(felt_to_stark_felt(&to_address)).unwrap(),
+            payload: L2ToL1Payload(vec![stark_felt!(12_u32), stark_felt!(34_u32)]),
+        },
+    };
+    assert_eq!(
+        expected_msg,
+        execution_info.execute_call_info.unwrap().inner_calls[0].execution.l2_to_l1_messages[0]
     );
 }
 
