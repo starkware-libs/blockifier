@@ -11,15 +11,11 @@ mod TestContract {
     use traits::Into;
     use traits::TryInto;
     use starknet::{
-    eth_address::U256IntoEthAddress, EthAddress,
-    secp256_trait::{Signature, is_valid_signature},
-    secp256r1::{Secp256r1Point, Secp256r1Impl},
-    eth_signature::verify_eth_signature,
-    info::{BlockInfo, SyscallResultTrait},
-    info::v2::{
-    ExecutionInfo, TxInfo, ResourceBounds,
-    },
-};
+        eth_address::U256IntoEthAddress, EthAddress, secp256_trait::{Signature, is_valid_signature},
+        secp256r1::{Secp256r1Point, Secp256r1Impl}, eth_signature::verify_eth_signature,
+        info::{BlockInfo, SyscallResultTrait}, info::v2::{ExecutionInfo, TxInfo, ResourceBounds,},
+        syscalls
+    };
 
     #[storage]
     struct Storage {
@@ -33,10 +29,20 @@ mod TestContract {
     }
 
     #[external(v0)]
-    fn test_storage_read_write(self: @ContractState, address: StorageAddress, value: felt252) -> felt252 {
+    fn test_storage_read_write(
+        self: @ContractState, address: StorageAddress, value: felt252
+    ) -> felt252 {
         let address_domain = 0;
-        starknet::syscalls::storage_write_syscall(address_domain, address, value).unwrap_syscall();
-        starknet::syscalls::storage_read_syscall(address_domain, address).unwrap_syscall()
+        syscalls::storage_write_syscall(address_domain, address, value).unwrap_syscall();
+        syscalls::storage_read_syscall(address_domain, address).unwrap_syscall()
+    }
+
+    #[external(v0)]
+    fn test_count_actual_storage_changes(self: @ContractState) {
+        let storage_address = 15.try_into().unwrap();
+        let address_domain = 0;
+        syscalls::storage_write_syscall(address_domain, storage_address, 0).unwrap_syscall();
+        syscalls::storage_write_syscall(address_domain, storage_address, 1).unwrap_syscall();
     }
 
     #[external(v0)]
@@ -47,19 +53,20 @@ mod TestContract {
         entry_point_selector: felt252,
         calldata: Array::<felt252>
     ) -> Span::<felt252> {
-        starknet::syscalls::call_contract_syscall(
-            contract_address, entry_point_selector, calldata.span()
-        ).unwrap_syscall().snapshot.span()
+        syscalls::call_contract_syscall(contract_address, entry_point_selector, calldata.span())
+            .unwrap_syscall()
+            .snapshot
+            .span()
     }
 
     #[external(v0)]
     fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
-        starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+        syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
     }
 
     #[external(v0)]
     fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
-        starknet::syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
+        syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
     }
 
     #[external(v0)]
@@ -80,8 +87,13 @@ mod TestContract {
         assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
 
         assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
-        assert(execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH');
-        assert(execution_info.entry_point_selector == expected_entry_point_selector, 'SELECTOR_MISMATCH');
+        assert(
+            execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
+        );
+        assert(
+            execution_info.entry_point_selector == expected_entry_point_selector,
+            'SELECTOR_MISMATCH'
+        );
     }
 
     #[external(v0)]
@@ -92,9 +104,10 @@ mod TestContract {
         function_selector: felt252,
         calldata: Array<felt252>
     ) -> Span::<felt252> {
-        starknet::library_call_syscall(
-            class_hash, function_selector, calldata.span()
-        ).unwrap_syscall().snapshot.span()
+        starknet::library_call_syscall(class_hash, function_selector, calldata.span())
+            .unwrap_syscall()
+            .snapshot
+            .span()
     }
 
     #[external(v0)]
@@ -127,11 +140,13 @@ mod TestContract {
 
     #[external(v0)]
     fn test_replace_class(self: @ContractState, class_hash: ClassHash) {
-        starknet::syscalls::replace_class_syscall(class_hash).unwrap_syscall();
+        syscalls::replace_class_syscall(class_hash).unwrap_syscall();
     }
 
     #[external(v0)]
-    fn test_send_message_to_l1(self: @ContractState, to_address: felt252, payload: Array::<felt252>) {
+    fn test_send_message_to_l1(
+        self: @ContractState, to_address: felt252, payload: Array::<felt252>
+    ) {
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
     }
 
@@ -148,9 +163,11 @@ mod TestContract {
     }
 
     #[l1_handler]
-    fn l1_handler_set_value(self: @ContractState, from_address: felt252, key: StorageAddress, value: felt252) -> felt252{
+    fn l1_handler_set_value(
+        self: @ContractState, from_address: felt252, key: StorageAddress, value: felt252
+    ) -> felt252 {
         let address_domain = 0;
-        starknet::syscalls::storage_write_syscall(address_domain, key, value).unwrap_syscall();
+        syscalls::storage_write_syscall(address_domain, key, value).unwrap_syscall();
         value
     }
 
@@ -162,9 +179,10 @@ mod TestContract {
         calldata: Array::<felt252>,
         deploy_from_zero: bool,
     ) {
-        starknet::syscalls::deploy_syscall(
+        syscalls::deploy_syscall(
             class_hash, contract_address_salt, calldata.span(), deploy_from_zero
-        ).unwrap_syscall();
+        )
+            .unwrap_syscall();
     }
 
 
@@ -179,24 +197,28 @@ mod TestContract {
 
         let mut input: Array::<u64> = Default::default();
         input.append(1_u64);
-        match starknet::syscalls::keccak_syscall(input.span()) {
+        match syscalls::keccak_syscall(input.span()) {
             Result::Ok(_) => panic_with_felt252('Should fail'),
-            Result::Err(revert_reason) =>
-                assert(*revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
+            ),
         }
     }
 
     #[external(v0)]
     fn test_secp256k1(ref self: ContractState) {
         // Test a point not on the curve.
-        assert (starknet::secp256k1::secp256k1_new_syscall(
-            x: 0, y: 1).unwrap_syscall().is_none(), 'Should be none');
+        assert(
+            starknet::secp256k1::secp256k1_new_syscall(x: 0, y: 1).unwrap_syscall().is_none(),
+            'Should be none'
+        );
 
         let secp256k1_prime = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f;
         match starknet::secp256k1::secp256k1_new_syscall(x: secp256k1_prime, y: 1) {
             Result::Ok(_) => panic_with_felt252('Should fail'),
-            Result::Err(revert_reason) =>
-                assert(*revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'
+            ),
         }
 
         // Test a point on the curve.
@@ -204,16 +226,12 @@ mod TestContract {
         let y = 0x8E182CA967F38E1BD6A49583F43F187608E031AB54FC0C4A8F0DC94FAD0D0611;
         let p0 = starknet::secp256k1::secp256k1_new_syscall(x, y).unwrap_syscall().unwrap();
 
-        let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(
-                p0).unwrap_syscall();
-        assert (
-            x_coord == x && y_coord == y,
-            'Unexpected coordinates');
+        let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(p0).unwrap_syscall();
+        assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
         let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
-        verify_eth_signature(
-            :msg_hash, :signature, :eth_address);
+        verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
 
     /// Returns a golden valid message hash and its signature, for testing.
@@ -236,14 +254,17 @@ mod TestContract {
     #[external(v0)]
     fn test_secp256r1(ref self: ContractState) {
         // Test a point not on the curve.
-        assert (starknet::secp256r1::secp256r1_new_syscall(
-            x: 0, y: 1).unwrap_syscall().is_none(), 'Should be none');
+        assert(
+            starknet::secp256r1::secp256r1_new_syscall(x: 0, y: 1).unwrap_syscall().is_none(),
+            'Should be none'
+        );
 
         let secp256r1_prime = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff;
         match starknet::secp256r1::secp256r1_new_syscall(x: secp256r1_prime, y: 1) {
             Result::Ok(_) => panic_with_felt252('Should fail'),
-            Result::Err(revert_reason) =>
-                assert(*revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid argument', 'Wrong error msg'
+            ),
         }
 
         // Test a point on the curve.
@@ -251,21 +272,17 @@ mod TestContract {
         let y = 0xDB0A2E6710C71BA80AFEB3ABDF69D306CE729C7704F4DDF2EAAF0B76209FE1B0;
         let p0 = starknet::secp256r1::secp256r1_new_syscall(x, y).unwrap_syscall().unwrap();
 
-        let (x_coord, y_coord) = starknet::secp256r1::secp256r1_get_xy_syscall(
-                p0).unwrap_syscall();
-        assert (
-            x_coord == x && y_coord == y,
-            'Unexpected coordinates');
-
+        let (x_coord, y_coord) = starknet::secp256r1::secp256r1_get_xy_syscall(p0).unwrap_syscall();
+        assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
         let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
             get_message_and_secp256r1_signature();
-        let public_key = Secp256r1Impl::secp256_ec_new_syscall(expected_public_key_x, expected_public_key_y)
+        let public_key = Secp256r1Impl::secp256_ec_new_syscall(
+            expected_public_key_x, expected_public_key_y
+        )
             .unwrap_syscall()
             .unwrap();
-        is_valid_signature::<Secp256r1Point>(
-            msg_hash, signature.r, signature.s, public_key
-        );
+        is_valid_signature::<Secp256r1Point>(msg_hash, signature.r, signature.s, public_key);
     }
 
 
@@ -287,8 +304,9 @@ mod TestContract {
     impl ResourceBoundsPartialEq of PartialEq<ResourceBounds> {
         #[inline(always)]
         fn eq(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
-            (*lhs.resource == *rhs.resource) && (*lhs.max_amount == *rhs.max_amount) &&
-                (*lhs.max_price_per_unit == *rhs.max_price_per_unit)
+            (*lhs.resource == *rhs.resource)
+                && (*lhs.max_amount == *rhs.max_amount)
+                && (*lhs.max_price_per_unit == *rhs.max_price_per_unit)
         }
         #[inline(always)]
         fn ne(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
@@ -299,15 +317,19 @@ mod TestContract {
     impl TxInfoPartialEq of PartialEq<TxInfo> {
         #[inline(always)]
         fn eq(lhs: @TxInfo, rhs: @TxInfo) -> bool {
-            (*lhs.version == *rhs.version) &&
-                (*lhs.account_contract_address == *rhs.account_contract_address) &&
-                (*lhs.max_fee == *rhs.max_fee) && (*lhs.signature == *rhs.signature) &&
-                (*lhs.transaction_hash == *rhs.transaction_hash) && (*lhs.chain_id == *rhs.chain_id) &&
-                (*lhs.nonce == *rhs.nonce) && (*lhs.resource_bounds == *rhs.resource_bounds) &&
-                (*lhs.tip == *rhs.tip) && (*lhs.paymaster_data == *rhs.paymaster_data) &&
-                (*lhs.nonce_data_availability_mode == *rhs.nonce_data_availability_mode) &&
-                (*lhs.fee_data_availability_mode == *rhs.fee_data_availability_mode) &&
-                (*lhs.account_deployment_data == *rhs.account_deployment_data)
+            (*lhs.version == *rhs.version)
+                && (*lhs.account_contract_address == *rhs.account_contract_address)
+                && (*lhs.max_fee == *rhs.max_fee)
+                && (*lhs.signature == *rhs.signature)
+                && (*lhs.transaction_hash == *rhs.transaction_hash)
+                && (*lhs.chain_id == *rhs.chain_id)
+                && (*lhs.nonce == *rhs.nonce)
+                && (*lhs.resource_bounds == *rhs.resource_bounds)
+                && (*lhs.tip == *rhs.tip)
+                && (*lhs.paymaster_data == *rhs.paymaster_data)
+                && (*lhs.nonce_data_availability_mode == *rhs.nonce_data_availability_mode)
+                && (*lhs.fee_data_availability_mode == *rhs.fee_data_availability_mode)
+                && (*lhs.account_deployment_data == *rhs.account_deployment_data)
         }
         #[inline(always)]
         fn ne(lhs: @TxInfo, rhs: @TxInfo) -> bool {
@@ -318,9 +340,9 @@ mod TestContract {
     impl BlockInfoPartialEq of PartialEq<BlockInfo> {
         #[inline(always)]
         fn eq(lhs: @BlockInfo, rhs: @BlockInfo) -> bool {
-            (*lhs.block_number == *rhs.block_number) &&
-                (*lhs.block_timestamp == *rhs.block_timestamp) &&
-                (*lhs.sequencer_address == *rhs.sequencer_address)
+            (*lhs.block_number == *rhs.block_number)
+                && (*lhs.block_timestamp == *rhs.block_timestamp)
+                && (*lhs.sequencer_address == *rhs.sequencer_address)
         }
         #[inline(always)]
         fn ne(lhs: @BlockInfo, rhs: @BlockInfo) -> bool {
@@ -333,5 +355,4 @@ mod TestContract {
         assert(x == y, 'x != y');
         'success'
     }
-
 }

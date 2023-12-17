@@ -971,6 +971,8 @@ fn test_deploy_account_constructor_storage_write(
 #[rstest]
 #[case(TransactionVersion::ONE, FeeType::Eth, CairoVersion::Cairo0)]
 #[case(TransactionVersion::THREE, FeeType::Strk, CairoVersion::Cairo0)]
+#[case(TransactionVersion::ONE, FeeType::Eth, CairoVersion::Cairo1)]
+#[case(TransactionVersion::THREE, FeeType::Strk, CairoVersion::Cairo1)]
 fn test_count_actual_storage_changes(
     max_fee: Fee,
     block_context: BlockContext,
