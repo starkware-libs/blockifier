@@ -21,7 +21,7 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -35,9 +35,8 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
-    GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
+    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -253,17 +252,18 @@ fn test_max_fee_limit_validate(
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context);
+    let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
+    let grindy_class_hash = grindy_validate_account.get_class_hash();
 
     // Declare the grindy-validation account.
-    let contract_class = ContractClassV0::from_file(GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH).into();
     let account_tx = declare_tx(
         declare_tx_args! {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0),
+            class_hash: grindy_class_hash,
             sender_address: account_address,
             max_fee: Fee(MAX_FEE),
             nonce: nonce_manager.next(account_address),
         },
-        contract_class,
+        grindy_validate_account.get_class(),
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
@@ -276,7 +276,7 @@ fn test_max_fee_limit_validate(
         &mut NonceManager::default(),
         &block_context,
         deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0),
+            class_hash: grindy_class_hash,
             max_fee,
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
@@ -297,7 +297,7 @@ fn test_max_fee_limit_validate(
         &mut nonce_manager,
         &block_context,
         deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0),
+            class_hash: grindy_class_hash,
             max_fee,
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
