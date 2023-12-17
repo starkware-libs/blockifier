@@ -15,6 +15,7 @@ use starknet_api::transaction::{
     TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
@@ -37,8 +38,8 @@ use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
     GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0,
+    TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -456,14 +457,16 @@ fn test_recursion_depth_exceeded(
 /// Tests that an account invoke transaction that fails the execution phase, still incurs a nonce
 /// increase and a fee deduction.
 fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
-    let mut state = create_state(block_context.clone());
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let mut state = &mut test_state(&block_context, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let test_contract_address = test_contract.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
-    // TODO(Dori, 1/9/2023): NEW_TOKEN_SUPPORT this token should depend on the tx version.
-    let fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
+
     // Deploy an account contract.
     let deploy_account_tx = deploy_account_tx(
         deploy_account_tx_args! {
-            class_hash: class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
+            class_hash: account.get_class_hash(),
             max_fee,
         },
         &mut nonce_manager,
@@ -473,7 +476,13 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     // Update the balance of the about-to-be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
     let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
-    state.set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE));
+    for fee_type in FeeType::iter() {
+        state.set_storage_at(
+            block_context.fee_token_address(&fee_type),
+            deployed_account_balance_key,
+            stark_felt!(BALANCE),
+        );
+    }
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
     let account_tx_context = account_tx.get_account_tx_context();
@@ -488,14 +497,13 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
             max_fee,
             sender_address: deployed_account_address,
             calldata: create_calldata(
-                deployed_account_address,
+                test_contract_address,
                 "write_and_revert",
                 &[
                     storage_key,
                     stark_felt!(99_u8) // Dummy, non-zero value.
                 ]
             ),
-            version: TransactionVersion::ONE,
             nonce: nonce_manager.next(deployed_account_address),
         },
     )
@@ -527,10 +535,7 @@ fn test_revert_invoke(block_context: BlockContext, max_fee: Fee) {
     assert_eq!(
         stark_felt!(0_u8),
         state
-            .get_storage_at(
-                contract_address!(TEST_CONTRACT_ADDRESS),
-                StorageKey::try_from(storage_key).unwrap(),
-            )
+            .get_storage_at(test_contract_address, StorageKey::try_from(storage_key).unwrap())
             .unwrap()
     );
 }
