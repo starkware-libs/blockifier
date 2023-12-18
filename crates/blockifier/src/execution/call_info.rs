@@ -6,6 +6,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
+use crate::abi::abi_utils::selector_to_name;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
@@ -141,4 +142,20 @@ impl<'a> IntoIterator for &'a CallInfo {
     fn into_iter(self) -> Self::IntoIter {
         CallInfoIter { call_infos: vec![self] }
     }
+}
+
+pub fn check_call_succeeded(
+    optional_call_info: &Option<CallInfo>,
+) -> TransactionExecutionResult<()> {
+    let call_info =
+        optional_call_info.as_ref().ok_or(TransactionExecutionError::CallInfoNotFound)?;
+
+    if !call_info.execution.failed {
+        return Ok(());
+    }
+
+    Err(TransactionExecutionError::CallFailedError {
+        entry_point_name: selector_to_name(call_info.call.entry_point_selector.0),
+        error_data: call_info.execution.retdata.0.clone(),
+    })
 }

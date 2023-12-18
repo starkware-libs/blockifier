@@ -1,4 +1,4 @@
-use blockifier::execution::call_info::CallInfo;
+use blockifier::execution::call_info::{check_call_succeeded, CallInfo};
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::GlobalContractCache;
@@ -101,8 +101,6 @@ impl PyValidator {
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
                 self.execute(tx, raw_contract_class)?;
-            // TODO(Ayelet, 09/11/2023): Check call succeeded.
-
             return Ok(());
         }
 
@@ -124,7 +122,7 @@ impl PyValidator {
             self.validate(account_tx, Transaction::initial_gas())?;
 
         // Post validations.
-        // TODO(Ayelet, 09/11/2023): Check call succeeded.
+        let _ = check_call_succeeded(&_optional_call_info);
         self.perform_post_validation_stage(&account_tx_context, &actual_cost)?;
 
         Ok(())

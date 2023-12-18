@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::execution::call_info::CallInfo;
+use blockifier::execution::call_info::{check_call_succeeded, CallInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
@@ -76,6 +76,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                check_call_succeeded(&tx_execution_info.validate_call_info)?;
+                check_call_succeeded(&tx_execution_info.execute_call_info)?;
 
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(

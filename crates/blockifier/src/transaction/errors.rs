@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::execution_utils::format_panic_data;
 use crate::fee::fee_checks::FeeCheckError;
 use crate::state::errors::StateError;
 
@@ -51,6 +52,14 @@ pub enum TransactionFeeError {
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
+    #[error(
+        "`{}` call failed; failure reason: {}.",
+        entry_point_name,
+        format_panic_data(error_data)
+    )]
+    CallFailedError { entry_point_name: String, error_data: Vec<StarkFelt> },
+    #[error("Call info must be not None.")]
+    CallInfoNotFound,
     #[error(
         "Declare transaction version {declare_version:?} must have a contract class of Cairo \
          version {cairo_version:?}."
