@@ -3,7 +3,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
-use crate::test_utils::CairoVersion;
+use crate::test_utils::{get_raw_contract_class, CairoVersion};
 
 // Bit to set on class hashes and addresses of feature contracts to indicate the Cairo1 variant.
 const CAIRO1_BIT: u32 = 1 << 31;
@@ -139,5 +139,9 @@ impl FeatureContract {
             CairoVersion::Cairo0 => ContractClassV0::from_file(&self.get_compiled_path()).into(),
             CairoVersion::Cairo1 => ContractClassV1::from_file(&self.get_compiled_path()).into(),
         }
+    }
+
+    pub fn get_raw_class(&self) -> String {
+        get_raw_contract_class(&self.get_compiled_path())
     }
 }
