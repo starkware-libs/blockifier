@@ -1116,25 +1116,11 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-<<<<<<< HEAD
             (
                 abi_constants::GAS_USAGE.to_string(),
                 declare_expected_memory_words(version)
                     * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
             ),
-||||||| f34e282e
-            // 1 modified contract, 1 storage update (sender balance).
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
-=======
-            (
-                abi_constants::GAS_USAGE.to_string(),
-                get_onchain_data_cost(StateChangesCount {
-                    n_storage_updates: 1,
-                    n_modified_contracts: 1,
-                    ..StateChangesCount::default()
-                }),
-            ),
->>>>>>> origin/main-v0.13.0
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1169,124 +1155,7 @@ fn test_declare_tx(
     assert_eq!(contract_class_from_state, contract_class);
 }
 
-<<<<<<< HEAD
 // TODO(Dori, 1/1/2024): Input account class hash should be of type `ClassHash`.
-||||||| f34e282e
-// TODO(Noa, 01/07/23): Consider unify the decalre tx tests.
-#[test]
-fn test_declare_tx_v2() {
-    let state = &mut create_state_with_cairo1_account();
-    let block_context = &BlockContext::create_for_account_testing();
-    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
-    let declare_tx = DeclareTransactionV2 {
-        max_fee: Fee(MAX_FEE),
-        class_hash,
-        sender_address,
-        ..Default::default()
-    };
-
-    let contract_class =
-        ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH));
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V2(declare_tx),
-            TransactionHash::default(),
-            contract_class.clone(),
-        )
-        .unwrap(),
-    );
-    let fee_type = &account_tx.fee_type();
-
-    // Check state before transaction application.
-    assert_matches!(
-        state.get_compiled_contract_class(&class_hash).unwrap_err(),
-        StateError::UndeclaredClassHash(undeclared_class_hash) if
-        undeclared_class_hash == class_hash
-    );
-    let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-
-    let expected_actual_resources = ResourcesMapping(HashMap::from([
-        // 1 modified contract, 1 storage update (sender balance) + 1 compiled_class_hash update.
-        (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 2) * 612),
-        (HASH_BUILTIN_NAME.to_string(), 15),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2761),
-    ]));
-
-    let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
-
-    assert_eq!(expected_actual_resources, actual_execution_info.actual_resources);
-    assert_eq!(expected_actual_fee, actual_execution_info.actual_fee);
-
-    // Verify class declaration.
-    let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
-    assert_eq!(contract_class_from_state, contract_class);
-}
-
-=======
-// TODO(Noa, 01/07/23): Consider unify the decalre tx tests.
-#[test]
-fn test_declare_tx_v2() {
-    let state = &mut create_state_with_cairo1_account();
-    let block_context = &BlockContext::create_for_account_testing();
-    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
-    let declare_tx = DeclareTransactionV2 {
-        max_fee: Fee(MAX_FEE),
-        class_hash,
-        sender_address,
-        ..Default::default()
-    };
-
-    let contract_class =
-        ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH));
-    let account_tx = AccountTransaction::Declare(
-        DeclareTransaction::new(
-            starknet_api::transaction::DeclareTransaction::V2(declare_tx),
-            TransactionHash::default(),
-            contract_class.clone(),
-        )
-        .unwrap(),
-    );
-    let fee_type = &account_tx.fee_type();
-
-    // Check state before transaction application.
-    assert_matches!(
-        state.get_compiled_contract_class(&class_hash).unwrap_err(),
-        StateError::UndeclaredClassHash(undeclared_class_hash) if
-        undeclared_class_hash == class_hash
-    );
-    let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-
-    let expected_actual_resources = ResourcesMapping(HashMap::from([
-        (
-            abi_constants::GAS_USAGE.to_string(),
-            get_onchain_data_cost(StateChangesCount {
-                n_storage_updates: 1,
-                n_modified_contracts: 1,
-                n_compiled_class_hash_updates: 1,
-                ..StateChangesCount::default()
-            }),
-        ),
-        (HASH_BUILTIN_NAME.to_string(), 15),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 65),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 2761),
-    ]));
-
-    let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
-
-    assert_eq!(expected_actual_resources, actual_execution_info.actual_resources);
-    assert_eq!(expected_actual_fee, actual_execution_info.actual_fee);
-
-    // Verify class declaration.
-    let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
-    assert_eq!(contract_class_from_state, contract_class);
-}
-
->>>>>>> origin/main-v0.13.0
 fn deploy_account_tx(
     account_class_hash: &str,
     constructor_calldata: Option<Calldata>,
@@ -1806,7 +1675,7 @@ fn test_l1_handler() {
         (HASH_BUILTIN_NAME.to_string(), 11),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::GAS_USAGE.to_string(), 18471),
+        (abi_constants::GAS_USAGE.to_string(), 17675),
     ]));
 
     // Build the expected execution info.
