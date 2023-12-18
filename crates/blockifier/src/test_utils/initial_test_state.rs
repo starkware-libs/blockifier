@@ -14,7 +14,7 @@ use crate::test_utils::CairoVersion;
 use crate::transaction::objects::FeeType;
 
 // Utility to set an account as minter in both fee tokens, and fund it.
-fn privileged_account(
+pub fn privileged_account(
     block_context: &BlockContext,
     account_address: ContractAddress,
     initial_balance: u128,

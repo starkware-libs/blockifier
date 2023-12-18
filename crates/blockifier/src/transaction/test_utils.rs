@@ -285,6 +285,32 @@ pub fn create_account_tx_for_validate_test(
     }
 }
 
+pub fn create_deploy_account_tx_for_faulty_account(
+    scenario: u64,
+    additional_data: Option<StarkFelt>,
+    faulty_account: FeatureContract,
+    contract_address_salt: ContractAddressSalt,
+    max_fee: Fee,
+) -> AccountTransaction {
+    let signature = TransactionSignature(vec![
+        StarkFelt::from(scenario),
+        // Assumes the default value of StarkFelt is 0.
+        additional_data.unwrap_or_default(),
+    ]);
+
+    let deploy_account_tx = deploy_account_tx(
+        deploy_account_tx_args! {
+            class_hash: faulty_account.get_class_hash(),
+            constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
+            signature,
+            contract_address_salt,
+            max_fee,
+        },
+        &mut NonceManager::default(),
+    );
+    AccountTransaction::DeployAccount(deploy_account_tx)
+}
+
 pub fn account_invoke_tx(invoke_args: InvokeTxArgs) -> AccountTransaction {
     AccountTransaction::Invoke(invoke_tx(invoke_args))
 }

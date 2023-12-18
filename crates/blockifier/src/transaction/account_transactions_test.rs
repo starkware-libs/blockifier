@@ -35,7 +35,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::{privileged_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
@@ -46,9 +46,9 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
-    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
-    TestInitData, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test,
+    create_deploy_account_tx_for_faulty_account, create_test_init_data, deploy_and_fund_account,
+    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -497,14 +497,12 @@ fn test_fail_deploy_account(
     let contract_address_salt = ContractAddressSalt::default();
 
     // Create and execute (failing) deploy account transaction.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        TransactionType::DeployAccount,
+    let deploy_account_tx = create_deploy_account_tx_for_faulty_account(
         INVALID,
         None,
-        &mut NonceManager::default(),
         faulty_account_feature_contract,
-        contract_address!(0_u32), // Dummy value.
         contract_address_salt,
+        Fee(BALANCE),
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 
@@ -512,6 +510,7 @@ fn test_fail_deploy_account(
         AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
         _ => unreachable!("deploy_account_tx is a DeployAccount"),
     };
+    privileged_account(&block_context, deploy_address, BALANCE * 2, &mut state.state.storage_view);
 
     let initial_balance = state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap();
 
