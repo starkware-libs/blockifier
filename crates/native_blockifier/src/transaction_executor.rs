@@ -78,7 +78,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
-
+                if let Some(validate_call_info) = &tx_execution_info.validate_call_info {
+                    validate_call_info.check_call_succeeded()?;
+                }
+                if let Some(execute_call_info) = &tx_execution_info.execute_call_info {
+                    execute_call_info.check_call_succeeded()?;
+                }
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
