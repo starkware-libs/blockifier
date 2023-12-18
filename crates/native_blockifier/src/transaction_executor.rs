@@ -10,6 +10,7 @@ use blockifier::state::cached_state::{
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -78,6 +79,14 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                let validate_call_info = &tx_execution_info
+                    .validate_call_info
+                    .as_ref()
+                    .ok_or(TransactionExecutionError::CallInfoNotFound)?;
+                validate_call_info.check_call_succeeded()?;
+                if let Some(execute_call_info) = &tx_execution_info.execute_call_info {
+                    execute_call_info.check_call_succeeded()?;
+                }
 
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(

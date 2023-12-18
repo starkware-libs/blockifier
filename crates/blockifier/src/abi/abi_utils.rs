@@ -1,12 +1,20 @@
+use std::collections::HashMap;
+
 use cairo_felt::Felt252;
 use num_integer::Integer;
+use once_cell::sync::Lazy;
 use sha3::{Digest, Keccak256};
 use starknet_api::core::{ContractAddress, EntryPointSelector, L2_ADDRESS_UPPER_BOUND};
 use starknet_api::hash::{pedersen_hash, StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
+use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::transaction::constants::{
+    EXECUTE_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME, VALIDATE_DECLARE_ENTRY_POINT_NAME,
+    VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
+};
 
 #[cfg(test)]
 #[path = "abi_utils_test.rs"]
@@ -35,6 +43,28 @@ pub fn selector_from_name(entry_point_name: &str) -> EntryPointSelector {
     } else {
         EntryPointSelector(felt_to_stark_felt(&starknet_keccak(entry_point_name.as_bytes())))
     }
+}
+
+static SELECTOR_MAP: Lazy<HashMap<StarkFelt, &'static str>> = Lazy::new(|| {
+    [
+        (selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME).0, CONSTRUCTOR_ENTRY_POINT_NAME),
+        (selector_from_name(EXECUTE_ENTRY_POINT_NAME).0, EXECUTE_ENTRY_POINT_NAME),
+        (selector_from_name(TRANSFER_ENTRY_POINT_NAME).0, TRANSFER_ENTRY_POINT_NAME),
+        (selector_from_name(VALIDATE_ENTRY_POINT_NAME).0, VALIDATE_ENTRY_POINT_NAME),
+        (
+            selector_from_name(VALIDATE_DECLARE_ENTRY_POINT_NAME).0,
+            VALIDATE_DECLARE_ENTRY_POINT_NAME,
+        ),
+        (selector_from_name(VALIDATE_DEPLOY_ENTRY_POINT_NAME).0, VALIDATE_DEPLOY_ENTRY_POINT_NAME),
+    ]
+    .into()
+});
+
+pub fn selector_to_name(entry_point_selector: StarkFelt) -> String {
+    SELECTOR_MAP
+        .get(&entry_point_selector)
+        .map(|&name| name.to_string())
+        .unwrap_or_else(|| panic!("{} is not defined.", entry_point_selector))
 }
 
 /// Returns the storage address of a Starknet storage variable given its name and arguments.

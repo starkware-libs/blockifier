@@ -72,8 +72,6 @@ impl PyValidator {
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let (_py_tx_execution_info, _py_bouncer_info) = self.execute(tx, raw_contract_class)?;
-            // TODO(Ayelet, 09/11/2023): Check call succeeded.
-
             return Ok(());
         }
 
@@ -95,7 +93,9 @@ impl PyValidator {
             self.validate(account_tx, Transaction::initial_gas())?;
 
         // Post validations.
-        // TODO(Ayelet, 09/11/2023): Check call succeeded.
+        if let Some(_call_info) = _optional_call_info {
+            _call_info.check_call_succeeded()?;
+        }
         self.perform_post_validation_stage(&account_tx_context, &actual_cost)?;
 
         Ok(())
