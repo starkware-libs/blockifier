@@ -25,34 +25,40 @@ pub struct PyValidator {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
     pub max_nonce_for_validation_skip: Nonce,
-    pub tx_executor: Option<TransactionExecutor<PyStateReader>>,
-    pub global_contract_cache: GlobalContractCache,
+    pub tx_executor: TransactionExecutor<PyStateReader>,
 }
 
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
+        state_reader_proxy: &PyAny,
+        next_block_info: PyBlockInfo,
         max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
-    ) -> Self {
-        let tx_executor = None;
+    ) -> NativeBlockifierResult<Self> {
+        let tx_executor = TransactionExecutor::new(
+            PyStateReader::new(state_reader_proxy),
+            &general_config,
+            next_block_info,
+            max_recursion_depth,
+            GlobalContractCache::default(),
+        )?;
         let validator = Self {
             general_config,
             max_recursion_depth,
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
-            global_contract_cache: GlobalContractCache::default(),
         };
-        log::debug!("Initialized Validator.");
 
-        validator
+        Ok(validator)
     }
 
     // Transaction Execution API.
 
+<<<<<<< HEAD
     /// Initializes the transaction executor for the given block.
     #[pyo3(signature = (next_block_info, state_reader_proxy))]
     fn setup_validation_context(
@@ -86,6 +92,104 @@ impl PyValidator {
         self.teardown_validation_context();
     }
 
+||||||| f34e282e
+    /// Initializes the transaction executor for the given block.
+    #[pyo3(signature = (next_block_info, state_reader_proxy))]
+    fn setup_validation_context(
+        &mut self,
+        next_block_info: PyBlockInfo,
+        state_reader_proxy: &PyAny,
+    ) -> NativeBlockifierResult<()> {
+        let reader = PyStateReader::new(state_reader_proxy);
+
+        assert!(
+            self.tx_executor.is_none(),
+            "Transaction executor should be torn down between calls to validate"
+        );
+        self.tx_executor = Some(TransactionExecutor::new(
+            reader,
+            &self.general_config,
+            next_block_info,
+            self.max_recursion_depth,
+            self.global_contract_cache.clone(),
+        )?);
+
+        Ok(())
+    }
+
+    fn teardown_validation_context(&mut self) {
+        self.tx_executor = None;
+    }
+
+    /// Applicable solely to account deployment transactions: the execution of the constructor
+    // is required before they can be validated.
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)].
+    #[pyo3(signature = (tx, raw_contract_class))]
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+        let limit_execution_steps_by_resource_bounds = true;
+        self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+    }
+
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)] and pass an account transaction instead of PyAny.
+    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    pub fn validate(
+        &mut self,
+        tx: &PyAny,
+        remaining_gas: u64,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let account_tx = py_account_tx(tx, raw_contract_class)?;
+        let (optional_call_info, actual_cost) =
+            self.tx_executor().validate(&account_tx, remaining_gas)?;
+        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
+
+        Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
+    }
+
+    pub fn close(&mut self) {
+        log::debug!("Closing validator.");
+        self.teardown_validation_context();
+    }
+
+=======
+    /// Applicable solely to account deployment transactions: the execution of the constructor
+    // is required before they can be validated.
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)].
+    #[pyo3(signature = (tx, raw_contract_class))]
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+        let limit_execution_steps_by_resource_bounds = true;
+        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+    }
+
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)] and pass an account transaction instead of PyAny.
+    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    pub fn validate(
+        &mut self,
+        tx: &PyAny,
+        remaining_gas: u64,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let account_tx = py_account_tx(tx, raw_contract_class)?;
+        let (optional_call_info, actual_cost) =
+            self.tx_executor.validate(&account_tx, remaining_gas)?;
+        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
+
+        Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
+    }
+
+>>>>>>> origin/main-v0.13.0
     #[pyo3(signature = (tx, raw_contract_class, deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
@@ -130,21 +234,40 @@ impl PyValidator {
         Ok(())
     }
 
+<<<<<<< HEAD
     #[cfg(any(feature = "testing", test))]
     #[pyo3(signature = (general_config))]
+||||||| f34e282e
+    #[pyo3(signature = (general_config))]
+=======
+    #[cfg(any(feature = "testing", test))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth))]
+>>>>>>> origin/main-v0.13.0
     #[staticmethod]
-    fn create_for_testing(general_config: PyGeneralConfig) -> Self {
-        Self {
+    fn create_for_testing(
+        general_config: PyGeneralConfig,
+        state_reader_proxy: &PyAny,
+        next_block_info: PyBlockInfo,
+        max_recursion_depth: usize,
+    ) -> NativeBlockifierResult<Self> {
+        let tx_executor = TransactionExecutor::new(
+            PyStateReader::new(state_reader_proxy),
+            &general_config,
+            next_block_info,
+            max_recursion_depth,
+            GlobalContractCache::default(),
+        )?;
+        Ok(Self {
             general_config,
             max_recursion_depth: 50,
             max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
-            tx_executor: None,
-            global_contract_cache: GlobalContractCache::default(),
-        }
+            tx_executor,
+        })
     }
 }
 
 impl PyValidator {
+<<<<<<< HEAD
     fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
     }
@@ -160,20 +283,26 @@ impl PyValidator {
         self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
 
+||||||| f34e282e
+    fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
+        self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+    }
+
+=======
+>>>>>>> origin/main-v0.13.0
     fn perform_pre_validation_stage(
         &mut self,
         account_tx: &AccountTransaction,
     ) -> NativeBlockifierResult<()> {
         let account_tx_context = account_tx.get_account_tx_context();
 
-        let tx_executor = self.tx_executor();
         let strict_nonce_check = false;
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
         account_tx.perform_pre_validation_stage(
-            &mut tx_executor.state,
+            &mut self.tx_executor.state,
             &account_tx_context,
-            &tx_executor.block_context,
+            &self.tx_executor.block_context,
             charge_fee,
             strict_nonce_check,
         )?;
@@ -189,7 +318,7 @@ impl PyValidator {
         account_tx_context: &AccountTransactionContext,
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<bool> {
-        let nonce = self.tx_executor().state.get_nonce_at(account_tx_context.sender_address())?;
+        let nonce = self.tx_executor.state.get_nonce_at(account_tx_context.sender_address())?;
         let tx_nonce = account_tx_context.nonce();
 
         let deploy_account_not_processed =
@@ -222,7 +351,7 @@ impl PyValidator {
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
         PostValidationReport::verify(
-            &self.tx_executor().block_context,
+            &self.tx_executor.block_context,
             account_tx_context,
             actual_cost,
         )

@@ -802,10 +802,32 @@ fn test_max_fee_to_max_steps_conversion(
     block_context: BlockContext,
     #[case] version: TransactionVersion,
 ) {
+<<<<<<< HEAD
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context);
     let actual_fee = 690400000000000;
     let actual_gas_used = 6904;
+||||||| f34e282e
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    let actual_fee = 659500000000000;
+    let actual_gas_used = 6595;
+=======
+    let TestInitData {
+        mut state,
+        account_address,
+        contract_address,
+        mut nonce_manager,
+        block_context,
+    } = create_test_init_data(Fee(MAX_FEE), block_context, state);
+    let actual_gas_used = 5799;
+    let actual_fee = actual_gas_used as u128 * 100000000000;
+>>>>>>> origin/main-v0.13.0
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
     let execute_calldata = create_calldata(
         contract_address,
@@ -858,8 +880,8 @@ fn test_max_fee_to_max_steps_conversion(
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());
     assert_eq!(tx_execution_info1.actual_fee.0, tx_execution_info2.actual_fee.0);
-    assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
     assert_eq!(actual_gas_used, gas_used2 as u64);
+    assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
     assert_eq!(n_steps1, n_steps2);
     assert_eq!(gas_used1, gas_used2);
 }

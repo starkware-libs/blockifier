@@ -30,9 +30,6 @@ pub fn calculate_tx_gas_usage(
     let residual_message_segment_length =
         get_message_segment_length(l2_to_l1_payloads_length, l1_handler_payload_size);
 
-    // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
-
     let n_l2_to_l1_messages = l2_to_l1_payloads_length.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
@@ -48,9 +45,12 @@ pub fn calculate_tx_gas_usage(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(l2_to_l1_payloads_length);
 
+    // Calculate the effect of the transaction on the output data availability segment.
+    let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
+
     let sharp_gas_usage = residual_message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + residual_onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
+        + residual_onchain_data_cost;
 
     starknet_gas_usage + sharp_gas_usage
 }
@@ -58,9 +58,7 @@ pub fn calculate_tx_gas_usage(
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
 /// modified contracts - are not counted.
-/// This segment consists of deployment info (of contracts deployed by the transaction) and
-/// storage updates.
-pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
+fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
     // For each newly modified contract:
     // contract address (1 word).
     // + 1 word with the following info: A flag indicating whether the class hash was updated, the
@@ -75,6 +73,32 @@ pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -
     onchain_data_segment_length += state_changes_count.n_compiled_class_hash_updates * 2;
 
     onchain_data_segment_length
+}
+
+/// Returns the gas cost of publishing the onchain data on L1.
+pub fn get_onchain_data_cost(state_changes_count: StateChangesCount) -> usize {
+    let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    // TODO(Yoni, 1/5/2024): count the exact amount of nonzero bytes for each DA entry.
+    let naive_cost = onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_DA_WORD;
+
+    // For each modified contract, the expected non-zeros bytes in the second word are:
+    // 1 bytes for class hash flag; 2 for number of storage updates (up to 64K);
+    // 3 for nonce update (up to 16M).
+    let modified_contract_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
+    let modified_contract_discount =
+        eth_gas_constants::GAS_PER_MEMORY_WORD - modified_contract_cost;
+    let mut discount = state_changes_count.n_modified_contracts * modified_contract_discount;
+
+    // Up to balance of 8*(10**10) ETH.
+    let fee_balance_value_cost = eth_gas_constants::get_calldata_word_cost(12);
+    discount += eth_gas_constants::GAS_PER_MEMORY_WORD - fee_balance_value_cost;
+
+    if naive_cost < discount {
+        // Cost must be non-negative after discount.
+        0
+    } else {
+        naive_cost - discount
+    }
 }
 
 /// Returns the number of felts added to the output messages segment as a result of adding
@@ -143,38 +167,49 @@ pub fn estimate_minimal_l1_gas(
     tx: &AccountTransaction,
 ) -> TransactionPreValidationResult<u128> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
+<<<<<<< HEAD
     let os_steps_for_type = OS_RESOURCES.resources_for_tx_type(&tx.tx_type()).n_steps;
     let gas_for_type: usize = match tx {
+||||||| f34e282e
+    let os_steps_for_type = OS_RESOURCES
+        .execute_txs_inner()
+        .get(&tx.tx_type())
+        .expect("`OS_RESOURCES` must contain all transaction types.")
+        .n_steps;
+    let gas_for_type: usize = match tx {
+=======
+    let os_steps_for_type = OS_RESOURCES
+        .execute_txs_inner()
+        .get(&tx.tx_type())
+        .expect("`OS_RESOURCES` must contain all transaction types.")
+        .n_steps;
+    let gas_cost: usize = match tx {
+>>>>>>> origin/main-v0.13.0
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
         // contract modification since it occurs for every tx).
-        AccountTransaction::Declare(_) => get_onchain_data_segment_length(StateChangesCount {
+        AccountTransaction::Declare(_) => get_onchain_data_cost(StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
-        AccountTransaction::Invoke(_) => get_onchain_data_segment_length(StateChangesCount {
+        AccountTransaction::Invoke(_) => get_onchain_data_cost(StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
         }),
         // DeployAccount also updates the address -> class hash mapping.
-        AccountTransaction::DeployAccount(_) => {
-            get_onchain_data_segment_length(StateChangesCount {
-                n_storage_updates: 1,
-                n_class_hash_updates: 1,
-                n_compiled_class_hash_updates: 0,
-                n_modified_contracts: 1,
-            })
-        }
+        AccountTransaction::DeployAccount(_) => get_onchain_data_cost(StateChangesCount {
+            n_storage_updates: 1,
+            n_class_hash_updates: 1,
+            n_compiled_class_hash_updates: 0,
+            n_modified_contracts: 1,
+        }),
     };
     let resources = ResourcesMapping(HashMap::from([
-        (
-            constants::GAS_USAGE.to_string(),
-            gas_for_type * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-        ),
+        (constants::GAS_USAGE.to_string(), gas_cost),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
