@@ -231,6 +231,7 @@ pub fn create_account_tx_for_validate_test(
     faulty_account: FeatureContract,
     sender_address: ContractAddress,
     contract_address_salt: ContractAddressSalt,
+    max_fee: Option<Fee>,
 ) -> AccountTransaction {
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
@@ -251,7 +252,8 @@ pub fn create_account_tx_for_validate_test(
                     class_hash,
                     sender_address,
                     signature,
-                    nonce: nonce_manager.next(sender_address)
+                    nonce: nonce_manager.next(sender_address),
+                    max_fee: max_fee.unwrap_or_default(),
                 },
                 contract_class,
             )
@@ -265,6 +267,7 @@ pub fn create_account_tx_for_validate_test(
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
                     contract_address_salt,
+                    max_fee: max_fee.unwrap_or_default(),
                 },
                 nonce_manager,
             );
@@ -278,6 +281,7 @@ pub fn create_account_tx_for_validate_test(
                 calldata: execute_calldata,
                 version: TransactionVersion::ONE,
                 nonce: nonce_manager.next(sender_address),
+                max_fee: max_fee.unwrap_or_default(),
             });
             AccountTransaction::Invoke(invoke_tx)
         }

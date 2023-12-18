@@ -46,9 +46,9 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test,
-    create_deploy_account_tx_for_faulty_account, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, TestInitData, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
+    TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -497,12 +497,15 @@ fn test_fail_deploy_account(
     let contract_address_salt = ContractAddressSalt::default();
 
     // Create and execute (failing) deploy account transaction.
-    let deploy_account_tx = create_deploy_account_tx_for_faulty_account(
+    let deploy_account_tx = create_account_tx_for_validate_test(
+        TransactionType::DeployAccount,
         INVALID,
         None,
+        &mut NonceManager::default(),
         faulty_account_feature_contract,
+        contract_address!(0_u32), // Irrelevant contract address.
         contract_address_salt,
-        Fee(BALANCE),
+        Some(Fee(BALANCE)),
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 

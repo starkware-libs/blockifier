@@ -1363,6 +1363,7 @@ fn test_validate_accounts_tx(
         faulty_account,
         sender_address,
         salt_manager.next_salt(),
+        None, // No max fee.
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
@@ -1376,6 +1377,7 @@ fn test_validate_accounts_tx(
         faulty_account,
         sender_address,
         salt_manager.next_salt(),
+        None, // No max fee.
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
@@ -1423,6 +1425,7 @@ fn test_validate_accounts_tx(
         faulty_account,
         sender_address,
         salt_manager.next_salt(),
+        None, // No max fee.
     );
     account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -1436,6 +1439,7 @@ fn test_validate_accounts_tx(
             faulty_account,
             sender_address,
             ContractAddressSalt::default(),
+            None, // No max fee.
         );
         account_tx.execute(state, block_context, true, true).unwrap();
     }
