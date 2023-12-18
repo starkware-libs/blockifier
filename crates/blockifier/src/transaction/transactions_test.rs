@@ -52,8 +52,8 @@ use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
     BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -65,7 +65,7 @@ use crate::transaction::objects::{
     TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
+    account_invoke_tx, create_account_tx_for_validate_test,
     create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
     VALID,
 };
@@ -765,7 +765,7 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
-        format!("{}", test_contract.get_class_hash().0).as_str(),
+        test_contract.get_class_hash(),
         None,
         None,
         &mut NonceManager::default(),
@@ -1152,16 +1152,15 @@ fn test_declare_tx(
     assert_eq!(contract_class_from_state, contract_class);
 }
 
-// TODO(Dori, 1/1/2024): Input account class hash should be of type `ClassHash`.
 fn deploy_account_tx(
-    account_class_hash: &str,
+    account_class_hash: ClassHash,
     constructor_calldata: Option<Calldata>,
     signature: Option<TransactionSignature>,
     nonce_manager: &mut NonceManager,
 ) -> DeployAccountTransaction {
     crate::test_utils::deploy_account::deploy_account_tx(
         deploy_account_tx_args! {
-            class_hash: class_hash!(account_class_hash),
+            class_hash: account_class_hash,
             max_fee: Fee(MAX_FEE),
             constructor_calldata: constructor_calldata.unwrap_or_default(),
             signature: signature.unwrap_or_default(),
@@ -1170,28 +1169,20 @@ fn deploy_account_tx(
     )
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account(),
-    83, // range_check_builtin
-    3893, // n_steps
-    CairoVersion::Cairo0;
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account(),
-    85, // range_check_builtin
-    3949, // n_steps
-    CairoVersion::Cairo1;
-    "With Cairo1 account")]
+#[rstest]
+#[case(83, 3893, CairoVersion::Cairo0)]
+#[case(85, 3949, CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
-    state: &mut CachedState<DictStateReader>,
-    expected_range_check_builtin: usize,
-    expected_n_steps_resource: usize,
-    cairo_version: CairoVersion,
+    #[case] expected_range_check_builtin: usize,
+    #[case] expected_n_steps_resource: usize,
+    #[case] cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
-    let deploy_account =
-        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let account_class_hash = account.get_class_hash();
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1)]);
+    let deploy_account = deploy_account_tx(account_class_hash, None, None, &mut nonce_manager);
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -1218,10 +1209,9 @@ fn test_deploy_account_tx(
     // Build expected validate call info.
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
-    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
-        expected_account_class_hash,
+        account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
         expected_gas_consumed,
         Calldata(validate_calldata.into()),
@@ -1232,7 +1222,7 @@ fn test_deploy_account_tx(
     // Build expected execute call info.
     let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(expected_account_class_hash),
+            class_hash: Some(account_class_hash),
             code_address: None,
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
@@ -1250,16 +1240,27 @@ fn test_deploy_account_tx(
         block_context,
         deployed_account_address,
         expected_actual_fee,
+        // TODO(Dori, 1/2/2024): The exact resources required in fee transfer depends non-trivially
+        //   on the contract address (see `normalize_address` function in `storage.cairo`; the
+        //   input is the address hashed with other arguments). Currently we differentiate between
+        //   the expected results of the fee transfer call based on the account cairo version, but
+        //   this is incorrect.
         VmExecutionResources {
-            n_steps: 529,
-            n_memory_holes: 57,
+            n_steps: match cairo_version {
+                CairoVersion::Cairo0 => 529,
+                CairoVersion::Cairo1 => 525,
+            },
+            n_memory_holes: match cairo_version {
+                CairoVersion::Cairo0 => 57,
+                CairoVersion::Cairo1 => 59,
+            },
             builtin_instance_counter: HashMap::from([
                 (HASH_BUILTIN_NAME.to_string(), 4),
                 (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
             ]),
         },
         fee_type,
-        class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH),
+        FeatureContract::ERC20.get_class_hash(),
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -1301,8 +1302,7 @@ fn test_deploy_account_tx(
 
     // Negative flow.
     // Deploy to an existing address.
-    let deploy_account =
-        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
+    let deploy_account = deploy_account_tx(account_class_hash, None, None, &mut nonce_manager);
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
@@ -1318,7 +1318,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     let mut state = create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
-    let undeclared_hash = "0xdeadbeef";
+    let undeclared_hash = class_hash!("0xdeadbeef");
     let deploy_account = deploy_account_tx(undeclared_hash, None, None, &mut nonce_manager);
 
     // Fund account, so as not to fail pre-validation.
@@ -1335,7 +1335,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
         TransactionExecutionError::ContractConstructorExecutionFailed(
             EntryPointExecutionError::StateError(StateError::UndeclaredClassHash(class_hash))
         )
-        if class_hash == class_hash!(undeclared_hash)
+        if class_hash == undeclared_hash
     );
 }
 

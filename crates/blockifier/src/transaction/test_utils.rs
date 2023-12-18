@@ -14,7 +14,7 @@ use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -25,10 +25,10 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
+    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, BALANCE, ERC20_CONTRACT_PATH,
+    MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ACCOUNT_CONTRACT_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
 };
@@ -183,20 +183,6 @@ pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateRe
         TEST_ACCOUNT_CONTRACT_ADDRESS,
         test_erc20_account_balance_key(),
         account_balance,
-        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
-    )
-}
-
-pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
-    let account_balance = BALANCE;
-    create_account_tx_test_state(
-        ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
-        test_erc20_account_balance_key(),
-        account_balance,
-        // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract.
         // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
         ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
     )
