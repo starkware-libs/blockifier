@@ -70,8 +70,8 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    create_state_with_trivial_validation_account, l1_resource_bounds, FaultyAccountTxCreatorArgs,
+    CALL_CONTRACT, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -1356,26 +1356,33 @@ fn test_validate_accounts_tx(
 
     // Logic failure.
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        INVALID,
-        None,
+        FaultyAccountTxCreatorArgs {
+            tx_type,
+            scenario: INVALID,
+            additional_data: None,
+            faulty_account,
+            sender_address,
+            contract_address_salt: salt_manager.next_salt(),
+            max_fee: None,
+        },
         &mut NonceManager::default(),
-        faulty_account,
-        sender_address,
-        salt_manager.next_salt(),
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        CALL_CONTRACT,
-        Some(stark_felt!("0x1991")), // Some address different than the address of faulty_account.
+        FaultyAccountTxCreatorArgs {
+            tx_type,
+            scenario: CALL_CONTRACT,
+            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
+                                                           * address of faulty_account. */
+            faulty_account,
+            sender_address,
+            contract_address_salt: salt_manager.next_salt(),
+            max_fee: None,
+        },
         &mut NonceManager::default(),
-        faulty_account,
-        sender_address,
-        salt_manager.next_salt(),
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
@@ -1416,26 +1423,32 @@ fn test_validate_accounts_tx(
     // Valid logic.
     let nonce_manager = &mut NonceManager::default();
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        VALID,
-        None,
+        FaultyAccountTxCreatorArgs {
+            tx_type,
+            scenario: VALID,
+            additional_data: None,
+            faulty_account,
+            sender_address,
+            contract_address_salt: salt_manager.next_salt(),
+            max_fee: None,
+        },
         nonce_manager,
-        faulty_account,
-        sender_address,
-        salt_manager.next_salt(),
     );
     account_tx.execute(state, block_context, true, true).unwrap();
 
     if tx_type != TransactionType::DeployAccount {
         // Calling self (allowed).
         let account_tx = create_account_tx_for_validate_test(
-            tx_type,
-            CALL_CONTRACT,
-            Some(*sender_address.0.key()),
+            FaultyAccountTxCreatorArgs {
+                tx_type,
+                scenario: CALL_CONTRACT,
+                additional_data: Some(*sender_address.0.key()),
+                faulty_account,
+                sender_address,
+                contract_address_salt: ContractAddressSalt::default(),
+                max_fee: None,
+            },
             nonce_manager,
-            faulty_account,
-            sender_address,
-            ContractAddressSalt::default(),
         );
         account_tx.execute(state, block_context, true, true).unwrap();
     }

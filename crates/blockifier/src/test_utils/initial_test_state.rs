@@ -13,6 +13,32 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::CairoVersion;
 use crate::transaction::objects::FeeType;
 
+// A public utility to fund an account.
+pub fn set_account_balance(
+    block_context: &BlockContext,
+    account_address: ContractAddress,
+    initial_balance: u128,
+    state: &mut CachedState<DictStateReader>,
+) {
+    fund_account(block_context, account_address, initial_balance, &mut state.state.storage_view);
+}
+
+// Utility to fund an account.
+fn fund_account(
+    block_context: &BlockContext,
+    account_address: ContractAddress,
+    initial_balance: u128,
+    storage_view: &mut HashMap<(ContractAddress, StorageKey), StarkFelt>,
+) {
+    let balance_key = get_fee_token_var_address(&account_address);
+    for fee_token in &[
+        block_context.fee_token_address(&FeeType::Strk),
+        block_context.fee_token_address(&FeeType::Eth),
+    ] {
+        storage_view.insert((*fee_token, balance_key), stark_felt!(initial_balance));
+    }
+}
+
 // Utility to set an account as minter in both fee tokens, and fund it.
 fn privileged_account(
     block_context: &BlockContext,
@@ -21,14 +47,14 @@ fn privileged_account(
     storage_view: &mut HashMap<(ContractAddress, StorageKey), StarkFelt>,
 ) {
     let minter_var_address = get_storage_var_address("permitted_minter", &[]);
-    let balance_key = get_fee_token_var_address(&account_address);
     for fee_token in &[
         block_context.fee_token_address(&FeeType::Strk),
         block_context.fee_token_address(&FeeType::Eth),
     ] {
         storage_view.insert((*fee_token, minter_var_address), *account_address.0.key());
-        storage_view.insert((*fee_token, balance_key), stark_felt!(initial_balance));
     }
+
+    fund_account(block_context, account_address, initial_balance, storage_view);
 }
 
 /// Initializes a state for testing:
