@@ -114,9 +114,12 @@ pub fn deploy_and_fund_account(
 }
 
 /// Initializes a state and returns a `TestInitData` instance.
-pub fn create_test_init_data(block_context: &BlockContext) -> TestInitData {
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+pub fn create_test_init_data(
+    block_context: &BlockContext,
+    cairo_version: CairoVersion,
+) -> TestInitData {
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = FeatureContract::TestContract(cairo_version);
     let erc20 = FeatureContract::ERC20;
     let state = test_state(block_context, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
     TestInitData {
