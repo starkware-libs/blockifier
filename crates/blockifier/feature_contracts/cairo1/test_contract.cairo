@@ -355,4 +355,38 @@ mod TestContract {
         assert(x == y, 'x != y');
         'success'
     }
+
+    #[external(v0)]
+    fn recursive_fail(ref self: ContractState, depth: felt252) {
+        if depth == 0 {
+            panic_with_felt252('recursive_fail');
+        }
+        recursive_fail(ref self, depth - 1)
+    }
+
+    #[external(v0)]
+    fn recurse(ref self: ContractState, depth: felt252) {
+        if depth == 0 {
+            return;
+        }
+        recurse(ref self, depth - 1)
+    }
+
+    #[external(v0)]
+    fn recursive_syscall(
+        ref self: ContractState,
+        contract_address: ContractAddress,
+        function_selector: felt252,
+        depth: felt252,
+    ) {
+        if depth == 0 {
+            return;
+        }
+        let calldata: Array::<felt252> = array![
+            contract_address.into(), function_selector, depth - 1
+        ];
+        syscalls::call_contract_syscall(contract_address, function_selector, calldata.span())
+            .unwrap_syscall();
+        return;
+    }
 }
