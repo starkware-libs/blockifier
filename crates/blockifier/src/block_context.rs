@@ -47,9 +47,8 @@ impl FeeTokenAddresses {
 
 #[derive(Clone, Debug)]
 pub struct GasPrices {
-    pub eth_l1_gas_price: u128, // In wei.
-    // TODO(Amos, 01/09/2023): NEW_TOKEN_SUPPORT use this gas price for V3 txs.
-    pub strk_l1_gas_price: u128, // In STRK.
+    pub eth_l1_gas_price: u128,  // In wei.
+    pub strk_l1_gas_price: u128, // In fri.
 }
 
 impl GasPrices {
