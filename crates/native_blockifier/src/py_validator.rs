@@ -4,11 +4,13 @@ use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::prelude::*;
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::TransactionVersion;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
@@ -72,8 +74,6 @@ impl PyValidator {
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let (_py_tx_execution_info, _py_bouncer_info) = self.execute(tx, raw_contract_class)?;
-            // TODO(Ayelet, 09/11/2023): Check call succeeded.
-
             return Ok(());
         }
 
@@ -91,11 +91,15 @@ impl PyValidator {
         }
 
         // `__validate__` call.
-        let (_optional_call_info, actual_cost) =
+        let (optional_call_info, actual_cost) =
             self.validate(account_tx, Transaction::initial_gas())?;
 
         // Post validations.
-        // TODO(Ayelet, 09/11/2023): Check call succeeded.
+        if account_tx_context.version() != TransactionVersion::ZERO {
+            let call_info =
+                optional_call_info.ok_or(TransactionExecutionError::ValidateInfoNone)?;
+            call_info.check_call_succeeded()?;
+        }
         self.perform_post_validation_stage(&account_tx_context, &actual_cost)?;
 
         Ok(())
