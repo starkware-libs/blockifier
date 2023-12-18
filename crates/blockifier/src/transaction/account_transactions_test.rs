@@ -2,6 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -23,7 +26,7 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
@@ -32,7 +35,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
@@ -43,13 +46,16 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test,
-    create_state_with_falliable_validation_account, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, TestInitData, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
+    FaultyAccountTxCreatorArgs, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
-use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
+use crate::{
+    check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
+    deploy_account_tx_args, invoke_tx_args,
+};
 
 #[rstest]
 fn test_fee_enforcement(
@@ -487,20 +493,19 @@ fn test_fail_deploy_account(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let mut state = create_state_with_falliable_validation_account();
-
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
-    let deployed_account_address = faulty_account_feature_contract.get_instance_address(0);
+    let state = &mut test_state(&block_context, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
-        TransactionType::DeployAccount,
-        INVALID,
-        None,
         &mut NonceManager::default(),
-        faulty_account_feature_contract,
-        deployed_account_address,
-        ContractAddressSalt::default(),
+        FaultyAccountTxCreatorArgs {
+            tx_type: TransactionType::DeployAccount,
+            scenario: INVALID,
+            class_hash: faulty_account_feature_contract.get_class_hash(),
+            max_fee: Fee(BALANCE),
+            ..Default::default()
+        },
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 
@@ -508,15 +513,18 @@ fn test_fail_deploy_account(
         AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
         _ => unreachable!("deploy_account_tx is a DeployAccount"),
     };
+    fund_account(&block_context, deploy_address, BALANCE * 2, state);
 
-    let initial_balance =
-        state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap();
-    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
+    let initial_balance = state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap();
+
+    let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
+    // Check the error is as expected. Assure the error message is not nonce or fee related.
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
-    assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
+    assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
     assert_eq!(
-        state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap(),
+        state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap(),
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
