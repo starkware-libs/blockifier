@@ -14,7 +14,7 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::objects::FeeType;
 
 /// Utility to fund an account.
-fn fund_account(
+pub fn fund_account(
     block_context: &BlockContext,
     account_address: ContractAddress,
     initial_balance: u128,

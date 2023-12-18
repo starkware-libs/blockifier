@@ -190,18 +190,51 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
     )
 }
 
+pub struct FaultyAccountTxCreatorArgs {
+    pub tx_type: TransactionType,
+    pub scenario: u64,
+    // Should be None unless scenario is CALL_CONTRACT.
+    pub additional_data: Option<StarkFelt>,
+    // Should be use with tx_type Declare or InvokeFunction.
+    pub sender_address: ContractAddress,
+    // Should be used with tx_type DeployAccount.
+    pub class_hash: ClassHash,
+    // Should be used with tx_type DeployAccount.
+    pub contract_address_salt: ContractAddressSalt,
+    pub max_fee: Fee,
+}
+
+impl Default for FaultyAccountTxCreatorArgs {
+    fn default() -> Self {
+        Self {
+            tx_type: TransactionType::InvokeFunction,
+            scenario: VALID,
+            additional_data: None,
+            sender_address: ContractAddress::default(),
+            class_hash: ClassHash::default(),
+            contract_address_salt: ContractAddressSalt::default(),
+            max_fee: Fee::default(),
+        }
+    }
+}
+
 /// Creates an account transaction to test the 'validate' method of account transactions. These
 /// transactions should be used for unit tests. For example, it is not intended to deploy a contract
 /// and later call it.
 pub fn create_account_tx_for_validate_test(
-    tx_type: TransactionType,
-    scenario: u64,
-    additional_data: Option<StarkFelt>,
     nonce_manager: &mut NonceManager,
-    faulty_account: FeatureContract,
-    sender_address: ContractAddress,
-    contract_address_salt: ContractAddressSalt,
+    faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs,
 ) -> AccountTransaction {
+    let FaultyAccountTxCreatorArgs {
+        tx_type,
+        scenario,
+        additional_data,
+        sender_address,
+        class_hash,
+        contract_address_salt,
+        max_fee,
+    } = faulty_account_tx_creator_args;
+
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
     let signature = TransactionSignature(vec![
@@ -221,7 +254,8 @@ pub fn create_account_tx_for_validate_test(
                     class_hash,
                     sender_address,
                     signature,
-                    nonce: nonce_manager.next(sender_address)
+                    nonce: nonce_manager.next(sender_address),
+                    max_fee,
                 },
                 contract_class,
             )
@@ -231,10 +265,11 @@ pub fn create_account_tx_for_validate_test(
             // sender address.
             let deploy_account_tx = deploy_account_tx(
                 deploy_account_tx_args! {
-                    class_hash: faulty_account.get_class_hash(),
+                    class_hash,
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
                     contract_address_salt,
+                    max_fee,
                 },
                 nonce_manager,
             );
@@ -248,6 +283,7 @@ pub fn create_account_tx_for_validate_test(
                 calldata: execute_calldata,
                 version: TransactionVersion::ONE,
                 nonce: nonce_manager.next(sender_address),
+                max_fee,
             });
             AccountTransaction::Invoke(invoke_tx)
         }
