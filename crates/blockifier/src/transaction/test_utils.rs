@@ -218,6 +218,11 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
 /// Creates an account transaction to test the 'validate' method of account transactions. These
 /// transactions should be used for unit tests. For example, it is not intended to deploy a contract
 /// and later call it.
+/// Note: Not all inputs are used for all transaction types.
+/// With tx_type `DECLARE` and `INVOKE_FUNCTION` the `sender_address` is used and the
+/// `contract_address_salt` is ignored.
+/// With tx_type `DEPLOY_ACCOUNT` the `sender_address` is ignored and the `contract_address_salt` is
+/// used.
 pub fn create_account_tx_for_validate_test(
     tx_type: TransactionType,
     scenario: u64,
