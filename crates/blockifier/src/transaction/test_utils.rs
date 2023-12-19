@@ -204,33 +204,56 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
     )
 }
 
-#[derive(Default)]
 pub struct FaultyAccountTxCreatorArgs {
+    pub tx_type: TransactionType,
     pub scenario: u64,
+    // Should be None unless scenario is CALL_CONTRACT.
     pub additional_data: Option<StarkFelt>,
+    // Should be use with tx_type Declare or InvokeFunction.
     pub sender_address: ContractAddress,
+    // Should be used with tx_type DeployAccount.
+    pub class_hash: ClassHash,
+    // Should be used with tx_type DeployAccount.
     pub contract_address_salt: ContractAddressSalt,
     pub max_fee: Fee,
+}
+
+impl FaultyAccountTxCreatorArgs {
+    // Should be used to create default args. Should not be used directly in tests.
+    pub fn default_args(tx_type: TransactionType) -> Self {
+        Self {
+            tx_type,
+            scenario: u64::default(),
+            additional_data: None,
+            sender_address: ContractAddress::default(),
+            class_hash: ClassHash::default(),
+            contract_address_salt: ContractAddressSalt::default(),
+            max_fee: Fee::default(),
+        }
+    }
+
+    pub fn tx_type_neutral_default_args(
+        tx_type: TransactionType,
+        sender_address: ContractAddress,
+        class_hash: ClassHash,
+    ) -> Self {
+        Self { sender_address, class_hash, ..Self::default_args(tx_type) }
+    }
 }
 
 /// Creates an account transaction to test the 'validate' method of account transactions. These
 /// transactions should be used for unit tests. For example, it is not intended to deploy a contract
 /// and later call it.
-/// Note: Not all inputs are used for all transaction types.
-/// With tx_type `DECLARE` and `INVOKE_FUNCTION` the `sender_address` is used and the
-/// `contract_address_salt` is ignored.
-/// With tx_type `DEPLOY_ACCOUNT` the `sender_address` is ignored and the `contract_address_salt` is
-/// used.
 pub fn create_account_tx_for_validate_test(
-    tx_type: TransactionType,
-    faulty_account: FeatureContract,
     nonce_manager: &mut NonceManager,
     faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs,
 ) -> AccountTransaction {
     let FaultyAccountTxCreatorArgs {
+        tx_type,
         scenario,
         additional_data,
         sender_address,
+        class_hash,
         contract_address_salt,
         max_fee,
     } = faulty_account_tx_creator_args;
@@ -265,7 +288,7 @@ pub fn create_account_tx_for_validate_test(
             // sender address.
             let deploy_account_tx = deploy_account_tx(
                 deploy_account_tx_args! {
-                    class_hash: faulty_account.get_class_hash(),
+                    class_hash,
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
                     contract_address_salt,

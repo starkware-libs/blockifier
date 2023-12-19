@@ -1365,18 +1365,21 @@ fn test_validate_accounts_tx(
     let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
     let salt_manager = &mut SaltManager::default();
 
+    let default_args = FaultyAccountTxCreatorArgs::tx_type_neutral_default_args(
+        tx_type,
+        sender_address,
+        faulty_account.get_class_hash(),
+    );
+
     // Negative flows.
 
     // Logic failure.
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        faulty_account,
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: INVALID,
-            sender_address,
             contract_address_salt: salt_manager.next_salt(),
-            ..Default::default()
+            ..default_args
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
@@ -1384,16 +1387,13 @@ fn test_validate_accounts_tx(
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        faulty_account,
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: CALL_CONTRACT,
             additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
                                                            * address of faulty_account. */
-            sender_address,
             contract_address_salt: salt_manager.next_salt(),
-            ..Default::default()
+            ..default_args
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
@@ -1435,14 +1435,11 @@ fn test_validate_accounts_tx(
     // Valid logic.
     let nonce_manager = &mut NonceManager::default();
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        faulty_account,
         nonce_manager,
         FaultyAccountTxCreatorArgs {
             scenario: VALID,
-            sender_address,
             contract_address_salt: salt_manager.next_salt(),
-            ..Default::default()
+            ..default_args
         },
     );
     account_tx.execute(state, block_context, true, true).unwrap();
@@ -1450,15 +1447,12 @@ fn test_validate_accounts_tx(
     if tx_type != TransactionType::DeployAccount {
         // Calling self (allowed).
         let account_tx = create_account_tx_for_validate_test(
-            tx_type,
-            faulty_account,
             nonce_manager,
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
                 additional_data: Some(*sender_address.0.key()),
-                sender_address,
                 contract_address_salt: ContractAddressSalt::default(),
-                ..Default::default()
+                ..default_args
             },
         );
         account_tx.execute(state, block_context, true, true).unwrap();

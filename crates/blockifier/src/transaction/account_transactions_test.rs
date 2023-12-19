@@ -498,13 +498,12 @@ fn test_fail_deploy_account(
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
-        TransactionType::DeployAccount,
-        faulty_account_feature_contract,
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: INVALID,
+            class_hash: faulty_account_feature_contract.get_class_hash(),
             max_fee: Fee(BALANCE),
-            ..Default::default()
+            ..FaultyAccountTxCreatorArgs::default_args(TransactionType::DeployAccount)
         },
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
