@@ -1443,6 +1443,25 @@ fn test_constructor_on_deploy_account_runs_in_validate_mode(
         "Unauthorized syscall call_contract in execution mode Validate.",
         ContractConstructorExecutionFailed,
     );
+
+    if let CairoVersion::Cairo1 = cairo_version {
+        // Verify that the contract does not use the syscall get_block_hash in the constructor of
+        // deploy account.
+        let account_tx = create_account_tx_for_validate_test(
+            &mut NonceManager::default(),
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_BLOCK_HASH,
+                contract_address_salt: salt_manager.next_salt(),
+                ..default_args
+            },
+        );
+        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+        check_transaction_execution_error_for_custom_hint!(
+            &error,
+            "Unauthorized syscall get_block_hash in execution mode Validate.",
+            ContractConstructorExecutionFailed,
+        );
+    }
 }
 
 // Test that we exclude the fee token contract modification and adds the account’s balance change
