@@ -56,8 +56,7 @@ use crate::test_utils::{
     CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_SEQUENCER_ADDRESS,
+    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -671,31 +670,32 @@ fn test_invoke_tx_advanced_operations() {
     );
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_state_get_fee_token_balance(
+    #[case] tx_version: TransactionVersion,
+    #[case] fee_type: FeeType,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
+    let account = FeatureContract::AccountWithoutValidations(account_version);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1), (test_contract, 1)]);
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
+    let fee_token_address = block_context.fee_token_address(&fee_type);
 
     // Mint some tokens.
-    let execute_calldata = create_calldata(
-        contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
-        "permissionedMint",
-        &[recipient, mint_low, mint_high],
-    );
+    let execute_calldata =
+        create_calldata(fee_token_address, "permissionedMint", &[recipient, mint_low, mint_high]);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
-        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        sender_address: account.get_instance_address(0),
         calldata: execute_calldata,
-        version: TransactionVersion::ONE,
+        version: tx_version,
         nonce: Nonce::default(),
     });
-    let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
