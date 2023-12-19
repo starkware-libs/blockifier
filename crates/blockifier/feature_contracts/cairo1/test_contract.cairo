@@ -2,12 +2,15 @@
 mod TestContract {
     use box::BoxTrait;
     use dict::Felt252DictTrait;
+    use ec::EcPointTrait;
     use starknet::ClassHash;
     use starknet::ContractAddress;
+    use starknet::get_execution_info;
     use starknet::StorageAddress;
     use array::ArrayTrait;
     use clone::Clone;
     use core::bytes_31::POW_2_128;
+    use core::integer::bitwise;
     use traits::Into;
     use traits::TryInto;
     use starknet::{
@@ -20,6 +23,8 @@ mod TestContract {
     #[storage]
     struct Storage {
         my_storage_var: felt252,
+        two_counters: LegacyMap<felt252, (felt252, felt252)>,
+        ec_point: (felt252, felt252),
     }
 
     #[constructor]
@@ -389,4 +394,74 @@ mod TestContract {
             .unwrap_syscall();
         return;
     }
+
+    #[derive(Drop, Serde)]
+    struct IndexAndValues {
+        index: felt252,
+        values: (u128, u128),
+    }
+
+    #[starknet::interface]
+    trait MyContract<TContractState>{
+        fn xor_counters(ref self: TContractState, index_and_x: IndexAndValues);
+    }
+
+    // Advances the 'two_counters' storage variable by 'diff'.
+    #[external(v0)]
+    fn advance_counter(ref self: ContractState, index: felt252, diff_0: felt252, diff_1: felt252) {
+        let val = self.two_counters.read(index);
+        let (val_0, val_1) = val;
+        self.two_counters.write(index, (val_0 + diff_0, val_1 + diff_1));
+    }
+
+    #[external(v0)]
+    fn xor_counters(ref self: ContractState, index_and_x: IndexAndValues) {
+        let index = index_and_x.index;
+       let (val_0, val_1) = index_and_x.values;
+       let counters = self.two_counters.read(index);
+       let (counter_0, counter_1) = counters;
+       let counter_0: u128 = counter_0.try_into().unwrap();
+       let counter_1: u128 = counter_1.try_into().unwrap();
+       let res_0: felt252 = (counter_0^val_0).into();
+       let res_1: felt252 = (counter_1^val_1).into();
+       self.two_counters.write(index, (res_0, res_1));
+    }
+
+    #[external(v0)]
+    fn call_xor_counters(ref self: ContractState, address: ContractAddress, index_and_x: IndexAndValues) {
+       MyContractDispatcher{contract_address: address}.xor_counters(index_and_x);
+    }
+
+    #[external(v0)]
+    fn test_ec_op(ref self: ContractState) {
+        let p = EcPointTrait::new(
+            0x654fd7e67a123dd13868093b3b7777f1ffef596c2e324f25ceaf9146698482c,
+            0x4fad269cbf860980e38768fe9cb6b0b9ab03ee3fe84cfde2eccce597c874fd8
+        ).unwrap();
+        let q = EcPointTrait::new(
+            0x3dbce56de34e1cfe252ead5a1f14fd261d520d343ff6b7652174e62976ef44d,
+            0x4b5810004d9272776dec83ecc20c19353453b956e594188890b48467cb53c19
+        ).unwrap();
+        let m: felt252 = 0x6d232c016ef1b12aec4b7f88cc0b3ab662be3b7dd7adbce5209fcfdbd42a504;
+        let res = q.mul(m) + p;
+        let res_nz = res.try_into().unwrap();
+        self.ec_point.write(res_nz.coordinates());
+    }
+
+    #[external(v0)]
+    fn add_signature_to_counters(ref self: ContractState, index: felt252) {
+        let signature = get_execution_info().unbox().tx_info.unbox().signature;
+        let val = self.two_counters.read(index);
+        let (val_0, val_1) = val;
+        self.two_counters.write(index, (val_0 + *signature.at(0), val_1 + *signature.at(1)));
+    }
+
+    #[external(v0)]
+    fn send_message(self: @ContractState, to_address: felt252) {
+        let mut payload = ArrayTrait::<felt252>::new();
+        payload.append(12);
+        payload.append(34);
+        starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
+
 }
