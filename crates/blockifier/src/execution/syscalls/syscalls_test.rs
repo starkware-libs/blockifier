@@ -1,6 +1,4 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::File;
-use std::io::Read;
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
@@ -30,6 +28,7 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
+use crate::block_context::BlockContext;
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
@@ -43,11 +42,12 @@ use crate::execution::syscalls::hint_processor::{
 };
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, LEGACY_TEST_CONTRACT_ADDRESS, LEGACY_TEST_CONTRACT_CAIRO1_PATH,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    create_calldata, trivial_external_entry_point, CairoVersion, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -212,14 +212,10 @@ fn test_keccak() {
     );
 }
 
-fn verify_compiler_version(file_path: &str, expected_version: &str) {
+fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
     // Read and parse file content.
-    let mut content = String::new();
-    File::open(file_path)
-        .and_then(|mut file| file.read_to_string(&mut content))
-        .expect("Unable to read the file");
     let raw_contract: serde_json::Value =
-        serde_json::from_str(&content).expect("Error parsing JSON");
+        serde_json::from_str(&contract.get_raw_class()).expect("Error parsing JSON");
 
     // Verify version.
     if let Some(compiler_version) = raw_contract["compiler_version"].as_str() {
@@ -285,28 +281,34 @@ fn test_get_execution_info(
     is_legacy: bool,
     only_query: bool,
 ) {
-    let mut state = create_test_state();
+    let legacy_contract = FeatureContract::LegacyTestContract;
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let state = &mut test_state(
+        &BlockContext::create_for_testing(),
+        BALANCE,
+        &[(legacy_contract, 1), (test_contract, 1)],
+    );
     let expected_block_info = [
         stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
         stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
         *sequencer_address.0.key(),
     ];
 
-    let mut expected_unsupported_fields: Vec<StarkFelt> = vec![];
-    if is_legacy {
-        verify_compiler_version(LEGACY_TEST_CONTRACT_CAIRO1_PATH, "2.1.0");
+    let (test_contract_address, expected_unsupported_fields) = if is_legacy {
+        verify_compiler_version(legacy_contract, "2.1.0");
+        (legacy_contract.get_instance_address(0), vec![])
     } else {
-        expected_unsupported_fields = vec![
-            StarkFelt::ZERO, // Tip.
-            StarkFelt::ZERO, // Paymaster data.
-            StarkFelt::ZERO, // Nonce DA.
-            StarkFelt::ZERO, // Fee DA.
-            StarkFelt::ZERO, // Account data.
-        ];
-    }
-
-    let test_contract_address =
-        if is_legacy { LEGACY_TEST_CONTRACT_ADDRESS } else { TEST_CONTRACT_ADDRESS };
+        (
+            test_contract.get_instance_address(0),
+            vec![
+                StarkFelt::ZERO, // Tip.
+                StarkFelt::ZERO, // Paymaster data.
+                StarkFelt::ZERO, // Nonce DA.
+                StarkFelt::ZERO, // Fee DA.
+                StarkFelt::ZERO, // Account data.
+            ],
+        )
+    };
 
     if only_query {
         let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
@@ -317,7 +319,7 @@ fn test_get_execution_info(
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(42);
     let nonce = Nonce(stark_felt!(3_u16));
-    let sender_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    let sender_address = test_contract_address;
 
     let expected_tx_info: Vec<StarkFelt>;
     let mut expected_resource_bounds: Vec<StarkFelt> = vec![];
@@ -402,12 +404,12 @@ fn test_get_execution_info(
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
         stark_felt!(0_u16),                  // Caller address.
-        stark_felt!(test_contract_address),  // Storage address.
+        *test_contract_address.0.key(),      // Storage address.
         stark_felt!(entry_point_selector.0), // Entry point selector.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
-        storage_address: contract_address!(test_contract_address),
+        storage_address: test_contract_address,
         calldata: Calldata(
             [
                 expected_block_info.to_vec(),
@@ -425,12 +427,12 @@ fn test_get_execution_info(
     let result = match execution_mode {
         ExecutionMode::Validate => entry_point_call
             .execute_directly_given_account_context_in_validate_mode(
-                &mut state,
+                state,
                 account_tx_context,
                 false,
             ),
         ExecutionMode::Execute => entry_point_call.execute_directly_given_account_context(
-            &mut state,
+            state,
             account_tx_context,
             false,
         ),
