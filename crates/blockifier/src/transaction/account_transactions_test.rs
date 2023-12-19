@@ -513,7 +513,7 @@ fn test_fail_deploy_account(
         AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
         _ => unreachable!("deploy_account_tx is a DeployAccount"),
     };
-    fund_account(&block_context, deploy_address, BALANCE * 2, &mut state.state.storage_view);
+    fund_account(&block_context, deploy_address, BALANCE * 2, state);
 
     let initial_balance = state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap();
 
