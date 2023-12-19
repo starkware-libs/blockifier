@@ -496,9 +496,10 @@ fn verify_storage_after_invoke_advanced_operations(
     assert_eq!(nonce_from_state, expected_nonce);
 }
 
-#[test]
-fn test_invoke_tx_advanced_operations() {
-    let cairo_version = CairoVersion::Cairo0;
+#[rstest]
+fn test_invoke_tx_advanced_operations(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
