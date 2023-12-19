@@ -679,16 +679,24 @@ fn test_state_get_fee_token_balance(
     let account = FeatureContract::AccountWithoutValidations(account_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(block_context, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let account_address = account.get_instance_address(0);
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
     let fee_token_address = block_context.fee_token_address(&fee_type);
+
+    // Give the account mint privileges.
+    state.set_storage_at(
+        fee_token_address,
+        get_storage_var_address("permitted_minter", &[]),
+        *account_address.0.key(),
+    );
 
     // Mint some tokens.
     let execute_calldata =
         create_calldata(fee_token_address, "permissionedMint", &[recipient, mint_low, mint_high]);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
-        sender_address: account.get_instance_address(0),
+        sender_address: account_address,
         calldata: execute_calldata,
         version: tx_version,
         nonce: Nonce::default(),
