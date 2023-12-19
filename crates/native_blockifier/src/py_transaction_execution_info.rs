@@ -178,3 +178,12 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
         }
     }
 }
+
+#[pyclass]
+#[derive(Clone, Default)]
+pub struct PyBouncerInfo {
+    #[pyo3(get)]
+    pub page_size: usize,
+    #[pyo3(get)]
+    pub vm_execution_resources: PyVmExecutionResources,
+}
