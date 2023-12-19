@@ -46,6 +46,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::create_test_state;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
+use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
@@ -70,9 +71,7 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{
-    DeployAccountTransaction, ExecutableTransaction, L1HandlerTransaction,
-};
+use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use crate::{
     check_entry_point_execution_error_for_custom_hint,
     check_transaction_execution_error_for_custom_hint,
@@ -772,9 +771,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
-        test_contract.get_class_hash(),
-        None,
-        None,
+        deploy_account_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            class_hash: test_contract.get_class_hash()
+        },
         &mut NonceManager::default(),
     ));
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
@@ -1159,23 +1159,6 @@ fn test_declare_tx(
     assert_eq!(contract_class_from_state, contract_class);
 }
 
-fn deploy_account_tx(
-    account_class_hash: ClassHash,
-    constructor_calldata: Option<Calldata>,
-    signature: Option<TransactionSignature>,
-    nonce_manager: &mut NonceManager,
-) -> DeployAccountTransaction {
-    crate::test_utils::deploy_account::deploy_account_tx(
-        deploy_account_tx_args! {
-            class_hash: account_class_hash,
-            max_fee: Fee(MAX_FEE),
-            constructor_calldata: constructor_calldata.unwrap_or_default(),
-            signature: signature.unwrap_or_default(),
-        },
-        nonce_manager,
-    )
-}
-
 #[rstest]
 #[case(83, 3893, CairoVersion::Cairo0)]
 #[case(85, 3949, CairoVersion::Cairo1)]
@@ -1189,7 +1172,10 @@ fn test_deploy_account_tx(
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let account_class_hash = account.get_class_hash();
     let state = &mut test_state(block_context, BALANCE, &[(account, 1)]);
-    let deploy_account = deploy_account_tx(account_class_hash, None, None, &mut nonce_manager);
+    let deploy_account = deploy_account_tx(
+        deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: account_class_hash },
+        &mut nonce_manager,
+    );
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -1309,7 +1295,10 @@ fn test_deploy_account_tx(
 
     // Negative flow.
     // Deploy to an existing address.
-    let deploy_account = deploy_account_tx(account_class_hash, None, None, &mut nonce_manager);
+    let deploy_account = deploy_account_tx(
+        deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: account_class_hash },
+        &mut nonce_manager,
+    );
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
@@ -1326,7 +1315,10 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     let state = &mut test_state(block_context, BALANCE, &[]);
     let mut nonce_manager = NonceManager::default();
     let undeclared_hash = class_hash!("0xdeadbeef");
-    let deploy_account = deploy_account_tx(undeclared_hash, None, None, &mut nonce_manager);
+    let deploy_account = deploy_account_tx(
+        deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: undeclared_hash },
+        &mut nonce_manager,
+    );
 
     // Fund account, so as not to fail pre-validation.
     state.set_storage_at(
