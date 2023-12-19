@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
-use starknet_api::state::StorageKey;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -14,12 +13,13 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::objects::FeeType;
 
 /// Utility to fund an account.
-fn fund_account(
+pub fn fund_account(
     block_context: &BlockContext,
     account_address: ContractAddress,
     initial_balance: u128,
-    storage_view: &mut HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    state: &mut CachedState<DictStateReader>,
 ) {
+    let storage_view = &mut state.state.storage_view;
     let balance_key = get_fee_token_var_address(&account_address);
     for fee_type in FeeType::iter() {
         storage_view.insert(
@@ -44,7 +44,6 @@ pub fn test_state(
 ) -> CachedState<DictStateReader> {
     let mut class_hash_to_class = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
-    let mut storage_view = HashMap::new();
 
     // Declare and deploy account and ERC20 contracts.
     let erc20 = FeatureContract::ERC20;
@@ -61,27 +60,29 @@ pub fn test_state(
         for instance in 0..*n_instances {
             let instance_address = contract.get_instance_address(instance);
             address_to_class_hash.insert(instance_address, class_hash);
-            // If it's an account, fund it.
+        }
+    }
+
+    let mut state = CachedState::from(DictStateReader {
+        address_to_class_hash,
+        class_hash_to_class,
+        ..Default::default()
+    });
+
+    // fund the accounts.
+    for (contract, n_instances) in contract_instances.iter() {
+        for instance in 0..*n_instances {
+            let instance_address = contract.get_instance_address(instance);
             match contract {
                 FeatureContract::AccountWithLongValidate(_)
                 | FeatureContract::AccountWithoutValidations(_)
                 | FeatureContract::FaultyAccount(_) => {
-                    fund_account(
-                        block_context,
-                        instance_address,
-                        initial_balances,
-                        &mut storage_view,
-                    );
+                    fund_account(block_context, instance_address, initial_balances, &mut state);
                 }
                 _ => (),
             }
         }
     }
 
-    CachedState::from(DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        storage_view,
-        ..Default::default()
-    })
+    state
 }
