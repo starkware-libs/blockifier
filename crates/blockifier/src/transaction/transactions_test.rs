@@ -65,9 +65,8 @@ use crate::transaction::objects::{
     TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds, CALL_CONTRACT,
+    INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -1323,8 +1322,8 @@ fn test_deploy_account_tx(
 
 #[rstest]
 fn test_fail_deploy_account_undeclared_class_hash() {
-    let mut state = create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
+    let state = &mut test_state(block_context, BALANCE, &[]);
     let mut nonce_manager = NonceManager::default();
     let undeclared_hash = class_hash!("0xdeadbeef");
     let deploy_account = deploy_account_tx(undeclared_hash, None, None, &mut nonce_manager);
@@ -1337,7 +1336,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
-    let error = account_tx.execute(&mut state, block_context, true, true).unwrap_err();
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
         TransactionExecutionError::ContractConstructorExecutionFailed(
