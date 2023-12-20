@@ -38,7 +38,6 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractC
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
@@ -1027,14 +1026,28 @@ fn declare_validate_callinfo(
     }
 }
 
-/// Expected amount of memory words changed during execution of a declare transaction.
-fn declare_expected_memory_words(version: TransactionVersion) -> usize {
-    2 * match version {
-        TransactionVersion::ZERO => 1, // 1 storage update (sender balance), no nonce change.
-        TransactionVersion::ONE => 2,  // 1 modified contract (nonce), 1 sender balance update.
-        TransactionVersion::TWO | TransactionVersion::THREE => 3, // Also set compiled class hash.
+/// Returns the expected used L1 gas due to execution of a declare transaction.
+fn declare_expected_l1_gas_usage(version: TransactionVersion) -> usize {
+    let state_changes_count = match version {
+        TransactionVersion::ZERO => StateChangesCount {
+            n_storage_updates: 1, // Sender balance.
+            ..StateChangesCount::default()
+        },
+        TransactionVersion::ONE => StateChangesCount {
+            n_storage_updates: 1,    // Sender balance.
+            n_modified_contracts: 1, // Nonce.
+            ..StateChangesCount::default()
+        },
+        TransactionVersion::TWO | TransactionVersion::THREE => StateChangesCount {
+            n_storage_updates: 1,             // Sender balance.
+            n_modified_contracts: 1,          // Nonce.
+            n_compiled_class_hash_updates: 1, // Also set compiled class hash.
+            ..StateChangesCount::default()
+        },
         version => panic!("Unsupported version {version:?}."),
-    }
+    };
+
+    get_onchain_data_cost(state_changes_count)
 }
 
 #[rstest]
@@ -1116,11 +1129,7 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (
-                abi_constants::GAS_USAGE.to_string(),
-                declare_expected_memory_words(version)
-                    * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-            ),
+            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(version)),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),

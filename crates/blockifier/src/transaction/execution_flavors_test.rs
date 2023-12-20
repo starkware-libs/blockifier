@@ -10,7 +10,6 @@ use starknet_api::transaction::{Calldata, Fee, TransactionSignature, Transaction
 use crate::block_context::BlockContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
