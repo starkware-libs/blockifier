@@ -18,8 +18,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, L2ToL1Payload,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -34,7 +34,6 @@ use crate::block_context::BlockContext;
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -48,16 +47,15 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::create_test_state;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
+use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
+use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
-    CairoVersion, NonceManager, SaltManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
+    create_calldata, test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
+    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -70,15 +68,12 @@ use crate::transaction::objects::{
     TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test, create_state_with_cairo1_account,
-    create_state_with_trivial_validation_account, l1_resource_bounds, CALL_CONTRACT, INVALID,
-    VALID,
+    account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
+    FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{
-    DeployAccountTransaction, ExecutableTransaction, L1HandlerTransaction,
-};
+use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
 use crate::{
     check_entry_point_execution_error_for_custom_hint,
     check_transaction_execution_error_for_custom_hint,
@@ -166,7 +161,6 @@ fn expected_fee_transfer_call_info(
     block_context: &BlockContext,
     account_address: ContractAddress,
     actual_fee: Fee,
-    vm_resources: VmExecutionResources,
     fee_type: &FeeType,
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
@@ -218,7 +212,7 @@ fn expected_fee_transfer_call_info(
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
-        vm_resources,
+        vm_resources: Prices::FeeTransfer(account_address, *fee_type).into(),
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
@@ -413,25 +407,6 @@ fn test_invoke_tx(
         block_context,
         sender_address,
         expected_actual_fee,
-        // TODO(Dori, 1/2/2024): The exact resources required in fee transfer depends non-trivially
-        //   on the contract address (see `normalize_address` function in `storage.cairo`; the
-        //   input is the address hashed with other arguments). Currently we differentiate between
-        //   the expected results of the fee transfer call based on the account cairo version, but
-        //   this is incorrect.
-        VmExecutionResources {
-            n_steps: match account_cairo_version {
-                CairoVersion::Cairo0 => 529,
-                CairoVersion::Cairo1 => 525,
-            },
-            n_memory_holes: match account_cairo_version {
-                CairoVersion::Cairo0 => 57,
-                CairoVersion::Cairo1 => 59,
-            },
-            builtin_instance_counter: HashMap::from([
-                (HASH_BUILTIN_NAME.to_string(), 4),
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-            ]),
-        },
         fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
@@ -507,9 +482,10 @@ fn verify_storage_after_invoke_advanced_operations(
     assert_eq!(nonce_from_state, expected_nonce);
 }
 
-#[test]
-fn test_invoke_tx_advanced_operations() {
-    let cairo_version = CairoVersion::Cairo0;
+#[rstest]
+fn test_invoke_tx_advanced_operations(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
@@ -678,31 +654,40 @@ fn test_invoke_tx_advanced_operations() {
     );
 }
 
-#[test_case(
-    &mut create_state_with_trivial_validation_account();
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account();
-    "With Cairo1 account")]
-fn test_state_get_fee_token_balance(state: &mut CachedState<DictStateReader>) {
+#[rstest]
+#[case(TransactionVersion::ONE, FeeType::Eth)]
+#[case(TransactionVersion::THREE, FeeType::Strk)]
+fn test_state_get_fee_token_balance(
+    #[case] tx_version: TransactionVersion,
+    #[case] fee_type: FeeType,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
+    let account = FeatureContract::AccountWithoutValidations(account_version);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let account_address = account.get_instance_address(0);
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
+    let fee_token_address = block_context.fee_token_address(&fee_type);
+
+    // Give the account mint privileges.
+    state.set_storage_at(
+        fee_token_address,
+        get_storage_var_address("permitted_minter", &[]),
+        *account_address.0.key(),
+    );
 
     // Mint some tokens.
-    let execute_calldata = create_calldata(
-        contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
-        "permissionedMint",
-        &[recipient, mint_low, mint_high],
-    );
+    let execute_calldata =
+        create_calldata(fee_token_address, "permissionedMint", &[recipient, mint_low, mint_high]);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
-        sender_address: contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS),
+        sender_address: account_address,
         calldata: execute_calldata,
-        version: TransactionVersion::ONE,
+        version: tx_version,
         nonce: Nonce::default(),
     });
-    let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
     account_tx.execute(state, block_context, true, true).unwrap();
 
     // Get balance from state, and validate.
@@ -775,9 +760,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Deploy.
     let invalid_tx = AccountTransaction::DeployAccount(deploy_account_tx(
-        format!("{}", test_contract.get_class_hash().0).as_str(),
-        None,
-        None,
+        deploy_account_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            class_hash: test_contract.get_class_hash()
+        },
         &mut NonceManager::default(),
     ));
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
@@ -1051,33 +1037,28 @@ fn declare_expected_l1_gas_usage(version: TransactionVersion) -> usize {
 }
 
 #[rstest]
-#[case(&mut create_state_with_trivial_validation_account(), CairoVersion::Cairo0)]
-#[case(&mut create_state_with_cairo1_account(), CairoVersion::Cairo1)]
+#[case(TransactionVersion::ZERO, CairoVersion::Cairo0)]
+#[case(TransactionVersion::ONE, CairoVersion::Cairo0)]
+#[case(TransactionVersion::TWO, CairoVersion::Cairo1)]
+#[case(TransactionVersion::THREE, CairoVersion::Cairo1)]
 fn test_declare_tx(
-    #[case] state: &mut CachedState<DictStateReader>,
-    #[case] cairo_version: CairoVersion,
-    #[values(
-        TransactionVersion::ZERO,
-        TransactionVersion::ONE,
-        TransactionVersion::TWO,
-        TransactionVersion::THREE
-    )]
-    version: TransactionVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
+    #[case] tx_version: TransactionVersion,
+    #[case] empty_contract_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
-    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    let sender_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
-    let contract_class = if version < TransactionVersion::TWO {
-        ContractClass::V0(ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH))
-    } else {
-        ContractClass::V1(ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH))
-    };
+    let empty_contract = FeatureContract::Empty(empty_contract_version);
+    let account = FeatureContract::AccountWithoutValidations(account_cairo_version);
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1)]);
+    let class_hash = empty_contract.get_class_hash();
+    let contract_class = empty_contract.get_class();
+    let sender_address = account.get_instance_address(0);
 
     let account_tx = declare_tx(
         declare_tx_args! {
             max_fee: Fee(MAX_FEE),
             sender_address,
-            version,
+            version: tx_version,
             resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
             class_hash,
         },
@@ -1094,13 +1075,12 @@ fn test_declare_tx(
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
-    let expected_account_address = contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS);
     let expected_validate_call_info = declare_validate_callinfo(
-        version,
-        cairo_version,
+        tx_version,
+        account_cairo_version,
         class_hash,
-        class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH),
-        expected_account_address,
+        account.get_class_hash(),
+        sender_address,
     );
 
     // Build expected fee transfer call info.
@@ -1108,18 +1088,10 @@ fn test_declare_tx(
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         block_context,
-        expected_account_address,
+        sender_address,
         expected_actual_fee,
-        VmExecutionResources {
-            n_steps: 525,
-            n_memory_holes: 59,
-            builtin_instance_counter: HashMap::from([
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-                (HASH_BUILTIN_NAME.to_string(), 4),
-            ]),
-        },
         fee_type,
-        class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH),
+        FeatureContract::ERC20.get_class_hash(),
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -1129,13 +1101,16 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(version)),
+            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
-                declare_expected_range_check_builtin(version, cairo_version),
+                declare_expected_range_check_builtin(tx_version, account_cairo_version),
             ),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), declare_n_steps(version, cairo_version)),
+            (
+                abi_constants::N_STEPS_RESOURCE.to_string(),
+                declare_n_steps(tx_version, account_cairo_version),
+            ),
         ])),
     };
 
@@ -1144,7 +1119,7 @@ fn test_declare_tx(
 
     // Test nonce update. V0 transactions do not update nonce.
     let expected_nonce =
-        Nonce(stark_felt!(if version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 }));
+        Nonce(stark_felt!(if tx_version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 }));
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
     assert_eq!(nonce_from_state, expected_nonce);
 
@@ -1153,7 +1128,7 @@ fn test_declare_tx(
         state,
         block_context,
         expected_actual_fee,
-        test_erc20_account_balance_key(),
+        get_fee_token_var_address(&sender_address),
         fee_type,
         BALANCE,
         BALANCE,
@@ -1164,46 +1139,23 @@ fn test_declare_tx(
     assert_eq!(contract_class_from_state, contract_class);
 }
 
-// TODO(Dori, 1/1/2024): Input account class hash should be of type `ClassHash`.
-fn deploy_account_tx(
-    account_class_hash: &str,
-    constructor_calldata: Option<Calldata>,
-    signature: Option<TransactionSignature>,
-    nonce_manager: &mut NonceManager,
-) -> DeployAccountTransaction {
-    crate::test_utils::deploy_account::deploy_account_tx(
-        deploy_account_tx_args! {
-            class_hash: class_hash!(account_class_hash),
-            max_fee: Fee(MAX_FEE),
-            constructor_calldata: constructor_calldata.unwrap_or_default(),
-            signature: signature.unwrap_or_default(),
-        },
-        nonce_manager,
-    )
-}
-
-#[test_case(
-    &mut create_state_with_trivial_validation_account(),
-    83, // range_check_builtin
-    3893, // n_steps
-    CairoVersion::Cairo0;
-    "With Cairo0 account")]
-#[test_case(
-    &mut create_state_with_cairo1_account(),
-    85, // range_check_builtin
-    3949, // n_steps
-    CairoVersion::Cairo1;
-    "With Cairo1 account")]
+#[rstest]
+#[case(83, 3893, CairoVersion::Cairo0)]
+#[case(85, 3949, CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
-    state: &mut CachedState<DictStateReader>,
-    expected_range_check_builtin: usize,
-    expected_n_steps_resource: usize,
-    cairo_version: CairoVersion,
+    #[case] expected_range_check_builtin: usize,
+    #[case] expected_n_steps_resource: usize,
+    #[case] cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let mut nonce_manager = NonceManager::default();
-    let deploy_account =
-        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let account_class_hash = account.get_class_hash();
+    let state = &mut test_state(block_context, BALANCE, &[(account, 1)]);
+    let deploy_account = deploy_account_tx(
+        deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: account_class_hash },
+        &mut nonce_manager,
+    );
 
     // Extract deploy account transaction fields for testing, as it is consumed when creating an
     // account transaction.
@@ -1230,10 +1182,9 @@ fn test_deploy_account_tx(
     // Build expected validate call info.
     let validate_calldata =
         concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
-    let expected_account_class_hash = class_hash!(TEST_ACCOUNT_CONTRACT_CLASS_HASH);
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
-        expected_account_class_hash,
+        account_class_hash,
         constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
         expected_gas_consumed,
         Calldata(validate_calldata.into()),
@@ -1244,7 +1195,7 @@ fn test_deploy_account_tx(
     // Build expected execute call info.
     let expected_execute_call_info = Some(CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(expected_account_class_hash),
+            class_hash: Some(account_class_hash),
             code_address: None,
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
@@ -1262,16 +1213,8 @@ fn test_deploy_account_tx(
         block_context,
         deployed_account_address,
         expected_actual_fee,
-        VmExecutionResources {
-            n_steps: 529,
-            n_memory_holes: 57,
-            builtin_instance_counter: HashMap::from([
-                (HASH_BUILTIN_NAME.to_string(), 4),
-                (RANGE_CHECK_BUILTIN_NAME.to_string(), 21),
-            ]),
-        },
         fee_type,
-        class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH),
+        FeatureContract::ERC20.get_class_hash(),
     );
 
     let expected_execution_info = TransactionExecutionInfo {
@@ -1320,8 +1263,10 @@ fn test_deploy_account_tx(
 
     // Negative flow.
     // Deploy to an existing address.
-    let deploy_account =
-        deploy_account_tx(TEST_ACCOUNT_CONTRACT_CLASS_HASH, None, None, &mut nonce_manager);
+    let deploy_account = deploy_account_tx(
+        deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: account_class_hash },
+        &mut nonce_manager,
+    );
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
@@ -1334,11 +1279,14 @@ fn test_deploy_account_tx(
 
 #[rstest]
 fn test_fail_deploy_account_undeclared_class_hash() {
-    let mut state = create_state_with_trivial_validation_account();
     let block_context = &BlockContext::create_for_account_testing();
+    let state = &mut test_state(block_context, BALANCE, &[]);
     let mut nonce_manager = NonceManager::default();
-    let undeclared_hash = "0xdeadbeef";
-    let deploy_account = deploy_account_tx(undeclared_hash, None, None, &mut nonce_manager);
+    let undeclared_hash = class_hash!("0xdeadbeef");
+    let deploy_account = deploy_account_tx(
+        deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: undeclared_hash },
+        &mut nonce_manager,
+    );
 
     // Fund account, so as not to fail pre-validation.
     state.set_storage_at(
@@ -1348,13 +1296,13 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
-    let error = account_tx.execute(&mut state, block_context, true, true).unwrap_err();
+    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
         TransactionExecutionError::ContractConstructorExecutionFailed(
             EntryPointExecutionError::StateError(StateError::UndeclaredClassHash(class_hash))
         )
-        if class_hash == class_hash!(undeclared_hash)
+        if class_hash == undeclared_hash
     );
 }
 
@@ -1373,33 +1321,37 @@ fn test_validate_accounts_tx(
     let account_balance = 0;
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
     let sender_address = faulty_account.get_instance_address(0);
+    let class_hash = faulty_account.get_class_hash();
     let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
     let salt_manager = &mut SaltManager::default();
+
+    let default_args =
+        FaultyAccountTxCreatorArgs { tx_type, sender_address, class_hash, ..Default::default() };
 
     // Negative flows.
 
     // Logic failure.
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        INVALID,
-        None,
         &mut NonceManager::default(),
-        faulty_account,
-        sender_address,
-        salt_manager.next_salt(),
+        FaultyAccountTxCreatorArgs {
+            scenario: INVALID,
+            contract_address_salt: salt_manager.next_salt(),
+            ..default_args
+        },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        CALL_CONTRACT,
-        Some(stark_felt!("0x1991")), // Some address different than the address of faulty_account.
         &mut NonceManager::default(),
-        faulty_account,
-        sender_address,
-        salt_manager.next_salt(),
+        FaultyAccountTxCreatorArgs {
+            scenario: CALL_CONTRACT,
+            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
+                                                           * address of faulty_account. */
+            contract_address_salt: salt_manager.next_salt(),
+            ..default_args
+        },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
@@ -1415,7 +1367,7 @@ fn test_validate_accounts_tx(
         // constructor (forbidden).
         let deploy_account_tx = crate::test_utils::deploy_account::deploy_account_tx(
             deploy_account_tx_args! {
-                class_hash: faulty_account.get_class_hash(),
+                class_hash,
                 constructor_calldata: calldata![stark_felt!(constants::FELT_TRUE)],
                 // Run faulty_validate() in the constructor.
                 signature: TransactionSignature(vec![
@@ -1435,31 +1387,48 @@ fn test_validate_accounts_tx(
         );
     }
 
+    if let CairoVersion::Cairo1 = cairo_version {
+        // Trying to use the syscall get_block_hash (forbidden).
+        // TODO(Arni, 12/12/2023): Test this scenario with the constructor.
+        let account_tx = create_account_tx_for_validate_test(
+            &mut NonceManager::default(),
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_BLOCK_HASH,
+                contract_address_salt: salt_manager.next_salt(),
+                ..default_args
+            },
+        );
+        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+        check_transaction_execution_error_for_custom_hint!(
+            &error,
+            "Unauthorized syscall get_block_hash in execution mode Validate.",
+            ValidateTransactionError,
+        );
+    }
+
     // Positive flows.
 
     // Valid logic.
     let nonce_manager = &mut NonceManager::default();
     let account_tx = create_account_tx_for_validate_test(
-        tx_type,
-        VALID,
-        None,
         nonce_manager,
-        faulty_account,
-        sender_address,
-        salt_manager.next_salt(),
+        FaultyAccountTxCreatorArgs {
+            scenario: VALID,
+            contract_address_salt: salt_manager.next_salt(),
+            ..default_args
+        },
     );
     account_tx.execute(state, block_context, true, true).unwrap();
 
     if tx_type != TransactionType::DeployAccount {
         // Calling self (allowed).
         let account_tx = create_account_tx_for_validate_test(
-            tx_type,
-            CALL_CONTRACT,
-            Some(*sender_address.0.key()),
             nonce_manager,
-            faulty_account,
-            sender_address,
-            ContractAddressSalt::default(),
+            FaultyAccountTxCreatorArgs {
+                scenario: CALL_CONTRACT,
+                additional_data: Some(*sender_address.0.key()),
+                ..default_args
+            },
         );
         account_tx.execute(state, block_context, true, true).unwrap();
     }

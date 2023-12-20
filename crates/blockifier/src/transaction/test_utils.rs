@@ -14,7 +14,7 @@ use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -24,10 +24,8 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    create_calldata, test_erc20_account_balance_key, test_erc20_faulty_account_balance_key,
-    CairoVersion, NonceManager, ACCOUNT_CONTRACT_CAIRO0_PATH, ACCOUNT_CONTRACT_CAIRO1_PATH,
-    BALANCE, ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    create_calldata, test_erc20_faulty_account_balance_key, CairoVersion, NonceManager, BALANCE,
+    ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
     TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
     TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
@@ -43,6 +41,7 @@ use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
+pub const GET_BLOCK_HASH: u64 = 3;
 
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
@@ -114,9 +113,12 @@ pub fn deploy_and_fund_account(
 }
 
 /// Initializes a state and returns a `TestInitData` instance.
-pub fn create_test_init_data(block_context: &BlockContext) -> TestInitData {
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+pub fn create_test_init_data(
+    block_context: &BlockContext,
+    cairo_version: CairoVersion,
+) -> TestInitData {
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = FeatureContract::TestContract(cairo_version);
     let erc20 = FeatureContract::ERC20;
     let state = test_state(block_context, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
     TestInitData {
@@ -175,33 +177,6 @@ pub fn create_account_tx_test_state(
     })
 }
 
-pub fn create_state_with_trivial_validation_account() -> CachedState<DictStateReader> {
-    let account_balance = BALANCE;
-    create_account_tx_test_state(
-        ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
-        test_erc20_account_balance_key(),
-        account_balance,
-        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
-    )
-}
-
-pub fn create_state_with_cairo1_account() -> CachedState<DictStateReader> {
-    let account_balance = BALANCE;
-    create_account_tx_test_state(
-        ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
-        TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_ACCOUNT_CONTRACT_ADDRESS,
-        test_erc20_account_balance_key(),
-        account_balance,
-        // TODO(Mohammad,01/08/2023): Use Cairo 1 test contract.
-        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
-    )
-}
-
 pub fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
     let account_balance = BALANCE;
     create_account_tx_test_state(
@@ -215,18 +190,51 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
     )
 }
 
+pub struct FaultyAccountTxCreatorArgs {
+    pub tx_type: TransactionType,
+    pub scenario: u64,
+    // Should be None unless scenario is CALL_CONTRACT.
+    pub additional_data: Option<StarkFelt>,
+    // Should be use with tx_type Declare or InvokeFunction.
+    pub sender_address: ContractAddress,
+    // Should be used with tx_type DeployAccount.
+    pub class_hash: ClassHash,
+    // Should be used with tx_type DeployAccount.
+    pub contract_address_salt: ContractAddressSalt,
+    pub max_fee: Fee,
+}
+
+impl Default for FaultyAccountTxCreatorArgs {
+    fn default() -> Self {
+        Self {
+            tx_type: TransactionType::InvokeFunction,
+            scenario: VALID,
+            additional_data: None,
+            sender_address: ContractAddress::default(),
+            class_hash: ClassHash::default(),
+            contract_address_salt: ContractAddressSalt::default(),
+            max_fee: Fee::default(),
+        }
+    }
+}
+
 /// Creates an account transaction to test the 'validate' method of account transactions. These
 /// transactions should be used for unit tests. For example, it is not intended to deploy a contract
 /// and later call it.
 pub fn create_account_tx_for_validate_test(
-    tx_type: TransactionType,
-    scenario: u64,
-    additional_data: Option<StarkFelt>,
     nonce_manager: &mut NonceManager,
-    faulty_account: FeatureContract,
-    sender_address: ContractAddress,
-    contract_address_salt: ContractAddressSalt,
+    faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs,
 ) -> AccountTransaction {
+    let FaultyAccountTxCreatorArgs {
+        tx_type,
+        scenario,
+        additional_data,
+        sender_address,
+        class_hash,
+        contract_address_salt,
+        max_fee,
+    } = faulty_account_tx_creator_args;
+
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
     let signature = TransactionSignature(vec![
@@ -246,7 +254,8 @@ pub fn create_account_tx_for_validate_test(
                     class_hash,
                     sender_address,
                     signature,
-                    nonce: nonce_manager.next(sender_address)
+                    nonce: nonce_manager.next(sender_address),
+                    max_fee,
                 },
                 contract_class,
             )
@@ -256,10 +265,11 @@ pub fn create_account_tx_for_validate_test(
             // sender address.
             let deploy_account_tx = deploy_account_tx(
                 deploy_account_tx_args! {
-                    class_hash: faulty_account.get_class_hash(),
+                    class_hash,
                     constructor_calldata: calldata![stark_felt!(constants::FELT_FALSE)],
                     signature,
                     contract_address_salt,
+                    max_fee,
                 },
                 nonce_manager,
             );
@@ -273,6 +283,7 @@ pub fn create_account_tx_for_validate_test(
                 calldata: execute_calldata,
                 version: TransactionVersion::ONE,
                 nonce: nonce_manager.next(sender_address),
+                max_fee,
             });
             AccountTransaction::Invoke(invoke_tx)
         }

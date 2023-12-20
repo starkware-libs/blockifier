@@ -2,6 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -23,7 +26,7 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
@@ -32,7 +35,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
@@ -43,13 +46,16 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test,
-    create_state_with_falliable_validation_account, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, TestInitData, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
+    FaultyAccountTxCreatorArgs, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
-use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
+use crate::{
+    check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
+    deploy_account_tx_args, invoke_tx_args,
+};
 
 #[rstest]
 fn test_fee_enforcement(
@@ -81,7 +87,7 @@ fn test_fee_enforcement(
 #[case(TransactionVersion::THREE)]
 fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: TransactionVersion) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
@@ -113,7 +119,7 @@ fn test_account_flow_test(
     #[values(true, false)] only_query: bool,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
 
     // Invoke a function from the newly deployed contract.
     run_invoke_tx(
@@ -145,7 +151,7 @@ fn test_invoke_tx_from_non_deployed_account(
     #[case] tx_version: TransactionVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address: _, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
 
@@ -198,7 +204,7 @@ fn test_infinite_recursion(
     block_context.invoke_tx_max_n_steps = 4000;
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
 
     let recursion_depth = if success { 3_u32 } else { 1000_u32 };
 
@@ -251,7 +257,7 @@ fn test_max_fee_limit_validate(
     max_resource_bounds: ResourceBoundsMapping,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
     let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
 
@@ -357,12 +363,13 @@ fn test_max_fee_limit_validate(
 #[case(TransactionVersion::THREE)]
 fn test_recursion_depth_exceeded(
     #[case] tx_version: TransactionVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     block_context: BlockContext,
     max_fee: Fee,
     max_resource_bounds: ResourceBoundsMapping,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, cairo_version);
 
     // Positive test
 
@@ -486,20 +493,19 @@ fn test_fail_deploy_account(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let mut state = create_state_with_falliable_validation_account();
-
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
-    let deployed_account_address = faulty_account_feature_contract.get_instance_address(0);
+    let state = &mut test_state(&block_context, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
-        TransactionType::DeployAccount,
-        INVALID,
-        None,
         &mut NonceManager::default(),
-        faulty_account_feature_contract,
-        deployed_account_address,
-        ContractAddressSalt::default(),
+        FaultyAccountTxCreatorArgs {
+            tx_type: TransactionType::DeployAccount,
+            scenario: INVALID,
+            class_hash: faulty_account_feature_contract.get_class_hash(),
+            max_fee: Fee(BALANCE),
+            ..Default::default()
+        },
     );
     let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
 
@@ -507,15 +513,18 @@ fn test_fail_deploy_account(
         AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
         _ => unreachable!("deploy_account_tx is a DeployAccount"),
     };
+    fund_account(&block_context, deploy_address, BALANCE * 2, state);
 
-    let initial_balance =
-        state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap();
-    deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
+    let initial_balance = state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap();
+
+    let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
+    // Check the error is as expected. Assure the error message is not nonce or fee related.
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error);
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
-    assert_eq!(state.get_nonce_at(deployed_account_address).unwrap(), Nonce(stark_felt!(0_u8)));
+    assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
     assert_eq!(
-        state.get_fee_token_balance(&deployed_account_address, &fee_token_address).unwrap(),
+        state.get_fee_token_balance(&deploy_address, &fee_token_address).unwrap(),
         initial_balance
     );
     assert_eq!(state.get_class_hash_at(deploy_address).unwrap(), ClassHash::default());
@@ -525,7 +534,7 @@ fn test_fail_deploy_account(
 /// Tests that a failing declare transaction should not change state (no fee charge or nonce bump).
 fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     let TestInitData { mut state, account_address, mut nonce_manager, .. } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
     let contract_class = ContractClass::V1(ContractClassV1::default());
     let next_nonce = nonce_manager.next(account_address);
@@ -596,9 +605,10 @@ fn test_reverted_reach_steps_limit(
     max_resource_bounds: ResourceBoundsMapping,
     mut block_context: BlockContext,
     #[case] version: TransactionVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, cairo_version);
 
     // Limit the number of execution steps (so we quickly hit the limit).
     block_context.invoke_tx_max_n_steps = 5000;
@@ -696,9 +706,13 @@ fn test_reverted_reach_steps_limit(
 /// Tests that n_steps and actual_fees of reverted transactions invocations are consistent.
 /// In this test reverted transactions are recursive function invocations where the innermost call
 /// asserts false. We test deltas between consecutive depths, and further depths.
-fn test_n_reverted_steps(max_fee: Fee, block_context: BlockContext) {
+fn test_n_reverted_steps(
+    max_fee: Fee,
+    block_context: BlockContext,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, cairo_version);
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -803,7 +817,7 @@ fn test_max_fee_to_max_steps_conversion(
     #[case] version: TransactionVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, CairoVersion::Cairo0);
     let actual_gas_used = 6108;
     let actual_fee = actual_gas_used as u128 * 100000000000;
     let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
@@ -867,9 +881,12 @@ fn test_max_fee_to_max_steps_conversion(
 #[rstest]
 /// Tests that transactions with insufficient max_fee are reverted, the correct revert_error is
 /// recorded and max_fee is charged.
-fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
+fn test_insufficient_max_fee_reverts(
+    block_context: BlockContext,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context);
+        create_test_init_data(&block_context, cairo_version);
     let recursion_base_args = invoke_tx_args! {
         sender_address: account_address,
         version: TransactionVersion::ONE,
