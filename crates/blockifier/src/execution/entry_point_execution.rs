@@ -56,7 +56,7 @@ pub fn execute_entry_point_call(
 ) -> EntryPointExecutionResult<CallInfo> {
     // Fetch the class hash from `call`.
     let class_hash = call.class_hash.ok_or(EntryPointExecutionError::InternalError(
-        "CallEntryPoint::class_hash must not be None when calling execute_entry_point_call.".into(),
+        "Class hash must not be None when executing an entry point.".into(),
     ))?;
 
     let VmExecutionContext {
@@ -93,22 +93,13 @@ pub fn execute_entry_point_call(
     )?;
 
     // Collect the set PC values that were visited during the entry point execution.
-    let mut class_visited_pcs = HashSet::new();
-    vm.relocate_trace(&[1, 1 + program_segment_size])?;
-    for trace_entry in vm.get_relocated_trace()? {
-        let pc = trace_entry.pc;
-        if pc < 1 {
-            return Err(EntryPointExecutionError::InternalError(format!(
-                "Invalid PC value {pc} in trace."
-            )));
-        }
-        let real_pc = pc - 1;
-        if real_pc < bytecode_length {
-            class_visited_pcs.insert(real_pc);
-        }
-    }
-
-    syscall_handler.state.add_visited_pcs(class_hash, &class_visited_pcs);
+    register_visited_pcs(
+        &mut vm,
+        syscall_handler.state,
+        class_hash,
+        program_segment_size,
+        bytecode_length,
+    )?;
 
     let call_info = finalize_execution(
         vm,
@@ -125,6 +116,38 @@ pub fn execute_entry_point_call(
     }
 
     Ok(call_info)
+}
+
+// Collects the set PC values that were visited during the entry point execution.
+fn register_visited_pcs(
+    vm: &mut VirtualMachine,
+    state: &mut dyn State,
+    class_hash: starknet_api::core::ClassHash,
+    program_segment_size: usize,
+    bytecode_length: usize,
+) -> Result<(), EntryPointExecutionError> {
+    let mut class_visited_pcs = HashSet::new();
+    // Relocate the trace, putting the program segment at address 1 and the execution segment right
+    // after it.
+    // TODO(lior): Avoid unnecessary relocation once the VM has a non-relocated `get_trace()`
+    //   function.
+    vm.relocate_trace(&[1, 1 + program_segment_size])?;
+    for trace_entry in vm.get_relocated_trace()? {
+        let pc = trace_entry.pc;
+        if pc < 1 {
+            return Err(EntryPointExecutionError::InternalError(format!(
+                "Invalid PC value {pc} in trace."
+            )));
+        }
+        let real_pc = pc - 1;
+        // Jumping to a PC that is not inside the bytecode is possible. For example, to obtain
+        // the builtin costs. Filter out these values.
+        if real_pc < bytecode_length {
+            class_visited_pcs.insert(real_pc);
+        }
+    }
+    state.add_visited_pcs(class_hash, &class_visited_pcs);
+    Ok(())
 }
 
 pub fn initialize_execution_context<'a>(
