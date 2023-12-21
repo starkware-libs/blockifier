@@ -37,9 +37,10 @@ use crate::execution::call_info::{
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::{calculate_tx_gas_usage, estimate_minimal_l1_gas};
+use crate::fee::gas_usage::{
+    calculate_tx_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
+};
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -416,8 +417,14 @@ fn test_invoke_tx(
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            // 1 modified contract, 1 storage update (sender balance).
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2) * 612),
+            (
+                abi_constants::GAS_USAGE.to_string(),
+                get_onchain_data_cost(StateChangesCount {
+                    n_storage_updates: 1,
+                    n_modified_contracts: 1,
+                    ..StateChangesCount::default()
+                }),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -1005,14 +1012,28 @@ fn declare_validate_callinfo(
     }
 }
 
-/// Expected amount of memory words changed during execution of a declare transaction.
-fn declare_expected_memory_words(version: TransactionVersion) -> usize {
-    2 * match version {
-        TransactionVersion::ZERO => 1, // 1 storage update (sender balance), no nonce change.
-        TransactionVersion::ONE => 2,  // 1 modified contract (nonce), 1 sender balance update.
-        TransactionVersion::TWO | TransactionVersion::THREE => 3, // Also set compiled class hash.
+/// Returns the expected used L1 gas due to execution of a declare transaction.
+fn declare_expected_l1_gas_usage(version: TransactionVersion) -> usize {
+    let state_changes_count = match version {
+        TransactionVersion::ZERO => StateChangesCount {
+            n_storage_updates: 1, // Sender balance.
+            ..StateChangesCount::default()
+        },
+        TransactionVersion::ONE => StateChangesCount {
+            n_storage_updates: 1,    // Sender balance.
+            n_modified_contracts: 1, // Nonce.
+            ..StateChangesCount::default()
+        },
+        TransactionVersion::TWO | TransactionVersion::THREE => StateChangesCount {
+            n_storage_updates: 1,             // Sender balance.
+            n_modified_contracts: 1,          // Nonce.
+            n_compiled_class_hash_updates: 1, // Also set compiled class hash.
+            ..StateChangesCount::default()
+        },
         version => panic!("Unsupported version {version:?}."),
-    }
+    };
+
+    get_onchain_data_cost(state_changes_count)
 }
 
 #[rstest]
@@ -1080,11 +1101,7 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (
-                abi_constants::GAS_USAGE.to_string(),
-                declare_expected_memory_words(tx_version)
-                    * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-            ),
+            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1207,8 +1224,15 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            // 1 modified contract, 1 storage update (sender balance) + 1 class_hash update.
-            (abi_constants::GAS_USAGE.to_string(), (2 + 2 + 1) * 612),
+            (
+                abi_constants::GAS_USAGE.to_string(),
+                get_onchain_data_cost(StateChangesCount {
+                    n_storage_updates: 1,
+                    n_modified_contracts: 1,
+                    n_class_hash_updates: 1,
+                    ..StateChangesCount::default()
+                }),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -1629,7 +1653,7 @@ fn test_l1_handler() {
         (HASH_BUILTIN_NAME.to_string(), 11),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::GAS_USAGE.to_string(), 18471),
+        (abi_constants::GAS_USAGE.to_string(), 17675),
     ]));
 
     // Build the expected execution info.
