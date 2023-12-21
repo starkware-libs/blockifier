@@ -34,14 +34,14 @@ where
         let rhs = self.get_point_by_id(request.rhs_id)?;
         let result = *lhs + *rhs;
         let ec_point_id = self.allocate_point(result.into());
-        Ok(SecpOpRespone { ec_point_id })
+        Ok(SecpOpResponse { ec_point_id })
     }
 
     pub fn secp_mul(&mut self, request: SecpMulRequest) -> SyscallResult<SecpMulResponse> {
         let ep_point = self.get_point_by_id(request.ec_point_id)?;
         let result = *ep_point * Curve::ScalarField::from(request.multiplier);
         let ec_point_id = self.allocate_point(result.into());
-        Ok(SecpOpRespone { ec_point_id })
+        Ok(SecpOpResponse { ec_point_id })
     }
 
     pub fn secp_get_point_from_x(
@@ -130,7 +130,7 @@ pub struct EcPointCoordinates {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct SecpOpRespone {
+pub struct SecpOpResponse {
     pub ec_point_id: usize,
 }
 
@@ -161,7 +161,7 @@ impl SyscallResponse for SecpOptionalEcPointResponse {
     }
 }
 
-impl SyscallResponse for SecpOpRespone {
+impl SyscallResponse for SecpOpResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         write_maybe_relocatable(vm, ptr, self.ec_point_id)?;
         Ok(())
@@ -182,14 +182,14 @@ impl SyscallRequest for SecpAddRequest {
     }
 }
 
-type SecpAddResponse = SecpOpRespone;
+type SecpAddResponse = SecpOpResponse;
 
 pub fn secp256k1_add(
     request: SecpAddRequest,
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
-) -> SyscallResult<SecpOpRespone> {
+) -> SyscallResult<SecpOpResponse> {
     syscall_handler.secp256k1_hint_processor.secp_add(request)
 }
 
@@ -198,7 +198,7 @@ pub fn secp256r1_add(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
     _remaining_gas: &mut u64,
-) -> SyscallResult<SecpOpRespone> {
+) -> SyscallResult<SecpOpResponse> {
     syscall_handler.secp256r1_hint_processor.secp_add(request)
 }
 
@@ -298,7 +298,7 @@ impl SyscallRequest for SecpMulRequest {
     }
 }
 
-type SecpMulResponse = SecpOpRespone;
+type SecpMulResponse = SecpOpResponse;
 
 pub fn secp256k1_mul(
     request: SecpMulRequest,

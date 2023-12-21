@@ -1088,7 +1088,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(expected_modified_contracts_2, storage_updates_2.modified_contracts);
     assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
 
-    // Transfer transaction: transfer 1 ETH to recepient.
+    // Transfer transaction: transfer 1 ETH to recipient.
     let mut state = CachedState::create_transactional(&mut state);
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
@@ -1101,7 +1101,7 @@ fn test_count_actual_storage_changes(
     let storage_updates_transfer = &state
         .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
         .unwrap();
-    let transfer_receipient_storage_change = (
+    let transfer_recipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(&contract_address!(recipient))),
         felt_to_stark_felt(&transfer_amount),
     );
@@ -1111,7 +1111,7 @@ fn test_count_actual_storage_changes(
 
     let expected_modified_contracts_transfer = HashSet::from([account_address]);
     let expected_storage_update_transfer = HashMap::from([
-        transfer_receipient_storage_change,
+        transfer_recipient_storage_change,
         fee_nullify_storage_change,
         expected_sequencer_fee_update,
     ]);
