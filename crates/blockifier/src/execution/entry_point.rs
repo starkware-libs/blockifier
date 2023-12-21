@@ -133,7 +133,7 @@ pub struct ExecutionResources {
     pub syscall_counter: SyscallCounter,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct EntryPointExecutionContext {
     pub block_context: BlockContext,
     pub account_tx_context: AccountTransactionContext,
