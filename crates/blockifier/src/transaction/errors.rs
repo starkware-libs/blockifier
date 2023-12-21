@@ -56,11 +56,11 @@ pub enum TransactionExecutionError {
          version {cairo_version:?}."
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
-    #[error("Contract constructor execution has failed: {0}.")]
+    #[error("Contract constructor execution has failed: {0}")]
     ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
-    #[error("Transaction execution has failed: {0}.")]
+    #[error("Transaction execution has failed: {0}")]
     ExecutionError(#[source] EntryPointExecutionError),
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
@@ -86,7 +86,7 @@ pub enum TransactionExecutionError {
     TransactionPreValidationError(#[from] TransactionPreValidationError),
     #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
-    #[error("Transaction validation has failed: {0}.")]
+    #[error("Transaction validation has failed: {0}")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
 }
 
