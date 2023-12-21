@@ -140,7 +140,7 @@ impl<S: StateReader> CachedState<S> {
         self.global_class_hash_to_class = global_contract_cache;
     }
 
-    pub fn update_visited_pc_cache(&mut self, visited_pcs: &HashMap<ClassHash, HashSet<usize>>) {
+    pub fn update_visited_pcs_cache(&mut self, visited_pcs: &HashMap<ClassHash, HashSet<usize>>) {
         for (class_hash, class_visited_pcs) in visited_pcs {
             self.add_visited_pcs(*class_hash, class_visited_pcs);
         }
@@ -633,7 +633,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             self.class_hash_to_class,
             self.global_class_hash_to_class,
         );
-        state.update_visited_pc_cache(&self.visited_pcs);
+        state.update_visited_pcs_cache(&self.visited_pcs);
     }
 
     /// Drops `self`.

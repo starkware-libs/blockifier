@@ -138,8 +138,8 @@ impl<S: StateReader> TransactionExecutor<S> {
             self.state.move_classes_to_global_cache();
         }
 
-        // Extract visited_pcs from block_context, and convert it to a python-friendly type.
-        let visited_pcs_vec = self
+        // Extract visited PCs from block_context, and convert it to a python-friendly type.
+        let visited_pcs = self
             .state
             .visited_pcs
             .iter()
@@ -150,7 +150,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             })
             .collect();
 
-        (PyStateDiff::from(self.state.to_state_diff()), visited_pcs_vec)
+        (PyStateDiff::from(self.state.to_state_diff()), visited_pcs)
     }
 
     // Block pre-processing; see `block_execution::pre_process_block` documentation.
@@ -177,7 +177,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             finalized_transactional_state.class_hash_to_class,
             finalized_transactional_state.global_class_hash_to_class,
         );
-        self.state.update_visited_pc_cache(&finalized_transactional_state.visited_pcs);
+        self.state.update_visited_pcs_cache(&finalized_transactional_state.visited_pcs);
 
         self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
 

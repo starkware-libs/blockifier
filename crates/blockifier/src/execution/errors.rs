@@ -125,8 +125,8 @@ impl VirtualMachineExecutionError {
 pub enum EntryPointExecutionError {
     #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
     ExecutionFailed { error_data: Vec<StarkFelt> },
-    #[error(transparent)]
-    TraceError(#[from] TraceError),
+    #[error("Internal error: {0}")]
+    InternalError(String),
     #[error("Invalid input: {input_descriptor}; {info}")]
     InvalidExecutionInput { input_descriptor: String, info: String },
     #[error(transparent)]
@@ -137,6 +137,8 @@ pub enum EntryPointExecutionError {
     RecursionDepthExceeded,
     #[error(transparent)]
     StateError(#[from] StateError),
+    #[error(transparent)]
+    TraceError(#[from] TraceError),
     /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
     VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
@@ -146,6 +148,4 @@ pub enum EntryPointExecutionError {
         #[source]
         source: VirtualMachineExecutionError,
     },
-    #[error("Internal error: {0}")]
-    InternalError(String),
 }
