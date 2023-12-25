@@ -466,6 +466,11 @@ impl L1HandlerTransaction {
             max_fee: Fee::default(),
         })
     }
+
+    pub fn payload_size(&self) -> usize {
+        // The calldata includes the "from" field, which is not a part of the payload.
+        self.tx.calldata.0.len() - 1
+    }
 }
 
 impl HasRelatedFeeType for L1HandlerTransaction {
