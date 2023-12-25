@@ -5,6 +5,7 @@ use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::calculate_message_segment_size;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
@@ -68,7 +69,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         charge_fee: bool,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
-
+        let l1_handler_payload_size: Option<usize> =
+            if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
+                Some(l1_handler_tx.get_payload_size())
+            } else {
+                Some(0)
+            };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
@@ -78,20 +84,26 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
-
-                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+                let call_infos: Vec<&CallInfo> =
+                    [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
+                        .iter()
+                        .filter_map(|&call_info| call_info.as_ref())
+                        .collect::<Vec<&CallInfo>>();
+                let message_segment_size =
+                    calculate_message_segment_size(&call_infos, l1_handler_payload_size)?;
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
                     &tx_executed_class_hashes,
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
-                    messages_size: 0,
+                    messages_size: message_segment_size,
                     casm_hash_calculation_resources: py_casm_hash_calculation_resources,
                 };
-
                 self.staged_for_commit_state =
                     Some(transactional_state.stage(tx_executed_class_hashes));
+                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+
                 Ok((py_tx_execution_info, py_bouncer_info))
             }
             Err(error) => {
