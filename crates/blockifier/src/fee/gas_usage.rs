@@ -5,7 +5,7 @@ use starknet_api::transaction::Fee;
 use super::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::abi::constants;
 use crate::block_context::BlockContext;
-use crate::execution::call_info::CallInfo;
+use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
@@ -18,23 +18,6 @@ use crate::transaction::objects::{
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-// TODO(Ayelet, 10/1/2024): Use to calculate message segment length in transaction_executer's
-// execute
-fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<(Vec<usize>, usize)> {
-    let mut l2_to_l1_payloads_length = Vec::new();
-    for call_info in call_infos {
-        l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
-    }
-
-    let message_segment_length =
-        get_message_segment_length(&l2_to_l1_payloads_length, l1_handler_payload_size);
-
-    Ok((l2_to_l1_payloads_length, message_segment_length))
-}
-
 /// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
@@ -44,18 +27,14 @@ pub fn calculate_tx_gas_usage<'a>(
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
-    let (l2_to_l1_payloads_length, residual_message_segment_length) =
-        calculate_l2_to_l1_payloads_length_and_message_segment_length(
-            call_infos,
-            l1_handler_payload_size,
-        )?;
+    let message_l1_cost_info = MessageL1CostInfo::new(call_infos, l1_handler_payload_size)?;
 
-    let n_l2_to_l1_messages = l2_to_l1_payloads_length.len();
+    let n_l2_to_l1_messages = message_l1_cost_info.l2_to_l1_payloads_length.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
     let starknet_gas_usage =
     // Starknet's updateState gets the message segment as an argument.
-    residual_message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
+    message_l1_cost_info.message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
     // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
     + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
     // Starknet's updateState decreases a (storage) counter for each L1-to-L2 consumed message.
@@ -63,12 +42,12 @@ pub fn calculate_tx_gas_usage<'a>(
     // ignore it since refunded gas cannot be used for the current transaction execution).
     + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
-    + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
+    + get_log_message_to_l1_emissions_cost(&message_l1_cost_info.l2_to_l1_payloads_length);
 
     // Calculate the effect of the transaction on the output data availability segment.
     let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
 
-    let sharp_gas_usage = residual_message_segment_length
+    let sharp_gas_usage = message_l1_cost_info.message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
         + residual_onchain_data_cost;
 

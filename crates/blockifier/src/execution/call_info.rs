@@ -7,6 +7,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
 use crate::execution::entry_point::CallEntryPoint;
+use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
@@ -28,6 +29,29 @@ pub struct OrderedEvent {
     pub event: EventContent,
 }
 
+#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct MessageL1CostInfo {
+    pub l2_to_l1_payloads_length: Vec<usize>,
+    pub message_segment_length: usize,
+}
+
+impl MessageL1CostInfo {
+    pub fn new<'a>(
+        call_infos: impl Iterator<Item = &'a CallInfo>,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutionResult<Self> {
+        let mut l2_to_l1_payloads_length = Vec::new();
+        for call_info in call_infos {
+            l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
+        }
+
+        let message_segment_length =
+            get_message_segment_length(&l2_to_l1_payloads_length, l1_handler_payload_size);
+
+        Ok(Self { l2_to_l1_payloads_length, message_segment_length })
+    }
+}
 #[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct MessageToL1 {

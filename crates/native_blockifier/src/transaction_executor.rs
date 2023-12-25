@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
-use blockifier::execution::call_info::CallInfo;
+use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
@@ -74,7 +74,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         charge_fee: bool,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
-
+        let l1_handler_payload_size: usize =
+            if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
+                l1_handler_tx.payload_size()
+            } else {
+                0
+            };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
@@ -88,9 +93,16 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
-
+                let call_infos: Vec<&CallInfo> =
+                    [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
+                        .iter()
+                        .filter_map(|&call_info| call_info.as_ref())
+                        .collect::<Vec<&CallInfo>>();
+                let message_l1_cost_info =
+                    MessageL1CostInfo::new(call_infos.into_iter(), Some(l1_handler_payload_size))?;
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
@@ -101,7 +113,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_visited_storage_entries,
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
-                    message_segment_length: 0,
+                    message_segment_length: message_l1_cost_info.message_segment_length,
                     state_diff_size: 0,
                     additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
                 };
