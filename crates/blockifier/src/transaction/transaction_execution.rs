@@ -86,6 +86,15 @@ impl Transaction {
             _ => unimplemented!(),
         }
     }
+
+    pub fn get_l1_handler_payload_size(&self) -> Option<usize> {
+        match self {
+            Transaction::L1HandlerTransaction(l1_handler_tx) => {
+                Some(l1_handler_tx.tx.calldata.0.len() - 1)
+            }
+            Transaction::AccountTransaction(_) => Some(0),
+        }
+    }
 }
 
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {

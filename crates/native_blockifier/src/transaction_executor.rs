@@ -5,6 +5,7 @@ use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::calculate_messages_size;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
 };
@@ -68,7 +69,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         charge_fee: bool,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
-
+        let l1_handler_payload_size: Option<usize> = tx.get_l1_handler_payload_size();
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
@@ -78,20 +79,21 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
-
-                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+                let messages_size =
+                    calculate_messages_size(&tx_execution_info, l1_handler_payload_size);
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
                     &tx_executed_class_hashes,
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
-                    messages_size: 0,
+                    messages_size,
                     casm_hash_calculation_resources: py_casm_hash_calculation_resources,
                 };
-
                 self.staged_for_commit_state =
                     Some(transactional_state.stage(tx_executed_class_hashes));
+                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+
                 Ok((py_tx_execution_info, py_bouncer_info))
             }
             Err(error) => {
