@@ -18,9 +18,7 @@ use crate::transaction::objects::{
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-// TODO(Ayelet, 10/1/2024): Use to calculate message segment length in transaction_executer's
-// execute
-fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
+pub fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<(Vec<usize>, usize)> {
