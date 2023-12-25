@@ -466,6 +466,10 @@ impl L1HandlerTransaction {
             max_fee: Fee::default(),
         })
     }
+
+    pub fn get_payload_size(&self) -> Option<usize> {
+        Some(self.tx.calldata.0.len() - 1)
+    }
 }
 
 impl HasRelatedFeeType for L1HandlerTransaction {
