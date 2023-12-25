@@ -5,6 +5,7 @@ use starknet_api::transaction::Fee;
 use super::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::abi::constants;
 use crate::block_context::BlockContext;
+use crate::execution::call_info::CallInfo;
 use crate::fee::eth_gas_constants;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
@@ -53,6 +54,25 @@ pub fn calculate_tx_gas_usage(
         + residual_onchain_data_cost;
 
     starknet_gas_usage + sharp_gas_usage
+}
+
+pub fn calculate_message_segment_size(
+    validate_call_info: &Option<CallInfo>,
+    execute_call_info: &Option<CallInfo>,
+    l1_handler_payload_size: Option<usize>,
+) -> usize {
+    let call_infos: Vec<&CallInfo> = vec![validate_call_info, execute_call_info]
+        .iter()
+        .filter_map(|&call_info| call_info.as_ref())
+        .collect::<Vec<&CallInfo>>();
+
+    let mut l2_to_l1_payloads_length = Vec::new();
+    for call_info in &call_infos {
+        l2_to_l1_payloads_length
+            .extend(call_info.get_sorted_l2_to_l1_payloads_length().into_iter().flatten());
+    }
+
+    get_message_segment_length(&l2_to_l1_payloads_length, l1_handler_payload_size)
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
