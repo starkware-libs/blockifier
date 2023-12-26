@@ -5,6 +5,7 @@ pub mod deploy_account;
 pub mod dict_state_reader;
 pub mod initial_test_state;
 pub mod invoke;
+pub mod prices;
 pub mod struct_impls;
 
 use std::collections::HashMap;
@@ -19,7 +20,9 @@ use starknet_api::deprecated_contract_class::{
 };
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{Calldata, Resource, ResourceBounds, ResourceBoundsMapping};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
+};
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
@@ -149,6 +152,19 @@ impl NonceManager {
     }
 }
 
+#[derive(Default)]
+pub struct SaltManager {
+    next_salt: u8,
+}
+
+impl SaltManager {
+    pub fn next_salt(&mut self) -> ContractAddressSalt {
+        let next_contract_address_salt = ContractAddressSalt(stark_felt!(self.next_salt));
+        self.next_salt += 1;
+        next_contract_address_salt
+    }
+}
+
 pub fn pad_address_to_64(address: &str) -> String {
     let trimmed_address = address.strip_prefix("0x").unwrap_or(address);
     String::from("0x") + format!("{trimmed_address:0>64}").as_str()
@@ -189,13 +205,6 @@ pub fn trivial_external_entry_point() -> CallEntryPoint {
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
         initial_gas: constants::INITIAL_GAS_COST,
-    }
-}
-
-pub fn trivial_external_entry_point_security_test() -> CallEntryPoint {
-    CallEntryPoint {
-        storage_address: contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
-        ..trivial_external_entry_point()
     }
 }
 
