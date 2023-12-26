@@ -14,7 +14,7 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::py_account_tx;
-use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
+use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
@@ -25,66 +25,38 @@ pub struct PyValidator {
     pub general_config: PyGeneralConfig,
     pub max_recursion_depth: usize,
     pub max_nonce_for_validation_skip: Nonce,
-    pub tx_executor: Option<TransactionExecutor<PyStateReader>>,
-    pub global_contract_cache: GlobalContractCache,
+    pub tx_executor: TransactionExecutor<PyStateReader>,
 }
 
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
+        state_reader_proxy: &PyAny,
+        next_block_info: PyBlockInfo,
         max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
-    ) -> Self {
-        let tx_executor = None;
+    ) -> NativeBlockifierResult<Self> {
+        let tx_executor = TransactionExecutor::new(
+            PyStateReader::new(state_reader_proxy),
+            &general_config,
+            next_block_info,
+            max_recursion_depth,
+            GlobalContractCache::default(),
+        )?;
         let validator = Self {
             general_config,
             max_recursion_depth,
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
-            global_contract_cache: GlobalContractCache::default(),
         };
-        log::debug!("Initialized Validator.");
 
-        validator
+        Ok(validator)
     }
 
     // Transaction Execution API.
-
-    /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info, state_reader_proxy))]
-    fn setup_validation_context(
-        &mut self,
-        next_block_info: PyBlockInfo,
-        state_reader_proxy: &PyAny,
-    ) -> NativeBlockifierResult<()> {
-        let reader = PyStateReader::new(state_reader_proxy);
-
-        assert!(
-            self.tx_executor.is_none(),
-            "Transaction executor should be torn down between calls to validate"
-        );
-        self.tx_executor = Some(TransactionExecutor::new(
-            reader,
-            &self.general_config,
-            next_block_info,
-            self.max_recursion_depth,
-            self.global_contract_cache.clone(),
-        )?);
-
-        Ok(())
-    }
-
-    fn teardown_validation_context(&mut self) {
-        self.tx_executor = None;
-    }
-
-    pub fn close(&mut self) {
-        log::debug!("Closing validator.");
-        self.teardown_validation_context();
-    }
 
     #[pyo3(signature = (tx, raw_contract_class, deploy_account_tx_hash))]
     pub fn perform_validations(
@@ -99,8 +71,7 @@ impl PyValidator {
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
-                self.execute(tx, raw_contract_class)?;
+            let (_py_tx_execution_info, _py_bouncer_info) = self.execute(tx, raw_contract_class)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -131,22 +102,27 @@ impl PyValidator {
     }
 
     #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth))]
     #[staticmethod]
-    fn create_for_testing(general_config: PyGeneralConfig) -> Self {
-        Self {
+    fn create_for_testing(
+        general_config: PyGeneralConfig,
+        state_reader_proxy: &PyAny,
+        next_block_info: PyBlockInfo,
+        max_recursion_depth: usize,
+    ) -> NativeBlockifierResult<Self> {
+        let tx_executor = TransactionExecutor::new(
+            PyStateReader::new(state_reader_proxy),
+            &general_config,
+            next_block_info,
+            max_recursion_depth,
+            GlobalContractCache::default(),
+        )?;
+        Ok(Self {
             general_config,
             max_recursion_depth: 50,
             max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
-            tx_executor: None,
-            global_contract_cache: GlobalContractCache::default(),
-        }
-    }
-}
-
-impl PyValidator {
-    fn tx_executor(&mut self) -> &mut TransactionExecutor<PyStateReader> {
-        self.tx_executor.as_mut().expect("Transaction executor should be initialized")
+            tx_executor,
+        })
     }
 
     /// Applicable solely to account deployment transactions: the execution of the constructor
@@ -155,25 +131,26 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
-        self.tx_executor().execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
+}
 
+impl PyValidator {
     fn perform_pre_validation_stage(
         &mut self,
         account_tx: &AccountTransaction,
     ) -> NativeBlockifierResult<()> {
         let account_tx_context = account_tx.get_account_tx_context();
 
-        let tx_executor = self.tx_executor();
         let strict_nonce_check = false;
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
         account_tx.perform_pre_validation_stage(
-            &mut tx_executor.state,
+            &mut self.tx_executor.state,
             &account_tx_context,
-            &tx_executor.block_context,
+            &self.tx_executor.block_context,
             charge_fee,
             strict_nonce_check,
         )?;
@@ -189,7 +166,7 @@ impl PyValidator {
         account_tx_context: &AccountTransactionContext,
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<bool> {
-        let nonce = self.tx_executor().state.get_nonce_at(account_tx_context.sender_address())?;
+        let nonce = self.tx_executor.state.get_nonce_at(account_tx_context.sender_address())?;
         let tx_nonce = account_tx_context.nonce();
 
         let deploy_account_not_processed =
@@ -211,7 +188,7 @@ impl PyValidator {
         remaining_gas: u64,
     ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
         let (optional_call_info, actual_cost) =
-            self.tx_executor().validate(&account_tx, remaining_gas)?;
+            self.tx_executor.validate(&account_tx, remaining_gas)?;
 
         Ok((optional_call_info, actual_cost))
     }
@@ -222,7 +199,7 @@ impl PyValidator {
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
         PostValidationReport::verify(
-            &self.tx_executor().block_context,
+            &self.tx_executor.block_context,
             account_tx_context,
             actual_cost,
         )
