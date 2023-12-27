@@ -690,12 +690,18 @@ type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
 pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
 
 impl GlobalContractCache {
-    // TODO: make this configurable via a CachedState constructor argument.
+    // TODO(Arni, 7/1/2024): make this configurable via a CachedState constructor argument.
     const CACHE_SIZE: usize = 100;
 }
 
 impl Default for GlobalContractCache {
     fn default() -> Self {
         Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
+    }
+}
+
+impl GlobalContractCache {
+    pub fn cache_clear(&mut self) {
+        self.0.lock().expect("Global contract cache is poisoned.").cache_clear();
     }
 }
