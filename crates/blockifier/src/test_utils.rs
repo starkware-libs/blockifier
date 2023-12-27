@@ -226,14 +226,19 @@ macro_rules! check_entry_point_execution_error_for_custom_hint {
     ($error:expr, $expected_hint:expr $(,)?) => {
         if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
             source:
-                VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                    inner_exc: VirtualMachineError::Hint(hint),
-                    ..
-                })),
+                VirtualMachineExecutionError::CairoRunError(
+                    cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
+                        cairo_vm::vm::errors::vm_exception::VmException {
+                            inner_exc:
+                                cairo_vm::vm::errors::vm_errors::VirtualMachineError::Hint(hint),
+                            ..
+                        },
+                    ),
+                ),
             ..
         } = $error
         {
-            if let HintError::CustomHint(custom_hint) = &hint.1 {
+            if let cairo_vm::vm::errors::hint_errors::HintError::CustomHint(custom_hint) = &hint.1 {
                 assert_eq!(custom_hint.as_ref(), $expected_hint)
             } else {
                 panic!("Unexpected hint: {:?}", hint);
@@ -249,10 +254,14 @@ macro_rules! check_entry_point_execution_error_for_invalid_scenario {
     ($error:expr) => {
         if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
             source:
-                VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                    inner_exc: VirtualMachineError::DiffAssertValues(_),
-                    ..
-                })),
+                VirtualMachineExecutionError::CairoRunError(
+                    cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
+                        cairo_vm::vm::errors::vm_exception::VmException {
+                            inner_exc: cairo_vm::vm::errors::vm_errors::VirtualMachineError::DiffAssertValues(_),
+                            ..
+                        },
+                    ),
+                ),
             ..
         } = $error
         {
