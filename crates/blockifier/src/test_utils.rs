@@ -245,37 +245,6 @@ macro_rules! check_entry_point_execution_error_for_custom_hint {
 }
 
 #[macro_export]
-macro_rules! check_transaction_execution_error_for_custom_hint_inner {
-    ($error:expr, $expected_hint:expr, $variant:ident, $(,)?) => {
-        match $error {
-            TransactionExecutionError::$variant(error) => {
-                check_entry_point_execution_error_for_custom_hint!(error, $expected_hint)
-            }
-            _ => panic!("Unexpected structure for error: {:?}", $error),
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! check_transaction_execution_error_for_custom_hint {
-    ($error:expr, $expected_hint:expr, $validate_constructor:expr, $(,)?) => {
-        if $validate_constructor {
-            check_transaction_execution_error_for_custom_hint_inner!(
-                $error,
-                $expected_hint,
-                ContractConstructorExecutionFailed,
-            );
-        } else {
-            check_transaction_execution_error_for_custom_hint_inner!(
-                $error,
-                $expected_hint,
-                ValidateTransactionError,
-            );
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! check_entry_point_execution_error_for_invalid_scenario {
     ($error:expr) => {
         if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
@@ -294,13 +263,35 @@ macro_rules! check_entry_point_execution_error_for_invalid_scenario {
 }
 
 #[macro_export]
-macro_rules! check_transaction_execution_error_for_invalid_scenario_inner {
-    ($error:expr, $variant:ident, $(,)?) => {
+macro_rules! check_transaction_execution_error_inner {
+    ($error:expr, $expected_hint:expr, $variant:ident, $(,)?) => {
         match $error {
-            TransactionExecutionError::$variant(error) => {
-                check_entry_point_execution_error_for_invalid_scenario!(error);
-            }
+            TransactionExecutionError::$variant(error) => match $expected_hint {
+                Some(expected_hint) => {
+                    check_entry_point_execution_error_for_custom_hint!(error, expected_hint)
+                }
+                None => check_entry_point_execution_error_for_invalid_scenario!(error),
+            },
             _ => panic!("Unexpected structure for error: {:?}", $error),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_transaction_execution_error_for_custom_hint {
+    ($error:expr, $expected_hint:expr, $validate_constructor:expr, $(,)?) => {
+        if $validate_constructor {
+            check_transaction_execution_error_inner!(
+                $error,
+                Some($expected_hint),
+                ContractConstructorExecutionFailed,
+            );
+        } else {
+            check_transaction_execution_error_inner!(
+                $error,
+                Some($expected_hint),
+                ValidateTransactionError,
+            );
         }
     };
 }
@@ -313,13 +304,15 @@ macro_rules! check_transaction_execution_error_for_invalid_scenario {
         match $cairo_version {
             CairoVersion::Cairo0 => {
                 if $validate_constructor {
-                    check_transaction_execution_error_for_invalid_scenario_inner!(
+                    check_transaction_execution_error_inner!(
                         $error,
+                        None::<&str>,
                         ContractConstructorExecutionFailed,
                     );
                 } else {
-                    check_transaction_execution_error_for_invalid_scenario_inner!(
+                    check_transaction_execution_error_inner!(
                         $error,
+                        None::<&str>,
                         ValidateTransactionError,
                     );
                 }

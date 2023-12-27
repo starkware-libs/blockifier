@@ -78,10 +78,9 @@ use crate::{
     check_entry_point_execution_error_for_custom_hint,
     check_entry_point_execution_error_for_invalid_scenario,
     check_transaction_execution_error_for_custom_hint,
-    check_transaction_execution_error_for_custom_hint_inner,
     check_transaction_execution_error_for_invalid_scenario,
-    check_transaction_execution_error_for_invalid_scenario_inner, declare_tx_args,
-    deploy_account_tx_args, invoke_tx_args, retdata,
+    check_transaction_execution_error_inner, declare_tx_args, deploy_account_tx_args,
+    invoke_tx_args, retdata,
 };
 
 struct ExpectedResultTestInvokeTx {
