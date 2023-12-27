@@ -699,3 +699,9 @@ impl Default for GlobalContractCache {
         Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
     }
 }
+
+impl GlobalContractCache {
+    pub fn cache_clear(&mut self) {
+        self.0.lock().unwrap().cache_clear();
+    }
+}
