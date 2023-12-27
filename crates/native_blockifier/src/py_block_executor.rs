@@ -43,6 +43,8 @@ impl PyBlockExecutor {
         let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
 
         log::debug!("Initialized Block Executor.");
+        // TODO(Arni, 7/1/2024): make global_contract_cache size configurable via a CachedState
+        // constructor argument.
         Self {
             general_config,
             max_recursion_depth,
@@ -180,6 +182,7 @@ impl PyBlockExecutor {
     /// (this is true for every partial existence of information at tables).
     #[pyo3(signature = (block_number))]
     pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        self.global_contract_cache.cache_clear();
         self.storage.revert_block(block_number)
     }
 

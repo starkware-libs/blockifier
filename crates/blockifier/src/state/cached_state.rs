@@ -118,7 +118,7 @@ impl<S: StateReader> CachedState<S> {
     pub fn global_class_hash_to_class(
         &mut self,
     ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
-        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
+        self.global_class_hash_to_class.lock_mutex_gaurd_cache()
     }
 
     pub fn update_cache(&mut self, cache_updates: StateCache) {
@@ -690,12 +690,26 @@ type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
 pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
 
 impl GlobalContractCache {
-    // TODO: make this configurable via a CachedState constructor argument.
+    // TODO(Arni, 7/1/2024): make this configurable via a CachedState constructor argument.
     const CACHE_SIZE: usize = 100;
 }
 
 impl Default for GlobalContractCache {
     fn default() -> Self {
         Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
+    }
+}
+
+impl GlobalContractCache {
+    // Locks the Mutex and unwraps the MutexGuard, thus exposing the internal cache
+    // store. The Guard will panic only if the Mutex panics during the lock operation, but
+    // this shouldn't happen in our flow.
+    // Note: `&mut` is used since the LRU cache updates internal counters on reads.
+    fn lock_mutex_gaurd_cache(&mut self) -> MutexGuard<'_, ContractClassLRUCache> {
+        self.lock().expect("Global contract cache is poisoned.")
+    }
+
+    pub fn cache_clear(&mut self) {
+        self.lock_mutex_gaurd_cache().cache_clear();
     }
 }
