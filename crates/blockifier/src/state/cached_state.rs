@@ -115,10 +115,8 @@ impl<S: StateReader> CachedState<S> {
     // store. The Guard will panic only if the Mutex panics during the lock operation, but
     // this shouldn't happen in our flow.
     // Note: `&mut` is used since the LRU cache updates internal counters on reads.
-    pub fn global_class_hash_to_class(
-        &mut self,
-    ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
-        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
+    pub fn global_class_hash_to_class(&mut self) -> LockedContractClassCache<'_> {
+        self.global_class_hash_to_class.lock()
     }
 
     pub fn update_cache(&mut self, cache_updates: StateCache) {
@@ -684,18 +682,31 @@ impl From<&StateChanges> for StateChangesCount {
 
 // Note: `ContractClassLRUCache` key-value types must align with `ContractClassMapping`.
 type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
+type LockedContractClassCache<'a> = MutexGuard<'a, ContractClassLRUCache>;
 #[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
 // Thread-safe LRU cache for contract classes, optimized for inter-language sharing when
 // `blockifier` compiles as a shared library.
 pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
 
 impl GlobalContractCache {
-    // TODO: make this configurable via a CachedState constructor argument.
+    // TODO(Arni, 7/1/2024): make this configurable via a CachedState constructor argument.
     const CACHE_SIZE: usize = 100;
 }
 
 impl Default for GlobalContractCache {
     fn default() -> Self {
         Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
+    }
+}
+
+impl GlobalContractCache {
+    /// Locks the cache for atomic access. Although conceptually shared, writing to this cache is
+    /// only possible for one writer at a time.
+    fn lock(&mut self) -> LockedContractClassCache<'_> {
+        self.0.lock().expect("Global contract cache is poisoned.")
+    }
+
+    pub fn clear(&mut self) {
+        self.lock().cache_clear();
     }
 }
