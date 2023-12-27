@@ -245,7 +245,7 @@ macro_rules! check_entry_point_execution_error_for_custom_hint {
 }
 
 #[macro_export]
-macro_rules! check_transaction_execution_error_for_custom_hint {
+macro_rules! check_transaction_execution_error_for_custom_hint_inner {
     ($error:expr, $expected_hint:expr, $variant:ident, $(,)?) => {
         match $error {
             TransactionExecutionError::$variant(error) => {
@@ -256,28 +256,72 @@ macro_rules! check_transaction_execution_error_for_custom_hint {
     };
 }
 
+#[macro_export]
+macro_rules! check_transaction_execution_error_for_custom_hint {
+    ($error:expr, $expected_hint:expr, $validate_constructor:expr, $(,)?) => {
+        if $validate_constructor {
+            check_transaction_execution_error_for_custom_hint_inner!(
+                $error,
+                $expected_hint,
+                ContractConstructorExecutionFailed,
+            );
+        } else {
+            check_transaction_execution_error_for_custom_hint_inner!(
+                $error,
+                $expected_hint,
+                ValidateTransactionError,
+            );
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_entry_point_execution_error_for_invalid_scenario {
+    ($error:expr) => {
+        if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+            source:
+                VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
+                    inner_exc: VirtualMachineError::DiffAssertValues(_),
+                    ..
+                })),
+            ..
+        } = $error
+        {
+        } else {
+            panic!("Unexpected structure for error: {:?}", $error);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_transaction_execution_error_for_invalid_scenario_inner {
+    ($error:expr, $variant:ident, $(,)?) => {
+        match $error {
+            TransactionExecutionError::$variant(error) => {
+                check_entry_point_execution_error_for_invalid_scenario!(error);
+            }
+            _ => panic!("Unexpected structure for error: {:?}", $error),
+        }
+    };
+}
+
 /// Checks that a given error is an assertion error with the expected message.
 /// Formatted for test_validate_accounts_tx.
 #[macro_export]
 macro_rules! check_transaction_execution_error_for_invalid_scenario {
-    ($cairo_version:expr, $error:expr, $variant:ident, $(,)?) => {
+    ($cairo_version:expr, $error:expr, $validate_constructor:expr, $(,)?) => {
         match $cairo_version {
             CairoVersion::Cairo0 => {
-                if let TransactionExecutionError::$variant(
-                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                        source:
-                            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
-                                VmException {
-                                    inner_exc: VirtualMachineError::DiffAssertValues(_),
-                                    ..
-                                },
-                            )),
-                        ..
-                    },
-                ) = $error
-                {
+                if $validate_constructor {
+                    check_transaction_execution_error_for_invalid_scenario_inner!(
+                        $error,
+                        ContractConstructorExecutionFailed,
+                    );
                 } else {
-                    panic!("Unexpected structure for error: {:?}", $error);
+                    check_transaction_execution_error_for_invalid_scenario_inner!(
+                        $error,
+                        ValidateTransactionError,
+                    );
                 }
             }
             CairoVersion::Cairo1 => {
