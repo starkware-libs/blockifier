@@ -180,6 +180,9 @@ impl PyBlockExecutor {
     /// (this is true for every partial existence of information at tables).
     #[pyo3(signature = (block_number))]
     pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        // Clearing the global contract cache as the revert_block function on the storage does not
+        // affect this cache. The declared contract may still be cached unless cleared.
+        self.global_contract_cache.clear();
         self.storage.revert_block(block_number)
     }
 
