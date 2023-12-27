@@ -65,9 +65,9 @@ native_blockifier_errors!(
     (SerdeError, serde_json::Error, PySerdeError),
     (StarknetApiError, StarknetApiError, PyStarknetApiError),
     (StateError, StateError, PyStateError),
+    (StorageError, papyrus_storage::StorageError, PyStorageError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
-    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError),
-    (StorageError, papyrus_storage::StorageError, PyStorageError)
+    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError)
 );
 
 #[derive(Debug, Error)]
