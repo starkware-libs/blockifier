@@ -20,10 +20,10 @@ ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
 cairo-felt = "0.9.1"
-cairo-lang-casm =  { git = "https://github.com/starkware-libs/cairo", rev = "b442bfc3f" }
-cairo-lang-runner =  { git = "https://github.com/starkware-libs/cairo", rev = "b442bfc3f" }
-cairo-lang-starknet =  { git = "https://github.com/starkware-libs/cairo", rev = "b442bfc3f" }
-cairo-lang-utils =  { git = "https://github.com/starkware-libs/cairo", rev = "b442bfc3f" }
+cairo-lang-casm =  "2.5.0-dev.0"
+cairo-lang-runner =  "2.5.0-dev.0"
+cairo-lang-starknet = "2.5.0-dev.0"
+cairo-lang-utils =  "2.5.0-dev.0"
 cairo-vm = "0.9.1"
 criterion = "0.3"
 ctor = "0.2.0"
@@ -37,7 +37,7 @@ num-bigint = "0.4"
 num-integer = "0.1.45"
 num-traits = "0.2"
 rstest = "0.17.0"
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "b9cb37e0" }
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", rev = "4b945072" }
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 pyo3 = "0.19.1"
@@ -45,7 +45,7 @@ pyo3-log = "0.8.1"
 serde = "1.0.184"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api", rev = "20d3d59" }
+starknet_api = "0.7.0-dev.0"
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
