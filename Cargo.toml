@@ -13,18 +13,19 @@ license = "Apache-2.0"
 license-file = "LICENSE"
 
 [workspace.dependencies]
+cairo-felt = { git = "https://github.com/elintul/cairo-vm.git", branch = "elin/ec-op/projective-point" }
+cairo-vm = { git = "https://github.com/elintul/cairo-vm.git", branch = "elin/ec-op/projective-point" }
 ark-ec = "0.4.2"
 ark-ff = "0.4.0-alpha.7"
 ark-secp256k1 = "0.4.0"
 ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
-cairo-felt = "=0.8.3"
-cairo-lang-casm = "2.4.0"
-cairo-lang-runner = "2.4.0"
-cairo-lang-starknet = "2.4.0"
-cairo-lang-utils = "2.4.0"
-cairo-vm = "=0.8.3"
+cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", branch = "elin/ec-op/bump-cairo-vm" }
+cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", branch = "elin/ec-op/bump-cairo-vm" }
+cairo-lang-sierra-to-casm = { git = "https://github.com/starkware-libs/cairo", branch = "elin/ec-op/bump-cairo-vm" }
+cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", branch = "elin/ec-op/bump-cairo-vm" }
+cairo-lang-utils = { git = "https://github.com/starkware-libs/cairo", branch = "elin/ec-op/bump-cairo-vm" }
 ctor = "0.2.0"
 derive_more = "0.99.17"
 indexmap = "2.1.0"
@@ -40,7 +41,7 @@ pretty_assertions = "1.2.1"
 serde = "1.0.184"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
-starknet_api = "0.6.0"
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api", branch = "elin/cairo/bump-version" }
 starknet-crypto = "0.5.1"
 strum = "0.24.1"
 strum_macros = "0.24.3"
