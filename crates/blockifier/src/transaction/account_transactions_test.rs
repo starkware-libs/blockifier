@@ -2,9 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -519,11 +516,7 @@ fn test_fail_deploy_account(
 
     let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
     // Check the error is as expected. Assure the error message is not nonce or fee related.
-    check_transaction_execution_error_for_invalid_scenario!(
-        cairo_version,
-        error,
-        ValidateTransactionError,
-    );
+    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, false);
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
     assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
