@@ -484,8 +484,8 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 
 [[package]]
 name = "cairo-felt"
-version = "0.8.4"
-source = "git+https://github.com/elintul/cairo-vm.git?branch=elin/ec-op/projective-point#0fb362f3a62d7a62ff2539c5184d3c93bb1e7f1e"
+version = "0.8.3"
+source = "git+https://github.com/elintul/cairo-vm.git?branch=elin/ec-op/projective-point#5b3a8a279d250fabad071a2e68c8f79a27e80f63"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -902,8 +902,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "0.8.4"
-source = "git+https://github.com/elintul/cairo-vm.git?branch=elin/ec-op/projective-point#0fb362f3a62d7a62ff2539c5184d3c93bb1e7f1e"
+version = "0.8.3"
+source = "git+https://github.com/elintul/cairo-vm.git?branch=elin/ec-op/projective-point#5b3a8a279d250fabad071a2e68c8f79a27e80f63"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2234,7 +2234,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=elin/bump-cairo-deps#e271fc1dcaac922ea2ae886a062ab44e93d5c275"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#11ee565928b0d311b6448f14ff1b2e35e5a0937d"
 dependencies = [
  "clap 4.4.8",
  "itertools 0.10.5",
@@ -2248,7 +2248,7 @@ dependencies = [
 [[package]]
 name = "papyrus_proc_macros"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=elin/bump-cairo-deps#e271fc1dcaac922ea2ae886a062ab44e93d5c275"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#11ee565928b0d311b6448f14ff1b2e35e5a0937d"
 dependencies = [
  "quote",
  "syn 2.0.39",
@@ -2257,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=elin/bump-cairo-deps#e271fc1dcaac922ea2ae886a062ab44e93d5c275"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#11ee565928b0d311b6448f14ff1b2e35e5a0937d"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",

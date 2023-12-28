@@ -29,7 +29,7 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", branch = "elin/bump-cairo-deps", features = [
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", branch = "yair/logs_over_elin/bump-cairo-deps", features = [
     "testing",
 ] }
 pyo3 = { version = "0.19.1", features = ["num-bigint", "hashbrown"] }
