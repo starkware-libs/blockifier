@@ -45,3 +45,6 @@ criterion = { version = "0.3", features = ["html_reports"] }
 path = "bench/blockifier_bench.rs"
 name = "blockifier_bench"
 harness = false
+
+[patch.crates-io]
+papyrus_storage = { git = "https://github.com/starkware-libs/papyrus", branch = "yair/0.2.1_slow_append" }
