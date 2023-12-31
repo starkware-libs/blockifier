@@ -90,7 +90,7 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(Vec<u8>, PyTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
         self.tx_executor().execute(tx, raw_contract_class, charge_fee)
     }
