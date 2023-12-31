@@ -22,7 +22,9 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
-use crate::py_transaction_execution_info::{PyTransactionExecutionInfo, PyVmExecutionResources};
+use crate::py_transaction_execution_info::{
+    PyBouncerInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
+};
 use crate::py_utils::PyFelt;
 
 pub struct TransactionExecutor<S: StateReader> {
@@ -65,7 +67,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &PyAny,
         raw_contract_class: Option<&str>,
         charge_fee: bool,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
@@ -84,10 +86,14 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.executed_class_hashes,
                     &tx_executed_class_hashes,
                 )?;
+                let py_bouncer_info = PyBouncerInfo {
+                    messages_size: 0,
+                    casm_hash_calculation_resources: py_casm_hash_calculation_resources,
+                };
 
                 self.staged_for_commit_state =
                     Some(transactional_state.stage(tx_executed_class_hashes));
-                Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
+                Ok((py_tx_execution_info, py_bouncer_info))
             }
             Err(error) => {
                 transactional_state.abort();
