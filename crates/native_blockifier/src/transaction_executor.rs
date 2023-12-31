@@ -32,6 +32,7 @@ pub struct TransactionExecutor<S: StateReader> {
 
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
+    pub visited_storage_entries: HashSet<StorageEntry>,
 
     // State-related fields.
     pub state: CachedState<S>,
@@ -55,8 +56,17 @@ impl<S: StateReader> TransactionExecutor<S> {
         let block_context = into_block_context(general_config, block_info, max_recursion_depth)?;
         let state = CachedState::new(state_reader, global_contract_cache);
         let executed_class_hashes = HashSet::<ClassHash>::new();
+        let visited_storage_entries = HashSet::<StorageEntry>::new();
+        let tx_executor = Self {
+            block_context,
+            executed_class_hashes,
+            visited_storage_entries,
+            state,
+            staged_for_commit_state: None,
+        };
         log::debug!("Initialized Transaction Executor.");
-        Ok(Self { block_context, executed_class_hashes, state, staged_for_commit_state: None })
+
+        Ok(tx_executor)
     }
 
     /// Executes the given transaction on the state maintained by the executor.
@@ -71,24 +81,33 @@ impl<S: StateReader> TransactionExecutor<S> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
+        let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
+
         let tx_execution_result = tx
             .execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate)
             .map_err(NativeBlockifierError::from);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
 
+                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
-                let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
+                let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
                     &tx_executed_class_hashes,
                 )?;
+                additional_os_resources += &get_particia_update_resources(
+                    &self.visited_storage_entries,
+                    &tx_visited_storage_entries,
+                )?;
                 let py_bouncer_info = PyBouncerInfo {
                     messages_size: 0,
-                    casm_hash_calculation_resources: py_casm_hash_calculation_resources,
+                    additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
                 };
 
                 self.staged_for_commit_state =
@@ -188,7 +207,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
-) -> NativeBlockifierResult<PyVmExecutionResources> {
+) -> NativeBlockifierResult<VmExecutionResources> {
     let newly_executed_class_hashes: HashSet<&ClassHash> =
         tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
 
@@ -199,7 +218,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
         casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
     }
 
-    Ok(PyVmExecutionResources::from(casm_hash_computation_resources))
+    Ok(casm_hash_computation_resources)
 }
 
 /// Returns the estimated VM resources for Patricia tree updates, or hash invocations
@@ -210,7 +229,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
 pub fn get_particia_update_resources(
     block_visited_storage_entries: &HashSet<StorageEntry>,
     tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> NativeBlockifierResult<PyVmExecutionResources> {
+) -> NativeBlockifierResult<VmExecutionResources> {
     let newly_visited_storage_entries: HashSet<&StorageEntry> =
         tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
     let n_newly_visited_leaves = newly_visited_storage_entries.len();
@@ -226,5 +245,5 @@ pub fn get_particia_update_resources(
         n_memory_holes: 0,
     };
 
-    Ok(PyVmExecutionResources::from(patricia_update_resources))
+    Ok(patricia_update_resources)
 }
