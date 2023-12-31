@@ -7,6 +7,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
 use crate::execution::entry_point::CallEntryPoint;
+use crate::state::cached_state::ContractStorageKey;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
@@ -70,13 +71,29 @@ impl CallInfo {
     // TODO: Add unit test for this method
     pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
         let mut class_hashes = HashSet::new();
-        let calls = self.into_iter();
-        for call in calls {
-            class_hashes
-                .insert(call.call.class_hash.expect("Class hash must be set after execution."));
+        let self_with_inner_calls = self.into_iter();
+        for call in self_with_inner_calls {
+            let class_hash = call.call.class_hash.expect("Class hash must be set after execution.");
+            class_hashes.insert(class_hash);
         }
 
         class_hashes
+    }
+
+    /// Returns the set of storage entries visited during this call execution.
+    // TODO: Add unit test for this method
+    pub fn get_visited_storage_entries(&self) -> HashSet<ContractStorageKey> {
+        let mut storage_entries = HashSet::new();
+        let self_with_inner_calls = self.into_iter();
+        for call in self_with_inner_calls {
+            let call_storage_entries = call
+                .accessed_storage_keys
+                .iter()
+                .map(|storage_key| (call.call.storage_address, *storage_key));
+            storage_entries.extend(call_storage_entries);
+        }
+
+        storage_entries
     }
 
     /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted

@@ -68,7 +68,11 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+    ) -> NativeBlockifierResult<(
+        PyTransactionExecutionInfo,
+        PyVmExecutionResources,
+        PyVmExecutionResources,
+    )> {
         let limit_execution_steps_by_resource_bounds = true;
         self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
@@ -103,8 +107,11 @@ impl PyValidator {
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let (_py_tx_execution_info, _py_casm_hash_calculation_resources) =
-                self.execute(tx, raw_contract_class)?;
+            let (
+                _py_tx_execution_info,
+                _py_casm_hash_calculation_resources,
+                _py_patricia_update_resources,
+            ) = self.execute(tx, raw_contract_class)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());

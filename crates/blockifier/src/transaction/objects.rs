@@ -15,6 +15,7 @@ use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
+use crate::state::cached_state::ContractStorageKey;
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -174,6 +175,15 @@ impl TransactionExecutionInfo {
             self.non_optional_call_infos()
                 .into_iter()
                 .map(|call_info| call_info.get_executed_class_hashes()),
+        )
+    }
+
+    /// Returns the set of storage entries visited during this transaction execution.
+    pub fn get_visited_storage_entries(&self) -> HashSet<ContractStorageKey> {
+        concat(
+            self.non_optional_call_infos()
+                .into_iter()
+                .map(|call_info| call_info.get_visited_storage_entries()),
         )
     }
 
