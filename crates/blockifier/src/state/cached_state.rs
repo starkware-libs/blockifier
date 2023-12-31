@@ -354,10 +354,10 @@ impl Default for CachedState<crate::test_utils::DictStateReader> {
     }
 }
 
-pub type ContractStorageKey = (ContractAddress, StorageKey);
+pub type StorageEntry = (ContractAddress, StorageKey);
 
 #[derive(Debug, Default, IntoIterator)]
-pub struct StorageView(pub HashMap<ContractStorageKey, StarkFelt>);
+pub struct StorageView(pub HashMap<StorageEntry, StarkFelt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
 impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
@@ -385,13 +385,13 @@ pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
     compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
     class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+    storage_writes: HashMap<StorageEntry, StarkFelt>,
     compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
 }
 
@@ -481,7 +481,7 @@ impl StateCache {
         self.compiled_class_hash_writes.insert(class_hash, compiled_class_hash);
     }
 
-    fn get_storage_updates(&self) -> HashMap<ContractStorageKey, StarkFelt> {
+    fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
@@ -638,7 +638,7 @@ pub struct CommitmentStateDiff {
 /// Holds the state changes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
-    pub storage_updates: HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    pub storage_updates: HashMap<StorageEntry, StarkFelt>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
     pub modified_contracts: HashSet<ContractAddress>,
