@@ -45,7 +45,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::state::cached_state::{CachedState, ContractClassMapping, ContractStorageKey};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StorageEntry};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
@@ -143,7 +143,7 @@ pub const CHAIN_ID_NAME: &str = "SN_GOERLI";
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
-    pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
+    pub storage_view: HashMap<StorageEntry, StarkFelt>,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
@@ -316,8 +316,7 @@ fn get_address_to_v0_class_hash() -> HashMap<ContractAddress, ClassHash> {
     address_to_class_hash
 }
 
-fn get_storage_values_for_deprecated_test_state()
--> HashMap<(ContractAddress, StorageKey), StarkFelt> {
+fn get_storage_values_for_deprecated_test_state() -> HashMap<StorageEntry, StarkFelt> {
     let pair_address = contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1);
     let reserve0_address = get_storage_var_address("_reserve0", &[]);
     let reserve1_address = get_storage_var_address("_reserve1", &[]);

@@ -19,7 +19,7 @@ fn set_initial_state_values(
     class_hash_to_class: ContractClassMapping,
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
 ) {
     assert!(state.cache == StateCache::default(), "Cache already initialized.");
 
