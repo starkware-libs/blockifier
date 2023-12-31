@@ -64,7 +64,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &PyAny,
         raw_contract_class: Option<&str>,
         charge_fee: bool,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+    ) -> NativeBlockifierResult<(String, PyVmExecutionResources)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
 
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
@@ -78,6 +78,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
 
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+                let string_tx_execution_info = py_tx_execution_info.to_string();
                 let py_casm_hash_calculation_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
@@ -86,7 +87,7 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 self.staged_for_commit_state =
                     Some(transactional_state.stage(tx_executed_class_hashes));
-                Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
+                Ok((string_tx_execution_info, py_casm_hash_calculation_resources))
             }
             Err(error) => {
                 transactional_state.abort();

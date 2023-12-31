@@ -24,6 +24,44 @@ pub struct PyTransactionExecutionInfo {
     pub revert_error: Option<String>,
 }
 
+impl ToString for PyTransactionExecutionInfo {
+    fn to_string(&self) -> String {
+        let validate_call_info_str = match &self.validate_call_info {
+            Some(info) => format!("validate_call_info: {:?}", info),
+            None => String::from("validate_call_info: None"),
+        };
+
+        let execute_call_info_str = match &self.execute_call_info {
+            Some(info) => format!("execute_call_info: {:?}", info),
+            None => String::from("execute_call_info: None"),
+        };
+
+        let fee_transfer_call_info_str = match &self.fee_transfer_call_info {
+            Some(info) => format!("fee_transfer_call_info: {:?}", info),
+            None => String::from("fee_transfer_call_info: None"),
+        };
+
+        let actual_fee_str = format!("actual_fee: {}", self.actual_fee);
+
+        let actual_resources_str = format!("actual_resources: {:?}", self.actual_resources);
+
+        let revert_error_str = match &self.revert_error {
+            Some(error) => format!("revert_error: {:?}", error),
+            None => String::from("revert_error: None"),
+        };
+
+        format!(
+            "PyTransactionExecutionInfo {{ {}, {}, {}, {}, {}, {} }}",
+            validate_call_info_str,
+            execute_call_info_str,
+            fee_transfer_call_info_str,
+            actual_fee_str,
+            actual_resources_str,
+            revert_error_str
+        )
+    }
+}
+
 impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
     // TODO(Gilad, 1/4/2023): Check that everything can't fail, recursively.
     fn from(info: TransactionExecutionInfo) -> Self {
@@ -39,7 +77,7 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
 }
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyCallInfo {
     // Call params.
     #[pyo3(get)]
@@ -118,7 +156,7 @@ impl From<CallInfo> for PyCallInfo {
 }
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyOrderedEvent {
     #[pyo3(get)]
     pub order: usize,
@@ -137,7 +175,7 @@ impl From<OrderedEvent> for PyOrderedEvent {
 }
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyOrderedL2ToL1Message {
     #[pyo3(get)]
     pub order: usize,
@@ -159,7 +197,7 @@ impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
 }
 
 #[pyclass]
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct PyVmExecutionResources {
     #[pyo3(get)]
     pub n_steps: usize,

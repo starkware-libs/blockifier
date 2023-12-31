@@ -10,7 +10,7 @@ use starknet_api::state::StorageKey;
 
 use crate::errors::NativeBlockifierResult;
 
-#[derive(Clone, Copy, Default, Eq, FromPyObject, Hash, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, FromPyObject, Hash, PartialEq, Debug)]
 pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub StarkFelt);
 
 impl IntoPy<PyObject> for PyFelt {
