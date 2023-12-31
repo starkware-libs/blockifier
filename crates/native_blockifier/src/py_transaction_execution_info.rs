@@ -184,7 +184,7 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
 pub struct PyBouncerInfo {
     #[pyo3(get)]
     // The number of felts needed to store the messages from L1 to L2 and vice versa.
-    pub messages_size: usize,
+    pub message_segment_length: usize,
     #[pyo3(get)]
     pub casm_hash_calculation_resources: PyVmExecutionResources,
 }

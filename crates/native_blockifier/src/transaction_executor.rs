@@ -86,7 +86,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_executed_class_hashes,
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
-                    messages_size: 0,
+                    message_segment_length: 0,
                     casm_hash_calculation_resources: py_casm_hash_calculation_resources,
                 };
 
