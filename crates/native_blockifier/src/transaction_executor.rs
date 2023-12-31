@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
@@ -6,12 +6,14 @@ use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, StagedTransactionalState, TransactionalState,
+    CachedState, ContractStorageKey, GlobalContractCache, StagedTransactionalState,
+    TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
+use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};
@@ -179,11 +181,11 @@ impl<S: StateReader> TransactionExecutor<S> {
 /// executed classes by the current transaction.
 pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
-    executed_class_hashes: &HashSet<ClassHash>,
+    block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
 ) -> NativeBlockifierResult<PyVmExecutionResources> {
     let newly_executed_class_hashes: HashSet<&ClassHash> =
-        tx_executed_class_hashes.difference(executed_class_hashes).collect();
+        tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
 
     let mut casm_hash_computation_resources = VmExecutionResources::default();
 
@@ -193,4 +195,30 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     }
 
     Ok(PyVmExecutionResources::from(casm_hash_computation_resources))
+}
+
+/// Returns the estimated VM resources for Patricia tree updates, or hash invocations
+/// (done by the OS), required by the execution of the current transaction.
+// For each tree: n_visited_leaves * log(n_initialized_leaves)
+// as the height of a Patricia tree with N uniformly distributed leaves is ~log(N),
+// and number of visited leaves includes reads and writes.
+pub fn get_particia_update_resources(
+    block_visited_storage_entries: &HashSet<ContractStorageKey>,
+    tx_visited_storage_entries: &HashSet<ContractStorageKey>,
+) -> NativeBlockifierResult<PyVmExecutionResources> {
+    let newly_visited_storage_entries: HashSet<&ContractStorageKey> =
+        tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
+    let n_newly_visited_leaves = newly_visited_storage_entries.len();
+
+    const TREE_HEIGHT_UPPER_BOUND: usize = 24;
+    let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
+
+    let patricia_update_resources = VmExecutionResources {
+        n_steps: 32 * n_updates,
+        // For each Patricia update there are 2 hash calculations.
+        builtin_instance_counter: HashMap::from([(HASH_BUILTIN_NAME.to_string(), 2 * n_updates)]),
+        n_memory_holes: 0,
+    };
+
+    Ok(PyVmExecutionResources::from(patricia_update_resources))
 }

@@ -316,8 +316,7 @@ fn get_address_to_v0_class_hash() -> HashMap<ContractAddress, ClassHash> {
     address_to_class_hash
 }
 
-fn get_storage_values_for_deprecated_test_state()
--> HashMap<(ContractAddress, StorageKey), StarkFelt> {
+fn get_storage_values_for_deprecated_test_state() -> HashMap<ContractStorageKey, StarkFelt> {
     let pair_address = contract_address!(TEST_PAIR_SKELETON_CONTRACT_ADDRESS1);
     let reserve0_address = get_storage_var_address("_reserve0", &[]);
     let reserve1_address = get_storage_var_address("_reserve1", &[]);

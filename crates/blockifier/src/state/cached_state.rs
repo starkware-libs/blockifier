@@ -638,7 +638,7 @@ pub struct CommitmentStateDiff {
 /// Holds the state changes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
-    pub storage_updates: HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    pub storage_updates: HashMap<ContractStorageKey, StarkFelt>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
     pub modified_contracts: HashSet<ContractAddress>,
