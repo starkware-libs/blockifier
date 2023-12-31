@@ -1,9 +1,12 @@
+use core::panic;
 use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use num_bigint::BigUint;
 use pyo3::prelude::*;
+use serde::Serialize;
 
 use crate::py_utils::{to_py_vec, PyFelt};
 
@@ -24,6 +27,62 @@ pub struct PyTransactionExecutionInfo {
     pub revert_error: Option<String>,
 }
 
+pub trait ToBytesString {
+    fn to_bytes_string(&self, tx_type: &str) -> String;
+}
+
+// TODO(Mohammad, 20/1/2024): Check if it can be implemented in a better way.
+impl ToBytesString for PyTransactionExecutionInfo {
+    fn to_bytes_string(&self, tx_type: &str) -> String {
+        let validate_call_info_str = match &self.validate_call_info {
+            Some(info) => format!("\"validate_info\": {}", info.to_bytes_string(tx_type)),
+            None => String::from("\"validate_info\": null"),
+        };
+
+        let execute_call_info_str = match &self.execute_call_info {
+            Some(info) => format!("\"call_info\": {}", info.to_bytes_string(tx_type)),
+            None => String::from("\"call_info\": null"),
+        };
+
+        let fee_transfer_call_info_str = match &self.fee_transfer_call_info {
+            Some(info) => format!("\"fee_transfer_info\": {}", info.to_bytes_string(tx_type)),
+            None => String::from("\"fee_transfer_info\": null"),
+        };
+
+        let actual_fee_str = format!("\"actual_fee\": \"0x{:x}\"", self.actual_fee);
+
+        let actual_resources_str = format!(
+            "\"actual_resources\": {}",
+            serde_json::to_string(&self.actual_resources).unwrap()
+        );
+
+        let tx_type_str = format!("\"tx_type\": \"{}\"", tx_type);
+
+        let revert_error_str = match &self.revert_error {
+            Some(error) => {
+                format!(
+                    "\"revert_error\": \"{}\"",
+                    error.replace('\n', "\\n").replace('\"', "\\\"")
+                )
+            }
+            None => String::from("\"revert_error\": null"),
+        };
+
+        let result_str = format!(
+            "{{{}, {}, {}, {}, {}, {}, {}}}",
+            validate_call_info_str,
+            execute_call_info_str,
+            fee_transfer_call_info_str,
+            actual_fee_str,
+            actual_resources_str,
+            tx_type_str,
+            revert_error_str
+        );
+
+        result_str
+    }
+}
+
 impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
     // TODO(Gilad, 1/4/2023): Check that everything can't fail, recursively.
     fn from(info: TransactionExecutionInfo) -> Self {
@@ -39,7 +98,7 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
 }
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyCallInfo {
     // Call params.
     #[pyo3(get)]
@@ -86,6 +145,159 @@ pub struct PyCallInfo {
     pub code_address: Option<PyFelt>,
 }
 
+// TODO(Mohammad, 20/1/2024): Check if it can be implemented in a better way.
+impl ToBytesString for PyCallInfo {
+    fn to_bytes_string(&self, _tx_type: &str) -> String {
+        let caller_address_str = format!(
+            "\"caller_address\": {}",
+            BigUint::from_bytes_be(self.caller_address.0.bytes())
+        );
+        let call_type_str = match self.call_type {
+            0 => "\"call_type\": \"CALL\"",
+            1 => "\"call_type\": \"DELEGATE\"",
+            _ => panic!("Invalid call type"),
+        };
+
+        let contract_address_str = format!(
+            "\"contract_address\": {}",
+            BigUint::from_bytes_be(self.contract_address.0.bytes())
+        );
+        let class_hash_str = match &self.class_hash {
+            Some(hash) => {
+                format!("\"class_hash\": \"0x{:x}\"", BigUint::from_bytes_be(hash.0.bytes()))
+            }
+            None => String::from("\"class_hash\": null"),
+        };
+        let entry_point_selector_str = format!(
+            "\"entry_point_selector\": {}",
+            BigUint::from_bytes_be(self.entry_point_selector.0.bytes())
+        );
+
+        let entry_point_type_str = match self.entry_point_type {
+            0 => "\"entry_point_type\": \"CONSTRUCTOR\"",
+            1 => "\"entry_point_type\": \"EXTERNAL\"",
+            2 => "\"entry_point_type\": \"L1_HANDLER\"",
+            _ => panic!("Invalid entry point type"),
+        };
+        let calldata_str = format!(
+            "\"calldata\": [{}]",
+            &self
+                .calldata
+                .iter()
+                .map(|item| format!("{}", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        // };
+
+        let gas_consumed_str = format!("\"gas_consumed\": \"0x{:x}\"", self.gas_consumed);
+        let failure_flag_str = format!(
+            "\"failure_flag\": \"0x{:x}\"",
+            BigUint::from_bytes_be(self.failure_flag.0.bytes())
+        );
+        let retdata_str = format!(
+            "\"retdata\": [{}]",
+            &self
+                .retdata
+                .iter()
+                .map(|item| format!("{}", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let execution_resources_str = format!(
+            "\"execution_resources\": {}",
+            self.execution_resources.to_bytes_string(_tx_type)
+        );
+
+        let events_str = if self.events.is_empty() {
+            "\"events\": []".to_string()
+        } else {
+            format!(
+                "\"events\": [{}]",
+                self.events
+                    .iter()
+                    .map(|item| item.to_bytes_string(_tx_type))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        };
+
+        let l2_to_l1_messages_str = if self.l2_to_l1_messages.is_empty() {
+            "\"l2_to_l1_messages\": []".to_string()
+        } else {
+            format!(
+                "\"l2_to_l1_messages\": [{}]",
+                self.l2_to_l1_messages
+                    .iter()
+                    .map(|item| item.to_bytes_string(_tx_type))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        };
+
+        let storage_read_values_str = format!(
+            "\"storage_read_values\": [{}]",
+            &self
+                .storage_read_values
+                .iter()
+                .map(|item| format!("{}", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        let accessed_storage_keys_str = format!(
+            "\"accessed_storage_keys\": [{}]",
+            self.accessed_storage_keys
+                .iter()
+                .map(|item| format!("\"0x{:x}\"", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        let internal_calls_str = if self.internal_calls.is_empty() {
+            "\"internal_calls\": []".to_string()
+        } else {
+            format!(
+                "\"internal_calls\": [{}]",
+                self.internal_calls
+                    .iter()
+                    .map(|item| item.to_bytes_string(_tx_type))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+        };
+
+        let code_address_str = match &self.code_address {
+            Some(code_address) => {
+                format!("\"code_address\": {}", BigUint::from_bytes_be(code_address.0.bytes()))
+            }
+            None => String::from("\"code_address\": null"),
+        };
+
+        let result_str = format!(
+            "{{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}}",
+            caller_address_str,
+            call_type_str,
+            contract_address_str,
+            class_hash_str,
+            entry_point_selector_str,
+            entry_point_type_str,
+            calldata_str,
+            gas_consumed_str,
+            failure_flag_str,
+            retdata_str,
+            execution_resources_str,
+            events_str,
+            l2_to_l1_messages_str,
+            storage_read_values_str,
+            accessed_storage_keys_str,
+            internal_calls_str,
+            code_address_str
+        );
+
+        result_str
+    }
+}
+
 impl From<CallInfo> for PyCallInfo {
     fn from(call_info: CallInfo) -> Self {
         let call = call_info.call;
@@ -118,7 +330,7 @@ impl From<CallInfo> for PyCallInfo {
 }
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyOrderedEvent {
     #[pyo3(get)]
     pub order: usize,
@@ -126,6 +338,32 @@ pub struct PyOrderedEvent {
     pub keys: Vec<PyFelt>,
     #[pyo3(get)]
     pub data: Vec<PyFelt>,
+}
+
+// TODO(Mohammad, 20/1/2024): Check if it can be implemented in a better way.
+impl ToBytesString for PyOrderedEvent {
+    fn to_bytes_string(&self, _tx_type: &str) -> String {
+        let order_str = format!("\"order\": {}", self.order);
+        let keys_str = format!(
+            "\"keys\": [{}]",
+            self.keys
+                .iter()
+                .map(|item| format!("\"0x{:x}\"", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        let data_str = format!(
+            "\"data\": [{}]",
+            self.data
+                .iter()
+                .map(|item| format!("\"0x{:x}\"", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        let result_str = format!("{{{}, {}, {}}}", order_str, keys_str, data_str);
+
+        result_str
+    }
 }
 
 impl From<OrderedEvent> for PyOrderedEvent {
@@ -137,7 +375,7 @@ impl From<OrderedEvent> for PyOrderedEvent {
 }
 
 #[pyclass]
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize)]
 pub struct PyOrderedL2ToL1Message {
     #[pyo3(get)]
     pub order: usize,
@@ -145,6 +383,26 @@ pub struct PyOrderedL2ToL1Message {
     pub to_address: PyFelt,
     #[pyo3(get)]
     pub payload: Vec<PyFelt>,
+}
+
+impl ToBytesString for PyOrderedL2ToL1Message {
+    fn to_bytes_string(&self, _tx_type: &str) -> String {
+        let order_str = format!("\"order\": {}", self.order);
+        let to_address_str =
+            format!("\"to_address\": {}", BigUint::from_bytes_be(self.to_address.0.bytes()));
+        let payload_str = format!(
+            "\"payload\": [{}]",
+            self.payload
+                .iter()
+                .map(|item| format!("\"0x{:x}\"", BigUint::from_bytes_be(item.0.bytes())))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        let result_str = format!("{{{}, {}, {}}}", order_str, to_address_str, payload_str);
+
+        result_str
+    }
 }
 
 impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
@@ -159,7 +417,7 @@ impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
 }
 
 #[pyclass]
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct PyVmExecutionResources {
     #[pyo3(get)]
     pub n_steps: usize,
@@ -167,6 +425,33 @@ pub struct PyVmExecutionResources {
     pub builtin_instance_counter: HashMap<String, usize>,
     #[pyo3(get)]
     pub n_memory_holes: usize,
+}
+
+impl ToBytesString for PyVmExecutionResources {
+    fn to_bytes_string(&self, _tx_type: &str) -> String {
+        let n_steps_str = format!("\"n_steps\": {}", self.n_steps);
+        let builtin_instance_counter_str = if self.builtin_instance_counter.is_empty() {
+            "\"builtin_instance_counter\": {}".to_string()
+        } else {
+            format!(
+                "\"builtin_instance_counter\": {{{}}}",
+                self.builtin_instance_counter
+                    .iter()
+                    .map(|(key, value)| format!("\"{}\": {}", key, value))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        };
+
+        let n_memory_holes_str = format!("\"n_memory_holes\": {}", self.n_memory_holes);
+
+        let result_str = format!(
+            "{{{}, {}, {}}}",
+            n_steps_str, builtin_instance_counter_str, n_memory_holes_str
+        );
+
+        result_str
+    }
 }
 
 impl From<VmExecutionResources> for PyVmExecutionResources {

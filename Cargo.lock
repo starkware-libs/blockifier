@@ -2087,6 +2087,7 @@ dependencies = [
  "papyrus_storage",
  "pyo3",
  "pyo3-log",
+ "serde",
  "serde_json",
  "starknet_api",
  "tempfile",
