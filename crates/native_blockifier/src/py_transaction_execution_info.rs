@@ -178,6 +178,7 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
         }
     }
 }
+<<<<<<< HEAD
 
 #[pyclass]
 #[derive(Clone, Default)]
@@ -188,3 +189,16 @@ pub struct PyBouncerInfo {
     #[pyo3(get)]
     pub casm_hash_calculation_resources: PyVmExecutionResources,
 }
+||||||| e3ccd803
+=======
+
+#[pyclass]
+#[derive(Clone, Default)]
+pub struct PyBouncerInfo {
+    #[pyo3(get)]
+    // The number of felts needed to store L1<>L2 messages.
+    pub messages_size: usize,
+    #[pyo3(get)]
+    pub additional_os_resources: PyVmExecutionResources,
+}
+>>>>>>> origin/main-v0.13.0

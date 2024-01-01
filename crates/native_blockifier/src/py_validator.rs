@@ -13,8 +13,18 @@ use starknet_api::hash::StarkFelt;
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
+<<<<<<< HEAD
 use crate::py_transaction::py_account_tx;
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
+||||||| e3ccd803
+use crate::py_transaction::{py_account_tx, PyActualCost};
+use crate::py_transaction_execution_info::{
+    PyCallInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
+};
+=======
+use crate::py_transaction::{py_account_tx, PyActualCost};
+use crate::py_transaction_execution_info::{PyBouncerInfo, PyCallInfo, PyTransactionExecutionInfo};
+>>>>>>> origin/main-v0.13.0
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
@@ -58,6 +68,72 @@ impl PyValidator {
 
     // Transaction Execution API.
 
+<<<<<<< HEAD
+||||||| e3ccd803
+    /// Applicable solely to account deployment transactions: the execution of the constructor
+    // is required before they can be validated.
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)].
+    #[pyo3(signature = (tx, raw_contract_class))]
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyVmExecutionResources)> {
+        let limit_execution_steps_by_resource_bounds = true;
+        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+    }
+
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)] and pass an account transaction instead of PyAny.
+    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    pub fn validate(
+        &mut self,
+        tx: &PyAny,
+        remaining_gas: u64,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let account_tx = py_account_tx(tx, raw_contract_class)?;
+        let (optional_call_info, actual_cost) =
+            self.tx_executor.validate(&account_tx, remaining_gas)?;
+        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
+
+        Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
+    }
+
+=======
+    /// Applicable solely to account deployment transactions: the execution of the constructor
+    // is required before they can be validated.
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)].
+    #[pyo3(signature = (tx, raw_contract_class))]
+    pub fn execute(
+        &mut self,
+        tx: &PyAny,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+        let limit_execution_steps_by_resource_bounds = true;
+        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+    }
+
+    // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove
+    // #[pyo3(...)] and pass an account transaction instead of PyAny.
+    #[pyo3(signature = (tx, remaining_gas, raw_contract_class))]
+    pub fn validate(
+        &mut self,
+        tx: &PyAny,
+        remaining_gas: u64,
+        raw_contract_class: Option<&str>,
+    ) -> NativeBlockifierResult<(Option<PyCallInfo>, PyActualCost)> {
+        let account_tx = py_account_tx(tx, raw_contract_class)?;
+        let (optional_call_info, actual_cost) =
+            self.tx_executor.validate(&account_tx, remaining_gas)?;
+        let py_optional_call_info = optional_call_info.map(PyCallInfo::from);
+
+        Ok((py_optional_call_info, PyActualCost::from(actual_cost)))
+    }
+
+>>>>>>> origin/main-v0.13.0
     #[pyo3(signature = (tx, raw_contract_class, deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
