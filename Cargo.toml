@@ -20,10 +20,10 @@ ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
 cairo-felt = "0.8.7"
-cairo-lang-casm = "2.4.0"
-cairo-lang-runner = "2.4.0"
-cairo-lang-starknet = "2.4.0"
-cairo-lang-utils = "2.4.0"
+cairo-lang-casm = "2.5.1"
+cairo-lang-runner =  "2.5.1"
+cairo-lang-starknet =  "2.5.1"
+cairo-lang-utils =  "2.5.1"
 cairo-vm = "0.8.7"
 criterion = "0.3"
 ctor = "0.2.0"
@@ -59,3 +59,11 @@ future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
 unused = "deny"
+
+# patch
+[patch.crates-io]
+cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", branch = "lior/contract-segmentation-wip" }
+cairo-lang-runner =  { git = "https://github.com/starkware-libs/cairo", branch = "lior/contract-segmentation-wip" }
+cairo-lang-starknet =  { git = "https://github.com/starkware-libs/cairo", branch = "lior/contract-segmentation-wip" }
+cairo-lang-utils =  { git = "https://github.com/starkware-libs/cairo", branch = "lior/contract-segmentation-wip" }
+papyrus_storage =  { git = "https://github.com/starkware-libs/papyrus", branch = "lior/contract-segmentation" }

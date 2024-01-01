@@ -499,9 +499,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-casm"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2850dc1d46d5bfb64c5ed0bc7ccd4821e4d4c36a8f2678a897df7c2bfaefe6fc"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-utils",
  "indoc 2.0.4",
@@ -516,9 +515,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-compiler"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e6360b6735eeff503c6103520fef7410ca2c5a5ae90584822baa326607721ac"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "anyhow",
  "cairo-lang-defs",
@@ -532,25 +530,22 @@ dependencies = [
  "cairo-lang-sierra-generator",
  "cairo-lang-syntax",
  "cairo-lang-utils",
- "itertools 0.11.0",
  "salsa",
  "thiserror",
 ]
 
 [[package]]
 name = "cairo-lang-debug"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c190deb7ba826a462fa7339e482d5e2df78d329435f4988b15f7752e033b5ac"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-utils",
 ]
 
 [[package]]
 name = "cairo-lang-defs"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b42a34d9952b04fa0c96fafd08d170097fb5075ff81826a034ef9faa70556de8"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-diagnostics",
@@ -565,9 +560,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-diagnostics"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c399832f9fc462cd51687a415c391ead4b99ee48c54cad5c8e1d5004ff6520c7"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-filesystem",
@@ -577,9 +571,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-eq-solver"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d73846e0dec2a204bc429f7421020fc6a98ae48f20f0cfa2aa1091b78221d6ce"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-utils",
  "good_lp",
@@ -587,9 +580,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-filesystem"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64f15f4a10963dcd5baa0386632c5ce4136d54f93d6c71cc16a49cbcbf774ee2"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-utils",
@@ -601,9 +593,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-lowering"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5547bb3e13841a840b4faad3eb7fe7c39b525220f708973b71b1b9077747758b"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-defs",
@@ -615,7 +606,6 @@ dependencies = [
  "cairo-lang-syntax",
  "cairo-lang-utils",
  "id-arena",
- "indexmap 2.1.0",
  "itertools 0.11.0",
  "log",
  "num-bigint",
@@ -627,9 +617,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-parser"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "197445f8db467e28dbeddc573047dd8f2a0ef3fcc3d1c32575162d4cf79988df"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-diagnostics",
  "cairo-lang-filesystem",
@@ -647,9 +636,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-plugins"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c3ea747577bd93e4791bdd57744dfddbc4b99ce056fffb5fd41340759642f91"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-defs",
  "cairo-lang-diagnostics",
@@ -666,9 +654,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-proc-macros"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8cc59c40344194d2cc825071080d887826dcf0df37de71e58fc8aa4c344bb84"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "quote",
@@ -677,9 +664,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-project"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "312b65dec1d0b8e1b420d7b464c0c771f18301177376432681c05c30f5ef9604"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-filesystem",
  "cairo-lang-utils",
@@ -691,9 +677,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-runner"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2376aa33117e2feae26ca030e8b6b5ec7c6c1edfc599885d1157d92f3fc413a"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "ark-ff",
  "ark-secp256k1",
@@ -713,14 +698,14 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits 0.2.17",
+ "starknet-crypto 0.6.1",
  "thiserror",
 ]
 
 [[package]]
 name = "cairo-lang-semantic"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e18c57cd10bcf69b427b901ce058268d21f65f5199b33e36b72b02ba7ceff74"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-defs",
@@ -743,11 +728,11 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84cf029a71e0176992cc401f7f182dc92e14a51662b1576240a7ecc79efac6bc"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "anyhow",
+ "cairo-felt",
  "cairo-lang-utils",
  "const-fnv1a-hash",
  "convert_case 0.6.0",
@@ -768,37 +753,36 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-ap-change"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "529ed2d8d14ef4c2d77e45db597425488e194b8ab1d3210742a1c54d78743407"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-eq-solver",
  "cairo-lang-sierra",
  "cairo-lang-sierra-type-size",
  "cairo-lang-utils",
  "itertools 0.11.0",
+ "num-traits 0.2.17",
  "thiserror",
 ]
 
 [[package]]
 name = "cairo-lang-sierra-gas"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0cbe3dd4f663d7df902a2f10cf52990d62f178741fe1494de51f08bb89b7aa6"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-eq-solver",
  "cairo-lang-sierra",
  "cairo-lang-sierra-type-size",
  "cairo-lang-utils",
  "itertools 0.11.0",
+ "num-traits 0.2.17",
  "thiserror",
 ]
 
 [[package]]
 name = "cairo-lang-sierra-generator"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c5bed52b240e1546b08e075493b2df4030dba2199e019d36f52da1423f2c653"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-defs",
@@ -810,7 +794,6 @@ dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-syntax",
  "cairo-lang-utils",
- "indexmap 2.1.0",
  "itertools 0.11.0",
  "num-bigint",
  "once_cell",
@@ -820,9 +803,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-to-casm"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc16661a7a78f885f6b5a4fdb3c7463d9ee3f6bca83266b4f2b956e65579ec72"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "assert_matches",
  "cairo-felt",
@@ -841,9 +823,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-sierra-type-size"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f3fa025f6bc1c8d4556c9fc4609fb6f27071470ed47eb3bd0b5f9a159e51124"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-utils",
@@ -851,9 +832,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-starknet"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac5523d9c5b8e7c98afb2907c2cf4821a251d94fc42d37940063a9f2adbea05f"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "anyhow",
  "cairo-felt",
@@ -888,9 +868,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-syntax"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c8e9b19fa724135353470ee3452605f82edfec17a7dd4e8388d77152ea4fbd2"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "cairo-lang-debug",
  "cairo-lang-filesystem",
@@ -904,9 +883,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-syntax-codegen"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a50c3a5dc5d890a523122e40dac59f3a430952cec73fe7312dd266ad865f049"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "genco",
  "xshell",
@@ -914,9 +892,8 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-utils"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88969fe46417affe9628bd039865693431837807eb981115f02756a35f488489"
+version = "2.5.1"
+source = "git+https://github.com/starkware-libs/cairo?branch=lior/contract-segmentation-wip#a5519f43d6727a6d8949373f77be02c0839376c0"
 dependencies = [
  "indexmap 2.1.0",
  "itertools 0.11.0",
@@ -2285,8 +2262,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15c3d5f91772b950d5992ecffec74c84c5523c7fb822e05dbfc2a4801123dc55"
+source = "git+https://github.com/starkware-libs/papyrus?branch=lior/contract-segmentation#a57b085b02e2e2afbd24aa214ba8ce8fb6e62961"
 dependencies = [
  "clap 4.4.8",
  "itertools 0.10.5",
@@ -2300,8 +2276,7 @@ dependencies = [
 [[package]]
 name = "papyrus_proc_macros"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9425815529f6e3e210170c9b003e165d06e159572078eff8dd8a1aa139490c09"
+source = "git+https://github.com/starkware-libs/papyrus?branch=lior/contract-segmentation#a57b085b02e2e2afbd24aa214ba8ce8fb6e62961"
 dependencies = [
  "quote",
  "syn 2.0.39",
@@ -2310,8 +2285,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "528d94a5ec05e21c0bb1cb27e8f3088474bc3a3e84caba3fd5db8cb2b2ab3569"
+source = "git+https://github.com/starkware-libs/papyrus?branch=lior/contract-segmentation#a57b085b02e2e2afbd24aa214ba8ce8fb6e62961"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",

@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
+use blockifier::execution::contract_class::estimate_casm_hash_computation_resources;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
+use cairo_lang_starknet::NestedIntList;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::transaction::{Resource, ResourceBounds};
@@ -13,6 +15,7 @@ use crate::py_declare::py_declare;
 use crate::py_deploy_account::py_deploy_account;
 use crate::py_invoke_function::py_invoke_function;
 use crate::py_l1_handler::py_l1_handler;
+use crate::py_transaction_execution_info::PyVmExecutionResources;
 
 // Structs.
 
@@ -134,4 +137,20 @@ pub fn py_tx(tx: &PyAny, raw_contract_class: Option<&str>) -> NativeBlockifierRe
         }
         TransactionType::L1Handler => py_l1_handler(tx)?.into(),
     })
+}
+
+/// Wrapper for [estimate_casm_hash_computation_resources] that can be used for testing.
+/// Takes a leaf.
+#[pyfunction]
+pub fn estimate_casm_hash_computation_resources_for_testing_single(bytecode_segment_lengths: usize) -> PyResult<PyVmExecutionResources> {
+    let node = NestedIntList::Leaf(bytecode_segment_lengths);
+    Ok(estimate_casm_hash_computation_resources(node).into())
+}
+
+/// Wrapper for [estimate_casm_hash_computation_resources] that can be used for testing.
+/// Takes a node of leaves.
+#[pyfunction]
+pub fn estimate_casm_hash_computation_resources_for_testing_list(bytecode_segment_lengths: Vec<usize>) -> PyResult<PyVmExecutionResources> {
+    let node = NestedIntList::Node(bytecode_segment_lengths.into_iter().map(|x| NestedIntList::Leaf(x)).collect());
+    Ok(estimate_casm_hash_computation_resources(node).into())
 }

@@ -6,6 +6,7 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -173,6 +174,7 @@ impl ContractClassV1 {
     /// This is an empiric measurement of several bytecode lengths, which constitutes as the
     /// dominant factor in it.
     fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+        // TODO: use the other estimate_casm_hash_computation_resources().
         let bytecode_length = self.bytecode_length() as f64;
         let n_steps = (503.0 + bytecode_length * 5.7) as usize;
         let n_poseidon_builtins = (10.9 + bytecode_length * 0.5) as usize;
@@ -192,6 +194,55 @@ impl ContractClassV1 {
         let contract_class: ContractClassV1 = casm_contract_class.try_into()?;
 
         Ok(contract_class)
+    }
+}
+
+/// Returns the estimated VM resources required for computing Casm hash.
+/// Note: the function focuses on the bytecode size, and currently ignores the cost handling the
+/// class entry points.
+/// This is an empiric measurement of several bytecode lengths, which constitutes as the
+/// dominant factor in it.
+pub fn estimate_casm_hash_computation_resources(
+    bytecode_segment_lengths: NestedIntList,
+) -> VmExecutionResources {
+    match bytecode_segment_lengths {
+        NestedIntList::Leaf(length) => {
+            &VmExecutionResources {
+                n_steps: 474,
+                n_memory_holes: 0,
+                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 10)]),
+            } + &poseidon_hash_many_cost(length)
+        }
+        NestedIntList::Node(segments) => {
+            let mut execution_resources = VmExecutionResources {
+                n_steps: 491,
+                n_memory_holes: 0,
+                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 11)]),
+            };
+            let base_segment_cost = VmExecutionResources {
+                n_steps: 24,
+                n_memory_holes: 1,
+                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 1)]),
+            };
+            for segment in segments {
+                let NestedIntList::Leaf(length) = segment else {
+                    panic!(
+                        "Estimating hash cost is only supported for segmentation depth at most 1."
+                    );
+                };
+                execution_resources += &poseidon_hash_many_cost(length);
+                execution_resources += &base_segment_cost;
+            }
+            execution_resources
+        }
+    }
+}
+
+fn poseidon_hash_many_cost(data_len: usize) -> VmExecutionResources {
+    VmExecutionResources {
+        n_steps: (data_len / 10) * 55 + ((data_len % 10) / 2) * 18 + (data_len % 2) * 3 + 21,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), data_len / 2 + 1)]),
     }
 }
 
