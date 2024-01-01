@@ -96,21 +96,6 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.executed_class_hashes,
                     &tx_executed_class_hashes,
                 )?;
-<<<<<<< HEAD
-                let py_bouncer_info = PyBouncerInfo {
-                    messages_size: 0,
-                    casm_hash_calculation_resources: py_casm_hash_calculation_resources,
-                };
-
-                self.staged_for_commit_state =
-                    Some(transactional_state.stage(tx_executed_class_hashes));
-                Ok((py_tx_execution_info, py_bouncer_info))
-||||||| e3ccd803
-
-                self.staged_for_commit_state =
-                    Some(transactional_state.stage(tx_executed_class_hashes));
-                Ok((py_tx_execution_info, py_casm_hash_calculation_resources))
-=======
                 additional_os_resources += &get_particia_update_resources(
                     &self.visited_storage_entries,
                     &tx_visited_storage_entries,
@@ -124,7 +109,6 @@ impl<S: StateReader> TransactionExecutor<S> {
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
                 Ok((py_tx_execution_info, py_bouncer_info))
->>>>>>> origin/main-v0.13.0
             }
             Err(error) => {
                 transactional_state.abort();

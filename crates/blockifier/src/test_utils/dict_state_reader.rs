@@ -5,14 +5,14 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::ContractStorageKey;
+use crate::state::cached_state::StorageEntry;
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult};
 
 /// A simple implementation of `StateReader` using `HashMap`s as storage.
 #[derive(Debug, Default)]
 pub struct DictStateReader {
-    pub storage_view: HashMap<ContractStorageKey, StarkFelt>,
+    pub storage_view: HashMap<StorageEntry, StarkFelt>,
     pub address_to_nonce: HashMap<ContractAddress, Nonce>,
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     pub class_hash_to_class: HashMap<ClassHash, ContractClass>,

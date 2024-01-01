@@ -81,11 +81,6 @@ impl CallInfo {
         class_hashes
     }
 
-<<<<<<< HEAD
-    /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
-||||||| e3ccd803
-    /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
-=======
     /// Returns the set of storage entries visited during this call execution.
     // TODO: Add unit test for this method
     pub fn get_visited_storage_entries(&self) -> HashSet<StorageEntry> {
@@ -102,8 +97,7 @@ impl CallInfo {
         storage_entries
     }
 
-    /// Returns a list of StarkNet L2ToL1Payload length collected during the execution, sorted
->>>>>>> origin/main-v0.13.0
+    /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
     pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
         let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
