@@ -354,10 +354,10 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
     }
 }
 
-pub type ContractStorageKey = (ContractAddress, StorageKey);
+pub type StorageEntry = (ContractAddress, StorageKey);
 
 #[derive(Debug, Default, IntoIterator)]
-pub struct StorageView(pub HashMap<ContractStorageKey, StarkFelt>);
+pub struct StorageView(pub HashMap<StorageEntry, StarkFelt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
 impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
@@ -385,13 +385,13 @@ pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
     compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
     class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+    storage_writes: HashMap<StorageEntry, StarkFelt>,
     compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
 }
 
@@ -481,7 +481,7 @@ impl StateCache {
         self.compiled_class_hash_writes.insert(class_hash, compiled_class_hash);
     }
 
-    fn get_storage_updates(&self) -> HashMap<ContractStorageKey, StarkFelt> {
+    fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
@@ -589,7 +589,11 @@ pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
     // Detach `state`, moving the instance to a pending state, which can be committed or aborted.
-    pub fn stage(self, tx_executed_class_hashes: HashSet<ClassHash>) -> StagedTransactionalState {
+    pub fn stage(
+        self,
+        tx_executed_class_hashes: HashSet<ClassHash>,
+        tx_visited_storage_entries: HashSet<StorageEntry>,
+    ) -> StagedTransactionalState {
         let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
             self;
         StagedTransactionalState {
@@ -597,6 +601,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             class_hash_to_class,
             global_class_hash_to_class,
             tx_executed_class_hashes,
+            tx_visited_storage_entries,
         }
     }
 
@@ -620,7 +625,10 @@ pub struct StagedTransactionalState {
     pub cache: StateCache,
     pub class_hash_to_class: ContractClassMapping,
     pub global_class_hash_to_class: GlobalContractCache,
+
+    // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
+    pub tx_visited_storage_entries: HashSet<StorageEntry>,
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
@@ -638,7 +646,7 @@ pub struct CommitmentStateDiff {
 /// Holds the state changes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
-    pub storage_updates: HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    pub storage_updates: HashMap<StorageEntry, StarkFelt>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
     pub modified_contracts: HashSet<ContractAddress>,
