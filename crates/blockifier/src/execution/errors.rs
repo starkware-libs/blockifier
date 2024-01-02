@@ -73,9 +73,7 @@ impl From<RunnerError> for PostExecutionError {
 #[derive(Debug, Error)]
 pub enum VirtualMachineExecutionError {
     #[error(transparent)]
-    CairoRunError(#[from] CairoRunError),
-    #[error(transparent)]
-    VirtualMachineError(#[from] VirtualMachineError),
+    CairoRunError(#[from] CairoRunError)
 }
 
 impl VirtualMachineExecutionError {
