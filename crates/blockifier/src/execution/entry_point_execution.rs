@@ -284,7 +284,7 @@ pub fn finalize_execution(
     // Has to happen after marking holes in segments as accessed.
     let vm_resources_without_inner_calls = runner
         .get_execution_resources(&vm)
-        .map_err(VirtualMachineError::TracerError)?
+        .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
 
