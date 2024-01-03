@@ -1303,13 +1303,13 @@ fn test_fail_deploy_account_undeclared_class_hash() {
 
 // TODO(Arni, 1/1/2024): Consider converting this test to use V3 txs.
 #[rstest]
+#[case::validate(TransactionType::InvokeFunction, false)]
+#[case::validate_declare(TransactionType::Declare, false)]
+#[case::validate_deploy(TransactionType::DeployAccount, false)]
+#[case::constructor(TransactionType::DeployAccount, true)]
 fn test_validate_accounts_tx(
-    #[values(
-        TransactionType::InvokeFunction,
-        TransactionType::Declare,
-        TransactionType::DeployAccount
-    )]
-    tx_type: TransactionType,
+    #[case] tx_type: TransactionType,
+    #[case] validate_constructor: bool,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
@@ -1320,8 +1320,13 @@ fn test_validate_accounts_tx(
     let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
     let salt_manager = &mut SaltManager::default();
 
-    let default_args =
-        FaultyAccountTxCreatorArgs { tx_type, sender_address, class_hash, ..Default::default() };
+    let default_args = FaultyAccountTxCreatorArgs {
+        tx_type,
+        sender_address,
+        class_hash,
+        validate_constructor,
+        ..Default::default()
+    };
 
     // Negative flows.
 
@@ -1335,7 +1340,11 @@ fn test_validate_accounts_tx(
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, false);
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        validate_constructor,
+    );
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1352,7 +1361,7 @@ fn test_validate_accounts_tx(
     check_transaction_execution_error_for_custom_hint!(
         &error,
         "Unauthorized syscall call_contract in execution mode Validate.",
-        false,
+        validate_constructor,
     );
 
     if let CairoVersion::Cairo1 = cairo_version {
@@ -1370,7 +1379,7 @@ fn test_validate_accounts_tx(
         check_transaction_execution_error_for_custom_hint!(
             &error,
             "Unauthorized syscall get_block_hash in execution mode Validate.",
-            false,
+            validate_constructor,
         );
     }
 
@@ -1399,78 +1408,6 @@ fn test_validate_accounts_tx(
             },
         );
         account_tx.execute(state, block_context, true, true).unwrap();
-    }
-}
-
-/// Tests the contract constructor is run with the same restriction as the validate_deploy function
-/// during the execution of a deploy account transaction.
-/// Note: the positive flow is already covered in 'test_validate_accounts_tx'.
-#[rstest]
-fn test_constructor_on_deploy_account_runs_in_validate_mode(
-    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
-) {
-    let block_context = &BlockContext::create_for_account_testing();
-    let account_balance = 0;
-    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
-    let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
-    let salt_manager = &mut SaltManager::default();
-
-    let default_args = FaultyAccountTxCreatorArgs {
-        tx_type: TransactionType::DeployAccount,
-        class_hash: faulty_account.get_class_hash(),
-        validate_constructor: true,
-        ..Default::default()
-    };
-
-    // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            contract_address_salt: salt_manager.next_salt(),
-            ..default_args
-        },
-    );
-    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, true);
-
-    // Verify that the contract can not call another contract in the constructor of deploy account.
-    // Deploy another instance of 'faulty_account' and try to call other contract in the
-    // constructor (forbidden).
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: CALL_CONTRACT,
-            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
-                                                           * address of faulty_account. */
-            contract_address_salt: salt_manager.next_salt(),
-            ..default_args
-        },
-    );
-    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_custom_hint!(
-        &error,
-        "Unauthorized syscall call_contract in execution mode Validate.",
-        true,
-    );
-
-    if let CairoVersion::Cairo1 = cairo_version {
-        // Verify that the contract does not use the syscall get_block_hash in the constructor of
-        // deploy account.
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_HASH,
-                contract_address_salt: salt_manager.next_salt(),
-                ..default_args
-            },
-        );
-        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        check_transaction_execution_error_for_custom_hint!(
-            &error,
-            "Unauthorized syscall get_block_hash in execution mode Validate.",
-            true,
-        );
     }
 }
 
