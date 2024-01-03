@@ -542,7 +542,7 @@ impl<'a> SyscallHintProcessor<'a> {
         value: StarkFelt,
     ) -> SyscallResult<StorageWriteResponse> {
         self.accessed_keys.insert(key);
-        self.state.set_storage_at(self.storage_address(), key, value);
+        self.state.set_storage_at(self.storage_address(), key, value)?;
 
         Ok(StorageWriteResponse {})
     }

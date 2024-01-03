@@ -55,6 +55,6 @@ pub fn get_storage_var_address(storage_var_name: &str, args: &[StarkFelt]) -> St
 /// Returns the storage key inside the fee token corresponding to the first storage cell where the
 /// balance of contract_address is stored. Note that the reference implementation of an ERC20 stores
 /// the balance in two consecutive storage cells.
-pub fn get_fee_token_var_address(contract_address: &ContractAddress) -> StorageKey {
+pub fn get_fee_token_var_address(contract_address: ContractAddress) -> StorageKey {
     get_storage_var_address("ERC20_balances", &[*contract_address.0.key()])
 }
