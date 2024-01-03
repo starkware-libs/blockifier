@@ -13,6 +13,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
     HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult, TransactionPreValidationResult,
 };
+use crate::transaction::transaction_utils::get_optional_call_infos_and_get_sorted_l2_to_l1_payloads_length;
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -57,13 +58,14 @@ pub fn calculate_tx_gas_usage(
 }
 
 pub fn calculate_message_segment_length(
-    call_infos: &[&CallInfo],
+    validate_call_info: Option<&CallInfo>,
+    execute_call_info: Option<&CallInfo>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
-    let mut l2_to_l1_payloads_length = Vec::new();
-    for call_info in call_infos {
-        l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
-    }
+    let l2_to_l1_payloads_length = get_optional_call_infos_and_get_sorted_l2_to_l1_payloads_length(
+        validate_call_info,
+        execute_call_info,
+    )?;
 
     Ok(get_message_segment_length(&l2_to_l1_payloads_length, l1_handler_payload_size))
 }

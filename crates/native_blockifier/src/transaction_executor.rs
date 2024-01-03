@@ -94,13 +94,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
-                let call_infos: Vec<&CallInfo> =
-                    [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
-                        .iter()
-                        .filter_map(|&call_info| call_info.as_ref())
-                        .collect::<Vec<&CallInfo>>();
-                let message_segment_length =
-                    calculate_message_segment_length(&call_infos, Some(l1_handler_payload_size))?;
+                let message_segment_length = calculate_message_segment_length(
+                    tx_execution_info.validate_call_info.as_ref(),
+                    tx_execution_info.execute_call_info.as_ref(),
+                    Some(l1_handler_payload_size),
+                )?;
 
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);

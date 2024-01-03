@@ -124,12 +124,9 @@ impl<'a> ActualCostBuilder<'a> {
         n_reverted_steps: usize,
     ) -> TransactionExecutionResult<ActualCost> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
-        let non_optional_call_infos = vec![self.validate_call_info, self.execute_call_info]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&CallInfo>>();
         let l1_gas_usage = calculate_l1_gas_usage(
-            &non_optional_call_infos,
+            self.validate_call_info,
+            self.execute_call_info,
             state_changes_count,
             self.l1_payload_size,
         )?;

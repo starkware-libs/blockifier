@@ -15,14 +15,15 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 
 pub fn calculate_l1_gas_usage(
-    call_infos: &[&CallInfo],
+    validate_call_info: Option<&CallInfo>,
+    execute_call_info: Option<&CallInfo>,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
-    let mut l2_to_l1_payloads_length = vec![];
-    for call_info in call_infos {
-        l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
-    }
+    let l2_to_l1_payloads_length = get_optional_call_infos_and_get_sorted_l2_to_l1_payloads_length(
+        validate_call_info,
+        execute_call_info,
+    )?;
 
     let l1_gas_usage = calculate_tx_gas_usage(
         &l2_to_l1_payloads_length,
@@ -93,4 +94,19 @@ pub fn verify_contract_class_version(
             }
         }
     }
+}
+
+pub fn get_optional_call_infos_and_get_sorted_l2_to_l1_payloads_length(
+    validate_call_info: Option<&CallInfo>,
+    execute_call_info: Option<&CallInfo>,
+) -> TransactionExecutionResult<Vec<usize>> {
+    let call_infos: Vec<&CallInfo> = [validate_call_info, execute_call_info]
+        .iter()
+        .filter_map(|&call_info| call_info)
+        .collect::<Vec<&CallInfo>>();
+    let mut l2_to_l1_payloads_length = vec![];
+    for call_info in call_infos {
+        l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
+    }
+    Ok(l2_to_l1_payloads_length)
 }
