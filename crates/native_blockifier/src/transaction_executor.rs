@@ -101,7 +101,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_visited_storage_entries,
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
-                    messages_size: 0,
+                    message_segment_length: 0,
                     additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
                 };
 
