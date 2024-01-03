@@ -88,7 +88,6 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
-
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
