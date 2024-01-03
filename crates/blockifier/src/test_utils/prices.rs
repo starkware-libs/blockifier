@@ -46,11 +46,13 @@ fn fee_transfer_resources(
     let token_address = block_context.fee_token_address(&fee_type);
 
     // Fund the account so we don't hit an error.
-    state.set_storage_at(
-        token_address,
-        get_fee_token_var_address(&account_contract_address),
-        stark_felt!(BALANCE),
-    );
+    state
+        .set_storage_at(
+            token_address,
+            get_fee_token_var_address(account_contract_address),
+            stark_felt!(BALANCE),
+        )
+        .unwrap();
 
     // Execute a fee transfer call and return the VM resources used.
     let fee_transfer_call = CallEntryPoint {

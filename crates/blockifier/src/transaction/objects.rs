@@ -176,9 +176,7 @@ impl TransactionExecutionInfo {
     /// Returns the set of storage entries visited during this transaction execution.
     pub fn get_visited_storage_entries(&self) -> HashSet<StorageEntry> {
         concat(
-            self.non_optional_call_infos()
-                .into_iter()
-                .map(|call_info| call_info.get_visited_storage_entries()),
+            self.non_optional_call_infos().map(|call_info| call_info.get_visited_storage_entries()),
         )
     }
 
