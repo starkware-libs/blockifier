@@ -44,7 +44,7 @@ func __validate__{syscall_ptr: felt*}(
     contract_address: felt, selector: felt, calldata_len: felt, calldata: felt*
 ) {
     let to_address = 0;
-    // By calling the `send_message_to_l1` function in validation and exeution, tests can now verify
+    // By calling the `send_message_to_l1` function in validation and execution, tests can now verify
     // the functionality of entry point counters.
     send_message_to_l1(to_address, calldata_len, calldata);
     faulty_validate();
