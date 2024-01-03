@@ -113,35 +113,68 @@ impl Storage {
         let block_number = BlockNumber(py_block_info.block_number);
         let state_number = StateNumber(block_number);
 
+        let n_classes = declared_class_hash_to_class.len();
+        log::debug!(
+            "<{block_number}, 111> Collecting undeclared deprecated classes ({n_classes} \
+             deprecated classes)."
+        );
         // Deserialize contract classes.
         let mut deprecated_declared_classes = IndexMap::<ClassHash, DeprecatedContractClass>::new();
-        for (class_hash, raw_class) in deprecated_declared_class_hash_to_class {
+        for (i, (class_hash, raw_class)) in
+            deprecated_declared_class_hash_to_class.iter().enumerate()
+        {
             let class_hash = ClassHash(class_hash.0);
+            log::debug!(
+                "<{block_number}, 111, {i}> Checking if deprecated class {class_hash} is \
+                 undeclared."
+            );
             let class_undeclared = self
                 .reader()
                 .begin_ro_txn()?
                 .get_state_reader()?
                 .get_deprecated_class_definition_at(state_number, &class_hash)?
                 .is_none();
+            log::debug!(
+                "<{block_number}, 111, {i}> Done fetching class {class_hash}. Is undeclared: \
+                 {class_undeclared}."
+            );
 
             if class_undeclared {
+                log::debug!(
+                    "<{block_number}, 111, {i}> Deprecated class {} is undeclared. Deserializing \
+                     (raw_class.len() = {}).",
+                    class_hash.0,
+                    raw_class.len()
+                );
                 let deprecated_contract_class: DeprecatedContractClass =
-                    serde_json::from_str(&raw_class)?;
+                    serde_json::from_str(raw_class)?;
+                log::debug!("<{block_number}, 111, {i}> Done deserializing class {class_hash}.");
                 deprecated_declared_classes.insert(class_hash, deprecated_contract_class);
             }
         }
+        let n_addresses = py_state_diff.address_to_class_hash.len();
+        log::debug!(
+            "<{block_number}, 111> Done collecting undeclared deprecated classes ({} total). \
+             <{block_number}, 222> Collecting replaced classes ({n_addresses} addresses).",
+            deprecated_declared_classes.len()
+        );
 
         // Collect replaced classes (changed class hash of an already allocated address;
         // i.e.: pointing to a non-zeroed class hash). Rest would be (newly) deployed classes.
         let mut replaced_classes = IndexMap::<ContractAddress, ClassHash>::new();
-        for (address, class_hash) in &py_state_diff.address_to_class_hash {
+        for (i, (address, class_hash)) in py_state_diff.address_to_class_hash.iter().enumerate() {
             let address = ContractAddress::try_from(address.0)?;
+            log::debug!("<{block_number}, 222, {i}> Checking if address {address:?} is replaced.");
             let address_assigned: bool = self
                 .reader()
                 .begin_ro_txn()?
                 .get_state_reader()?
                 .get_class_hash_at(state_number, &address)?
                 .is_some();
+            log::debug!(
+                "<{block_number}, 222, {i}> Done fetching class hash of address {address:?}. Is \
+                 replaced: {address_assigned}."
+            );
 
             if address_assigned {
                 replaced_classes.insert(address, ClassHash(class_hash.0));
@@ -151,34 +184,69 @@ impl Storage {
         replaced_classes.keys().for_each(|&address| {
             py_state_diff.address_to_class_hash.remove(&address.into());
         });
+        let n_classes = declared_class_hash_to_class.len();
+        log::debug!(
+            "<{block_number}, 222> Done collecting replaced classes ({} total). <{block_number}, \
+             333> Collecting casms of undeclared classes ({n_classes} classes).",
+            replaced_classes.len()
+        );
 
         let mut declared_classes = IndexMap::<ClassHash, (CompiledClassHash, ContractClass)>::new();
         let mut undeclared_casm_contracts = Vec::<(ClassHash, CasmContractClass)>::new();
-        for (class_hash, (compiled_class_hash, raw_class)) in declared_class_hash_to_class {
+        for (i, (class_hash, (compiled_class_hash, raw_class))) in
+            declared_class_hash_to_class.iter().enumerate()
+        {
             let class_hash = ClassHash(class_hash.0);
+            log::debug!("<{block_number}, 333, {i}> Checking if class {class_hash} is undeclared.");
             let class_undeclared = self
                 .reader()
                 .begin_ro_txn()?
                 .get_state_reader()?
                 .get_class_definition_at(state_number, &class_hash)?
                 .is_none();
+            log::debug!(
+                "<{block_number}, 333, {i}> Done fetching class {class_hash}. Is undeclared: \
+                 {class_undeclared}."
+            );
 
             if class_undeclared {
                 declared_classes.insert(
                     class_hash,
                     (CompiledClassHash(compiled_class_hash.0), ContractClass::default()),
                 );
-                let contract_class: CasmContractClass = serde_json::from_str(&raw_class)?;
+                log::debug!(
+                    "<{block_number}, 333, {i}> Class {class_hash} is undeclared. Deserializing \
+                     casm (raw_class.len() = {}).",
+                    raw_class.len()
+                );
+                let contract_class: CasmContractClass = serde_json::from_str(raw_class)?;
+                log::debug!("Done deserializing casm of class {class_hash}.");
                 undeclared_casm_contracts.push((class_hash, contract_class));
             }
         }
 
+        log::debug!(
+            "<{block_number}, 333> Done collecting undeclared classes ({} total). \
+             <{block_number}, 444> Writing the state diff to the storage.",
+            undeclared_casm_contracts.len()
+        );
+
         let mut append_txn = self.writer().begin_rw_txn()?;
-        for (class_hash, contract_class) in undeclared_casm_contracts {
-            append_txn = append_txn.append_casm(&class_hash, &contract_class)?;
+        log::debug!(
+            "<{block_number}, 444> Opened write transaction, appending casms ({} total).",
+            undeclared_casm_contracts.len()
+        );
+        for (i, (class_hash, contract_class)) in undeclared_casm_contracts.iter().enumerate() {
+            log::debug!("<{block_number}, 444, {i}> Appending casm of class {class_hash}.");
+            append_txn = append_txn.append_casm(class_hash, contract_class)?;
+            log::debug!("<{block_number}, 444, {i}> Done appending casm of class {class_hash}.");
         }
 
         // Construct state diff; manually add declared classes.
+        log::debug!(
+            "<{block_number}, 444> Done appending casms. <{block_number}, 555> Constructing state \
+             diff.",
+        );
         let mut state_diff = StateDiff::try_from(py_state_diff)?;
         state_diff.deprecated_declared_classes = deprecated_declared_classes;
         state_diff.declared_classes = declared_classes;
@@ -186,11 +254,16 @@ impl Storage {
 
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
+        log::debug!("<{block_number}, 555> Done constructing state diff, appending to storage.");
         append_txn = append_txn.append_state_diff(
             block_number,
             state_diff,
             deployed_contract_class_definitions,
         )?;
+        log::debug!(
+            "<{block_number}, 555> Done appending state diff to storage. <{block_number}, 666> \
+             Appending header to storage."
+        );
 
         let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));
         let block_header = BlockHeader {
@@ -200,8 +273,13 @@ impl Storage {
             ..Default::default()
         };
         append_txn = append_txn.append_header(block_number, &block_header)?;
+        log::debug!(
+            "<{block_number}, 666> Done appending header to storage. <{block_number}, 777> \
+             Committing write transaction."
+        );
 
         append_txn.commit()?;
+        log::debug!("<{block_number}, 777> Done committing write transaction.");
         Ok(())
     }
 
