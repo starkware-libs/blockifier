@@ -1,3 +1,4 @@
+use cached::proc_macro::cached;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
@@ -36,7 +37,7 @@ impl From<Prices> for VmExecutionResources {
 }
 
 /// Returns the expected VM resource consumption for a fee transfer call from the given address.
-#[memoize::memoize]
+#[cached]
 fn fee_transfer_resources(
     account_contract_address: ContractAddress,
     fee_type: FeeType,
