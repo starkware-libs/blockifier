@@ -252,9 +252,18 @@ impl Storage {
         state_diff.declared_classes = declared_classes;
         state_diff.replaced_classes = replaced_classes;
 
+        let n_changed_contracts = state_diff.storage_diffs.len();
+        let mut n_total_changes = 0;
+        for storage_diff in state_diff.storage_diffs.values() {
+            n_total_changes += storage_diff.len();
+        }
+
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
-        log::debug!("<{block_number}, 555> Done constructing state diff, appending to storage.");
+        log::debug!(
+            "<{block_number}, 555> Done constructing state diff, appending to storage \
+             ***({n_changed_contracts} contracts changed, {n_total_changes}total changes)***"
+        );
         append_txn = append_txn.append_state_diff(
             block_number,
             state_diff,
