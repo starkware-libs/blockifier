@@ -2,6 +2,7 @@
 mod Account {
     use array::{ArrayTrait, SpanTrait};
     use starknet::{ContractAddress, call_contract_syscall};
+    use starknet::info::SyscallResultTrait;
     use zeroable::Zeroable;
 
     #[storage]
@@ -47,8 +48,7 @@ mod Account {
             address: contract_address,
             entry_point_selector: selector,
             calldata: calldata.span()
-        )
-            .unwrap_syscall()
+        ).unwrap_syscall()
     }
 }
 
