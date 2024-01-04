@@ -386,34 +386,14 @@ fn global_contract_cache_is_used() {
     assert!(state.class_hash_to_class.get(&class_hash).is_none());
 
     // Check state uses the global cache.
-<<<<<<< HEAD
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
-    assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
-    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
-||||||| c47ac72d
-    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
-    assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
-    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
-=======
-    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
     assert_eq!(global_cache.lock().cache_hits().unwrap(), 1);
     assert_eq!(global_cache.lock().cache_size(), 1);
->>>>>>> origin/main-v0.13.0
     // Verify local cache is also updated.
     assert_eq!(state.class_hash_to_class.get(&class_hash).unwrap(), &contract_class);
 
     // Idempotency: getting the same class again uses the local cache.
-<<<<<<< HEAD
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
-    assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
-    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
-||||||| c47ac72d
-    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
-    assert_eq!(global_cache.lock().unwrap().cache_hits().unwrap(), 1);
-    assert_eq!(global_cache.lock().unwrap().cache_size(), 1);
-=======
-    assert_eq!(state.get_compiled_contract_class(&class_hash).unwrap(), contract_class);
     assert_eq!(global_cache.lock().cache_hits().unwrap(), 1);
     assert_eq!(global_cache.lock().cache_size(), 1);
->>>>>>> origin/main-v0.13.0
 }
