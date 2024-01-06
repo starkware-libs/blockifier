@@ -25,6 +25,7 @@ cairo-lang-casm.workspace = true
 cairo-lang-runner.workspace = true
 cairo-lang-starknet.workspace = true
 cairo-lang-utils.workspace = true
+cairo-native = { path = "../../../cairo_native" }
 cairo-vm.workspace = true
 derive_more.workspace = true
 indexmap.workspace = true
