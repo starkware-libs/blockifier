@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
 use crate::transaction::errors::ParseError;
 
-#[derive(Clone, Copy, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, EnumIter, Eq, Hash, PartialEq)]
 pub enum TransactionType {
     Declare,
     DeployAccount,

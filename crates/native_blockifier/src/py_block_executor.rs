@@ -10,11 +10,11 @@ use starknet_api::hash::StarkFelt;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
+use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
-use crate::transaction_executor::TransactionExecutor;
+use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
 
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
@@ -85,7 +85,7 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
         self.tx_executor().execute(tx, raw_contract_class, charge_fee)
     }
