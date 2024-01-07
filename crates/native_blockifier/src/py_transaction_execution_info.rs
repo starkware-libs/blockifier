@@ -101,7 +101,7 @@ impl From<CallInfo> for PyCallInfo {
             gas_consumed: execution.gas_consumed,
             failure_flag: execution.failed,
             retdata: to_py_vec(execution.retdata.0, PyFelt),
-            execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
+            execution_resources: PyVmExecutionResources::from(call_info.vm_resources.0),
             events: to_py_vec(execution.events, PyOrderedEvent::from),
             l2_to_l1_messages: to_py_vec(execution.l2_to_l1_messages, PyOrderedL2ToL1Message::from),
             internal_calls: to_py_vec(call_info.inner_calls, PyCallInfo::from),

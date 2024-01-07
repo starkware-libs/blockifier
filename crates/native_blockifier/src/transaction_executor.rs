@@ -11,11 +11,13 @@ use blockifier::state::cached_state::{
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
+use serde::Serialize;
 use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
 
@@ -23,10 +25,18 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
-use crate::py_transaction_execution_info::{
-    PyBouncerInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
-};
+use crate::py_transaction_execution_info::{PyBouncerInfo, PyVmExecutionResources};
 use crate::py_utils::PyFelt;
+
+pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
+
+#[pyclass]
+#[derive(Debug, Serialize)]
+pub(crate) struct TypedTransactionExecutionInfo {
+    #[serde(flatten)]
+    info: TransactionExecutionInfo,
+    tx_type: String,
+}
 
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
@@ -73,7 +83,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &PyAny,
         raw_contract_class: Option<&str>,
         charge_fee: bool,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+        let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
         let l1_handler_payload_size: usize =
             if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
@@ -103,9 +114,15 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let MessageL1CostInfo { l2_to_l1_payload_lengths: _, message_segment_length } =
                     MessageL1CostInfo::calculate(call_infos, Some(l1_handler_payload_size))?;
 
-                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
+                let typed_tx_execution_info = TypedTransactionExecutionInfo {
+                    info: tx_execution_info,
+                    tx_type: tx_type.to_string(),
+                };
 
+                let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)
+                    .map_err(NativeBlockifierError::SerdeError)?;
+
+                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
@@ -124,7 +141,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 self.staged_for_commit_state = Some(
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
-                Ok((py_tx_execution_info, py_bouncer_info))
+                Ok((raw_tx_execution_info, py_bouncer_info))
             }
             Err(error) => {
                 transactional_state.abort();
