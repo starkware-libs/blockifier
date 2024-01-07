@@ -2112,6 +2112,7 @@ dependencies = [
  "pretty_assertions",
  "pyo3",
  "pyo3-log",
+ "serde",
  "serde_json",
  "starknet_api",
  "tempfile",
