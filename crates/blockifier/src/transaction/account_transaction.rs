@@ -697,7 +697,7 @@ impl ValidatableTransaction for AccountTransaction {
 
         // Validate return data.
         let class_hash = state.get_class_hash_at(storage_address)?;
-        let contract_class = state.get_compiled_contract_class(&class_hash)?;
+        let contract_class = state.get_compiled_contract_class(class_hash)?;
         if let ContractClass::V1(_) = contract_class {
             // The account contract class is a Cairo 1.0 contract; the `validate` entry point should
             // return `VALID`.

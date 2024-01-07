@@ -177,6 +177,8 @@ impl PyBlockExecutor {
     /// (this is true for every partial existence of information at tables).
     #[pyo3(signature = (block_number))]
     pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
+        // Clear global class cache, to peroperly revert classes declared in the reverted block.
+        self.global_contract_cache.clear();
         self.storage.revert_block(block_number)
     }
 

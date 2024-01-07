@@ -1,10 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt252;
-use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
-use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::errors::vm_exception::VmException;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use num_traits::Pow;
@@ -199,7 +195,7 @@ fn test_call_contract() {
         calldata: calldata.clone(),
         ..trivial_external_entry_point()
     };
-    let call_info = entry_point_call.clone().execute_directly(&mut state).unwrap();
+    let call_info = entry_point_call.execute_directly(&mut state).unwrap();
 
     let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
     let expected_inner_call_info = CallInfo {

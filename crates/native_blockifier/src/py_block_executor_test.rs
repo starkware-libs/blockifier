@@ -26,21 +26,21 @@ fn global_contract_cache_update() {
     block_executor
         .tx_executor()
         .state
-        .set_contract_class(&class_hash, contract_class.clone())
+        .set_contract_class(class_hash, contract_class.clone())
         .unwrap();
 
     // Finalizing a pending block doesn't update the global contract cache.
     let is_pending_block = true;
     block_executor.finalize(is_pending_block);
-    assert_eq!(block_executor.global_contract_cache.lock().unwrap().cache_size(), 0);
+    assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 0);
     block_executor.teardown_block_execution();
 
     // Finalizing a non-pending block does update the global cache.
     block_executor.setup_block_execution(PyBlockInfo::default()).unwrap();
-    block_executor.tx_executor().state.set_contract_class(&class_hash, contract_class).unwrap();
+    block_executor.tx_executor().state.set_contract_class(class_hash, contract_class).unwrap();
     let is_pending_block = false;
     block_executor.finalize(is_pending_block);
-    assert_eq!(block_executor.global_contract_cache.lock().unwrap().cache_size(), 1);
+    assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 1);
     block_executor.teardown_block_execution();
 }
 

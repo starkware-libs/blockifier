@@ -87,7 +87,7 @@ impl<S: StateReader> CachedState<S> {
         // and the balance of the sender contract, but we don't charge the sender for the
         // sequencer balance change as it is amortized across the block.
         if let Some(sender_address) = sender_address {
-            let sender_balance_key = get_fee_token_var_address(&sender_address);
+            let sender_balance_key = get_fee_token_var_address(sender_address);
             // StarkFelt::default() value is zero, which must be different from the initial balance,
             // otherwise the transaction would have failed the "max fee lower than
             // balance" validation.
@@ -118,10 +118,8 @@ impl<S: StateReader> CachedState<S> {
     // store. The Guard will panic only if the Mutex panics during the lock operation, but
     // this shouldn't happen in our flow.
     // Note: `&mut` is used since the LRU cache updates internal counters on reads.
-    pub fn global_class_hash_to_class(
-        &mut self,
-    ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
-        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
+    pub fn global_class_hash_to_class(&mut self) -> LockedContractClassCache<'_> {
+        self.global_class_hash_to_class.lock()
     }
 
     pub fn update_cache(&mut self, cache_updates: StateCache) {
@@ -235,28 +233,28 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*class_hash)
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.global_class_hash_to_class().cache_get(class_hash).cloned();
+    #[allow(clippy::map_entry)]
+    // Clippy solution don't work because it required two mutable ref to self
+    // Could probably be solved with interior mutability
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        if !self.class_hash_to_class.contains_key(&class_hash) {
+            let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
 
             match contract_class {
                 Some(contract_class_from_global_cache) => {
-                    self.class_hash_to_class.insert(*class_hash, contract_class_from_global_cache);
+                    self.class_hash_to_class.insert(class_hash, contract_class_from_global_cache);
                 }
                 None => {
                     let contract_class_from_db =
                         self.state.get_compiled_contract_class(class_hash)?;
-                    self.class_hash_to_class.insert(*class_hash, contract_class_from_db);
+                    self.class_hash_to_class.insert(class_hash, contract_class_from_db);
                 }
             }
         }
 
         let contract_class = self
             .class_hash_to_class
-            .get(class_hash)
+            .get(&class_hash)
             .cloned()
             .expect("The class hash must appear in the cache.");
 
@@ -283,8 +281,10 @@ impl<S: StateReader> State for CachedState<S> {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    ) {
+    ) -> StateResult<()> {
         self.cache.set_storage_value(contract_address, key, value);
+
+        Ok(())
     }
 
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
@@ -312,10 +312,10 @@ impl<S: StateReader> State for CachedState<S> {
 
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        self.class_hash_to_class.insert(*class_hash, contract_class);
+        self.class_hash_to_class.insert(class_hash, contract_class);
         Ok(())
     }
 
@@ -368,10 +368,10 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
     }
 }
 
-pub type ContractStorageKey = (ContractAddress, StorageKey);
+pub type StorageEntry = (ContractAddress, StorageKey);
 
 #[derive(Debug, Default, IntoIterator)]
-pub struct StorageView(pub HashMap<ContractStorageKey, StarkFelt>);
+pub struct StorageView(pub HashMap<StorageEntry, StarkFelt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
 impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
@@ -399,13 +399,13 @@ pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<ContractStorageKey, StarkFelt>,
+    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
     compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
     class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    storage_writes: HashMap<ContractStorageKey, StarkFelt>,
+    storage_writes: HashMap<StorageEntry, StarkFelt>,
     compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
 }
 
@@ -495,7 +495,7 @@ impl StateCache {
         self.compiled_class_hash_writes.insert(class_hash, compiled_class_hash);
     }
 
-    fn get_storage_updates(&self) -> HashMap<ContractStorageKey, StarkFelt> {
+    fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
@@ -543,10 +543,7 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
         self.0.get_class_hash_at(contract_address)
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         self.0.get_compiled_contract_class(class_hash)
     }
 
@@ -561,7 +558,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    ) {
+    ) -> StateResult<()> {
         self.0.set_storage_at(contract_address, key, value)
     }
 
@@ -579,7 +576,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
 
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.0.set_contract_class(class_hash, contract_class)
@@ -607,6 +604,7 @@ pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
     // Detach `state`, moving the instance to a pending state, which can be committed or aborted.
+<<<<<<< HEAD
     pub fn stage(self, tx_executed_class_hashes: HashSet<ClassHash>) -> StagedTransactionalState {
         let TransactionalState {
             cache,
@@ -615,12 +613,30 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             visited_pcs,
             ..
         } = self;
+||||||| ce28997a
+    pub fn stage(self, tx_executed_class_hashes: HashSet<ClassHash>) -> StagedTransactionalState {
+        let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
+            self;
+=======
+    pub fn stage(
+        self,
+        tx_executed_class_hashes: HashSet<ClassHash>,
+        tx_visited_storage_entries: HashSet<StorageEntry>,
+    ) -> StagedTransactionalState {
+        let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
+            self;
+>>>>>>> origin/main
         StagedTransactionalState {
             cache,
             class_hash_to_class,
             global_class_hash_to_class,
             tx_executed_class_hashes,
+<<<<<<< HEAD
             visited_pcs,
+||||||| ce28997a
+=======
+            tx_visited_storage_entries,
+>>>>>>> origin/main
         }
     }
 
@@ -647,8 +663,15 @@ pub struct StagedTransactionalState {
     pub cache: StateCache,
     pub class_hash_to_class: ContractClassMapping,
     pub global_class_hash_to_class: GlobalContractCache,
+
+    // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
+<<<<<<< HEAD
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
+||||||| ce28997a
+=======
+    pub tx_visited_storage_entries: HashSet<StorageEntry>,
+>>>>>>> origin/main
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
@@ -666,7 +689,7 @@ pub struct CommitmentStateDiff {
 /// Holds the state changes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
-    pub storage_updates: HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    pub storage_updates: HashMap<StorageEntry, StarkFelt>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
     pub modified_contracts: HashSet<ContractAddress>,
@@ -712,14 +735,25 @@ impl From<&StateChanges> for StateChangesCount {
 
 // Note: `ContractClassLRUCache` key-value types must align with `ContractClassMapping`.
 type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
-#[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+type LockedContractClassCache<'a> = MutexGuard<'a, ContractClassLRUCache>;
+#[derive(Debug, Clone)]
 // Thread-safe LRU cache for contract classes, optimized for inter-language sharing when
 // `blockifier` compiles as a shared library.
 pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
 
 impl GlobalContractCache {
-    // TODO: make this configurable via a CachedState constructor argument.
+    // TODO(Arni, 7/1/2024): make this configurable via a CachedState constructor argument.
     const CACHE_SIZE: usize = 100;
+
+    /// Locks the cache for atomic access. Although conceptually shared, writing to this cache is
+    /// only possible for one writer at a time.
+    pub fn lock(&mut self) -> LockedContractClassCache<'_> {
+        self.0.lock().expect("Global contract cache is poisoned.")
+    }
+
+    pub fn clear(&mut self) {
+        self.lock().cache_clear();
+    }
 }
 
 impl Default for GlobalContractCache {

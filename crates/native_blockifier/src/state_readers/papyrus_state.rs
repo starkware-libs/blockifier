@@ -75,15 +75,12 @@ impl StateReader for PapyrusReader {
 
     /// Returns a V1 contract if found, or a V0 contract if a V1 contract is not
     /// found, or an `Error` otherwise.
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let state_number = StateNumber(self.latest_block);
         let class_declaration_block_number = self
             .reader()?
             .get_state_reader()
-            .and_then(|sr| sr.get_class_definition_block_number(class_hash))
+            .and_then(|sr| sr.get_class_definition_block_number(&class_hash))
             .map_err(|err| StateError::StateReadError(err.to_string()))?;
         let class_is_declared: bool = matches!(class_declaration_block_number,
                     Some(block_number) if block_number <= state_number.0);
@@ -91,7 +88,7 @@ impl StateReader for PapyrusReader {
         if class_is_declared {
             let casm_contract_class = self
                 .reader()?
-                .get_casm(class_hash)
+                .get_casm(&class_hash)
                 .map_err(|err| StateError::StateReadError(err.to_string()))?
                 .expect(
                     "Should be able to fetch a Casm class if its definition exists, database is \
@@ -104,14 +101,14 @@ impl StateReader for PapyrusReader {
         let v0_contract_class = self
             .reader()?
             .get_state_reader()
-            .and_then(|sr| sr.get_deprecated_class_definition_at(state_number, class_hash))
+            .and_then(|sr| sr.get_deprecated_class_definition_at(state_number, &class_hash))
             .map_err(|err| StateError::StateReadError(err.to_string()))?;
 
         match v0_contract_class {
             Some(starknet_api_contract_class) => {
                 Ok(ContractClassV0::try_from(starknet_api_contract_class)?.into())
             }
-            None => Err(StateError::UndeclaredClassHash(*class_hash)),
+            None => Err(StateError::UndeclaredClassHash(class_hash)),
         }
     }
 
