@@ -14,10 +14,10 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::py_account_tx;
-use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
+use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
-use crate::transaction_executor::TransactionExecutor;
+use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
 
 /// Manages transaction validation for pre-execution flows.
 #[pyclass]
@@ -72,7 +72,8 @@ impl PyValidator {
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let (_py_tx_execution_info, _py_bouncer_info) = self.execute(tx, raw_contract_class)?;
+            let (_raw_tx_execution_info, _py_bouncer_info) =
+                self.execute(tx, raw_contract_class)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -132,7 +133,7 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
         self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
     }
