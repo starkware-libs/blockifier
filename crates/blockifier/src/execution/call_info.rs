@@ -1,6 +1,7 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, EthAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -12,7 +13,7 @@ use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
 #[macro_export]
@@ -23,7 +24,7 @@ macro_rules! retdata {
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,
@@ -53,14 +54,14 @@ impl MessageL1CostInfo {
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct MessageToL1 {
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedL2ToL1Message {
     pub order: usize,
     pub message: MessageToL1,
@@ -68,7 +69,7 @@ pub struct OrderedL2ToL1Message {
 
 /// Represents the effects of executing a single entry point.
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<OrderedEvent>,
@@ -77,11 +78,24 @@ pub struct CallExecution {
     pub gas_consumed: u64,
 }
 
+// This struct is just a copy of the remote `VmExecutionResources` Struct.
+// The remote attribute gives the path to the actual type we intend to derive
+// Serialize and Deserialize for.
+#[derive(Debug, Default, Deserialize, derive_more::From, Eq, PartialEq, Serialize)]
+#[serde(remote = "VmExecutionResources")]
+struct VmExecutionResourcesDef {
+    n_steps: usize,
+    n_memory_holes: usize,
+    builtin_instance_counter: HashMap<String, usize>,
+}
+
 /// Represents the full effects of executing an entry point, including the inner calls it invoked.
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
+    // It gives the path to the definition for the remote type.
+    #[serde(with = "VmExecutionResourcesDef")]
     pub vm_resources: VmExecutionResources,
     pub inner_calls: Vec<CallInfo>,
 
