@@ -8,6 +8,7 @@ use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkHash;
 
+use super::call_info::VmExecutionResourcesWrapper;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::execution::call_info::{CallExecution, CallInfo};
@@ -253,7 +254,7 @@ pub fn finalize_execution(
             failed: false,
             gas_consumed: 0,
         },
-        vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        vm_resources: VmExecutionResourcesWrapper(full_call_vm_resources.filter_unused_builtins()),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,

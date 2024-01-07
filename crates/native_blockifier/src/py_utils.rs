@@ -4,13 +4,14 @@ use blockifier::transaction::errors::{TransactionExecutionError, TransactionFeeE
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use serde::{Serialize, Deserialize};
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, EthAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::errors::NativeBlockifierResult;
 
-#[derive(Clone, Copy, Debug, Default, Eq, FromPyObject, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, FromPyObject, Hash, PartialEq, Serialize, Deserialize)]
 pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub StarkFelt);
 
 impl IntoPy<PyObject> for PyFelt {
