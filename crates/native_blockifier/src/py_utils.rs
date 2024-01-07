@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 
-use blockifier::transaction::errors::{TransactionExecutionError, TransactionFeeError};
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -90,15 +89,6 @@ pub fn from_py_felts(py_felts: Vec<PyFelt>) -> Vec<StarkFelt> {
 pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
     let biguint: BigUint = int.extract()?;
     Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
-}
-
-// TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
-#[pyfunction]
-pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
-    Err(TransactionExecutionError::TransactionFeeError(
-        TransactionFeeError::CairoResourcesNotContainedInFeeCosts,
-    )
-    .into())
 }
 
 pub fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
