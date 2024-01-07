@@ -29,6 +29,7 @@ use crate::abi::sierra_types::next_storage_key;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
+    VmExecutionResourcesWrapper,
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
@@ -146,7 +147,7 @@ fn expected_validate_call_info(
             initial_gas: Transaction::initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
-        vm_resources,
+        vm_resources: VmExecutionResourcesWrapper(vm_resources),
         execution: CallExecution { retdata, gas_consumed, ..Default::default() },
         ..Default::default()
     })
@@ -207,7 +208,9 @@ fn expected_fee_transfer_call_info(
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
-        vm_resources: Prices::FeeTransfer(account_address, *fee_type).into(),
+        vm_resources: VmExecutionResourcesWrapper(
+            Prices::FeeTransfer(account_address, *fee_type).into(),
+        ),
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
@@ -381,15 +384,15 @@ fn test_invoke_tx(
             gas_consumed: expected_arguments.execute_gas_consumed,
             ..Default::default()
         },
-        vm_resources: expected_arguments.vm_resources,
+        vm_resources: VmExecutionResourcesWrapper(expected_arguments.vm_resources),
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
-            vm_resources: VmExecutionResources {
+            vm_resources: VmExecutionResourcesWrapper(VmExecutionResources {
                 n_steps: 23,
                 n_memory_holes: 0,
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         }],
         ..Default::default()
@@ -1622,11 +1625,11 @@ fn test_l1_handler() {
             gas_consumed: 19650,
             ..Default::default()
         },
-        vm_resources: VmExecutionResources {
+        vm_resources: VmExecutionResourcesWrapper(VmExecutionResources {
             n_steps: 143,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
-        },
+        }),
         accessed_storage_keys: HashSet::from_iter(vec![accessed_storage_key]),
         ..Default::default()
     };

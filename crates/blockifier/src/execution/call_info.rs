@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use starknet_api::core::{ClassHash, EthAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -11,7 +13,7 @@ use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
 #[macro_export]
@@ -22,21 +24,21 @@ macro_rules! retdata {
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct MessageToL1 {
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedL2ToL1Message {
     pub order: usize,
     pub message: MessageToL1,
@@ -44,7 +46,7 @@ pub struct OrderedL2ToL1Message {
 
 /// Represents the effects of executing a single entry point.
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<OrderedEvent>,
@@ -53,17 +55,58 @@ pub struct CallExecution {
     pub gas_consumed: u64,
 }
 
+#[derive(Debug, Default, Eq, PartialEq)]
+pub struct VmExecutionResourcesWrapper(pub VmExecutionResources);
+
+impl Serialize for VmExecutionResourcesWrapper {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Create a SerializeStruct with the appropriate number of fields
+        let mut state = serializer.serialize_struct("ExecutionResourcesWrapper", 3)?;
+
+        // Serialize each field individually
+        state.serialize_field("builtin_instance_counter", &self.0.builtin_instance_counter)?;
+        state.serialize_field("n_memory_holes", &self.0.n_memory_holes)?;
+        state.serialize_field("n_steps", &self.0.n_steps)?;
+
+        // Finish serializing the struct
+        state.end()
+    }
+}
+
 /// Represents the full effects of executing an entry point, including the inner calls it invoked.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
-    pub vm_resources: VmExecutionResources,
+    pub vm_resources: VmExecutionResourcesWrapper,
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
     pub storage_read_values: Vec<StarkFelt>,
     pub accessed_storage_keys: HashSet<StorageKey>,
+}
+
+impl Serialize for CallInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("CallInfo", 6)?;
+        state.serialize_field("call", &self.call)?;
+        state.serialize_field("execution", &self.execution)?;
+
+        // Manually serialize vm_resources here
+        state.serialize_field("vm_resources", &self.vm_resources)?;
+
+        state.serialize_field("inner_calls", &self.inner_calls)?;
+        state.serialize_field("storage_read_values", &self.storage_read_values)?;
+        state.serialize_field("accessed_storage_keys", &self.accessed_storage_keys)?;
+
+        state.end()
+    }
 }
 
 impl CallInfo {
