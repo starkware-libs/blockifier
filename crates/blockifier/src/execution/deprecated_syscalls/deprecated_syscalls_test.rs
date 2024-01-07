@@ -135,7 +135,7 @@ fn test_nested_library_call() {
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        vm_resources: storage_entry_point_vm_resources.clone().into(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
@@ -149,14 +149,14 @@ fn test_nested_library_call() {
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
-        vm_resources: library_call_vm_resources.clone(),
+        vm_resources: library_call_vm_resources.clone().into(),
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        vm_resources: storage_entry_point_vm_resources.clone().into(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
@@ -168,7 +168,7 @@ fn test_nested_library_call() {
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution::from_retdata(retdata![stark_felt!(0_u8)]),
-        vm_resources: main_call_vm_resources,
+        vm_resources: main_call_vm_resources.into(),
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };
@@ -209,7 +209,7 @@ fn test_call_contract() {
             ..trivial_external_entry_point()
         },
         execution: expected_execution.clone(),
-        vm_resources: VmExecutionResources { n_steps: 42, ..Default::default() },
+        vm_resources: VmExecutionResources { n_steps: 42, ..Default::default() }.into(),
         storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
@@ -229,7 +229,8 @@ fn test_call_contract() {
             n_steps: 81,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
             ..Default::default()
-        },
+        }
+        .into(),
         ..Default::default()
     };
 

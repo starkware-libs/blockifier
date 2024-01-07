@@ -554,7 +554,7 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        vm_resources: storage_entry_point_vm_resources.clone().into(),
         storage_read_values: vec![stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
@@ -571,7 +571,7 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
             ..CallExecution::default()
         },
-        vm_resources: library_call_vm_resources,
+        vm_resources: library_call_vm_resources.into(),
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
@@ -582,7 +582,7 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources,
+        vm_resources: storage_entry_point_vm_resources.into(),
         storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
@@ -600,7 +600,7 @@ fn test_nested_library_call() {
             gas_consumed: 316180,
             ..CallExecution::default()
         },
-        vm_resources: main_call_vm_resources,
+        vm_resources: main_call_vm_resources.into(),
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };
