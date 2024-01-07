@@ -11,7 +11,7 @@ use num_traits::ToPrimitive;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
-use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
+use crate::execution::call_info::{CallExecution, CallInfo, Retdata, VmExecutionResourcesWrapper};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
@@ -298,7 +298,7 @@ pub fn finalize_execution(
             failed: call_result.failed,
             gas_consumed: call_result.gas_consumed,
         },
-        vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        vm_resources: VmExecutionResourcesWrapper(full_call_vm_resources.filter_unused_builtins()),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
