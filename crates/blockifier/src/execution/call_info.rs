@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use starknet_api::core::{ClassHash, EthAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -12,7 +14,7 @@ use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
 #[macro_export]
@@ -23,7 +25,7 @@ macro_rules! retdata {
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,
@@ -53,14 +55,14 @@ impl MessageL1CostInfo {
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct MessageToL1 {
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedL2ToL1Message {
     pub order: usize,
     pub message: MessageToL1,
@@ -68,7 +70,7 @@ pub struct OrderedL2ToL1Message {
 
 /// Represents the effects of executing a single entry point.
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<OrderedEvent>,
@@ -77,12 +79,39 @@ pub struct CallExecution {
     pub gas_consumed: u64,
 }
 
+#[derive(Debug, Default, derive_more::Deref, derive_more::From, Eq, PartialEq)]
+pub struct VmExecutionResourcesWrapper(pub VmExecutionResources);
+
+impl From<VmExecutionResourcesWrapper> for VmExecutionResources {
+    fn from(wrapper: VmExecutionResourcesWrapper) -> Self {
+        wrapper.0
+    }
+}
+
+impl Serialize for VmExecutionResourcesWrapper {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Create a serialize struct with the appropriate number of fields.
+        let mut state = serializer.serialize_struct("VmExecutionResourcesWrapper", 3)?;
+
+        // Serialize each field individually.
+        state.serialize_field("builtin_instance_counter", &self.builtin_instance_counter)?;
+        state.serialize_field("n_memory_holes", &self.n_memory_holes)?;
+        state.serialize_field("n_steps", &self.n_steps)?;
+
+        // Finish serializing the struct.
+        state.end()
+    }
+}
+
 /// Represents the full effects of executing an entry point, including the inner calls it invoked.
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
-    pub vm_resources: VmExecutionResources,
+    pub vm_resources: VmExecutionResourcesWrapper,
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
