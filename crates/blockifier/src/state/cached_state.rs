@@ -604,8 +604,11 @@ pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
     // Detach `state`, moving the instance to a pending state, which can be committed or aborted.
-<<<<<<< HEAD
-    pub fn stage(self, tx_executed_class_hashes: HashSet<ClassHash>) -> StagedTransactionalState {
+    pub fn stage(
+        self,
+        tx_executed_class_hashes: HashSet<ClassHash>,
+        tx_visited_storage_entries: HashSet<StorageEntry>,
+    ) -> StagedTransactionalState {
         let TransactionalState {
             cache,
             class_hash_to_class,
@@ -613,30 +616,13 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             visited_pcs,
             ..
         } = self;
-||||||| ce28997a
-    pub fn stage(self, tx_executed_class_hashes: HashSet<ClassHash>) -> StagedTransactionalState {
-        let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
-            self;
-=======
-    pub fn stage(
-        self,
-        tx_executed_class_hashes: HashSet<ClassHash>,
-        tx_visited_storage_entries: HashSet<StorageEntry>,
-    ) -> StagedTransactionalState {
-        let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
-            self;
->>>>>>> origin/main
         StagedTransactionalState {
             cache,
             class_hash_to_class,
             global_class_hash_to_class,
             tx_executed_class_hashes,
-<<<<<<< HEAD
-            visited_pcs,
-||||||| ce28997a
-=======
             tx_visited_storage_entries,
->>>>>>> origin/main
+            visited_pcs,
         }
     }
 
@@ -666,12 +652,8 @@ pub struct StagedTransactionalState {
 
     // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
-<<<<<<< HEAD
-    pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
-||||||| ce28997a
-=======
     pub tx_visited_storage_entries: HashSet<StorageEntry>,
->>>>>>> origin/main
+    pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
