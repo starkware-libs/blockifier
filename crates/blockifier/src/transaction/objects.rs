@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use cairo_felt::Felt252;
 use itertools::concat;
 use num_traits::Pow;
+use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
@@ -146,7 +147,7 @@ pub struct CommonAccountFields {
 }
 
 /// Contains the information gathered by the execution of a transaction.
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct TransactionExecutionInfo {
     /// Transaction validation call info; [None] for `L1Handler`.
     pub validate_call_info: Option<CallInfo>,
@@ -194,7 +195,7 @@ impl TransactionExecutionInfo {
 
 /// A mapping from a transaction execution resource to its actual usage.
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
 impl ResourcesMapping {
