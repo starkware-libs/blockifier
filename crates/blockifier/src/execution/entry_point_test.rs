@@ -531,6 +531,7 @@ fn test_cairo1_entry_point_segment_arena() {
             .execute_directly(&mut state)
             .unwrap()
             .vm_resources
+            .0
             .builtin_instance_counter
             .contains_key(BuiltinName::segment_arena.name())
     );

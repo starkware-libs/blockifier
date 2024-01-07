@@ -81,4 +81,5 @@ fn fee_transfer_resources(
         )
         .unwrap()
         .vm_resources
+        .0
 }
