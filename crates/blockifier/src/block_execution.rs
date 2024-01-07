@@ -4,7 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
-use crate::state::state_api::State;
+use crate::state::state_api::{State, StateResult};
 
 #[cfg(test)]
 #[path = "block_execution_test.rs"]
@@ -16,7 +16,7 @@ pub mod test;
 pub fn pre_process_block(
     state: &mut dyn State,
     old_block_number_and_hash: Option<(BlockNumber, BlockHash)>,
-) {
+) -> StateResult<()> {
     if let Some((block_number, block_hash)) = old_block_number_and_hash {
         state.set_storage_at(
             ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))
@@ -24,6 +24,8 @@ pub fn pre_process_block(
             StorageKey::try_from(StarkFelt::from(block_number.0))
                 .expect("Failed to convert BlockNumber to StorageKey."),
             block_hash.0,
-        );
+        )?;
     }
+
+    Ok(())
 }

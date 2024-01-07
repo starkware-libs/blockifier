@@ -7,6 +7,7 @@ use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
 use crate::execution::entry_point::CallEntryPoint;
+use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
@@ -70,13 +71,30 @@ impl CallInfo {
     // TODO: Add unit test for this method
     pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
         let mut class_hashes = HashSet::new();
-        let calls = self.into_iter();
-        for call in calls {
-            class_hashes
-                .insert(call.call.class_hash.expect("Class hash must be set after execution."));
+        let self_with_inner_calls = self.into_iter();
+        for call_info in self_with_inner_calls {
+            let class_hash =
+                call_info.call.class_hash.expect("Class hash must be set after execution.");
+            class_hashes.insert(class_hash);
         }
 
         class_hashes
+    }
+
+    /// Returns the set of storage entries visited during this call execution.
+    // TODO: Add unit test for this method
+    pub fn get_visited_storage_entries(&self) -> HashSet<StorageEntry> {
+        let mut storage_entries = HashSet::new();
+        let self_with_inner_calls = self.into_iter();
+        for call_info in self_with_inner_calls {
+            let call_storage_entries = call_info
+                .accessed_storage_keys
+                .iter()
+                .map(|storage_key| (call_info.call.storage_address, *storage_key));
+            storage_entries.extend(call_storage_entries);
+        }
+
+        storage_entries
     }
 
     /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
@@ -85,8 +103,8 @@ impl CallInfo {
         let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
         let mut starknet_l2_to_l1_payloads_length: Vec<Option<usize>> = vec![None; n_messages];
 
-        for call in self.into_iter() {
-            for ordered_message_content in &call.execution.l2_to_l1_messages {
+        for call_info in self.into_iter() {
+            for ordered_message_content in &call_info.execution.l2_to_l1_messages {
                 let message_order = ordered_message_content.order;
                 if message_order >= n_messages {
                     return Err(TransactionExecutionError::InvalidOrder {

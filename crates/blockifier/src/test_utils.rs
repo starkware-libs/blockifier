@@ -98,13 +98,13 @@ impl Default for CairoVersion {
 
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_SEQUENCER_ADDRESS))
+    get_fee_token_var_address(contract_address!(TEST_SEQUENCER_ADDRESS))
 }
 pub fn test_erc20_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
+    get_fee_token_var_address(contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
 }
 pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(&contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
+    get_fee_token_var_address(contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
 }
 
 // The max_fee / resource bounds used for txs in this test.
@@ -220,38 +220,93 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 
 // Transactions.
 
-/// Checks that the given error is a `HintError::CustomHint` with the given hint.
 #[macro_export]
-macro_rules! check_entry_point_execution_error_for_custom_hint {
-    ($error:expr, $expected_hint:expr $(,)?) => {
-        if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-            source:
-                VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(VmException {
-                    inner_exc: VirtualMachineError::Hint(hint),
-                    ..
-                })),
-            ..
-        } = $error
-        {
-            if let HintError::CustomHint(custom_hint) = &hint.1 {
+macro_rules! check_inner_exc_for_custom_hint {
+    ($inner_exc:expr, $expected_hint:expr) => {
+        if let cairo_vm::vm::errors::vm_errors::VirtualMachineError::Hint(hint) = $inner_exc {
+            if let cairo_vm::vm::errors::hint_errors::HintError::CustomHint(custom_hint) = &hint.1 {
                 assert_eq!(custom_hint.as_ref(), $expected_hint)
             } else {
                 panic!("Unexpected hint: {:?}", hint);
             }
+        } else {
+            panic!("Unexpected structure for inner_exc: {:?}", $inner_exc);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_inner_exc_for_invalid_scenario {
+    ($inner_exc:expr) => {
+        if let cairo_vm::vm::errors::vm_errors::VirtualMachineError::DiffAssertValues(_) =
+            $inner_exc
+        {
+        } else {
+            panic!("Unexpected structure for inner_exc: {:?}", $inner_exc)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_entry_point_execution_error {
+    ($error:expr, $expected_hint:expr $(,)?) => {
+        if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
+            source:
+                VirtualMachineExecutionError::CairoRunError(
+                    cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
+                        cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
+                    ),
+                ),
+            ..
+        } = $error
+        {
+            match $expected_hint {
+                Some(expected_hint) => {
+                    $crate::check_inner_exc_for_custom_hint!(inner_exc, expected_hint)
+                }
+                None => $crate::check_inner_exc_for_invalid_scenario!(inner_exc),
+            };
         } else {
             panic!("Unexpected structure for error: {:?}", $error);
         }
     };
 }
 
+/// Checks that the given error is a `HintError::CustomHint` with the given hint.
 #[macro_export]
-macro_rules! check_transaction_execution_error_for_custom_hint {
-    ($error:expr, $expected_hint:expr, $variant:ident, $(,)?) => {
+macro_rules! check_entry_point_execution_error_for_custom_hint {
+    ($error:expr, $expected_hint:expr $(,)?) => {
+        $crate::check_entry_point_execution_error!($error, Some($expected_hint))
+    };
+}
+
+#[macro_export]
+macro_rules! check_transaction_execution_error_inner {
+    ($error:expr, $expected_hint:expr, $variant:ident $(,)?) => {
         match $error {
             TransactionExecutionError::$variant(error) => {
-                check_entry_point_execution_error_for_custom_hint!(error, $expected_hint)
+                $crate::check_entry_point_execution_error!(error, $expected_hint)
             }
             _ => panic!("Unexpected structure for error: {:?}", $error),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! check_transaction_execution_error_for_custom_hint {
+    ($error:expr, $expected_hint:expr, $validate_constructor:expr $(,)?) => {
+        if $validate_constructor {
+            $crate::check_transaction_execution_error_inner!(
+                $error,
+                Some($expected_hint),
+                ContractConstructorExecutionFailed,
+            );
+        } else {
+            $crate::check_transaction_execution_error_inner!(
+                $error,
+                Some($expected_hint),
+                ValidateTransactionError,
+            );
         }
     };
 }
@@ -260,24 +315,21 @@ macro_rules! check_transaction_execution_error_for_custom_hint {
 /// Formatted for test_validate_accounts_tx.
 #[macro_export]
 macro_rules! check_transaction_execution_error_for_invalid_scenario {
-    ($cairo_version:expr, $error:expr) => {
+    ($cairo_version:expr, $error:expr, $validate_constructor:expr $(,)?) => {
         match $cairo_version {
             CairoVersion::Cairo0 => {
-                if let TransactionExecutionError::ValidateTransactionError(
-                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                        source:
-                            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(
-                                VmException {
-                                    inner_exc: VirtualMachineError::DiffAssertValues(_),
-                                    ..
-                                },
-                            )),
-                        ..
-                    },
-                ) = $error
-                {
+                if $validate_constructor {
+                    $crate::check_transaction_execution_error_inner!(
+                        $error,
+                        None::<&str>,
+                        ContractConstructorExecutionFailed,
+                    );
                 } else {
-                    panic!("Unexpected structure for error: {:?}", $error);
+                    $crate::check_transaction_execution_error_inner!(
+                        $error,
+                        None::<&str>,
+                        ValidateTransactionError,
+                    );
                 }
             }
             CairoVersion::Cairo1 => {
