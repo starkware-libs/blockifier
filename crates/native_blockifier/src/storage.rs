@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::io::Read;
 use std::path::PathBuf;
 
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
@@ -106,6 +107,24 @@ impl Storage {
         declared_class_hash_to_class: HashMap<PyFelt, (PyFelt, String)>,
         deprecated_declared_class_hash_to_class: HashMap<PyFelt, String>,
     ) -> NativeBlockifierResult<()> {
+        loop {
+            // check if file 'pause' exists
+            if std::path::Path::new("pause").exists() {
+                // read how many seconds to wait
+                let mut pause_file =
+                    std::fs::File::open("pause").expect("Failed opening pause file");
+                let mut content = String::new();
+                pause_file.read_to_string(&mut content).expect("Failed to read");
+                let wait_time =
+                    content.trim().parse::<u64>().expect("Failed to parse pause file content");
+
+                log::debug!("Pause file exists, waiting {wait_time} seconds.");
+                std::thread::sleep(std::time::Duration::from_secs(wait_time));
+            } else {
+                break;
+            }
+        }
+
         log::debug!(
             "Appending state diff with {block_id:?} for block_number: {}.",
             py_block_info.block_number
@@ -262,7 +281,10 @@ impl Storage {
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
         log::debug!(
             "<{block_number}, 555> Done constructing state diff, appending to storage \
-             ***({n_changed_contracts} contracts changed, {n_total_changes}total changes)***"
+             ***({n_changed_contracts} contracts changed, {n_total_changes} total changes)***, \
+             addresses changed: {:#?}, first 5 storage keys: {:#?}.",
+            state_diff.storage_diffs.keys(),
+            state_diff.storage_diffs.first().unwrap().1.keys().take(5).collect::<Vec<_>>()
         );
         append_txn = append_txn.append_state_diff(
             block_number,
