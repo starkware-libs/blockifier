@@ -69,7 +69,7 @@ fn check_balance<S: StateReader>(
     charge_fee: bool,
 ) -> StarkFelt {
     let (new_balance, _) = state
-        .get_fee_token_balance(&account_address, &block_context.fee_token_address(fee_type))
+        .get_fee_token_balance(account_address, block_context.fee_token_address(fee_type))
         .unwrap();
     if charge_fee {
         assert!(new_balance < current_balance);
@@ -264,7 +264,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
         let result = account_invoke_tx(invoke_tx_args! {
             resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, gas_price - 1),
             nonce: nonce_manager.next(account_address),
-            ..pre_validation_base_args.clone()
+            ..pre_validation_base_args
         })
         .execute(&mut state, &block_context, charge_fee, validate);
         if !charge_fee {
@@ -376,7 +376,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) = state
-        .get_fee_token_balance(&account_address, &block_context.fee_token_address(&fee_type))
+        .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
         .unwrap();
 
     // Execution scenarios.
@@ -477,7 +477,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
         calldata: recurse_calldata(test_contract_address, false, 10000),
         nonce: nonce_manager.next(account_address),
-        ..execution_base_args.clone()
+        ..execution_base_args
     })
     .execute(&mut state, &low_step_block_context, charge_fee, validate)
     .unwrap();
@@ -530,7 +530,7 @@ fn test_simulate_validate_charge_fee_post_execution(
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) =
-        state.get_fee_token_balance(&account_address, &fee_token_address).unwrap();
+        state.get_fee_token_balance(account_address, fee_token_address).unwrap();
 
     // Post-execution scenarios:
     // 1. Consumed too many resources (more than resource bounds).

@@ -84,7 +84,7 @@ impl<S: StateReader> CachedState<S> {
         // and the balance of the sender contract, but we don't charge the sender for the
         // sequencer balance change as it is amortized across the block.
         if let Some(sender_address) = sender_address {
-            let sender_balance_key = get_fee_token_var_address(&sender_address);
+            let sender_balance_key = get_fee_token_var_address(sender_address);
             // StarkFelt::default() value is zero, which must be different from the initial balance,
             // otherwise the transaction would have failed the "max fee lower than
             // balance" validation.
@@ -115,10 +115,8 @@ impl<S: StateReader> CachedState<S> {
     // store. The Guard will panic only if the Mutex panics during the lock operation, but
     // this shouldn't happen in our flow.
     // Note: `&mut` is used since the LRU cache updates internal counters on reads.
-    pub fn global_class_hash_to_class(
-        &mut self,
-    ) -> MutexGuard<'_, SizedCache<ClassHash, ContractClass>> {
-        self.global_class_hash_to_class.lock().expect("Global contract cache is poisoned.")
+    pub fn global_class_hash_to_class(&mut self) -> LockedContractClassCache<'_> {
+        self.global_class_hash_to_class.lock()
     }
 
     pub fn update_cache(&mut self, cache_updates: StateCache) {
@@ -226,28 +224,28 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*class_hash)
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
-        if !self.class_hash_to_class.contains_key(class_hash) {
-            let contract_class = self.global_class_hash_to_class().cache_get(class_hash).cloned();
+    #[allow(clippy::map_entry)]
+    // Clippy solution don't work because it required two mutable ref to self
+    // Could probably be solved with interior mutability
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        if !self.class_hash_to_class.contains_key(&class_hash) {
+            let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
 
             match contract_class {
                 Some(contract_class_from_global_cache) => {
-                    self.class_hash_to_class.insert(*class_hash, contract_class_from_global_cache);
+                    self.class_hash_to_class.insert(class_hash, contract_class_from_global_cache);
                 }
                 None => {
                     let contract_class_from_db =
                         self.state.get_compiled_contract_class(class_hash)?;
-                    self.class_hash_to_class.insert(*class_hash, contract_class_from_db);
+                    self.class_hash_to_class.insert(class_hash, contract_class_from_db);
                 }
             }
         }
 
         let contract_class = self
             .class_hash_to_class
-            .get(class_hash)
+            .get(&class_hash)
             .cloned()
             .expect("The class hash must appear in the cache.");
 
@@ -274,8 +272,10 @@ impl<S: StateReader> State for CachedState<S> {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    ) {
+    ) -> StateResult<()> {
         self.cache.set_storage_value(contract_address, key, value);
+
+        Ok(())
     }
 
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
@@ -303,10 +303,10 @@ impl<S: StateReader> State for CachedState<S> {
 
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        self.class_hash_to_class.insert(*class_hash, contract_class);
+        self.class_hash_to_class.insert(class_hash, contract_class);
         Ok(())
     }
 
@@ -529,10 +529,7 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
         self.0.get_class_hash_at(contract_address)
     }
 
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         self.0.get_compiled_contract_class(class_hash)
     }
 
@@ -547,7 +544,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-    ) {
+    ) -> StateResult<()> {
         self.0.set_storage_at(contract_address, key, value)
     }
 
@@ -565,7 +562,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
 
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.0.set_contract_class(class_hash, contract_class)
@@ -692,14 +689,25 @@ impl From<&StateChanges> for StateChangesCount {
 
 // Note: `ContractClassLRUCache` key-value types must align with `ContractClassMapping`.
 type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
-#[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+type LockedContractClassCache<'a> = MutexGuard<'a, ContractClassLRUCache>;
+#[derive(Debug, Clone)]
 // Thread-safe LRU cache for contract classes, optimized for inter-language sharing when
 // `blockifier` compiles as a shared library.
 pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
 
 impl GlobalContractCache {
-    // TODO: make this configurable via a CachedState constructor argument.
+    // TODO(Arni, 7/1/2024): make this configurable via a CachedState constructor argument.
     const CACHE_SIZE: usize = 100;
+
+    /// Locks the cache for atomic access. Although conceptually shared, writing to this cache is
+    /// only possible for one writer at a time.
+    pub fn lock(&mut self) -> LockedContractClassCache<'_> {
+        self.0.lock().expect("Global contract cache is poisoned.")
+    }
+
+    pub fn clear(&mut self) {
+        self.lock().cache_clear();
+    }
 }
 
 impl Default for GlobalContractCache {

@@ -101,7 +101,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_visited_storage_entries,
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
-                    messages_size: 0,
+                    message_segment_length: 0,
                     additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
                 };
 
@@ -170,7 +170,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         let old_block_number_and_hash = old_block_number_and_hash
             .map(|(block_number, block_hash)| (BlockNumber(block_number), BlockHash(block_hash.0)));
 
-        pre_process_block(&mut self.state, old_block_number_and_hash);
+        pre_process_block(&mut self.state, old_block_number_and_hash)?;
 
         Ok(())
     }
@@ -212,7 +212,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     let mut casm_hash_computation_resources = VmExecutionResources::default();
 
     for class_hash in newly_executed_class_hashes {
-        let class = state.get_compiled_contract_class(class_hash)?;
+        let class = state.get_compiled_contract_class(*class_hash)?;
         casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
     }
 

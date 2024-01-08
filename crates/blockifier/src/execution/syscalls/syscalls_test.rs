@@ -155,7 +155,7 @@ fn test_get_block_hash() {
     let key = StorageKey::try_from(block_number).unwrap();
     let block_hash_contract_address =
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
-    state.set_storage_at(block_hash_contract_address, key, block_hash);
+    state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
 
     // Positive flow.
     let calldata = calldata![block_number];
@@ -626,7 +626,7 @@ fn test_replace_class() {
     // Replace with Cairo 0 class hash.
     let v0_class_hash = class_hash!(5678_u16);
     let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into();
-    state.set_contract_class(&v0_class_hash, v0_contract_class).unwrap();
+    state.set_contract_class(v0_class_hash, v0_contract_class).unwrap();
 
     let entry_point_call = CallEntryPoint {
         calldata: calldata![v0_class_hash.0],

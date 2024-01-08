@@ -194,10 +194,10 @@ fn expected_fee_transfer_call_info(
         },
     };
 
-    let sender_balance_key_low = get_fee_token_var_address(&account_address);
+    let sender_balance_key_low = get_fee_token_var_address(account_address);
     let sender_balance_key_high =
         next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
-    let sequencer_balance_key_low = get_fee_token_var_address(&block_context.sequencer_address);
+    let sequencer_balance_key_low = get_fee_token_var_address(block_context.sequencer_address);
     let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
         .expect("Cannot get sequencer balance high key.");
     Some(CallInfo {
@@ -439,7 +439,7 @@ fn test_invoke_tx(
         state,
         block_context,
         expected_actual_fee,
-        get_fee_token_var_address(&account_contract_address),
+        get_fee_token_var_address(account_contract_address),
         fee_type,
         BALANCE,
         BALANCE,
@@ -667,11 +667,13 @@ fn test_state_get_fee_token_balance(
     let fee_token_address = block_context.fee_token_address(&fee_type);
 
     // Give the account mint privileges.
-    state.set_storage_at(
-        fee_token_address,
-        get_storage_var_address("permitted_minter", &[]),
-        *account_address.0.key(),
-    );
+    state
+        .set_storage_at(
+            fee_token_address,
+            get_storage_var_address("permitted_minter", &[]),
+            *account_address.0.key(),
+        )
+        .unwrap();
 
     // Mint some tokens.
     let execute_calldata =
@@ -687,7 +689,7 @@ fn test_state_get_fee_token_balance(
 
     // Get balance from state, and validate.
     let (low, high) =
-        state.get_fee_token_balance(&contract_address!(recipient), &fee_token_address).unwrap();
+        state.get_fee_token_balance(contract_address!(recipient), fee_token_address).unwrap();
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);
@@ -1062,7 +1064,7 @@ fn test_declare_tx(
 
     // Check state before transaction application.
     assert_matches!(
-        state.get_compiled_contract_class(&class_hash).unwrap_err(),
+        state.get_compiled_contract_class(class_hash).unwrap_err(),
         StateError::UndeclaredClassHash(undeclared_class_hash) if
         undeclared_class_hash == class_hash
     );
@@ -1123,14 +1125,14 @@ fn test_declare_tx(
         state,
         block_context,
         expected_actual_fee,
-        get_fee_token_var_address(&sender_address),
+        get_fee_token_var_address(sender_address),
         fee_type,
         BALANCE,
         BALANCE,
     );
 
     // Verify class declaration.
-    let contract_class_from_state = state.get_compiled_contract_class(&class_hash).unwrap();
+    let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
     assert_eq!(contract_class_from_state, contract_class);
 }
 
@@ -1161,13 +1163,15 @@ fn test_deploy_account_tx(
 
     // Update the balance of the about to be deployed account contract in the erc20 contract, so it
     // can pay for the transaction execution.
-    let deployed_account_balance_key = get_fee_token_var_address(&deployed_account_address);
+    let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
     for fee_type in FeeType::iter() {
-        state.set_storage_at(
-            block_context.fee_token_address(&fee_type),
-            deployed_account_balance_key,
-            stark_felt!(BALANCE),
-        );
+        state
+            .set_storage_at(
+                block_context.fee_token_address(&fee_type),
+                deployed_account_balance_key,
+                stark_felt!(BALANCE),
+            )
+            .unwrap();
     }
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
@@ -1284,11 +1288,13 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     );
 
     // Fund account, so as not to fail pre-validation.
-    state.set_storage_at(
-        block_context.fee_token_address(&FeeType::Eth),
-        get_fee_token_var_address(&deploy_account.contract_address),
-        stark_felt!(BALANCE),
-    );
+    state
+        .set_storage_at(
+            block_context.fee_token_address(&FeeType::Eth),
+            get_fee_token_var_address(deploy_account.contract_address),
+            stark_felt!(BALANCE),
+        )
+        .unwrap();
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
@@ -1303,13 +1309,13 @@ fn test_fail_deploy_account_undeclared_class_hash() {
 
 // TODO(Arni, 1/1/2024): Consider converting this test to use V3 txs.
 #[rstest]
+#[case::validate(TransactionType::InvokeFunction, false)]
+#[case::validate_declare(TransactionType::Declare, false)]
+#[case::validate_deploy(TransactionType::DeployAccount, false)]
+#[case::constructor(TransactionType::DeployAccount, true)]
 fn test_validate_accounts_tx(
-    #[values(
-        TransactionType::InvokeFunction,
-        TransactionType::Declare,
-        TransactionType::DeployAccount
-    )]
-    tx_type: TransactionType,
+    #[case] tx_type: TransactionType,
+    #[case] validate_constructor: bool,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
@@ -1320,8 +1326,13 @@ fn test_validate_accounts_tx(
     let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
     let salt_manager = &mut SaltManager::default();
 
-    let default_args =
-        FaultyAccountTxCreatorArgs { tx_type, sender_address, class_hash, ..Default::default() };
+    let default_args = FaultyAccountTxCreatorArgs {
+        tx_type,
+        sender_address,
+        class_hash,
+        validate_constructor,
+        ..Default::default()
+    };
 
     // Negative flows.
 
@@ -1335,7 +1346,11 @@ fn test_validate_accounts_tx(
         },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, false);
+    check_transaction_execution_error_for_invalid_scenario!(
+        cairo_version,
+        error,
+        validate_constructor,
+    );
 
     // Trying to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test(
@@ -1352,7 +1367,7 @@ fn test_validate_accounts_tx(
     check_transaction_execution_error_for_custom_hint!(
         &error,
         "Unauthorized syscall call_contract in execution mode Validate.",
-        false,
+        validate_constructor,
     );
 
     if let CairoVersion::Cairo1 = cairo_version {
@@ -1370,7 +1385,7 @@ fn test_validate_accounts_tx(
         check_transaction_execution_error_for_custom_hint!(
             &error,
             "Unauthorized syscall get_block_hash in execution mode Validate.",
-            false,
+            validate_constructor,
         );
     }
 
@@ -1399,78 +1414,6 @@ fn test_validate_accounts_tx(
             },
         );
         account_tx.execute(state, block_context, true, true).unwrap();
-    }
-}
-
-/// Tests the contract constructor is run with the same restriction as the validate_deploy function
-/// during the execution of a deploy account transaction.
-/// Note: the positive flow is already covered in 'test_validate_accounts_tx'.
-#[rstest]
-fn test_constructor_on_deploy_account_runs_in_validate_mode(
-    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
-) {
-    let block_context = &BlockContext::create_for_account_testing();
-    let account_balance = 0;
-    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
-    let state = &mut test_state(block_context, account_balance, &[(faulty_account, 1)]);
-    let salt_manager = &mut SaltManager::default();
-
-    let default_args = FaultyAccountTxCreatorArgs {
-        tx_type: TransactionType::DeployAccount,
-        class_hash: faulty_account.get_class_hash(),
-        validate_constructor: true,
-        ..Default::default()
-    };
-
-    // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            contract_address_salt: salt_manager.next_salt(),
-            ..default_args
-        },
-    );
-    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, true);
-
-    // Verify that the contract can not call another contract in the constructor of deploy account.
-    // Deploy another instance of 'faulty_account' and try to call other contract in the
-    // constructor (forbidden).
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: CALL_CONTRACT,
-            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
-                                                           * address of faulty_account. */
-            contract_address_salt: salt_manager.next_salt(),
-            ..default_args
-        },
-    );
-    let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-    check_transaction_execution_error_for_custom_hint!(
-        &error,
-        "Unauthorized syscall call_contract in execution mode Validate.",
-        true,
-    );
-
-    if let CairoVersion::Cairo1 = cairo_version {
-        // Verify that the contract does not use the syscall get_block_hash in the constructor of
-        // deploy account.
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_HASH,
-                contract_address_salt: salt_manager.next_salt(),
-                ..default_args
-            },
-        );
-        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
-        check_transaction_execution_error_for_custom_hint!(
-            &error,
-            "Unauthorized syscall get_block_hash in execution mode Validate.",
-            true,
-        );
     }
 }
 
@@ -1619,7 +1562,7 @@ fn test_only_query_flag(#[case] only_query: bool) {
         [
             execute_calldata,
             expected_block_info.clone().to_vec(),
-            expected_tx_info.clone(),
+            expected_tx_info,
             expected_call_info,
         ]
         .concat()

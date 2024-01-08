@@ -14,7 +14,8 @@ fn test_pre_process_block() {
 
     let block_number: u64 = 10;
     let block_hash = StarkFelt::from(20u32);
-    pre_process_block(&mut state, Some((BlockNumber(block_number), BlockHash(block_hash))));
+    pre_process_block(&mut state, Some((BlockNumber(block_number), BlockHash(block_hash))))
+        .unwrap();
 
     let written_hash = state.get_storage_at(
         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap(),

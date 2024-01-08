@@ -20,7 +20,7 @@ pub fn fund_account(
     state: &mut CachedState<DictStateReader>,
 ) {
     let storage_view = &mut state.state.storage_view;
-    let balance_key = get_fee_token_var_address(&account_address);
+    let balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
         storage_view.insert(
             (block_context.fee_token_address(&fee_type), balance_key),

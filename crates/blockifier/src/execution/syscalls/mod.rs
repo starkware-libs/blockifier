@@ -483,7 +483,7 @@ pub fn replace_class(
 ) -> SyscallResult<ReplaceClassResponse> {
     // Ensure the class is declared (by reading it), and of type V1.
     let class_hash = request.class_hash;
-    let class = syscall_handler.state.get_compiled_contract_class(&class_hash)?;
+    let class = syscall_handler.state.get_compiled_contract_class(class_hash)?;
 
     match class {
         ContractClass::V0(_) => {
