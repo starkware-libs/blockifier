@@ -71,6 +71,8 @@ pub const TEST_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
 pub const TEST_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/test_contract.casm.json";
+pub const TEST_CONTRACT_SIERRA_PATH: &str =
+    "./feature_contracts/cairo1/compiled/sierra_test_contract.sierra.json";
 pub const LEGACY_TEST_CONTRACT_CAIRO1_PATH: &str =
     "./feature_contracts/cairo1/compiled/legacy_test_contract.casm.json";
 pub const SECURITY_TEST_CONTRACT_CAIRO0_PATH: &str =
