@@ -23,7 +23,7 @@ use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{
-    PyBouncerInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
+    PyBouncerInfo, PyKzgResources, PyTransactionExecutionInfo, PyVmExecutionResources,
 };
 use crate::py_utils::PyFelt;
 
@@ -102,6 +102,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
                     message_segment_length: 0,
+                    kzg_resources: PyKzgResources { state_diff_size: 0 },
                     additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
                 };
 

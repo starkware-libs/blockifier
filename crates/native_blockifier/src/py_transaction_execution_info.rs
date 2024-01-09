@@ -181,10 +181,20 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
 
 #[pyclass]
 #[derive(Clone, Default)]
+pub struct PyKzgResources {
+    #[pyo3(get)]
+    // The number of felts needed to store the state diff, used for KZG data availability.
+    pub state_diff_size: usize,
+}
+
+#[pyclass]
+#[derive(Clone, Default)]
 pub struct PyBouncerInfo {
     #[pyo3(get)]
     // The number of felts needed to store L1<>L2 messages.
     pub message_segment_length: usize,
+    #[pyo3(get)]
+    pub kzg_resources: PyKzgResources,
     #[pyo3(get)]
     pub additional_os_resources: PyVmExecutionResources,
 }
