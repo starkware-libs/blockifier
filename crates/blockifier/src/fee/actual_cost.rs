@@ -1,6 +1,7 @@
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
+use super::gas_usage::calculate_tx_gas_usage;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -11,7 +12,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
+use crate::transaction::transaction_utils::calculate_tx_resources;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -126,7 +127,7 @@ impl<'a> ActualCostBuilder<'a> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
-        let l1_gas_usage = calculate_l1_gas_usage(
+        let l1_gas_usage = calculate_tx_gas_usage(
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
