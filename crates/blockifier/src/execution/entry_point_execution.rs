@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::time::Instant;
 
 use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::BuiltinName;
@@ -92,6 +93,7 @@ pub fn execute_entry_point_call(
         program_segment_size,
     )?;
 
+    let start_time = Instant::now();
     // Collect the set PC values that were visited during the entry point execution.
     register_visited_pcs(
         &mut vm,
@@ -100,6 +102,11 @@ pub fn execute_entry_point_call(
         program_segment_size,
         bytecode_length,
     )?;
+    let elapsed_time = start_time.elapsed();
+    println!(
+        "register_visited_pcs took {} seconds",
+        elapsed_time.as_secs_f64(),
+    );
 
     let call_info = finalize_execution(
         vm,
