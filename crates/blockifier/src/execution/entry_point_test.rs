@@ -360,7 +360,7 @@ fn test_syscall_execution_security_failures() {
         run_security_test(
             state,
             security_contract,
-            "Hint Error: Out of range",
+            "Custom Hint Error: Out of range",
             "test_read_bad_address",
             calldata.clone(),
         );
@@ -368,7 +368,7 @@ fn test_syscall_execution_security_failures() {
         run_security_test(
             state,
             security_contract,
-            "Hint Error: Expected integer",
+            "Custom Hint Error: Expected integer",
             "test_relocatable_storage_address",
             calldata,
         );
@@ -386,7 +386,7 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Hint Error: Expected relocatable",
+        "Custom Hint Error: Expected relocatable",
         "test_bad_syscall_request_arg_type",
         calldata![],
     );
