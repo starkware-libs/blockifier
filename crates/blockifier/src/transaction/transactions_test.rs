@@ -1445,9 +1445,9 @@ fn test_calculate_tx_gas_usage() {
         n_modified_contracts,
         n_compiled_class_hash_updates: 0,
     };
-    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
-
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let l1_gas_usage = calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None);
+    assert!(l1_gas_usage.is_ok());
+    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage.unwrap());
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address = account_contract.get_instance_address(17);
@@ -1480,9 +1480,9 @@ fn test_calculate_tx_gas_usage() {
         n_modified_contracts,
         n_compiled_class_hash_updates: 0,
     };
-    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
-
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let l1_gas_usage = calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None);
+    assert!(l1_gas_usage.is_ok());
+    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage.unwrap());
 }
 
 #[rstest]
