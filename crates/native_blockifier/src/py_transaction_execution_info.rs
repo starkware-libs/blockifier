@@ -186,5 +186,8 @@ pub struct PyBouncerInfo {
     // The number of felts needed to store L1<>L2 messages.
     pub message_segment_length: usize,
     #[pyo3(get)]
+    // The number of felts needed to store the state diff, used for KZG data availability.
+    pub state_diff_size: usize,
+    #[pyo3(get)]
     pub additional_os_resources: PyVmExecutionResources,
 }

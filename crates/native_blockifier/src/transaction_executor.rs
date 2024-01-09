@@ -102,6 +102,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 )?;
                 let py_bouncer_info = PyBouncerInfo {
                     message_segment_length: 0,
+                    state_diff_size: 0,
                     additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
                 };
 
