@@ -7,31 +7,10 @@ use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_usage;
 use crate::fee::os_usage::get_additional_os_resources;
-use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
-
-pub fn calculate_l1_gas_usage<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
-    l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<usize> {
-    let mut l2_to_l1_payloads_length = vec![];
-    for call_info in call_infos {
-        l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
-    }
-
-    let l1_gas_usage = calculate_tx_gas_usage(
-        &l2_to_l1_payloads_length,
-        state_changes_count,
-        l1_handler_payload_size,
-    );
-
-    Ok(l1_gas_usage)
-}
 
 /// Calculates the total resources needed to include the transaction in a Starknet block as
 /// most-recent (recent w.r.t. application on the given state).
