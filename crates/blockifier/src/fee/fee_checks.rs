@@ -2,7 +2,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 use thiserror::Error;
 
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, BlockInfo};
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_utils::{
     calculate_tx_l1_gas_usage, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usage,
@@ -55,7 +55,7 @@ impl FeeCheckReport {
     pub fn from_fee_check_error(
         actual_fee: Fee,
         error: FeeCheckError,
-        block_context: &BlockContext,
+        block_info: &BlockInfo,
         account_tx_context: &AccountTransactionContext,
     ) -> TransactionExecutionResult<Self> {
         let recommended_fee = match error {
@@ -70,7 +70,7 @@ impl FeeCheckReport {
             FeeCheckError::MaxFeeExceeded { .. } | FeeCheckError::MaxL1GasAmountExceeded { .. } => {
                 match account_tx_context {
                     AccountTransactionContext::Current(context) => get_fee_by_l1_gas_usage(
-                        block_context,
+                        block_info,
                         context.l1_resource_bounds()?.max_amount.into(),
                         &FeeType::Strk,
                     ),
@@ -227,7 +227,7 @@ impl PostExecutionReport {
                     return Ok(Self(FeeCheckReport::from_fee_check_error(
                         *actual_fee,
                         fee_check_error,
-                        block_context,
+                        &block_context.block_info,
                         account_tx_context,
                     )?));
                 }
