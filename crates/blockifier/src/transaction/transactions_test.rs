@@ -159,7 +159,7 @@ fn expected_fee_transfer_call_info(
     fee_type: &FeeType,
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
-    let expected_sequencer_address = *block_context.sequencer_address.0.key();
+    let expected_sequencer_address = *block_context.block_info.sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
@@ -197,7 +197,8 @@ fn expected_fee_transfer_call_info(
     let sender_balance_key_low = get_fee_token_var_address(account_address);
     let sender_balance_key_high =
         next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
-    let sequencer_balance_key_low = get_fee_token_var_address(block_context.sequencer_address);
+    let sequencer_balance_key_low =
+        get_fee_token_var_address(block_context.block_info.sequencer_address);
     let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
         .expect("Cannot get sequencer balance high key.");
     Some(CallInfo {
@@ -256,8 +257,9 @@ fn validate_final_balances(
     }
 
     // Verify balances of both accounts, of both fee types, are as expected.
-    let eth_fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
-    let strk_fee_token_address = block_context.fee_token_addresses.strk_fee_token_address;
+    let eth_fee_token_address = block_context.block_info.fee_token_addresses.eth_fee_token_address;
+    let strk_fee_token_address =
+        block_context.block_info.fee_token_addresses.strk_fee_token_address;
     for (fee_address, expected_account_balance, expected_sequencer_balance) in [
         (eth_fee_token_address, expected_account_balance_eth, expected_sequencer_balance_eth),
         (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
@@ -798,7 +800,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
 
     // Test V1 transaction.
 
-    let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
+    let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
     // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
     let invalid_v1_tx = account_invoke_tx(
@@ -816,7 +818,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // Test V3 transaction.
-    let actual_strk_l1_gas_price = block_context.gas_prices.strk_l1_gas_price;
+    let actual_strk_l1_gas_price = block_context.block_info.gas_prices.strk_l1_gas_price;
 
     // Max L1 gas amount too low.
     let insufficient_max_l1_gas_amount = (minimal_l1_gas - 1) as u64;
@@ -869,7 +871,7 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
 
     let minimal_l1_gas =
         estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone())).unwrap();
-    let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
+    let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
 

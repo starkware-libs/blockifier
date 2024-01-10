@@ -8,6 +8,17 @@ use crate::transaction::objects::FeeType;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
+    pub block_info: BlockInfo,
+}
+
+impl BlockContext {
+    pub fn fee_token_address(&self, fee_type: &FeeType) -> ContractAddress {
+        self.block_info.fee_token_addresses.get_by_fee_type(fee_type)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BlockInfo {
     pub chain_id: ChainId,
     pub block_number: BlockNumber,
     pub block_timestamp: BlockTimestamp,
@@ -22,12 +33,6 @@ pub struct BlockContext {
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
-}
-
-impl BlockContext {
-    pub fn fee_token_address(&self, fee_type: &FeeType) -> ContractAddress {
-        self.fee_token_addresses.get_by_fee_type(fee_type)
-    }
 }
 
 #[derive(Clone, Debug)]

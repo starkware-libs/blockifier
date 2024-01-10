@@ -31,7 +31,7 @@ pub fn calculate_l1_gas_by_vm_usage(
     block_context: &BlockContext,
     vm_resource_usage: &ResourcesMapping,
 ) -> TransactionFeeResult<f64> {
-    let vm_resource_fee_costs = &block_context.vm_resource_fee_cost;
+    let vm_resource_fee_costs = &block_context.block_info.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
@@ -67,7 +67,7 @@ pub fn get_fee_by_l1_gas_usage(
     l1_gas_usage: u128,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(l1_gas_usage * block_context.gas_prices.get_by_fee_type(fee_type))
+    Fee(l1_gas_usage * block_context.block_info.gas_prices.get_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.

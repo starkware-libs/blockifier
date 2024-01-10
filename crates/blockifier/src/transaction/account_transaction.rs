@@ -185,8 +185,10 @@ impl AccountTransaction {
                     })?;
                 }
 
-                let actual_l1_gas_price =
-                    block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type());
+                let actual_l1_gas_price = block_context
+                    .block_info
+                    .gas_prices
+                    .get_by_fee_type(&account_tx_context.fee_type());
                 if max_l1_gas_price < actual_l1_gas_price {
                     return Err(TransactionFeeError::MaxL1GasPriceTooLow {
                         max_l1_gas_price,
@@ -300,7 +302,7 @@ impl AccountTransaction {
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
-                *block_context.sequencer_address.0.key(), // Recipient.
+                *block_context.block_info.sequencer_address.0.key(), // Recipient.
                 lsb_amount,
                 msb_amount
             ],
