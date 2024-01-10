@@ -121,4 +121,5 @@ pub struct PyBlockInfo {
     pub eth_l1_gas_price: u128,
     pub strk_l1_gas_price: u128,
     pub sequencer_address: PyFelt,
+    pub use_kzg_da: bool,
 }
