@@ -136,7 +136,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
-    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let gas_price = block_context.block_info.gas_prices.get_by_fee_type(&fee_type);
     let FlavorTestInitialState {
         mut state,
         account_address,
@@ -365,7 +365,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     #[case] fee_type: FeeType,
 ) {
     let block_context = BlockContext::create_for_account_testing();
-    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let gas_price = block_context.block_info.gas_prices.get_by_fee_type(&fee_type);
     let FlavorTestInitialState {
         mut state,
         account_address,
@@ -464,12 +464,12 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // Third scenario: only limit is block bounds. Expect resources consumed to be identical,
     // whether or not `charge_fee` is true.
     let mut low_step_block_context = block_context.clone();
-    low_step_block_context.invoke_tx_max_n_steps = 10000;
+    low_step_block_context.block_info.invoke_tx_max_n_steps = 10000;
     let (huge_gas_limit, huge_fee) = gas_and_fee(100000, validate, &fee_type);
     // Gas usage does not depend on `validate` flag in this scenario, because we reach the block
     // step limit during execution anyway. The actual limit when execution phase starts is slightly
     // lower when `validate` is true, but this is not reflected in the actual gas usage.
-    let block_limit_gas = low_step_block_context.invoke_tx_max_n_steps as u64 + 1720;
+    let block_limit_gas = low_step_block_context.block_info.invoke_tx_max_n_steps as u64 + 1720;
     let block_limit_fee =
         get_fee_by_l1_gas_usage(&block_context, block_limit_gas as u128, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
@@ -517,7 +517,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     #[case] is_deprecated: bool,
 ) {
     let block_context = BlockContext::create_for_account_testing();
-    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let gas_price = block_context.block_info.gas_prices.get_by_fee_type(&fee_type);
     let fee_token_address = block_context.fee_token_address(&fee_type);
 
     let FlavorTestInitialState {

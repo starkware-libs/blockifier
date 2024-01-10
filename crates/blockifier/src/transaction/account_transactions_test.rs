@@ -198,7 +198,7 @@ fn test_infinite_recursion(
     mut block_context: BlockContext,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 4000;
+    block_context.block_info.invoke_tx_max_n_steps = 4000;
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context, CairoVersion::Cairo0);
@@ -339,7 +339,7 @@ fn test_max_fee_limit_validate(
             max_fee: estimated_min_fee,
             resource_bounds: l1_resource_bounds(
                 estimated_min_l1_gas as u64,
-                block_context.gas_prices.get_by_fee_type(&account_tx.fee_type())
+                block_context.block_info.gas_prices.get_by_fee_type(&account_tx.fee_type())
             ),
             ..tx_args
         },
@@ -375,7 +375,7 @@ fn test_recursion_depth_exceeded(
     // reasons:
     // 1. An additional call is made initially before entering the recursion.
     // 2. The base case for recursion occurs at depth 0, not at depth 1.
-    let max_inner_recursion_depth = (block_context.max_recursion_depth - 2) as u8;
+    let max_inner_recursion_depth = (block_context.block_info.max_recursion_depth - 2) as u8;
 
     let recursive_syscall_entry_point_name = "recursive_syscall";
     let calldata = create_calldata(
@@ -608,7 +608,7 @@ fn test_reverted_reach_steps_limit(
         create_test_init_data(&block_context, cairo_version);
 
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.invoke_tx_max_n_steps = 5000;
+    block_context.block_info.invoke_tx_max_n_steps = 5000;
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         resource_bounds: max_resource_bounds,
@@ -655,7 +655,7 @@ fn test_reverted_reach_steps_limit(
     // Calculate a recursion depth where the transaction will surely fail (not a minimal depth, as
     // base costs are neglected here).
     let steps_diff = n_steps_1 - n_steps_0;
-    let fail_depth = block_context.invoke_tx_max_n_steps / (steps_diff as u32);
+    let fail_depth = block_context.block_info.invoke_tx_max_n_steps / (steps_diff as u32);
 
     // Invoke the `recurse` function with `fail_depth` iterations. This call should fail.
     let result = run_invoke_tx(
@@ -817,7 +817,7 @@ fn test_max_fee_to_max_steps_conversion(
         create_test_init_data(&block_context, CairoVersion::Cairo0);
     let actual_gas_used = 6108;
     let actual_fee = actual_gas_used as u128 * 100000000000;
-    let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
+    let actual_strk_gas_price = block_context.block_info.gas_prices.get_by_fee_type(&FeeType::Strk);
     let execute_calldata = create_calldata(
         contract_address,
         "with_arg",
@@ -1005,7 +1005,10 @@ fn test_count_actual_storage_changes(
     let mut nonce_manager = NonceManager::default();
 
     let initial_sequencer_balance = stark_felt_to_felt(
-        state.get_fee_token_balance(block_context.sequencer_address, fee_token_address).unwrap().0,
+        state
+            .get_fee_token_balance(block_context.block_info.sequencer_address, fee_token_address)
+            .unwrap()
+            .0,
     );
 
     // Calldata types.
@@ -1045,7 +1048,7 @@ fn test_count_actual_storage_changes(
         ((fee_token_address, get_fee_token_var_address(account_address)), stark_felt!(0_u8));
     let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
     let mut expected_sequencer_fee_update = (
-        (fee_token_address, get_fee_token_var_address(block_context.sequencer_address)),
+        (fee_token_address, get_fee_token_var_address(block_context.block_info.sequencer_address)),
         felt_to_stark_felt(&expected_sequencer_total_fee),
     );
 
