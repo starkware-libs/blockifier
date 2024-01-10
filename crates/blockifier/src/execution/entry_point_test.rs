@@ -12,7 +12,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::block_context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
@@ -216,9 +216,9 @@ fn run_security_test(
 
 #[test]
 fn test_vm_execution_security_failures() {
-    let block_context = BlockContext::create_for_testing();
+    let chain_info = ChainInfo::create_for_testing();
     let security_contract = FeatureContract::SecurityTests;
-    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
+    let state = &mut test_state(&chain_info, BALANCE, &[(security_contract, 1)]);
 
     run_security_test(
         state,
@@ -301,9 +301,9 @@ fn test_vm_execution_security_failures() {
 
 #[test]
 fn test_builtin_execution_security_failures() {
-    let block_context = BlockContext::create_for_testing();
+    let chain_info = ChainInfo::create_for_testing();
     let security_contract = FeatureContract::SecurityTests;
-    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
+    let state = &mut test_state(&chain_info, BALANCE, &[(security_contract, 1)]);
 
     run_security_test(
         state,
@@ -356,9 +356,9 @@ fn test_builtin_execution_security_failures() {
 
 #[test]
 fn test_syscall_execution_security_failures() {
-    let block_context = BlockContext::create_for_testing();
+    let chain_info = ChainInfo::create_for_testing();
     let security_contract = FeatureContract::SecurityTests;
-    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
+    let state = &mut test_state(&chain_info, BALANCE, &[(security_contract, 1)]);
 
     for perform_inner_call_to_foo in 0..2 {
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
@@ -420,9 +420,9 @@ fn test_syscall_execution_security_failures() {
 
 #[test]
 fn test_post_run_validation_security_failure() {
-    let block_context = BlockContext::create_for_testing();
+    let chain_info = ChainInfo::create_for_testing();
     let security_contract = FeatureContract::SecurityTests;
-    let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
+    let state = &mut test_state(&chain_info, BALANCE, &[(security_contract, 1)]);
 
     run_security_test(
         state,

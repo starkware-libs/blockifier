@@ -24,7 +24,7 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::block_context::ChainInfo;
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
@@ -281,7 +281,7 @@ fn test_get_execution_info(
     let legacy_contract = FeatureContract::LegacyTestContract;
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state = &mut test_state(
-        &BlockContext::create_for_testing(),
+        &ChainInfo::create_for_testing(),
         BALANCE,
         &[(legacy_contract, 1), (test_contract, 1)],
     );
