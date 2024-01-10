@@ -13,7 +13,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::block_context::{BlockContext, FeeTokenAddresses};
+use crate::block_context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
@@ -92,7 +92,7 @@ pub struct TestInitData {
 pub fn deploy_and_fund_account(
     state: &mut CachedState<DictStateReader>,
     nonce_manager: &mut NonceManager,
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     deploy_tx_args: DeployAccountTxArgs,
 ) -> (AccountTransaction, ContractAddress) {
     // Deploy an account contract.
@@ -105,7 +105,7 @@ pub fn deploy_and_fund_account(
     // Set balance in all fee types.
     let deployed_account_balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
-        let fee_token_address = block_context.fee_token_address(&fee_type);
+        let fee_token_address = chain_info.fee_token_address(&fee_type);
         state
             .set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE))
             .unwrap();
@@ -115,14 +115,11 @@ pub fn deploy_and_fund_account(
 }
 
 /// Initializes a state and returns a `TestInitData` instance.
-pub fn create_test_init_data(
-    block_context: &BlockContext,
-    cairo_version: CairoVersion,
-) -> TestInitData {
+pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion) -> TestInitData {
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
     let erc20 = FeatureContract::ERC20;
-    let state = test_state(block_context, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
+    let state = test_state(chain_info, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
     TestInitData {
         state,
         account_address: account.get_instance_address(0),
@@ -139,8 +136,6 @@ pub fn create_account_tx_test_state(
     initial_account_balance: u128,
     test_contract_class: ContractClass,
 ) -> CachedState<DictStateReader> {
-    let block_context = BlockContext::create_for_testing();
-
     let test_contract_class_hash = class_hash!(TEST_CLASS_HASH);
     let test_account_class_hash = class_hash!(account_class_hash);
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
@@ -156,7 +151,7 @@ pub fn create_account_tx_test_state(
     let FeeTokenAddresses {
         eth_fee_token_address: test_eth_token_address,
         strk_fee_token_address: test_strk_token_address,
-    } = block_context.block_info.fee_token_addresses;
+    } = ChainInfo::create_for_testing().fee_token_addresses;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_address, test_account_class_hash),
