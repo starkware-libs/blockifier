@@ -59,7 +59,10 @@ fn test_call_info_iteration() {
     };
 
     for (i, call_info) in root.into_iter().enumerate() {
-        assert_eq!(call_info.call.calldata, calldata![stark_felt!(i as u64)]);
+        assert_eq!(
+            call_info.call.calldata,
+            calldata![stark_felt!(u64::try_from(i).expect("Failed to convert usize to u64."))]
+        );
     }
 }
 
@@ -356,7 +359,9 @@ fn test_syscall_execution_security_failures() {
     let state = &mut test_state(&block_context, BALANCE, &[(security_contract, 1)]);
 
     for perform_inner_call_to_foo in 0..2 {
-        let calldata = calldata![stark_felt!(perform_inner_call_to_foo as u8)];
+        let calldata = calldata![stark_felt!(
+            u8::try_from(perform_inner_call_to_foo).expect("Failed to convert i32 to u8.")
+        )];
         run_security_test(
             state,
             security_contract,
