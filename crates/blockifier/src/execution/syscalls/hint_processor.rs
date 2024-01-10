@@ -434,23 +434,23 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        let block_context = &self.context.block_context;
-        let block_info: Vec<StarkFelt> = if self.is_validate_mode() {
+        let block_info = &self.context.block_context.block_info;
+        let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
             vec![
                 // TODO(Yoni, 1/5/2024): set the number to be zero for `validate`.
-                StarkFelt::from(block_context.block_number.0),
+                StarkFelt::from(block_info.block_number.0),
                 // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
-                StarkFelt::from(block_context.block_timestamp.0),
+                StarkFelt::from(block_info.block_timestamp.0),
                 StarkFelt::ZERO,
             ]
         } else {
             vec![
-                StarkFelt::from(block_context.block_number.0),
-                StarkFelt::from(block_context.block_timestamp.0),
-                *block_context.sequencer_address.0.key(),
+                StarkFelt::from(block_info.block_number.0),
+                StarkFelt::from(block_info.block_timestamp.0),
+                *block_info.sequencer_address.0.key(),
             ]
         };
-        let (block_info_segment_start_ptr, _) = self.allocate_data_segment(vm, block_info)?;
+        let (block_info_segment_start_ptr, _) = self.allocate_data_segment(vm, block_data)?;
 
         Ok(block_info_segment_start_ptr)
     }
@@ -478,7 +478,8 @@ impl<'a> SyscallHintProcessor<'a> {
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
             stark_felt_to_felt((self.context.account_tx_context).transaction_hash().0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
+            Felt252::from_bytes_be(self.context.block_context.block_info.chain_id.0.as_bytes())
+                .into(),
             stark_felt_to_felt((self.context.account_tx_context).nonce().0).into(),
         ];
 

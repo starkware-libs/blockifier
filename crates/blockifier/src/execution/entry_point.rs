@@ -171,7 +171,7 @@ impl EntryPointExecutionContext {
             error_stack: vec![],
             account_tx_context: account_tx_context.clone(),
             current_recursion_depth: Default::default(),
-            max_recursion_depth: block_context.max_recursion_depth,
+            max_recursion_depth: block_context.block_info.max_recursion_depth,
             block_context: block_context.clone(),
             execution_mode: mode,
         })
@@ -212,18 +212,19 @@ impl EntryPointExecutionContext {
         mode: &ExecutionMode,
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<usize> {
+        let block_info = &block_context.block_info;
         let block_upper_bound = match mode {
             // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
             // works.
             ExecutionMode::Validate => min(
-                block_context
+                block_info
                     .validate_max_n_steps
                     .try_into()
                     .expect("Failed to convert u32 to usize."),
                 constants::MAX_VALIDATE_STEPS_PER_TX,
             ),
             ExecutionMode::Execute => min(
-                block_context
+                block_info
                     .invoke_tx_max_n_steps
                     .try_into()
                     .expect("Failed to convert u32 to usize."),
@@ -236,16 +237,16 @@ impl EntryPointExecutionContext {
         }
 
         let gas_per_step =
-            block_context.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(
-                || panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE),
-            );
+            block_info.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(|| {
+                panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
+            });
 
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
         let tx_gas_upper_bound = match account_tx_context {
             AccountTransactionContext::Deprecated(context) => {
                 (context.max_fee.0
-                    / block_context
+                    / block_info
                         .gas_prices
                         .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
                     as usize

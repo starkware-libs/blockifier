@@ -352,7 +352,7 @@ pub fn get_block_hash(
     }
 
     let requested_block_number = request.block_number.0;
-    let current_block_number = syscall_handler.context.block_context.block_number.0;
+    let current_block_number = syscall_handler.context.block_context.block_info.block_number.0;
 
     if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
         || requested_block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
