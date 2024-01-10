@@ -17,7 +17,7 @@ use super::{
 };
 use crate::abi::constants;
 use crate::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
-use crate::block_context::{BlockContext, BlockInfo, FeeTokenAddresses, GasPrices};
+use crate::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -84,17 +84,24 @@ impl CallEntryPoint {
     }
 }
 
-impl BlockInfo {
+impl ChainInfo {
     pub fn create_for_testing() -> Self {
         Self {
             chain_id: ChainId(CHAIN_ID_NAME.to_string()),
-            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
-            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
                 strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
             },
+        }
+    }
+}
+
+impl BlockInfo {
+    pub fn create_for_testing() -> Self {
+        Self {
+            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
+            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
+            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             vm_resource_fee_cost: Default::default(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
@@ -133,11 +140,17 @@ impl BlockInfo {
 
 impl BlockContext {
     pub fn create_for_testing() -> Self {
-        Self { block_info: BlockInfo::create_for_testing() }
+        Self {
+            block_info: BlockInfo::create_for_testing(),
+            chain_info: ChainInfo::create_for_testing(),
+        }
     }
 
     pub fn create_for_account_testing() -> Self {
-        Self { block_info: BlockInfo::create_for_account_testing() }
+        Self {
+            block_info: BlockInfo::create_for_account_testing(),
+            chain_info: ChainInfo::create_for_testing(),
+        }
     }
 }
 

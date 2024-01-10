@@ -158,7 +158,7 @@ impl AccountTransaction {
         if charge_fee && account_tx_context.enforce_fee()? {
             self.check_fee_bounds(account_tx_context, block_context)?;
 
-            verify_can_pay_committed_bounds(state, account_tx_context, block_context)?;
+            verify_can_pay_committed_bounds(state, account_tx_context, &block_context.chain_info)?;
         }
 
         Ok(())
@@ -299,7 +299,8 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
-        let storage_address = block_context.fee_token_address(&account_tx_context.fee_type());
+        let storage_address =
+            block_context.chain_info.fee_token_address(&account_tx_context.fee_type());
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,

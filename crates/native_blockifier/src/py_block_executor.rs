@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, FeeTokenAddresses, GasPrices};
+use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
 use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
@@ -265,6 +265,24 @@ pub struct PyOsConfig {
     pub fee_token_address: PyFelt,
 }
 
+impl TryFrom<PyOsConfig> for ChainInfo {
+    type Error = NativeBlockifierError;
+
+    fn try_from(py_os_config: PyOsConfig) -> Result<Self, Self::Error> {
+        Ok(Self {
+            chain_id: py_os_config.chain_id,
+            fee_token_addresses: FeeTokenAddresses {
+                eth_fee_token_address: ContractAddress::try_from(
+                    py_os_config.deprecated_fee_token_address.0,
+                )?,
+                strk_fee_token_address: ContractAddress::try_from(
+                    py_os_config.fee_token_address.0,
+                )?,
+            },
+        })
+    }
+}
+
 impl Default for PyOsConfig {
     fn default() -> Self {
         Self {
@@ -280,22 +298,12 @@ pub fn into_block_context(
     block_info: PyBlockInfo,
     max_recursion_depth: usize,
 ) -> NativeBlockifierResult<BlockContext> {
-    let starknet_os_config = general_config.starknet_os_config.clone();
     let gas_prices = block_info.gas_prices;
     let block_context = BlockContext {
         block_info: BlockInfo {
-            chain_id: starknet_os_config.chain_id,
             block_number: BlockNumber(block_info.block_number),
             block_timestamp: BlockTimestamp(block_info.block_timestamp),
             sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: ContractAddress::try_from(
-                    starknet_os_config.deprecated_fee_token_address.0,
-                )?,
-                strk_fee_token_address: ContractAddress::try_from(
-                    starknet_os_config.fee_token_address.0,
-                )?,
-            },
             vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: gas_prices.eth_l1_gas_price,
@@ -308,6 +316,7 @@ pub fn into_block_context(
             validate_max_n_steps: general_config.validate_max_n_steps,
             max_recursion_depth,
         },
+        chain_info: general_config.starknet_os_config.clone().try_into()?,
     };
 
     Ok(block_context)
