@@ -469,7 +469,10 @@ fn test_revert_invoke(
     // Check that the nonce was increased and the fee was deducted.
     assert_eq!(
         state
-            .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
+            .get_fee_token_balance(
+                account_address,
+                block_context.chain_info.fee_token_address(&fee_type)
+            )
             .unwrap(),
         (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
     );
@@ -504,7 +507,8 @@ fn test_fail_deploy_account(
             ..Default::default()
         },
     );
-    let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
+    let fee_token_address =
+        block_context.chain_info.fee_token_address(&deploy_account_tx.fee_type());
 
     let deploy_address = match &deploy_account_tx {
         AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
@@ -562,7 +566,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     let initial_balance = state
         .get_fee_token_balance(
             account_address,
-            block_context.fee_token_address(&account_tx_context.fee_type()),
+            block_context.chain_info.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
@@ -572,7 +576,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
         state
             .get_fee_token_balance(
                 account_address,
-                block_context.fee_token_address(&account_tx_context.fee_type())
+                block_context.chain_info.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         initial_balance
@@ -993,7 +997,7 @@ fn test_count_actual_storage_changes(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     // FeeType according to version.
-    let fee_token_address = block_context.fee_token_address(&fee_type);
+    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
 
     // Create initial state
     let test_contract = FeatureContract::TestContract(cairo_version);

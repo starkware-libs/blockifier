@@ -97,7 +97,7 @@ impl<'a> ActualCostBuilder<'a> {
         state: &mut CachedState<impl StateReader>,
     ) -> StateResult<Self> {
         let fee_token_address =
-            self.block_context.fee_token_address(&self.account_tx_context.fee_type());
+            self.block_context.chain_info.fee_token_address(&self.account_tx_context.fee_type());
 
         let new_state_changes = state
             .get_actual_state_changes_for_fee_charge(fee_token_address, self.sender_address)?;

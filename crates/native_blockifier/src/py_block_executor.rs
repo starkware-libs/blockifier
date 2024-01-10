@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, FeeTokenAddresses, GasPrices};
+use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
 use blockifier::state::cached_state::GlobalContractCache;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -287,11 +287,8 @@ pub fn into_block_context(
     let starknet_os_config = general_config.starknet_os_config.clone();
     let block_number = BlockNumber(block_info.block_number);
     let block_context = BlockContext {
-        block_info: BlockInfo {
+        chain_info: ChainInfo {
             chain_id: starknet_os_config.chain_id,
-            block_number,
-            block_timestamp: BlockTimestamp(block_info.block_timestamp),
-            sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: ContractAddress::try_from(
                     starknet_os_config.deprecated_fee_token_address.0,
@@ -300,6 +297,11 @@ pub fn into_block_context(
                     starknet_os_config.fee_token_address.0,
                 )?,
             },
+        },
+        block_info: BlockInfo {
+            block_number,
+            block_timestamp: BlockTimestamp(block_info.block_timestamp),
+            sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
             vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: block_info.eth_l1_gas_price,

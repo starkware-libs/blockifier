@@ -23,7 +23,7 @@ pub fn fund_account(
     let balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
         storage_view.insert(
-            (block_context.fee_token_address(&fee_type), balance_key),
+            (block_context.chain_info.fee_token_address(&fee_type), balance_key),
             stark_felt!(initial_balance),
         );
     }
@@ -49,9 +49,9 @@ pub fn test_state(
     let erc20 = FeatureContract::ERC20;
     class_hash_to_class.insert(erc20.get_class_hash(), erc20.get_class());
     address_to_class_hash
-        .insert(block_context.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
+        .insert(block_context.chain_info.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
     address_to_class_hash
-        .insert(block_context.fee_token_address(&FeeType::Strk), erc20.get_class_hash());
+        .insert(block_context.chain_info.fee_token_address(&FeeType::Strk), erc20.get_class_hash());
 
     // Set up the rest of the requested contracts.
     for (contract, n_instances) in contract_instances.iter() {

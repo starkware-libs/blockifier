@@ -69,7 +69,10 @@ fn check_balance<S: StateReader>(
     charge_fee: bool,
 ) -> StarkFelt {
     let (new_balance, _) = state
-        .get_fee_token_balance(account_address, block_context.fee_token_address(fee_type))
+        .get_fee_token_balance(
+            account_address,
+            block_context.chain_info.fee_token_address(fee_type),
+        )
         .unwrap();
     if charge_fee {
         assert!(new_balance < current_balance);
@@ -376,7 +379,10 @@ fn test_simulate_validate_charge_fee_mid_execution(
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) = state
-        .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
+        .get_fee_token_balance(
+            account_address,
+            block_context.chain_info.fee_token_address(&fee_type),
+        )
         .unwrap();
 
     // Execution scenarios.
@@ -518,7 +524,7 @@ fn test_simulate_validate_charge_fee_post_execution(
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let gas_price = block_context.block_info.gas_prices.get_by_fee_type(&fee_type);
-    let fee_token_address = block_context.fee_token_address(&fee_type);
+    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
 
     let FlavorTestInitialState {
         mut state,

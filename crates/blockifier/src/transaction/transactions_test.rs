@@ -164,7 +164,7 @@ fn expected_fee_transfer_call_info(
     let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
     let msb_expected_amount = stark_felt!(0_u8);
-    let storage_address = block_context.fee_token_address(fee_type);
+    let storage_address = block_context.chain_info.fee_token_address(fee_type);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
         code_address: None,
@@ -257,9 +257,9 @@ fn validate_final_balances(
     }
 
     // Verify balances of both accounts, of both fee types, are as expected.
-    let eth_fee_token_address = block_context.block_info.fee_token_addresses.eth_fee_token_address;
+    let eth_fee_token_address = block_context.chain_info.fee_token_addresses.eth_fee_token_address;
     let strk_fee_token_address =
-        block_context.block_info.fee_token_addresses.strk_fee_token_address;
+        block_context.chain_info.fee_token_addresses.strk_fee_token_address;
     for (fee_address, expected_account_balance, expected_sequencer_balance) in [
         (eth_fee_token_address, expected_account_balance_eth, expected_sequencer_balance_eth),
         (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
@@ -666,7 +666,7 @@ fn test_state_get_fee_token_balance(
     let account_address = account.get_instance_address(0);
     let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
     let recipient = stark_felt!(10_u8);
-    let fee_token_address = block_context.fee_token_address(&fee_type);
+    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
 
     // Give the account mint privileges.
     state
@@ -1169,7 +1169,7 @@ fn test_deploy_account_tx(
     for fee_type in FeeType::iter() {
         state
             .set_storage_at(
-                block_context.fee_token_address(&fee_type),
+                block_context.chain_info.fee_token_address(&fee_type),
                 deployed_account_balance_key,
                 stark_felt!(BALANCE),
             )
@@ -1292,7 +1292,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     // Fund account, so as not to fail pre-validation.
     state
         .set_storage_at(
-            block_context.fee_token_address(&FeeType::Eth),
+            block_context.chain_info.fee_token_address(&FeeType::Eth),
             get_fee_token_var_address(deploy_account.contract_address),
             stark_felt!(BALANCE),
         )
@@ -1436,7 +1436,7 @@ fn test_calculate_tx_gas_usage() {
         account_contract_address,
         test_contract.get_instance_address(0),
     ));
-    let fee_token_address = block_context.fee_token_address(&account_tx.fee_type());
+    let fee_token_address = block_context.chain_info.fee_token_address(&account_tx.fee_type());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     let n_storage_updates = 1; // For the account balance update.

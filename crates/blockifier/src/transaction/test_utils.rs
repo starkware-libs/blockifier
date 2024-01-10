@@ -105,7 +105,7 @@ pub fn deploy_and_fund_account(
     // Set balance in all fee types.
     let deployed_account_balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
-        let fee_token_address = block_context.fee_token_address(&fee_type);
+        let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
         state
             .set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE))
             .unwrap();
@@ -154,8 +154,8 @@ pub fn create_account_tx_test_state(
     // address.
     let test_account_address = contract_address!(account_address);
     let test_strk_token_address =
-        block_context.block_info.fee_token_addresses.strk_fee_token_address;
-    let test_eth_token_address = block_context.block_info.fee_token_addresses.eth_fee_token_address;
+        block_context.chain_info.fee_token_addresses.strk_fee_token_address;
+    let test_eth_token_address = block_context.chain_info.fee_token_addresses.eth_fee_token_address;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_address, test_account_class_hash),

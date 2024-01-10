@@ -89,7 +89,7 @@ pub fn get_balance_and_if_covers_fee(
 ) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
     let (balance_low, balance_high) = state.get_fee_token_balance(
         account_tx_context.sender_address(),
-        block_context.fee_token_address(&account_tx_context.fee_type()),
+        block_context.chain_info.fee_token_address(&account_tx_context.fee_type()),
     )?;
     Ok((
         balance_low,
