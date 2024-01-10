@@ -13,7 +13,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, FeeTokenAddresses};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
@@ -153,8 +153,10 @@ pub fn create_account_tx_test_state(
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
     let test_account_address = contract_address!(account_address);
-    let test_strk_token_address = block_context.fee_token_addresses.strk_fee_token_address;
-    let test_eth_token_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let FeeTokenAddresses {
+        eth_fee_token_address: test_eth_token_address,
+        strk_fee_token_address: test_strk_token_address,
+    } = block_context.block_info.fee_token_addresses;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_address, test_account_class_hash),

@@ -17,7 +17,7 @@ use super::{
 };
 use crate::abi::constants;
 use crate::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
-use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
+use crate::block_context::{BlockContext, BlockInfo, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -84,9 +84,9 @@ impl CallEntryPoint {
     }
 }
 
-impl BlockContext {
-    pub fn create_for_testing() -> BlockContext {
-        BlockContext {
+impl BlockInfo {
+    pub fn create_for_testing() -> Self {
+        Self {
             chain_id: ChainId(CHAIN_ID_NAME.to_string()),
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
@@ -115,7 +115,7 @@ impl BlockContext {
         }
     }
 
-    pub fn create_for_account_testing() -> BlockContext {
+    pub fn create_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
             (constants::N_STEPS_RESOURCE.to_string(), 1_f64),
             (HASH_BUILTIN_NAME.to_string(), 1_f64),
@@ -126,7 +126,18 @@ impl BlockContext {
             (OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
             (EC_OP_BUILTIN_NAME.to_string(), 1_f64),
         ]));
-        BlockContext { vm_resource_fee_cost, ..BlockContext::create_for_testing() }
+
+        Self { vm_resource_fee_cost, ..Self::create_for_testing() }
+    }
+}
+
+impl BlockContext {
+    pub fn create_for_testing() -> Self {
+        Self { block_info: BlockInfo::create_for_testing() }
+    }
+
+    pub fn create_for_account_testing() -> Self {
+        Self { block_info: BlockInfo::create_for_account_testing() }
     }
 }
 

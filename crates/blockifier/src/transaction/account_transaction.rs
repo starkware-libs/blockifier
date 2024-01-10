@@ -170,6 +170,7 @@ impl AccountTransaction {
         block_context: &BlockContext,
     ) -> TransactionPreValidationResult<()> {
         let minimal_l1_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
+        let block_info = &block_context.block_info;
 
         match account_tx_context {
             AccountTransactionContext::Current(context) => {
@@ -190,9 +191,8 @@ impl AccountTransaction {
                     })?;
                 }
 
-                let actual_l1_gas_price = block_context
-                    .gas_prices
-                    .get_gas_price_by_fee_type(&account_tx_context.fee_type());
+                let actual_l1_gas_price =
+                    block_info.gas_prices.get_gas_price_by_fee_type(&account_tx_context.fee_type());
                 if max_l1_gas_price < actual_l1_gas_price {
                     return Err(TransactionFeeError::MaxL1GasPriceTooLow {
                         max_l1_gas_price,
@@ -203,7 +203,7 @@ impl AccountTransaction {
             AccountTransactionContext::Deprecated(context) => {
                 let max_fee = context.max_fee;
                 let min_fee = get_fee_by_l1_gas_usage(
-                    block_context,
+                    block_info,
                     minimal_l1_gas_amount,
                     &account_tx_context.fee_type(),
                 );
@@ -306,7 +306,7 @@ impl AccountTransaction {
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
-                *block_context.sequencer_address.0.key(), // Recipient.
+                *block_context.block_info.sequencer_address.0.key(), // Recipient.
                 lsb_amount,
                 msb_amount
             ],
