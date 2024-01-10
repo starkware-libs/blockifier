@@ -7,7 +7,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
 
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
@@ -38,14 +38,14 @@ struct FlavorTestInitialState {
 }
 
 fn create_flavors_test_state(
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     cairo_version: CairoVersion,
 ) -> FlavorTestInitialState {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let faulty_account_contract = FeatureContract::FaultyAccount(cairo_version);
     let state = test_state(
-        block_context,
+        chain_info,
         BALANCE,
         &[(account_contract, 1), (faulty_account_contract, 1), (test_contract, 1)],
     );
@@ -64,12 +64,12 @@ fn check_balance<S: StateReader>(
     current_balance: StarkFelt,
     state: &mut CachedState<S>,
     account_address: ContractAddress,
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     fee_type: &FeeType,
     charge_fee: bool,
 ) -> StarkFelt {
     let (new_balance, _) = state
-        .get_fee_token_balance(account_address, block_context.fee_token_address(fee_type))
+        .get_fee_token_balance(account_address, chain_info.fee_token_address(fee_type))
         .unwrap();
     if charge_fee {
         assert!(new_balance < current_balance);
@@ -147,7 +147,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
         test_contract_address,
         mut nonce_manager,
         ..
-    } = create_flavors_test_state(&block_context, cairo_version);
+    } = create_flavors_test_state(&block_context.chain_info, cairo_version);
 
     // Pre-validation scenarios.
     // 1. Invalid nonce.
@@ -320,7 +320,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
         faulty_account_address,
         mut nonce_manager,
         ..
-    } = create_flavors_test_state(&block_context, cairo_version);
+    } = create_flavors_test_state(&block_context.chain_info, cairo_version);
 
     // Validation scenario: fallible validation.
     let (actual_gas_used, actual_fee) = gas_and_fee(30830, validate, &fee_type);
@@ -373,6 +373,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     #[case] fee_type: FeeType,
 ) {
     let block_context = BlockContext::create_for_account_testing();
+    let chain_info = &block_context.chain_info;
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let FlavorTestInitialState {
         mut state,
@@ -380,11 +381,11 @@ fn test_simulate_validate_charge_fee_mid_execution(
         test_contract_address,
         mut nonce_manager,
         ..
-    } = create_flavors_test_state(&block_context, cairo_version);
+    } = create_flavors_test_state(chain_info, cairo_version);
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) = state
-        .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
+        .get_fee_token_balance(account_address, chain_info.fee_token_address(&fee_type))
         .unwrap();
 
     // Execution scenarios.
@@ -421,7 +422,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
         current_balance,
         &mut state,
         account_address,
-        &block_context,
+        &block_context.chain_info,
         &fee_type,
         charge_fee,
     );
@@ -464,7 +465,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
         current_balance,
         &mut state,
         account_address,
-        &block_context,
+        chain_info,
         &fee_type,
         charge_fee,
     );
@@ -503,14 +504,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
         block_limit_fee,
         block_limit_fee,
     );
-    check_balance(
-        current_balance,
-        &mut state,
-        account_address,
-        &block_context,
-        &fee_type,
-        charge_fee,
-    );
+    check_balance(current_balance, &mut state, account_address, chain_info, &fee_type, charge_fee);
 }
 
 #[rstest]
@@ -528,7 +522,8 @@ fn test_simulate_validate_charge_fee_post_execution(
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
-    let fee_token_address = block_context.fee_token_address(&fee_type);
+    let chain_info = &block_context.chain_info;
+    let fee_token_address = chain_info.fee_token_address(&fee_type);
 
     let FlavorTestInitialState {
         mut state,
@@ -536,7 +531,7 @@ fn test_simulate_validate_charge_fee_post_execution(
         test_contract_address,
         mut nonce_manager,
         ..
-    } = create_flavors_test_state(&block_context, cairo_version);
+    } = create_flavors_test_state(chain_info, cairo_version);
 
     // If charge_fee is false, test that balance indeed doesn't change.
     let (current_balance, _) =
@@ -588,7 +583,7 @@ fn test_simulate_validate_charge_fee_post_execution(
         current_balance,
         &mut state,
         account_address,
-        &block_context,
+        chain_info,
         &fee_type,
         charge_fee,
     );
@@ -646,7 +641,7 @@ fn test_simulate_validate_charge_fee_post_execution(
         current_balance,
         &mut state,
         account_address,
-        &block_context,
+        chain_info,
         &fee_type,
         // Even if `charge_fee` is false, we expect balance to be reduced here; as in this case the
         // transaction will not be reverted, and the balance transfer should be applied.

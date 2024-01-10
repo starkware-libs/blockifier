@@ -43,8 +43,9 @@ fn fee_transfer_resources(
     fee_type: FeeType,
 ) -> VmExecutionResources {
     let block_context = &BlockContext::create_for_account_testing();
-    let state = &mut test_state(block_context, BALANCE, &[]);
-    let token_address = block_context.fee_token_address(&fee_type);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[]);
+    let token_address = chain_info.fee_token_address(&fee_type);
 
     // Fund the account so we don't hit an error.
     state

@@ -2,7 +2,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 use thiserror::Error;
 
-use crate::block_context::{BlockContext, BlockInfo};
+use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_utils::{
     calculate_tx_l1_gas_usage, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usage,
@@ -123,13 +123,13 @@ impl FeeCheckReport {
     /// If the actual cost exceeds the sender's balance, returns a fee check error.
     fn check_can_pay_fee<S: StateReader>(
         state: &mut S,
-        block_context: &BlockContext,
+        chain_info: &ChainInfo,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
         let ActualCost { actual_fee, .. } = actual_cost;
         let (balance_low, balance_high, can_pay) =
-            get_balance_and_if_covers_fee(state, account_tx_context, block_context, *actual_fee)?;
+            get_balance_and_if_covers_fee(state, account_tx_context, chain_info, *actual_fee)?;
         if can_pay {
             return Ok(());
         }
@@ -213,7 +213,7 @@ impl PostExecutionReport {
         // cost for sure.
         let can_pay_fee_result = FeeCheckReport::check_can_pay_fee(
             state,
-            block_context,
+            &block_context.chain_info,
             account_tx_context,
             actual_cost,
         );
