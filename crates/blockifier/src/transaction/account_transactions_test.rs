@@ -61,7 +61,7 @@ fn test_fee_enforcement(
     #[values(true, false)] zero_bounds: bool,
 ) {
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let state = &mut test_state(&block_context, BALANCE, &[(account, 1)]);
+    let state = &mut test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
     let deploy_account_tx = deploy_account_tx(
         deploy_account_tx_args! {
             class_hash: account.get_class_hash(),
@@ -84,7 +84,7 @@ fn test_fee_enforcement(
 #[case(TransactionVersion::THREE)]
 fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: TransactionVersion) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
     let tx_execution_info = run_invoke_tx(
         &mut state,
         &block_context,
@@ -116,7 +116,7 @@ fn test_account_flow_test(
     #[values(true, false)] only_query: bool,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
 
     // Invoke a function from the newly deployed contract.
     run_invoke_tx(
@@ -148,7 +148,7 @@ fn test_invoke_tx_from_non_deployed_account(
     #[case] tx_version: TransactionVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address: _, mut nonce_manager } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
 
@@ -201,7 +201,7 @@ fn test_infinite_recursion(
     block_context.block_info.invoke_tx_max_n_steps = 4000;
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
 
     let recursion_depth = if success { 3_u32 } else { 1000_u32 };
 
@@ -253,8 +253,9 @@ fn test_max_fee_limit_validate(
     #[case] version: TransactionVersion,
     max_resource_bounds: ResourceBoundsMapping,
 ) {
+    let chain_info = &block_context.chain_info;
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(chain_info, CairoVersion::Cairo0);
     let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
     let block_info = &block_context.block_info;
@@ -278,7 +279,7 @@ fn test_max_fee_limit_validate(
     let (deploy_account_tx, _) = deploy_and_fund_account(
         &mut state,
         &mut NonceManager::default(),
-        &block_context,
+        chain_info,
         deploy_account_tx_args! {
             class_hash: grindy_class_hash,
             max_fee,
@@ -299,7 +300,7 @@ fn test_max_fee_limit_validate(
     let (deploy_account_tx, grindy_account_address) = deploy_and_fund_account(
         &mut state,
         &mut nonce_manager,
-        &block_context,
+        chain_info,
         deploy_account_tx_args! {
             class_hash: grindy_class_hash,
             max_fee,
@@ -369,7 +370,7 @@ fn test_recursion_depth_exceeded(
     max_resource_bounds: ResourceBoundsMapping,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, cairo_version);
+        create_test_init_data(&block_context.chain_info, cairo_version);
 
     // Positive test
 
@@ -442,7 +443,8 @@ fn test_revert_invoke(
 ) {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let state = &mut test_state(&block_context, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
@@ -476,7 +478,7 @@ fn test_revert_invoke(
     // Check that the nonce was increased and the fee was deducted.
     assert_eq!(
         state
-            .get_fee_token_balance(account_address, block_context.fee_token_address(&fee_type))
+            .get_fee_token_balance(account_address, chain_info.fee_token_address(&fee_type))
             .unwrap(),
         (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
     );
@@ -497,8 +499,9 @@ fn test_fail_deploy_account(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
+    let chain_info = &block_context.chain_info;
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
-    let state = &mut test_state(&block_context, BALANCE, &[(faulty_account_feature_contract, 0)]);
+    let state = &mut test_state(chain_info, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx = create_account_tx_for_validate_test(
@@ -511,13 +514,13 @@ fn test_fail_deploy_account(
             ..Default::default()
         },
     );
-    let fee_token_address = block_context.fee_token_address(&deploy_account_tx.fee_type());
+    let fee_token_address = chain_info.fee_token_address(&deploy_account_tx.fee_type());
 
     let deploy_address = match &deploy_account_tx {
         AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
         _ => unreachable!("deploy_account_tx is a DeployAccount"),
     };
-    fund_account(&block_context, deploy_address, BALANCE * 2, state);
+    fund_account(chain_info, deploy_address, BALANCE * 2, state);
 
     let initial_balance = state.get_fee_token_balance(deploy_address, fee_token_address).unwrap();
 
@@ -537,8 +540,9 @@ fn test_fail_deploy_account(
 #[rstest]
 /// Tests that a failing declare transaction should not change state (no fee charge or nonce bump).
 fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
+    let chain_info = &block_context.chain_info;
     let TestInitData { mut state, account_address, mut nonce_manager, .. } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(chain_info, CairoVersion::Cairo0);
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
     let contract_class = ContractClass::V1(ContractClassV1::empty_for_testing());
     let next_nonce = nonce_manager.next(account_address);
@@ -569,7 +573,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     let initial_balance = state
         .get_fee_token_balance(
             account_address,
-            block_context.fee_token_address(&account_tx_context.fee_type()),
+            chain_info.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
@@ -579,7 +583,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
         state
             .get_fee_token_balance(
                 account_address,
-                block_context.fee_token_address(&account_tx_context.fee_type())
+                chain_info.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         initial_balance
@@ -612,7 +616,7 @@ fn test_reverted_reach_steps_limit(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, cairo_version);
+        create_test_init_data(&block_context.chain_info, cairo_version);
 
     // Limit the number of execution steps (so we quickly hit the limit).
     block_context.block_info.invoke_tx_max_n_steps = 5000;
@@ -718,7 +722,7 @@ fn test_n_reverted_steps(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, cairo_version);
+        create_test_init_data(&block_context.chain_info, cairo_version);
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         sender_address: account_address,
@@ -823,7 +827,7 @@ fn test_max_fee_to_max_steps_conversion(
     #[case] version: TransactionVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, CairoVersion::Cairo0);
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
     let actual_gas_used = 6108;
     let actual_gas_used_as_u128: u128 = actual_gas_used.into();
     let actual_fee = actual_gas_used_as_u128 * 100000000000;
@@ -895,7 +899,7 @@ fn test_insufficient_max_fee_reverts(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(&block_context, cairo_version);
+        create_test_init_data(&block_context.chain_info, cairo_version);
     let recursion_base_args = invoke_tx_args! {
         sender_address: account_address,
         version: TransactionVersion::ONE,
@@ -963,7 +967,8 @@ fn test_deploy_account_constructor_storage_write(
 ) {
     let grindy_account = FeatureContract::AccountWithLongValidate(cairo_version);
     let class_hash = grindy_account.get_class_hash();
-    let state = &mut test_state(&block_context, BALANCE, &[(grindy_account, 1)]);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(grindy_account, 1)]);
 
     let ctor_storage_arg = stark_felt!(1_u8);
     let ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
@@ -971,7 +976,7 @@ fn test_deploy_account_constructor_storage_write(
     let (deploy_account_tx, _) = deploy_and_fund_account(
         state,
         &mut NonceManager::default(),
-        &block_context,
+        chain_info,
         deploy_account_tx_args! {
             class_hash,
             max_fee,
@@ -1005,13 +1010,13 @@ fn test_count_actual_storage_changes(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     // FeeType according to version.
-    let fee_token_address = block_context.fee_token_address(&fee_type);
+    let chain_info = &block_context.chain_info;
+    let fee_token_address = chain_info.fee_token_address(&fee_type);
 
     // Create initial state
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let mut state =
-        test_state(&block_context, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let mut state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     let account_address = account_contract.get_instance_address(0);
     let contract_address = test_contract.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();

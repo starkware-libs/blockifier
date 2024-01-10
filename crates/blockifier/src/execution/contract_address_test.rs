@@ -6,7 +6,7 @@ use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::block_context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
@@ -18,9 +18,9 @@ use crate::test_utils::{CairoVersion, BALANCE};
 
 #[rstest]
 fn test_calculate_contract_address() {
-    let block_context = &BlockContext::create_for_account_testing();
+    let chain_info = &ChainInfo::create_for_testing();
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(block_context, BALANCE, &[(test_contract, 1)]);
+    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
     fn run_test(
         salt: ContractAddressSalt,
