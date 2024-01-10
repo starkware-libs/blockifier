@@ -243,23 +243,21 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*class_hash)
     }
 
-    #[allow(clippy::map_entry)]
-    // Clippy solution don't work because it required two mutable ref to self
-    // Could probably be solved with interior mutability
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let class_hash_to_class = &mut *self.class_hash_to_class.borrow_mut();
 
-        if !class_hash_to_class.contains_key(&class_hash) {
+        if let std::collections::hash_map::Entry::Vacant(e) = class_hash_to_class.entry(class_hash)
+        {
             let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
 
             match contract_class {
                 Some(contract_class_from_global_cache) => {
-                    class_hash_to_class.insert(class_hash, contract_class_from_global_cache);
+                    e.insert(contract_class_from_global_cache);
                 }
                 None => {
                     let contract_class_from_db =
                         self.state.get_compiled_contract_class(class_hash)?;
-                    class_hash_to_class.insert(class_hash, contract_class_from_db);
+                    e.insert(contract_class_from_db);
                 }
             }
         }
