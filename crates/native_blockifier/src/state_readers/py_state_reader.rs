@@ -32,7 +32,7 @@ impl PyStateReader {
 
 impl StateReader for PyStateReader {
     fn get_storage_at(
-        &mut self,
+        &self,
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
@@ -44,7 +44,7 @@ impl StateReader for PyStateReader {
         .map_err(|err| StateError::StateReadError(err.to_string()))
     }
 
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         Python::with_gil(|py| -> PyResult<PyFelt> {
             let args = (ON_CHAIN_STORAGE_DOMAIN, PyFelt::from(contract_address));
             self.state_reader_proxy.as_ref(py).call_method1("get_nonce_at", args)?.extract()
@@ -53,7 +53,7 @@ impl StateReader for PyStateReader {
         .map_err(|err| StateError::StateReadError(err.to_string()))
     }
 
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         Python::with_gil(|py| -> PyResult<PyFelt> {
             let args = (PyFelt::from(contract_address),);
             self.state_reader_proxy.as_ref(py).call_method1("get_class_hash_at", args)?.extract()
@@ -62,7 +62,7 @@ impl StateReader for PyStateReader {
         .map_err(|err| StateError::StateReadError(err.to_string()))
     }
 
-    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         Python::with_gil(|py| -> Result<ContractClass, PyErr> {
             let args = (PyFelt::from(class_hash),);
             let py_raw_compiled_class: PyRawCompiledClass = self
@@ -82,7 +82,7 @@ impl StateReader for PyStateReader {
         })
     }
 
-    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         Python::with_gil(|py| -> PyResult<PyFelt> {
             let args = (PyFelt::from(class_hash),);
             self.state_reader_proxy
