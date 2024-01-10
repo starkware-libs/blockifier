@@ -86,7 +86,11 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
     let gas = base_gas + if validate_mode { VALIDATE_GAS_OVERHEAD } else { 0 };
     (
         gas,
-        get_fee_by_l1_gas_usage(&BlockContext::create_for_account_testing(), gas as u128, fee_type),
+        get_fee_by_l1_gas_usage(
+            &BlockContext::create_for_account_testing(),
+            u128::try_from(gas).expect("Failed to convert u64 to u128."),
+            fee_type,
+        ),
     )
 }
 
@@ -101,7 +105,7 @@ fn check_gas_and_fee(
 ) {
     assert_eq!(
         calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context).unwrap(),
-        expected_actual_gas as u128
+        u128::try_from(expected_actual_gas).expect("Failed to convert u64 to u128.")
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
     // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
@@ -222,7 +226,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     // Third scenario: resource bounds greater than balance.
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(BALANCE + 1),
-        resource_bounds: l1_resource_bounds((BALANCE / gas_price) as u64 + 10, gas_price),
+        resource_bounds: l1_resource_bounds(u64::try_from(BALANCE / gas_price).expect("Failed to convert u128 to u64.") + 10, gas_price),
         nonce: nonce_manager.next(account_address),
         ..pre_validation_base_args.clone()
     })
@@ -469,9 +473,14 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // Gas usage does not depend on `validate` flag in this scenario, because we reach the block
     // step limit during execution anyway. The actual limit when execution phase starts is slightly
     // lower when `validate` is true, but this is not reflected in the actual gas usage.
-    let block_limit_gas = low_step_block_context.invoke_tx_max_n_steps as u64 + 1720;
-    let block_limit_fee =
-        get_fee_by_l1_gas_usage(&block_context, block_limit_gas as u128, &fee_type);
+    let block_limit_gas = u64::try_from(low_step_block_context.invoke_tx_max_n_steps)
+        .expect("Failed to convert u32 to u64.")
+        + 1720;
+    let block_limit_fee = get_fee_by_l1_gas_usage(
+        &block_context,
+        u128::try_from(block_limit_gas).expect("Failed to convert u64 to u128."),
+        &fee_type,
+    );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),

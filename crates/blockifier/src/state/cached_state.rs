@@ -280,7 +280,8 @@ impl<S: StateReader> State for CachedState<S> {
 
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
         let current_nonce = self.get_nonce_at(contract_address)?;
-        let current_nonce_as_u64 = usize::try_from(current_nonce.0)? as u64;
+        let current_nonce_as_u64 = u64::try_from(usize::try_from(current_nonce.0)?)
+            .expect("Failed to convert usize to u64.");
         let next_nonce_val = 1_u64 + current_nonce_as_u64;
         let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
         self.cache.set_nonce_value(contract_address, next_nonce);

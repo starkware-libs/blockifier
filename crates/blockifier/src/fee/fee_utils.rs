@@ -112,7 +112,8 @@ pub fn verify_can_pay_committed_bounds(
             let l1_bounds = context.l1_resource_bounds()?;
             // Sender will not be charged by `max_price_per_unit`, but this check should not depend
             // on the current gas price.
-            Fee(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit)
+            Fee(u128::try_from(l1_bounds.max_amount).expect("Failed to convert u64 to u128.")
+                * l1_bounds.max_price_per_unit)
         }
         AccountTransactionContext::Deprecated(context) => context.max_fee,
     };

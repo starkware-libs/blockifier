@@ -736,8 +736,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
         default_invoke_tx_args(account_contract_address, test_contract.get_instance_address(0));
 
     let invalid_max_fee = Fee(BALANCE + 1);
-    let invalid_resource_bounds =
-        l1_resource_bounds((BALANCE / MAX_L1_GAS_PRICE) as u64 + 1, MAX_L1_GAS_PRICE);
+    let invalid_resource_bounds = l1_resource_bounds(
+        u64::try_from(BALANCE / MAX_L1_GAS_PRICE).expect("Failed to convert u128 to u64.") + 1,
+        MAX_L1_GAS_PRICE,
+    );
 
     // V1 Invoke.
     let invalid_tx = account_invoke_tx(invoke_tx_args! {
@@ -819,7 +821,8 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     let actual_strk_l1_gas_price = block_context.gas_prices.strk_l1_gas_price;
 
     // Max L1 gas amount too low.
-    let insufficient_max_l1_gas_amount = (minimal_l1_gas - 1) as u64;
+    let insufficient_max_l1_gas_amount =
+        u64::try_from(minimal_l1_gas - 1).expect("Failed to convert u128 to u64.");
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
         resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price),
         version: TransactionVersion::THREE,
@@ -833,13 +836,13 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
                 TransactionFeeError::MaxL1GasAmountTooLow{
                     max_l1_gas_amount, minimal_l1_gas_amount }))
         if max_l1_gas_amount == insufficient_max_l1_gas_amount &&
-        minimal_l1_gas_amount == minimal_l1_gas as u64
+        minimal_l1_gas_amount == u64::try_from(minimal_l1_gas).expect("Failed to convert u128 to u64.")
     );
 
     // Max L1 gas price too low.
     let insufficient_max_l1_gas_price = actual_strk_l1_gas_price - 1;
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
-        resource_bounds: l1_resource_bounds(minimal_l1_gas as u64, insufficient_max_l1_gas_price),
+        resource_bounds: l1_resource_bounds(u64::try_from(minimal_l1_gas).expect("Failed to convert u128 to u64."), insufficient_max_l1_gas_price),
         version: TransactionVersion::THREE,
         ..valid_invoke_tx_args
     });
@@ -1554,9 +1557,9 @@ fn test_only_query_flag(#[case] only_query: bool) {
     let calldata_len =
         expected_block_info.len() + expected_tx_info.len() + expected_call_info.len();
     let execute_calldata = vec![
-        *test_contract_address.0.key(),   // Contract address.
-        entry_point_selector.0,           // EP selector.
-        stark_felt!(calldata_len as u64), // Calldata length.
+        *test_contract_address.0.key(), // Contract address.
+        entry_point_selector.0,         // EP selector.
+        stark_felt!(u64::try_from(calldata_len).expect("Failed to convert usize to u64.")), /* Calldata length. */
     ];
     let execute_calldata = Calldata(
         [

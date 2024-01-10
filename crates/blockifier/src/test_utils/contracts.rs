@@ -131,7 +131,11 @@ impl FeatureContract {
 
     /// Returns the address of the instance with the given instance ID.
     pub fn get_instance_address(&self, instance_id: u8) -> ContractAddress {
-        contract_address!(self.get_integer_base() + instance_id as u32 + ADDRESS_BIT)
+        contract_address!(
+            self.get_integer_base()
+                + u32::try_from(instance_id).expect("Failed to convert u8 to u32.")
+                + ADDRESS_BIT
+        )
     }
 
     pub fn get_class(&self) -> ContractClass {

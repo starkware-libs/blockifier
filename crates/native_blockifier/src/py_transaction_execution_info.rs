@@ -99,7 +99,9 @@ impl From<CallInfo> for PyCallInfo {
             entry_point_type: call.entry_point_type as u8,
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
             gas_consumed: execution.gas_consumed,
-            failure_flag: PyFelt::from(execution.failed as u8),
+            failure_flag: PyFelt::from(
+                u8::try_from(execution.failed).expect("Failed to convert bool to u8."),
+            ),
             retdata: to_py_vec(execution.retdata.0, PyFelt),
             execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
             events: to_py_vec(execution.events, PyOrderedEvent::from),

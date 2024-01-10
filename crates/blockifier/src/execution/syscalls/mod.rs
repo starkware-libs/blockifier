@@ -659,7 +659,8 @@ pub fn keccak(
         });
     }
 
-    let gas_cost = n_rounds as u64 * constants::KECCAK_ROUND_COST_GAS_COST;
+    let gas_cost = u64::try_from(n_rounds).expect("Failed to convert usize to u64.")
+        * constants::KECCAK_ROUND_COST_GAS_COST;
     if gas_cost > *remaining_gas {
         let out_of_gas_error =
             StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;

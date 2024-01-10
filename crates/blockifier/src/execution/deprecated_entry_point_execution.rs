@@ -292,7 +292,10 @@ pub fn validate_run(
     // Validate syscall segment size.
     let syscall_end_ptr = vm.get_relocatable(implicit_args_start)?;
     let syscall_used_size = vm
-        .get_segment_used_size(syscall_start_ptr.segment_index as usize)
+        .get_segment_used_size(
+            usize::try_from(syscall_start_ptr.segment_index)
+                .expect("Failed to convert isize to usize."),
+        )
         .expect("Segments must contain the syscall segment.");
     if (syscall_start_ptr + syscall_used_size)? != syscall_end_ptr {
         return Err(PostExecutionError::SecurityValidationError(
