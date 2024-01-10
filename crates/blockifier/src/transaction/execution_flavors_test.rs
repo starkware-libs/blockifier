@@ -222,7 +222,9 @@ fn test_simulate_validate_charge_fee_pre_validate(
     // Third scenario: resource bounds greater than balance.
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(BALANCE + 1),
-        resource_bounds: l1_resource_bounds((BALANCE / gas_price) as u64 + 10, gas_price),
+        // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the convertion
+        // works.
+        resource_bounds: l1_resource_bounds(u64::try_from(BALANCE / gas_price).expect("Failed to convert u128 to u64.") + 10, gas_price),
         nonce: nonce_manager.next(account_address),
         ..pre_validation_base_args.clone()
     })

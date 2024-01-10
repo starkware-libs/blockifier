@@ -117,11 +117,12 @@ fn test_emit_event() {
 
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the convertion works.
     let calldata = Calldata(
         concat(vec![
-            vec![stark_felt!(keys.len() as u8)],
+            vec![stark_felt!(u8::try_from(keys.len()).expect("Failed to convert usize to u8."))],
             keys.clone(),
-            vec![stark_felt!(data.len() as u8)],
+            vec![stark_felt!(u8::try_from(data.len()).expect("Failed to convert usize to u8."))],
             data.clone(),
         ])
         .into(),
@@ -382,8 +383,11 @@ fn test_get_execution_info(
             resource_bounds: ResourceBoundsMapping(BTreeMap::from([
                 (
                     Resource::L1Gas,
+                    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
+                    // convertion works.
                     ResourceBounds {
-                        max_amount: max_amount.0 as u64,
+                        max_amount: u64::try_from(max_amount.0)
+                            .expect("Failed to convert u128 to u64."),
                         max_price_per_unit: max_price_per_unit.0,
                     },
                 ),
@@ -694,7 +698,16 @@ fn test_send_message_to_l1() {
     let to_address = stark_felt!(1234_u16);
     let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
     let calldata = Calldata(
-        concat(vec![vec![to_address, stark_felt!(payload.len() as u64)], payload.clone()]).into(),
+        concat(vec![
+            vec![
+                to_address,
+                // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
+                // convertion works.
+                stark_felt!(u64::try_from(payload.len()).expect("Failed to convert usize to u64.")),
+            ],
+            payload.clone(),
+        ])
+        .into(),
     );
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_send_message_to_l1"),

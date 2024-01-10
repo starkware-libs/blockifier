@@ -100,8 +100,12 @@ impl BlockContext {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
                 strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
             },
-            invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
-            validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
+            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the convertion
+            // works.
+            invoke_tx_max_n_steps: u32::try_from(MAX_STEPS_PER_TX)
+                .expect("Failed to convert usize to u32."),
+            validate_max_n_steps: u32::try_from(MAX_VALIDATE_STEPS_PER_TX)
+                .expect("Failed to convert usize to u32."),
             max_recursion_depth: 50,
         }
     }
