@@ -1,15 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, collections::{HashMap, HashSet}};
 
 use cairo_lang_sierra::{program::Program as SierraProgram, ids::FunctionId};
 use cairo_lang_starknet::contract_class::{ContractEntryPoints, ContractEntryPoint};
 use cairo_native::{executor::NativeExecutor, execution_result::ContractExecutionResult, metadata::syscall_handler::SyscallHandlerMeta, cache::{AotProgramCache, ProgramCache}, context::NativeContext};
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
-use starknet_api::{deprecated_contract_class::EntryPointType, core::{EntryPointSelector, ClassHash}, hash::StarkFelt};
+use starknet_api::{deprecated_contract_class::EntryPointType, core::{EntryPointSelector, ClassHash, ContractAddress}, hash::StarkFelt};
 use starknet_types_core::felt::Felt;
 
 use crate::state::state_api::State;
 
-use super::{contract_class::SierraContractClassV1, call_info::CallInfo, entry_point::CallEntryPoint, native_syscall_handler::NativeSyscallHandler};
+use super::{contract_class::SierraContractClassV1, call_info::{CallInfo, CallExecution, Retdata}, entry_point::CallEntryPoint, native_syscall_handler::NativeSyscallHandler};
 
 pub fn get_program(contract_class: &SierraContractClassV1) -> &SierraProgram {
     &contract_class.sierra_program
@@ -74,20 +75,29 @@ pub fn get_sierra_entry_function_id<'a>(matching_entrypoint: &'a ContractEntryPo
         .id
 }
 
-pub fn setup_syscall_handler() -> NativeSyscallHandler {
+pub fn setup_syscall_handler<'state>(state: &'state mut dyn State, storage_address: ContractAddress) -> NativeSyscallHandler<'state> {
     NativeSyscallHandler {
-
+        state,
+        storage_address,
     }
 }
 
-pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler) -> SyscallHandlerMeta {
+pub fn wrap_syscall_handler<'state>(syscall_handler: &mut NativeSyscallHandler<'state>) -> SyscallHandlerMeta {
     SyscallHandlerMeta::new(syscall_handler)
+}
+
+pub fn starkfelt_to_felt(starkfelt: StarkFelt) -> Felt {
+    Felt::from_hex(&starkfelt.to_string()).unwrap()
+}
+
+pub fn felt_to_starkfelt(felt: Felt) -> StarkFelt {
+    StarkFelt::try_from(felt.to_hex_string().as_str()).unwrap()
 }
 
 fn starkfelts_to_felts(data: &Vec<StarkFelt>) -> Vec<Felt> {
     data
         .iter()
-        .map(|starkfelt| Felt::from_hex(&starkfelt.to_string()).unwrap())
+        .map(|starkfelt| starkfelt_to_felt(*starkfelt))
         .collect_vec()
 }
 
@@ -110,15 +120,23 @@ pub fn run_native_executor<'context>(
     }
 }
 
-pub fn create_callinfo() -> Result<CallInfo, super::errors::EntryPointExecutionError> {
-    // TODO
-    Ok(CallInfo::default())
-    // Ok(CallInfo {
-    //     call: (),
-    //     execution: (),
-    //     vm_resources: (), //REVIEW what do we do with this, given that we can't count casm steps
-    //     inner_calls: (),
-    //     storage_read_values: (),
-    //     accessed_storage_keys: ()
-    // })
+pub fn create_callinfo(call: CallEntryPoint, run_result: ContractExecutionResult) -> Result<CallInfo, super::errors::EntryPointExecutionError> {
+    Ok(CallInfo {
+        call,
+        execution: CallExecution {
+            retdata: Retdata(run_result.return_values.into_iter().map(felt_to_starkfelt).collect_vec()),
+            events: vec![],
+            l2_to_l1_messages: vec![],
+            failed: run_result.failure_flag,
+            gas_consumed: 34650, // TODO use cairo native's gas logic
+        },
+        vm_resources: ExecutionResources {
+            n_steps: 0,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::default(),
+        }, //REVIEW what do we do with this, given that we can't count casm steps
+        inner_calls: vec![],
+        storage_read_values: vec![],
+        accessed_storage_keys: HashSet::new()
+    })
 }

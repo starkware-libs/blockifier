@@ -1,11 +1,17 @@
 use cairo_native::starknet::StarkNetSyscallHandler;
+use starknet_api::{core::{ContractAddress, PatriciaKey}, state::StorageKey};
 use starknet_types_core::felt::Felt;
 
-pub struct NativeSyscallHandler {
+use crate::state::state_api::State;
 
+use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
+
+pub struct NativeSyscallHandler<'state> {
+    pub state: &'state mut dyn State,
+    pub storage_address: ContractAddress,
 }
 
-impl StarkNetSyscallHandler for NativeSyscallHandler {
+impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     fn get_block_hash(
         &mut self,
         _block_number: u64,
@@ -56,21 +62,26 @@ impl StarkNetSyscallHandler for NativeSyscallHandler {
     fn storage_read(
         &mut self,
         _address_domain: u32,
-        _address: Felt,
+        address: Felt,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Felt> {
         // TODO - in progress - Dom
-        Ok(Felt::from_dec_str("0").unwrap())
+        let storage_key = StorageKey(PatriciaKey::try_from(felt_to_starkfelt(address)).unwrap());
+        let read_result = self.state.get_storage_at(self.storage_address, storage_key);
+        let unsafe_read_result = read_result.unwrap(); // TODO handle properly
+        Ok(starkfelt_to_felt(unsafe_read_result))
     }
 
     fn storage_write(
         &mut self,
         _address_domain: u32,
-        _address: Felt,
-        _value: Felt,
+        address: Felt,
+        value: Felt,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<()> {
-        // TODO
+        let storage_key = StorageKey(PatriciaKey::try_from(felt_to_starkfelt(address)).unwrap());
+        let write_result = self.state.set_storage_at(self.storage_address, storage_key, felt_to_starkfelt(value));
+        write_result.unwrap(); // TODO handle properly
         Ok(())
     }
 
