@@ -121,7 +121,11 @@ fn prepare_accounts(
         // Deploy an account contract.
         let class_hash = TEST_ACCOUNT_CONTRACT_CLASS_HASH;
         let max_fee = Fee(MAX_FEE);
-        let constructor_address_salt = ContractAddressSalt(stark_felt!(account_salt as u64));
+        // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the convertion
+        // works.
+        let constructor_address_salt = ContractAddressSalt(stark_felt!(
+            u64::try_from(account_salt).expect("Failed to convert usize to u64.")
+        ));
         let nonce_manager = &mut NonceManager::default();
         let deploy_account_tx = deploy_account_tx(
             deploy_account_tx_args! {

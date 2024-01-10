@@ -254,11 +254,12 @@ fn test_revert_on_resource_overuse(
     .unwrap();
     assert_eq!(execution_info_measure.revert_error, None);
     let actual_fee = execution_info_measure.actual_fee;
-    let actual_gas_usage = calculate_tx_l1_gas_usage(
-        &execution_info_measure.actual_resources,
-        &block_context,
-    )
-    .unwrap() as u64;
+    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the convertion works.
+    let actual_gas_usage: u64 =
+        calculate_tx_l1_gas_usage(&execution_info_measure.actual_resources, &block_context)
+            .unwrap()
+            .try_into()
+            .expect("Failed to convert u128 to u64.");
 
     // Run the same function, with a different written value (to keep cost high), with the actual
     // resources used as upper bounds. Make sure execution does not revert.

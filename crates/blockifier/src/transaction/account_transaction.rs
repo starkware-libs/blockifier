@@ -181,7 +181,11 @@ impl AccountTransaction {
                 if (max_l1_gas_amount as u128) < minimal_l1_gas_amount {
                     return Err(TransactionFeeError::MaxL1GasAmountTooLow {
                         max_l1_gas_amount,
-                        minimal_l1_gas_amount: (minimal_l1_gas_amount as u64),
+                        // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why
+                        // the convertion works.
+                        minimal_l1_gas_amount: (minimal_l1_gas_amount
+                            .try_into()
+                            .expect("Failed to convert u128 to u64.")),
                     })?;
                 }
 
