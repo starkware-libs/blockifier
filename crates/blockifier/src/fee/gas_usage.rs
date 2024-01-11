@@ -13,6 +13,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
     HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult, TransactionPreValidationResult,
 };
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -189,7 +190,7 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
 
 /// Return an estimated lower bound for the L1 gas on an account transaction.
 pub fn estimate_minimal_l1_gas(
-    block_context: &BlockContext,
+    versioned_constants: &VersionedConstants,
     tx: &AccountTransaction,
 ) -> TransactionPreValidationResult<u128> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
@@ -223,13 +224,13 @@ pub fn estimate_minimal_l1_gas(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
+    Ok(calculate_tx_l1_gas_usage(&resources, versioned_constants)?)
 }
 
 pub fn estimate_minimal_fee(
     block_context: &BlockContext,
     tx: &AccountTransaction,
 ) -> TransactionExecutionResult<Fee> {
-    let estimated_minimal_l1_gas = estimate_minimal_l1_gas(block_context, tx)?;
+    let estimated_minimal_l1_gas = estimate_minimal_l1_gas(&block_context.versioned_constants, tx)?;
     Ok(get_fee_by_l1_gas_usage(&block_context.block_info, estimated_minimal_l1_gas, &tx.fee_type()))
 }
