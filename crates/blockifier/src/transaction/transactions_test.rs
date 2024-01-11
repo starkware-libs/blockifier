@@ -804,10 +804,12 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // The minimal gas estimate does not depend on tx version.
-    let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(valid_invoke_tx_args.clone()))
-            .unwrap()
-            .gas_usage;
+    let minimal_l1_gas = estimate_minimal_l1_gas(
+        &block_context.versioned_constants,
+        &account_invoke_tx(valid_invoke_tx_args.clone()),
+    )
+    .unwrap()
+    .gas_usage;
 
     // Test V1 transaction.
 
@@ -893,10 +895,12 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         test_contract.get_instance_address(0),
     );
 
-    let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone()))
-            .unwrap()
-            .gas_usage;
+    let minimal_l1_gas = estimate_minimal_l1_gas(
+        &block_context.versioned_constants,
+        &account_invoke_tx(invoke_tx_args.clone()),
+    )
+    .unwrap()
+    .gas_usage;
     let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });

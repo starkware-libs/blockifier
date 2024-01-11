@@ -11,6 +11,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping,
     TransactionFeeResult,
 };
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -37,10 +38,10 @@ pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, Resour
 /// I.e., returns the heaviest Cairo resource weight (in terms of L1 gas), as the size of
 /// a proof is determined similarly - by the (normalized) largest segment.
 pub fn calculate_l1_gas_by_vm_usage(
-    block_context: &BlockContext,
+    versioned_constants: &VersionedConstants,
     vm_resource_usage: &ResourcesMapping,
 ) -> TransactionFeeResult<f64> {
-    let vm_resource_fee_costs = &block_context.block_info.vm_resource_fee_cost;
+    let vm_resource_fee_costs = &versioned_constants.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
@@ -62,11 +63,11 @@ pub fn calculate_l1_gas_by_vm_usage(
 /// to the gas consumed by Cairo VM resource.
 pub fn calculate_tx_l1_gas_usages(
     resources: &ResourcesMapping,
-    block_context: &BlockContext,
+    versioned_constants: &VersionedConstants,
 ) -> TransactionFeeResult<GasAndBlobGasUsages> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
-    let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
+    let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
 
     Ok(GasAndBlobGasUsages {
@@ -90,7 +91,8 @@ pub fn calculate_tx_fee(
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
-    let l1_gas_and_blob_gas_usage = calculate_tx_l1_gas_usages(resources, block_context)?;
+    let l1_gas_and_blob_gas_usage =
+        calculate_tx_l1_gas_usages(resources, &block_context.versioned_constants)?;
     Ok(get_fee_by_l1_gas_usage(&block_context.block_info, l1_gas_and_blob_gas_usage, fee_type))
 }
 

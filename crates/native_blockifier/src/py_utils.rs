@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+use blockifier::versioned_constants::VersionedConstants;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -97,4 +98,8 @@ where
     T: Clone,
 {
     Ok(obj.getattr(attr)?.extract()?)
+}
+
+pub fn versioned_constants_with_overrides(max_recursion_depth: usize) -> VersionedConstants {
+    VersionedConstants { max_recursion_depth, ..VersionedConstants::latest_constants().clone() }
 }

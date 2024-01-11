@@ -178,7 +178,8 @@ impl AccountTransaction {
         block_context: &BlockContext,
     ) -> TransactionPreValidationResult<()> {
         // TODO(Aner, 21/01/24) modify for 4844 (blob_gas).
-        let minimal_l1_gas_and_blob_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
+        let minimal_l1_gas_and_blob_gas_amount =
+            estimate_minimal_l1_gas(&block_context.versioned_constants, self)?;
         let minimal_l1_gas_amount = minimal_l1_gas_and_blob_gas_amount.gas_usage;
         let block_info = &block_context.block_info;
 

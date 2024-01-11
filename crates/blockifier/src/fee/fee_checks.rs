@@ -104,8 +104,10 @@ impl FeeCheckReport {
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
 
-                let GasAndBlobGasUsages { gas_usage, blob_gas_usage } =
-                    calculate_tx_l1_gas_usages(actual_resources, block_context)?;
+                let GasAndBlobGasUsages { gas_usage, blob_gas_usage } = calculate_tx_l1_gas_usages(
+                    actual_resources,
+                    &block_context.versioned_constants,
+                )?;
 
                 // TODO(Dori, 1/7/2024): When data gas limit is added (and enforced) in resource
                 //   bounds, check it here as well (separately, with a different error variant if
