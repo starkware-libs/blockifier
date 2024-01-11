@@ -6,7 +6,13 @@ resolver = "2"
 members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.package]
+<<<<<<< HEAD
 version = "0.5.0-dev.0"
+||||||| 414f29d1
+version = "0.4.0"
+=======
+version = "0.4.1-rc.0"
+>>>>>>> origin/main-v0.13.0
 edition = "2021"
 repository = "https://github.com/starkware-libs/blockifier/"
 license = "Apache-2.0"
@@ -19,6 +25,7 @@ ark-secp256k1 = "0.4.0"
 ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
+<<<<<<< HEAD
 cairo-felt = "0.9.1"
 cairo-lang-casm = "2.5.0-dev.0"
 cairo-lang-runner = "2.5.0-dev.0"
@@ -26,6 +33,21 @@ cairo-lang-starknet = "2.5.0-dev.0"
 cairo-lang-utils = "2.5.0-dev.0"
 cairo-vm = "0.9.1"
 criterion = "0.3"
+||||||| 414f29d1
+cairo-felt = "=0.8.3"
+cairo-lang-casm = "2.4.0"
+cairo-lang-runner = "2.4.0"
+cairo-lang-starknet = "2.4.0"
+cairo-lang-utils = "2.4.0"
+cairo-vm = "=0.8.3"
+=======
+cairo-felt = "=0.8.3"
+cairo-lang-casm = "2.4.3"
+cairo-lang-runner = "2.4.3"
+cairo-lang-starknet = "2.4.3"
+cairo-lang-utils = "2.4.3"
+cairo-vm = "=0.8.4-rc.0"
+>>>>>>> origin/main-v0.13.0
 ctor = "0.2.0"
 derive_more = "0.99.17"
 indexmap = "2.1.0"
