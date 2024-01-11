@@ -10,6 +10,7 @@ use crate::fee::fee_utils::{
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{AccountTransactionContext, FeeType, TransactionExecutionResult};
+use crate::versioned_constants::VersionedConstants;
 
 #[derive(Clone, Copy, Debug, Error)]
 pub enum FeeCheckError {
@@ -84,7 +85,7 @@ impl FeeCheckReport {
     /// If the actual cost exceeds the resource bounds on the transaction, returns a fee check
     /// error.
     fn check_actual_cost_within_bounds(
-        block_context: &BlockContext,
+        versioned_constants: &VersionedConstants,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
@@ -97,7 +98,7 @@ impl FeeCheckReport {
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
                 let actual_used_l1_gas =
-                    calculate_tx_l1_gas_usage(actual_resources, block_context)?;
+                    calculate_tx_l1_gas_usage(actual_resources, versioned_constants)?;
                 if actual_used_l1_gas > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {
                         max_amount: max_l1_gas,
@@ -166,7 +167,7 @@ impl PostValidationReport {
     /// Note: the balance cannot be changed in `__validate__` (which cannot call other contracts),
     /// so there is no need to recheck that balance >= actual_cost.
     pub fn verify(
-        block_context: &BlockContext,
+        versioned_constants: &VersionedConstants,
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
@@ -176,7 +177,7 @@ impl PostValidationReport {
         }
 
         FeeCheckReport::check_actual_cost_within_bounds(
-            block_context,
+            versioned_constants,
             account_tx_context,
             actual_cost,
         )
@@ -203,7 +204,7 @@ impl PostExecutionReport {
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
         let cost_with_bounds_result = FeeCheckReport::check_actual_cost_within_bounds(
-            block_context,
+            &block_context.versioned_constants,
             account_tx_context,
             actual_cost,
         );
