@@ -409,6 +409,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits 0.2.17",
+ "once_cell",
  "phf",
  "pretty_assertions",
  "rstest",

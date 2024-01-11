@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -23,7 +24,7 @@ mod py_block_executor_test;
 #[pyclass]
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
-    pub max_recursion_depth: usize,
+    pub versioned_constants: VersionedConstants,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     /// `Send` trait is required for `pyclass` compatibility as Python objects must be threadsafe.
     pub storage: Box<dyn Storage + Send>,
@@ -44,10 +45,15 @@ impl PyBlockExecutor {
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
 
+        let versioned_constants = VersionedConstants {
+            max_recursion_depth,
+            ..VersionedConstants::latest_constants().clone()
+        };
+
         log::debug!("Initialized Block Executor.");
         Self {
             general_config,
-            max_recursion_depth,
+            versioned_constants,
             tx_executor,
             storage: Box::new(storage),
             global_contract_cache: GlobalContractCache::default(),
@@ -67,8 +73,8 @@ impl PyBlockExecutor {
         let tx_executor = TransactionExecutor::new(
             papyrus_reader,
             &self.general_config,
+            &self.versioned_constants,
             next_block_info,
-            self.max_recursion_depth,
             self.global_contract_cache.clone(),
         )?;
         self.tx_executor = Some(tx_executor);
@@ -201,7 +207,7 @@ impl PyBlockExecutor {
                 &general_config.starknet_os_config.chain_id,
             )),
             general_config,
-            max_recursion_depth: 50,
+            versioned_constants: VersionedConstants::latest_constants().clone(),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
         }
@@ -224,7 +230,7 @@ impl PyBlockExecutor {
         Self {
             storage: Box::new(storage),
             general_config: PyGeneralConfig::default(),
-            max_recursion_depth: 50,
+            versioned_constants: VersionedConstants::latest_constants().clone(),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
         }
@@ -295,15 +301,15 @@ impl Default for PyOsConfig {
 
 pub fn into_block_context(
     general_config: &PyGeneralConfig,
+    versioned_constants: &VersionedConstants,
     block_info: PyBlockInfo,
-    max_recursion_depth: usize,
 ) -> NativeBlockifierResult<BlockContext> {
+    let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
     let block_context = BlockContext {
         block_info: BlockInfo {
             block_number: BlockNumber(block_info.block_number),
             block_timestamp: BlockTimestamp(block_info.block_timestamp),
             sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-            vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
                 strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
@@ -312,11 +318,9 @@ pub fn into_block_context(
             },
 
             use_kzg_da: block_info.use_kzg_da,
-            invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-            validate_max_n_steps: general_config.validate_max_n_steps,
-            max_recursion_depth,
         },
-        chain_info: general_config.starknet_os_config.clone().try_into()?,
+        chain_info,
+        versioned_constants: versioned_constants.clone(),
     };
 
     Ok(block_context)
