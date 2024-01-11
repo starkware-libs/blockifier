@@ -105,7 +105,12 @@ fn check_gas_and_fee(
     expected_cost_of_resources: Fee,
 ) {
     assert_eq!(
-        calculate_tx_gas_vector(&tx_execution_info.actual_resources, block_context).unwrap().l1_gas,
+        calculate_tx_gas_vector(
+            &tx_execution_info.actual_resources,
+            &block_context.versioned_constants
+        )
+        .unwrap()
+        .l1_gas,
         expected_actual_gas.into()
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
@@ -474,13 +479,13 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // Third scenario: only limit is block bounds. Expect resources consumed to be identical,
     // whether or not `charge_fee` is true.
     let mut low_step_block_context = block_context.clone();
-    low_step_block_context.block_info.invoke_tx_max_n_steps = 10000;
+    low_step_block_context.versioned_constants.invoke_tx_max_n_steps = 10000;
     let (huge_gas_limit, huge_fee) = gas_and_fee(100000, validate, &fee_type);
     // Gas usage does not depend on `validate` flag in this scenario, because we reach the block
     // step limit during execution anyway. The actual limit when execution phase starts is slightly
     // lower when `validate` is true, but this is not reflected in the actual gas usage.
     let invoke_tx_max_n_steps_as_u64: u64 =
-        low_step_block_context.block_info.invoke_tx_max_n_steps.into();
+        low_step_block_context.versioned_constants.invoke_tx_max_n_steps.into();
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1720;
     let block_limit_fee = get_fee_by_gas_vector(
         &block_context.block_info,

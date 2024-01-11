@@ -4,7 +4,7 @@ use starknet_api::transaction::Fee;
 
 use super::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, BlockInfo};
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
 use crate::fee::os_resources::OS_RESOURCES;
@@ -256,7 +256,7 @@ pub fn estimate_minimal_gas_vector(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    Ok(calculate_tx_gas_vector(&resources, block_context)?)
+    Ok(calculate_tx_gas_vector(&resources, &block_context.versioned_constants)?)
 }
 
 pub fn estimate_minimal_fee(
@@ -277,12 +277,11 @@ pub fn estimate_minimal_fee(
 pub fn compute_discounted_gas_from_gas_vector(
     gas_usage_vector: &GasVector,
     account_tx_context: &AccountTransactionContext,
-    block_context: &BlockContext,
+    block_info: &BlockInfo,
 ) -> u128 {
     let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } = gas_usage_vector;
     let fee_type = account_tx_context.fee_type();
-    let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
-    let data_gas_price =
-        block_context.block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
+    let gas_price = block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
+    let data_gas_price = block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
     gas_usage + (blob_gas_usage * data_gas_price) / gas_price
 }
