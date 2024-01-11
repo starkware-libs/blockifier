@@ -3,6 +3,7 @@ use blockifier::transaction::errors::{
     ParseError, TransactionExecutionError, TransactionPreValidationError,
 };
 use blockifier::transaction::transaction_types::TransactionType;
+use blockifier::versioned_constants::VersionedConstantsError;
 use cairo_vm::types::errors::program_errors::ProgramError;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
@@ -67,7 +68,8 @@ native_blockifier_errors!(
     (StateError, StateError, PyStateError),
     (StorageError, papyrus_storage::StorageError, PyStorageError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
-    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError)
+    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError),
+    (VersionedConstantsError, VersionedConstantsError, PyVersionedConstantsError)
 );
 
 #[derive(Debug, Error)]

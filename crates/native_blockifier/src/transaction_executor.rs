@@ -48,12 +48,11 @@ impl<S: StateReader> TransactionExecutor<S> {
         state_reader: S,
         general_config: &PyGeneralConfig,
         block_info: PyBlockInfo,
-        max_recursion_depth: usize,
         global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
-            block_context: into_block_context(general_config, block_info, max_recursion_depth)?,
+            block_context: into_block_context(general_config, block_info)?,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),

@@ -169,7 +169,8 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
     ) -> TransactionPreValidationResult<()> {
-        let minimal_l1_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
+        let minimal_l1_gas_amount =
+            estimate_minimal_l1_gas(&block_context.versioned_constants, self)?;
         let block_info = &block_context.block_info;
 
         match account_tx_context {

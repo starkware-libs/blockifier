@@ -22,8 +22,6 @@ use crate::transaction_executor::TransactionExecutor;
 /// Manages transaction validation for pre-execution flows.
 #[pyclass]
 pub struct PyValidator {
-    pub general_config: PyGeneralConfig,
-    pub max_recursion_depth: usize,
     pub max_nonce_for_validation_skip: Nonce,
     pub tx_executor: TransactionExecutor<PyStateReader>,
 }
@@ -31,24 +29,20 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
-        max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
         let tx_executor = TransactionExecutor::new(
             PyStateReader::new(state_reader_proxy),
             &general_config,
             next_block_info,
-            max_recursion_depth,
             GlobalContractCache::default(),
         )?;
         let validator = Self {
-            general_config,
-            max_recursion_depth,
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
         };
@@ -102,27 +96,20 @@ impl PyValidator {
     }
 
     #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info))]
     #[staticmethod]
     fn create_for_testing(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
-        max_recursion_depth: usize,
     ) -> NativeBlockifierResult<Self> {
         let tx_executor = TransactionExecutor::new(
             PyStateReader::new(state_reader_proxy),
             &general_config,
             next_block_info,
-            max_recursion_depth,
             GlobalContractCache::default(),
         )?;
-        Ok(Self {
-            general_config,
-            max_recursion_depth: 50,
-            max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
-            tx_executor,
-        })
+        Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
     }
 
     /// Applicable solely to account deployment transactions: the execution of the constructor
@@ -199,7 +186,7 @@ impl PyValidator {
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
         PostValidationReport::verify(
-            &self.tx_executor.block_context,
+            &self.tx_executor.block_context.versioned_constants,
             account_tx_context,
             actual_cost,
         )
