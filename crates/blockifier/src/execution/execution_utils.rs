@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use cairo_felt::Felt252;
 use cairo_lang_runner::casm_run::format_next_item;
+use cairo_lang_sierra::program::Program as SierraProgram;
+use cairo_lang_starknet::contract_class::ContractEntryPoints;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
@@ -29,6 +31,9 @@ use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::objects::AccountTransactionContext;
+
+use super::native_syscall_handler::NativeSyscallHandler;
+use super::sierra_utils::{get_program, get_entrypoints, match_entrypoint, get_native_executor, get_sierra_entry_function_id, run_native_executor, create_callinfo, setup_syscall_handler, get_program_cache, get_code_class_hash, wrap_syscall_handler};
 
 pub type Args = Vec<CairoArg>;
 
@@ -63,13 +68,36 @@ pub fn execute_entry_point_call(
                 context,
             )
         }
-        ContractClass::V1(contract_class) => entry_point_execution::execute_entry_point_call(
-            call,
-            contract_class,
-            state,
-            resources,
-            context,
-        ),
+        ContractClass::V1(contract_class) => {
+            entry_point_execution::execute_entry_point_call(
+                call,
+                contract_class,
+                state,
+                resources,
+                context,
+            )
+        }
+        ContractClass::V1Sierra(contract_class) => {
+            let sierra_program: &SierraProgram = get_program(&contract_class);
+            let contract_entrypoints: &ContractEntryPoints = get_entrypoints(&contract_class);
+
+            let matching_entrypoint = match_entrypoint(call.entry_point_type, call.entry_point_selector, contract_entrypoints);
+
+            let program_cache = get_program_cache();
+
+            let code_class_hash: ClassHash = get_code_class_hash(&call, state);
+
+            let native_executor = get_native_executor(code_class_hash, sierra_program, program_cache);
+
+            let mut syscall_handler: NativeSyscallHandler<'_> = setup_syscall_handler(state, call.storage_address);
+            let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
+
+            let sierra_entry_function_id = get_sierra_entry_function_id(matching_entrypoint, sierra_program);
+
+            let run_result = run_native_executor(native_executor, sierra_entry_function_id, &call, &syscall_handler_meta);
+
+            create_callinfo(call, run_result)
+        }
     }
 }
 

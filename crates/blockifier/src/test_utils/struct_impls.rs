@@ -19,7 +19,7 @@ use crate::abi::constants;
 use crate::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
 use crate::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
-use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
+use crate::execution::contract_class::{ContractClassV0, ContractClassV1, SierraContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
@@ -137,6 +137,13 @@ impl ContractClassV0 {
 }
 
 impl ContractClassV1 {
+    pub fn from_file(contract_path: &str) -> Self {
+        let raw_contract_class = get_raw_contract_class(contract_path);
+        Self::try_from_json_string(&raw_contract_class).unwrap()
+    }
+}
+
+impl SierraContractClassV1 {
     pub fn from_file(contract_path: &str) -> Self {
         let raw_contract_class = get_raw_contract_class(contract_path);
         Self::try_from_json_string(&raw_contract_class).unwrap()

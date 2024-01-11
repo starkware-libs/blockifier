@@ -495,6 +495,7 @@ pub fn replace_class(
                 .set_class_hash_at(syscall_handler.storage_address(), class_hash)?;
             Ok(ReplaceClassResponse {})
         }
+        ContractClass::V1Sierra(_) => todo!("Sierra replace class")
     }
 }
 

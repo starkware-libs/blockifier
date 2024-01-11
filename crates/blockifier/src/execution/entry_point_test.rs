@@ -573,6 +573,7 @@ fn test_stack_trace() {
                 .offset
         }
         ContractClass::V1(_) => panic!("Expected contract class V0, got V1."),
+        ContractClass::V1Sierra(_) => panic!("Expected contract class V0, got V1Sierra."),
     };
     // Relative offsets of the test_call_contract entry point and the inner call.
     let call_location = entry_point_offset.0 + 14;
