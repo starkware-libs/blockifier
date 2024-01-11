@@ -7,7 +7,6 @@ use starknet_api::state::StorageKey;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::CommitmentStateDiff;
 use crate::state::errors::StateError;
 
 pub type StateResult<T> = Result<T, StateError>;
@@ -103,8 +102,6 @@ pub trait State: StateReader {
         class_hash: ClassHash,
         compiled_class_hash: CompiledClassHash,
     ) -> StateResult<()>;
-
-    fn to_state_diff(&mut self) -> CommitmentStateDiff;
 
     /// Marks the given set of PC values as visited for the given class hash.
     // TODO(lior): Once we have a BlockResources object, move this logic there. Make sure reverted
