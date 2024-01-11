@@ -1,15 +1,14 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::transaction::objects::FeeType;
+use crate::versioned_constants::VersionedConstants;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
     pub block_info: BlockInfo,
     pub chain_info: ChainInfo,
+    pub versioned_constants: VersionedConstants,
 }
 
 #[derive(Clone, Debug)]
@@ -19,14 +18,8 @@ pub struct BlockInfo {
 
     // Fee-related.
     pub sequencer_address: ContractAddress,
-    pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
     pub gas_prices: GasPrices,
     pub use_kzg_da: bool,
-
-    // Limits.
-    pub invoke_tx_max_n_steps: u32,
-    pub validate_max_n_steps: u32,
-    pub max_recursion_depth: usize,
 }
 
 #[derive(Clone, Debug)]

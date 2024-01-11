@@ -16,7 +16,6 @@ use super::{
     TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2, TEST_SEQUENCER_ADDRESS,
 };
 use crate::abi::constants;
-use crate::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
@@ -26,6 +25,7 @@ use crate::execution::entry_point::{
 use crate::state::state_api::State;
 use crate::test_utils::get_raw_contract_class;
 use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
+use crate::versioned_constants::VersionedConstants;
 
 impl CallEntryPoint {
     /// Executes the call directly, without account context. Limits the number of steps by resource
@@ -84,42 +84,9 @@ impl CallEntryPoint {
     }
 }
 
-impl ChainInfo {
+impl VersionedConstants {
     pub fn create_for_testing() -> Self {
-        Self {
-            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
-            fee_token_addresses: FeeTokenAddresses {
-                eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
-                strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
-            },
-        }
-    }
-}
-
-impl BlockInfo {
-    pub fn create_for_testing() -> Self {
-        Self {
-            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
-            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
-            vm_resource_fee_cost: Default::default(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
-                strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
-                eth_l1_data_gas_price: DEFAULT_ETH_L1_DATA_GAS_PRICE,
-                strk_l1_data_gas_price: DEFAULT_STRK_L1_DATA_GAS_PRICE,
-            },
-            use_kzg_da: false,
-            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
-            // works.
-            invoke_tx_max_n_steps: MAX_STEPS_PER_TX
-                .try_into()
-                .expect("Failed to convert usize to u32."),
-            validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX
-                .try_into()
-                .expect("Failed to convert usize to u32."),
-            max_recursion_depth: 50,
-        }
+        Self::latest_constants().clone()
     }
 
     pub fn create_for_account_testing() -> Self {
@@ -138,18 +105,49 @@ impl BlockInfo {
     }
 }
 
+impl ChainInfo {
+    pub fn create_for_testing() -> Self {
+        Self {
+            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
+            fee_token_addresses: FeeTokenAddresses {
+                eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
+                strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
+            },
+        }
+    }
+}
+
+impl BlockInfo {
+    pub fn create_for_testing() -> Self {
+        Self {
+            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
+            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
+            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
+            gas_prices: GasPrices {
+                eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
+                strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
+                eth_l1_data_gas_price: DEFAULT_ETH_L1_DATA_GAS_PRICE,
+                strk_l1_data_gas_price: DEFAULT_STRK_L1_DATA_GAS_PRICE,
+            },
+            use_kzg_da: false,
+        }
+    }
+}
+
 impl BlockContext {
     pub fn create_for_testing() -> Self {
         Self {
             block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
+            versioned_constants: VersionedConstants::create_for_testing(),
         }
     }
 
     pub fn create_for_account_testing() -> Self {
         Self {
-            block_info: BlockInfo::create_for_account_testing(),
+            block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
+            versioned_constants: VersionedConstants::create_for_account_testing(),
         }
     }
 }
