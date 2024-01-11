@@ -12,6 +12,7 @@ use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
+use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
@@ -47,13 +48,13 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
         state_reader: S,
         general_config: &PyGeneralConfig,
+        versioned_constants: &VersionedConstants,
         block_info: PyBlockInfo,
-        max_recursion_depth: usize,
         global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
-            block_context: into_block_context(general_config, block_info, max_recursion_depth)?,
+            block_context: into_block_context(general_config, versioned_constants, block_info)?,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),

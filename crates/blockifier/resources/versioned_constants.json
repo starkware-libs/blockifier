@@ -1,0 +1,17 @@
+{
+    "vm_resource_fee_cost": {
+
+        "bitwise_builtin":0.32,
+        "ec_op_builtin":5.12,
+        "ecdsa_builtin":10.24,
+        "keccak_builtin":10.24,
+        "n_steps": 0.005,
+        "output_builtin": 0,
+        "pedersen_builtin": 0.16,
+        "poseidon_builtin":0.16,
+        "range_check_builtin":0.08
+    },
+    "invoke_tx_max_n_steps": 3000000,
+    "max_recursion_depth": 50,
+    "validate_max_n_steps": 1000000
+}
