@@ -198,7 +198,7 @@ fn test_infinite_recursion(
     mut block_context: BlockContext,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.block_info.invoke_tx_max_n_steps = 4000;
+    block_context.versioned_constants.invoke_tx_max_n_steps = 4000;
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
@@ -332,7 +332,7 @@ fn test_max_fee_limit_validate(
         ..tx_args.clone()
     });
     let estimated_min_l1_gas_and_blob_gas =
-        estimate_minimal_l1_gas(&block_context, &account_tx).unwrap();
+        estimate_minimal_l1_gas(&block_context.versioned_constants, &account_tx).unwrap();
     let estimated_min_l1_gas = estimated_min_l1_gas_and_blob_gas.gas_usage;
     let estimated_min_fee = get_fee_by_l1_gas_usage(
         block_info,
@@ -387,7 +387,7 @@ fn test_recursion_depth_exceeded(
     // 2. The base case for recursion occurs at depth 0, not at depth 1.
 
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
-    let max_inner_recursion_depth: u8 = (block_context.block_info.max_recursion_depth - 2)
+    let max_inner_recursion_depth: u8 = (block_context.versioned_constants.max_recursion_depth - 2)
         .try_into()
         .expect("Failed to convert usize to u8.");
 
@@ -625,7 +625,7 @@ fn test_reverted_reach_steps_limit(
         create_test_init_data(&block_context.chain_info, cairo_version);
 
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.block_info.invoke_tx_max_n_steps = 5000;
+    block_context.versioned_constants.invoke_tx_max_n_steps = 5000;
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         resource_bounds: max_resource_bounds,
@@ -674,7 +674,7 @@ fn test_reverted_reach_steps_limit(
     let steps_diff = n_steps_1 - n_steps_0;
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     let steps_diff_as_u32: u32 = steps_diff.try_into().expect("Failed to convert usize to u32.");
-    let fail_depth = block_context.block_info.invoke_tx_max_n_steps / steps_diff_as_u32;
+    let fail_depth = block_context.versioned_constants.invoke_tx_max_n_steps / steps_diff_as_u32;
 
     // Invoke the `recurse` function with `fail_depth` iterations. This call should fail.
     let result = run_invoke_tx(
@@ -863,8 +863,10 @@ fn test_max_fee_to_max_steps_conversion(
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.n_steps();
+    let versioned_constants = &block_context.versioned_constants;
     let gas_and_blob_gas_used1 =
-        calculate_tx_l1_gas_usages(&tx_execution_info1.actual_resources, &block_context).unwrap();
+        calculate_tx_l1_gas_usages(&tx_execution_info1.actual_resources, versioned_constants)
+            .unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let account_tx2 = account_invoke_tx(invoke_tx_args! {
@@ -885,7 +887,8 @@ fn test_max_fee_to_max_steps_conversion(
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.n_steps();
     let gas_and_blob_gas_used2 =
-        calculate_tx_l1_gas_usages(&tx_execution_info2.actual_resources, &block_context).unwrap();
+        calculate_tx_l1_gas_usages(&tx_execution_info2.actual_resources, versioned_constants)
+            .unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());

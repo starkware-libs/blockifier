@@ -24,6 +24,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -69,7 +70,7 @@ impl CallEntryPoint {
     ) -> EntryPointExecutionResult<CallInfo> {
         let mut decrement_when_dropped = RecursionDepthGuard::new(
             context.current_recursion_depth.clone(),
-            context.max_recursion_depth,
+            context.block_context.versioned_constants.max_recursion_depth,
         );
         decrement_when_dropped.try_increment_and_check_depth()?;
 
@@ -151,8 +152,6 @@ pub struct EntryPointExecutionContext {
 
     // Managed by dedicated guard object.
     current_recursion_depth: Arc<RefCell<usize>>,
-    // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
-    max_recursion_depth: usize,
 
     // The execution mode affects the behavior of the hint processor.
     pub execution_mode: ExecutionMode,
@@ -174,7 +173,6 @@ impl EntryPointExecutionContext {
             error_stack: vec![],
             account_tx_context: account_tx_context.clone(),
             current_recursion_depth: Default::default(),
-            max_recursion_depth: block_context.block_info.max_recursion_depth,
             block_context: block_context.clone(),
             execution_mode: mode,
         })
@@ -215,32 +213,29 @@ impl EntryPointExecutionContext {
         mode: &ExecutionMode,
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<usize> {
-        let block_info = &block_context.block_info;
+        let constants = &block_context.versioned_constants;
+        let default_versioned_constants = VersionedConstants::latest_constants();
         let block_upper_bound = match mode {
-            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
-            // works.
             ExecutionMode::Validate => min(
-                block_info
-                    .validate_max_n_steps
-                    .try_into()
-                    .expect("Failed to convert u32 to usize."),
-                constants::MAX_VALIDATE_STEPS_PER_TX,
+                constants.validate_max_n_steps,
+                default_versioned_constants.validate_max_n_steps,
             ),
             ExecutionMode::Execute => min(
-                block_info
-                    .invoke_tx_max_n_steps
-                    .try_into()
-                    .expect("Failed to convert u32 to usize."),
-                constants::MAX_STEPS_PER_TX,
+                constants.invoke_tx_max_n_steps,
+                default_versioned_constants.invoke_tx_max_n_steps,
             ),
         };
+        // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
+        // works.
+        let block_upper_bound =
+            usize::try_from(block_upper_bound).expect("Failed to convert u32 to usize.");
 
         if !limit_steps_by_resources || !account_tx_context.enforce_fee()? {
             return Ok(block_upper_bound);
         }
 
         let gas_per_step =
-            block_info.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(|| {
+            constants.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(|| {
                 panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
             });
 
@@ -249,7 +244,8 @@ impl EntryPointExecutionContext {
         let tx_gas_upper_bound = match account_tx_context {
             AccountTransactionContext::Deprecated(context) => {
                 (context.max_fee.0
-                    / block_info
+                    / block_context
+                        .block_info
                         .gas_prices
                         .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
                     as usize
