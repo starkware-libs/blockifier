@@ -147,6 +147,28 @@ impl<S: StateReader> CachedState<S> {
 
         Ok(())
     }
+
+    pub fn to_state_diff(&mut self) -> CommitmentStateDiff {
+        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
+
+        // TODO(Gilad): Consider returning an error here, would require changing the API though.
+        self.update_initial_values_of_write_only_access()
+            .unwrap_or_else(|_| panic!("Cannot convert stateDiff to CommitmentStateDiff."));
+
+        let state_cache = &self.cache;
+        let class_hash_updates = state_cache.get_class_hash_updates();
+        let storage_diffs = state_cache.get_storage_updates();
+        let nonces =
+            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
+        let declared_classes = state_cache.compiled_class_hash_writes.clone();
+
+        CommitmentStateDiff {
+            address_to_class_hash: IndexMap::from_iter(class_hash_updates),
+            storage_updates: StorageDiff::from(StorageView(storage_diffs)),
+            class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
+            address_to_nonce: IndexMap::from_iter(nonces),
+        }
+    }
 }
 
 #[cfg(any(feature = "testing", test))]
@@ -298,27 +320,6 @@ impl<S: StateReader> State for CachedState<S> {
     ) -> StateResult<()> {
         self.cache.set_compiled_class_hash_write(class_hash, compiled_class_hash);
         Ok(())
-    }
-
-    fn to_state_diff(&mut self) -> CommitmentStateDiff {
-        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
-
-        // TODO(Gilad): Consider returning an error here, would require changing the API though.
-        self.update_initial_values_of_write_only_access()
-            .unwrap_or_else(|_| panic!("Cannot convert stateDiff to CommitmentStateDiff."));
-
-        let state_cache = &self.cache;
-        let class_hash_updates = state_cache.get_class_hash_updates();
-        let storage_diffs = state_cache.get_storage_updates();
-        let nonces = state_cache.get_nonce_updates();
-        let declared_classes = state_cache.compiled_class_hash_writes.clone();
-
-        CommitmentStateDiff {
-            address_to_class_hash: IndexMap::from_iter(class_hash_updates),
-            storage_updates: StorageDiff::from(StorageView(storage_diffs)),
-            class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
-            address_to_nonce: IndexMap::from_iter(nonces),
-        }
     }
 
     fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>) {
@@ -553,10 +554,6 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.0.set_contract_class(class_hash, contract_class)
-    }
-
-    fn to_state_diff(&mut self) -> CommitmentStateDiff {
-        self.0.to_state_diff()
     }
 
     fn set_compiled_class_hash(
