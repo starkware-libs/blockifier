@@ -12,7 +12,7 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
-use crate::state_readers::papyrus_state::PapyrusReader;
+use crate::state_readers::papyrus_state::{PapyrusReader, PapyrusReaderTimer};
 use crate::storage::{Storage, StorageConfig};
 use crate::transaction_executor::TransactionExecutor;
 
@@ -92,11 +92,20 @@ impl PyBlockExecutor {
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
-        self.tx_executor().execute(tx, raw_contract_class, charge_fee)
+        // Reset timer
+        self.tx_executor().state.state.timer = PapyrusReaderTimer::default();
+        let result = self.tx_executor().execute(tx, raw_contract_class, charge_fee);
+        let timer = self.tx_executor().state.state.timer;
+        self.tx_executor().state.state.add_timer_to_list(timer);
+        // Adds timer to total timer
+        self.tx_executor().state.state.add_timer_to_total_timer(timer);
+
+        result
     }
 
     pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
         log::debug!("Finalizing execution...");
+        log::debug!("{}", self.tx_executor().state.state);
         let finalized_state = self.tx_executor().finalize(is_pending_block);
         log::debug!("Finalized execution.");
 
