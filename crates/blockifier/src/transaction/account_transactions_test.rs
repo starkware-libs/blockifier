@@ -533,7 +533,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     let TestInitData { mut state, account_address, mut nonce_manager, .. } =
         create_test_init_data(&block_context, CairoVersion::Cairo0);
     let class_hash = class_hash!(0xdeadeadeaf72_u128);
-    let contract_class = ContractClass::V1(ContractClassV1::default());
+    let contract_class = ContractClass::V1(ContractClassV1::empty_for_testing());
     let next_nonce = nonce_manager.next(account_address);
 
     // Cannot fail executing a declare tx unless it's V2 or above, and already declared.
