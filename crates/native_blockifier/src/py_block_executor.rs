@@ -232,8 +232,6 @@ impl PyBlockExecutor {
 #[derive(Default)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
-    pub min_strk_l1_gas_price: u128,
-    pub max_strk_l1_gas_price: u128,
     pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
@@ -245,15 +243,11 @@ impl FromPyObject<'_> for PyGeneralConfig {
         let cairo_resource_fee_weights: HashMap<String, f64> =
             py_attr(general_config, "cairo_resource_fee_weights")?;
         let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
-        let min_strk_l1_gas_price: u128 = py_attr(general_config, "min_strk_l1_gas_price")?;
-        let max_strk_l1_gas_price: u128 = py_attr(general_config, "max_strk_l1_gas_price")?;
         let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
         let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
 
         Ok(Self {
             starknet_os_config,
-            min_strk_l1_gas_price,
-            max_strk_l1_gas_price,
             cairo_resource_fee_weights,
             invoke_tx_max_n_steps,
             validate_max_n_steps,
