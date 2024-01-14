@@ -6,6 +6,7 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -124,7 +125,7 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 }
 
 // V1.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
 impl Deref for ContractClassV1 {
     type Target = ContractClassV1Inner;
@@ -173,8 +174,7 @@ impl ContractClassV1 {
     /// This is an empiric measurement of several bytecode lengths, which constitutes as the
     /// dominant factor in it.
     fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
-        // TODO(lior): Use `bytecode_segment_lengths` from the class.
-        estimate_casm_hash_computation_resources(NestedIntList::Leaf(self.bytecode_length()))
+        estimate_casm_hash_computation_resources(&self.bytecode_segment_lengths)
     }
 
     pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV1, ProgramError> {
@@ -183,13 +183,17 @@ impl ContractClassV1 {
 
         Ok(contract_class)
     }
-}
 
-// TODO(lior): Remove this and use `NestedIntList` from the cairo compiler repo once available.
-#[derive(Clone, Debug)]
-pub enum NestedIntList {
-    Leaf(usize),
-    Node(Vec<NestedIntList>),
+    /// Returns an empty contract class for testing purposes.
+    #[cfg(any(feature = "testing", test))]
+    pub fn empty_for_testing() -> Self {
+        Self(Arc::new(ContractClassV1Inner {
+            program: Default::default(),
+            entry_points_by_type: Default::default(),
+            hints: Default::default(),
+            bytecode_segment_lengths: NestedIntList::Leaf(0),
+        }))
+    }
 }
 
 /// Returns the estimated VM resources required for computing Casm hash (for Cairo 1 contracts).
@@ -197,7 +201,7 @@ pub enum NestedIntList {
 /// Note: the function focuses on the bytecode size, and currently ignores the cost handling the
 /// class entry points.
 pub fn estimate_casm_hash_computation_resources(
-    bytecode_segment_lengths: NestedIntList,
+    bytecode_segment_lengths: &NestedIntList,
 ) -> VmExecutionResources {
     // The constants in this function were computed by running the Casm code on a few values
     // of `bytecode_segment_lengths`.
@@ -208,7 +212,7 @@ pub fn estimate_casm_hash_computation_resources(
                 n_steps: 474,
                 n_memory_holes: 0,
                 builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 10)]),
-            } + &poseidon_hash_many_cost(length)
+            } + &poseidon_hash_many_cost(*length)
         }
         NestedIntList::Node(segments) => {
             // The contract code is segmented by its functions.
@@ -228,7 +232,7 @@ pub fn estimate_casm_hash_computation_resources(
                         "Estimating hash cost is only supported for segmentation depth at most 1."
                     );
                 };
-                execution_resources += &poseidon_hash_many_cost(length);
+                execution_resources += &poseidon_hash_many_cost(*length);
                 execution_resources += &base_segment_cost;
             }
             execution_resources
@@ -251,11 +255,12 @@ fn poseidon_hash_many_cost(data_length: usize) -> VmExecutionResources {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
+    bytecode_segment_lengths: NestedIntList,
 }
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -329,10 +334,15 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             convert_entry_points_v1(class.entry_points_by_type.l1_handler)?,
         );
 
+        let bytecode_segment_lengths = class
+            .bytecode_segment_lengths
+            .unwrap_or_else(|| NestedIntList::Leaf(program.data_len()));
+
         Ok(Self(Arc::new(ContractClassV1Inner {
             program,
             entry_points_by_type,
             hints: string_to_hint,
+            bytecode_segment_lengths,
         })))
     }
 }
