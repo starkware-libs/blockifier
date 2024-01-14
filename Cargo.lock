@@ -2234,7 +2234,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#11ee565928b0d311b6448f14ff1b2e35e5a0937d"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#b678ee2e274e0fed87cd5839eee01a86f923263d"
 dependencies = [
  "clap 4.4.8",
  "itertools 0.10.5",
@@ -2248,7 +2248,7 @@ dependencies = [
 [[package]]
 name = "papyrus_proc_macros"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#11ee565928b0d311b6448f14ff1b2e35e5a0937d"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#b678ee2e274e0fed87cd5839eee01a86f923263d"
 dependencies = [
  "quote",
  "syn 2.0.39",
@@ -2257,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#11ee565928b0d311b6448f14ff1b2e35e5a0937d"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#b678ee2e274e0fed87cd5839eee01a86f923263d"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -2581,7 +2581,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e681a6cfdc4adcc93b4d3cf993749a4552018ee0a9b65fc0ccfad74352c72a38"
 dependencies = [
  "cfg-if",
- "hashbrown 0.14.3",
+ "hashbrown 0.13.2",
  "indoc 1.0.9",
  "libc",
  "memoffset",

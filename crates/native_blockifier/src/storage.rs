@@ -52,6 +52,11 @@ impl Storage {
         };
         let (reader, writer) = papyrus_storage::open_storage(storage_config)?;
         log::debug!("Initialized Blockifier storage.");
+        let db_stats = reader.db_tables_stats().expect("Failed to get db tables stats.");
+        log::debug!(
+            "Papyrus storage stats (open storage): {}",
+            serde_json::to_string_pretty(&db_stats).expect("Failed to serialize table stats.")
+        );
 
         Ok(Storage { reader: Some(reader), writer: Some(writer) })
     }
@@ -230,6 +235,16 @@ impl Storage {
              <{block_number}, 444> Writing the state diff to the storage.",
             undeclared_casm_contracts.len()
         );
+
+        if block_id % 1000 == 0 {
+            let table_stats =
+                self.reader().db_tables_stats().expect("Failed to get db tables stats.");
+            log::debug!(
+                "<{block_number}, stats> Papyrus storage stats: {:?}",
+                serde_json::to_string_pretty(&table_stats)
+                    .expect("Failed to serialize table stats.")
+            );
+        }
 
         let mut append_txn = self.writer().begin_rw_txn()?;
         log::debug!(
