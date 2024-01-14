@@ -32,6 +32,8 @@ pub struct CachedState<S: StateReader> {
     class_hash_to_class: ContractClassMapping,
     // Invariant: managed by CachedState.
     global_class_hash_to_class: GlobalContractCache,
+    /// A map from class hash to the set of PC values that were visited in the class.
+    pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
 impl<S: StateReader> CachedState<S> {
@@ -41,6 +43,7 @@ impl<S: StateReader> CachedState<S> {
             cache: StateCache::default(),
             class_hash_to_class: HashMap::default(),
             global_class_hash_to_class,
+            visited_pcs: HashMap::default(),
         }
     }
 
@@ -133,6 +136,12 @@ impl<S: StateReader> CachedState<S> {
     ) {
         self.class_hash_to_class.extend(local_contract_cache_updates);
         self.global_class_hash_to_class = global_contract_cache;
+    }
+
+    pub fn update_visited_pcs_cache(&mut self, visited_pcs: &HashMap<ClassHash, HashSet<usize>>) {
+        for (class_hash, class_visited_pcs) in visited_pcs {
+            self.add_visited_pcs(*class_hash, class_visited_pcs);
+        }
     }
 
     /// Updates cache with initial cell values for write-only access.
@@ -340,6 +349,10 @@ impl<S: StateReader> State for CachedState<S> {
             address_to_nonce: IndexMap::from_iter(nonces),
         }
     }
+
+    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>) {
+        self.visited_pcs.entry(class_hash).or_default().extend(pcs);
+    }
 }
 
 #[cfg(any(feature = "testing", test))]
@@ -350,6 +363,7 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
             cache: Default::default(),
             class_hash_to_class: Default::default(),
             global_class_hash_to_class: Default::default(),
+            visited_pcs: Default::default(),
         }
     }
 }
@@ -579,6 +593,10 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
     ) -> StateResult<()> {
         self.0.set_compiled_class_hash(class_hash, compiled_class_hash)
     }
+
+    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>) {
+        self.0.add_visited_pcs(class_hash, pcs)
+    }
 }
 
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
@@ -591,14 +609,20 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         tx_executed_class_hashes: HashSet<ClassHash>,
         tx_visited_storage_entries: HashSet<StorageEntry>,
     ) -> StagedTransactionalState {
-        let TransactionalState { cache, class_hash_to_class, global_class_hash_to_class, .. } =
-            self;
+        let TransactionalState {
+            cache,
+            class_hash_to_class,
+            global_class_hash_to_class,
+            visited_pcs,
+            ..
+        } = self;
         StagedTransactionalState {
             cache,
             class_hash_to_class,
             global_class_hash_to_class,
             tx_executed_class_hashes,
             tx_visited_storage_entries,
+            visited_pcs,
         }
     }
 
@@ -607,8 +631,11 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         let state = self.state.0;
         let child_cache = self.cache;
         state.update_cache(child_cache);
-        state
-            .update_contract_class_caches(self.class_hash_to_class, self.global_class_hash_to_class)
+        state.update_contract_class_caches(
+            self.class_hash_to_class,
+            self.global_class_hash_to_class,
+        );
+        state.update_visited_pcs_cache(&self.visited_pcs);
     }
 
     /// Drops `self`.
@@ -626,6 +653,7 @@ pub struct StagedTransactionalState {
     // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
     pub tx_visited_storage_entries: HashSet<StorageEntry>,
+    pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.

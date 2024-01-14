@@ -151,8 +151,9 @@ impl<S: StateReader> TransactionExecutor<S> {
         Ok((validate_call_info, actual_cost))
     }
 
-    /// Returns the state diff resulting in executing transactions.
-    pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
+    /// Returns the state diff and a list of contract class hash with the corresponding list of
+    /// visited PC values.
+    pub fn finalize(&mut self, is_pending_block: bool) -> (PyStateDiff, Vec<(PyFelt, Vec<usize>)>) {
         // Do not cache classes that were declared during a pending block.
         // They will be redeclared, and should not be cached since the content of this block is
         // transient.
@@ -160,7 +161,19 @@ impl<S: StateReader> TransactionExecutor<S> {
             self.state.move_classes_to_global_cache();
         }
 
-        PyStateDiff::from(self.state.to_state_diff())
+        // Extract visited PCs from block_context, and convert it to a python-friendly type.
+        let visited_pcs = self
+            .state
+            .visited_pcs
+            .iter()
+            .map(|(class_hash, class_visited_pcs)| {
+                let mut class_visited_pcs_vec: Vec<_> = class_visited_pcs.iter().cloned().collect();
+                class_visited_pcs_vec.sort();
+                (PyFelt::from(*class_hash), class_visited_pcs_vec)
+            })
+            .collect();
+
+        (PyStateDiff::from(self.state.to_state_diff()), visited_pcs)
     }
 
     // Block pre-processing; see `block_execution::pre_process_block` documentation.
@@ -187,6 +200,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             finalized_transactional_state.class_hash_to_class,
             finalized_transactional_state.global_class_hash_to_class,
         );
+        self.state.update_visited_pcs_cache(&finalized_transactional_state.visited_pcs);
 
         self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
         self.visited_storage_entries
