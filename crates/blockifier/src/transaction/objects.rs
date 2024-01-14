@@ -84,7 +84,8 @@ impl AccountTransactionContext {
         match self {
             AccountTransactionContext::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
-                Ok(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit > 0)
+                let max_amount: u128 = l1_bounds.max_amount.into();
+                Ok(max_amount * l1_bounds.max_price_per_unit > 0)
             }
             AccountTransactionContext::Deprecated(context) => Ok(context.max_fee != Fee(0)),
         }
