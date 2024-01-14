@@ -6,6 +6,7 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -173,8 +174,7 @@ impl ContractClassV1 {
     /// This is an empiric measurement of several bytecode lengths, which constitutes as the
     /// dominant factor in it.
     fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
-        // TODO(lior): Use `bytecode_segment_lengths` from the class.
-        estimate_casm_hash_computation_resources(NestedIntList::Leaf(self.bytecode_length()))
+        estimate_casm_hash_computation_resources(self.get_byte_code_segment_lengths())
     }
 
     pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV1, ProgramError> {
@@ -183,13 +183,12 @@ impl ContractClassV1 {
 
         Ok(contract_class)
     }
-}
 
-// TODO(lior): Remove this and use `NestedIntList` from the cairo compiler repo once available.
-#[derive(Clone, Debug)]
-pub enum NestedIntList {
-    Leaf(usize),
-    Node(Vec<NestedIntList>),
+    fn get_byte_code_segment_lengths(&self) -> NestedIntList {
+        self.bytecode_segment_lengths
+            .clone()
+            .unwrap_or_else(|| NestedIntList::Leaf(self.bytecode_length()))
+    }
 }
 
 /// Returns the estimated VM resources required for computing Casm hash (for Cairo 1 contracts).
@@ -256,6 +255,7 @@ pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
+    bytecode_segment_lengths: Option<NestedIntList>,
 }
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -333,6 +333,7 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             program,
             entry_points_by_type,
             hints: string_to_hint,
+            bytecode_segment_lengths: class.bytecode_segment_lengths,
         })))
     }
 }
