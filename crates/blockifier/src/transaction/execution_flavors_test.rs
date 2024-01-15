@@ -136,7 +136,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
-    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let gas_price = block_context.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let FlavorTestInitialState {
         mut state,
         account_address,
@@ -365,7 +365,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     #[case] fee_type: FeeType,
 ) {
     let block_context = BlockContext::create_for_account_testing();
-    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let gas_price = block_context.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let FlavorTestInitialState {
         mut state,
         account_address,
@@ -517,7 +517,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     #[case] is_deprecated: bool,
 ) {
     let block_context = BlockContext::create_for_account_testing();
-    let gas_price = block_context.gas_prices.get_by_fee_type(&fee_type);
+    let gas_price = block_context.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let fee_token_address = block_context.fee_token_address(&fee_type);
 
     let FlavorTestInitialState {

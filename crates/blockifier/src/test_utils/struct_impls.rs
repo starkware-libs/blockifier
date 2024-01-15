@@ -11,9 +11,9 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 
 use super::{
-    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, DEFAULT_ETH_L1_GAS_PRICE,
-    DEFAULT_STRK_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2,
-    TEST_SEQUENCER_ADDRESS,
+    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, DEFAULT_ETH_L1_DATA_GAS_PRICE,
+    DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE, DEFAULT_STRK_L1_GAS_PRICE,
+    TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2, TEST_SEQUENCER_ADDRESS,
 };
 use crate::abi::constants;
 use crate::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
@@ -99,6 +99,8 @@ impl BlockContext {
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
                 strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
+                eth_l1_data_gas_price: DEFAULT_ETH_L1_DATA_GAS_PRICE,
+                strk_l1_data_gas_price: DEFAULT_STRK_L1_DATA_GAS_PRICE,
             },
             invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
             validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,

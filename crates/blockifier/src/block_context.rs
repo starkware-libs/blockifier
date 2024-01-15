@@ -47,15 +47,24 @@ impl FeeTokenAddresses {
 
 #[derive(Clone, Debug)]
 pub struct GasPrices {
-    pub eth_l1_gas_price: u128,  // In wei.
-    pub strk_l1_gas_price: u128, // In fri.
+    pub eth_l1_gas_price: u128,       // In wei.
+    pub strk_l1_gas_price: u128,      // In fri.
+    pub eth_l1_data_gas_price: u128,  // In wei.
+    pub strk_l1_data_gas_price: u128, // In fri.
 }
 
 impl GasPrices {
-    pub fn get_by_fee_type(&self, fee_type: &FeeType) -> u128 {
+    pub fn get_gas_price_by_fee_type(&self, fee_type: &FeeType) -> u128 {
         match fee_type {
             FeeType::Strk => self.strk_l1_gas_price,
             FeeType::Eth => self.eth_l1_gas_price,
+        }
+    }
+
+    pub fn get_data_gas_price_by_fee_type(&self, fee_type: &FeeType) -> u128 {
+        match fee_type {
+            FeeType::Strk => self.strk_l1_data_gas_price,
+            FeeType::Eth => self.eth_l1_data_gas_price,
         }
     }
 }

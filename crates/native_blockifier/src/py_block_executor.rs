@@ -297,8 +297,10 @@ pub fn into_block_context(
         },
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
         gas_prices: GasPrices {
-            eth_l1_gas_price: block_info.eth_l1_gas_price,
-            strk_l1_gas_price: block_info.strk_l1_gas_price,
+            eth_l1_gas_price: block_info.gas_prices.eth_l1_gas_price,
+            strk_l1_gas_price: block_info.gas_prices.strk_l1_gas_price,
+            eth_l1_data_gas_price: block_info.gas_prices.eth_l1_data_gas_price,
+            strk_l1_data_gas_price: block_info.gas_prices.strk_l1_data_gas_price,
         },
         invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
         validate_max_n_steps: general_config.validate_max_n_steps,

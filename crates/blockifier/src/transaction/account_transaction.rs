@@ -185,8 +185,9 @@ impl AccountTransaction {
                     })?;
                 }
 
-                let actual_l1_gas_price =
-                    block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type());
+                let actual_l1_gas_price = block_context
+                    .gas_prices
+                    .get_gas_price_by_fee_type(&account_tx_context.fee_type());
                 if max_l1_gas_price < actual_l1_gas_price {
                     return Err(TransactionFeeError::MaxL1GasPriceTooLow {
                         max_l1_gas_price,

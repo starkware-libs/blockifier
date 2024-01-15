@@ -115,11 +115,18 @@ impl From<CommitmentStateDiff> for PyStateDiff {
 }
 
 #[derive(Default, FromPyObject)]
+pub struct PyGasPrices {
+    pub eth_l1_gas_price: u128,
+    pub strk_l1_gas_price: u128,
+    pub eth_l1_data_gas_price: u128,
+    pub strk_l1_data_gas_price: u128,
+}
+
+#[derive(Default, FromPyObject)]
 pub struct PyBlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
-    pub eth_l1_gas_price: u128,
-    pub strk_l1_gas_price: u128,
+    pub gas_prices: PyGasPrices,
     pub sequencer_address: PyFelt,
     pub use_kzg_da: bool,
 }
