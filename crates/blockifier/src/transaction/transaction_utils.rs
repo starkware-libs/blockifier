@@ -92,6 +92,6 @@ pub fn verify_contract_class_version(
                 })
             }
         }
-        ContractClass::V1Sierra(_) => todo!("Sierra verify contract class version")
+        ContractClass::V1Sierra(_) => todo!("Sierra verify contract class version"),
     }
 }
