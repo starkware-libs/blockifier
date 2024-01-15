@@ -236,7 +236,9 @@ impl EntryPointExecutionContext {
         let tx_gas_upper_bound = match account_tx_context {
             AccountTransactionContext::Deprecated(context) => {
                 (context.max_fee.0
-                    / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type()))
+                    / block_context
+                        .gas_prices
+                        .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
                     as usize
             }
             AccountTransactionContext::Current(context) => {
