@@ -5,6 +5,7 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
+use crate::fee::gas_usage::get_onchain_data_cost;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -131,8 +132,12 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             self.l1_payload_size,
         )?;
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
+        let l1_data_gas_usage = get_onchain_data_cost(state_changes_count); // Calculate the effect of the transaction on the output data availability segment. 
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage + l1_data_gas_usage,
+            self.tx_type,
+        )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
