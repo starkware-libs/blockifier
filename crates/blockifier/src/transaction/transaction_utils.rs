@@ -7,7 +7,7 @@ use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_usage;
+use crate::fee::gas_usage::{calculate_tx_gas_usage, get_onchain_data_cost};
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
@@ -31,6 +31,14 @@ pub fn calculate_l1_gas_usage<'a>(
     );
 
     Ok(l1_gas_usage)
+}
+
+pub fn calculate_l1_data_gas_usage<'a>(
+    state_changes_count: StateChangesCount,
+) -> TransactionExecutionResult<usize> {
+    let l1_data_gas_usage = get_onchain_data_cost(state_changes_count); // Calculate the effect of the transaction on the output data availability segment. 
+
+    Ok(l1_data_gas_usage)
 }
 
 /// Calculates the total resources needed to include the transaction in a Starknet block as

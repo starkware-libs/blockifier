@@ -5,14 +5,15 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::get_onchain_data_cost;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
+use crate::transaction::transaction_utils::{
+    calculate_l1_data_gas_usage, calculate_l1_gas_usage, calculate_tx_resources,
+};
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -132,7 +133,7 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             self.l1_payload_size,
         )?;
-        let l1_data_gas_usage = get_onchain_data_cost(state_changes_count); // Calculate the effect of the transaction on the output data availability segment. 
+        let l1_data_gas_usage = calculate_l1_data_gas_usage(state_changes_count)?;
         let mut actual_resources = calculate_tx_resources(
             execution_resources,
             l1_gas_usage + l1_data_gas_usage,

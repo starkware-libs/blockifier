@@ -23,7 +23,6 @@ pub mod test;
 /// which requires gas.
 pub fn calculate_tx_gas_usage(
     l2_to_l1_payloads_length: &[usize],
-    state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> usize {
     // Calculate the addition of the transaction to the output messages segment.
