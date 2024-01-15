@@ -58,6 +58,22 @@ impl Storage {
             serde_json::to_string_pretty(&db_stats).expect("Failed to serialize table stats.")
         );
 
+        // read storage diffs to see if it affects the first write transaction.
+        {
+            let txn = reader.begin_ro_txn().expect("Failed to begin read-only transaction.");
+            let state_marker = txn.get_state_marker().expect("Failed to get state marker.");
+            let state_number = StateNumber(state_marker);
+            let last_state_diff =
+                txn.get_state_diff(state_marker.prev().unwrap()).unwrap().unwrap();
+            let state_reader = txn.get_state_reader().expect("Failed to get state reader.");
+
+            for (contract_address, storage_diffs) in last_state_diff.storage_diffs.iter() {
+                for (key, _) in storage_diffs.iter() {
+                    state_reader.get_storage_at(state_number, contract_address, key).unwrap();
+                }
+            }
+        }
+
         Ok(Storage { reader: Some(reader), writer: Some(writer) })
     }
 
