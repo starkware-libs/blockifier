@@ -242,16 +242,27 @@ func recurse(depth: felt) {
 @external
 func recursive_syscall{syscall_ptr: felt*}(contract_address: felt, function_selector: felt, depth: felt) {
     alloc_locals;
+    let recursive_fail_selector = 0x03eb640b15f75fcc06d43182cdb94ed38c8e71755d5fb57c16dd673b466db1d4;
     if (depth == 0) {
         return ();
     }
-    local calldata: felt* = new(contract_address, function_selector, depth - 1);
-    call_contract(
-        contract_address=contract_address,
-        function_selector=function_selector,
-        calldata_size=3,
-        calldata=calldata,
-    );
+    if (function_selector == recursive_fail_selector) {
+        // Call 'recursive_fail`.
+        call_contract(
+            contract_address=contract_address,
+            function_selector=function_selector,
+            calldata_size=1,
+            calldata=new(depth - 1),
+        );
+    } else {
+        local calldata: felt* = new(contract_address, function_selector, depth - 1);
+        call_contract(
+            contract_address=contract_address,
+            function_selector=function_selector,
+            calldata_size=3,
+            calldata=calldata,
+        );
+    }
     return ();
 }
 
