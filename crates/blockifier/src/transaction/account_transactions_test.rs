@@ -339,7 +339,7 @@ fn test_max_fee_limit_validate(
             max_fee: estimated_min_fee,
             resource_bounds: l1_resource_bounds(
                 estimated_min_l1_gas as u64,
-                block_context.gas_prices.get_by_fee_type(&account_tx.fee_type())
+                block_context.gas_prices.get_gas_price_by_fee_type(&account_tx.fee_type())
             ),
             ..tx_args
         },
@@ -817,7 +817,7 @@ fn test_max_fee_to_max_steps_conversion(
         create_test_init_data(&block_context, CairoVersion::Cairo0);
     let actual_gas_used = 6108;
     let actual_fee = actual_gas_used as u128 * 100000000000;
-    let actual_strk_gas_price = block_context.gas_prices.get_by_fee_type(&FeeType::Strk);
+    let actual_strk_gas_price = block_context.gas_prices.get_gas_price_by_fee_type(&FeeType::Strk);
     let execute_calldata = create_calldata(
         contract_address,
         "with_arg",

@@ -67,7 +67,7 @@ pub fn get_fee_by_l1_gas_usage(
     l1_gas_usage: u128,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(l1_gas_usage * block_context.gas_prices.get_by_fee_type(fee_type))
+    Fee(l1_gas_usage * block_context.gas_prices.get_gas_price_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
