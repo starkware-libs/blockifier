@@ -7,16 +7,15 @@ use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_usage;
+use crate::fee::gas_usage::{calculate_tx_gas_usage_without_data, get_onchain_data_cost};
 use crate::fee::os_usage::get_additional_os_resources;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 
-pub fn calculate_l1_gas_usage<'a>(
+pub fn calculate_l1_gas_usage_without_data<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
     let mut l2_to_l1_payloads_length = vec![];
@@ -24,13 +23,18 @@ pub fn calculate_l1_gas_usage<'a>(
         l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
     }
 
-    let l1_gas_usage = calculate_tx_gas_usage(
-        &l2_to_l1_payloads_length,
-        state_changes_count,
-        l1_handler_payload_size,
-    );
+    let l1_gas_usage =
+        calculate_tx_gas_usage_without_data(&l2_to_l1_payloads_length, l1_handler_payload_size);
 
     Ok(l1_gas_usage)
+}
+
+pub fn calculate_l1_gas_usage_data(
+    state_changes_count: StateChangesCount,
+) -> TransactionExecutionResult<usize> {
+    let l1_gas_usage_data = get_onchain_data_cost(state_changes_count); // Calculate the effect of the transaction on the output data availability segment. 
+
+    Ok(l1_gas_usage_data)
 }
 
 /// Calculates the total resources needed to include the transaction in a Starknet block as

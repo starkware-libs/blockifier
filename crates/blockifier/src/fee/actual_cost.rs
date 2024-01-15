@@ -11,7 +11,9 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::{calculate_l1_gas_usage, calculate_tx_resources};
+use crate::transaction::transaction_utils::{
+    calculate_l1_gas_usage_data, calculate_l1_gas_usage_without_data, calculate_tx_resources,
+};
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -126,13 +128,15 @@ impl<'a> ActualCostBuilder<'a> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
-        let l1_gas_usage = calculate_l1_gas_usage(
-            non_optional_call_infos,
-            state_changes_count,
-            self.l1_payload_size,
+        let l1_gas_usage_without_data =
+            calculate_l1_gas_usage_without_data(non_optional_call_infos, self.l1_payload_size)?;
+        // Calculate the effect of the transaction on the output data availability segment.
+        let l1_gas_usage_data = calculate_l1_gas_usage_data(state_changes_count)?;
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage_without_data + l1_gas_usage_data,
+            self.tx_type,
         )?;
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
