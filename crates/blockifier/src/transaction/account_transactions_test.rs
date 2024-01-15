@@ -1113,3 +1113,31 @@ fn test_count_actual_storage_changes(
     assert_eq!(expected_modified_contracts_transfer, storage_updates_transfer.modified_contracts);
     assert_eq!(expected_storage_update_transfer, storage_updates_transfer.storage_updates);
 }
+
+#[rstest]
+/// Tests that error types are as expected.
+fn test_error_stack1(
+    block_context: BlockContext,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context, cairo_version);
+
+    let calldata = create_calldata(
+        contract_address,
+        "recursive_syscall",
+        &[
+            *contract_address.0.key(),              // Calldata: raw contract address.
+            selector_from_name("recursive_fail").0, // Calldata: raw selector.
+            stark_felt!(1_u8),                      // Calldata: recursion depth.
+        ],
+    );
+    let invoke_args = invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        sender_address: account_address,
+        calldata,
+        nonce: nonce_manager.next(account_address),
+    };
+    let tx_execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
+    assert!(tx_execution_info.unwrap().revert_error.is_some());
+}

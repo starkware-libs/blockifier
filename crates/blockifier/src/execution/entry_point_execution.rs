@@ -13,6 +13,7 @@ use num_traits::ToPrimitive;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 
+use super::execution_utils::format_panic_data;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
@@ -54,6 +55,8 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
+    // Fetch the address from `call`.
+    let address = call.storage_address;
     // Fetch the class hash from `call`.
     let class_hash = call.class_hash.ok_or(EntryPointExecutionError::InternalError(
         "Class hash must not be None when executing an entry point.".into(),
@@ -110,6 +113,10 @@ pub fn execute_entry_point_call(
         program_extra_data_length,
     )?;
     if call_info.execution.failed {
+        context.error_stack.push((
+            address,
+            format!("Panicked with: {}", format_panic_data(&call_info.execution.retdata.0)),
+        ));
         return Err(EntryPointExecutionError::ExecutionFailed {
             error_data: call_info.execution.retdata.0,
         });

@@ -131,7 +131,7 @@ mod TestContract {
         nested_library_calldata.append(2);
         nested_library_calldata.append(a + 1);
         nested_library_calldata.append(b + 1);
-        let res = starknet::library_call_syscall(
+        let _res = starknet::library_call_syscall(
             class_hash, lib_selector, nested_library_calldata.span(),
         )
             .unwrap_syscall();
@@ -234,7 +234,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, _expected_public_key_x, _expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
         verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
@@ -280,7 +280,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256r1::secp256r1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, _eth_address) =
             get_message_and_secp256r1_signature();
         let public_key = Secp256r1Impl::secp256_ec_new_syscall(
             expected_public_key_x, expected_public_key_y
@@ -387,9 +387,12 @@ mod TestContract {
         if depth == 0 {
             return;
         }
-        let calldata: Array::<felt252> = array![
-            contract_address.into(), function_selector, depth - 1
-        ];
+        let recursive_fail_selector: felt252 = 0x03eb640b15f75fcc06d43182cdb94ed38c8e71755d5fb57c16dd673b466db1d4;
+        let calldata: Array::<felt252> = if (function_selector == recursive_fail_selector) {
+            array![depth - 1]
+        } else {
+            array![contract_address.into(), function_selector, depth - 1]
+        };
         syscalls::call_contract_syscall(contract_address, function_selector, calldata.span())
             .unwrap_syscall();
         return;
