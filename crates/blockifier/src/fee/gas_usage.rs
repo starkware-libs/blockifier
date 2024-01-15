@@ -45,14 +45,10 @@ pub fn calculate_tx_gas_usage(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(l2_to_l1_payloads_length);
 
-    // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
+    let sharp_gas_usage_without_data =
+        residual_message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
-    let sharp_gas_usage = residual_message_segment_length
-        * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + residual_onchain_data_cost;
-
-    starknet_gas_usage + sharp_gas_usage
+    starknet_gas_usage + sharp_gas_usage_without_data
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
