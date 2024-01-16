@@ -113,13 +113,10 @@ pub fn execute_entry_point_call(
     )?;
     if call_info.execution.failed {
         let error_data = call_info.execution.retdata.0;
-        context.error_stack.push((
-            address,
-            EntryPointExecutionError::ExecutionFailed{ error_data: error_data.clone() }.to_string(),
-        ));
-        return Err(EntryPointExecutionError::ExecutionFailed {
-            error_data,
-        });
+        let exec_error =
+            EntryPointExecutionError::ExecutionFailed { error_data: error_data.clone() };
+        context.error_stack.push((address, format!("{}\n", exec_error)));
+        return Err(EntryPointExecutionError::ExecutionFailed { error_data });
     }
 
     Ok(call_info)
