@@ -362,6 +362,11 @@ mod TestContract {
     }
 
     #[external(v0)]
+    fn fail(ref self: ContractState) {
+        panic_with_felt252('fail');
+    }
+
+    #[external(v0)]
     fn recursive_fail(ref self: ContractState, depth: felt252) {
         if depth == 0 {
             panic_with_felt252('recursive_fail');

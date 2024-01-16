@@ -113,6 +113,10 @@ impl CallEntryPoint {
                         source: error,
                     }
                 }
+                EntryPointExecutionError::ExecutionFailed { .. } => {
+                    context.error_stack.push((storage_address, format!("{}\n", &error)));
+                    error
+                }
                 other_error => other_error,
             }
         })

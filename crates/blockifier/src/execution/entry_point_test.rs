@@ -3,12 +3,13 @@ use std::collections::HashSet;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use rstest::rstest;
+use starknet_api::core::{EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants;
@@ -19,15 +20,13 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{create_test_state, deprecated_create_test_state};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, pad_address_to_64, trivial_external_entry_point, BALANCE,
-    SECURITY_TEST_CONTRACT_ADDRESS, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_ADDRESS_2,
+    create_calldata, trivial_external_entry_point, trivial_external_entry_point_with_address,
+    CairoVersion, BALANCE,
 };
 
 #[test]
@@ -536,31 +535,39 @@ fn test_cairo1_entry_point_segment_arena() {
     );
 }
 
-#[test]
-fn test_stack_trace() {
-    let mut state = deprecated_create_test_state();
+#[rstest]
+fn test_stack_trace(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let block_context = BlockContext::create_for_testing();
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let mut state = test_state(&block_context, BALANCE, &[(test_contract, 3)]);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let test_contract_address_2 = test_contract.get_instance_address(1);
+    let test_contract_address_3 = test_contract.get_instance_address(2);
+
     // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
     let call_contract_function_name = "test_call_contract";
-    let inner_entry_point_selector = selector_from_name("foo");
+    let inner_entry_point_selector = selector_from_name("fail");
     let calldata = create_calldata(
-        contract_address!(TEST_CONTRACT_ADDRESS_2),
+        test_contract_address_2, // contract_address
         call_contract_function_name,
         &[
-            stark_felt!(SECURITY_TEST_CONTRACT_ADDRESS), // Contract address.
-            inner_entry_point_selector.0,                // Function selector.
-            stark_felt!(0_u8),                           // Innermost calldata length.
+            *test_contract_address_3.0.key(), // Contract address.
+            inner_entry_point_selector.0,     // Function selector.
+            stark_felt!(0_u8),                // Innermost calldata length.
         ],
     );
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(call_contract_function_name),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_contract_address)
     };
 
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
     // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
     // this computation should be stable.
-    let contract_class = state.get_compiled_contract_class(class_hash!(TEST_CLASS_HASH)).unwrap();
+    let contract_class = test_contract.get_class();
     let entry_point_offset = match contract_class {
         ContractClass::V0(class) => {
             class
@@ -572,13 +579,22 @@ fn test_stack_trace() {
                 .unwrap()
                 .offset
         }
-        ContractClass::V1(_) => panic!("Expected contract class V0, got V1."),
+        ContractClass::V1(class) => {
+            class
+                .entry_points_by_type
+                .get(&EntryPointType::External)
+                .unwrap()
+                .iter()
+                .find(|ep| ep.selector == entry_point_call.entry_point_selector)
+                .unwrap()
+                .offset
+        }
     };
     // Relative offsets of the test_call_contract entry point and the inner call.
     let call_location = entry_point_offset.0 + 14;
     let entry_point_location = entry_point_offset.0 - 3;
 
-    let expected_trace = format!(
+    let expected_trace_cairo0 = format!(
         "Error in the called contract ({}):
 Error at pc=0:37:
 Got an exception while executing a hint.
@@ -594,15 +610,43 @@ Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({}):
-Error at pc=0:58:
+Error at pc=0:1061:
 An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:62)
+Unknown location (pc=0:1065)
 ",
-        pad_address_to_64(TEST_CONTRACT_ADDRESS),
-        pad_address_to_64(TEST_CONTRACT_ADDRESS_2),
-        pad_address_to_64(SECURITY_TEST_CONTRACT_ADDRESS)
+        *test_contract_address.0.key(),
+        *test_contract_address_2.0.key(),
+        *test_contract_address_3.0.key(),
     );
+
+    let expected_trace_cairo1 = format!(
+        "Error in the called contract ({}):
+Error at pc=0:4798:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:341)
+
+Error in the called contract ({}):
+Error at pc=0:4798:
+Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: 0x6661696c \
+         ('fail').
+Cairo traceback (most recent call last):
+Unknown location (pc=0:341)
+
+Error in the called contract ({}):
+Execution failed. Failure reason: 0x6661696c ('fail').
+",
+        *test_contract_address.0.key(),
+        *test_contract_address_2.0.key(),
+        *test_contract_address_3.0.key(),
+    );
+
+    let expected_trace = match cairo_version {
+        CairoVersion::Cairo0 => expected_trace_cairo0,
+        CairoVersion::Cairo1 => expected_trace_cairo1,
+    };
+
     match entry_point_call.execute_directly(&mut state).unwrap_err() {
         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source: _ } => {
             assert_eq!(trace, expected_trace)
