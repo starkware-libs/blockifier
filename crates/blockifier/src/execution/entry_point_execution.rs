@@ -54,6 +54,8 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
+    // Fetch the address from `call`.
+    let address = call.storage_address;
     // Fetch the class hash from `call`.
     let class_hash = call.class_hash.ok_or(EntryPointExecutionError::InternalError(
         "Class hash must not be None when executing an entry point.".into(),
@@ -110,9 +112,10 @@ pub fn execute_entry_point_call(
         program_extra_data_length,
     )?;
     if call_info.execution.failed {
-        return Err(EntryPointExecutionError::ExecutionFailed {
-            error_data: call_info.execution.retdata.0,
-        });
+        let execution_error =
+            EntryPointExecutionError::ExecutionFailed { error_data: call_info.execution.retdata.0 };
+        context.error_stack.push((address, format!("{}\n", &execution_error)));
+        return Err(execution_error);
     }
 
     Ok(call_info)
