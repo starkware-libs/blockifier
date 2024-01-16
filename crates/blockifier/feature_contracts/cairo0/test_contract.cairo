@@ -221,6 +221,12 @@ func foo() {
 }
 
 @external
+func fail() {
+    assert 0 = 1;
+    return ();
+}
+
+@external
 func recursive_fail(depth: felt) {
     if (depth == 0) {
         assert 0 = 1;
