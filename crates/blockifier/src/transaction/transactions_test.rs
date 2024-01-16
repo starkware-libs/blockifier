@@ -1454,8 +1454,9 @@ fn test_calculate_tx_gas_usage() {
         n_modified_contracts,
         n_compiled_class_hash_updates: 0,
     };
-    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
 
+    let l1_gas_usage =
+        calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
     assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
@@ -1489,8 +1490,9 @@ fn test_calculate_tx_gas_usage() {
         n_modified_contracts,
         n_compiled_class_hash_updates: 0,
     };
-    let l1_gas_usage = calculate_tx_gas_usage(&[], state_changes_count, None);
 
+    let l1_gas_usage =
+        calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
     assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 }
 
