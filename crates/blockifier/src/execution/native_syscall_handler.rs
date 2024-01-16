@@ -1,10 +1,13 @@
 use cairo_native::starknet::StarkNetSyscallHandler;
 use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
+use crate::abi::constants;
 use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::execution::syscalls::hint_processor::BLOCK_NUMBER_OUT_OF_RANGE_ERROR;
 use crate::state::state_api::State;
 
 pub struct NativeSyscallHandler<'state> {
@@ -19,19 +22,22 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         block_number: u64,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Felt> {
-        log::debug!("Native syscall handler - get_block_hash");
-
         let current_block_number = self.execution_context.block_context.block_number.0;
 
-        if current_block_number < 10 || block_number > current_block_number - 10 {
+        if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
+            || block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
+        {
             let out_of_range_felt =
-                Felt::from_bytes_be_slice("Block number out of range".as_bytes());
+                Felt::from_bytes_be_slice(BLOCK_NUMBER_OUT_OF_RANGE_ERROR.as_bytes());
 
             return Err(vec![out_of_range_felt]);
         }
 
-        let key = StorageKey::from(block_number);
-        let block_hash_address = ContractAddress::from(1u128);
+        let key = StorageKey::try_from(StarkFelt::from(block_number))
+            .map_err(|e| vec![Felt::from_bytes_be_slice(e.to_string().as_bytes())])?;
+        let block_hash_address =
+            ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))
+                .map_err(|e| vec![Felt::from_bytes_be_slice(e.to_string().as_bytes())])?;
 
         match self.state.get_storage_at(block_hash_address, key) {
             Ok(value) => Ok(Felt::from_bytes_be_slice(value.bytes())),
