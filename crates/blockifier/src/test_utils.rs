@@ -197,7 +197,12 @@ pub fn get_test_contract_class() -> ContractClass {
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    trivial_external_entry_point_with_address(contract_address!(TEST_CONTRACT_ADDRESS))
+}
+
+pub fn trivial_external_entry_point_with_address(
+    contract_address: ContractAddress,
+) -> CallEntryPoint {
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
