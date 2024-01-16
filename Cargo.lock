@@ -2234,7 +2234,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#04914a8c1bb305c832a2cb9fb21bf7195c53294b"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#7866c9225fbe1fe87eff3a957df0dc745658b939"
 dependencies = [
  "clap 4.4.8",
  "itertools 0.10.5",
@@ -2248,7 +2248,7 @@ dependencies = [
 [[package]]
 name = "papyrus_proc_macros"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#04914a8c1bb305c832a2cb9fb21bf7195c53294b"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#7866c9225fbe1fe87eff3a957df0dc745658b939"
 dependencies = [
  "quote",
  "syn 2.0.39",
@@ -2257,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.2.1"
-source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#04914a8c1bb305c832a2cb9fb21bf7195c53294b"
+source = "git+https://github.com/starkware-libs/papyrus?branch=yair/logs_over_elin/bump-cairo-deps#7866c9225fbe1fe87eff3a957df0dc745658b939"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",

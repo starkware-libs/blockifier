@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
+use blockifier::execution::contract_address;
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
 use papyrus_storage::compiled_class::CasmStorageWriter;
@@ -293,14 +294,20 @@ impl Storage {
         let mut a: IndexMap<ContractAddress, IndexMap<_, _>> = IndexMap::new();
         let mut b: IndexMap<ContractAddress, IndexMap<_, _>> = IndexMap::new();
         let mut c: IndexMap<ContractAddress, IndexMap<_, _>> = IndexMap::new();
+        for contract_address in state_diff.storage_diffs.keys() {
+            a.insert(*contract_address, IndexMap::new());
+            b.insert(*contract_address, IndexMap::new());
+            c.insert(*contract_address, IndexMap::new());
+        }
+
         for (contract_address, storage_diffs) in state_diff.storage_diffs {
-            for diff in storage_diffs {
+            for (k, v) in storage_diffs {
                 if i == 0 {
-                    a.insert(contract_address, [diff].into());
+                    a.get_mut(&contract_address).unwrap().insert(k, v);
                 } else if i < n_total_changes / 2 {
-                    b.insert(contract_address, [diff].into());
+                    b.get_mut(&contract_address).unwrap().insert(k, v);
                 } else {
-                    c.insert(contract_address, [diff].into());
+                    c.get_mut(&contract_address).unwrap().insert(k, v);
                 }
                 i += 1;
             }
