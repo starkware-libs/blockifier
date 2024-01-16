@@ -5,8 +5,9 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
-    get_log_message_to_l1_emissions_cost, get_message_segment_length, get_onchain_data_cost,
+    calculate_tx_gas_usage_data, calculate_tx_gas_usage_without_data,
+    get_consumed_message_to_l2_emissions_cost, get_log_message_to_l1_emissions_cost,
+    get_message_segment_length, get_onchain_data_cost,
 };
 use crate::state::cached_state::StateChangesCount;
 
@@ -33,20 +34,18 @@ fn test_calculate_tx_gas_usage_basic() {
     let manual_starknet_gas_usage = 0;
     let manual_sharp_gas_usage = get_onchain_data_cost(deploy_account_state_changes_count);
 
-    let deploy_account_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), deploy_account_state_changes_count, None)
-            .unwrap();
+    let deploy_account_gas_usage = calculate_tx_gas_usage_without_data(std::iter::empty(), None)
+        .unwrap()
+        + calculate_tx_gas_usage_data(deploy_account_state_changes_count).unwrap();
     assert_eq!(manual_starknet_gas_usage + manual_sharp_gas_usage, deploy_account_gas_usage);
 
     // L1 handler.
 
     let l1_handler_payload_size = 4;
-    let l1_handler_gas_usage = calculate_tx_gas_usage(
-        std::iter::empty(),
-        StateChangesCount::default(),
-        Some(l1_handler_payload_size),
-    )
-    .unwrap();
+    let l1_handler_gas_usage =
+        calculate_tx_gas_usage_without_data(std::iter::empty(), Some(l1_handler_payload_size))
+            .unwrap()
+            + calculate_tx_gas_usage_data(StateChangesCount::default()).unwrap();
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
@@ -96,8 +95,8 @@ fn test_calculate_tx_gas_usage_basic() {
         n_modified_contracts: 1,
     };
     let l2_to_l1_messages_gas_usage =
-        calculate_tx_gas_usage(call_infos_iter.clone(), l2_to_l1_state_changes_count, None)
-            .unwrap();
+        calculate_tx_gas_usage_without_data(call_infos_iter.clone(), None).unwrap()
+            + calculate_tx_gas_usage_data(l2_to_l1_state_changes_count).unwrap();
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&l2_to_l1_payloads_length, None);
@@ -121,9 +120,9 @@ fn test_calculate_tx_gas_usage_basic() {
         n_compiled_class_hash_updates: 0,
         n_modified_contracts,
     };
-    let storage_writings_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), storage_writes_state_changes_count, None)
-            .unwrap();
+    let storage_writings_gas_usage = calculate_tx_gas_usage_without_data(std::iter::empty(), None)
+        .unwrap()
+        + calculate_tx_gas_usage_data(storage_writes_state_changes_count).unwrap();
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
@@ -139,12 +138,10 @@ fn test_calculate_tx_gas_usage_basic() {
         n_modified_contracts: storage_writes_state_changes_count.n_modified_contracts
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
-    let gas_usage = calculate_tx_gas_usage(
-        call_infos_iter,
-        combined_state_changes_count,
-        Some(l1_handler_payload_size),
-    )
-    .unwrap();
+    let gas_usage =
+        calculate_tx_gas_usage_without_data(call_infos_iter, Some(l1_handler_payload_size))
+            .unwrap()
+            + calculate_tx_gas_usage_data(combined_state_changes_count).unwrap();
 
     // Manual calculation.
     let fee_balance_discount =

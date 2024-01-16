@@ -35,13 +35,12 @@ fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
     Ok((l2_to_l1_payloads_length, message_segment_length))
 }
 
-/// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
-/// the verifier) following the addition of a transaction with the given parameters to a batch;
-/// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
-/// which requires gas.
-pub fn calculate_tx_gas_usage<'a>(
+/// Returns an estimation of the L1 gas amount that will be used by the verifier following the
+/// addition of a transaction with the given parameters to a batch, excluding the gas used for
+/// Starknet's update state; e.g., a message from L2 to L1 is followed by a storage write operation
+/// in Starknet L1 contract which requires gas.
+pub fn calculate_tx_gas_usage_without_data<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
     let (l2_to_l1_payloads_length, residual_message_segment_length) =
@@ -65,14 +64,18 @@ pub fn calculate_tx_gas_usage<'a>(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
 
-    // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
+    let sharp_gas_usage_without_data =
+        residual_message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
-    let sharp_gas_usage = residual_message_segment_length
-        * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + residual_onchain_data_cost;
+    Ok(starknet_gas_usage + sharp_gas_usage_without_data)
+}
 
-    Ok(starknet_gas_usage + sharp_gas_usage)
+/// Returns an estimation of the L1 gas amount that will be used by Starknet's update state
+/// following the addition of a transaction with the given parameters to a batch
+pub fn calculate_tx_gas_usage_data(
+    state_changes_count: StateChangesCount,
+) -> TransactionExecutionResult<usize> {
+    Ok(get_onchain_data_cost(state_changes_count))
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
