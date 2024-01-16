@@ -110,9 +110,10 @@ pub fn verify_can_pay_committed_bounds(
     let committed_fee = match account_tx_context {
         AccountTransactionContext::Current(context) => {
             let l1_bounds = context.l1_resource_bounds()?;
+            let max_amount: u128 = l1_bounds.max_amount.into();
             // Sender will not be charged by `max_price_per_unit`, but this check should not depend
             // on the current gas price.
-            Fee(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit)
+            Fee(max_amount * l1_bounds.max_price_per_unit)
         }
         AccountTransactionContext::Deprecated(context) => context.max_fee,
     };

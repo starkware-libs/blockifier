@@ -71,7 +71,7 @@ impl FeeCheckReport {
                 match account_tx_context {
                     AccountTransactionContext::Current(context) => get_fee_by_l1_gas_usage(
                         block_context,
-                        context.l1_resource_bounds()?.max_amount as u128,
+                        context.l1_resource_bounds()?.max_amount.into(),
                         &FeeType::Strk,
                     ),
                     AccountTransactionContext::Deprecated(context) => context.max_fee,
@@ -95,7 +95,7 @@ impl FeeCheckReport {
         match account_tx_context {
             AccountTransactionContext::Current(context) => {
                 // Check L1 gas limit.
-                let max_l1_gas = context.l1_resource_bounds()?.max_amount as u128;
+                let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
                 let actual_used_l1_gas =
                     calculate_tx_l1_gas_usage(actual_resources, block_context)?;
                 if actual_used_l1_gas > max_l1_gas {

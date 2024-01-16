@@ -178,7 +178,8 @@ impl AccountTransaction {
                     max_price_per_unit: max_l1_gas_price,
                 } = context.l1_resource_bounds()?;
 
-                if (max_l1_gas_amount as u128) < minimal_l1_gas_amount {
+                let max_l1_gas_amount_as_u128: u128 = max_l1_gas_amount.into();
+                if max_l1_gas_amount_as_u128 < minimal_l1_gas_amount {
                     return Err(TransactionFeeError::MaxL1GasAmountTooLow {
                         max_l1_gas_amount,
                         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why
