@@ -337,8 +337,10 @@ fn test_max_fee_limit_validate(
         &block_context,
         invoke_tx_args! {
             max_fee: estimated_min_fee,
+            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
+            // works.
             resource_bounds: l1_resource_bounds(
-                estimated_min_l1_gas as u64,
+                estimated_min_l1_gas.try_into().expect("Failed to convert u128 to u64."),
                 block_context.gas_prices.get_gas_price_by_fee_type(&account_tx.fee_type())
             ),
             ..tx_args
@@ -375,7 +377,10 @@ fn test_recursion_depth_exceeded(
     // reasons:
     // 1. An additional call is made initially before entering the recursion.
     // 2. The base case for recursion occurs at depth 0, not at depth 1.
-    let max_inner_recursion_depth = (block_context.max_recursion_depth - 2) as u8;
+
+    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
+    let max_inner_recursion_depth: u8 =
+        (block_context.max_recursion_depth - 2).try_into().expect("Failed to convert usize to u8.");
 
     let recursive_syscall_entry_point_name = "recursive_syscall";
     let calldata = create_calldata(
@@ -655,7 +660,9 @@ fn test_reverted_reach_steps_limit(
     // Calculate a recursion depth where the transaction will surely fail (not a minimal depth, as
     // base costs are neglected here).
     let steps_diff = n_steps_1 - n_steps_0;
-    let fail_depth = block_context.invoke_tx_max_n_steps / (steps_diff as u32);
+    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
+    let steps_diff_as_u32: u32 = steps_diff.try_into().expect("Failed to convert usize to u32.");
+    let fail_depth = block_context.invoke_tx_max_n_steps / steps_diff_as_u32;
 
     // Invoke the `recurse` function with `fail_depth` iterations. This call should fail.
     let result = run_invoke_tx(
@@ -869,7 +876,8 @@ fn test_max_fee_to_max_steps_conversion(
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());
     assert_eq!(tx_execution_info1.actual_fee.0, tx_execution_info2.actual_fee.0);
-    assert_eq!(actual_gas_used, gas_used2 as u64);
+    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
+    assert_eq!(actual_gas_used, u64::try_from(gas_used2).expect("Failed to convert u128 to u64."));
     assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
     assert_eq!(n_steps1, n_steps2);
     assert_eq!(gas_used1, gas_used2);

@@ -103,8 +103,14 @@ impl BlockContext {
                 strk_l1_data_gas_price: DEFAULT_STRK_L1_DATA_GAS_PRICE,
             },
             use_kzg_da: false,
-            invoke_tx_max_n_steps: MAX_STEPS_PER_TX as u32,
-            validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
+            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
+            // works.
+            invoke_tx_max_n_steps: MAX_STEPS_PER_TX
+                .try_into()
+                .expect("Failed to convert usize to u32."),
+            validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX
+                .try_into()
+                .expect("Failed to convert usize to u32."),
             max_recursion_depth: 50,
         }
     }

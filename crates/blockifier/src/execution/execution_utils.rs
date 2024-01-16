@@ -184,7 +184,13 @@ impl ReadOnlySegments {
     pub fn validate(&self, vm: &VirtualMachine) -> Result<(), PostExecutionError> {
         for segment in &self.0 {
             let used_size = vm
-                .get_segment_used_size(segment.start_ptr.segment_index as usize)
+                .get_segment_used_size(
+                    segment
+                        .start_ptr
+                        .segment_index
+                        .try_into()
+                        .expect("The size of isize and usize should be the same."),
+                )
                 .expect("Segments must contain the allocated read-only segment.");
             if segment.length != used_size {
                 return Err(PostExecutionError::SecurityValidationError(
