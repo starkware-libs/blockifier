@@ -289,6 +289,24 @@ impl Storage {
             n_total_changes += storage_diff.len();
         }
 
+        let mut i = 0;
+        let mut a: IndexMap<ContractAddress, IndexMap<_, _>> = IndexMap::new();
+        let mut b: IndexMap<ContractAddress, IndexMap<_, _>> = IndexMap::new();
+        let mut c: IndexMap<ContractAddress, IndexMap<_, _>> = IndexMap::new();
+        for (contract_address, storage_diffs) in state_diff.storage_diffs {
+            for diff in storage_diffs {
+                if i == 0 {
+                    a.insert(contract_address, [diff].into());
+                } else if i < n_total_changes / 2 {
+                    b.insert(contract_address, [diff].into());
+                } else {
+                    c.insert(contract_address, [diff].into());
+                }
+                i += 1;
+            }
+        }
+        state_diff.storage_diffs = a;
+
         let deployed_contract_class_definitions =
             IndexMap::<ClassHash, DeprecatedContractClass>::new();
         log::debug!(
@@ -320,6 +338,18 @@ impl Storage {
 
         append_txn.commit()?;
         log::debug!("<{block_number}, 777> Done committing write transaction.");
+
+        log::debug!("<{block_number}, 888> writing first half of storage diffs");
+        self.writer()
+            .begin_rw_txn()?
+            .write_additional_state_diff_data(block_number, &b)?
+            .commit()?;
+        log::debug!("<{block_number}, 999> writing second half of storage diffs");
+        self.writer()
+            .begin_rw_txn()?
+            .write_additional_state_diff_data(block_number, &c)?
+            .commit()?;
+        log::debug!("<{block_number}, 101010> Done writing additional storage diffs.");
         Ok(())
     }
 
