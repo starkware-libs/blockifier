@@ -6,10 +6,11 @@ use pyo3::prelude::*;
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, EthAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_api::StarknetApiError;
 
 use crate::errors::NativeBlockifierResult;
 
-#[derive(Clone, Copy, Debug, Default, Eq, FromPyObject, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, FromPyObject, Hash, PartialEq, derive_more::Deref)]
 pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub StarkFelt);
 
 impl IntoPy<PyObject> for PyFelt {
@@ -61,6 +62,14 @@ impl From<CompiledClassHash> for PyFelt {
 impl From<StorageKey> for PyFelt {
     fn from(value: StorageKey) -> Self {
         Self(*value.0.key())
+    }
+}
+
+impl TryFrom<PyFelt> for ContractAddress {
+    type Error = StarknetApiError;
+
+    fn try_from(value: PyFelt) -> Result<Self, Self::Error> {
+        Self::try_from(value.0)
     }
 }
 
