@@ -32,6 +32,7 @@ pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: usize =
 pub const MAX_VALIDATE_STEPS_PER_TX: usize = 1_000_000;
 pub const MAX_STEPS_PER_TX: usize = 4_000_000;
 pub const GAS_USAGE: &str = "l1_gas_usage";
+pub const DATA_GAS_USAGE: &str = "l1_data_gas_usage";
 pub const N_STEPS_RESOURCE: &str = "n_steps";
 
 // Casm hash calculation-related constants.

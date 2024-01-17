@@ -201,6 +201,11 @@ impl ResourcesMapping {
     pub fn gas_usage(&self) -> usize {
         *self.0.get(crate::abi::constants::GAS_USAGE).unwrap()
     }
+
+    #[cfg(test)]
+    pub fn gas_usage_data(&self) -> usize {
+        *self.0.get(crate::abi::constants::DATA_GAS_USAGE).unwrap()
+    }
 }
 
 pub trait HasRelatedFeeType {
