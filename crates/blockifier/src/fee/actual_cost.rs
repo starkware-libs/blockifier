@@ -131,9 +131,11 @@ impl<'a> ActualCostBuilder<'a> {
         let l1_gas_usage = calculate_tx_gas_usage(non_optional_call_infos, self.l1_payload_size)?;
         // Gas usage for data availability.
         let l1_gas_usage_data = calculate_tx_data_gas_usage(state_changes_count)?;
+
         let mut actual_resources = calculate_tx_resources(
             execution_resources,
-            l1_gas_usage + l1_gas_usage_data,
+            l1_gas_usage,
+            l1_gas_usage_data,
             self.tx_type,
         )?;
 

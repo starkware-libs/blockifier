@@ -412,8 +412,9 @@ fn test_invoke_tx(
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
+            (abi_constants::GAS_USAGE.to_string(), 0),
             (
-                abi_constants::GAS_USAGE.to_string(),
+                abi_constants::DATA_GAS_USAGE.to_string(),
                 get_onchain_data_cost(StateChangesCount {
                     n_storage_updates: 1,
                     n_modified_contracts: 1,
@@ -1107,7 +1108,8 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
+            (abi_constants::GAS_USAGE.to_string(), 0),
+            (abi_constants::DATA_GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1232,8 +1234,9 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
+            (abi_constants::GAS_USAGE.to_string(), 0),
             (
-                abi_constants::GAS_USAGE.to_string(),
+                abi_constants::DATA_GAS_USAGE.to_string(),
                 get_onchain_data_cost(StateChangesCount {
                     n_storage_updates: 1,
                     n_modified_contracts: 1,
@@ -1455,8 +1458,10 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage = calculate_tx_data_gas_usage(state_changes_count).unwrap();
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let actual_l1_gas_usage = tx_execution_info.actual_resources.gas_usage()
+        + tx_execution_info.actual_resources.gas_usage_data();
+    let expected_l1_gas_usage = calculate_tx_data_gas_usage(state_changes_count).unwrap();
+    assert_eq!(actual_l1_gas_usage, expected_l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address = account_contract.get_instance_address(17);
@@ -1490,8 +1495,10 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage = calculate_tx_data_gas_usage(state_changes_count).unwrap();
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let actual_l1_gas_usage = tx_execution_info.actual_resources.gas_usage()
+        + tx_execution_info.actual_resources.gas_usage_data();
+    let expected_l1_gas_usage = calculate_tx_data_gas_usage(state_changes_count).unwrap();
+    assert_eq!(actual_l1_gas_usage, expected_l1_gas_usage);
 }
 
 #[rstest]
@@ -1647,7 +1654,8 @@ fn test_l1_handler() {
         (HASH_BUILTIN_NAME.to_string(), 11),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::GAS_USAGE.to_string(), 17675),
+        (abi_constants::GAS_USAGE.to_string(), 16023),
+        (abi_constants::DATA_GAS_USAGE.to_string(), 1652),
     ]));
 
     // Build the expected execution info.

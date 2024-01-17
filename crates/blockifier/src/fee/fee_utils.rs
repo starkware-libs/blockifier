@@ -15,13 +15,17 @@ use crate::transaction::objects::{
 #[path = "fee_test.rs"]
 pub mod test;
 
-pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
+pub fn extract_l1_gas_and_vm_usage(
+    resources: &ResourcesMapping,
+) -> (usize, usize, ResourcesMapping) {
     let mut vm_resource_usage = resources.0.clone();
     let l1_gas_usage = vm_resource_usage
         .remove(constants::GAS_USAGE)
         .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
 
-    (l1_gas_usage, ResourcesMapping(vm_resource_usage))
+    let l1_gas_usage_data = vm_resource_usage.remove(constants::DATA_GAS_USAGE).unwrap_or(0);
+
+    (l1_gas_usage, l1_gas_usage_data, ResourcesMapping(vm_resource_usage))
 }
 
 /// Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
@@ -54,20 +58,27 @@ pub fn calculate_l1_gas_by_vm_usage(
 pub fn calculate_tx_l1_gas_usage(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
-) -> TransactionFeeResult<u128> {
-    let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
+) -> TransactionFeeResult<[u128; 2]> {
+    let (l1_gas_usage, total_l1_gas_usage_data, vm_resources) =
+        extract_l1_gas_and_vm_usage(resources);
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
     let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
 
-    Ok(total_l1_gas_usage.ceil() as u128)
+    Ok([total_l1_gas_usage.ceil() as u128, total_l1_gas_usage_data as u128])
 }
 
 pub fn get_fee_by_l1_gas_usage(
     block_context: &BlockContext,
     l1_gas_usage: u128,
+    l1_gas_usage_data: u128,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(l1_gas_usage * block_context.gas_prices.get_gas_price_by_fee_type(fee_type))
+    let gas_price = block_context.gas_prices.get_gas_price_by_fee_type(fee_type);
+    let data_gas_price = match block_context.use_kzg_da {
+        true => block_context.gas_prices.get_data_gas_price_by_fee_type(fee_type),
+        false => gas_price,
+    };
+    Fee(l1_gas_usage * gas_price + l1_gas_usage_data * data_gas_price)
 }
 
 /// Calculates the fee that should be charged, given execution resources.
@@ -76,8 +87,8 @@ pub fn calculate_tx_fee(
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
-    let l1_gas_usage = calculate_tx_l1_gas_usage(resources, block_context)?;
-    Ok(get_fee_by_l1_gas_usage(block_context, l1_gas_usage, fee_type))
+    let [l1_gas_usage, l1_gas_usage_data] = calculate_tx_l1_gas_usage(resources, block_context)?;
+    Ok(get_fee_by_l1_gas_usage(block_context, l1_gas_usage, l1_gas_usage_data, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.

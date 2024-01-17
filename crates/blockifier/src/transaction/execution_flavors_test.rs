@@ -86,7 +86,12 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
     let gas = base_gas + if validate_mode { VALIDATE_GAS_OVERHEAD } else { 0 };
     (
         gas,
-        get_fee_by_l1_gas_usage(&BlockContext::create_for_account_testing(), gas.into(), fee_type),
+        get_fee_by_l1_gas_usage(
+            &BlockContext::create_for_account_testing(),
+            gas.into(),
+            0,
+            fee_type,
+        ),
     )
 }
 
@@ -100,7 +105,10 @@ fn check_gas_and_fee(
     expected_cost_of_resources: Fee,
 ) {
     assert_eq!(
-        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context).unwrap(),
+        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context)
+            .unwrap()
+            .iter()
+            .sum::<u128>(),
         expected_actual_gas.into()
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
@@ -476,7 +484,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let invoke_tx_max_n_steps_as_u64: u64 = low_step_block_context.invoke_tx_max_n_steps.into();
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1720;
     let block_limit_fee =
-        get_fee_by_l1_gas_usage(&block_context, block_limit_gas.into(), &fee_type);
+        get_fee_by_l1_gas_usage(&block_context, block_limit_gas.into(), 0, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
