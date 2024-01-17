@@ -1,3 +1,5 @@
+use pretty_assertions::assert_eq;
+use rstest::rstest;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::L2ToL1Payload;
@@ -5,10 +7,51 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
+    calculate_tx_data_gas_usage, calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
     get_log_message_to_l1_emissions_cost, get_message_segment_length, get_onchain_data_cost,
 };
 use crate::state::cached_state::StateChangesCount;
+
+#[rstest]
+#[case::storage_write(StateChangesCount {
+    n_storage_updates: 1,
+    n_class_hash_updates:0,
+    n_compiled_class_hash_updates:0,
+    n_modified_contracts:0,
+})
+]
+#[case::deploy_account(StateChangesCount {
+    n_storage_updates: 0,
+    n_class_hash_updates:1,
+    n_compiled_class_hash_updates:0,
+    n_modified_contracts:1,
+})
+]
+#[case::declare(StateChangesCount {
+    n_storage_updates: 0,
+    n_class_hash_updates:0,
+    n_compiled_class_hash_updates:1,
+    n_modified_contracts:0,
+})
+]
+#[case::general_scenario(StateChangesCount {
+    n_storage_updates: 7,
+    n_class_hash_updates:11,
+    n_compiled_class_hash_updates:13,
+    n_modified_contracts:17,
+})
+]
+fn test_calculate_tx_data_gas_usage_basic(#[case] state_changes_count: StateChangesCount) {
+    // Manual calculation.
+    let on_chain_data_segment_length = state_changes_count.n_storage_updates * 2
+        + state_changes_count.n_class_hash_updates
+        + state_changes_count.n_compiled_class_hash_updates * 2
+        + state_changes_count.n_modified_contracts * 2;
+    let manual_blob_gas_usage =
+        on_chain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT;
+
+    assert_eq!(manual_blob_gas_usage, calculate_tx_data_gas_usage(state_changes_count));
+}
 
 /// This test goes over five cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.

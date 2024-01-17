@@ -35,6 +35,12 @@ fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
     Ok((l2_to_l1_payloads_length, message_segment_length))
 }
 
+/// Returns the data-gas needed to publish the transaction's state diff in a blob.
+pub fn calculate_tx_data_gas_usage(state_changes_count: StateChangesCount) -> usize {
+    let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
+}
+
 /// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract

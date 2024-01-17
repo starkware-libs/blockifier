@@ -4,6 +4,11 @@ pub const GAS_PER_MEMORY_BYTE: usize = 16;
 pub const WORD_WIDTH: usize = 32;
 pub const GAS_PER_MEMORY_WORD: usize = GAS_PER_MEMORY_BYTE * WORD_WIDTH;
 
+// Blob Data.
+pub const FIELD_ELEMENTS_PER_BLOB: usize = 1 << 12;
+pub const DATA_GAS_PER_BLOB: usize = 1 << 17;
+pub const DATA_GAS_PER_FIELD_ELEMENT: usize = DATA_GAS_PER_BLOB / FIELD_ELEMENTS_PER_BLOB;
+
 // Storage.
 pub const GAS_PER_ZERO_TO_NONZERO_STORAGE_SET: usize = 20000;
 pub const GAS_PER_COLD_STORAGE_ACCESS: usize = 2100;
