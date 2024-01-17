@@ -6,6 +6,7 @@ use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::syscalls::hint_processor::BLOCK_NUMBER_OUT_OF_RANGE_ERROR;
 use crate::state::state_api::State;
@@ -22,6 +23,16 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         block_number: u64,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Felt> {
+        if self.execution_context.execution_mode == ExecutionMode::Validate {
+            let invalid_execution_mode_felt = Felt::from_bytes_be_slice(
+                "Unauthorized syscall get_block_hash in execution mode Validate."
+                    .to_string()
+                    .as_bytes(),
+            );
+
+            return Err(vec![invalid_execution_mode_felt]);
+        }
+
         let current_block_number = self.execution_context.block_context.block_number.0;
 
         if current_block_number < constants::STORED_BLOCK_HASH_BUFFER

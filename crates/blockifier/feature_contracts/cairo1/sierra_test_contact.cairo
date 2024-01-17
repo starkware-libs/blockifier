@@ -69,10 +69,10 @@ mod SierraTestContract {
     //     syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
     // }
 
-    // #[external(v0)]
-    // fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
-    //     syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
-    // }
+    #[external(v0)]
+    fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
+        syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
+    }
 
     // #[external(v0)]
     // fn test_get_execution_info(
