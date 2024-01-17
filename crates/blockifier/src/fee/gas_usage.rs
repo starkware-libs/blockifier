@@ -219,8 +219,8 @@ pub fn estimate_minimal_l1_gas(
         (constants::GAS_USAGE.to_string(), gas_cost),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
-
-    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
+    let [l1_gas, l1_data_gas] = calculate_tx_l1_gas_usage(&resources, block_context)?;
+    Ok(l1_gas + l1_data_gas)
 }
 
 pub fn estimate_minimal_fee(
@@ -228,5 +228,5 @@ pub fn estimate_minimal_fee(
     tx: &AccountTransaction,
 ) -> TransactionExecutionResult<Fee> {
     let estimated_minimal_l1_gas = estimate_minimal_l1_gas(block_context, tx)?;
-    Ok(get_fee_by_l1_gas_usage(block_context, estimated_minimal_l1_gas, &tx.fee_type()))
+    Ok(get_fee_by_l1_gas_usage(block_context, estimated_minimal_l1_gas, 0, &tx.fee_type()))
 }

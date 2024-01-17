@@ -205,6 +205,7 @@ impl AccountTransaction {
                 let min_fee = get_fee_by_l1_gas_usage(
                     block_context,
                     minimal_l1_gas_amount,
+                    0,
                     &account_tx_context.fee_type(),
                 );
                 if max_fee < min_fee {
