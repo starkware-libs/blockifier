@@ -285,13 +285,13 @@ pub fn into_block_context(
         chain_id: starknet_os_config.chain_id,
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
+        sequencer_address: ContractAddress::try_from(block_info.sequencer_address)?,
         fee_token_addresses: FeeTokenAddresses {
             eth_fee_token_address: ContractAddress::try_from(
-                starknet_os_config.deprecated_fee_token_address.0,
+                starknet_os_config.deprecated_fee_token_address,
             )?,
             strk_fee_token_address: ContractAddress::try_from(
-                starknet_os_config.fee_token_address.0,
+                starknet_os_config.fee_token_address,
             )?,
         },
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),

@@ -29,6 +29,7 @@ crate-type = ["cdylib"]
 blockifier = { path = "../blockifier", features = ["testing"] }
 cairo-lang-starknet.workspace = true
 cairo-vm.workspace = true
+derive_more.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
