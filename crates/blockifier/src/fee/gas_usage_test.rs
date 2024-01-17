@@ -1,3 +1,4 @@
+use rstest::rstest;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::L2ToL1Payload;
@@ -5,10 +6,33 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
+    calculate_tx_blob_gas_usage, calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
     get_log_message_to_l1_emissions_cost, get_message_segment_length, get_onchain_data_cost,
+    get_onchain_data_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
+
+#[rstest]
+fn test_calculate_tx_blob_gas_usage_basic(
+    #[values(0, 1)] n_storage_updates: usize,
+    #[values(0, 1)] n_class_hash_updates: usize,
+    #[values(0, 1)] n_compiled_class_hash_updates: usize,
+    #[values(0, 1)] n_modified_contracts: usize,
+) {
+    let state_changes_count = StateChangesCount {
+        n_storage_updates,
+        n_class_hash_updates,
+        n_compiled_class_hash_updates,
+        n_modified_contracts,
+    };
+
+    // Manual calculation.
+    let on_chain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    let maunal_blob_gas_usage =
+        on_chain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT;
+
+    assert_eq!(maunal_blob_gas_usage, calculate_tx_blob_gas_usage(state_changes_count));
+}
 
 /// This test goes over five cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.
