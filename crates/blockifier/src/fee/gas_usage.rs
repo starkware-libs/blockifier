@@ -35,6 +35,20 @@ fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
     Ok((l2_to_l1_payloads_length, message_segment_length))
 }
 
+/// Returns the blob-gas cost of publishing the on chain data to a KZG blob.
+pub fn calculate_tx_blob_gas_usage(
+    state_changes_count: StateChangesCount,
+    use_kzg_da: bool,
+) -> usize {
+    match use_kzg_da {
+        true => {
+            let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
+            onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
+        }
+        false => 0,
+    }
+}
+
 /// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
 /// the verifier) following the addition of a transaction with the given parameters to a batch;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
@@ -65,6 +79,8 @@ pub fn calculate_tx_gas_usage<'a>(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
 
+    // TODO(Aner, 18/1/2024): Add flag to this function, to include or exclude gas for data
+    //  availablity segment.
     // Calculate the effect of the transaction on the output data availability segment.
     let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
 

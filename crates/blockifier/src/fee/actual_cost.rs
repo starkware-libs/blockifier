@@ -1,7 +1,7 @@
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
-use super::gas_usage::calculate_tx_gas_usage;
+use super::gas_usage::{calculate_tx_blob_gas_usage, calculate_tx_gas_usage};
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -132,6 +132,8 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             self.l1_payload_size,
         )?;
+        let _l1_blob_gas_usage =
+            calculate_tx_blob_gas_usage(state_changes_count, self.block_context.use_kzg_da);
         let mut actual_resources =
             calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
 
