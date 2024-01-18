@@ -6,7 +6,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, ExecutionResources,
