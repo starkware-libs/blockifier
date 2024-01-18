@@ -10,7 +10,9 @@ use starknet_api::transaction::{Calldata, Fee, TransactionSignature, Transaction
 use crate::block_context::BlockContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
+use crate::fee::fee_utils::{
+    calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usages,
+};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -86,7 +88,12 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
     let gas = base_gas + if validate_mode { VALIDATE_GAS_OVERHEAD } else { 0 };
     (
         gas,
-        get_fee_by_l1_gas_usage(&BlockContext::create_for_account_testing(), gas.into(), fee_type),
+        get_fee_by_l1_gas_usages(
+            &BlockContext::create_for_account_testing(),
+            gas.into(),
+            0,
+            fee_type,
+        ),
     )
 }
 
@@ -99,10 +106,9 @@ fn check_gas_and_fee(
     expected_actual_fee: Fee,
     expected_cost_of_resources: Fee,
 ) {
-    assert_eq!(
-        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context).unwrap(),
-        expected_actual_gas.into()
-    );
+    let [actual_gas, _] =
+        calculate_tx_l1_gas_usages(&tx_execution_info.actual_resources, block_context).unwrap();
+    assert_eq!(actual_gas, expected_actual_gas.into());
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
     // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
     // `calculate_tx_fee` is simply the result of `calculate_tx_l1_gas_usage` times gas price).
@@ -476,7 +482,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let invoke_tx_max_n_steps_as_u64: u64 = low_step_block_context.invoke_tx_max_n_steps.into();
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1720;
     let block_limit_fee =
-        get_fee_by_l1_gas_usage(&block_context, block_limit_gas.into(), &fee_type);
+        get_fee_by_l1_gas_usages(&block_context, block_limit_gas.into(), 0, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),

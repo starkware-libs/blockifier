@@ -420,6 +420,7 @@ fn test_invoke_tx(
                     ..StateChangesCount::default()
                 }),
             ),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), 0),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -1108,6 +1109,7 @@ fn test_declare_tx(
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), 0),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1241,6 +1243,7 @@ fn test_deploy_account_tx(
                     ..StateChangesCount::default()
                 }),
             ),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), 0),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -1429,7 +1432,7 @@ fn test_validate_accounts_tx(
 // Test that we exclude the fee token contract modification and adds the account’s balance change
 // in the state changes.
 #[test]
-fn test_calculate_tx_gas_usage() {
+fn test_calculate_tx_data_gas_usage() {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing();
@@ -1455,8 +1458,10 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage = calculate_tx_gas_usage_for_da(state_changes_count).unwrap();
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let actual_l1_gas_usage = tx_execution_info.actual_resources.gas_usage()
+        + tx_execution_info.actual_resources.blob_gas_usage();
+    let expected_l1_gas_usage = calculate_tx_gas_usage_for_da(state_changes_count).unwrap();
+    assert_eq!(actual_l1_gas_usage, expected_l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address = account_contract.get_instance_address(17);
@@ -1490,8 +1495,10 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage = calculate_tx_gas_usage_for_da(state_changes_count).unwrap();
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let actual_l1_gas_usage = tx_execution_info.actual_resources.gas_usage()
+        + tx_execution_info.actual_resources.blob_gas_usage();
+    let expected_l1_gas_usage = calculate_tx_gas_usage_for_da(state_changes_count).unwrap();
+    assert_eq!(actual_l1_gas_usage, expected_l1_gas_usage);
 }
 
 #[rstest]
@@ -1648,6 +1655,7 @@ fn test_l1_handler() {
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
         (abi_constants::GAS_USAGE.to_string(), 17675),
+        (abi_constants::BLOB_GAS_USAGE.to_string(), 0),
     ]));
 
     // Build the expected execution info.
