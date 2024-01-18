@@ -16,7 +16,8 @@ use super::{
     TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2, TEST_SEQUENCER_ADDRESS,
 };
 use crate::abi::constants;
-use crate::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
+use crate::block::{BlockInfo, GasPrices};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{

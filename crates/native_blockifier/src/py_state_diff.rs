@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-use blockifier::block_context::GasPrices;
+use blockifier::block::GasPrices;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use indexmap::IndexMap;
 use pyo3::prelude::*;

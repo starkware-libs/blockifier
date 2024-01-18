@@ -12,7 +12,7 @@ use starknet_api::transaction::{Calldata, TransactionVersion};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;

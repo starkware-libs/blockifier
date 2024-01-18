@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses};
+use blockifier::block::BlockInfo;
+use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::GlobalContractCache;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
