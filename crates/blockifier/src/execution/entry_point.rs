@@ -245,13 +245,11 @@ impl EntryPointExecutionContext {
         // transactions derive this value from the `max_fee`.
         let tx_gas_upper_bound = match account_tx_context {
             AccountTransactionContext::Deprecated(context) => {
-                let max_cairo_steps = context.max_fee.0
+                (context.max_fee.0
                     / block_info
                         .gas_prices
-                        .get_gas_price_by_fee_type(&account_tx_context.fee_type());
-                // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
-                // conversion works.
-                usize::try_from(max_cairo_steps).expect("Failed to convert u128 to usize")
+                        .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
+                    as usize
             }
             AccountTransactionContext::Current(context) => {
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the

@@ -563,7 +563,7 @@ fn get_ptr_from_res_operand_unchecked(vm: &mut VirtualMachine, res: &ResOperand)
         Register::AP => vm.get_ap(),
         Register::FP => vm.get_fp(),
     };
-    let cell_reloc = (base + (i32::from(cell.offset))).unwrap();
+    let cell_reloc = (base + (cell.offset as i32)).unwrap();
     (vm.get_relocatable(cell_reloc).unwrap() + &base_offset).unwrap()
 }
 
