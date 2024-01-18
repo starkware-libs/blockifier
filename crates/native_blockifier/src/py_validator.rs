@@ -1,7 +1,7 @@
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
-use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
@@ -11,7 +11,7 @@ use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::PyGeneralConfig;
+use crate::py_block_executor::{pre_process_block, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::py_account_tx;
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
@@ -31,21 +31,26 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip, old_block_number_and_hash))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
         max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
+        old_block_number_and_hash: (u64, PyFelt),
     ) -> NativeBlockifierResult<Self> {
-        let tx_executor = TransactionExecutor::new(
-            PyStateReader::new(state_reader_proxy),
+        let global_contract_cache = GlobalContractCache::default();
+        let state_reader = PyStateReader::new(state_reader_proxy);
+        let mut state = CachedState::new(state_reader, global_contract_cache);
+        let block_context = pre_process_block(
+            &mut state,
+            old_block_number_and_hash,
             &general_config,
             next_block_info,
             max_recursion_depth,
-            GlobalContractCache::default(),
         )?;
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
         let validator = Self {
             general_config,
             max_recursion_depth,
@@ -102,21 +107,26 @@ impl PyValidator {
     }
 
     #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, old_block_number_and_hash))]
     #[staticmethod]
     fn create_for_testing(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
         max_recursion_depth: usize,
+        old_block_number_and_hash: (u64, PyFelt),
     ) -> NativeBlockifierResult<Self> {
-        let tx_executor = TransactionExecutor::new(
-            PyStateReader::new(state_reader_proxy),
+        let state_reader = PyStateReader::new(state_reader_proxy);
+        let global_contract_cache = GlobalContractCache::default();
+        let mut state = CachedState::new(state_reader, global_contract_cache);
+        let block_context = pre_process_block(
+            &mut state,
+            old_block_number_and_hash,
             &general_config,
             next_block_info,
             max_recursion_depth,
-            GlobalContractCache::default(),
         )?;
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
         Ok(Self {
             general_config,
             max_recursion_depth: 50,

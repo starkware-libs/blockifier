@@ -8,8 +8,8 @@ use crate::transaction::objects::FeeType;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
-    pub block_info: BlockInfo,
-    pub chain_info: ChainInfo,
+    pub(crate) block_info: BlockInfo,
+    pub(crate) chain_info: ChainInfo,
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +41,7 @@ impl ChainInfo {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,
     pub eth_fee_token_address: ContractAddress,
@@ -56,7 +56,7 @@ impl FeeTokenAddresses {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GasPrices {
     pub eth_l1_gas_price: u128,       // In wei.
     pub strk_l1_gas_price: u128,      // In fri.
