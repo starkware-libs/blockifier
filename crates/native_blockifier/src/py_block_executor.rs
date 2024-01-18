@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
-use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::block_context::{BlockContext, ChainInfo, FeeTokenAddresses, GasPrices};
+use blockifier::block_execution::{
+    pre_process_block as pre_process_block_blockifier, BlockContextArgs, BlockNumberAndHash,
+};
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
+use blockifier::state::state_api::State;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
@@ -57,20 +61,23 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info))]
+    #[pyo3(signature = (next_block_info, old_block_number_and_hash))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
+        old_block_number_and_hash: (u64, PyFelt),
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
-
-        let tx_executor = TransactionExecutor::new(
-            papyrus_reader,
+        let global_contract_cache = self.global_contract_cache.clone();
+        let mut state = CachedState::new(papyrus_reader, global_contract_cache);
+        let block_context = pre_process_block(
+            &mut state,
+            old_block_number_and_hash,
             &self.general_config,
             next_block_info,
             self.max_recursion_depth,
-            self.global_contract_cache.clone(),
         )?;
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -98,14 +105,6 @@ impl PyBlockExecutor {
         log::debug!("Finalized execution.");
 
         finalized_state
-    }
-
-    #[pyo3(signature = (old_block_number_and_hash))]
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        self.tx_executor().pre_process_block(old_block_number_and_hash)
     }
 
     pub fn commit_tx(&mut self) {
@@ -293,31 +292,52 @@ impl Default for PyOsConfig {
     }
 }
 
-pub fn into_block_context(
+pub fn into_block_context_args(
+    general_config: &PyGeneralConfig,
+    block_info: PyBlockInfo,
+    max_recursion_depth: usize,
+) -> NativeBlockifierResult<BlockContextArgs> {
+    let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
+    let block_context = BlockContextArgs {
+        block_number: BlockNumber(block_info.block_number),
+        block_timestamp: BlockTimestamp(block_info.block_timestamp),
+        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
+        vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
+        gas_prices: GasPrices {
+            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
+            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
+            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
+            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
+        },
+
+        use_kzg_da: block_info.use_kzg_da,
+        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
+        validate_max_n_steps: general_config.validate_max_n_steps,
+        max_recursion_depth,
+        chain_id: chain_info.chain_id,
+        fee_token_addresses: chain_info.fee_token_addresses,
+    };
+
+    Ok(block_context)
+}
+
+// Block pre-processing; see `block_execution::pre_process_block` documentation.
+pub fn pre_process_block(
+    state: &mut dyn State,
+    old_block_number_and_hash: (u64, PyFelt),
     general_config: &PyGeneralConfig,
     block_info: PyBlockInfo,
     max_recursion_depth: usize,
 ) -> NativeBlockifierResult<BlockContext> {
-    let block_context = BlockContext {
-        block_info: BlockInfo {
-            block_number: BlockNumber(block_info.block_number),
-            block_timestamp: BlockTimestamp(block_info.block_timestamp),
-            sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-            vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
-                strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
-                eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
-                strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
-            },
-
-            use_kzg_da: block_info.use_kzg_da,
-            invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-            validate_max_n_steps: general_config.validate_max_n_steps,
-            max_recursion_depth,
-        },
-        chain_info: general_config.starknet_os_config.clone().try_into()?,
+    let old_block_number_and_hash = BlockNumberAndHash {
+        block_number: BlockNumber(old_block_number_and_hash.0),
+        block_hash: BlockHash(old_block_number_and_hash.1.0),
     };
+
+    let block_context_args =
+        into_block_context_args(general_config, block_info, max_recursion_depth)?;
+    let block_context =
+        pre_process_block_blockifier(state, old_block_number_and_hash, block_context_args)?;
 
     Ok(block_context)
 }
