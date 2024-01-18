@@ -11,6 +11,7 @@ use blockifier::state::cached_state::{
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -85,6 +86,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             .map_err(NativeBlockifierError::from);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                let actual_resources = tx_execution_info.actual_resources.0.clone();
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
@@ -100,10 +102,17 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.visited_storage_entries,
                     &tx_visited_storage_entries,
                 )?;
+                let message_segment_length = 0;
+                let tx_weights = calculate_tx_weights(
+                    additional_os_resources.clone(),
+                    actual_resources,
+                    message_segment_length,
+                );
                 let py_bouncer_info = PyBouncerInfo {
-                    message_segment_length: 0,
+                    message_segment_length,
                     state_diff_size: 0,
                     additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
+                    tx_weights,
                 };
 
                 self.staged_for_commit_state = Some(

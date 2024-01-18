@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
 use crate::abi::constants;
@@ -72,4 +73,49 @@ pub fn verify_contract_class_version(
             }
         }
     }
+}
+
+// TODO(Ayelet, 01/02/2024): Move to VmExecutionResourcesWrapper when merged.
+pub fn to_dict(execution_resources: VmExecutionResources) -> HashMap<String, usize> {
+    let mut result = execution_resources.builtin_instance_counter.clone();
+    result.insert(
+        String::from("n_steps"),
+        execution_resources.n_steps + execution_resources.n_memory_holes,
+    );
+    result
+}
+
+fn add_counters(x: HashMap<String, usize>, y: HashMap<String, usize>) -> HashMap<String, usize> {
+    let mut result = HashMap::new();
+
+    // Insert values from x into result
+    for (key, value) in x {
+        result.insert(key.clone(), value);
+    }
+
+    // Add values from y to result
+    for (key, value) in y {
+        let entry = result.entry(key.clone()).or_insert(0);
+        *entry += value;
+    }
+
+    result
+}
+
+pub fn calculate_tx_weights(
+    additional_os_resources: VmExecutionResources,
+    actual_resources: HashMap<String, usize>,
+    message_segment_length: usize,
+) -> HashMap<String, usize> {
+    let mut tx_weights: HashMap<String, usize> = HashMap::new();
+    let mut cairo_resource_usage: HashMap<String, usize> = actual_resources;
+    if let Some(&value) = cairo_resource_usage.get("l1_gas_usage") {
+        tx_weights.insert("gas_weight".to_string(), value);
+        cairo_resource_usage.remove("l1_gas_usage");
+    }
+    let os_cairo_usage: HashMap<String, usize> = to_dict(additional_os_resources);
+    let cairo_usage = add_counters(cairo_resource_usage, os_cairo_usage);
+    tx_weights.extend(cairo_usage);
+    tx_weights.insert("message_segment_length".to_string(), message_segment_length);
+    tx_weights
 }

@@ -190,4 +190,6 @@ pub struct PyBouncerInfo {
     pub state_diff_size: usize,
     #[pyo3(get)]
     pub additional_os_resources: PyVmExecutionResources,
+    #[pyo3(get)]
+    pub tx_weights: HashMap<String, usize>,
 }
