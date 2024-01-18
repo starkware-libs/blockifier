@@ -44,6 +44,7 @@ pub struct ActualCostBuilder<'a> {
     state_changes: StateChanges,
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
+    calldata_length: Option<usize>,
     n_reverted_steps: usize,
 }
 
@@ -63,6 +64,7 @@ impl<'a> ActualCostBuilder<'a> {
             execute_call_info: None,
             state_changes: StateChanges::default(),
             l1_payload_size: None,
+            calldata_length: None,
             n_reverted_steps: 0,
         }
     }
@@ -108,6 +110,12 @@ impl<'a> ActualCostBuilder<'a> {
 
     pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
         self.l1_payload_size = Some(l1_payload_size);
+        self.calldata_length = self.l1_payload_size;
+        self
+    }
+
+    pub fn with_calldata_length(mut self, calldata_length: usize) -> Self {
+        self.calldata_length = Some(calldata_length);
         self
     }
 
@@ -135,9 +143,12 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             self.l1_payload_size,
         )?;
-
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage,
+            self.tx_type,
+            self.calldata_length.unwrap_or_default(),
+        )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
