@@ -4,7 +4,8 @@ use starknet_api::transaction::Fee;
 
 use super::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::abi::constants;
-use crate::block_context::{BlockContext, BlockInfo};
+use crate::block::BlockInfo;
+use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
 use crate::fee::os_resources::OS_RESOURCES;

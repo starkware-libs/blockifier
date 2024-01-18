@@ -11,7 +11,7 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;

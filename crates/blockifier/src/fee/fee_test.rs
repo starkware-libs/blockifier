@@ -9,7 +9,7 @@ use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_checks::{FeeCheckError, FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
