@@ -110,6 +110,14 @@ impl AccountTransaction {
         }
     }
 
+    fn calldata_length(&self) -> usize {
+        match self {
+            Self::Declare(_tx) => 0,
+            Self::DeployAccount(tx) => tx.constructor_calldata().0.len(),
+            Self::Invoke(tx) => tx.calldata().0.len(),
+        }
+    }
+
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         match self {
             Self::Declare(tx) => tx.get_account_tx_context(),
@@ -394,6 +402,7 @@ impl AccountTransaction {
             .into_actual_cost_builder(block_context)
             .with_validate_call_info(&validate_call_info)
             .with_execute_call_info(&execute_call_info)
+            .with_calldata_length(self.calldata_length())
             .try_add_state_changes(state)?
             .build(&resources)?;
 
@@ -447,6 +456,7 @@ impl AccountTransaction {
         let actual_cost_builder_with_validation_changes = self
             .into_actual_cost_builder(block_context)
             .with_validate_call_info(&validate_call_info)
+            .with_calldata_length(self.calldata_length())
             .try_add_state_changes(state)?;
 
         // Create copies of state and resources for the execution.
