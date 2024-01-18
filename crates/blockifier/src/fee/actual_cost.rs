@@ -2,7 +2,7 @@ use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::calculate_tx_gas_usage_vector;
@@ -22,11 +22,11 @@ pub struct ActualCost {
 }
 
 impl ActualCost {
-    pub fn builder_for_l1_handler(
+    pub fn builder_for_l1_handler<'a>(
         block_context: &BlockContext,
         tx_context: AccountTransactionContext,
         l1_handler_payload_size: usize,
-    ) -> ActualCostBuilder<'_> {
+    ) -> ActualCostBuilder<'a> {
         ActualCostBuilder::new(
             block_context,
             tx_context,

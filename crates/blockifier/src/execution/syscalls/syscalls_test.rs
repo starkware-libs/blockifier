@@ -24,7 +24,7 @@ use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
-use crate::block_context::ChainInfo;
+use crate::context::ChainInfo;
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
