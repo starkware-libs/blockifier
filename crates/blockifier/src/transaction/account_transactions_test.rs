@@ -330,7 +330,7 @@ fn test_max_fee_limit_validate(
     });
     let estimated_min_l1_gas = estimate_minimal_l1_gas(&block_context, &account_tx).unwrap();
     let estimated_min_fee =
-        get_fee_by_l1_gas_usage(&block_context, estimated_min_l1_gas, &account_tx.fee_type());
+        get_fee_by_l1_gas_usage(&block_context, estimated_min_l1_gas, 0, &account_tx.fee_type());
 
     let error = run_invoke_tx(
         &mut state,
@@ -850,8 +850,11 @@ fn test_max_fee_to_max_steps_conversion(
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.n_steps();
-    let gas_used1 =
-        calculate_tx_l1_gas_usage(&tx_execution_info1.actual_resources, &block_context).unwrap();
+    let gas_used1: u128 =
+        calculate_tx_l1_gas_usage(&tx_execution_info1.actual_resources, &block_context)
+            .unwrap()
+            .iter()
+            .sum();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let account_tx2 = account_invoke_tx(invoke_tx_args! {
@@ -871,8 +874,11 @@ fn test_max_fee_to_max_steps_conversion(
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.n_steps();
-    let gas_used2 =
-        calculate_tx_l1_gas_usage(&tx_execution_info2.actual_resources, &block_context).unwrap();
+    let gas_used2: u128 =
+        calculate_tx_l1_gas_usage(&tx_execution_info2.actual_resources, &block_context)
+            .unwrap()
+            .iter()
+            .sum();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());

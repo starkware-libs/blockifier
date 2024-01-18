@@ -1,11 +1,12 @@
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
-use super::gas_usage::calculate_tx_gas_usage;
+use super::gas_usage::calculate_tx_blob_gas_usage;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
+use crate::fee::gas_usage::{calculate_tx_gas_usage_for_da, calculate_tx_gas_usage_without_da};
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -127,13 +128,29 @@ impl<'a> ActualCostBuilder<'a> {
         let state_changes_count = StateChangesCount::from(&self.state_changes);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
-        let l1_gas_usage = calculate_tx_gas_usage(
-            non_optional_call_infos,
-            state_changes_count,
-            self.l1_payload_size,
+        // Gas usage for GPS costs and Starknet L1-L2 messages. Includes gas usage for data
+        // availability according to use_kzg_da flag.
+        let l1_gas_usage = match self.block_context.use_kzg_da {
+            true => {
+                calculate_tx_gas_usage_without_da(non_optional_call_infos, self.l1_payload_size)?
+            }
+            false => {
+                calculate_tx_gas_usage_without_da(non_optional_call_infos, self.l1_payload_size)?
+                    + calculate_tx_gas_usage_for_da(state_changes_count)?
+            }
+        };
+        // Blob gas usage for data availability.
+        let l1_blob_gas_usage = match self.block_context.use_kzg_da {
+            true => calculate_tx_blob_gas_usage(state_changes_count),
+            false => 0,
+        };
+
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage,
+            l1_blob_gas_usage,
+            self.tx_type,
         )?;
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
