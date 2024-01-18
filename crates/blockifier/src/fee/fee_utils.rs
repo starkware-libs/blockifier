@@ -4,7 +4,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
-use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
+use crate::block::BlockInfo;
+use crate::context::{BlockContext, ChainInfo};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
