@@ -297,6 +297,7 @@ impl EntryPointExecutionContext {
         &mut self,
         validate_call_info: &Option<CallInfo>,
         tx_type: &TransactionType,
+        _calldata_length: usize,
     ) -> usize {
         let validate_steps = validate_call_info
             .as_ref()
