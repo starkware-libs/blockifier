@@ -53,9 +53,10 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
     assert_eq!(manual_blob_gas_usage, calculate_tx_blob_gas_usage(state_changes_count));
 }
 
-/// This test goes over five cases. In each case, we calculate the gas usage given the parameters.
+/// This test goes over six cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.
-/// The five cases are:
+/// The six cases are:
+///     0. An empty transaction.
 ///     1. A DeployAccount transaction.
 ///     2. An L1 handler.
 ///     3. A transaction with L2-to-L1 messages.
@@ -63,6 +64,11 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
 ///     5. A combination of cases 2. 3. and 4.
 #[test]
 fn test_calculate_tx_gas_usage_basic() {
+    // EmptyTransaction.
+    let empty_gas_usage =
+        calculate_tx_gas_usage(std::iter::empty(), StateChangesCount::default(), None).unwrap();
+    assert_eq!(empty_gas_usage, 0);
+
     // DeployAccount.
 
     let deploy_account_state_changes_count = StateChangesCount {
