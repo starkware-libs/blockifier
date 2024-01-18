@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use blockifier::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use blockifier::block_context::BlockContext;
+use blockifier::block_context::{BlockContext, ChainInfo};
 use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
@@ -33,8 +33,6 @@ use starknet_api::{calldata, class_hash, stark_felt};
 const N_ACCOUNTS: usize = 10000;
 
 fn create_state() -> CachedState<DictStateReader> {
-    let block_context = BlockContext::create_for_account_testing();
-
     // Declare all the needed contracts.
     let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
     let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
@@ -43,7 +41,8 @@ fn create_state() -> CachedState<DictStateReader> {
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
     ]);
     // Deploy the ERC20 contract.
-    let test_erc20_address = block_context.block_info.fee_token_addresses.eth_fee_token_address;
+    let chain_info = ChainInfo::create_for_testing();
+    let test_erc20_address = chain_info.fee_token_addresses.eth_fee_token_address;
     let address_to_class_hash = HashMap::from([(test_erc20_address, test_erc20_class_hash)]);
 
     CachedState::from(DictStateReader {
@@ -87,7 +86,7 @@ fn do_transfer(
         selector_from_name(blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME);
     // TODO(gilad, 06/09/2023): NEW_TOKEN_SUPPORT this should depend the version of invoke tx.
     let contract_address =
-        *block_context.block_info.fee_token_addresses.eth_fee_token_address.0.key();
+        *block_context.chain_info.fee_token_addresses.eth_fee_token_address.0.key();
 
     let execute_calldata = calldata![
         contract_address,                   // Contract address.
@@ -144,7 +143,7 @@ fn prepare_accounts(
         let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
         state
             .set_storage_at(
-                block_context.block_info.fee_token_addresses.eth_fee_token_address,
+                block_context.chain_info.fee_token_addresses.eth_fee_token_address,
                 deployed_account_balance_key,
                 stark_felt!(BALANCE * 1000),
             )

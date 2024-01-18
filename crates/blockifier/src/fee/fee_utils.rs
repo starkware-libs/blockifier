@@ -4,7 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
-use crate::block_context::{BlockContext, BlockInfo};
+use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
@@ -84,12 +84,12 @@ pub fn calculate_tx_fee(
 pub fn get_balance_and_if_covers_fee(
     state: &mut dyn StateReader,
     account_tx_context: &AccountTransactionContext,
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     fee: Fee,
 ) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
     let (balance_low, balance_high) = state.get_fee_token_balance(
         account_tx_context.sender_address(),
-        block_context.fee_token_address(&account_tx_context.fee_type()),
+        chain_info.fee_token_address(&account_tx_context.fee_type()),
     )?;
     Ok((
         balance_low,
@@ -105,7 +105,7 @@ pub fn get_balance_and_if_covers_fee(
 pub fn verify_can_pay_committed_bounds(
     state: &mut dyn StateReader,
     account_tx_context: &AccountTransactionContext,
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
 ) -> TransactionFeeResult<()> {
     let committed_fee = match account_tx_context {
         AccountTransactionContext::Current(context) => {
@@ -118,7 +118,7 @@ pub fn verify_can_pay_committed_bounds(
         AccountTransactionContext::Deprecated(context) => context.max_fee,
     };
     let (balance_low, balance_high, can_pay) =
-        get_balance_and_if_covers_fee(state, account_tx_context, block_context, committed_fee)?;
+        get_balance_and_if_covers_fee(state, account_tx_context, chain_info, committed_fee)?;
     if can_pay {
         Ok(())
     } else {

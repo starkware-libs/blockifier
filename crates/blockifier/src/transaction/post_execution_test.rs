@@ -7,7 +7,7 @@ use starknet_api::transaction::{Calldata, Fee, ResourceBoundsMapping, Transactio
 use starknet_api::{patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, ChainInfo};
 use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::calculate_tx_l1_gas_usage;
 use crate::invoke_tx_args;
@@ -24,10 +24,10 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transactions::ExecutableTransaction;
 
-fn init_data_by_version(block_context: &BlockContext, cairo_version: CairoVersion) -> TestInitData {
+fn init_data_by_version(chain_info: &ChainInfo, cairo_version: CairoVersion) -> TestInitData {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let state = test_state(block_context, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     TestInitData {
         state,
         account_address: account_contract.get_instance_address(0),
@@ -70,7 +70,8 @@ fn test_revert_on_overdraft(
     #[case] fee_type: FeeType,
     #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
 ) {
-    let fee_token_address = block_context.block_info.fee_token_addresses.get_by_fee_type(&fee_type);
+    let chain_info = &block_context.chain_info;
+    let fee_token_address = chain_info.fee_token_addresses.get_by_fee_type(&fee_type);
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();
@@ -83,7 +84,7 @@ fn test_revert_on_overdraft(
     let final_received_amount = stark_felt!(80_u8);
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        init_data_by_version(&block_context, cairo_version);
+        init_data_by_version(chain_info, cairo_version);
 
     // Verify the contract's storage key initial value is empty.
     assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
@@ -142,7 +143,7 @@ fn test_revert_on_overdraft(
     let (balance, _) = state
         .get_fee_token_balance(
             account_address,
-            block_context.fee_token_address(&account_tx_context.fee_type()),
+            chain_info.fee_token_address(&account_tx_context.fee_type()),
         )
         .unwrap();
 
@@ -186,7 +187,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 account_address,
-                block_context.fee_token_address(&account_tx_context.fee_type()),
+                chain_info.fee_token_address(&account_tx_context.fee_type()),
             )
             .unwrap(),
         (expected_new_balance, stark_felt!(0_u8))
@@ -195,7 +196,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 recipient_address,
-                block_context.fee_token_address(&account_tx_context.fee_type())
+                chain_info.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
         (final_received_amount, stark_felt!(0_u8))
@@ -218,7 +219,7 @@ fn test_revert_on_resource_overuse(
     #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        init_data_by_version(&block_context, cairo_version);
+        init_data_by_version(&block_context.chain_info, cairo_version);
 
     let n_writes = 5_u8;
     let base_args = invoke_tx_args! { sender_address: account_address, version };
