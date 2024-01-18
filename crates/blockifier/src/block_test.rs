@@ -4,7 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
-use crate::block_execution::pre_process_block;
+use crate::block::pre_process_block;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::create_test_state;
 

@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use blockifier::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use blockifier::block_context::{BlockContext, ChainInfo};
+use blockifier::context::{BlockContext, ChainInfo};
 use blockifier::execution::contract_class::ContractClassV0;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::State;
