@@ -27,9 +27,14 @@ impl ActualCost {
         tx_context: AccountTransactionContext,
         l1_handler_payload_size: usize,
     ) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(block_context, tx_context, TransactionType::L1Handler)
-            .without_sender_address()
-            .with_l1_payload_size(l1_handler_payload_size)
+        ActualCostBuilder::new(
+            block_context,
+            tx_context,
+            TransactionType::L1Handler,
+            l1_handler_payload_size,
+        )
+        .without_sender_address()
+        .with_l1_payload_size(l1_handler_payload_size)
     }
 }
 
@@ -44,6 +49,7 @@ pub struct ActualCostBuilder<'a> {
     state_changes: StateChanges,
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
+    calldata_length: usize,
     n_reverted_steps: usize,
 }
 
@@ -53,6 +59,7 @@ impl<'a> ActualCostBuilder<'a> {
         block_context: &BlockContext,
         account_tx_context: AccountTransactionContext,
         tx_type: TransactionType,
+        calldata_length: usize,
     ) -> Self {
         Self {
             block_context: block_context.clone(),
@@ -63,6 +70,7 @@ impl<'a> ActualCostBuilder<'a> {
             execute_call_info: None,
             state_changes: StateChanges::default(),
             l1_payload_size: None,
+            calldata_length,
             n_reverted_steps: 0,
         }
     }
@@ -135,9 +143,12 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             self.l1_payload_size,
         )?;
-
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage,
+            self.tx_type,
+            self.calldata_length,
+        )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
