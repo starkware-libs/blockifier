@@ -35,7 +35,7 @@ use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecution
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
+    calculate_tx_gas_usage_for_da, estimate_minimal_l1_gas, get_onchain_data_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -1474,8 +1474,7 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
+    let l1_gas_usage = calculate_tx_gas_usage_for_da(state_changes_count).unwrap();
     assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
@@ -1510,8 +1509,7 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
+    let l1_gas_usage = calculate_tx_gas_usage_for_da(state_changes_count).unwrap();
     assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
 }
 
