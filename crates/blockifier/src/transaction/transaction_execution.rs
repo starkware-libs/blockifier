@@ -2,7 +2,7 @@ use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
 use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
 use crate::fee::actual_cost::ActualCost;

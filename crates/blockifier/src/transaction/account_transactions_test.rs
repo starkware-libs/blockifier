@@ -20,7 +20,7 @@ use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
 use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};

@@ -26,7 +26,7 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
-use crate::block_context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };

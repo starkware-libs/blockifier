@@ -7,7 +7,7 @@ use starknet_api::transaction::{Calldata, Fee, ResourceBoundsMapping, Transactio
 use starknet_api::{patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
-use crate::block_context::{BlockContext, ChainInfo};
+use crate::context::{BlockContext, ChainInfo};
 use crate::fee::fee_checks::FeeCheckError;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::invoke_tx_args;

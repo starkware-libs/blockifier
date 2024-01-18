@@ -1,6 +1,6 @@
 pub mod abi;
-pub mod block_context;
-pub mod block_execution;
+pub mod block;
+pub mod context;
 pub mod execution;
 pub mod fee;
 pub mod state;

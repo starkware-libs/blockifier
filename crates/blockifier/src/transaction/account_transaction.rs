@@ -7,7 +7,7 @@ use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersio
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
