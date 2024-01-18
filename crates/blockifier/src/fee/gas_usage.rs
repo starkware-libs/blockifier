@@ -41,13 +41,27 @@ pub fn calculate_tx_blob_gas_usage(state_changes_count: StateChangesCount) -> us
     onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
 }
 
-/// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
-/// the verifier) following the addition of a transaction with the given parameters to a batch;
-/// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
-/// which requires gas.
+/// Returns an estimation of the L1 gas amount that will be used (by Starknet's state update and
+/// the verifier following the addition of a transaction with the given parameters to a batch; e.g.,
+/// a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract which
+/// requires gas.
 pub fn calculate_tx_gas_usage<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     state_changes_count: StateChangesCount,
+    l1_handler_payload_size: Option<usize>,
+) -> TransactionExecutionResult<usize> {
+    let gas_for_messages_and_proof =
+        calculate_tx_gas_usage_messages_and_proof(call_infos, l1_handler_payload_size)?;
+    let gas_for_da = get_onchain_data_cost(state_changes_count);
+    Ok(gas_for_messages_and_proof + gas_for_da)
+}
+
+/// Returns an estimation of the L1 gas amount that will be used by Starknet's verifier following
+/// the addition of a transaction with the given parameters to a batch, excluding the gas used for
+/// Starknet's state update; e.g., a message from L2 to L1 is followed by a storage write operation
+/// in Starknet L1 contract which requires gas.
+pub fn calculate_tx_gas_usage_messages_and_proof<'a>(
+    call_infos: impl Iterator<Item = &'a CallInfo>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
     let (l2_to_l1_payloads_length, residual_message_segment_length) =
@@ -71,14 +85,10 @@ pub fn calculate_tx_gas_usage<'a>(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
 
-    // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
+    let sharp_gas_usage_without_data =
+        residual_message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
-    let sharp_gas_usage = residual_message_segment_length
-        * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + residual_onchain_data_cost;
-
-    Ok(starknet_gas_usage + sharp_gas_usage)
+    Ok(starknet_gas_usage + sharp_gas_usage_without_data)
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
