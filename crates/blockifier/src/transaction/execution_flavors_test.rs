@@ -7,7 +7,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
 
-use crate::block_context::{BlockContext, ChainInfo};
+use crate::context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
