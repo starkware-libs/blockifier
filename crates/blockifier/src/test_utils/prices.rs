@@ -59,9 +59,9 @@ fn fee_transfer_resources(
     let fee_transfer_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
-            *block_context.sequencer_address.0.key(), // Recipient.
-            stark_felt!(7_u8),                        // LSB of Amount.
-            stark_felt!(0_u8)                         // MSB of Amount.
+            *block_context.block_info.sequencer_address.0.key(), // Recipient.
+            stark_felt!(7_u8),                                   // LSB of Amount.
+            stark_felt!(0_u8)                                    // MSB of Amount.
         ],
         storage_address: token_address,
         caller_address: account_contract_address,

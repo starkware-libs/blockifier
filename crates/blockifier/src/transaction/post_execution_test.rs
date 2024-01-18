@@ -70,7 +70,7 @@ fn test_revert_on_overdraft(
     #[case] fee_type: FeeType,
     #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
 ) {
-    let fee_token_address = block_context.fee_token_addresses.get_by_fee_type(&fee_type);
+    let fee_token_address = block_context.block_info.fee_token_addresses.get_by_fee_type(&fee_type);
     // An address to be written into to observe state changes.
     let storage_address = stark_felt!(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();

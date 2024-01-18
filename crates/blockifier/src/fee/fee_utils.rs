@@ -4,7 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, BlockInfo};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
@@ -31,7 +31,7 @@ pub fn calculate_l1_gas_by_vm_usage(
     block_context: &BlockContext,
     vm_resource_usage: &ResourcesMapping,
 ) -> TransactionFeeResult<f64> {
-    let vm_resource_fee_costs = &block_context.vm_resource_fee_cost;
+    let vm_resource_fee_costs = &block_context.block_info.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
@@ -63,11 +63,11 @@ pub fn calculate_tx_l1_gas_usage(
 }
 
 pub fn get_fee_by_l1_gas_usage(
-    block_context: &BlockContext,
+    block_info: &BlockInfo,
     l1_gas_usage: u128,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(l1_gas_usage * block_context.gas_prices.get_gas_price_by_fee_type(fee_type))
+    Fee(l1_gas_usage * block_info.gas_prices.get_gas_price_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
@@ -77,7 +77,7 @@ pub fn calculate_tx_fee(
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
     let l1_gas_usage = calculate_tx_l1_gas_usage(resources, block_context)?;
-    Ok(get_fee_by_l1_gas_usage(block_context, l1_gas_usage, fee_type))
+    Ok(get_fee_by_l1_gas_usage(&block_context.block_info, l1_gas_usage, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.

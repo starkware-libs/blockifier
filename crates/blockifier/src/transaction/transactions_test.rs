@@ -26,7 +26,7 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, FeeTokenAddresses};
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
@@ -159,7 +159,8 @@ fn expected_fee_transfer_call_info(
     fee_type: &FeeType,
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
-    let expected_sequencer_address = *block_context.sequencer_address.0.key();
+    let expected_sequencer_address = block_context.block_info.sequencer_address;
+    let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
     let lsb_expected_amount = stark_felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
@@ -171,7 +172,7 @@ fn expected_fee_transfer_call_info(
         entry_point_type: EntryPointType::External,
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
-            expected_sequencer_address, // Recipient.
+            expected_sequencer_address_felt, // Recipient.
             lsb_expected_amount,
             msb_expected_amount
         ],
@@ -187,7 +188,7 @@ fn expected_fee_transfer_call_info(
             keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
             data: EventData(vec![
                 expected_fee_sender_address,
-                expected_sequencer_address, // Recipient.
+                expected_sequencer_address_felt, // Recipient.
                 lsb_expected_amount,
                 msb_expected_amount,
             ]),
@@ -197,7 +198,7 @@ fn expected_fee_transfer_call_info(
     let sender_balance_key_low = get_fee_token_var_address(account_address);
     let sender_balance_key_high =
         next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
-    let sequencer_balance_key_low = get_fee_token_var_address(block_context.sequencer_address);
+    let sequencer_balance_key_low = get_fee_token_var_address(expected_sequencer_address);
     let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
         .expect("Cannot get sequencer balance high key.");
     Some(CallInfo {
@@ -256,8 +257,8 @@ fn validate_final_balances(
     }
 
     // Verify balances of both accounts, of both fee types, are as expected.
-    let eth_fee_token_address = block_context.fee_token_addresses.eth_fee_token_address;
-    let strk_fee_token_address = block_context.fee_token_addresses.strk_fee_token_address;
+    let FeeTokenAddresses { eth_fee_token_address, strk_fee_token_address } =
+        block_context.block_info.fee_token_addresses;
     for (fee_address, expected_account_balance, expected_sequencer_balance) in [
         (eth_fee_token_address, expected_account_balance_eth, expected_sequencer_balance_eth),
         (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
@@ -800,7 +801,8 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
 
     // Test V1 transaction.
 
-    let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
+    let gas_prices = &block_context.block_info.gas_prices;
+    let minimal_fee = Fee(minimal_l1_gas * gas_prices.eth_l1_gas_price);
     // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
     let invalid_v1_tx = account_invoke_tx(
@@ -818,7 +820,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // Test V3 transaction.
-    let actual_strk_l1_gas_price = block_context.gas_prices.strk_l1_gas_price;
+    let actual_strk_l1_gas_price = gas_prices.strk_l1_gas_price;
 
     // Max L1 gas amount too low.
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
@@ -878,7 +880,7 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
 
     let minimal_l1_gas =
         estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone())).unwrap();
-    let minimal_fee = Fee(minimal_l1_gas * block_context.gas_prices.eth_l1_gas_price);
+    let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
 
