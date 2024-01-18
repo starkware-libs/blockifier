@@ -6,7 +6,8 @@ use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_for_da, calculate_tx_gas_usage_messages_and_proof,
+    calculate_tx_blob_gas_usage, calculate_tx_gas_usage_for_da,
+    calculate_tx_gas_usage_messages_and_proof,
 };
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
@@ -131,13 +132,30 @@ impl<'a> ActualCostBuilder<'a> {
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability according to use_kzg_da flag.
-        let l1_gas_usage = calculate_tx_gas_usage_messages_and_proof(
-            non_optional_call_infos,
-            self.l1_payload_size,
-        )? + calculate_tx_gas_usage_for_da(state_changes_count)?;
+        let l1_gas_usage = match self.block_context.block_info.use_kzg_da {
+            true => calculate_tx_gas_usage_messages_and_proof(
+                non_optional_call_infos,
+                self.l1_payload_size,
+            )?,
+            false => {
+                calculate_tx_gas_usage_messages_and_proof(
+                    non_optional_call_infos,
+                    self.l1_payload_size,
+                )? + calculate_tx_gas_usage_for_da(state_changes_count)?
+            }
+        };
+        // Blob gas usage for data availability.
+        let l1_blob_gas_usage = match self.block_context.block_info.use_kzg_da {
+            true => calculate_tx_blob_gas_usage(state_changes_count),
+            false => 0,
+        };
 
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage,
+            l1_blob_gas_usage,
+            self.tx_type,
+        )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=

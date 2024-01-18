@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use starknet_api::transaction::Fee;
 
-use super::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::eth_gas_constants;
+use crate::fee::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usages};
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
@@ -227,8 +227,8 @@ pub fn estimate_minimal_l1_gas(
         (constants::GAS_USAGE.to_string(), gas_cost),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
-
-    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
+    let [l1_gas, l1_blob_gas] = calculate_tx_l1_gas_usages(&resources, block_context)?;
+    Ok(l1_gas + l1_blob_gas)
 }
 
 pub fn estimate_minimal_fee(
@@ -236,5 +236,10 @@ pub fn estimate_minimal_fee(
     tx: &AccountTransaction,
 ) -> TransactionExecutionResult<Fee> {
     let estimated_minimal_l1_gas = estimate_minimal_l1_gas(block_context, tx)?;
-    Ok(get_fee_by_l1_gas_usage(&block_context.block_info, estimated_minimal_l1_gas, &tx.fee_type()))
+    Ok(get_fee_by_l1_gas_usages(
+        &block_context.block_info,
+        estimated_minimal_l1_gas,
+        0,
+        &tx.fee_type(),
+    ))
 }

@@ -9,7 +9,7 @@ use starknet_crypto::FieldElement;
 
 use crate::block_context::{BlockContext, ChainInfo};
 use crate::fee::fee_checks::FeeCheckError;
-use crate::fee::fee_utils::calculate_tx_l1_gas_usage;
+use crate::fee::fee_utils::calculate_tx_l1_gas_usages;
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -257,8 +257,8 @@ fn test_revert_on_resource_overuse(
     let actual_fee = execution_info_measure.actual_fee;
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     let actual_gas_usage: u64 =
-        calculate_tx_l1_gas_usage(&execution_info_measure.actual_resources, &block_context)
-            .unwrap()
+        calculate_tx_l1_gas_usages(&execution_info_measure.actual_resources, &block_context)
+            .unwrap()[0]
             .try_into()
             .expect("Failed to convert u128 to u64.");
 
