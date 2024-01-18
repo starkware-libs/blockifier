@@ -36,7 +36,9 @@ impl OsResources {
 pub fn get_additional_os_resources(
     syscall_counter: &SyscallCounter,
     tx_type: TransactionType,
+    _calldata_length: usize,
 ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    // TODO(Noa, 21/01/24): Use calldata_length.
     let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
