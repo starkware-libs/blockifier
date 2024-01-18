@@ -18,6 +18,7 @@ use crate::transaction::transaction_types::TransactionType;
 pub fn calculate_tx_resources(
     execution_resources: &ExecutionResources,
     l1_gas_usage: usize,
+    l1_blob_gas_usage: usize,
     tx_type: TransactionType,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     // Add additional Cairo resources needed for the OS to run the transaction.
@@ -35,6 +36,7 @@ pub fn calculate_tx_resources(
 
     let mut tx_resources = HashMap::from([
         (constants::GAS_USAGE.to_string(), l1_gas_usage),
+        (constants::BLOB_GAS_USAGE.to_string(), l1_blob_gas_usage),
         (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);

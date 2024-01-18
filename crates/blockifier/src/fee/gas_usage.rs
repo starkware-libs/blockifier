@@ -41,13 +41,12 @@ pub fn calculate_tx_blob_gas_usage(state_changes_count: StateChangesCount) -> us
     onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
 }
 
-/// Returns an estimation of the L1 gas amount that will be used (by Starknet's update state and
-/// the verifier) following the addition of a transaction with the given parameters to a batch;
-/// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
-/// which requires gas.
-pub fn calculate_tx_gas_usage<'a>(
+/// Returns an estimation of the L1 gas amount that will be used by Starknet's verifier following
+/// the addition of a transaction with the given parameters to a batch, excluding the gas used for
+/// Starknet's state update; e.g., a message from L2 to L1 is followed by a storage write operation
+/// in Starknet L1 contract which requires gas.
+pub fn calculate_tx_gas_usage_messages_and_proof<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<usize> {
     let (l2_to_l1_payloads_length, residual_message_segment_length) =
@@ -71,14 +70,20 @@ pub fn calculate_tx_gas_usage<'a>(
     + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
     + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
 
-    // Calculate the effect of the transaction on the output data availability segment.
-    let residual_onchain_data_cost = get_onchain_data_cost(state_changes_count);
+    let sharp_gas_usage_without_data =
+        residual_message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
-    let sharp_gas_usage = residual_message_segment_length
-        * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + residual_onchain_data_cost;
+    Ok(starknet_gas_usage + sharp_gas_usage_without_data)
+}
 
-    Ok(starknet_gas_usage + sharp_gas_usage)
+/// Returns an estimation of the L1 gas amount that will be used by Starknet's state update, for the
+/// output data avilability segment.
+/// TODO(Arni, 21/1/2024): Refactor the function to work generically for both gas in the
+/// use_kzg_da=False case and data_gas in the use_kzg_da=True case.
+pub fn calculate_tx_gas_usage_for_da(
+    state_changes_count: StateChangesCount,
+) -> TransactionExecutionResult<usize> {
+    Ok(get_onchain_data_cost(state_changes_count))
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
@@ -222,8 +227,8 @@ pub fn estimate_minimal_l1_gas(
         (constants::GAS_USAGE.to_string(), gas_cost),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
-
-    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
+    let [l1_gas, l1_data_gas] = calculate_tx_l1_gas_usage(&resources, block_context)?;
+    Ok(l1_gas + l1_data_gas)
 }
 
 pub fn estimate_minimal_fee(
@@ -231,5 +236,5 @@ pub fn estimate_minimal_fee(
     tx: &AccountTransaction,
 ) -> TransactionExecutionResult<Fee> {
     let estimated_minimal_l1_gas = estimate_minimal_l1_gas(block_context, tx)?;
-    Ok(get_fee_by_l1_gas_usage(block_context, estimated_minimal_l1_gas, &tx.fee_type()))
+    Ok(get_fee_by_l1_gas_usage(block_context, estimated_minimal_l1_gas, 0, &tx.fee_type()))
 }
