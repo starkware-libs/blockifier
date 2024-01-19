@@ -138,7 +138,7 @@ fn test_emit_event() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: 52570,
+            gas_consumed: 34650,
             ..Default::default()
         }
     );

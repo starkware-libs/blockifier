@@ -2,10 +2,12 @@ use cairo_native::starknet::StarkNetSyscallHandler;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_api::transaction::{EventContent, EventData, EventKey};
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
+use crate::execution::call_info::OrderedEvent;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::syscalls::hint_processor::{
@@ -17,6 +19,7 @@ pub struct NativeSyscallHandler<'state> {
     pub state: &'state mut dyn State,
     pub storage_address: ContractAddress,
     pub execution_context: EntryPointExecutionContext,
+    pub events: Vec<OrderedEvent>,
 }
 
 impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
@@ -129,11 +132,29 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn emit_event(
         &mut self,
-        _keys: &[Felt],
-        _data: &[Felt],
+        keys: &[Felt],
+        data: &[Felt],
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<()> {
-        todo!("Native syscall handler - emit_event")
+        let order = self.execution_context.n_emitted_events;
+
+        self.events.push(OrderedEvent {
+            order,
+            event: EventContent {
+                keys: keys
+                    .to_vec()
+                    .iter()
+                    .map(|felt| EventKey(felt_to_starkfelt(*felt)))
+                    .collect::<Vec<EventKey>>(),
+                data: EventData(
+                    data.to_vec().iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
+                ),
+            },
+        });
+
+        self.execution_context.n_emitted_events += 1;
+
+        Ok(())
     }
 
     fn send_message_to_l1(

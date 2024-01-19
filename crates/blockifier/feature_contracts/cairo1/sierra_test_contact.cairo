@@ -64,10 +64,10 @@ mod SierraTestContract {
     //         .span()
     // }
 
-    // #[external(v0)]
-    // fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
-    //     syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
+        syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+    }
 
     #[external(v0)]
     fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
