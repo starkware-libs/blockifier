@@ -31,11 +31,12 @@ use crate::execution::call_info::{
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_EXECUTION_MODE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
+use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
 use crate::test_utils::contracts::FeatureContract;
@@ -50,7 +51,6 @@ use crate::transaction::objects::{
     AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
     DeprecatedAccountTransactionContext,
 };
-use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
@@ -171,26 +171,30 @@ fn test_get_block_hash() {
     );
 
     // Negative flow. Execution mode is Validate.
-    let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
-    check_entry_point_execution_error_for_custom_hint!(
-        &error,
-        "Unauthorized syscall get_block_hash in execution mode Validate.",
-    );
-
-    // assert!(false);
+    // let execution_result = entry_point_call.execute_directly_in_validate_mode(&mut
+    // state).unwrap();
+    //
+    // matches!(execution_result, CallInfo { execution: CallExecution { failed: true, .. }, .. });
+    //
+    // let expected_return_data = Retdata(vec![stark_felt!(INVALID_EXECUTION_MODE_ERROR)]);
+    // assert_eq!(execution_result.execution.retdata, expected_return_data);
 
     // Negative flow: Block number out of range.
-    // let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
-    // let block_number = stark_felt!(requested_block_number);
-    // let calldata = calldata![block_number];
-    // let entry_point_call = CallEntryPoint {
-    //     entry_point_selector: selector_from_name("test_get_block_hash"),
-    //     calldata,
-    //     ..trivial_external_entry_point()
-    // };
-    // let error = entry_point_call.execute_directly(&mut state).unwrap_err();
-    // assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
-    //     if error_data == vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
+    let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
+    let block_number = stark_felt!(requested_block_number);
+    let calldata = calldata![block_number];
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_get_block_hash"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+    let execution_result = entry_point_call.execute_directly(&mut state).unwrap();
+
+    matches!(execution_result, CallInfo { execution: CallExecution { failed: true, .. }, .. });
+
+    let expected_return_data = Retdata(vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
+
+    assert_eq!(execution_result.execution.retdata, expected_return_data);
 }
 
 #[test]

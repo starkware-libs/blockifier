@@ -8,7 +8,9 @@ use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::EntryPointExecutionContext;
-use crate::execution::syscalls::hint_processor::BLOCK_NUMBER_OUT_OF_RANGE_ERROR;
+use crate::execution::syscalls::hint_processor::{
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_EXECUTION_MODE_ERROR,
+};
 use crate::state::state_api::State;
 
 pub struct NativeSyscallHandler<'state> {
@@ -24,13 +26,9 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Felt> {
         if self.execution_context.execution_mode == ExecutionMode::Validate {
-            let invalid_execution_mode_felt = Felt::from_bytes_be_slice(
-                "Unauthorized syscall get_block_hash in execution mode Validate."
-                    .to_string()
-                    .as_bytes(),
-            );
+            let execution_mode_err = Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).unwrap();
 
-            return Err(vec![invalid_execution_mode_felt]);
+            return Err(vec![execution_mode_err]);
         }
 
         let current_block_number = self.execution_context.block_context.block_number.0;
@@ -38,8 +36,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
             || block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
         {
-            let out_of_range_felt =
-                Felt::from_bytes_be_slice(BLOCK_NUMBER_OUT_OF_RANGE_ERROR.as_bytes());
+            // todo: possibly remove unwraps here, but `panic` is unreachable in this case
+            let out_of_range_felt = Felt::from_hex(BLOCK_NUMBER_OUT_OF_RANGE_ERROR).unwrap();
 
             return Err(vec![out_of_range_felt]);
         }
