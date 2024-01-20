@@ -1,13 +1,13 @@
 use cairo_native::starknet::StarkNetSyscallHandler;
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::core::{ContractAddress, EthAddress, PatriciaKey};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{EventContent, EventData, EventKey};
+use starknet_api::transaction::{EventContent, EventData, EventKey, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
-use crate::execution::call_info::OrderedEvent;
+use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::syscalls::hint_processor::{
@@ -20,6 +20,7 @@ pub struct NativeSyscallHandler<'state> {
     pub storage_address: ContractAddress,
     pub execution_context: EntryPointExecutionContext,
     pub events: Vec<OrderedEvent>,
+    pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
 }
 
 impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
@@ -159,11 +160,26 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn send_message_to_l1(
         &mut self,
-        _to_address: Felt,
-        _payload: &[Felt],
+        to_address: Felt,
+        payload: &[Felt],
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<()> {
-        todo!("Native syscall handler - send_message_to_l1")
+        let order = self.execution_context.n_sent_messages_to_l1;
+
+        self.l2_to_l1_messages.push(OrderedL2ToL1Message {
+            order,
+            message: MessageToL1 {
+                // todo: handle error properly
+                to_address: EthAddress::try_from(felt_to_starkfelt(to_address)).unwrap(),
+                payload: L2ToL1Payload(
+                    payload.to_vec().iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
+                ),
+            },
+        });
+
+        self.execution_context.n_sent_messages_to_l1 += 1;
+
+        Ok(())
     }
 
     fn keccak(

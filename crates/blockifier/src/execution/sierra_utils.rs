@@ -17,7 +17,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_types_core::felt::Felt;
 
-use super::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
+use super::call_info::{CallExecution, CallInfo, OrderedEvent, OrderedL2ToL1Message, Retdata};
 use super::contract_class::SierraContractClassV1;
 use super::entry_point::CallEntryPoint;
 use super::native_syscall_handler::NativeSyscallHandler;
@@ -109,8 +109,9 @@ pub fn setup_syscall_handler(
     storage_address: ContractAddress,
     execution_context: EntryPointExecutionContext,
     events: Vec<OrderedEvent>,
+    l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
 ) -> NativeSyscallHandler<'_> {
-    NativeSyscallHandler { state, storage_address, execution_context, events }
+    NativeSyscallHandler { state, storage_address, execution_context, events, l2_to_l1_messages }
 }
 
 pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler<'_>) -> SyscallHandlerMeta {
@@ -154,6 +155,7 @@ pub fn create_callinfo(
     call: CallEntryPoint,
     run_result: ContractExecutionResult,
     events: Vec<OrderedEvent>,
+    l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
 ) -> Result<CallInfo, super::errors::EntryPointExecutionError> {
     Ok(CallInfo {
         call,
@@ -162,7 +164,7 @@ pub fn create_callinfo(
                 run_result.return_values.into_iter().map(felt_to_starkfelt).collect_vec(),
             ),
             events,
-            l2_to_l1_messages: vec![],
+            l2_to_l1_messages,
             failed: run_result.failure_flag,
             gas_consumed: 34650, // TODO use cairo native's gas logic
         },

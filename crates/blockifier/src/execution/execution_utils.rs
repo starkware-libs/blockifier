@@ -95,8 +95,14 @@ pub fn execute_entry_point_call(
             let native_executor =
                 get_native_executor(code_class_hash, sierra_program, program_cache);
 
-            let mut syscall_handler: NativeSyscallHandler<'_> =
-                setup_syscall_handler(state, call.storage_address, context.clone(), Vec::new());
+            let mut syscall_handler: NativeSyscallHandler<'_> = setup_syscall_handler(
+                state,
+                call.storage_address,
+                context.clone(),
+                Vec::new(),
+                Vec::new(),
+            );
+
             let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
 
             let sierra_entry_function_id =
@@ -109,7 +115,12 @@ pub fn execute_entry_point_call(
                 &syscall_handler_meta,
             );
 
-            create_callinfo(call, run_result, syscall_handler.events)
+            create_callinfo(
+                call,
+                run_result,
+                syscall_handler.events,
+                syscall_handler.l2_to_l1_messages,
+            )
         }
     }
 }

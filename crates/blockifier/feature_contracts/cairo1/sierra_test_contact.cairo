@@ -148,12 +148,12 @@ mod SierraTestContract {
     //     syscalls::replace_class_syscall(class_hash).unwrap_syscall();
     // }
 
-    // #[external(v0)]
-    // fn test_send_message_to_l1(
-    //     self: @ContractState, to_address: felt252, payload: Array::<felt252>
-    // ) {
-    //     starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_send_message_to_l1(
+        self: @ContractState, to_address: felt252, payload: Array::<felt252>
+    ) {
+        starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
 
     // /// An external method that requires the `segment_arena` builtin.
     // #[external(v0)]
