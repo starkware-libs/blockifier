@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-use blockifier::block_context::GasPrices;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
@@ -116,29 +115,13 @@ impl From<CommitmentStateDiff> for PyStateDiff {
 }
 
 #[derive(Default, FromPyObject)]
-pub struct PyGasPrices {
+pub struct PyBlockInfo {
+    pub block_number: u64,
+    pub block_timestamp: u64,
     pub eth_l1_gas_price: u128,
     pub strk_l1_gas_price: u128,
     pub eth_l1_data_gas_price: u128,
     pub strk_l1_data_gas_price: u128,
-}
-
-impl From<PyGasPrices> for GasPrices {
-    fn from(py_gas_prices: PyGasPrices) -> Self {
-        Self {
-            eth_l1_gas_price: py_gas_prices.eth_l1_gas_price,
-            strk_l1_gas_price: py_gas_prices.strk_l1_gas_price,
-            eth_l1_data_gas_price: py_gas_prices.eth_l1_data_gas_price,
-            strk_l1_data_gas_price: py_gas_prices.strk_l1_data_gas_price,
-        }
-    }
-}
-
-#[derive(Default, FromPyObject)]
-pub struct PyBlockInfo {
-    pub block_number: u64,
-    pub block_timestamp: u64,
-    pub gas_prices: PyGasPrices,
     pub sequencer_address: PyFelt,
     pub use_kzg_da: bool,
 }
