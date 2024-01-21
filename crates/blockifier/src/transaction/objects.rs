@@ -193,7 +193,7 @@ impl TransactionExecutionInfo {
 }
 
 /// A mapping from a transaction execution resource to its actual usage.
-/// TODO(Aner, 21/01/24) change to use the new struct GasAndBlobGasUsages for gas_usage
+/// TODO(Aner, 21/01/24) change to use the new struct GasAndBlobGasUsages for gas_usage.
 #[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
