@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use starknet_api::transaction::Fee;
 
-use super::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
+use super::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage};
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -233,7 +233,7 @@ pub fn estimate_minimal_l1_gas(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
+    Ok(calculate_tx_l1_gas_usages(&resources, block_context)?.gas_usage)
 }
 
 pub fn estimate_minimal_fee(

@@ -10,7 +10,9 @@ use starknet_api::transaction::{Calldata, Fee, TransactionSignature, Transaction
 use crate::block_context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
+use crate::fee::fee_utils::{
+    calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage,
+};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -104,7 +106,9 @@ fn check_gas_and_fee(
     expected_cost_of_resources: Fee,
 ) {
     assert_eq!(
-        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context).unwrap(),
+        calculate_tx_l1_gas_usages(&tx_execution_info.actual_resources, block_context)
+            .unwrap()
+            .gas_usage,
         expected_actual_gas.into()
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
