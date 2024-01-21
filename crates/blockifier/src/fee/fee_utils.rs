@@ -24,6 +24,14 @@ pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, Reso
     (l1_gas_usage, ResourcesMapping(vm_resource_usage))
 }
 
+pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
+    let mut vm_resource_usage = resources.0.clone();
+    // TODO(Aner, 21/01/24) change unwrap_or to expect
+    let l1_gas_usage = vm_resource_usage.remove(constants::BLOB_GAS_USAGE).unwrap_or(0);
+
+    (l1_gas_usage, ResourcesMapping(vm_resource_usage))
+}
+
 /// Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
 /// I.e., returns the heaviest Cairo resource weight (in terms of L1 gas), as the size of
 /// a proof is determined similarly - by the (normalized) largest segment.
