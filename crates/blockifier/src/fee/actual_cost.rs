@@ -5,7 +5,7 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_usage;
+use crate::fee::gas_usage::calculate_tx_gas_and_blob_gas_usage;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -130,7 +130,7 @@ impl<'a> ActualCostBuilder<'a> {
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability
         // TODO(Aner, 21/01/24) Include gas for data availability according to use_kzg_da flag.
-        let l1_gas_usage = calculate_tx_gas_usage(
+        let (l1_gas_usage, _l1_blob_gas_usage) = calculate_tx_gas_and_blob_gas_usage(
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
