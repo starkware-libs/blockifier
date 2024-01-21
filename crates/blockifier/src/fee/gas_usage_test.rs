@@ -7,8 +7,9 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_blob_gas_usage, calculate_tx_gas_usage, get_consumed_message_to_l2_emissions_cost,
-    get_log_message_to_l1_emissions_cost, get_message_segment_length, get_onchain_data_cost,
+    calculate_tx_blob_gas_usage, calculate_tx_gas_and_blob_gas_usage,
+    get_consumed_message_to_l2_emissions_cost, get_log_message_to_l1_emissions_cost,
+    get_message_segment_length, get_onchain_data_cost,
 };
 use crate::state::cached_state::StateChangesCount;
 
@@ -61,6 +62,7 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
 ///     3. A transaction with L2-to-L1 messages.
 ///     4. A transaction that modifies the storage.
 ///     5. A combination of cases 2. 3. and 4.
+/// TODO(Aner,22/01/24): Test blob gas as well.
 #[test]
 fn test_calculate_tx_gas_usage_basic() {
     // DeployAccount.
@@ -76,20 +78,31 @@ fn test_calculate_tx_gas_usage_basic() {
     let manual_starknet_gas_usage = 0;
     let manual_sharp_gas_usage = get_onchain_data_cost(deploy_account_state_changes_count);
 
-    let deploy_account_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), deploy_account_state_changes_count, None)
-            .unwrap();
+    let deploy_account_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        std::iter::empty(),
+        deploy_account_state_changes_count,
+        None,
+    )
+    .unwrap();
+    let (deploy_account_gas_usage, _deploy_account_blob_gas_usage): (usize, usize) = (
+        deploy_account_gas_and_blob_gas_usage.gas_usage.try_into().unwrap(),
+        deploy_account_gas_and_blob_gas_usage.blob_gas_usage.try_into().unwrap(),
+    );
     assert_eq!(manual_starknet_gas_usage + manual_sharp_gas_usage, deploy_account_gas_usage);
 
     // L1 handler.
 
     let l1_handler_payload_size = 4;
-    let l1_handler_gas_usage = calculate_tx_gas_usage(
+    let l1_handler_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
         std::iter::empty(),
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
     )
     .unwrap();
+    let (l1_handler_gas_usage, _l1_handler_blob_gas_usage): (usize, usize) = (
+        l1_handler_gas_and_blob_gas_usage.gas_usage.try_into().unwrap(),
+        l1_handler_gas_and_blob_gas_usage.blob_gas_usage.try_into().unwrap(),
+    );
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
@@ -138,9 +151,16 @@ fn test_calculate_tx_gas_usage_basic() {
         n_compiled_class_hash_updates: 0,
         n_modified_contracts: 1,
     };
-    let l2_to_l1_messages_gas_usage =
-        calculate_tx_gas_usage(call_infos_iter.clone(), l2_to_l1_state_changes_count, None)
-            .unwrap();
+    let l2_to_l1_messages_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        call_infos_iter.clone(),
+        l2_to_l1_state_changes_count,
+        None,
+    )
+    .unwrap();
+    let (l2_to_l1_messages_gas_usage, _l2_to_l1_messages_blob_gas_usage): (usize, usize) = (
+        l2_to_l1_messages_gas_and_blob_gas_usage.gas_usage.try_into().unwrap(),
+        l2_to_l1_messages_gas_and_blob_gas_usage.blob_gas_usage.try_into().unwrap(),
+    );
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&l2_to_l1_payloads_length, None);
@@ -164,9 +184,16 @@ fn test_calculate_tx_gas_usage_basic() {
         n_compiled_class_hash_updates: 0,
         n_modified_contracts,
     };
-    let storage_writings_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), storage_writes_state_changes_count, None)
-            .unwrap();
+    let storage_writings_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        std::iter::empty(),
+        storage_writes_state_changes_count,
+        None,
+    )
+    .unwrap();
+    let (storage_writings_gas_usage, _storage_writings_blob_gas_usage): (usize, usize) = (
+        storage_writings_gas_and_blob_gas_usage.gas_usage.try_into().unwrap(),
+        storage_writings_gas_and_blob_gas_usage.blob_gas_usage.try_into().unwrap(),
+    );
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
@@ -182,12 +209,16 @@ fn test_calculate_tx_gas_usage_basic() {
         n_modified_contracts: storage_writes_state_changes_count.n_modified_contracts
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
-    let gas_usage = calculate_tx_gas_usage(
+    let gas_usage_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
         call_infos_iter,
         combined_state_changes_count,
         Some(l1_handler_payload_size),
     )
     .unwrap();
+    let (gas_usage, _blob_gas_usage): (usize, usize) = (
+        gas_usage_and_blob_gas_usage.gas_usage.try_into().unwrap(),
+        gas_usage_and_blob_gas_usage.blob_gas_usage.try_into().unwrap(),
+    );
 
     // Manual calculation.
     let fee_balance_discount =
