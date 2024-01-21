@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use starknet_api::transaction::Fee;
 
-use super::fee_utils::{calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
+use super::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage};
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -11,7 +11,8 @@ use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult, TransactionPreValidationResult,
+    GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    TransactionPreValidationResult,
 };
 
 #[cfg(test)]
@@ -33,6 +34,18 @@ fn calculate_l2_to_l1_payloads_length_and_message_segment_length<'a>(
         get_message_segment_length(&l2_to_l1_payloads_length, l1_handler_payload_size);
 
     Ok((l2_to_l1_payloads_length, message_segment_length))
+}
+
+pub fn calculate_tx_gas_and_blob_gas_usage<'a>(
+    call_infos: impl Iterator<Item = &'a CallInfo>,
+    state_changes_count: StateChangesCount,
+    l1_handler_payload_size: Option<usize>,
+) -> TransactionExecutionResult<GasAndBlobGasUsages> {
+    Ok(GasAndBlobGasUsages {
+        gas_usage: calculate_tx_gas_usage(call_infos, state_changes_count, l1_handler_payload_size)?
+            as u128,
+        blob_gas_usage: 0,
+    })
 }
 
 /// Returns the blob-gas (data-gas) needed to publish the transaction's state diff in a blob.
@@ -199,7 +212,7 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
 pub fn estimate_minimal_l1_gas(
     block_context: &BlockContext,
     tx: &AccountTransaction,
-) -> TransactionPreValidationResult<u128> {
+) -> TransactionPreValidationResult<GasAndBlobGasUsages> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
     let os_steps_for_type = OS_RESOURCES.resources_for_tx_type(&tx.tx_type()).n_steps;
     let gas_cost: usize = match tx {
@@ -231,7 +244,7 @@ pub fn estimate_minimal_l1_gas(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    Ok(calculate_tx_l1_gas_usage(&resources, block_context)?)
+    Ok(calculate_tx_l1_gas_usages(&resources, block_context)?)
 }
 
 pub fn estimate_minimal_fee(

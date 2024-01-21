@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use starknet_api::transaction::TransactionVersion;
 
+use super::objects::GasAndBlobGasUsages;
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
@@ -17,9 +18,10 @@ use crate::transaction::transaction_types::TransactionType;
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(
     execution_resources: &ExecutionResources,
-    l1_gas_usage: usize,
+    l1_gas_usages: GasAndBlobGasUsages,
     tx_type: TransactionType,
 ) -> TransactionExecutionResult<ResourcesMapping> {
+    let l1_gas_usage = l1_gas_usages.gas_usage.try_into()?;
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
         + &get_additional_os_resources(&execution_resources.syscall_counter, tx_type)?;
