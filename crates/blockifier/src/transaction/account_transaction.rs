@@ -169,7 +169,9 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
     ) -> TransactionPreValidationResult<()> {
-        let minimal_l1_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
+        // TODO(Aner, 21/01/24) modify for 4844 (blob_gas).
+        let minimal_l1_gas_and_blob_gas_amount = estimate_minimal_l1_gas(block_context, self)?;
+        let minimal_l1_gas_amount = minimal_l1_gas_and_blob_gas_amount.gas_usage;
         let block_info = &block_context.block_info;
 
         match account_tx_context {
@@ -204,7 +206,7 @@ impl AccountTransaction {
                 let max_fee = context.max_fee;
                 let min_fee = get_fee_by_l1_gas_usage(
                     block_info,
-                    minimal_l1_gas_amount,
+                    minimal_l1_gas_and_blob_gas_amount,
                     &account_tx_context.fee_type(),
                 );
                 if max_fee < min_fee {
