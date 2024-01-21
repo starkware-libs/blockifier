@@ -143,7 +143,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         )?;
 
         let actual_cost = account_tx
-            .into_actual_cost_builder(&self.block_context)
+            .to_actual_cost_builder(&self.block_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?
             .build(&execution_resources)?;

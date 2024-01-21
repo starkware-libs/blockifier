@@ -392,7 +392,7 @@ impl AccountTransaction {
         }
 
         let actual_cost = self
-            .into_actual_cost_builder(block_context)
+            .to_actual_cost_builder(block_context)
             .with_validate_call_info(&validate_call_info)
             .with_execute_call_info(&execute_call_info)
             .try_add_state_changes(state)?
@@ -446,7 +446,7 @@ impl AccountTransaction {
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
         let actual_cost_builder_with_validation_changes = self
-            .into_actual_cost_builder(block_context)
+            .to_actual_cost_builder(block_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(state)?;
 
@@ -584,7 +584,7 @@ impl AccountTransaction {
         )
     }
 
-    pub fn into_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
+    pub fn to_actual_cost_builder(&self, block_context: &BlockContext) -> ActualCostBuilder<'_> {
         ActualCostBuilder::new(block_context, self.get_account_tx_context(), self.tx_type())
     }
 }
