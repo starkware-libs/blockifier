@@ -10,7 +10,9 @@ use starknet_api::transaction::{Calldata, Fee, TransactionSignature, Transaction
 use crate::block_context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usage, get_fee_by_l1_gas_usage};
+use crate::fee::fee_utils::{
+    calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage,
+};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -24,7 +26,7 @@ use crate::test_utils::{
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
-use crate::transaction::objects::{FeeType, TransactionExecutionInfo};
+use crate::transaction::objects::{FeeType, GasAndBlobGasUsages, TransactionExecutionInfo};
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds, INVALID};
 use crate::transaction::transactions::ExecutableTransaction;
 const VALIDATE_GAS_OVERHEAD: u64 = 21;
@@ -88,13 +90,14 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
         gas,
         get_fee_by_l1_gas_usage(
             &BlockContext::create_for_account_testing().block_info,
-            gas.into(),
+            GasAndBlobGasUsages { gas_usage: gas.into(), blob_gas_usage: 0 },
             fee_type,
         ),
     )
 }
 
 /// Asserts gas used and reported fee are as expected.
+/// TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account)
 fn check_gas_and_fee(
     block_context: &BlockContext,
     tx_execution_info: &TransactionExecutionInfo,
@@ -104,7 +107,9 @@ fn check_gas_and_fee(
     expected_cost_of_resources: Fee,
 ) {
     assert_eq!(
-        calculate_tx_l1_gas_usage(&tx_execution_info.actual_resources, block_context).unwrap(),
+        calculate_tx_l1_gas_usages(&tx_execution_info.actual_resources, block_context)
+            .unwrap()
+            .gas_usage,
         expected_actual_gas.into()
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
@@ -481,8 +486,11 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let invoke_tx_max_n_steps_as_u64: u64 =
         low_step_block_context.block_info.invoke_tx_max_n_steps.into();
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1720;
-    let block_limit_fee =
-        get_fee_by_l1_gas_usage(&block_context.block_info, block_limit_gas.into(), &fee_type);
+    let block_limit_fee = get_fee_by_l1_gas_usage(
+        &block_context.block_info,
+        GasAndBlobGasUsages { gas_usage: block_limit_gas.into(), blob_gas_usage: 0 },
+        &fee_type,
+    );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
         resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
