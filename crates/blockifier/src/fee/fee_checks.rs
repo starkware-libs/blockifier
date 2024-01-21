@@ -5,11 +5,13 @@ use thiserror::Error;
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usage, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usage,
+    calculate_tx_l1_gas_usages, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usage,
 };
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{AccountTransactionContext, FeeType, TransactionExecutionResult};
+use crate::transaction::objects::{
+    AccountTransactionContext, FeeType, GasAndBlobGasUsages, TransactionExecutionResult,
+};
 
 #[derive(Clone, Copy, Debug, Error)]
 pub enum FeeCheckError {
@@ -71,7 +73,10 @@ impl FeeCheckReport {
                 match account_tx_context {
                     AccountTransactionContext::Current(context) => get_fee_by_l1_gas_usage(
                         block_info,
-                        context.l1_resource_bounds()?.max_amount.into(),
+                        GasAndBlobGasUsages {
+                            gas_usage: context.l1_resource_bounds()?.max_amount.into(),
+                            blob_gas_usage: 0,
+                        },
                         &FeeType::Strk,
                     ),
                     AccountTransactionContext::Deprecated(context) => context.max_fee,
@@ -97,7 +102,7 @@ impl FeeCheckReport {
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
                 let actual_used_l1_gas =
-                    calculate_tx_l1_gas_usage(actual_resources, block_context)?;
+                    calculate_tx_l1_gas_usages(actual_resources, block_context)?.gas_usage;
                 if actual_used_l1_gas > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {
                         max_amount: max_l1_gas,
