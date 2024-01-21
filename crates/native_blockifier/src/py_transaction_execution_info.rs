@@ -1,11 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use blockifier::execution::call_info::{self, CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use blockifier::fee::gas_usage::calculate_l2_to_l1_payloads_length_and_message_segment_length;
 use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::transaction::transaction_execution::Transaction;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 
 use crate::py_utils::{to_py_vec, PyFelt};
+use crate::transaction_executor::{
+    get_casm_hash_calculation_resources, get_particia_update_resources,
+};
 
 #[pyclass]
 #[derive(Clone)]
@@ -190,4 +195,25 @@ pub struct PyBouncerInfo {
     pub state_diff_size: usize,
     #[pyo3(get)]
     pub additional_os_resources: PyVmExecutionResources,
+}
+
+impl PyBouncerInfo {
+    pub fn new(
+        l1_handler_payload_size: usize,
+        additional_os_resources: PyVmExecutionResources,
+        tx_execution_info: &TransactionExecutionInfo,
+    ) -> Self {
+        let non_optional_call_infos = tx_execution_info
+            .validate_call_info
+            .as_ref()
+            .into_iter()
+            .chain(tx_execution_info.execute_call_info.as_ref());
+        let (_l2_to_l1_payloads_length, message_segment_length) =
+            calculate_l2_to_l1_payloads_length_and_message_segment_length(
+                non_optional_call_infos,
+                Some(l1_handler_payload_size),
+            )
+            .unwrap();
+        Self { message_segment_length, state_diff_size: 0, additional_os_resources }
+    }
 }

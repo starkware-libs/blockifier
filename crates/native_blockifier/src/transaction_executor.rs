@@ -1,23 +1,27 @@
+use std::collections::hash_map::RandomState;
 use std::collections::{HashMap, HashSet};
+use std::vec;
 
 use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
-use blockifier::fee::gas_usage::calculate_l2_to_l1_payloads_length_and_message_segment_length;
 use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, GlobalContractCache, MutRefState, StagedTransactionalState, StorageEntry,
+    TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockNumber};
-use starknet_api::core::ClassHash;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::state::StorageKey;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
@@ -81,8 +85,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             } else {
                 0
             };
-        let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
-        let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -92,36 +94,19 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
-                tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
-                tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
-                let call_infos: Vec<&CallInfo> =
-                    [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
-                        .iter()
-                        .filter_map(|&call_info| call_info.as_ref())
-                        .collect::<Vec<&CallInfo>>();
-                let (_l2_to_l1_payloads_length, message_segment_length) =
-                    calculate_l2_to_l1_payloads_length_and_message_segment_length(
-                        call_infos.into_iter(),
-                        Some(l1_handler_payload_size),
-                    )?;
-                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
-
-                let mut additional_os_resources = get_casm_hash_calculation_resources(
+                let additional_os_resources = calculate_additional_os_resources(
+                    &tx_execution_info,
                     &mut transactional_state,
                     &self.executed_class_hashes,
-                    &tx_executed_class_hashes,
-                )?;
-                additional_os_resources += &get_particia_update_resources(
                     &self.visited_storage_entries,
-                    &tx_visited_storage_entries,
-                )?;
-                let py_bouncer_info = PyBouncerInfo {
-                    message_segment_length,
-                    state_diff_size: 0,
-                    additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
-                };
-
+                    self.staged_for_commit_state,
+                );
+                let py_bouncer_info = PyBouncerInfo::new(
+                    l1_handler_payload_size,
+                    additional_os_resources,
+                    &tx_execution_info,
+                );
+                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 self.staged_for_commit_state = Some(
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
@@ -275,4 +260,28 @@ pub fn get_particia_update_resources(
     };
 
     Ok(patricia_update_resources)
+}
+
+pub fn calculate_additional_os_resources<S: StateReader>(
+    tx_execution_info: &TransactionExecutionInfo,
+    transactional_state: &mut TransactionalState<'_, S>,
+    executed_class_hashes: &HashSet<ClassHash, RandomState>,
+    visited_storage_entries: &HashSet<(ContractAddress, StorageKey), RandomState>,
+    staged_for_commit_state: Option<StagedTransactionalState>
+) -> PyVmExecutionResources {
+    let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
+    let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
+    tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+    tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
+    let mut additional_os_resources = get_casm_hash_calculation_resources(
+        transactional_state,
+        executed_class_hashes,
+        &tx_executed_class_hashes,
+    )
+    .unwrap();
+    additional_os_resources +=
+        &get_particia_update_resources(visited_storage_entries, tx_visited_storage_entries)
+            .unwrap();
+    let py_additional_os_resources = PyVmExecutionResources::from(additional_os_resources);
+    py_additional_os_resources
 }
