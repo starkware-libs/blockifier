@@ -179,7 +179,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     );
 
     // Second scenario: minimal fee not covered. Actual fee is precomputed.
-    let (actual_gas_used, actual_fee) = gas_and_fee(6095, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(6127, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(10),
         resource_bounds: l1_resource_bounds(10, 10),
@@ -319,7 +319,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     } = create_flavors_test_state(&block_context, cairo_version);
 
     // Validation scenario: fallible validation.
-    let (actual_gas_used, actual_fee) = gas_and_fee(30830, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(30854, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
@@ -396,7 +396,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     };
 
     // First scenario: logic error. Should result in revert; actual fee should be shown.
-    let (revert_gas_used, revert_fee) = gas_and_fee(5312, validate, &fee_type);
+    let (revert_gas_used, revert_fee) = gas_and_fee(5344, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         calldata: recurse_calldata(test_contract_address, true, 3),
         nonce: nonce_manager.next(account_address),
@@ -428,7 +428,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // If `charge_fee` is true, execution is limited by sender bounds, so less resources will be
     // used. Otherwise, execution is limited by block bounds, so more resources will be used.
     let (limited_gas_used, limited_fee) = gas_and_fee(7721, validate, &fee_type);
-    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10087, validate, &fee_type);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10119, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
         resource_bounds: l1_resource_bounds(gas_bound, gas_price),
@@ -550,8 +550,8 @@ fn test_simulate_validate_charge_fee_post_execution(
         gas_and_fee(base_gas_bound, validate, &fee_type);
     // `__validate__` and overhead resources + number of reverted steps, comes out slightly more
     // than the gas bound.
-    let (revert_gas_usage, revert_fee) = gas_and_fee(9323, validate, &fee_type);
-    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10087, validate, &fee_type);
+    let (revert_gas_usage, revert_fee) = gas_and_fee(9355, validate, &fee_type);
+    let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10119, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: just_not_enough_fee_bound,
         resource_bounds: l1_resource_bounds(just_not_enough_gas_bound, gas_price),
@@ -590,8 +590,8 @@ fn test_simulate_validate_charge_fee_post_execution(
 
     // Second scenario: balance too low.
     // Execute a transfer, and make sure we get the expected result.
-    let (success_actual_gas, actual_fee) = gas_and_fee(8585, validate, &fee_type);
-    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(5833, validate, &fee_type);
+    let (success_actual_gas, actual_fee) = gas_and_fee(8633, validate, &fee_type);
+    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(5881, validate, &fee_type);
     assert!(stark_felt!(actual_fee) < current_balance);
     let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
     let recipient = stark_felt!(7_u8);

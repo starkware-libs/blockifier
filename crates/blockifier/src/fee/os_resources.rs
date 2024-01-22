@@ -255,13 +255,14 @@ fn os_resources() -> serde_json::Value {
                     "n_memory_holes": 82,
                     "n_steps": 3798
                 },
+                // Calculation of transaction hash + contract address + memcpy.
                 "Slope":{
                     "builtin_instance_counter": {
-                        "pedersen_builtin": 0,
+                        "pedersen_builtin": 2,
                         "range_check_builtin": 0
                     },
                     "n_memory_holes": 0,
-                    "n_steps": 0
+                    "n_steps": 21
                 },
             },
                 "InvokeFunction": {
@@ -273,13 +274,14 @@ fn os_resources() -> serde_json::Value {
                     "n_memory_holes": 68,
                     "n_steps": 3549
                 },
+                // Calculation of transaction hash.
                 "Slope": {
                     "builtin_instance_counter": {
-                        "pedersen_builtin": 0,
+                        "pedersen_builtin": 1,
                         "range_check_builtin": 0
                     },
                     "n_memory_holes": 0,
-                    "n_steps": 0
+                    "n_steps": 8
                 }
             },
                 "L1Handler": {
@@ -291,13 +293,14 @@ fn os_resources() -> serde_json::Value {
                     "n_memory_holes": 0,
                     "n_steps": 1157
                 },
+                // Calculation of transaction hash + memcpy.
                 "Slope": {
                     "builtin_instance_counter": {
-                        "pedersen_builtin": 0,
+                        "pedersen_builtin": 1,
                         "range_check_builtin": 0
                     },
                     "n_memory_holes": 0,
-                    "n_steps": 0
+                    "n_steps": 13
                 }
             }
         }

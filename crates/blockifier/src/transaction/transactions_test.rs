@@ -293,7 +293,7 @@ fn default_invoke_tx_args(
 #[test_case(
     ExpectedResultTestInvokeTx{
         range_check: 102,
-        n_steps: 4464,
+        n_steps: 4496,
         vm_resources: VmExecutionResources {
             n_steps:  62,
             n_memory_holes:  0,
@@ -308,7 +308,7 @@ fn default_invoke_tx_args(
 #[test_case(
     ExpectedResultTestInvokeTx{
         range_check: 115,
-        n_steps: 4917,
+        n_steps: 4949,
         vm_resources: VmExecutionResources {
             n_steps: 284,
             n_memory_holes: 1,
@@ -420,7 +420,7 @@ fn test_invoke_tx(
                     ..StateChangesCount::default()
                 }),
             ),
-            (HASH_BUILTIN_NAME.to_string(), 16),
+            (HASH_BUILTIN_NAME.to_string(), 20),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
         ])),
@@ -1646,8 +1646,8 @@ fn test_l1_handler() {
 
     // Build the expected resource mapping.
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
-        (HASH_BUILTIN_NAME.to_string(), 11),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
+        (HASH_BUILTIN_NAME.to_string(), 13),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 1416),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
         (abi_constants::GAS_USAGE.to_string(), 17675),
     ]));
@@ -1684,7 +1684,7 @@ fn test_l1_handler() {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1741300000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1743900000000000)
     );
 }
 
