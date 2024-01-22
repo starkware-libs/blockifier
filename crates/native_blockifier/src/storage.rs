@@ -147,7 +147,7 @@ impl Storage for PapyrusStorage {
         // i.e.: pointing to a non-zeroed class hash). Rest would be (newly) deployed classes.
         let mut replaced_classes = IndexMap::<ContractAddress, ClassHash>::new();
         for (address, class_hash) in &py_state_diff.address_to_class_hash {
-            let address = ContractAddress::try_from(*address)?;
+            let address = ContractAddress::try_from(address.0)?;
             let address_assigned: bool = self
                 .reader()
                 .begin_ro_txn()?
