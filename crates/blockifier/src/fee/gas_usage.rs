@@ -50,11 +50,16 @@ pub fn calculate_tx_gas_usage<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
+    use_kzg_flag: bool,
 ) -> TransactionExecutionResult<usize> {
     let gas_for_messages_and_proof =
         calculate_tx_gas_usage_messages(call_infos, l1_handler_payload_size)?;
-    let gas_for_da = get_onchain_data_cost(state_changes_count);
-    Ok(gas_for_messages_and_proof + gas_for_da)
+    if !use_kzg_flag {
+        let gas_for_da = get_onchain_data_cost(state_changes_count);
+        Ok(gas_for_messages_and_proof + gas_for_da)
+    } else {
+        Ok(gas_for_messages_and_proof)
+    }
 }
 
 /// Returns an estimation of the gas usage for L1-L2 messages. Accounts for both gas used for

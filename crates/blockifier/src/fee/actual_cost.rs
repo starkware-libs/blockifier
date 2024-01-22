@@ -1,6 +1,7 @@
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
+use super::gas_usage::calculate_tx_blob_gas_usage;
 use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -134,10 +135,20 @@ impl<'a> ActualCostBuilder<'a> {
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
+            self.block_context.block_info.use_kzg_da,
         )?;
 
-        let mut actual_resources =
-            calculate_tx_resources(execution_resources, l1_gas_usage, self.tx_type)?;
+        let l1_blob_gas_usage = match self.block_context.block_info.use_kzg_da {
+            true => calculate_tx_blob_gas_usage(state_changes_count),
+            false => 0,
+        };
+
+        let mut actual_resources = calculate_tx_resources(
+            execution_resources,
+            l1_gas_usage,
+            l1_blob_gas_usage,
+            self.tx_type,
+        )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
