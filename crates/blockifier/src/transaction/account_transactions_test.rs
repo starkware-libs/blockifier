@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
@@ -41,7 +42,7 @@ use crate::test_utils::{
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
     deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
@@ -73,7 +74,7 @@ fn test_fee_enforcement(
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let enforce_fee = account_tx.get_account_tx_context().enforce_fee().unwrap();
+    let enforce_fee = account_tx.create_tx_info().enforce_fee().unwrap();
     let result = account_tx.execute(state, &block_context, true, true);
     assert_eq!(result.is_err(), enforce_fee);
 }
@@ -107,7 +108,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
 }
 
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
-// TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
+// TODO(Dori, 10/10/2023): Add V3 case once `create_tx_info` is supported for V3.
 #[rstest]
 fn test_account_flow_test(
     block_context: BlockContext,
@@ -141,7 +142,7 @@ fn test_account_flow_test(
 #[rstest]
 #[case(TransactionVersion::ZERO)]
 #[case(TransactionVersion::ONE)]
-// TODO(Nimrod, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
+// TODO(Nimrod, 10/10/2023): Add V3 case once `get_tx_info` is supported for V3.
 fn test_invoke_tx_from_non_deployed_account(
     block_context: BlockContext,
     max_fee: Fee,
@@ -575,12 +576,9 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     );
 
     // Fail execution, assert nonce and balance are unchanged.
-    let account_tx_context = declare_account_tx.get_account_tx_context();
+    let tx_info = declare_account_tx.create_tx_info();
     let initial_balance = state
-        .get_fee_token_balance(
-            account_address,
-            chain_info.fee_token_address(&account_tx_context.fee_type()),
-        )
+        .get_fee_token_balance(account_address, chain_info.fee_token_address(&tx_info.fee_type()))
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
 
@@ -589,7 +587,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
         state
             .get_fee_token_balance(
                 account_address,
-                chain_info.fee_token_address(&account_tx_context.fee_type())
+                chain_info.fee_token_address(&tx_info.fee_type())
             )
             .unwrap(),
         initial_balance
@@ -854,12 +852,8 @@ fn test_max_fee_to_max_steps_conversion(
         resource_bounds: l1_resource_bounds(actual_gas_used, actual_strk_gas_price),
         nonce: nonce_manager.next(account_address),
     });
-    let execution_context1 = EntryPointExecutionContext::new_invoke(
-        &block_context,
-        &account_tx1.get_account_tx_context(),
-        true,
-    )
-    .unwrap();
+    let tx_context1 = Arc::new(block_context.to_tx_context(&account_tx1));
+    let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true).unwrap();
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.n_steps();
@@ -877,12 +871,8 @@ fn test_max_fee_to_max_steps_conversion(
         resource_bounds: l1_resource_bounds(2 * actual_gas_used, actual_strk_gas_price),
         nonce: nonce_manager.next(account_address),
     });
-    let execution_context2 = EntryPointExecutionContext::new_invoke(
-        &block_context,
-        &account_tx2.get_account_tx_context(),
-        true,
-    )
-    .unwrap();
+    let tx_context2 = Arc::new(block_context.to_tx_context(&account_tx2));
+    let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true).unwrap();
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.n_steps();
