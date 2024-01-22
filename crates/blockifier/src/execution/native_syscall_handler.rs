@@ -13,7 +13,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_SET_CLASS_HASH,
-    FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR,
+    FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::state::state_api::State;
 
@@ -208,10 +208,37 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn keccak(
         &mut self,
-        _input: &[u64],
+        input: &[u64],
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<cairo_native::starknet::U256> {
-        todo!("Native syscall handler - keccak")
+        let input_len = input.len();
+
+        const KECCAK_FULL_RATE_IN_WORDS: usize = 17;
+        let (_, remainder) = num_integer::div_rem(input_len, KECCAK_FULL_RATE_IN_WORDS);
+
+        if remainder != 0 {
+            return Err(vec![Felt::from_hex(INVALID_INPUT_LENGTH_ERROR).unwrap()]);
+        }
+
+        let input_chunks = input.chunks_exact(KECCAK_FULL_RATE_IN_WORDS);
+        let mut keccak_state = [0u64; 25];
+
+        for chunk in input_chunks {
+            for (i, val) in chunk.iter().enumerate() {
+                keccak_state[i] ^= val;
+            }
+            keccak::f1600(&mut keccak_state)
+        }
+
+        let hash: Vec<Vec<u8>> =
+            [keccak_state[0], keccak_state[1], keccak_state[2], keccak_state[3]]
+                .iter()
+                .map(|e| e.to_le_bytes().to_vec())
+                .collect();
+
+        let hash = hash.concat();
+
+        Ok(cairo_native::starknet::U256(hash[0..32].try_into().unwrap()))
     }
 
     fn secp256k1_add(

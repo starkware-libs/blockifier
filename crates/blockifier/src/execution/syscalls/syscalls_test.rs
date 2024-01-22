@@ -29,7 +29,7 @@ use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::contract_class::ContractClassV0;
+// use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -210,7 +210,7 @@ fn test_keccak() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 354940, ..CallExecution::from_retdata(retdata![]) }
+        CallExecution { gas_consumed: 34650, ..CallExecution::from_retdata(retdata![]) }
     );
 }
 

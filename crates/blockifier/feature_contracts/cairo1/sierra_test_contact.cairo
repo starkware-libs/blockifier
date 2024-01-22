@@ -191,24 +191,24 @@ mod SierraTestContract {
     // }
 
 
-    // #[external(v0)]
-    // fn test_keccak(ref self: ContractState) {
-    //     let mut input: Array::<u256> = Default::default();
-    //     input.append(u256 { low: 1, high: 0 });
-    // 
-    //     let res = keccak::keccak_u256s_le_inputs(input.span());
-    //     assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
-    //     assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
-    // 
-    //     let mut input: Array::<u64> = Default::default();
-    //     input.append(1_u64);
-    //     match syscalls::keccak_syscall(input.span()) {
-    //         Result::Ok(_) => panic_with_felt252('Should fail'),
-    //         Result::Err(revert_reason) => assert(
-    //             *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
-    //         ),
-    //     }
-    // }
+    #[external(v0)]
+    fn test_keccak(ref self: ContractState) {
+        let mut input: Array::<u256> = Default::default();
+        input.append(u256 { low: 1, high: 0 });
+    
+        let res = keccak::keccak_u256s_le_inputs(input.span());
+        assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
+        assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
+    
+        let mut input: Array::<u64> = Default::default();
+        input.append(1_u64);
+        match syscalls::keccak_syscall(input.span()) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
+            ),
+        }
+    }
 
     // #[external(v0)]
     // fn test_secp256k1(ref self: ContractState) {
