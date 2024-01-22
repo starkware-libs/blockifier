@@ -229,38 +229,77 @@ fn os_resources() -> serde_json::Value {
         },
         "execute_txs_inner": {
             "Declare": {
-                "builtin_instance_counter": {
-                    "pedersen_builtin": 15,
-                    "range_check_builtin": 63
+                "Constant": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 15,
+                        "range_check_builtin": 63
+                    },
+                    "n_memory_holes": 66,
+                    "n_steps": 2843
                 },
-                "n_memory_holes": 66,
-                "n_steps": 2843
+                "Slope": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 0,
+                        "range_check_builtin": 0
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 0
+                }
             },
             "DeployAccount": {
-                "builtin_instance_counter": {
-                    "pedersen_builtin": 23,
-                    "range_check_builtin": 83
+                "Constant": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 23,
+                        "range_check_builtin": 83
+                    },
+                    "n_memory_holes": 82,
+                    "n_steps": 3798
                 },
-                "n_memory_holes": 82,
-                "n_steps": 3798
+                "Slope":{
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 0,
+                        "range_check_builtin": 0
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 0
+                },
             },
             "InvokeFunction": {
-                "builtin_instance_counter": {
-                    "pedersen_builtin": 16,
-                    "range_check_builtin": 80
+                "Constant": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 16,
+                        "range_check_builtin": 80
+                    },
+                    "n_memory_holes": 68,
+                    "n_steps": 3549
                 },
-                "n_memory_holes": 68,
-                "n_steps": 3549
+                "Slope": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 0,
+                        "range_check_builtin": 0
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 0
+                }
             },
             "L1Handler": {
-                "builtin_instance_counter": {
-                    "pedersen_builtin": 11,
-                    "range_check_builtin": 17
+                "Constant": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 11,
+                        "range_check_builtin": 17
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 1157
                 },
-                "n_memory_holes": 0,
-                "n_steps": 1157
+                "Slope": {
+                    "builtin_instance_counter": {
+                        "pedersen_builtin": 0,
+                        "range_check_builtin": 0
+                    },
+                    "n_memory_holes": 0,
+                    "n_steps": 0
+                }
             }
         }
-    }
-    )
+    })
 }
