@@ -143,10 +143,10 @@ mod SierraTestContract {
     //         .unwrap_syscall()
     // }
 
-    // #[external(v0)]
-    // fn test_replace_class(self: @ContractState, class_hash: ClassHash) {
-    //     syscalls::replace_class_syscall(class_hash).unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_replace_class(self: @ContractState, class_hash: ClassHash) {
+        syscalls::replace_class_syscall(class_hash).unwrap_syscall();
+    }
 
     #[external(v0)]
     fn test_send_message_to_l1(

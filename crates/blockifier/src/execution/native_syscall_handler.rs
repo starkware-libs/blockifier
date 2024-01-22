@@ -1,6 +1,6 @@
 use cairo_native::starknet::StarkNetSyscallHandler;
-use starknet_api::core::{ContractAddress, EthAddress, PatriciaKey};
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, EventData, EventKey, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
@@ -9,9 +9,11 @@ use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_EXECUTION_MODE_ERROR,
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_SET_CLASS_HASH,
+    FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR,
 };
 use crate::state::state_api::State;
 
@@ -78,10 +80,32 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn replace_class(
         &mut self,
-        _class_hash: Felt,
+        class_hash: Felt,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<()> {
-        todo!("Native syscall handler - replace_class")
+        let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
+        let contract_class = self
+            .state
+            .get_compiled_contract_class(class_hash)
+            .map_err(|_| vec![Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).unwrap()])?;
+
+        let set_class_hash_lambda =
+            |state: &mut dyn State| -> cairo_native::starknet::SyscallResult<()> {
+                state
+                    .set_class_hash_at(self.storage_address, class_hash)
+                    .map_err(|_| vec![Felt::from_hex(FAILED_TO_SET_CLASS_HASH).unwrap()])?;
+
+                Ok(())
+            };
+
+        match contract_class {
+            ContractClass::V0(_) => Err(vec![Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).unwrap()]),
+            ContractClass::V1(_) => set_class_hash_lambda(self.state),
+            ContractClass::V1Sierra(_) => {
+                // todo: assure if it is correct
+                set_class_hash_lambda(self.state)
+            }
+        }
     }
 
     fn library_call(
