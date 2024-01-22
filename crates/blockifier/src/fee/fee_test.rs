@@ -90,12 +90,12 @@ fn test_discounted_gas_overdraft(
             (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
         ])),
     };
+    let charge_fee = true;
     let report = PostExecutionReport::new(
         &mut state,
-        &block_context,
-        &tx.get_account_tx_context(),
+        &block_context.to_tx_context(&tx),
         &actual_cost,
-        true,
+        charge_fee,
     )
     .unwrap();
 

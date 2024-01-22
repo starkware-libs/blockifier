@@ -1,19 +1,16 @@
 use std::collections::HashMap;
 
-use starknet_api::transaction::Fee;
-
-use super::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
+use super::fee_utils::calculate_tx_gas_vector;
 use crate::abi::constants;
-use crate::block::BlockInfo;
-use crate::context::BlockContext;
+use crate::context::TransactionContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
-    AccountTransactionContext, GasVector, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionResult, TransactionPreValidationResult,
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    TransactionPreValidationResult,
 };
 use crate::utils::{u128_from_usize, usize_from_u128};
 
@@ -207,11 +204,12 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> GasVector {
 
 /// Return an estimated lower bound for the L1 gas on an account transaction.
 pub fn estimate_minimal_gas_vector(
-    block_context: &BlockContext,
+    tx_context: &TransactionContext,
     tx: &AccountTransaction,
 ) -> TransactionPreValidationResult<GasVector> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
-    let os_steps_for_type = OS_RESOURCES.resources_for_tx_type(&tx.tx_type()).n_steps;
+    let tx_type = &tx.tx_type();
+    let os_steps_for_type = OS_RESOURCES.resources_for_tx_type(tx_type).n_steps;
     let state_changes_by_account_transaction = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
@@ -236,6 +234,7 @@ pub fn estimate_minimal_gas_vector(
             n_modified_contracts: 1,
         },
     };
+    let block_context = &tx_context.block_context;
     let use_kzg_da = block_context.block_info.use_kzg_da;
     let GasVector { l1_gas: gas_cost, blob_gas: blob_gas_cost } =
         get_da_gas_cost(state_changes_by_account_transaction, use_kzg_da);
@@ -256,14 +255,6 @@ pub fn estimate_minimal_gas_vector(
     Ok(calculate_tx_gas_vector(&resources, &block_context.versioned_constants)?)
 }
 
-pub fn estimate_minimal_fee(
-    block_context: &BlockContext,
-    tx: &AccountTransaction,
-) -> TransactionExecutionResult<Fee> {
-    let estimated_minimal_l1_gas = estimate_minimal_gas_vector(block_context, tx)?;
-    Ok(get_fee_by_gas_vector(&block_context.block_info, estimated_minimal_l1_gas, &tx.fee_type()))
-}
-
 /// Compute l1_gas estimation from gas_vector using the following formula:
 /// One byte of data costs either 1 data gas (in blob mode) or 16 gas (in calldata
 /// mode). For gas price GP and data gas price DGP, the discount for using blobs
@@ -273,12 +264,12 @@ pub fn estimate_minimal_fee(
 /// summand, we get total_gas = (X + Y * DGP / GP).
 pub fn compute_discounted_gas_from_gas_vector(
     gas_usage_vector: &GasVector,
-    account_tx_context: &AccountTransactionContext,
-    block_info: &BlockInfo,
+    tx_context: &TransactionContext,
 ) -> u128 {
+    let gas_prices = &tx_context.block_context.block_info.gas_prices;
     let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } = gas_usage_vector;
-    let fee_type = account_tx_context.fee_type();
-    let gas_price = block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
-    let data_gas_price = block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
+    let fee_type = tx_context.tx_info.fee_type();
+    let gas_price = gas_prices.get_gas_price_by_fee_type(&fee_type);
+    let data_gas_price = gas_prices.get_data_gas_price_by_fee_type(&fee_type);
     gas_usage + (blob_gas_usage * data_gas_price) / gas_price
 }

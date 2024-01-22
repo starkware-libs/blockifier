@@ -25,6 +25,8 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::abi::constants;
+use crate::block::BlockInfo;
+use crate::context::TransactionContext;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{
     extended_builtin_hint_processor, ExecutionMode, HintExecutionResult,
@@ -295,7 +297,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
-        let signature = &self.context.account_tx_context.signature().0;
+        let signature = &self.context.tx_context.tx_info.signature().0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -308,18 +310,17 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
-        let account_tx_context = &self.context.account_tx_context;
-        let tx_signature_length = account_tx_context.signature().0.len();
+        let TransactionContext { block_context, tx_info } = self.context.tx_context.as_ref();
+        let tx_signature_length = tx_info.signature().0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(account_tx_context.signed_version().0).into(),
-            stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            max_fee_for_execution_info(account_tx_context).into(),
+            stark_felt_to_felt(tx_info.signed_version().0).into(),
+            stark_felt_to_felt(*tx_info.sender_address().0.key()).into(),
+            max_fee_for_execution_info(tx_info).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_info.chain_id.0.as_bytes())
-                .into(),
-            stark_felt_to_felt(account_tx_context.nonce().0).into(),
+            stark_felt_to_felt(tx_info.transaction_hash().0).into(),
+            Felt252::from_bytes_be(block_context.chain_info.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(tx_info.nonce().0).into(),
         ];
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
@@ -346,6 +347,10 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         self.state.set_storage_at(self.storage_address, key, value)?;
 
         Ok(StorageWriteResponse {})
+    }
+
+    pub fn get_block_info(&self) -> &BlockInfo {
+        &self.context.tx_context.block_context.block_info
     }
 }
 
