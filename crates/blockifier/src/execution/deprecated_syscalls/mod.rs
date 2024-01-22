@@ -398,7 +398,7 @@ pub fn get_block_number(
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
     // TODO(Yoni, 1/5/2024): disable for validate.
     Ok(GetBlockNumberResponse {
-        block_number: syscall_handler.context.block_context.block_info.block_number,
+        block_number: syscall_handler.context.tx_context.block_context.block_info.block_number,
     })
 }
 
@@ -425,7 +425,12 @@ pub fn get_block_timestamp(
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
     // TODO(Yoni, 1/5/2024): disable for validate.
     Ok(GetBlockTimestampResponse {
-        block_timestamp: syscall_handler.context.block_context.block_info.block_timestamp,
+        block_timestamp: syscall_handler
+            .context
+            .tx_context
+            .block_context
+            .block_info
+            .block_timestamp,
     })
 }
 
@@ -478,7 +483,7 @@ pub fn get_sequencer_address(
 ) -> DeprecatedSyscallResult<GetSequencerAddressResponse> {
     syscall_handler.verify_not_in_validate_mode("get_sequencer_address")?;
     Ok(GetSequencerAddressResponse {
-        address: syscall_handler.context.block_context.block_info.sequencer_address,
+        address: syscall_handler.context.tx_context.block_context.block_info.sequencer_address,
     })
 }
 
@@ -518,7 +523,7 @@ pub fn get_tx_signature(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetTxSignatureResponse> {
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.context.account_tx_context.signature().0.len();
+    let length = syscall_handler.context.tx_context.tx_info.signature().0.len();
 
     Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }
