@@ -297,7 +297,7 @@ fn default_invoke_tx_args(
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
         range_check: 102,
-        n_steps: 4464,
+        n_steps: 4496,
         vm_resources: VmExecutionResources {
             n_steps:  62,
             n_memory_holes:  0,
@@ -311,7 +311,7 @@ fn default_invoke_tx_args(
 #[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
         range_check: 115,
-        n_steps: 4917,
+        n_steps: 4949,
         vm_resources: VmExecutionResources {
             n_steps: 284,
             n_memory_holes: 1,
@@ -341,6 +341,7 @@ fn test_invoke_tx(
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
+    let calldata_length = &invoke_tx.calldata().0.len();
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -426,7 +427,7 @@ fn test_invoke_tx(
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
-            (HASH_BUILTIN_NAME.to_string(), 16),
+            (HASH_BUILTIN_NAME.to_string(), 16 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
         ])),
@@ -1690,6 +1691,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let value = StarkFelt::from_u128(0x44);
     let calldata = calldata![from_address, key, value];
     let tx = l1_handler_tx(&calldata, Fee(1));
+    let payload_size = tx.payload_size();
 
     let actual_execution_info = tx.execute(state, block_context, true, true).unwrap();
 
@@ -1728,8 +1730,8 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     };
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
-        (HASH_BUILTIN_NAME.to_string(), 11),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
+        (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 1416),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
         (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
         (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
@@ -1767,7 +1769,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1741300000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1743900000000000)
     );
 }
 
