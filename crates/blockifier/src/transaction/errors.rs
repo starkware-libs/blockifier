@@ -107,4 +107,6 @@ pub enum TransactionPreValidationError {
 pub enum ParseError {
     #[error("Unsupported transaction type: {0}")]
     UnknownTransactionType(String),
+    #[error("Unsupported resources role: {0}")]
+    UnknownResourcesRole(String),
 }
