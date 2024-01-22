@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cached::proc_macro::cached;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::ContractAddress;
@@ -73,8 +75,7 @@ fn fee_transfer_resources(
             state,
             &mut ExecutionResources::default(),
             &mut EntryPointExecutionContext::new(
-                block_context,
-                &account_invoke_tx(InvokeTxArgs::default()).get_account_tx_context(),
+                Arc::new(block_context.to_tx_context(&account_invoke_tx(InvokeTxArgs::default()))),
                 ExecutionMode::Execute,
                 false,
             )
