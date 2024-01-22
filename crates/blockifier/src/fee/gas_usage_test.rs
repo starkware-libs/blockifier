@@ -62,8 +62,9 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
 ///     3. A transaction with L2-to-L1 messages.
 ///     4. A transaction that modifies the storage.
 ///     5. A combination of cases 2. 3. and 4.
-#[test]
-fn test_calculate_tx_gas_usage_basic() {
+/// TODO(Aner, 21/01/24): add test case use_kzg_flag=true
+#[rstest]
+fn test_calculate_tx_gas_usage_basic(#[values(false)] use_kzg_flag: bool) {
     // DeployAccount.
 
     let deploy_account_state_changes_count = StateChangesCount {
@@ -82,6 +83,7 @@ fn test_calculate_tx_gas_usage_basic() {
             std::iter::empty(),
             deploy_account_state_changes_count,
             None,
+            use_kzg_flag,
         )
         .unwrap();
     assert_eq!(manual_starknet_gas_usage + manual_sharp_gas_usage, deploy_account_gas_usage);
@@ -93,6 +95,7 @@ fn test_calculate_tx_gas_usage_basic() {
         std::iter::empty(),
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
+        use_kzg_flag,
     )
     .unwrap();
 
@@ -148,6 +151,7 @@ fn test_calculate_tx_gas_usage_basic() {
             call_infos_iter.clone(),
             l2_to_l1_state_changes_count,
             None,
+            use_kzg_flag,
         )
         .unwrap();
 
@@ -178,6 +182,7 @@ fn test_calculate_tx_gas_usage_basic() {
             std::iter::empty(),
             storage_writes_state_changes_count,
             None,
+            use_kzg_flag,
         )
         .unwrap();
 
@@ -199,6 +204,7 @@ fn test_calculate_tx_gas_usage_basic() {
         call_infos_iter,
         combined_state_changes_count,
         Some(l1_handler_payload_size),
+        use_kzg_flag,
     )
     .unwrap();
 
