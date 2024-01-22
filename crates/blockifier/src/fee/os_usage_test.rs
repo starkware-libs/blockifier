@@ -30,9 +30,12 @@ fn test_resource_name_consistency() {
         builtin_runner::POSEIDON_BUILTIN_NAME,
         builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
     ]);
-    for resources in
-        OS_RESOURCES.execute_syscalls.values().chain(OS_RESOURCES.execute_txs_inner.values())
-    {
+    let mut tx_resources = Vec::new();
+    for resources_vector in OS_RESOURCES.execute_txs_inner.values() {
+        tx_resources.push(&resources_vector.constant);
+        tx_resources.push(&resources_vector.calldata_factor);
+    }
+    for resources in OS_RESOURCES.execute_syscalls.values().chain(tx_resources.into_iter()) {
         for builtin_name in resources.builtin_instance_counter.keys() {
             assert!(known_builtin_names.contains(builtin_name.as_str()));
         }

@@ -14,20 +14,35 @@ use crate::transaction::transaction_types::TransactionType;
 pub mod test;
 
 #[derive(Debug, Deserialize)]
+pub struct ResourcesVector {
+    pub calldata_factor: VmExecutionResources,
+    pub constant: VmExecutionResources,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct OsResources {
     // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
     // steps).
     execute_syscalls: HashMap<DeprecatedSyscallSelector, VmExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
-    execute_txs_inner: HashMap<TransactionType, VmExecutionResources>,
+    execute_txs_inner: HashMap<TransactionType, ResourcesVector>,
 }
 
 impl OsResources {
-    pub fn resources_for_tx_type(&self, tx_type: &TransactionType) -> &VmExecutionResources {
+    fn resources_vector_for_tx_type(&self, tx_type: &TransactionType) -> &ResourcesVector {
         self.execute_txs_inner
             .get(tx_type)
             .unwrap_or_else(|| panic!("should contain transaction type '{tx_type:?}'."))
+    }
+
+    pub fn resources_for_tx_type(
+        &self,
+        tx_type: &TransactionType,
+        calldata_length: usize,
+    ) -> VmExecutionResources {
+        let resources_vector = self.resources_vector_for_tx_type(tx_type);
+        &resources_vector.constant + &(&(resources_vector.calldata_factor) * calldata_length)
     }
 }
 
@@ -36,9 +51,8 @@ impl OsResources {
 pub fn get_additional_os_resources(
     syscall_counter: &SyscallCounter,
     tx_type: TransactionType,
-    _calldata_length: usize,
+    calldata_length: usize,
 ) -> Result<VmExecutionResources, TransactionExecutionError> {
-    // TODO(Noa, 21/01/24): Use calldata_length.
     let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
@@ -52,6 +66,6 @@ pub fn get_additional_os_resources(
     // i.e., the resources of the Starknet OS function `execute_transactions_inner`.
     // Also adds the resources needed for the fee transfer execution, performed in the end·
     // of every transaction.
-    let os_resources = OS_RESOURCES.resources_for_tx_type(&tx_type);
-    Ok(&os_additional_vm_resources + os_resources)
+    let os_resources = OS_RESOURCES.resources_for_tx_type(&tx_type, calldata_length);
+    Ok(&os_additional_vm_resources + &os_resources)
 }
