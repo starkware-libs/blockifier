@@ -181,6 +181,7 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
 
 #[pyclass]
 #[derive(Clone, Default)]
+// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
 pub struct PyBouncerInfo {
     #[pyo3(get)]
     // The number of felts needed to store L1<>L2 messages.
@@ -189,5 +190,5 @@ pub struct PyBouncerInfo {
     // The number of felts needed to store the state diff.
     pub state_diff_size: usize,
     #[pyo3(get)]
-    pub additional_os_resources: PyVmExecutionResources,
+    pub tx_weights: HashMap<String, usize>,
 }

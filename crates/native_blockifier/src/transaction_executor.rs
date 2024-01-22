@@ -12,6 +12,7 @@ use blockifier::state::cached_state::{
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -23,9 +24,7 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
-use crate::py_transaction_execution_info::{
-    PyBouncerInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
-};
+use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
 use crate::py_utils::PyFelt;
 
 pub struct TransactionExecutor<S: StateReader> {
@@ -104,8 +103,6 @@ impl<S: StateReader> TransactionExecutor<S> {
                     MessageL1CostInfo::calculate(call_infos, Some(l1_handler_payload_size))?;
 
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
-
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
@@ -115,15 +112,19 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.visited_storage_entries,
                     &tx_visited_storage_entries,
                 )?;
-                let py_bouncer_info = PyBouncerInfo {
+                let state_diff_size = 0;
+                let actual_resources = tx_execution_info.actual_resources.0.clone();
+                let tx_weights = calculate_tx_weights(
+                    additional_os_resources,
+                    actual_resources,
                     message_segment_length,
-                    state_diff_size: 0,
-                    additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
-                };
-
+                );
+                let py_bouncer_info =
+                    PyBouncerInfo { message_segment_length, state_diff_size, tx_weights };
                 self.staged_for_commit_state = Some(
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
+                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 Ok((py_tx_execution_info, py_bouncer_info))
             }
             Err(error) => {
