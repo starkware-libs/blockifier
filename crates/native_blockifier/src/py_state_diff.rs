@@ -30,14 +30,14 @@ impl TryFrom<PyStateDiff> for StateDiff {
     fn try_from(state_diff: PyStateDiff) -> NativeBlockifierResult<Self> {
         let mut deployed_contracts: IndexMap<ContractAddress, ClassHash> = IndexMap::new();
         for (address, class_hash) in state_diff.address_to_class_hash {
-            let address = ContractAddress::try_from(address)?;
+            let address = ContractAddress::try_from(address.0)?;
             let class_hash = ClassHash(class_hash.0);
             deployed_contracts.insert(address, class_hash);
         }
 
         let mut storage_diffs = IndexMap::new();
         for (address, storage_mapping) in state_diff.storage_updates {
-            let address = ContractAddress::try_from(address)?;
+            let address = ContractAddress::try_from(address.0)?;
             storage_diffs.insert(address, IndexMap::new());
 
             for (key, value) in storage_mapping {
@@ -51,7 +51,7 @@ impl TryFrom<PyStateDiff> for StateDiff {
 
         let mut nonces = IndexMap::new();
         for (address, nonce) in state_diff.address_to_nonce {
-            let address = ContractAddress::try_from(address)?;
+            let address = ContractAddress::try_from(address.0)?;
             let nonce = Nonce(nonce.0);
             nonces.insert(address, nonce);
         }

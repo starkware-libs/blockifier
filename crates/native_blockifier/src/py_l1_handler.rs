@@ -23,7 +23,7 @@ impl TryFrom<PyL1HandlerTransaction> for starknet_api::transaction::L1HandlerTra
         Ok(Self {
             version: constants::L1_HANDLER_VERSION,
             nonce: Nonce(tx.nonce.0),
-            contract_address: ContractAddress::try_from(tx.contract_address)?,
+            contract_address: ContractAddress::try_from(tx.contract_address.0)?,
             entry_point_selector: EntryPointSelector(tx.entry_point_selector.0),
             calldata: Calldata(Arc::from(from_py_felts(tx.calldata))),
         })
