@@ -114,12 +114,42 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn library_call(
         &mut self,
-        _class_hash: Felt,
-        _function_selector: Felt,
-        _calldata: &[Felt],
-        _remaining_gas: &mut u128,
+        class_hash: Felt,
+        function_selector: Felt,
+        calldata: &[Felt],
+        remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
-        todo!("Native syscall handler - library_call")
+        let call_to_external = true;
+        let entry_point_type =
+            if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
+
+        let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
+
+        let wrapper_calldata = Calldata(Arc::new(
+            calldata
+                .to_vec()
+                .iter()
+                .map(|felt| felt_to_starkfelt(*felt))
+                .collect::<Vec<StarkFelt>>(),
+        ));
+
+        let entry_point = CallEntryPoint {
+            class_hash: Some(class_hash),
+            code_address: None,
+            entry_point_type,
+            entry_point_selector: EntryPointSelector(StarkHash::from(felt_to_starkfelt(
+                function_selector,
+            ))),
+            calldata: wrapper_calldata,
+            // The call context remains the same in a library call.
+            storage_address: self.storage_address,
+            // todo: check if it is correct
+            caller_address: self.storage_address,
+            call_type: CallType::Delegate,
+            initial_gas: *remaining_gas as u64,
+        };
+
+        execute_inner_call_raw(entry_point, self.state, &mut self.execution_context)
     }
 
     fn call_contract(

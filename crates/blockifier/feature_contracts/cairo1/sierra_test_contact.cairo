@@ -101,19 +101,19 @@ mod SierraTestContract {
     //     );
     // }
 
-    // #[external(v0)]
-    // #[raw_output]
-    // fn test_library_call(
-    //     self: @ContractState,
-    //     class_hash: ClassHash,
-    //     function_selector: felt252,
-    //     calldata: Array<felt252>
-    // ) -> Span::<felt252> {
-    //     starknet::library_call_syscall(class_hash, function_selector, calldata.span())
-    //         .unwrap_syscall()
-    //         .snapshot
-    //         .span()
-    // }
+    #[external(v0)]
+    #[raw_output]
+    fn test_library_call(
+        self: @ContractState,
+        class_hash: ClassHash,
+        function_selector: felt252,
+        calldata: Array<felt252>
+    ) -> Span::<felt252> {
+        starknet::library_call_syscall(class_hash, function_selector, calldata.span())
+            .unwrap_syscall()
+            .snapshot
+            .span()
+    }
 
     // #[external(v0)]
     // #[raw_output]
