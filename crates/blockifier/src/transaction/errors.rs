@@ -69,6 +69,8 @@ pub enum TransactionExecutionError {
          {max_order}."
     )]
     InvalidOrder { object: String, order: usize, max_order: usize },
+    #[error("Invalid Transaction Execution Info. Field {field} was not found.")]
+    InvalidTransactionExecutionInfo { field: String },
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
     InvalidValidateReturnData { actual: Retdata },
     #[error(
