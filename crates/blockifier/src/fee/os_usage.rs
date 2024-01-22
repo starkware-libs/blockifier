@@ -1,17 +1,39 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::Deserialize;
+use strum_macros::EnumIter;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::fee::os_resources::OS_RESOURCES;
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{ParseError, TransactionExecutionError};
 use crate::transaction::transaction_types::TransactionType;
 
 #[cfg(test)]
 #[path = "os_usage_test.rs"]
 pub mod test;
+
+#[derive(Clone, Copy, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq)]
+pub enum ResourcesRole {
+    Constant,
+    Slope,
+}
+
+impl FromStr for ResourcesRole {
+    type Err = ParseError;
+
+    fn from_str(resources_role: &str) -> Result<Self, Self::Err> {
+        match resources_role {
+            "Constant" | "CONSTANT" => Ok(ResourcesRole::Constant),
+            "Slope" | "SLOPE" => Ok(ResourcesRole::Slope),
+            unknown_resources_role => {
+                Err(ParseError::UnknownTransactionType(unknown_resources_role.to_string()))
+            }
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct OsResources {
@@ -20,7 +42,7 @@ pub struct OsResources {
     execute_syscalls: HashMap<DeprecatedSyscallSelector, VmExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
-    execute_txs_inner: HashMap<TransactionType, VmExecutionResources>,
+    execute_txs_inner: HashMap<TransactionType, HashMap<ResourcesRole, VmExecutionResources>>,
 }
 
 impl OsResources {
@@ -28,6 +50,8 @@ impl OsResources {
         self.execute_txs_inner
             .get(tx_type)
             .unwrap_or_else(|| panic!("should contain transaction type '{tx_type:?}'."))
+            .get(&ResourcesRole::Constant)
+            .unwrap_or_else(|| panic!("should contain constant resources."))
     }
 }
 
