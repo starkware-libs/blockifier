@@ -17,7 +17,7 @@ use super::{
 };
 use crate::abi::constants;
 use crate::block::{BlockInfo, GasPrices};
-use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -25,33 +25,31 @@ use crate::execution::entry_point::{
 };
 use crate::state::state_api::State;
 use crate::test_utils::get_raw_contract_class;
-use crate::transaction::objects::{AccountTransactionContext, DeprecatedAccountTransactionContext};
+use crate::transaction::objects::{DeprecatedTransactionInfo, TransactionInfo};
 use crate::versioned_constants::VersionedConstants;
 
 impl CallEntryPoint {
     /// Executes the call directly, without account context. Limits the number of steps by resource
     /// bounds.
     pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
-        self.execute_directly_given_account_context(
+        self.execute_directly_given_tx_info(
             state,
-            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+            TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
             true,
         )
     }
 
-    pub fn execute_directly_given_account_context(
+    pub fn execute_directly_given_tx_info(
         self,
         state: &mut dyn State,
-        account_tx_context: AccountTransactionContext,
+        tx_info: TransactionInfo,
         limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
-        let block_context = BlockContext::create_for_testing();
-        let mut context = EntryPointExecutionContext::new_invoke(
-            &block_context,
-            &account_tx_context,
-            limit_steps_by_resources,
-        )
-        .unwrap();
+        let tx_context =
+            TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
+        let mut context =
+            EntryPointExecutionContext::new_invoke(Arc::new(tx_context), limit_steps_by_resources)
+                .unwrap();
         self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 
@@ -61,23 +59,23 @@ impl CallEntryPoint {
         self,
         state: &mut dyn State,
     ) -> EntryPointExecutionResult<CallInfo> {
-        self.execute_directly_given_account_context_in_validate_mode(
+        self.execute_directly_given_tx_info_in_validate_mode(
             state,
-            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+            TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
             true,
         )
     }
 
-    pub fn execute_directly_given_account_context_in_validate_mode(
+    pub fn execute_directly_given_tx_info_in_validate_mode(
         self,
         state: &mut dyn State,
-        account_tx_context: AccountTransactionContext,
+        tx_info: TransactionInfo,
         limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
-        let block_context = BlockContext::create_for_testing();
+        let tx_context =
+            TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
         let mut context = EntryPointExecutionContext::new_validate(
-            &block_context,
-            &account_tx_context,
+            Arc::new(tx_context),
             limit_steps_by_resources,
         )
         .unwrap();
