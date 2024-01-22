@@ -2103,7 +2103,6 @@ dependencies = [
  "cairo-lang-starknet",
  "cairo-vm",
  "criterion",
- "derive_more",
  "indexmap 2.1.0",
  "log",
  "num-bigint",

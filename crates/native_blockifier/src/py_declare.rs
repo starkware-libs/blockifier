@@ -32,7 +32,7 @@ impl TryFrom<PyDeclareTransactionV0V1> for DeclareTransactionV0V1 {
             signature: TransactionSignature(from_py_felts(tx.signature)),
             nonce: Nonce(tx.nonce.0),
             class_hash: ClassHash(tx.class_hash.0),
-            sender_address: ContractAddress::try_from(tx.sender_address)?,
+            sender_address: ContractAddress::try_from(tx.sender_address.0)?,
         })
     }
 }
@@ -56,7 +56,7 @@ impl TryFrom<PyDeclareTransactionV2> for DeclareTransactionV2 {
             nonce: Nonce(tx.nonce.0),
             class_hash: ClassHash(tx.class_hash.0),
             compiled_class_hash: CompiledClassHash(tx.compiled_class_hash.0),
-            sender_address: ContractAddress::try_from(tx.sender_address)?,
+            sender_address: ContractAddress::try_from(tx.sender_address.0)?,
         })
     }
 }
@@ -86,7 +86,7 @@ impl TryFrom<PyDeclareTransactionV3> for DeclareTransactionV3 {
             nonce: Nonce(tx.nonce.0),
             class_hash: ClassHash(tx.class_hash.0),
             compiled_class_hash: CompiledClassHash(tx.compiled_class_hash.0),
-            sender_address: ContractAddress::try_from(tx.sender_address)?,
+            sender_address: ContractAddress::try_from(tx.sender_address.0)?,
             nonce_data_availability_mode: DataAvailabilityMode::from(
                 tx.nonce_data_availability_mode,
             ),
