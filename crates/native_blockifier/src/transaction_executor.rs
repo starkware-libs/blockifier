@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::vec::IntoIter;
 
 use blockifier::block::pre_process_block;
@@ -28,6 +29,7 @@ use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
 use crate::py_utils::PyFelt;
 
+// TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
 
@@ -141,26 +143,26 @@ impl<S: StateReader> TransactionExecutor<S> {
         mut remaining_gas: u64,
     ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
         let mut execution_resources = ExecutionResources::default();
-        let account_tx_context = account_tx.get_account_tx_context();
+        let tx_context = Arc::new(self.block_context.to_tx_context(account_tx));
+        let tx_info = &tx_context.tx_info;
 
         // TODO(Amos, 01/12/2023): Delete this once deprecated txs call
         // PyValidator.perform_validations().
         // For fee charging purposes, the nonce-increment cost is taken into consideration when
         // calculating the fees for validation.
         // Note: This assumes that the state is reset between calls to validate.
-        self.state.increment_nonce(account_tx_context.sender_address())?;
+        self.state.increment_nonce(tx_info.sender_address())?;
 
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
-            &account_tx_context,
+            tx_context.clone(),
             &mut remaining_gas,
-            &self.block_context,
             true,
         )?;
 
         let actual_cost = account_tx
-            .to_actual_cost_builder(&self.block_context)
+            .to_actual_cost_builder(tx_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?
             .build(&execution_resources)?;
