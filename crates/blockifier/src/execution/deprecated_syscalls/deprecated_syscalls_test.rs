@@ -33,7 +33,7 @@ use crate::test_utils::{
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
-    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+    CommonAccountFields, DeprecatedTransactionInfo, TransactionInfo,
 };
 use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
@@ -451,21 +451,19 @@ fn test_tx_info(#[case] only_query: bool) {
         calldata: expected_tx_info,
         ..trivial_external_entry_point()
     };
-    let account_tx_context =
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            common_fields: CommonAccountFields {
-                transaction_hash: tx_hash,
-                version: TransactionVersion::ONE,
-                nonce,
-                sender_address,
-                only_query,
-                ..Default::default()
-            },
-            max_fee,
-        });
-    let result = entry_point_call
-        .execute_directly_given_account_context(&mut state, account_tx_context, true)
-        .unwrap();
+    let tx_info = TransactionInfo::Deprecated(DeprecatedTransactionInfo {
+        common_fields: CommonAccountFields {
+            transaction_hash: tx_hash,
+            version: TransactionVersion::ONE,
+            nonce,
+            sender_address,
+            only_query,
+            ..Default::default()
+        },
+        max_fee,
+    });
+    let result =
+        entry_point_call.execute_directly_given_tx_info(&mut state, tx_info, true).unwrap();
 
     assert!(!result.execution.failed)
 }
