@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use cairo_native::starknet::StarkNetSyscallHandler;
-use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::{EventContent, EventData, EventKey, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EventContent, EventData, EventKey, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
@@ -10,10 +13,11 @@ use crate::abi::constants;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_SET_CLASS_HASH,
-    FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
+    execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_GET_CONTRACT_CLASS,
+    FAILED_TO_SET_CLASS_HASH, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
+    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::state::state_api::State;
 
@@ -120,12 +124,43 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn call_contract(
         &mut self,
-        _address: Felt,
-        _entry_point_selector: Felt,
-        _calldata: &[Felt],
-        _remaining_gas: &mut u128,
+        address: Felt,
+        entry_point_selector: Felt,
+        calldata: &[Felt],
+        remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
-        todo!("Native syscall handler - call_contract")
+        let storage_address = ContractAddress::try_from(felt_to_starkfelt(address))
+            .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+
+        if self.execution_context.execution_mode == ExecutionMode::Validate
+            && self.storage_address != storage_address
+        {
+            return Err(vec![Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).unwrap()]);
+        }
+
+        let wrapper_calldata = Calldata(Arc::new(
+            calldata
+                .to_vec()
+                .iter()
+                .map(|felt| felt_to_starkfelt(*felt))
+                .collect::<Vec<StarkFelt>>(),
+        ));
+
+        let entry_point = CallEntryPoint {
+            class_hash: None,
+            code_address: Some(storage_address),
+            entry_point_type: EntryPointType::External,
+            entry_point_selector: EntryPointSelector(StarkHash::from(felt_to_starkfelt(
+                entry_point_selector,
+            ))),
+            calldata: wrapper_calldata,
+            storage_address,
+            caller_address: self.storage_address,
+            call_type: CallType::Call,
+            initial_gas: *remaining_gas as u64,
+        };
+
+        execute_inner_call_raw(entry_point, self.state, &mut self.execution_context)
     }
 
     fn storage_read(

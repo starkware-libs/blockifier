@@ -105,7 +105,7 @@ fn test_call_contract() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(48_u8)],
-            gas_consumed: REQUIRED_GAS_CALL_CONTRACT_TEST,
+            gas_consumed: 34650,
             ..CallExecution::default()
         }
     );

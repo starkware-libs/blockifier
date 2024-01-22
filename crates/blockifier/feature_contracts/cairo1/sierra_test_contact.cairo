@@ -50,19 +50,19 @@ mod SierraTestContract {
     //     syscalls::storage_write_syscall(address_domain, storage_address, 1).unwrap_syscall();
     // }
 
-    // #[external(v0)]
-    // #[raw_output]
-    // fn test_call_contract(
-    //     self: @ContractState,
-    //     contract_address: ContractAddress,
-    //     entry_point_selector: felt252,
-    //     calldata: Array::<felt252>
-    // ) -> Span::<felt252> {
-    //     syscalls::call_contract_syscall(contract_address, entry_point_selector, calldata.span())
-    //         .unwrap_syscall()
-    //         .snapshot
-    //         .span()
-    // }
+    #[external(v0)]
+    #[raw_output]
+    fn test_call_contract(
+        self: @ContractState,
+        contract_address: ContractAddress,
+        entry_point_selector: felt252,
+        calldata: Array::<felt252>
+    ) -> Span::<felt252> {
+        syscalls::call_contract_syscall(contract_address, entry_point_selector, calldata.span())
+            .unwrap_syscall()
+            .snapshot
+            .span()
+    }
 
     #[external(v0)]
     fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
@@ -87,10 +87,10 @@ mod SierraTestContract {
     //     let execution_info = starknet::get_execution_info().unbox();
     //     let block_info = execution_info.block_info.unbox();
     //     assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
-    // 
+    //
     //     let tx_info = execution_info.tx_info.unbox();
     //     assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
-    // 
+    //
     //     assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
     //     assert(
     //         execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
@@ -135,7 +135,7 @@ mod SierraTestContract {
     //         class_hash, lib_selector, nested_library_calldata.span(),
     //     )
     //         .unwrap_syscall();
-    // 
+    //
     //     let mut calldata: Array::<felt252> = Default::default();
     //     calldata.append(a);
     //     calldata.append(b);
@@ -195,11 +195,11 @@ mod SierraTestContract {
     fn test_keccak(ref self: ContractState) {
         let mut input: Array::<u256> = Default::default();
         input.append(u256 { low: 1, high: 0 });
-    
+
         let res = keccak::keccak_u256s_le_inputs(input.span());
         assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
         assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
-    
+
         let mut input: Array::<u64> = Default::default();
         input.append(1_u64);
         match syscalls::keccak_syscall(input.span()) {
