@@ -47,8 +47,7 @@ use crate::test_utils::{
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
-    AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
-    DeprecatedAccountTransactionContext,
+    CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, TransactionInfo,
 };
 use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
@@ -320,7 +319,7 @@ fn test_get_execution_info(
 
     let expected_tx_info: Vec<StarkFelt>;
     let mut expected_resource_bounds: Vec<StarkFelt> = vec![];
-    let account_tx_context: AccountTransactionContext;
+    let tx_info: TransactionInfo;
     if version == TransactionVersion::ONE {
         expected_tx_info = vec![
             version.0,                                                  // Transaction version.
@@ -336,18 +335,17 @@ fn test_get_execution_info(
                 stark_felt!(0_u16), // Length of resource bounds array.
             ];
         }
-        account_tx_context =
-            AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-                common_fields: CommonAccountFields {
-                    transaction_hash: tx_hash,
-                    version: TransactionVersion::ONE,
-                    nonce,
-                    sender_address,
-                    only_query,
-                    ..Default::default()
-                },
-                max_fee,
-            });
+        tx_info = TransactionInfo::Deprecated(DeprecatedTransactionInfo {
+            common_fields: CommonAccountFields {
+                transaction_hash: tx_hash,
+                version: TransactionVersion::ONE,
+                nonce,
+                sender_address,
+                only_query,
+                ..Default::default()
+            },
+            max_fee,
+        });
     } else {
         let max_amount = Fee(13);
         let max_price_per_unit = Fee(61);
@@ -371,7 +369,7 @@ fn test_get_execution_info(
                 StarkFelt::ZERO,                   // Max price per unit.
             ];
         }
-        account_tx_context = AccountTransactionContext::Current(CurrentAccountTransactionContext {
+        tx_info = TransactionInfo::Current(CurrentTransactionInfo {
             common_fields: CommonAccountFields {
                 transaction_hash: tx_hash,
                 version: TransactionVersion::THREE,
@@ -428,16 +426,10 @@ fn test_get_execution_info(
 
     let result = match execution_mode {
         ExecutionMode::Validate => entry_point_call
-            .execute_directly_given_account_context_in_validate_mode(
-                state,
-                account_tx_context,
-                false,
-            ),
-        ExecutionMode::Execute => entry_point_call.execute_directly_given_account_context(
-            state,
-            account_tx_context,
-            false,
-        ),
+            .execute_directly_given_account_context_in_validate_mode(state, tx_info, false),
+        ExecutionMode::Execute => {
+            entry_point_call.execute_directly_given_account_context(state, tx_info, false)
+        }
     };
 
     assert!(!result.unwrap().execution.failed);
