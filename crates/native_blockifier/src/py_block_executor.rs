@@ -302,7 +302,7 @@ pub fn into_block_context(
         block_info: BlockInfo {
             block_number: BlockNumber(block_info.block_number),
             block_timestamp: BlockTimestamp(block_info.block_timestamp),
-            sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
+            sequencer_address: ContractAddress::try_from(block_info.sequencer_address)?,
             vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
             gas_prices: GasPrices {
                 eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
