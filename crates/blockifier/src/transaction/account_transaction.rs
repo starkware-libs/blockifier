@@ -110,7 +110,7 @@ impl AccountTransaction {
         }
     }
 
-    fn calldata_length(&self) -> usize {
+    pub fn calldata_length(&self) -> usize {
         match self {
             Self::Declare(_tx) => 0,
             Self::DeployAccount(tx) => tx.constructor_calldata().0.len(),
