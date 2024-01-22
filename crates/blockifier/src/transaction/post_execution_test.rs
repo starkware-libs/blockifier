@@ -17,7 +17,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{create_calldata, CairoVersion, BALANCE, MAX_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, l1_resource_bounds, max_fee, max_resource_bounds,
     run_invoke_tx, TestInitData,
@@ -108,7 +108,7 @@ fn test_revert_on_overdraft(
         resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address),
     });
-    let account_tx_context = approve_tx.get_account_tx_context();
+    let tx_info = approve_tx.create_tx_info();
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();
     assert!(!approval_execution_info.is_reverted());
@@ -141,10 +141,7 @@ fn test_revert_on_overdraft(
 
     // Check the current balance, before next transaction.
     let (balance, _) = state
-        .get_fee_token_balance(
-            account_address,
-            chain_info.fee_token_address(&account_tx_context.fee_type()),
-        )
+        .get_fee_token_balance(account_address, chain_info.fee_token_address(&tx_info.fee_type()))
         .unwrap();
 
     // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
@@ -187,7 +184,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 account_address,
-                chain_info.fee_token_address(&account_tx_context.fee_type()),
+                chain_info.fee_token_address(&tx_info.fee_type()),
             )
             .unwrap(),
         (expected_new_balance, stark_felt!(0_u8))
@@ -196,7 +193,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 recipient_address,
-                chain_info.fee_token_address(&account_tx_context.fee_type())
+                chain_info.fee_token_address(&tx_info.fee_type())
             )
             .unwrap(),
         (final_received_amount, stark_felt!(0_u8))

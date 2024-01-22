@@ -5,12 +5,11 @@ use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
 use crate::block::BlockInfo;
-use crate::context::{BlockContext, ChainInfo};
+use crate::context::{BlockContext, TransactionContext};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, GasVector, HasRelatedFeeType, ResourcesMapping,
-    TransactionFeeResult,
+    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, TransactionFeeResult, TransactionInfo,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -85,8 +84,9 @@ pub fn get_fee_by_gas_vector(
     gas_vector: GasVector,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(gas_vector.l1_gas * block_info.gas_prices.get_gas_price_by_fee_type(fee_type)
-        + gas_vector.blob_gas * block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type))
+    let gas_prices = &block_info.gas_prices;
+    Fee(gas_vector.l1_gas * gas_prices.get_gas_price_by_fee_type(fee_type)
+        + gas_vector.blob_gas * gas_prices.get_data_gas_price_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
@@ -102,13 +102,13 @@ pub fn calculate_tx_fee(
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
 pub fn get_balance_and_if_covers_fee(
     state: &mut dyn StateReader,
-    account_tx_context: &AccountTransactionContext,
-    chain_info: &ChainInfo,
+    tx_context: &TransactionContext,
     fee: Fee,
 ) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
+    let tx_info = &tx_context.tx_info;
     let (balance_low, balance_high) = state.get_fee_token_balance(
-        account_tx_context.sender_address(),
-        chain_info.fee_token_address(&account_tx_context.fee_type()),
+        tx_info.sender_address(),
+        tx_context.block_context.chain_info.fee_token_address(&tx_info.fee_type()),
     )?;
     Ok((
         balance_low,
@@ -123,26 +123,26 @@ pub fn get_balance_and_if_covers_fee(
 /// Error may indicate insufficient balance, or some other error.
 pub fn verify_can_pay_committed_bounds(
     state: &mut dyn StateReader,
-    account_tx_context: &AccountTransactionContext,
-    chain_info: &ChainInfo,
+    tx_context: &TransactionContext,
 ) -> TransactionFeeResult<()> {
-    let committed_fee = match account_tx_context {
-        AccountTransactionContext::Current(context) => {
+    let tx_info = &tx_context.tx_info;
+    let committed_fee = match tx_info {
+        TransactionInfo::Current(context) => {
             let l1_bounds = context.l1_resource_bounds()?;
             let max_amount: u128 = l1_bounds.max_amount.into();
             // Sender will not be charged by `max_price_per_unit`, but this check should not depend
             // on the current gas price.
             Fee(max_amount * l1_bounds.max_price_per_unit)
         }
-        AccountTransactionContext::Deprecated(context) => context.max_fee,
+        TransactionInfo::Deprecated(context) => context.max_fee,
     };
     let (balance_low, balance_high, can_pay) =
-        get_balance_and_if_covers_fee(state, account_tx_context, chain_info, committed_fee)?;
+        get_balance_and_if_covers_fee(state, tx_context, committed_fee)?;
     if can_pay {
         Ok(())
     } else {
-        Err(match account_tx_context {
-            AccountTransactionContext::Current(context) => {
+        Err(match tx_info {
+            TransactionInfo::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
                 TransactionFeeError::L1GasBoundsExceedBalance {
                     max_amount: l1_bounds.max_amount,
@@ -151,13 +151,11 @@ pub fn verify_can_pay_committed_bounds(
                     balance_high,
                 }
             }
-            AccountTransactionContext::Deprecated(context) => {
-                TransactionFeeError::MaxFeeExceedsBalance {
-                    max_fee: context.max_fee,
-                    balance_low,
-                    balance_high,
-                }
-            }
+            TransactionInfo::Deprecated(context) => TransactionFeeError::MaxFeeExceedsBalance {
+                max_fee: context.max_fee,
+                balance_low,
+                balance_high,
+            },
         })
     }
 }

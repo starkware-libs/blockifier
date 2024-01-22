@@ -1,10 +1,11 @@
+use blockifier::context::TransactionContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
+use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
@@ -67,7 +68,7 @@ impl PyValidator {
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
         let account_tx = py_account_tx(tx, raw_contract_class)?;
-        let account_tx_context = account_tx.get_account_tx_context();
+        let tx_context = self.tx_executor.block_context.to_tx_context(&account_tx);
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
@@ -82,10 +83,10 @@ impl PyValidator {
         // processed. It is done before the pre-validations checks because, in these checks, we
         // change the state (more precisely, we increment the nonce).
         let skip_validate = self.skip_validate_due_to_unprocessed_deploy_account(
-            &account_tx_context,
+            &tx_context.tx_info,
             deploy_account_tx_hash,
         )?;
-        self.perform_pre_validation_stage(&account_tx)?;
+        self.perform_pre_validation_stage(&account_tx, &tx_context)?;
 
         if skip_validate {
             return Ok(());
@@ -97,7 +98,7 @@ impl PyValidator {
 
         // Post validations.
         // TODO(Ayelet, 09/11/2023): Check call succeeded.
-        self.perform_post_validation_stage(&account_tx_context, &actual_cost)?;
+        self.perform_post_validation_stage(&tx_context, &actual_cost)?;
 
         Ok(())
     }
@@ -136,16 +137,14 @@ impl PyValidator {
     fn perform_pre_validation_stage(
         &mut self,
         account_tx: &AccountTransaction,
+        tx_context: &TransactionContext,
     ) -> NativeBlockifierResult<()> {
-        let account_tx_context = account_tx.get_account_tx_context();
-
         let strict_nonce_check = false;
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
         account_tx.perform_pre_validation_stage(
             &mut self.tx_executor.state,
-            &account_tx_context,
-            &self.tx_executor.block_context,
+            tx_context,
             charge_fee,
             strict_nonce_check,
         )?;
@@ -158,11 +157,11 @@ impl PyValidator {
     // (they will otherwise fail solely because the deploy account hasn't been processed yet).
     fn skip_validate_due_to_unprocessed_deploy_account(
         &mut self,
-        account_tx_context: &AccountTransactionContext,
+        tx_info: &TransactionInfo,
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<bool> {
-        let nonce = self.tx_executor.state.get_nonce_at(account_tx_context.sender_address())?;
-        let tx_nonce = account_tx_context.nonce();
+        let nonce = self.tx_executor.state.get_nonce_at(tx_info.sender_address())?;
+        let tx_nonce = tx_info.nonce();
 
         let deploy_account_not_processed =
             deploy_account_tx_hash.is_some() && nonce == Nonce(StarkFelt::ZERO);
@@ -190,13 +189,9 @@ impl PyValidator {
 
     fn perform_post_validation_stage(
         &mut self,
-        account_tx_context: &AccountTransactionContext,
+        tx_context: &TransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
-        PostValidationReport::verify(
-            &self.tx_executor.block_context,
-            account_tx_context,
-            actual_cost,
-        )
+        PostValidationReport::verify(tx_context, actual_cost)
     }
 }
