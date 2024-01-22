@@ -37,20 +37,14 @@ macro_rules! implement_getters {
     };
 }
 
-#[derive(Clone, Copy, Hash, EnumIter, Eq, PartialEq)]
-pub enum FeeType {
-    Strk,
-    Eth,
-}
-
 /// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AccountTransactionContext {
-    Current(CurrentAccountTransactionContext),
-    Deprecated(DeprecatedAccountTransactionContext),
+pub enum TransactionInfo {
+    Current(CurrentTransactionInfo),
+    Deprecated(DeprecatedTransactionInfo),
 }
 
-impl AccountTransactionContext {
+impl TransactionInfo {
     implement_getters!(
         (transaction_hash, TransactionHash),
         (version, TransactionVersion),
@@ -83,17 +77,17 @@ impl AccountTransactionContext {
 
     pub fn enforce_fee(&self) -> TransactionFeeResult<bool> {
         match self {
-            AccountTransactionContext::Current(context) => {
+            TransactionInfo::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
                 let max_amount: u128 = l1_bounds.max_amount.into();
                 Ok(max_amount * l1_bounds.max_price_per_unit > 0)
             }
-            AccountTransactionContext::Deprecated(context) => Ok(context.max_fee != Fee(0)),
+            TransactionInfo::Deprecated(context) => Ok(context.max_fee != Fee(0)),
         }
     }
 }
 
-impl HasRelatedFeeType for AccountTransactionContext {
+impl HasRelatedFeeType for TransactionInfo {
     fn version(&self) -> TransactionVersion {
         self.version()
     }
@@ -104,7 +98,7 @@ impl HasRelatedFeeType for AccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CurrentAccountTransactionContext {
+pub struct CurrentTransactionInfo {
     pub common_fields: CommonAccountFields,
     pub resource_bounds: ResourceBoundsMapping,
     pub tip: Tip,
@@ -114,7 +108,7 @@ pub struct CurrentAccountTransactionContext {
     pub account_deployment_data: AccountDeploymentData,
 }
 
-impl CurrentAccountTransactionContext {
+impl CurrentTransactionInfo {
     /// Fetch the L1 resource bounds, if they exist.
     pub fn l1_resource_bounds(&self) -> TransactionFeeResult<ResourceBounds> {
         match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
@@ -125,7 +119,7 @@ impl CurrentAccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct DeprecatedAccountTransactionContext {
+pub struct DeprecatedTransactionInfo {
     pub common_fields: CommonAccountFields,
     pub max_fee: Fee,
 }
@@ -235,4 +229,14 @@ pub trait HasRelatedFeeType {
     ) -> TransactionExecutionResult<Fee> {
         Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
     }
+}
+
+#[derive(Clone, Copy, Hash, EnumIter, Eq, PartialEq)]
+pub enum FeeType {
+    Strk,
+    Eth,
+}
+
+pub trait TransactionInfoCreator {
+    fn create_tx_info(&self) -> TransactionInfo;
 }
