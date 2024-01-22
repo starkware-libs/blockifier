@@ -60,8 +60,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionInfo,
+    FeeType, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo, TransactionInfo,
+    TransactionInfoCreator,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
@@ -703,8 +703,8 @@ fn assert_failure_if_resource_bounds_exceed_balance(
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    match invalid_tx.get_account_tx_context() {
-        AccountTransactionContext::Deprecated(context) => {
+    match invalid_tx.create_tx_info() {
+        TransactionInfo::Deprecated(context) => {
             assert_matches!(
                 invalid_tx.execute(state, block_context, true, true).unwrap_err(),
                 TransactionExecutionError::TransactionPreValidationError(
@@ -713,7 +713,7 @@ fn assert_failure_if_resource_bounds_exceed_balance(
                 if max_fee == context.max_fee
             );
         }
-        AccountTransactionContext::Current(context) => {
+        TransactionInfo::Current(context) => {
             let l1_bounds = context.l1_resource_bounds().unwrap();
             assert_matches!(
                 invalid_tx.execute(state, block_context, true, true).unwrap_err(),
@@ -929,15 +929,9 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
-    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
     let pre_validation_err = invalid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &invalid_tx_context,
-            block_context,
-            false,
-            true,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &invalid_tx_context, false, true)
         .unwrap_err();
 
     // Test error.
@@ -954,29 +948,19 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let valid_nonce = Nonce(stark_felt!(1_u8));
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
-    let valid_tx_context = valid_tx.get_account_tx_context();
+
+    let valid_tx_context = block_context.to_tx_context(&valid_tx);
     valid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &valid_tx_context,
-            block_context,
-            false,
-            false,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &valid_tx_context, false, false)
         .unwrap();
 
     // Negative flow: account nonce = 1, incoming tx nonce = 0.
     let invalid_nonce = Nonce(stark_felt!(0_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
+    let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
     let pre_validation_err = invalid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &invalid_tx.get_account_tx_context(),
-            block_context,
-            false,
-            false,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &invalid_tx_context, false, false)
         .unwrap_err();
 
     // Test error.
