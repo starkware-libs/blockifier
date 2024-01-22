@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
@@ -10,12 +12,15 @@ use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
+use crate::transaction::objects::{
+    TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo, TransactionInfoCreator,
+};
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
     InvokeTransaction, L1HandlerTransaction,
 };
 
+// TODO: Move into transaction.rs, makes more sense to be defined there.
 #[derive(Debug, derive_more::From)]
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
@@ -88,6 +93,15 @@ impl Transaction {
     }
 }
 
+impl TransactionInfoCreator for Transaction {
+    fn create_tx_info(&self) -> TransactionInfo {
+        match self {
+            Self::AccountTransaction(account_tx) => account_tx.create_tx_info(),
+            Self::L1HandlerTransaction(l1_handler_tx) => l1_handler_tx.create_tx_info(),
+        }
+    }
+}
+
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
     fn execute_raw(
         self,
@@ -96,17 +110,17 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let tx_context = self.get_account_tx_context();
+        let tx_context = Arc::new(block_context.to_tx_context(&self));
 
         let mut execution_resources = ExecutionResources::default();
-        let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context, true)?;
+        let mut context = EntryPointExecutionContext::new_invoke(tx_context.clone(), true)?;
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
         let ActualCost { actual_fee, actual_resources } =
-            ActualCost::builder_for_l1_handler(block_context, tx_context, l1_handler_payload_size)
+            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
                 .with_execute_call_info(&execute_call_info)
                 .try_add_state_changes(state)?
                 .build(&execution_resources)?;
