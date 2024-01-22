@@ -28,7 +28,7 @@ use crate::execution::errors::PostExecutionError;
 use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::TransactionInfo;
 
 pub type Args = Vec<CairoArg>;
 
@@ -269,10 +269,10 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     Ok(())
 }
 
-pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext) -> Felt252 {
-    match account_tx_context {
-        AccountTransactionContext::Current(_) => 0,
-        AccountTransactionContext::Deprecated(context) => context.max_fee.0,
+pub fn max_fee_for_execution_info(tx_info: &TransactionInfo) -> Felt252 {
+    match tx_info {
+        TransactionInfo::Current(_) => 0,
+        TransactionInfo::Deprecated(tx_info) => tx_info.max_fee.0,
     }
     .into()
 }
