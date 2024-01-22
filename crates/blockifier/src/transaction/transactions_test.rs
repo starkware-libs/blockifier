@@ -26,7 +26,7 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
-use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
@@ -60,8 +60,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, GasVector, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionInfo,
+    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
+    TransactionInfo,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
@@ -154,12 +154,13 @@ fn expected_validate_call_info(
 }
 
 fn expected_fee_transfer_call_info(
-    block_context: &BlockContext,
+    tx_context: &TransactionContext,
     account_address: ContractAddress,
     actual_fee: Fee,
-    fee_type: &FeeType,
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
+    let block_context = &tx_context.block_context;
+    let fee_type = &tx_context.tx_info.fee_type();
     let expected_sequencer_address = block_context.block_info.sequencer_address;
     let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
@@ -343,7 +344,8 @@ fn test_invoke_tx(
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
-    let fee_type = &account_tx.fee_type();
+    let tx_context = block_context.to_tx_context(&account_tx);
+
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -398,13 +400,13 @@ fn test_invoke_tx(
     });
 
     // Build expected fee transfer call info.
+    let fee_type = &tx_context.tx_info.fee_type();
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
-        block_context,
+        &tx_context,
         sender_address,
         expected_actual_fee,
-        fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
 
@@ -708,8 +710,8 @@ fn assert_failure_if_resource_bounds_exceed_balance(
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    match invalid_tx.get_account_tx_context() {
-        AccountTransactionContext::Deprecated(context) => {
+    match block_context.to_tx_context(&invalid_tx).tx_info {
+        TransactionInfo::Deprecated(context) => {
             assert_matches!(
                 invalid_tx.execute(state, block_context, true, true).unwrap_err(),
                 TransactionExecutionError::TransactionPreValidationError(
@@ -718,7 +720,7 @@ fn assert_failure_if_resource_bounds_exceed_balance(
                 if max_fee == context.max_fee
             );
         }
-        AccountTransactionContext::Current(context) => {
+        TransactionInfo::Current(context) => {
             let l1_bounds = context.l1_resource_bounds().unwrap();
             assert_matches!(
                 invalid_tx.execute(state, block_context, true, true).unwrap_err(),
@@ -809,12 +811,9 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // The minimal gas estimate does not depend on tx version.
-    let minimal_l1_gas = estimate_minimal_gas_vector(
-        block_context,
-        &account_invoke_tx(valid_invoke_tx_args.clone()),
-    )
-    .unwrap()
-    .l1_gas;
+    let tx = &account_invoke_tx(valid_invoke_tx_args.clone());
+    let tx_context = &block_context.to_tx_context(tx);
+    let minimal_l1_gas = estimate_minimal_gas_vector(tx_context, tx).unwrap().l1_gas;
 
     // Test V1 transaction.
 
@@ -900,10 +899,9 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         test_contract.get_instance_address(0),
     );
 
-    let minimal_l1_gas =
-        estimate_minimal_gas_vector(block_context, &account_invoke_tx(invoke_tx_args.clone()))
-            .unwrap()
-            .l1_gas;
+    let tx = &account_invoke_tx(invoke_tx_args.clone());
+    let tx_context = &block_context.to_tx_context(tx);
+    let minimal_l1_gas = estimate_minimal_gas_vector(tx_context, tx).unwrap().l1_gas;
     let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
@@ -937,15 +935,9 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
-    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
     let pre_validation_err = invalid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &invalid_tx_context,
-            block_context,
-            false,
-            true,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &invalid_tx_context, false, true)
         .unwrap_err();
 
     // Test error.
@@ -962,29 +954,19 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let valid_nonce = Nonce(stark_felt!(1_u8));
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
-    let valid_tx_context = valid_tx.get_account_tx_context();
+
+    let valid_tx_context = block_context.to_tx_context(&valid_tx);
     valid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &valid_tx_context,
-            block_context,
-            false,
-            false,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &valid_tx_context, false, false)
         .unwrap();
 
     // Negative flow: account nonce = 1, incoming tx nonce = 0.
     let invalid_nonce = Nonce(stark_felt!(0_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
+    let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
     let pre_validation_err = invalid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &invalid_tx.get_account_tx_context(),
-            block_context,
-            false,
-            false,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &invalid_tx_context, false, false)
         .unwrap_err();
 
     // Test error.
@@ -1110,6 +1092,7 @@ fn test_declare_tx(
         undeclared_class_hash == class_hash
     );
     let fee_type = &account_tx.fee_type();
+    let tx_context = &block_context.to_tx_context(&account_tx);
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -1125,10 +1108,9 @@ fn test_declare_tx(
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
-        block_context,
+        tx_context,
         sender_address,
         expected_actual_fee,
-        fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
 
@@ -1226,6 +1208,7 @@ fn test_deploy_account_tx(
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let fee_type = &account_tx.fee_type();
+    let tx_context = &block_context.to_tx_context(&account_tx);
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -1259,10 +1242,9 @@ fn test_deploy_account_tx(
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
-        block_context,
+        tx_context,
         deployed_account_address,
         expected_actual_fee,
-        fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
 
