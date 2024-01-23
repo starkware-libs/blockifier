@@ -14,6 +14,7 @@ mod TestContract {
     use traits::Into;
     use traits::TryInto;
     use starknet::{
+        class_hash_try_from_felt252, contract_address_try_from_felt252,
         eth_address::U256IntoEthAddress, EthAddress, secp256_trait::{Signature, is_valid_signature},
         secp256r1::{Secp256r1Point, Secp256r1Impl}, eth_signature::verify_eth_signature,
         info::{BlockInfo, SyscallResultTrait}, info::v2::{ExecutionInfo, TxInfo, ResourceBounds,},
@@ -359,6 +360,45 @@ mod TestContract {
     fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
         assert(x == y, 'x != y');
         'success'
+    }
+
+    #[external(v0)]
+    fn invoke_call_chain(ref self: ContractState, mut call_chain: Array::<felt252>,) -> felt252 {
+        // If the chain is too short, fail with division by zero.
+        let len = call_chain.len();
+        if len < 3 {
+            return (1_u8 / 0_u8).into();
+        }
+
+        // Pop the parameters for the next call in the chain.
+        let contract_id = call_chain.pop_front().unwrap();
+        let function_selector = call_chain.pop_front().unwrap();
+        let call_type = call_chain.pop_front().unwrap();
+
+        // Choose call type according to the following options:
+        // 0 - call contract syscall. 1 - library call syscall. other - regular inner call.
+        // The remaining items of the call_chain array are passed on as calldata.
+        if call_type == 0 {
+            let contract_address = contract_address_try_from_felt252(contract_id).unwrap();
+            syscalls::call_contract_syscall(contract_address, function_selector, call_chain.span())
+                .unwrap_syscall();
+        } else if call_type == 1 {
+            let class_hash = class_hash_try_from_felt252(contract_id).unwrap();
+            syscalls::library_call_syscall(class_hash, function_selector, call_chain.span())
+                .unwrap_syscall();
+        } else {
+            let invoke_call_chain_selector: felt252 =
+                0x0062c83572d28cb834a3de3c1e94977a4191469a4a8c26d1d7bc55305e640ed5;
+            let fail_selector: felt252 =
+                0x032564d7e0fe091d49b4c20f4632191e4ed6986bf993849879abfef9465def25;
+            if function_selector == invoke_call_chain_selector {
+                return invoke_call_chain(ref self, call_chain);
+            }
+            if function_selector == fail_selector {
+                fail(ref self);
+            }
+        }
+        return 0;
     }
 
     #[external(v0)]

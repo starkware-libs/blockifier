@@ -631,13 +631,13 @@ Unknown location (pc=0:1065)
 
     let expected_trace_cairo1 = format!(
         "Error in the called contract ({}):
-Error at pc=0:4798:
+Error at pc=0:4942:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:341)
 
 Error in the called contract ({}):
-Error at pc=0:4798:
+Error at pc=0:4942:
 Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: 0x6661696c \
          ('fail').
 Cairo traceback (most recent call last):
@@ -662,4 +662,121 @@ Execution failed. Failure reason: 0x6661696c ('fail').
         }
         other_error => panic!("Unexpected error type: {other_error:?}"),
     }
+}
+
+#[rstest]
+#[case("invoke_call_chain", "0x75382069732030 ('u8 is 0')")]
+#[case("fail", "0x6661696c ('fail')")]
+fn test_trace_callchain_ends_with_regular_call(
+    #[case] last_func_name: &str,
+    #[case] expected_error: &str,
+) {
+    let chain_info = ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let contract_address_felt = *test_contract_address.0.key();
+
+    // invoke_call_chain -> call_contract_syscall invoke_call_chain -> regular call to final func.
+    let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
+
+    let calldata = calldata![
+        stark_felt!(7_u8),                    // Calldata length
+        contract_address_felt,                // Contract address.
+        invoke_call_chain_selector.0,         // Function selector.
+        stark_felt!(0_u8),                    // Call type: call_contract_syscall.
+        stark_felt!(3_u8),                    // Calldata length
+        contract_address_felt,                // Contract address.
+        selector_from_name(last_func_name).0, // Function selector.
+        stark_felt!(2_u8)                     // Call type: regular call.
+    ];
+
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: invoke_call_chain_selector,
+        calldata,
+        ..trivial_external_entry_point_with_address(test_contract_address)
+    };
+
+    let expected_trace = format!(
+        "Error in the called contract ({}):
+Error at pc=0:7981:
+Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: {}.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:2561)
+
+Error in the called contract ({}):
+Execution failed. Failure reason: {}.
+",
+        contract_address_felt, expected_error, contract_address_felt, expected_error
+    );
+
+    let actual_trace = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    assert_eq!(actual_trace, expected_trace);
+}
+
+#[rstest]
+#[case("invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8)]
+#[case("fail", "0x6661696c ('fail')", 0_u8)]
+fn test_trace_call_chain_with_syscalls(
+    #[values((0_u8, 7981_u16), (1_u8, 8070_u16))] call_type_expected_pc: (u8, u16),
+    #[case] last_func_name: &str,
+    #[case] expected_error: &str,
+    #[case] calldata_extra_length: u8,
+) {
+    let (call_type, expected_pc) = call_type_expected_pc;
+    let chain_info = ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let test_contract_hash = test_contract.get_class_hash().0;
+    let address_felt = *test_contract_address.0.key();
+    let contract_id = if call_type == 0 { address_felt } else { test_contract_hash };
+
+    // invoke_call_chain -> call_contract_syscall invoke_call_chain -> call_contract_syscall /
+    // library_call_syscall to final func.
+    let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
+
+    let mut calldata = vec![
+        stark_felt!(7_u8 + calldata_extra_length), // Calldata length
+        address_felt,                              // Contract address.
+        invoke_call_chain_selector.0,              // Function selector.
+        stark_felt!(0_u8),                         // Call type: call_contract_syscall.
+        stark_felt!(3_u8 + calldata_extra_length), // Calldata length
+        contract_id,                               // Contract address / class hash.
+        selector_from_name(last_func_name).0,      // Function selector.
+        stark_felt!(call_type),                    // Syscall type: library_call or call_contract.
+    ];
+
+    // Need to send an empty array for the last call in `invoke_call_chain` variant.
+    if last_func_name == "invoke_call_chain" {
+        calldata.push(stark_felt!(0_u8));
+    }
+
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: invoke_call_chain_selector,
+        calldata: Calldata(calldata.into()),
+        ..trivial_external_entry_point_with_address(test_contract_address)
+    };
+
+    let expected_trace = format!(
+        "Error in the called contract ({}):
+Error at pc=0:7981:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:2561)
+
+Error in the called contract ({}):
+Error at pc=0:{}:
+Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: {}.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:2561)
+
+Error in the called contract ({}):
+Execution failed. Failure reason: {}.
+",
+        address_felt, address_felt, expected_pc, expected_error, address_felt, expected_error
+    );
+
+    let actual_trace = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    assert_eq!(actual_trace, expected_trace);
 }
