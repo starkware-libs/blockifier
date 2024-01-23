@@ -375,7 +375,7 @@ fn test_state_changes_merge() {
 fn global_contract_cache_is_used() {
     // Initialize the global cache with a single class, and initialize an empty state with this
     // cache.
-    let mut global_cache = GlobalContractCache::default();
+    let mut global_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
     let class_hash = class_hash!(TEST_CLASS_HASH);
     let contract_class = get_test_contract_class();
     global_cache.lock().cache_set(class_hash, contract_class.clone());
