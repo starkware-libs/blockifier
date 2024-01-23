@@ -304,7 +304,8 @@ fn default_invoke_tx_args(
         execute_gas_consumed: 0,
         inner_call_initial_gas: abi_constants::INITIAL_GAS_COST,
     },
-    CairoVersion::Cairo0;
+    CairoVersion::Cairo0,
+    false;
     "With Cairo0 account")]
 #[test_case(
     ExpectedResultTestInvokeTx{
@@ -320,11 +321,13 @@ fn default_invoke_tx_args(
         execute_gas_consumed: 103660,
         inner_call_initial_gas: 9999681980,
     },
-    CairoVersion::Cairo1;
+    CairoVersion::Cairo1,
+    false;
     "With Cairo1 account")]
 fn test_invoke_tx(
     expected_arguments: ExpectedResultTestInvokeTx,
     account_cairo_version: CairoVersion,
+    use_kzg_flag: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
@@ -407,20 +410,25 @@ fn test_invoke_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
+    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_flag {
+        true => todo!(),
+        false => (
+            get_onchain_data_cost(StateChangesCount {
+                n_storage_updates: 1,
+                n_modified_contracts: 1,
+                ..StateChangesCount::default()
+            }),
+            0,
+        ),
+    };
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            (
-                abi_constants::GAS_USAGE.to_string(),
-                get_onchain_data_cost(StateChangesCount {
-                    n_storage_updates: 1,
-                    n_modified_contracts: 1,
-                    ..StateChangesCount::default()
-                }),
-            ),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
+            (abi_constants::GAS_USAGE.to_string(), expected_gas_usage),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -1073,6 +1081,7 @@ fn test_declare_tx(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
     #[case] tx_version: TransactionVersion,
     #[case] empty_contract_version: CairoVersion,
+    #[values(false)] use_kzg_flag: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let empty_contract = FeatureContract::Empty(empty_contract_version);
@@ -1123,6 +1132,11 @@ fn test_declare_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
+    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_flag {
+        true => todo!(),
+        false => (declare_expected_l1_gas_usage(tx_version), 0),
+    };
+
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -1130,7 +1144,8 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
+            (abi_constants::GAS_USAGE.to_string(), expected_gas_usage),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1175,6 +1190,7 @@ fn test_deploy_account_tx(
     #[case] expected_range_check_builtin: usize,
     #[case] expected_n_steps_resource: usize,
     #[case] cairo_version: CairoVersion,
+    #[values(false)] use_kzg_flag: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
@@ -1249,6 +1265,19 @@ fn test_deploy_account_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
+    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_flag {
+        true => todo!(),
+        false => (
+            get_onchain_data_cost(StateChangesCount {
+                n_storage_updates: 1,
+                n_modified_contracts: 1,
+                n_class_hash_updates: 1,
+                ..StateChangesCount::default()
+            }),
+            0,
+        ),
+    };
+
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1256,15 +1285,8 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (
-                abi_constants::GAS_USAGE.to_string(),
-                get_onchain_data_cost(StateChangesCount {
-                    n_storage_updates: 1,
-                    n_modified_contracts: 1,
-                    n_class_hash_updates: 1,
-                    ..StateChangesCount::default()
-                }),
-            ),
+            (abi_constants::GAS_USAGE.to_string(), expected_gas_usage),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -1454,8 +1476,8 @@ fn test_validate_accounts_tx(
 // Test that we exclude the fee token contract modification and adds the account’s balance change
 // in the state changes.
 // TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
-#[test]
-fn test_calculate_tx_gas_usage() {
+#[rstest]
+fn test_calculate_tx_gas_usage(#[values(false)] use_kzg_flag: bool) {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing();
@@ -1481,8 +1503,13 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_and_blob_gas_usage =
-        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
+    let l1_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        std::iter::empty(),
+        state_changes_count,
+        None,
+        use_kzg_flag,
+    )
+    .unwrap();
     let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
     assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
 
@@ -1518,8 +1545,13 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_and_blob_gas_usage =
-        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
+    let l1_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        std::iter::empty(),
+        state_changes_count,
+        None,
+        use_kzg_flag,
+    )
+    .unwrap();
     let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
     assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
 }
@@ -1638,8 +1670,8 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
     }
 }
 
-#[test]
-fn test_l1_handler() {
+#[rstest]
+fn test_l1_handler(#[values(false)] use_kzg_flag: bool) {
     let state = &mut create_test_state();
     let block_context = &BlockContext::create_for_account_testing();
     let from_address = StarkFelt::from_u128(0x123);
@@ -1679,11 +1711,17 @@ fn test_l1_handler() {
     };
 
     // Build the expected resource mapping.
+    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_flag {
+        true => todo!(),
+        false => (17675, 0),
+    };
+
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::GAS_USAGE.to_string(), 17675),
+        (abi_constants::GAS_USAGE.to_string(), expected_gas_usage),
+        (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
     ]));
 
     // Build the expected execution info.

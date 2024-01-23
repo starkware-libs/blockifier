@@ -64,12 +64,18 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
 ///     4. A transaction with L2-to-L1 messages.
 ///     5. A transaction that modifies the storage.
 ///     6. A combination of cases 3. 4. and 5.
-#[test]
-fn test_calculate_tx_gas_usage_basic() {
+// TODO(Aner, 22/01/24): Test blob gas as well.
+// TODO(Aner, 21/01/24): add test case use_kzg_flag=true
+#[rstest]
+fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_flag: bool) {
     // An empty transaction (a theoretical case for sanity check).
-    let empty_tx_gas_and_blob_gas_usage =
-        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), StateChangesCount::default(), None)
-            .unwrap();
+    let empty_tx_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        std::iter::empty(),
+        StateChangesCount::default(),
+        None,
+        use_kzg_flag,
+    )
+    .unwrap();
     assert_eq!(
         empty_tx_gas_and_blob_gas_usage,
         GasAndBlobGasUsages { gas_usage: 0, blob_gas_usage: 0 }
@@ -86,20 +92,27 @@ fn test_calculate_tx_gas_usage_basic() {
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
-    let manual_sharp_gas_usage = get_onchain_data_cost(deploy_account_state_changes_count);
+    let (manual_sharp_gas_usage, manual_sharp_blob_gas_usage) = match use_kzg_flag {
+        true => (0, calculate_tx_blob_gas_usage(deploy_account_state_changes_count)),
+        false => (get_onchain_data_cost(deploy_account_state_changes_count), 0),
+    };
 
     let deploy_account_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
         std::iter::empty(),
         deploy_account_state_changes_count,
         None,
+        use_kzg_flag,
     )
     .unwrap();
-    let GasAndBlobGasUsages { gas_usage: deploy_account_gas_usage, .. } =
-        deploy_account_gas_and_blob_gas_usage;
+    let GasAndBlobGasUsages {
+        gas_usage: deploy_account_gas_usage,
+        blob_gas_usage: deploy_account_blob_gas_usage,
+    } = deploy_account_gas_and_blob_gas_usage;
     assert_eq!(
         (manual_starknet_gas_usage + manual_sharp_gas_usage) as u128,
         deploy_account_gas_usage,
     );
+    assert_eq!(manual_sharp_blob_gas_usage as u128, deploy_account_blob_gas_usage);
 
     // L1 handler.
 
@@ -108,10 +121,13 @@ fn test_calculate_tx_gas_usage_basic() {
         std::iter::empty(),
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
+        use_kzg_flag,
     )
     .unwrap();
-    let GasAndBlobGasUsages { gas_usage: l1_handler_gas_usage, .. } =
-        l1_handler_gas_and_blob_gas_usage;
+    let GasAndBlobGasUsages {
+        gas_usage: l1_handler_gas_usage,
+        blob_gas_usage: l1_handler_blob_gas_usage,
+    } = l1_handler_gas_and_blob_gas_usage;
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
@@ -122,6 +138,7 @@ fn test_calculate_tx_gas_usage_basic() {
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
     assert_eq!((manual_starknet_gas_usage + manual_sharp_gas_usage) as u128, l1_handler_gas_usage);
+    assert_eq!(0, l1_handler_blob_gas_usage);
 
     // Any transaction with L2-to-L1 messages.
 
@@ -164,10 +181,13 @@ fn test_calculate_tx_gas_usage_basic() {
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
         None,
+        use_kzg_flag,
     )
     .unwrap();
-    let GasAndBlobGasUsages { gas_usage: l2_to_l1_messages_gas_usage, .. } =
-        l2_to_l1_messages_gas_and_blob_gas_usage;
+    let GasAndBlobGasUsages {
+        gas_usage: l2_to_l1_messages_gas_usage,
+        blob_gas_usage: l2_to_l1_messages_blob_gas_usage,
+    } = l2_to_l1_messages_gas_and_blob_gas_usage;
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&l2_to_l1_payloads_length, None);
@@ -177,12 +197,20 @@ fn test_calculate_tx_gas_usage_basic() {
         + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
     let manual_sharp_gas_usage = message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + get_onchain_data_cost(l2_to_l1_state_changes_count);
+        + match use_kzg_flag {
+            true => 0,
+            false => get_onchain_data_cost(l2_to_l1_state_changes_count),
+        };
+    let manual_sharp_blob_gas_usage = match use_kzg_flag {
+        true => calculate_tx_blob_gas_usage(l2_to_l1_state_changes_count),
+        false => 0,
+    };
 
     assert_eq!(
         (manual_starknet_gas_usage + manual_sharp_gas_usage) as u128,
         l2_to_l1_messages_gas_usage
     );
+    assert_eq!(manual_sharp_blob_gas_usage as u128, l2_to_l1_messages_blob_gas_usage);
 
     // Any calculation with storage writings.
 
@@ -198,18 +226,28 @@ fn test_calculate_tx_gas_usage_basic() {
         std::iter::empty(),
         storage_writes_state_changes_count,
         None,
+        use_kzg_flag,
     )
     .unwrap();
-    let GasAndBlobGasUsages { gas_usage: storage_writings_gas_usage, .. } =
-        storage_writings_gas_and_blob_gas_usage;
+    let GasAndBlobGasUsages {
+        gas_usage: storage_writings_gas_usage,
+        blob_gas_usage: storage_writings_blob_gas_usage,
+    } = storage_writings_gas_and_blob_gas_usage;
 
     // Manual calculation.
-    let manual_starknet_gas_usage = 0;
-    let manual_sharp_gas_usage = get_onchain_data_cost(storage_writes_state_changes_count);
+    let (manual_starknet_gas_usage, manual_starknet_blob_gas_usage) = (0, 0);
+    let (manual_sharp_gas_usage, manual_sharp_blob_gas_usage) = match use_kzg_flag {
+        true => (0, calculate_tx_blob_gas_usage(storage_writes_state_changes_count)),
+        false => (get_onchain_data_cost(storage_writes_state_changes_count), 0),
+    };
 
     assert_eq!(
         (manual_starknet_gas_usage + manual_sharp_gas_usage) as u128,
         storage_writings_gas_usage
+    );
+    assert_eq!(
+        (manual_starknet_blob_gas_usage + manual_sharp_blob_gas_usage) as u128,
+        storage_writings_blob_gas_usage
     );
 
     // Combined case of an L1 handler, L2-to-L1 messages and storage writes.
@@ -224,13 +262,18 @@ fn test_calculate_tx_gas_usage_basic() {
         call_infos_iter,
         combined_state_changes_count,
         Some(l1_handler_payload_size),
+        use_kzg_flag,
     )
     .unwrap();
     let GasAndBlobGasUsages { gas_usage, .. } = gas_usage_and_blob_gas_usage;
 
     // Manual calculation.
-    let fee_balance_discount =
-        eth_gas_constants::GAS_PER_MEMORY_WORD - eth_gas_constants::get_calldata_word_cost(12);
+    let fee_balance_discount = match use_kzg_flag {
+        true => 0,
+        false => {
+            eth_gas_constants::GAS_PER_MEMORY_WORD - eth_gas_constants::get_calldata_word_cost(12)
+        }
+    };
 
     let expected_gas_usage = l1_handler_gas_usage
         + l2_to_l1_messages_gas_usage
