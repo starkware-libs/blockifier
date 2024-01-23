@@ -292,6 +292,7 @@ pub fn run_entry_point(
 ) -> Result<(), VirtualMachineExecutionError> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
+    log::debug!("VM: Initializing Entrypoint Run...");
     let result = runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
@@ -300,6 +301,7 @@ pub fn run_entry_point(
         vm,
         hint_processor,
     );
+    log::debug!("VM: Finalizing Entrypoint Run...");
 
     Ok(result?)
 }

@@ -87,7 +87,10 @@ impl PyBlockExecutor {
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
-        self.tx_executor().execute(tx, raw_contract_class, charge_fee)
+        log::debug!("Native Blockifier: Initializing Transaction Execution...");
+        let return_val = self.tx_executor().execute(tx, raw_contract_class, charge_fee);
+        log::debug!("Native Blockifier: Finalizing Transaction Execution...");
+        return_val
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of

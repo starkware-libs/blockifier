@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use cairo_felt::Felt252;
 use cairo_lang_casm::hints::{Hint, StarknetHint};
@@ -53,6 +54,8 @@ use crate::transaction::objects::{AccountTransactionContext, CurrentAccountTrans
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
+pub type SyscallStartTime = HashMap<SyscallSelector, Instant>;
+pub type SyscallExecutionTimeCounter = HashMap<SyscallSelector, Duration>;
 
 #[derive(Debug, Error)]
 pub enum SyscallExecutionError {
@@ -228,8 +231,9 @@ impl<'a> SyscallHintProcessor<'a> {
         if selector != SyscallSelector::Keccak {
             self.increment_syscall_count(&selector);
         }
+        self.update_syscall_start_time(&selector);
 
-        match selector {
+        let res: HintExecutionResult = match selector {
             SyscallSelector::CallContract => {
                 self.execute_syscall(vm, call_contract, constants::CALL_CONTRACT_GAS_COST)
             }
@@ -299,7 +303,10 @@ impl<'a> SyscallHintProcessor<'a> {
             _ => Err(HintError::UnknownHint(
                 format!("Unsupported syscall selector {selector:?}.").into(),
             )),
-        }
+        };
+
+        self.increment_syscall_time_counter(&selector);
+        res
     }
 
     pub fn get_or_allocate_execution_info_segment(
@@ -408,6 +415,23 @@ impl<'a> SyscallHintProcessor<'a> {
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
         self.increment_syscall_count_by(selector, 1);
+    }
+
+    fn update_syscall_start_time(&mut self, selector: &SyscallSelector) {
+        let syscall_start_time =
+            self.resources.syscall_start_time.entry(*selector).or_insert_with(Instant::now);
+        *syscall_start_time = Instant::now();
+    }
+
+    fn increment_syscall_time_counter(&mut self, selector: &SyscallSelector) {
+        let syscall_execution_time_counter =
+            self.resources.syscall_execution_time_counter.entry(*selector).or_default();
+        if let Some(syscall_start_time) = self.resources.syscall_start_time.get(selector).copied() {
+            *syscall_execution_time_counter += syscall_start_time.elapsed();
+        } else {
+            // panic
+            panic!("Syscall start time not found for selector {:?}", selector);
+        }
     }
 
     fn allocate_execution_info_segment(
