@@ -130,9 +130,11 @@ pub struct PyOrderedEvent {
 
 impl From<OrderedEvent> for PyOrderedEvent {
     fn from(ordered_event: OrderedEvent) -> Self {
-        let keys = to_py_vec(ordered_event.event.keys, |x| PyFelt(x.0));
-        let data = to_py_vec(ordered_event.event.data.0, PyFelt);
-        Self { order: ordered_event.order, keys, data }
+        Self {
+            order: ordered_event.order,
+            keys: to_py_vec(ordered_event.event.keys, |x| PyFelt(x.0)),
+            data: to_py_vec(ordered_event.event.data.0, PyFelt),
+        }
     }
 }
 
@@ -149,11 +151,10 @@ pub struct PyOrderedL2ToL1Message {
 
 impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
     fn from(ordered_message: OrderedL2ToL1Message) -> Self {
-        let payload = to_py_vec(ordered_message.message.payload.0, PyFelt);
         Self {
             order: ordered_message.order,
             to_address: PyFelt::from(ordered_message.message.to_address),
-            payload,
+            payload: to_py_vec(ordered_message.message.payload.0, PyFelt),
         }
     }
 }

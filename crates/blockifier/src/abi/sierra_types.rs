@@ -104,9 +104,10 @@ impl SierraU256 {
 
 impl SierraType for SierraU256 {
     fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Self, SierraTypeError> {
-        let low_val = SierraU128::from_memory(vm, ptr)?.as_value();
-        let high_val = SierraU128::from_memory(vm, ptr)?.as_value();
-        Ok(Self { low_val, high_val })
+        Ok(Self {
+            low_val: SierraU128::from_memory(vm, ptr)?.as_value(),
+            high_val: SierraU128::from_memory(vm, ptr)?.as_value(),
+        })
     }
 
     fn from_storage(

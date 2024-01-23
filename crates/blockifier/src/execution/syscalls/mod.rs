@@ -63,8 +63,7 @@ impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
                 input: felt_to_stark_felt(&gas_counter),
                 info: String::from("Unexpected gas."),
             })?;
-        let request = T::read(vm, ptr)?;
-        Ok(Self { gas_counter, request })
+        Ok(Self { gas_counter, request: T::read(vm, ptr)? })
     }
 }
 
