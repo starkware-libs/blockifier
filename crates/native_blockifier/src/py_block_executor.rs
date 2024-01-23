@@ -33,10 +33,11 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
+    #[pyo3(signature = (general_config, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
         max_recursion_depth: usize,
+        global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
     ) -> Self {
         log::debug!("Initializing Block Executor...");
@@ -50,7 +51,7 @@ impl PyBlockExecutor {
             max_recursion_depth,
             tx_executor,
             storage: Box::new(storage),
-            global_contract_cache: GlobalContractCache::default(),
+            global_contract_cache: GlobalContractCache::new(global_contract_cache_size),
         }
     }
 
@@ -203,7 +204,7 @@ impl PyBlockExecutor {
             general_config,
             max_recursion_depth: 50,
             tx_executor: None,
-            global_contract_cache: GlobalContractCache::default(),
+            global_contract_cache: GlobalContractCache::new(100),
         }
     }
 }
@@ -226,7 +227,7 @@ impl PyBlockExecutor {
             general_config: PyGeneralConfig::default(),
             max_recursion_depth: 50,
             tx_executor: None,
-            global_contract_cache: GlobalContractCache::default(),
+            global_contract_cache: GlobalContractCache::new(100),
         }
     }
 }
