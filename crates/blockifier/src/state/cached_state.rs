@@ -184,9 +184,10 @@ impl<S: StateReader> CachedState<S> {
     }
 }
 
+#[cfg(any(feature = "testing", test))]
 impl<S: StateReader> From<S> for CachedState<S> {
     fn from(state_reader: S) -> Self {
-        CachedState::new(state_reader, Default::default())
+        CachedState::new(state_reader, GlobalContractCache::new(TEST_GLOBAL_CONTRACT_CACHE_SIZE))
     }
 }
 
@@ -365,7 +366,7 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
             state: Default::default(),
             cache: Default::default(),
             class_hash_to_class: Default::default(),
-            global_class_hash_to_class: Default::default(),
+            global_class_hash_to_class: GlobalContractCache::new(TEST_GLOBAL_CONTRACT_CACHE_SIZE),
             visited_pcs: Default::default(),
         }
     }
@@ -726,10 +727,9 @@ type LockedContractClassCache<'a> = MutexGuard<'a, ContractClassLRUCache>;
 // `blockifier` compiles as a shared library.
 pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
 
-impl GlobalContractCache {
-    // TODO(Arni, 7/1/2024): make this configurable via a CachedState constructor argument.
-    const CACHE_SIZE: usize = 100;
+pub const TEST_GLOBAL_CONTRACT_CACHE_SIZE: usize = 100;
 
+impl GlobalContractCache {
     /// Locks the cache for atomic access. Although conceptually shared, writing to this cache is
     /// only possible for one writer at a time.
     pub fn lock(&mut self) -> LockedContractClassCache<'_> {
@@ -739,10 +739,8 @@ impl GlobalContractCache {
     pub fn clear(&mut self) {
         self.lock().cache_clear();
     }
-}
 
-impl Default for GlobalContractCache {
-    fn default() -> Self {
-        Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(Self::CACHE_SIZE))))
+    pub fn new(cache_size: usize) -> Self {
+        Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(cache_size))))
     }
 }
