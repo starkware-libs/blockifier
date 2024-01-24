@@ -13,6 +13,9 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
         .expect("Versioned constants JSON file is malformed")
 });
 
+/// Contains constants for the Blockifier that may vary between versions.
+/// Additional constants in the JSON file, not used by Blockifier but included for transparency, are
+/// automatically ignored during deserialization.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
     // Fee related.

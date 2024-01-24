@@ -100,6 +100,13 @@ where
     Ok(obj.getattr(attr)?.extract()?)
 }
 
-pub fn versioned_constants_with_overrides(max_recursion_depth: usize) -> VersionedConstants {
-    VersionedConstants { max_recursion_depth, ..VersionedConstants::latest_constants().clone() }
+pub fn versioned_constants_with_overrides(
+    validate_max_n_steps: u32,
+    max_recursion_depth: usize,
+) -> VersionedConstants {
+    VersionedConstants {
+        validate_max_n_steps,
+        max_recursion_depth,
+        ..VersionedConstants::latest_constants().clone()
+    }
 }
