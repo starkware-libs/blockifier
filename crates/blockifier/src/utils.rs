@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Add, AddAssign};
 
+use crate::transaction::errors::NumericConversionError;
+
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
@@ -35,4 +37,16 @@ where
             .or_insert(value.clone());
     }
     result
+}
+
+/// Conversion from usize to u128. Currently, usize has 64 bits, so this conversion should never
+/// fail.
+pub fn usize_from_u128(val: u128) -> Result<usize, NumericConversionError> {
+    val.try_into().map_err(|_| NumericConversionError::U128ToUsizeError(val))
+}
+
+/// Conversion from u128 to usize. This conversion should only be used if the value came from a
+/// usize.
+pub fn u128_from_usize(val: usize) -> Result<u128, NumericConversionError> {
+    val.try_into().map_err(|_| NumericConversionError::UsizeToU128Error(val))
 }
