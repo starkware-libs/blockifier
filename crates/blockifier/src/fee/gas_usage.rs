@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use starknet_api::transaction::Fee;
 
-use super::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage};
+use super::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usages};
 use crate::abi::constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
@@ -14,6 +14,7 @@ use crate::transaction::objects::{
     GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
     TransactionPreValidationResult,
 };
+use crate::utils::u128_from_usize;
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -23,18 +24,33 @@ pub fn calculate_tx_gas_and_blob_gas_usage<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
+    use_kzg_da: bool,
 ) -> TransactionExecutionResult<GasAndBlobGasUsages> {
     Ok(GasAndBlobGasUsages {
-        gas_usage: calculate_tx_gas_usage(call_infos, state_changes_count, l1_handler_payload_size)?
-            as u128,
-        blob_gas_usage: 0,
+        gas_usage: u128_from_usize(calculate_tx_gas_usage(
+            call_infos,
+            state_changes_count,
+            l1_handler_payload_size,
+            use_kzg_da,
+        )?),
+        blob_gas_usage: u128_from_usize(calculate_tx_blob_gas_usage(
+            state_changes_count,
+            use_kzg_da,
+        )),
     })
 }
 
 /// Returns the blob-gas (data-gas) needed to publish the transaction's state diff in a blob.
-pub fn calculate_tx_blob_gas_usage(state_changes_count: StateChangesCount) -> usize {
-    let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
-    onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
+pub fn calculate_tx_blob_gas_usage(
+    state_changes_count: StateChangesCount,
+    use_kzg_da: bool,
+) -> usize {
+    if use_kzg_da {
+        let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
+        onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
+    } else {
+        0
+    }
 }
 
 /// Returns an estimation of the L1 gas amount that will be used (by Starknet's state update and
@@ -45,11 +61,16 @@ pub fn calculate_tx_gas_usage<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
+    use_kzg_da: bool,
 ) -> TransactionExecutionResult<usize> {
     let gas_for_messages_and_proof =
         calculate_tx_gas_usage_messages(call_infos, l1_handler_payload_size)?;
-    let gas_for_da = get_onchain_data_cost(state_changes_count);
-    Ok(gas_for_messages_and_proof + gas_for_da)
+    if use_kzg_da {
+        Ok(gas_for_messages_and_proof)
+    } else {
+        let gas_for_da = get_onchain_data_cost(state_changes_count);
+        Ok(gas_for_messages_and_proof + gas_for_da)
+    }
 }
 
 /// Returns an estimation of the gas usage for L1-L2 messages. Accounts for both gas used for
@@ -232,5 +253,9 @@ pub fn estimate_minimal_fee(
     tx: &AccountTransaction,
 ) -> TransactionExecutionResult<Fee> {
     let estimated_minimal_l1_gas = estimate_minimal_l1_gas(block_context, tx)?;
-    Ok(get_fee_by_l1_gas_usage(&block_context.block_info, estimated_minimal_l1_gas, &tx.fee_type()))
+    Ok(get_fee_by_l1_gas_usages(
+        &block_context.block_info,
+        estimated_minimal_l1_gas,
+        &tx.fee_type(),
+    ))
 }

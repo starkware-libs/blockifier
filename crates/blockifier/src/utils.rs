@@ -36,3 +36,11 @@ where
     }
     result
 }
+
+pub fn usize_from_u128(val: u128) -> usize {
+    val.try_into().expect("This conversion should not fail if the value is in range.")
+}
+
+pub fn u128_from_usize(val: usize) -> u128 {
+    val.try_into().expect("This conversion should not fail if usize is at most 128 bits.")
+}

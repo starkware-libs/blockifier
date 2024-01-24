@@ -11,7 +11,7 @@ use crate::block_context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{
-    calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage,
+    calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usages,
 };
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
@@ -88,7 +88,7 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
     let gas = base_gas + if validate_mode { VALIDATE_GAS_OVERHEAD } else { 0 };
     (
         gas,
-        get_fee_by_l1_gas_usage(
+        get_fee_by_l1_gas_usages(
             &BlockContext::create_for_account_testing().block_info,
             GasAndBlobGasUsages { gas_usage: gas.into(), blob_gas_usage: 0 },
             fee_type,
@@ -486,7 +486,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let invoke_tx_max_n_steps_as_u64: u64 =
         low_step_block_context.block_info.invoke_tx_max_n_steps.into();
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1720;
-    let block_limit_fee = get_fee_by_l1_gas_usage(
+    let block_limit_fee = get_fee_by_l1_gas_usages(
         &block_context.block_info,
         GasAndBlobGasUsages { gas_usage: block_limit_gas.into(), blob_gas_usage: 0 },
         &fee_type,
