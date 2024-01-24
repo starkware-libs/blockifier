@@ -35,9 +35,10 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
+    #[pyo3(signature = (general_config, validate_max_n_steps, max_recursion_depth, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
+        validate_max_n_steps: u32,
         max_recursion_depth: usize,
         target_storage_config: StorageConfig,
     ) -> Self {
@@ -48,6 +49,7 @@ impl PyBlockExecutor {
 
         let versioned_constants = VersionedConstants {
             max_recursion_depth,
+            validate_max_n_steps,
             ..VersionedConstants::latest_constants().clone()
         };
 

@@ -31,23 +31,24 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
+        validate_max_n_steps: u32,
         max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
         let versioned_constants = VersionedConstants {
             max_recursion_depth,
+            validate_max_n_steps,
             ..VersionedConstants::latest_constants().clone()
         };
 
         let tx_executor = TransactionExecutor::new(
             PyStateReader::new(state_reader_proxy),
             &general_config,
-            // TODO(Gilad): add max_validate_n_steps override argument and override here.
             &versioned_constants,
             next_block_info,
             GlobalContractCache::default(),
