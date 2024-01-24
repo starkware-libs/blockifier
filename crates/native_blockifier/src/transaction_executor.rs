@@ -19,7 +19,7 @@ use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_block_executor::{into_block_context, PyGeneralConfig};
+use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{
@@ -52,8 +52,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
+        let block_context_args =
+            into_block_context_args(general_config, block_info, max_recursion_depth)?;
         let tx_executor = Self {
-            block_context: into_block_context(general_config, block_info, max_recursion_depth)?,
+            block_context: BlockContext::new_unchecked(block_context_args),
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),
