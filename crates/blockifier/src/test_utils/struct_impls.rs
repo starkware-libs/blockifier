@@ -136,6 +136,10 @@ impl BlockInfo {
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }
     }
+
+    pub fn create_for_account_testing_with_kzg(use_kzg_da: bool) -> Self {
+        Self { use_kzg_da, ..Self::create_for_account_testing() }
+    }
 }
 
 impl BlockContext {
@@ -150,6 +154,13 @@ impl BlockContext {
         Self {
             block_info: BlockInfo::create_for_account_testing(),
             chain_info: ChainInfo::create_for_testing(),
+        }
+    }
+
+    pub fn create_for_account_testing_with_kzg(use_kzg_da: bool) -> Self {
+        Self {
+            block_info: BlockInfo::create_for_account_testing_with_kzg(use_kzg_da),
+            ..Self::create_for_account_testing()
         }
     }
 }

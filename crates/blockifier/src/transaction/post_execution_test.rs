@@ -260,7 +260,7 @@ fn test_revert_on_resource_overuse(
     let actual_gas_usage: u64 =
         calculate_tx_l1_gas_usages(&execution_info_measure.actual_resources, &block_context)
             .unwrap()
-            .gas_usage
+            .l1_gas
             .try_into()
             .expect("Failed to convert u128 to u64.");
 
