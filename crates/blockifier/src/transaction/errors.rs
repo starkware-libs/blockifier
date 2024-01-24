@@ -86,6 +86,8 @@ pub enum TransactionExecutionError {
     TransactionPreValidationError(#[from] TransactionPreValidationError),
     #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
+    #[error(transparent)]
+    TryFromIntError(#[from] std::num::TryFromIntError),
     #[error("Transaction validation has failed: {0}")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
 }
