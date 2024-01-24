@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
+use blockifier::block_context::{BlockContextArgs, ChainInfo, FeeTokenAddresses, GasPrices};
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -293,30 +293,30 @@ impl Default for PyOsConfig {
     }
 }
 
-pub fn into_block_context(
+pub fn into_block_context_args(
     general_config: &PyGeneralConfig,
     block_info: PyBlockInfo,
     max_recursion_depth: usize,
-) -> NativeBlockifierResult<BlockContext> {
-    let block_context = BlockContext {
-        block_info: BlockInfo {
-            block_number: BlockNumber(block_info.block_number),
-            block_timestamp: BlockTimestamp(block_info.block_timestamp),
-            sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-            vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
-                strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
-                eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
-                strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
-            },
-
-            use_kzg_da: block_info.use_kzg_da,
-            invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-            validate_max_n_steps: general_config.validate_max_n_steps,
-            max_recursion_depth,
+) -> NativeBlockifierResult<BlockContextArgs> {
+    let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
+    let block_context = BlockContextArgs {
+        block_number: BlockNumber(block_info.block_number),
+        block_timestamp: BlockTimestamp(block_info.block_timestamp),
+        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
+        vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
+        gas_prices: GasPrices {
+            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
+            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
+            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
+            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
         },
-        chain_info: general_config.starknet_os_config.clone().try_into()?,
+
+        use_kzg_da: block_info.use_kzg_da,
+        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
+        validate_max_n_steps: general_config.validate_max_n_steps,
+        max_recursion_depth,
+        chain_id: chain_info.chain_id,
+        fee_token_addresses: chain_info.fee_token_addresses,
     };
 
     Ok(block_context)
