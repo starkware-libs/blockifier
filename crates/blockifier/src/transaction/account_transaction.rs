@@ -15,7 +15,7 @@ use crate::execution::entry_point::{
 };
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
-use crate::fee::fee_utils::{get_fee_by_l1_gas_usage, verify_can_pay_committed_bounds};
+use crate::fee::fee_utils::{get_fee_by_l1_gas_usages, verify_can_pay_committed_bounds};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
@@ -212,7 +212,7 @@ impl AccountTransaction {
             }
             AccountTransactionContext::Deprecated(context) => {
                 let max_fee = context.max_fee;
-                let min_fee = get_fee_by_l1_gas_usage(
+                let min_fee = get_fee_by_l1_gas_usages(
                     block_info,
                     minimal_l1_gas_and_blob_gas_amount,
                     &account_tx_context.fee_type(),
