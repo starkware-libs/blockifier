@@ -11,6 +11,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping,
     TransactionFeeResult,
 };
+use crate::utils::u128_from_usize;
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -71,17 +72,19 @@ pub fn calculate_tx_l1_gas_usages(
 
     Ok(GasAndBlobGasUsages {
         gas_usage: total_l1_gas_usage.ceil() as u128,
-        blob_gas_usage: l1_blob_gas_usage as u128,
+        blob_gas_usage: u128_from_usize(l1_blob_gas_usage)
+            .expect("Conversion from usize to u128 should not fail."),
     })
 }
 
-pub fn get_fee_by_l1_gas_usage(
+pub fn get_fee_by_l1_gas_usages(
     block_info: &BlockInfo,
     l1_gas_usages: GasAndBlobGasUsages,
     fee_type: &FeeType,
 ) -> Fee {
-    // TODO(Aner, 25/01/24) compute via linear combination and rename function accordingly.
-    Fee(l1_gas_usages.gas_usage * block_info.gas_prices.get_gas_price_by_fee_type(fee_type))
+    Fee(l1_gas_usages.gas_usage * block_info.gas_prices.get_gas_price_by_fee_type(fee_type)
+        + l1_gas_usages.blob_gas_usage
+            * block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
@@ -91,7 +94,7 @@ pub fn calculate_tx_fee(
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
     let l1_gas_and_blob_gas_usage = calculate_tx_l1_gas_usages(resources, block_context)?;
-    Ok(get_fee_by_l1_gas_usage(&block_context.block_info, l1_gas_and_blob_gas_usage, fee_type))
+    Ok(get_fee_by_l1_gas_usages(&block_context.block_info, l1_gas_and_blob_gas_usage, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.

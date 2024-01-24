@@ -137,11 +137,11 @@ impl<'a> ActualCostBuilder<'a> {
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
-        // TODO(Aner, 21/01/24) Include gas for data availability according to use_kzg_da flag.
         let l1_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
+            self.block_context.block_info.use_kzg_da,
         )?;
 
         let mut actual_resources = calculate_tx_resources(
