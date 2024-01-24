@@ -355,11 +355,11 @@ mod SierraTestContract {
     //     }
     // }
 
-    // #[external(v0)]
-    // fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
-    //     assert(x == y, 'x != y');
-    //     'success'
-    // }
+    #[external(v0)]
+    fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
+         assert(x == y, 'x != y');
+         'success'
+    }
 
     // #[external(v0)]
     // fn recursive_fail(ref self: ContractState, depth: felt252) {

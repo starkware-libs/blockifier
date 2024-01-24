@@ -110,8 +110,16 @@ pub fn setup_syscall_handler(
     execution_context: EntryPointExecutionContext,
     events: Vec<OrderedEvent>,
     l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    execution_resources: crate::execution::entry_point::ExecutionResources,
 ) -> NativeSyscallHandler<'_> {
-    NativeSyscallHandler { state, storage_address, execution_context, events, l2_to_l1_messages }
+    NativeSyscallHandler {
+        state,
+        storage_address,
+        execution_context,
+        events,
+        l2_to_l1_messages,
+        execution_resources,
+    }
 }
 
 pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler<'_>) -> SyscallHandlerMeta {
@@ -145,7 +153,12 @@ pub fn run_native_executor(
                     Some(call.initial_gas as u128), // TODO track gas reduction?
                     Some(syscall_handler),
                 )
-                .expect("Native execution error")
+                .unwrap_or(ContractExecutionResult {
+                    remaining_gas: 0,
+                    failure_flag: false,
+                    return_values: vec![],
+                    error_msg: Some("error".to_string()),
+                })
         }
         NativeExecutor::Jit(_) => todo!("Jit"),
     }

@@ -13,7 +13,9 @@ use crate::abi::constants;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
+use crate::execution::entry_point::{
+    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
+};
 use crate::execution::syscalls::hint_processor::{
     execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_GET_CONTRACT_CLASS,
     FAILED_TO_SET_CLASS_HASH, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
@@ -24,6 +26,7 @@ use crate::state::state_api::State;
 pub struct NativeSyscallHandler<'state> {
     pub state: &'state mut dyn State,
     pub storage_address: ContractAddress,
+    pub execution_resources: ExecutionResources,
     pub execution_context: EntryPointExecutionContext,
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
@@ -149,7 +152,12 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             initial_gas: *remaining_gas as u64,
         };
 
-        execute_inner_call_raw(entry_point, self.state, &mut self.execution_context)
+        execute_inner_call_raw(
+            entry_point,
+            self.state,
+            &mut self.execution_resources,
+            &mut self.execution_context,
+        )
     }
 
     fn call_contract(
@@ -190,7 +198,12 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             initial_gas: *remaining_gas as u64,
         };
 
-        execute_inner_call_raw(entry_point, self.state, &mut self.execution_context)
+        execute_inner_call_raw(
+            entry_point,
+            self.state,
+            &mut self.execution_resources,
+            &mut self.execution_context,
+        )
     }
 
     fn storage_read(

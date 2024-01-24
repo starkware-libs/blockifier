@@ -101,6 +101,7 @@ pub fn execute_entry_point_call(
                 context.clone(),
                 Vec::new(),
                 Vec::new(),
+                resources.clone(),
             );
 
             let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
