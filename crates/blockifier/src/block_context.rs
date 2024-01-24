@@ -4,12 +4,36 @@ use std::sync::Arc;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
+use crate::block_execution::BlockContextArgs;
 use crate::transaction::objects::FeeType;
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
-    pub block_info: BlockInfo,
+    // At least one of the following fields should be pub(crate) to make the constructore private.
+    pub(crate) block_info: BlockInfo,
     pub chain_info: ChainInfo,
+}
+
+impl BlockContext {
+    pub fn new_unchecked(block_context_args: BlockContextArgs) -> Self {
+        BlockContext {
+            block_info: BlockInfo {
+                block_number: block_context_args.block_number,
+                block_timestamp: block_context_args.block_timestamp,
+                sequencer_address: block_context_args.sequencer_address,
+                vm_resource_fee_cost: block_context_args.vm_resource_fee_cost,
+                gas_prices: block_context_args.gas_prices,
+                use_kzg_da: block_context_args.use_kzg_da,
+                invoke_tx_max_n_steps: block_context_args.invoke_tx_max_n_steps,
+                validate_max_n_steps: block_context_args.validate_max_n_steps,
+                max_recursion_depth: block_context_args.max_recursion_depth,
+            },
+            chain_info: ChainInfo {
+                chain_id: block_context_args.chain_id,
+                fee_token_addresses: block_context_args.fee_token_addresses,
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +65,7 @@ impl ChainInfo {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,
     pub eth_fee_token_address: ContractAddress,
@@ -56,7 +80,7 @@ impl FeeTokenAddresses {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GasPrices {
     pub eth_l1_gas_price: u128,       // In wei.
     pub strk_l1_gas_price: u128,      // In fri.
