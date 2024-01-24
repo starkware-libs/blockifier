@@ -19,7 +19,7 @@ fn global_contract_cache_update() {
     let temp_storage_path = tempfile::tempdir().unwrap().into_path();
     let mut block_executor =
         PyBlockExecutor::create_for_testing(PyGeneralConfig::default(), temp_storage_path);
-    block_executor.setup_block_execution(PyBlockInfo::default()).unwrap();
+    block_executor.setup_block_execution(PyBlockInfo::default(), None).unwrap();
 
     let class_hash = class_hash!(TEST_CLASS_HASH);
     let contract_class = get_test_contract_class();
@@ -36,7 +36,7 @@ fn global_contract_cache_update() {
     block_executor.teardown_block_execution();
 
     // Finalizing a non-pending block does update the global cache.
-    block_executor.setup_block_execution(PyBlockInfo::default()).unwrap();
+    block_executor.setup_block_execution(PyBlockInfo::default(), None).unwrap();
     block_executor.tx_executor().state.set_contract_class(class_hash, contract_class).unwrap();
     let is_pending_block = false;
     block_executor.finalize(is_pending_block);
