@@ -142,6 +142,7 @@ impl<'a> ActualCostBuilder<'a> {
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
+            self.block_context.block_info.use_kzg_da,
         )?;
 
         let mut actual_resources = calculate_tx_resources(
