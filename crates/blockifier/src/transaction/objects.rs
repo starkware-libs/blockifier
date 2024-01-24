@@ -130,9 +130,9 @@ pub struct DeprecatedAccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct GasAndBlobGasUsages {
-    pub gas_usage: u128,
-    pub blob_gas_usage: u128,
+pub struct GasVector {
+    pub l1_gas: u128,
+    pub blob_gas: u128,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

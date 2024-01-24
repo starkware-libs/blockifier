@@ -5,13 +5,12 @@ use thiserror::Error;
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usages, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usage,
+    calculate_tx_l1_gas_usages, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usages,
 };
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType,
-    TransactionExecutionResult,
+    AccountTransactionContext, FeeType, GasVector, HasRelatedFeeType, TransactionExecutionResult,
 };
 
 #[derive(Clone, Copy, Debug, Error)]
@@ -73,11 +72,11 @@ impl FeeCheckReport {
             // resource bounds), the sender should be able to pay this fee.
             FeeCheckError::MaxFeeExceeded { .. } | FeeCheckError::MaxL1GasAmountExceeded { .. } => {
                 match account_tx_context {
-                    AccountTransactionContext::Current(context) => get_fee_by_l1_gas_usage(
+                    AccountTransactionContext::Current(context) => get_fee_by_l1_gas_usages(
                         block_info,
-                        GasAndBlobGasUsages {
-                            gas_usage: context.l1_resource_bounds()?.max_amount.into(),
-                            blob_gas_usage: 0,
+                        GasVector {
+                            l1_gas: context.l1_resource_bounds()?.max_amount.into(),
+                            blob_gas: 0,
                         },
                         &FeeType::Strk,
                     ),
@@ -104,7 +103,7 @@ impl FeeCheckReport {
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
 
-                let GasAndBlobGasUsages { gas_usage, blob_gas_usage } =
+                let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } =
                     calculate_tx_l1_gas_usages(actual_resources, block_context)?;
 
                 // TODO(Dori, 1/7/2024): When data gas limit is added (and enforced) in resource
