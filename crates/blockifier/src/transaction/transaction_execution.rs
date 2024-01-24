@@ -103,8 +103,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let mut remaining_gas = Transaction::initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
-        // The calldata includes the "from" field, which is not a part of the payload.
-        let l1_handler_payload_size = self.tx.calldata.0.len() - 1;
+        let l1_handler_payload_size = self.payload_size();
 
         let ActualCost { actual_fee, actual_resources } =
             ActualCost::builder_for_l1_handler(block_context, tx_context, l1_handler_payload_size)
