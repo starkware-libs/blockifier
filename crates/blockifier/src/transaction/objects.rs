@@ -130,6 +130,12 @@ pub struct DeprecatedAccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GasAndBlobGasUsages {
+    pub gas_usage: u128,
+    pub blob_gas_usage: u128,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CommonAccountFields {
     pub transaction_hash: TransactionHash,
     pub version: TransactionVersion,
@@ -200,6 +206,11 @@ impl ResourcesMapping {
     #[cfg(test)]
     pub fn gas_usage(&self) -> usize {
         *self.0.get(crate::abi::constants::GAS_USAGE).unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn blob_gas_usage(&self) -> usize {
+        *self.0.get(crate::abi::constants::BLOB_GAS_USAGE).unwrap()
     }
 }
 
