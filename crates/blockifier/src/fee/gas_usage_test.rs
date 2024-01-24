@@ -131,11 +131,11 @@ fn test_calculate_tx_gas_usage_basic() {
         call_infos.push(call_info);
     }
 
-    // l2_to_l1_payloads_length is [0, 1, 2, 3]
+    // l2_to_l1_payload_lengths is [0, 1, 2, 3]
     let call_infos_iter = call_infos.iter();
-    let l2_to_l1_payloads_length: Vec<usize> = call_infos_iter
+    let l2_to_l1_payload_lengths: Vec<usize> = call_infos_iter
         .clone()
-        .flat_map(|call_info| call_info.get_sorted_l2_to_l1_payloads_length().unwrap())
+        .flat_map(|call_info| call_info.get_sorted_l2_to_l1_payload_lengths().unwrap())
         .collect();
 
     let l2_to_l1_state_changes_count = StateChangesCount {
@@ -149,11 +149,11 @@ fn test_calculate_tx_gas_usage_basic() {
             .unwrap();
 
     // Manual calculation.
-    let message_segment_length = get_message_segment_length(&l2_to_l1_payloads_length, None);
-    let n_l2_to_l1_messages = l2_to_l1_payloads_length.len();
+    let message_segment_length = get_message_segment_length(&l2_to_l1_payload_lengths, None);
+    let n_l2_to_l1_messages = l2_to_l1_payload_lengths.len();
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
-        + get_log_message_to_l1_emissions_cost(&l2_to_l1_payloads_length);
+        + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
     let manual_sharp_gas_usage = message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
         + get_onchain_data_cost(l2_to_l1_state_changes_count);
