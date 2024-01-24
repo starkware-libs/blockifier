@@ -3,6 +3,8 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use crate::abi::constants::STORED_BLOCK_HASH_BUFFER;
+
 #[derive(Debug, Error)]
 pub enum StateError {
     #[error("Cannot deploy contract at address 0.")]
@@ -18,4 +20,6 @@ pub enum StateError {
     /// Represents all unexpected errors that may occur while reading from state.
     #[error("Failed to read from state: {0}.")]
     StateReadError(String),
+    #[error("A block hash must be provided for block number > {STORED_BLOCK_HASH_BUFFER}.")]
+    OldBlockHashNotProvided,
 }
