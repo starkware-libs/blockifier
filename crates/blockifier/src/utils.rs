@@ -19,3 +19,19 @@ where
 pub const fn const_max(a: u128, b: u128) -> u128 {
     [a, b][(a < b) as usize]
 }
+
+pub fn bit_reverse_index(x: u32, log_domain_size: u32) -> u32 {
+    x.reverse_bits() >> (32 - log_domain_size)
+}
+
+pub fn bit_reverse_in_place<T: Copy>(array: &mut [T], log_domain_size: u32) {
+    for i in 0..array.len() {
+        array.swap(i, bit_reverse_index(i as u32, log_domain_size) as usize);
+    }
+}
+
+pub fn bit_reverse_vec<T: Copy>(vec: &Vec<T>, log_domain_size: u32) -> Vec<T> {
+    let mut result = vec.clone();
+    bit_reverse_in_place(&mut result, log_domain_size);
+    result
+}
