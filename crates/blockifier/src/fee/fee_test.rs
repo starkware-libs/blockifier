@@ -20,6 +20,7 @@ use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::ResourcesMapping;
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
+use crate::utils::usize_into_f64;
 
 fn get_vm_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
@@ -41,7 +42,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
     assert_eq!(
-        *l1_gas_by_vm_usage as f64,
+        usize_into_f64(*l1_gas_by_vm_usage).unwrap(),
         calculate_l1_gas_by_vm_usage(&block_context, &vm_resource_usage).unwrap()
     );
 
@@ -100,11 +101,11 @@ fn test_discounted_gas_overdraft(
 
     if expect_failure {
         let error = report.error().unwrap();
-        let expected_actual_amount =
-            l1_gas_used as u128 + (l1_data_gas_used as u128 * data_gas_price) / gas_price;
+        let expected_actual_amount = u128::try_from(l1_gas_used).unwrap()
+            + (u128::try_from(l1_data_gas_used).unwrap() * data_gas_price) / gas_price;
         assert_matches!(
             error, FeeCheckError::MaxL1GasAmountExceeded { max_amount, actual_amount }
-            if max_amount == gas_bound as u128 && actual_amount == expected_actual_amount
+            if max_amount == gas_bound.into() && actual_amount == expected_actual_amount
         )
     } else {
         assert_matches!(report.error(), None);

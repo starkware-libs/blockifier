@@ -46,7 +46,11 @@ pub enum TransactionFeeError {
     #[error("Missing L1 gas bounds in resource bounds.")]
     MissingL1GasBounds,
     #[error(transparent)]
+    NumericConversionError(#[from] NumericConversionError),
+    #[error(transparent)]
     StateError(#[from] StateError),
+    #[error(transparent)]
+    TryFromIntError(#[from] std::num::TryFromIntError),
 }
 
 #[derive(Debug, Error)]
@@ -78,6 +82,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
+    #[error(transparent)]
+    NumericConversionError(#[from] NumericConversionError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
@@ -119,4 +125,8 @@ pub enum NumericConversionError {
     UsizeToU128Error(usize),
     #[error("Conversion of {0} to u128 unsuccessful.")]
     U128ToUsizeError(u128),
+    #[error("Conversion from {0} to u128 unsuccessful")]
+    F64ToU128Error(f64),
+    #[error("Conversion from {0} to f64 unsuccessful")]
+    UsizeToF64Error(usize),
 }
