@@ -122,11 +122,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
 
         let wrapper_calldata = Calldata(Arc::new(
-            calldata
-                .to_vec()
-                .iter()
-                .map(|felt| felt_to_starkfelt(*felt))
-                .collect::<Vec<StarkFelt>>(),
+            calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect::<Vec<StarkFelt>>(),
         ));
 
         let entry_point = CallEntryPoint {
@@ -267,7 +263,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 // todo: handle error properly
                 to_address: EthAddress::try_from(felt_to_starkfelt(to_address)).unwrap(),
                 payload: L2ToL1Payload(
-                    payload.to_vec().iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
+                    payload.iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
                 ),
             },
         });
