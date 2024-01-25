@@ -35,7 +35,7 @@ use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecution
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
+    calculate_tx_gas_and_blob_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -60,7 +60,7 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
+    AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping,
     TransactionExecutionInfo,
 };
 use crate::transaction::test_utils::{
@@ -786,6 +786,7 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 }
 
+// TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
 #[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
 #[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
 fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
@@ -805,11 +806,13 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     // The minimal gas estimate does not depend on tx version.
     let minimal_l1_gas =
         estimate_minimal_l1_gas(block_context, &account_invoke_tx(valid_invoke_tx_args.clone()))
-            .unwrap();
+            .unwrap()
+            .gas_usage;
 
     // Test V1 transaction.
 
     let gas_prices = &block_context.block_info.gas_prices;
+    // TODO(Aner, 21/01/24) change to linear combination.
     let minimal_fee = Fee(minimal_l1_gas * gas_prices.eth_l1_gas_price);
     // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
@@ -873,6 +876,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 }
 
+// TODO(Aner, 21/01/24) modify test for 4844.
 #[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
 #[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
 fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
@@ -890,7 +894,9 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone())).unwrap();
+        estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone()))
+            .unwrap()
+            .gas_usage;
     let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
@@ -1447,6 +1453,7 @@ fn test_validate_accounts_tx(
 
 // Test that we exclude the fee token contract modification and adds the account’s balance change
 // in the state changes.
+// TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
 #[test]
 fn test_calculate_tx_gas_usage() {
     let account_cairo_version = CairoVersion::Cairo0;
@@ -1474,9 +1481,10 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let l1_gas_and_blob_gas_usage =
+        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
+    let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
+    assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address = account_contract.get_instance_address(17);
@@ -1510,9 +1518,10 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage =
-        calculate_tx_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
-    assert_eq!(tx_execution_info.actual_resources.gas_usage(), l1_gas_usage);
+    let l1_gas_and_blob_gas_usage =
+        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
+    let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
+    assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
 }
 
 #[rstest]
