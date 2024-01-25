@@ -1,0 +1,60 @@
+use cairo_lang_sierra::program::Program as SierraProgram;
+use cairo_lang_starknet::contract_class::ContractEntryPoints;
+use starknet_api::core::ClassHash;
+
+use crate::execution::call_info::CallInfo;
+use crate::execution::contract_class::SierraContractClassV1;
+use crate::execution::entry_point::{
+    CallEntryPoint, EntryPointExecutionContext, ExecutionResources,
+};
+use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::native_syscall_handler::NativeSyscallHandler;
+use crate::execution::sierra_utils::{
+    create_callinfo, get_code_class_hash, get_entrypoints, get_native_executor, get_program,
+    get_program_cache, get_sierra_entry_function_id, match_entrypoint, run_native_executor,
+    setup_syscall_handler, wrap_syscall_handler,
+};
+use crate::state::state_api::State;
+
+pub fn execute_entry_point_call(
+    call: CallEntryPoint,
+    contract_class: SierraContractClassV1,
+    state: &mut dyn State,
+    resources: &mut ExecutionResources,
+    context: &mut EntryPointExecutionContext,
+) -> Result<CallInfo, EntryPointExecutionError> {
+    let sierra_program: &SierraProgram = get_program(&contract_class);
+    let contract_entrypoints: &ContractEntryPoints = get_entrypoints(&contract_class);
+
+    let matching_entrypoint =
+        match_entrypoint(call.entry_point_type, call.entry_point_selector, contract_entrypoints);
+
+    let program_cache = get_program_cache();
+
+    let code_class_hash: ClassHash = get_code_class_hash(&call, state);
+
+    let native_executor = get_native_executor(code_class_hash, sierra_program, program_cache);
+
+    let mut syscall_handler: NativeSyscallHandler<'_> = setup_syscall_handler(
+        state,
+        call.storage_address,
+        context.clone(),
+        Vec::new(),
+        Vec::new(),
+        resources.clone(),
+    );
+
+    let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
+
+    let sierra_entry_function_id =
+        get_sierra_entry_function_id(matching_entrypoint, sierra_program);
+
+    let run_result = run_native_executor(
+        native_executor,
+        sierra_entry_function_id,
+        &call,
+        &syscall_handler_meta,
+    );
+
+    create_callinfo(call, run_result, syscall_handler.events, syscall_handler.l2_to_l1_messages)
+}
