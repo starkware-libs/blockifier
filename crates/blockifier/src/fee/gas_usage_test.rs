@@ -13,6 +13,7 @@ use crate::fee::gas_usage::{
 };
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasAndBlobGasUsages;
+use crate::utils::{usize_as_u128, usize_into_f64};
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -97,7 +98,7 @@ fn test_calculate_tx_gas_usage_basic() {
     let GasAndBlobGasUsages { gas_usage: deploy_account_gas_usage, .. } =
         deploy_account_gas_and_blob_gas_usage;
     assert_eq!(
-        (manual_starknet_gas_usage + manual_sharp_gas_usage) as u128,
+        usize_as_u128(manual_starknet_gas_usage + manual_sharp_gas_usage),
         deploy_account_gas_usage,
     );
 
@@ -121,7 +122,10 @@ fn test_calculate_tx_gas_usage_basic() {
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
-    assert_eq!((manual_starknet_gas_usage + manual_sharp_gas_usage) as u128, l1_handler_gas_usage);
+    assert_eq!(
+        usize_as_u128(manual_starknet_gas_usage + manual_sharp_gas_usage),
+        l1_handler_gas_usage
+    );
 
     // Any transaction with L2-to-L1 messages.
 
@@ -180,7 +184,7 @@ fn test_calculate_tx_gas_usage_basic() {
         + get_onchain_data_cost(l2_to_l1_state_changes_count);
 
     assert_eq!(
-        (manual_starknet_gas_usage + manual_sharp_gas_usage) as u128,
+        usize_as_u128(manual_starknet_gas_usage + manual_sharp_gas_usage),
         l2_to_l1_messages_gas_usage
     );
 
@@ -208,7 +212,7 @@ fn test_calculate_tx_gas_usage_basic() {
     let manual_sharp_gas_usage = get_onchain_data_cost(storage_writes_state_changes_count);
 
     assert_eq!(
-        (manual_starknet_gas_usage + manual_sharp_gas_usage) as u128,
+        usize_as_u128(manual_starknet_gas_usage + manual_sharp_gas_usage),
         storage_writings_gas_usage
     );
 
@@ -237,7 +241,7 @@ fn test_calculate_tx_gas_usage_basic() {
         + storage_writings_gas_usage
         // l2_to_l1_messages_gas_usage and storage_writings_gas_usage got a discount each, while
         // the combined calculation got it once.
-        + fee_balance_discount as u128;
+        + usize_as_u128(fee_balance_discount);
 
     assert_eq!(gas_usage, expected_gas_usage);
 }
@@ -282,7 +286,7 @@ fn test_onchain_data_discount() {
 
     let cost_without_discount = (state_changes_count.n_storage_updates * 2) * (512 + 100);
     let actual_cost = get_onchain_data_cost(state_changes_count);
-    let cost_ratio = (actual_cost as f64) / (cost_without_discount as f64);
+    let cost_ratio = usize_into_f64(actual_cost) / usize_into_f64(cost_without_discount);
     assert!(cost_ratio <= 0.9);
     assert!(cost_ratio >= 0.88);
 }

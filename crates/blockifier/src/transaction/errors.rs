@@ -47,6 +47,8 @@ pub enum TransactionFeeError {
     MissingL1GasBounds,
     #[error(transparent)]
     StateError(#[from] StateError),
+    #[error(transparent)]
+    TryFromIntError(#[from] std::num::TryFromIntError),
 }
 
 #[derive(Debug, Error)]

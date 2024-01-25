@@ -11,6 +11,7 @@ use crate::block_context::BlockContext;
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::ResourcesMapping;
+use crate::utils::usize_into_f64;
 
 fn get_vm_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
@@ -32,7 +33,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
     assert_eq!(
-        *l1_gas_by_vm_usage as f64,
+        usize_into_f64(*l1_gas_by_vm_usage),
         calculate_l1_gas_by_vm_usage(&block_context, &vm_resource_usage).unwrap()
     );
 

@@ -70,6 +70,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
+use crate::utils::usize_as_u128;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
@@ -1484,7 +1485,7 @@ fn test_calculate_tx_gas_usage() {
     let l1_gas_and_blob_gas_usage =
         calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
     let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
-    assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
+    assert_eq!(usize_as_u128(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address = account_contract.get_instance_address(17);
@@ -1521,7 +1522,7 @@ fn test_calculate_tx_gas_usage() {
     let l1_gas_and_blob_gas_usage =
         calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
     let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
-    assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
+    assert_eq!(usize_as_u128(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
 }
 
 #[rstest]

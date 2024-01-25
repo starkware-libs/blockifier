@@ -11,6 +11,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping,
     TransactionFeeResult,
 };
+use crate::utils::{f64_into_u128, usize_into_f64};
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -50,7 +51,8 @@ pub fn calculate_l1_gas_by_vm_usage(
     let vm_l1_gas_usage = vm_resource_fee_costs
         .iter()
         .map(|(key, resource_val)| {
-            (*resource_val) * vm_resource_usage.0.get(key).cloned().unwrap_or_default() as f64
+            (*resource_val)
+                * usize_into_f64(vm_resource_usage.0.get(key).cloned().unwrap_or_default())
         })
         .fold(f64::NAN, f64::max);
 
@@ -67,11 +69,11 @@ pub fn calculate_tx_l1_gas_usages(
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
     let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
-    let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
+    let total_l1_gas_usage = usize_into_f64(l1_gas_usage) + l1_gas_by_vm_usage;
 
     Ok(GasAndBlobGasUsages {
-        gas_usage: total_l1_gas_usage.ceil() as u128,
-        blob_gas_usage: l1_blob_gas_usage as u128,
+        gas_usage: f64_into_u128(total_l1_gas_usage.ceil()),
+        blob_gas_usage: l1_blob_gas_usage.try_into()?,
     })
 }
 
