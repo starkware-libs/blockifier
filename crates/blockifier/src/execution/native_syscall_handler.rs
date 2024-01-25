@@ -96,21 +96,14 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             .get_compiled_contract_class(class_hash)
             .map_err(|_| vec![Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).unwrap()])?;
 
-        let set_class_hash_lambda =
-            |state: &mut dyn State| -> cairo_native::starknet::SyscallResult<()> {
-                state
+        match contract_class {
+            ContractClass::V0(_) => Err(vec![Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).unwrap()]),
+            ContractClass::V1(_) | ContractClass::V1Sierra(_) => {
+                self.state
                     .set_class_hash_at(self.storage_address, class_hash)
                     .map_err(|_| vec![Felt::from_hex(FAILED_TO_SET_CLASS_HASH).unwrap()])?;
 
                 Ok(())
-            };
-
-        match contract_class {
-            ContractClass::V0(_) => Err(vec![Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).unwrap()]),
-            ContractClass::V1(_) => set_class_hash_lambda(self.state),
-            ContractClass::V1Sierra(_) => {
-                // todo: assure if it is correct
-                set_class_hash_lambda(self.state)
             }
         }
     }
