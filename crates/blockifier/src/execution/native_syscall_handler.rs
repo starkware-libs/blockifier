@@ -121,7 +121,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             ctor_context,
             wrapper_calldata,
             // todo: handle gas properly
-            remaining_gas.clone() as u64,
+            *remaining_gas as u64,
         )
         .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
 
@@ -129,7 +129,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             call_info.execution.retdata.0[..].iter().map(|felt| starkfelt_to_felt(*felt)).collect();
 
         let contract_address_felt =
-            Felt::from_bytes_be_slice(&calculated_contract_address.0.key().bytes());
+            Felt::from_bytes_be_slice(calculated_contract_address.0.key().bytes());
 
         self.inner_calls.push(call_info);
 
