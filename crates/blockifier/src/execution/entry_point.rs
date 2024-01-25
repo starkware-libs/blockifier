@@ -223,7 +223,7 @@ impl EntryPointExecutionContext {
         }
 
         let gas_per_step = versioned_constants
-            .vm_resource_fee_cost
+            .vm_resource_fee_cost()
             .get(constants::N_STEPS_RESOURCE)
             .unwrap_or_else(|| {
                 panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
