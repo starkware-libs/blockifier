@@ -24,6 +24,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::{f64_into_u128, usize_into_f64};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -250,13 +251,9 @@ impl EntryPointExecutionContext {
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
         let tx_gas_upper_bound = match account_tx_context {
-            AccountTransactionContext::Deprecated(context) => {
-                (context.max_fee.0
-                    / block_info
-                        .gas_prices
-                        .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
-                    as usize
-            }
+            AccountTransactionContext::Deprecated(context) => (context.max_fee.0
+                / block_info.gas_prices.get_gas_price_by_fee_type(&account_tx_context.fee_type()))
+            .try_into()?,
             AccountTransactionContext::Current(context) => {
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
                 // convertion works.
@@ -268,7 +265,9 @@ impl EntryPointExecutionContext {
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        let tx_upper_bound =
+            f64_into_u128((usize_into_f64(tx_gas_upper_bound)? / gas_per_step).floor())?
+                .try_into()?;
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 
