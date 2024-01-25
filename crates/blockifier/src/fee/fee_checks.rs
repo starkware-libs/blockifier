@@ -10,7 +10,8 @@ use crate::fee::fee_utils::{
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, GasAndBlobGasUsages, TransactionExecutionResult,
+    AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType,
+    TransactionExecutionResult,
 };
 
 #[derive(Clone, Copy, Debug, Error)]
@@ -98,17 +99,32 @@ impl FeeCheckReport {
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
-        // TODO(Aner, 21/01/24) modify for 4844 (include check for blob_gas).
         match account_tx_context {
             AccountTransactionContext::Current(context) => {
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
-                let actual_used_l1_gas =
-                    calculate_tx_l1_gas_usages(actual_resources, block_context)?.gas_usage;
-                if actual_used_l1_gas > max_l1_gas {
+
+                let GasAndBlobGasUsages { gas_usage, blob_gas_usage } =
+                    calculate_tx_l1_gas_usages(actual_resources, block_context)?;
+
+                // TODO(Dori, 1/7/2024): When data gas limit is added (and enforced) in resource
+                //   bounds, check it here as well (separately, with a different error variant if
+                //   limit exceeded).
+                // We interpret the gas limit can be viewed as price_limit / price_per_gas, and
+                // generalize this interpretation to allow combining both gas types:
+                // total_gas = (gas * gas_price + data_gas * data_gas_price) / gas_price.
+                let fee_type = account_tx_context.fee_type();
+                let gas_price =
+                    block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
+                let data_gas_price =
+                    block_context.block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
+                let total_discounted_gas_used =
+                    gas_usage + (blob_gas_usage * data_gas_price) / gas_price;
+
+                if total_discounted_gas_used > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {
                         max_amount: max_l1_gas,
-                        actual_amount: actual_used_l1_gas,
+                        actual_amount: total_discounted_gas_used,
                     })?;
                 }
             }
