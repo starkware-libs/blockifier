@@ -38,10 +38,11 @@ pub fn execute_entry_point_call(
     let mut syscall_handler: NativeSyscallHandler<'_> = setup_syscall_handler(
         state,
         call.storage_address,
+        resources.clone(),
         context.clone(),
         Vec::new(),
         Vec::new(),
-        resources.clone(),
+        Vec::new(),
     );
 
     let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
@@ -56,5 +57,11 @@ pub fn execute_entry_point_call(
         &syscall_handler_meta,
     );
 
-    create_callinfo(call, run_result, syscall_handler.events, syscall_handler.l2_to_l1_messages)
+    create_callinfo(
+        call,
+        run_result,
+        syscall_handler.events,
+        syscall_handler.l2_to_l1_messages,
+        syscall_handler.inner_calls,
+    )
 }

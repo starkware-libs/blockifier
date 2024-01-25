@@ -128,7 +128,9 @@ pub const FAILED_TO_GET_CONTRACT_CLASS: &str =
 pub const FAILED_TO_EXECUTE_CALL: &str = "0x004661696c656420746f20657865637574652063616c6c";
 pub const X_NOT_EQUAL_Y: &str =
     "0x00000000000000000000000000000000000000000000000000007820213d2079";
-
+// Failed to calculate address
+pub const FAILED_TO_CALCULATE_CONTRACT_ADDRESS: &str =
+    "0x004661696c656420746f2063616c63756c6174652061646472657373";
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,6 +148,8 @@ mod tests {
         assert!(Felt::from_hex(FAILED_TO_SET_CLASS_HASH).is_ok());
         assert!(Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).is_ok());
         assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
+        assert!(Felt::from_hex(X_NOT_EQUAL_Y).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
     }
 }
 

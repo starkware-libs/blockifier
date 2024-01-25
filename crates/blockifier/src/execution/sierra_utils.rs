@@ -107,10 +107,11 @@ pub fn get_sierra_entry_function_id<'a>(
 pub fn setup_syscall_handler(
     state: &mut dyn State,
     storage_address: ContractAddress,
+    execution_resources: crate::execution::entry_point::ExecutionResources,
     execution_context: EntryPointExecutionContext,
     events: Vec<OrderedEvent>,
     l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
-    execution_resources: crate::execution::entry_point::ExecutionResources,
+    inner_calls: Vec<CallInfo>,
 ) -> NativeSyscallHandler<'_> {
     NativeSyscallHandler {
         state,
@@ -119,6 +120,7 @@ pub fn setup_syscall_handler(
         events,
         l2_to_l1_messages,
         execution_resources,
+        inner_calls,
     }
 }
 
@@ -169,6 +171,7 @@ pub fn create_callinfo(
     run_result: ContractExecutionResult,
     events: Vec<OrderedEvent>,
     l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    inner_calls: Vec<CallInfo>,
 ) -> Result<CallInfo, super::errors::EntryPointExecutionError> {
     Ok(CallInfo {
         call,
@@ -186,7 +189,7 @@ pub fn create_callinfo(
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::default(),
         }, // REVIEW what do we do with this, given that we can't count casm steps
-        inner_calls: vec![],
+        inner_calls,
         storage_read_values: vec![],
         accessed_storage_keys: HashSet::new(),
     })

@@ -176,19 +176,19 @@ mod SierraTestContract {
     //     value
     // }
 
-    // #[external(v0)]
-    // fn test_deploy(
-    //     self: @ContractState,
-    //     class_hash: ClassHash,
-    //     contract_address_salt: felt252,
-    //     calldata: Array::<felt252>,
-    //     deploy_from_zero: bool,
-    // ) {
-    //     syscalls::deploy_syscall(
-    //         class_hash, contract_address_salt, calldata.span(), deploy_from_zero
-    //     )
-    //         .unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_deploy(
+        self: @ContractState,
+        class_hash: ClassHash,
+        contract_address_salt: felt252,
+        calldata: Array::<felt252>,
+        deploy_from_zero: bool,
+    ) {
+        syscalls::deploy_syscall(
+            class_hash, contract_address_salt, calldata.span(), deploy_from_zero
+        )
+            .unwrap_syscall();
+    }
 
 
     #[external(v0)]
