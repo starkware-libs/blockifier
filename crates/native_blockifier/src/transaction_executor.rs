@@ -188,15 +188,8 @@ impl<S: StateReader> TransactionExecutor<S> {
     /// visited PC values.
     pub fn finalize(
         &mut self,
-        is_pending_block: bool,
+        _is_pending_block: bool,
     ) -> (CommitmentStateDiff, Vec<(ClassHash, Vec<usize>)>) {
-        // Do not cache classes that were declared during a pending block.
-        // They will be redeclared, and should not be cached since the content of this block is
-        // transient.
-        if !is_pending_block {
-            self.state.move_classes_to_global_cache();
-        }
-
         // Extract visited PCs from block_context, and convert it to a python-friendly type.
         let visited_pcs = self
             .state
@@ -210,6 +203,13 @@ impl<S: StateReader> TransactionExecutor<S> {
             .collect();
 
         (self.state.to_state_diff(), visited_pcs)
+    }
+
+    pub fn update_global_cache(&mut self) {
+        // Do not cache classes that were declared during a pending block.
+        // They will be redeclared, and should not be cached since the content of this block is
+        // transient.
+        self.state.move_classes_to_global_cache();
     }
 
     pub fn commit(&mut self) {
