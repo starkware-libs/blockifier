@@ -221,9 +221,9 @@ impl EntryPointExecutionContext {
         }
 
         let gas_per_step =
-            constants.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(|| {
-                panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
-            });
+            constants.vm_resource_fee_cost().get(constants::N_STEPS_RESOURCE).unwrap_or_else(
+                || panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE),
+            );
 
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.

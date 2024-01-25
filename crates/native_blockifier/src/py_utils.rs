@@ -104,9 +104,8 @@ pub fn versioned_constants_with_overrides(
     validate_max_n_steps: u32,
     max_recursion_depth: usize,
 ) -> VersionedConstants {
-    VersionedConstants {
-        validate_max_n_steps,
-        max_recursion_depth,
-        ..VersionedConstants::latest_constants().clone()
-    }
+    let mut versioned_constants = VersionedConstants::latest_constants().clone();
+    versioned_constants.max_recursion_depth = max_recursion_depth;
+    versioned_constants.validate_max_n_steps = validate_max_n_steps;
+    versioned_constants
 }
