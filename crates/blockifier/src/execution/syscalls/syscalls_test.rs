@@ -472,7 +472,6 @@ fn test_library_call() {
         }
     );
 }
-
 #[test]
 fn test_library_call_assert_fails() {
     let mut state = create_test_state();

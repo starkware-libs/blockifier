@@ -24,9 +24,9 @@ use crate::execution::entry_point::{
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
     execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS,
-    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_SET_CLASS_HASH,
-    FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT, INVALID_EXECUTION_MODE_ERROR,
-    INVALID_INPUT_LENGTH_ERROR,
+    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_PARSE, FAILED_TO_READ_RESULT,
+    FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
+    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::state::state_api::State;
 
@@ -57,7 +57,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
             || block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
         {
-            // todo: possibly remove unwraps here, but `panic` is unreachable in this case
+            // `panic` is unreachable in this case, also this is covered by tests so we can safely
+            // unwrap
             let out_of_range_felt = Felt::from_hex(BLOCK_NUMBER_OUT_OF_RANGE_ERROR).unwrap();
 
             return Err(vec![out_of_range_felt]);
@@ -245,9 +246,13 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Felt> {
         // TODO - in progress - Dom
-        let storage_key = StorageKey(PatriciaKey::try_from(felt_to_starkfelt(address)).unwrap());
+        let storage_key = StorageKey(
+            PatriciaKey::try_from(felt_to_starkfelt(address))
+                .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?,
+        );
         let read_result = self.state.get_storage_at(self.storage_address, storage_key);
-        let unsafe_read_result = read_result.unwrap(); // TODO handle properly
+        let unsafe_read_result =
+            read_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_READ_RESULT).unwrap()])?;
         Ok(starkfelt_to_felt(unsafe_read_result))
     }
 
@@ -261,7 +266,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let storage_key = StorageKey(PatriciaKey::try_from(felt_to_starkfelt(address)).unwrap());
         let write_result =
             self.state.set_storage_at(self.storage_address, storage_key, felt_to_starkfelt(value));
-        write_result.unwrap(); // TODO handle properly
+        write_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_WRITE).unwrap()])?;
         Ok(())
     }
 
@@ -300,8 +305,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         self.l2_to_l1_messages.push(OrderedL2ToL1Message {
             order,
             message: MessageToL1 {
-                // todo: handle error properly
-                to_address: EthAddress::try_from(felt_to_starkfelt(to_address)).unwrap(),
+                to_address: EthAddress::try_from(felt_to_starkfelt(to_address))
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?,
                 payload: L2ToL1Payload(
                     payload.iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
                 ),
@@ -345,7 +350,9 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
         let hash = hash.concat();
 
-        Ok(cairo_native::starknet::U256(hash[0..32].try_into().unwrap()))
+        Ok(cairo_native::starknet::U256(
+            hash[0..32].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
+        ))
     }
 
     fn secp256k1_add(

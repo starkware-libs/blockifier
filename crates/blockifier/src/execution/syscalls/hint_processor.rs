@@ -131,6 +131,13 @@ pub const X_NOT_EQUAL_Y: &str =
 // Failed to calculate address
 pub const FAILED_TO_CALCULATE_CONTRACT_ADDRESS: &str =
     "0x004661696c656420746f2063616c63756c6174652061646472657373";
+// Failed to parse
+pub const FAILED_TO_PARSE: &str = "0x004661696c656420746f20706172736520";
+// Failed to read result
+pub const FAILED_TO_READ_RESULT: &str = "0x004661696c656420746f207265616420726573756c7420";
+// Failed to write
+pub const FAILED_TO_WRITE: &str = "0x004661696c656420746f20777269746520";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,6 +157,8 @@ mod tests {
         assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
         assert!(Felt::from_hex(X_NOT_EQUAL_Y).is_ok());
         assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_PARSE).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_READ_RESULT).is_ok());
     }
 }
 
