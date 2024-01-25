@@ -96,11 +96,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let class_hash = ClassHash(felt_to_starkfelt(class_hash));
 
         let wrapper_calldata = Calldata(Arc::new(
-            calldata
-                .to_vec()
-                .iter()
-                .map(|felt| felt_to_starkfelt(*felt))
-                .collect::<Vec<StarkFelt>>(),
+            calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect::<Vec<StarkFelt>>(),
         ));
 
         let calculated_contract_address = calculate_contract_address(
@@ -217,11 +213,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         }
 
         let wrapper_calldata = Calldata(Arc::new(
-            calldata
-                .to_vec()
-                .iter()
-                .map(|felt| felt_to_starkfelt(*felt))
-                .collect::<Vec<StarkFelt>>(),
+            calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect::<Vec<StarkFelt>>(),
         ));
 
         let entry_point = CallEntryPoint {
@@ -285,13 +277,10 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             order,
             event: EventContent {
                 keys: keys
-                    .to_vec()
                     .iter()
                     .map(|felt| EventKey(felt_to_starkfelt(*felt)))
                     .collect::<Vec<EventKey>>(),
-                data: EventData(
-                    data.to_vec().iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
-                ),
+                data: EventData(data.iter().map(|felt| felt_to_starkfelt(*felt)).collect()),
             },
         });
 
