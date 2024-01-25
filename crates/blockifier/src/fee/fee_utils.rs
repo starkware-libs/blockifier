@@ -43,7 +43,7 @@ pub fn calculate_l1_gas_by_vm_usage(
     versioned_constants: &VersionedConstants,
     vm_resource_usage: &ResourcesMapping,
 ) -> TransactionFeeResult<GasVector> {
-    let vm_resource_fee_costs = &versioned_constants.vm_resource_fee_cost;
+    let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
