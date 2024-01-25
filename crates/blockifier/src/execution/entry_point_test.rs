@@ -632,10 +632,10 @@ Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({}):
-Error at pc=0:1061:
+Error at pc=0:1174:
 An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:1065)
+Unknown location (pc=0:1178)
 ",
         *test_contract_address.0.key(),
         *test_contract_address_2.0.key(),
@@ -679,14 +679,18 @@ Execution failed. Failure reason: 0x6661696c ('fail').
 }
 
 #[rstest]
-#[case("invoke_call_chain", "0x75382069732030 ('u8 is 0')")]
-#[case("fail", "0x6661696c ('fail')")]
+#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:37", (1071_u16, 1117_u16))]
+#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", (1174_u16, 1125_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", (0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", (0_u16, 0_u16))]
 fn test_trace_callchain_ends_with_regular_call(
+    #[case] cairo_version: CairoVersion,
     #[case] last_func_name: &str,
     #[case] expected_error: &str,
+    #[case] expected_pc_locations: (u16, u16),
 ) {
     let chain_info = ChainInfo::create_for_testing();
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(cairo_version);
     let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let contract_address_felt = *test_contract_address.0.key();
@@ -713,9 +717,29 @@ fn test_trace_callchain_ends_with_regular_call(
 
     let entry_point_offset =
         get_entry_point_offset(&test_contract.get_class(), entry_point_call.entry_point_selector);
-    let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
 
-    let expected_trace = format!(
+    let call_location = entry_point_offset.0 + 12;
+    let entry_point_location = entry_point_offset.0 - 61;
+    let expected_trace_cairo0 = format!(
+        "Error in the called contract ({contract_address_felt}):
+Error at pc=0:37:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{call_location})
+Unknown location (pc=0:{entry_point_location})
+
+Error in the called contract ({contract_address_felt}):
+Error at pc=0:{}:
+{expected_error}
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{call_location})
+Unknown location (pc=0:{})
+",
+        expected_pc_locations.0, expected_pc_locations.1
+    );
+
+    let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
+    let expected_trace_cairo1 = format!(
         "Error in the called contract ({contract_address_felt}):
 Error at pc=0:7981:
 Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
@@ -728,22 +752,34 @@ Execution failed. Failure reason: {expected_error}.
 "
     );
 
+    let expected_trace = match cairo_version {
+        CairoVersion::Cairo0 => expected_trace_cairo0,
+        CairoVersion::Cairo1 => expected_trace_cairo1,
+    };
+
     let actual_trace = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert_eq!(actual_trace, expected_trace);
 }
 
 #[rstest]
-#[case("invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8)]
-#[case("fail", "0x6661696c ('fail')", 0_u8)]
+#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 0_u8, (37_u16, 1083_u16, 1071_u16, 1156_u16))]
+#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 1_u8, (49_u16, 1101_u16, 1071_u16, 1156_u16))]
+#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 0_u8, (37_u16, 1083_u16, 1174_u16, 1178_u16))]
+#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 1_u8, (49_u16, 1101_u16, 1174_u16, 1178_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 0_u8, (7981_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 1_u8, (8070_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (7981_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (8070_u16, 0_u16, 0_u16, 0_u16))]
 fn test_trace_call_chain_with_syscalls(
-    #[values((0_u8, 7981_u16), (1_u8, 8070_u16))] call_type_expected_pc: (u8, u16),
+    #[case] cairo_version: CairoVersion,
     #[case] last_func_name: &str,
     #[case] expected_error: &str,
     #[case] calldata_extra_length: u8,
+    #[case] call_type: u8,
+    #[case] expected_pcs: (u16, u16, u16, u16),
 ) {
-    let (call_type, expected_pc) = call_type_expected_pc;
     let chain_info = ChainInfo::create_for_testing();
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(cairo_version);
     let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let test_contract_hash = test_contract.get_class_hash().0;
@@ -780,7 +816,31 @@ fn test_trace_call_chain_with_syscalls(
         get_entry_point_offset(&test_contract.get_class(), entry_point_call.entry_point_selector);
     let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
 
-    let expected_trace = format!(
+    let expected_trace_cairo0 = format!(
+        "Error in the called contract ({address_felt}):
+Error at pc=0:37:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:1156)
+Unknown location (pc=0:1083)
+
+Error in the called contract ({address_felt}):
+Error at pc=0:{}:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:1156)
+Unknown location (pc=0:{})
+
+Error in the called contract ({address_felt}):
+Error at pc=0:{}:
+{expected_error}
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{})
+",
+        expected_pcs.0, expected_pcs.1, expected_pcs.2, expected_pcs.3
+    );
+
+    let expected_trace_cairo1 = format!(
         "Error in the called contract ({address_felt}):
 Error at pc=0:7981:
 Got an exception while executing a hint.
@@ -788,7 +848,7 @@ Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
-Error at pc=0:{expected_pc}:
+Error at pc=0:{}:
 Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
          {expected_error}.
 Cairo traceback (most recent call last):
@@ -796,8 +856,14 @@ Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
 Execution failed. Failure reason: {expected_error}.
-"
+",
+        expected_pcs.0
     );
+
+    let expected_trace = match cairo_version {
+        CairoVersion::Cairo0 => expected_trace_cairo0,
+        CairoVersion::Cairo1 => expected_trace_cairo1,
+    };
 
     let actual_trace = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert_eq!(actual_trace, expected_trace);
