@@ -21,6 +21,7 @@ const Configuration = {
      */
     rules: {
         'scope-enum': [2, 'always', [
+            'errors',
             'execution',
             'fee',
             'native_blockifier',

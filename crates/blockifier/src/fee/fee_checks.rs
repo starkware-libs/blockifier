@@ -13,6 +13,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType,
     TransactionExecutionResult,
 };
+use crate::utils::check_non_zero;
 
 #[derive(Clone, Copy, Debug, Error)]
 pub enum FeeCheckError {
@@ -119,6 +120,10 @@ impl FeeCheckReport {
                 let fee_type = account_tx_context.fee_type();
                 let gas_price =
                     block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
+                check_non_zero(
+                    gas_price,
+                    &format!("Gas price for fee type {fee_type:?} cannot be zero."),
+                )?;
                 let data_gas_price =
                     block_context.block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
                 let total_discounted_gas_used =

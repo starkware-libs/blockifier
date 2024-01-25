@@ -24,6 +24,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::check_non_zero;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -246,16 +247,19 @@ impl EntryPointExecutionContext {
             block_info.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(|| {
                 panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
             });
+        check_non_zero(*gas_per_step, "Gas per step cannot be zero.")?;
 
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
         let tx_gas_upper_bound = match account_tx_context {
             AccountTransactionContext::Deprecated(context) => {
-                (context.max_fee.0
-                    / block_info
-                        .gas_prices
-                        .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
-                    as usize
+                let gas_price =
+                    block_info.gas_prices.get_gas_price_by_fee_type(&account_tx_context.fee_type());
+                check_non_zero(
+                    gas_price,
+                    &format!("Gas price for fee type {:?} is zero", account_tx_context.fee_type()),
+                )?;
+                (context.max_fee.0 / gas_price) as usize
             }
             AccountTransactionContext::Current(context) => {
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the

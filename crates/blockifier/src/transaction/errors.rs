@@ -46,6 +46,8 @@ pub enum TransactionFeeError {
     #[error("Missing L1 gas bounds in resource bounds.")]
     MissingL1GasBounds,
     #[error(transparent)]
+    NumericConversionError(#[from] NumericConversionError),
+    #[error(transparent)]
     StateError(#[from] StateError),
 }
 
@@ -76,6 +78,8 @@ pub enum TransactionExecutionError {
          {allowed_versions:?}."
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
+    #[error(transparent)]
+    NumericConversionError(#[from] NumericConversionError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
     #[error(transparent)]
@@ -109,4 +113,10 @@ pub enum TransactionPreValidationError {
 pub enum ParseError {
     #[error("Unsupported transaction type: {0}")]
     UnknownTransactionType(String),
+}
+
+#[derive(Debug, Error)]
+pub enum NumericConversionError {
+    #[error("{info}")]
+    DivByZero { info: String },
 }
