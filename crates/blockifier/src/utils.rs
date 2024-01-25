@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::transaction::errors::NumericConversionError;
+
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
@@ -18,4 +20,23 @@ where
 /// Returns the max value of two constants, at compile time.
 pub const fn const_max(a: u128, b: u128) -> u128 {
     [a, b][(a < b) as usize]
+}
+
+/// converts from f64 to u128, checks that the value is in range.
+pub fn f64_into_u128(value: f64) -> Result<u128, NumericConversionError> {
+    if value >= 0.0 && value < u128::MAX as f64 {
+        Ok(value as u128)
+    } else {
+        Err(NumericConversionError::F64ToU128Error(value))
+    }
+}
+
+/// converts from f64 to u128, asserts no conversion error has been introduced
+pub fn usize_into_f64(value: usize) -> Result<f64, NumericConversionError> {
+    let value_f64 = value as f64;
+    if value == value_f64 as usize {
+        Ok(value_f64)
+    } else {
+        Err(NumericConversionError::UsizeToF64Error(value))
+    }
 }
