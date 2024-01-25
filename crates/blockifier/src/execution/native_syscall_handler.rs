@@ -115,10 +115,6 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         calldata: &[Felt],
         remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
-        let call_to_external = true;
-        let entry_point_type =
-            if call_to_external { EntryPointType::External } else { EntryPointType::L1Handler };
-
         let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
 
         let wrapper_calldata = Calldata(Arc::new(
@@ -128,7 +124,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let entry_point = CallEntryPoint {
             class_hash: Some(class_hash),
             code_address: None,
-            entry_point_type,
+            entry_point_type: EntryPointType::External,
             entry_point_selector: EntryPointSelector(StarkHash::from(felt_to_starkfelt(
                 function_selector,
             ))),
