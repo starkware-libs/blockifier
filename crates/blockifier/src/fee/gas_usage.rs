@@ -25,8 +25,12 @@ pub fn calculate_tx_gas_and_blob_gas_usage<'a>(
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<GasAndBlobGasUsages> {
     Ok(GasAndBlobGasUsages {
-        gas_usage: calculate_tx_gas_usage(call_infos, state_changes_count, l1_handler_payload_size)?
-            as u128,
+        gas_usage: calculate_tx_gas_usage(
+            call_infos,
+            state_changes_count,
+            l1_handler_payload_size,
+        )?
+        .try_into()?,
         blob_gas_usage: 0,
     })
 }
