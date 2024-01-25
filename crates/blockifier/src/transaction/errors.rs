@@ -47,6 +47,10 @@ pub enum TransactionFeeError {
     MissingL1GasBounds,
     #[error(transparent)]
     StateError(#[from] StateError),
+    #[error(transparent)]
+    TryFromIntError(#[from] std::num::TryFromIntError),
+    #[error(transparent)]
+    NumericConversionError(#[from] NumericConversionError),
 }
 
 #[derive(Debug, Error)]
@@ -90,6 +94,8 @@ pub enum TransactionExecutionError {
     TryFromIntError(#[from] std::num::TryFromIntError),
     #[error("Transaction validation has failed: {0}")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
+    #[error(transparent)]
+    NumericConversionError(#[from] NumericConversionError),
 }
 
 #[derive(Debug, Error)]
@@ -109,4 +115,12 @@ pub enum TransactionPreValidationError {
 pub enum ParseError {
     #[error("Unsupported transaction type: {0}")]
     UnknownTransactionType(String),
+}
+
+#[derive(Debug, Error)]
+pub enum NumericConversionError {
+    #[error("Conversion from {0} to u128 unsuccessful")]
+    F64ToU128Error(f64),
+    #[error("Conversion from {0} to f64 unsuccessful")]
+    UsizeToF64Error(usize),
 }

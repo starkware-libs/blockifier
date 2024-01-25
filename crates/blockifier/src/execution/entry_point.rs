@@ -24,6 +24,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::usize_into_f64;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -268,7 +269,7 @@ impl EntryPointExecutionContext {
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        let tx_upper_bound = (usize_into_f64(tx_gas_upper_bound)? / gas_per_step).floor() as usize;
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 
