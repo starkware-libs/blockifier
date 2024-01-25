@@ -3,9 +3,15 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
+use indexmap::IndexMap;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{Number, Value};
 use thiserror::Error;
+
+#[cfg(test)]
+#[path = "versioned_constants_test.rs"]
+pub mod test;
 
 const DEFAULT_CONSTANTS_JSON: &str = include_str!("../resources/versioned_constants.json");
 static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
@@ -25,6 +31,11 @@ pub struct VersionedConstants {
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
+
+    // Cairo OS constants.
+    // Note: if loaded from a json file, there are some assumptions made on its structure.
+    // See the struct's docstring for more details.
+    pub starknet_os_constants: StarknetOSConstants,
 }
 
 impl VersionedConstants {
@@ -43,10 +54,87 @@ impl TryFrom<&Path> for VersionedConstants {
     }
 }
 
+// Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
+// `StarknetOSConstantsRawJSON`, then calls the `try_from` of the newtype, which handles the conversion
+// into actual values.
+// Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
+// must appear before this value in the JSON.
+// TODO: JSON doesn't guarantee order, but implementation does; consider using a different format
+// than JSON to prevent misunderstandings.
+// TODO: consider encoding the * and + operations inside the
+// json file, instead of hardcoded below in the `try_from`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(try_from = "StarknetOSConstantsRawJSON")]
+pub struct StarknetOSConstants {
+    integer_constants: IndexMap<String, i64>,
+    string_constants: IndexMap<String, String>,
+}
+
+impl TryFrom<StarknetOSConstantsRawJSON> for StarknetOSConstants {
+    type Error = StarknetConstantsSerdeError;
+
+    fn try_from(intermediate: StarknetOSConstantsRawJSON) -> Result<Self, Self::Error> {
+        let mut integer_constants = IndexMap::new();
+        let mut string_constants = IndexMap::new();
+
+        for (key, value) in intermediate.regular {
+            match value {
+                Value::String(s) => {
+                    string_constants.insert(key, s);
+                }
+                Value::Number(n) => {
+                    let value =
+                        n.as_i64().ok_or(StarknetConstantsSerdeError::InvalidNumberFormat(n))?;
+                    integer_constants.insert(key, value);
+                }
+                Value::Object(obj) => {
+                    // Convert the `KEY: value` pairs into a sum of `value *
+                    // integer_constants[KEY]` for every `KEY`.
+                    // Assumption: keys are ordered so that each key lookup is successful.
+                    let sum = obj.into_iter().try_fold(0, |acc, (inner_key, factor)| {
+                        let factor = factor
+                            .as_i64()
+                            .ok_or(StarknetConstantsSerdeError::InvalidFactorFormat(factor))?;
+                        let field_value = *integer_constants
+                            .get(&inner_key)
+                            .ok_or(StarknetConstantsSerdeError::KeyNotFound(inner_key))?;
+
+                        Ok(acc + field_value * factor)
+                    })?;
+                    integer_constants.insert(key, sum);
+                }
+                _ => return Err(StarknetConstantsSerdeError::UnhandledValueType(value)),
+            }
+        }
+
+        Ok(StarknetOSConstants { integer_constants, string_constants })
+    }
+}
+
+// Intermediate representation of the JSON file in order to make the deserialization easier, using a
+// regular the try_from.
+#[derive(Debug, Deserialize)]
+struct StarknetOSConstantsRawJSON {
+    #[serde(flatten)]
+    regular: IndexMap<String, Value>,
+}
+
 #[derive(Debug, Error)]
 pub enum VersionedConstantsError {
     #[error("JSON file cannot be serialized into VersionedConstants: {0}")]
     ParseError(#[from] serde_json::Error),
     #[error(transparent)]
     IoError(#[from] io::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum StarknetConstantsSerdeError {
+    #[error("Number cannot be cast into i64: {0}")]
+    InvalidNumberFormat(Number),
+    #[error("Key not found in fields: {0}")]
+    KeyNotFound(String),
+    #[error("Value cannot be cast into i64: {0}")]
+    InvalidFactorFormat(Value),
+    #[error("Unhandled value type: {0}")]
+    UnhandledValueType(Value),
 }

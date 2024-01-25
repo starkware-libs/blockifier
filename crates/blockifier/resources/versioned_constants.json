@@ -1,20 +1,164 @@
 {
-    "gateway": {
-        "max_calldata_length": 4000,
-        "max_contract_bytecode_size": 61440
+  "starknet_os_constants": {
+    "NOP_ENTRY_POINT_OFFSET": -1,
+    "ENTRY_POINT_TYPE_EXTERNAL": 0,
+    "ENTRY_POINT_TYPE_L1_HANDLER": 1,
+    "ENTRY_POINT_TYPE_CONSTRUCTOR": 2,
+    "L1_HANDLER_VERSION": 0,
+    "SIERRA_ARRAY_LEN_BOUND": 4294967296,
+    "CONSTRUCTOR_ENTRY_POINT_SELECTOR": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+    "EXECUTE_ENTRY_POINT_SELECTOR": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
+    "VALIDATE_ENTRY_POINT_SELECTOR": "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775",
+    "VALIDATE_DECLARE_ENTRY_POINT_SELECTOR": "0x289da278a8dc833409cabfdad1581e8e7d40e42dcaed693fa4008dcdb4963b3",
+    "VALIDATE_DEPLOY_ENTRY_POINT_SELECTOR": "0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895",
+    "TRANSFER_ENTRY_POINT_SELECTOR": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+    "DEFAULT_ENTRY_POINT_SELECTOR": 0,
+    "BLOCK_HASH_CONTRACT_ADDRESS": 1,
+    "STORED_BLOCK_HASH_BUFFER": 10,
+    "STEP_GAS_COST": 100,
+    "RANGE_CHECK_GAS_COST": 70,
+    "MEMORY_HOLE_GAS_COST": 10,
+    "INITIAL_GAS_COST": {
+      "STEP_GAS_COST": 100000000
     },
-    "invoke_tx_max_n_steps": 3000000,
-    "max_recursion_depth": 50,
-    "validate_max_n_steps": 1000000,
-    "vm_resource_fee_cost": {
-        "bitwise_builtin": 0.32,
-        "ec_op_builtin": 5.12,
-        "ecdsa_builtin": 10.24,
-        "keccak_builtin": 10.24,
-        "n_steps": 0.005,
-        "output_builtin": 0,
-        "pedersen_builtin": 0.16,
-        "poseidon_builtin": 0.16,
-        "range_check_builtin": 0.08
-    }
+    "ENTRY_POINT_INITIAL_BUDGET": {
+      "STEP_GAS_COST": 100
+    },
+    "SYSCALL_BASE_GAS_COST": {
+      "STEP_GAS_COST": 100
+    },
+    "ENTRY_POINT_GAS_COST": {
+      "ENTRY_POINT_INITIAL_BUDGET": 1,
+      "STEP_GAS_COST": 500
+    },
+    "FEE_TRANSFER_GAS_COST": {
+      "ENTRY_POINT_GAS_COST": 1,
+      "STEP_GAS_COST": 100
+    },
+    "TRANSACTION_GAS_COST": {
+      "ENTRY_POINT_GAS_COST": 2,
+      "FEE_TRANSFER_GAS_COST": 1,
+      "STEP_GAS_COST": 100
+    },
+    "CALL_CONTRACT_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 10,
+      "ENTRY_POINT_GAS_COST": 1
+    },
+    "DEPLOY_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 200,
+      "ENTRY_POINT_GAS_COST": 1
+    },
+    "GET_BLOCK_HASH_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 50
+    },
+    "GET_EXECUTION_INFO_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 10
+    },
+    "LIBRARY_CALL_GAS_COST": {
+      "CALL_CONTRACT_GAS_COST": 1
+    },
+    "REPLACE_CLASS_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 50
+    },
+    "STORAGE_READ_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 50
+    },
+    "STORAGE_WRITE_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 50
+    },
+    "EMIT_EVENT_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 10
+    },
+    "SEND_MESSAGE_TO_L1_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1,
+      "STEP_GAS_COST": 50
+    },
+    "SECP256K1_ADD_GAS_COST": {
+      "STEP_GAS_COST": 406,
+      "RANGE_CHECK_GAS_COST": 29
+    },
+    "SECP256K1_GET_POINT_FROM_X_GAS_COST": {
+      "STEP_GAS_COST": 391,
+      "RANGE_CHECK_GAS_COST": 30,
+      "MEMORY_HOLE_GAS_COST": 20
+    },
+    "SECP256K1_GET_XY_GAS_COST": {
+      "STEP_GAS_COST": 239,
+      "RANGE_CHECK_GAS_COST": 11,
+      "MEMORY_HOLE_GAS_COST": 40
+    },
+    "SECP256K1_MUL_GAS_COST": {
+      "STEP_GAS_COST": 76501,
+      "RANGE_CHECK_GAS_COST": 7045,
+      "MEMORY_HOLE_GAS_COST": 2
+    },
+    "SECP256K1_NEW_GAS_COST": {
+      "STEP_GAS_COST": 475,
+      "RANGE_CHECK_GAS_COST": 35,
+      "MEMORY_HOLE_GAS_COST": 40
+    },
+    "SECP256R1_ADD_GAS_COST": {
+      "STEP_GAS_COST": 589,
+      "RANGE_CHECK_GAS_COST": 57
+    },
+    "SECP256R1_GET_POINT_FROM_X_GAS_COST": {
+      "STEP_GAS_COST": 510,
+      "RANGE_CHECK_GAS_COST": 44,
+      "MEMORY_HOLE_GAS_COST": 20
+    },
+    "SECP256R1_GET_XY_GAS_COST": {
+      "STEP_GAS_COST": 241,
+      "RANGE_CHECK_GAS_COST": 11,
+      "MEMORY_HOLE_GAS_COST": 40
+    },
+    "SECP256R1_MUL_GAS_COST": {
+      "STEP_GAS_COST": 125340,
+      "RANGE_CHECK_GAS_COST": 13961,
+      "MEMORY_HOLE_GAS_COST": 2
+    },
+    "SECP256R1_NEW_GAS_COST": {
+      "STEP_GAS_COST": 594,
+      "RANGE_CHECK_GAS_COST": 49,
+      "MEMORY_HOLE_GAS_COST": 40
+    },
+    "KECCAK_GAS_COST": {
+      "SYSCALL_BASE_GAS_COST": 1
+    },
+    "KECCAK_ROUND_COST_GAS_COST": 180000,
+    "ERROR_BLOCK_NUMBER_OUT_OF_RANGE": "'Block number out of range'",
+    "ERROR_OUT_OF_GAS": "'Out of gas'",
+    "ERROR_INVALID_INPUT_LEN": "'Invalid input length'",
+    "ERROR_INVALID_ARGUMENT": "'Invalid argument'",
+    "VALIDATED": "'VALID'",
+    "L1_GAS": "'L1_GAS'",
+    "L2_GAS": "'L2_GAS'",
+    "L1_GAS_INDEX": 0,
+    "L2_GAS_INDEX": 1
+  },
+  "gateway": {
+    "max_calldata_length": 4000,
+    "max_contract_bytecode_size": 61440
+  },
+  "invoke_tx_max_n_steps": 3000000,
+  "max_recursion_depth": 50,
+  "validate_max_n_steps": 1000000,
+  "vm_resource_fee_cost": {
+    "bitwise_builtin": 0.32,
+    "ec_op_builtin": 5.12,
+    "ecdsa_builtin": 10.24,
+    "keccak_builtin": 10.24,
+    "n_steps": 0.005,
+    "output_builtin": 0,
+    "pedersen_builtin": 0.16,
+    "poseidon_builtin": 0.16,
+    "range_check_builtin": 0.08
+  }
 }
