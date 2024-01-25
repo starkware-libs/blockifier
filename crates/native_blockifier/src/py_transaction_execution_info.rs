@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use blockifier::execution::entry_point::CallType;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
+use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::py_utils::{to_py_vec, PyFelt};
 
@@ -86,6 +88,21 @@ pub struct PyCallInfo {
     pub code_address: Option<PyFelt>,
 }
 
+fn call_type_to_u8(call_type: CallType) -> u8 {
+    match call_type {
+        CallType::Call => 0,
+        CallType::Delegate => 1,
+    }
+}
+
+fn enrty_point_type_to_u8(enrty_point_type: EntryPointType) -> u8 {
+    match enrty_point_type {
+        EntryPointType::Constructor => 0,
+        EntryPointType::External => 1,
+        EntryPointType::L1Handler => 2,
+    }
+}
+
 impl From<CallInfo> for PyCallInfo {
     fn from(call_info: CallInfo) -> Self {
         let call = call_info.call;
@@ -96,7 +113,7 @@ impl From<CallInfo> for PyCallInfo {
             contract_address: PyFelt::from(call.storage_address),
             class_hash: call.class_hash.map(PyFelt::from),
             entry_point_selector: PyFelt(call.entry_point_selector.0),
-            entry_point_type: call.entry_point_type as u8,
+            entry_point_type: enrty_point_type_to_u8(call.entry_point_type),
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
             gas_consumed: execution.gas_consumed,
             failure_flag: PyFelt::from(execution.failed as u8),
@@ -111,7 +128,7 @@ impl From<CallInfo> for PyCallInfo {
                 .into_iter()
                 .map(|storage_key| PyFelt(*storage_key.0.key()))
                 .collect(),
-            call_type: call.call_type as u8,
+            call_type: call_type_to_u8(call.call_type),
             code_address: call.code_address.map(PyFelt::from),
         }
     }
