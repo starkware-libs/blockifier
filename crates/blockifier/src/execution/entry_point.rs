@@ -113,13 +113,11 @@ impl CallEntryPoint {
                         source: error,
                     }
                 }
-                EntryPointExecutionError::ExecutionFailed { .. } => {
-                    // TODO(Zuphit): Handle errors such that `Execution failed. Failure reason: ...`
-                    //   is not printed twice.
-                    context.error_stack.push((storage_address, format!("{}\n", &error)));
-                    error
+                other_error => {
+                    // TODO(Zuphit): Handle errors such that the error prefix is not printed twice.
+                    context.error_stack.push((storage_address, format!("{}\n", &other_error)));
+                    other_error
                 }
-                other_error => other_error,
             }
         })
     }
