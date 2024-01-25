@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use num_traits::Zero;
+
+use crate::transaction::errors::NumericConversionError;
+
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
@@ -18,4 +22,14 @@ where
 /// Returns the max value of two constants, at compile time.
 pub const fn const_max(a: u128, b: u128) -> u128 {
     [a, b][(a < b) as usize]
+}
+
+pub(crate) fn check_non_zero<T>(value: T, info: &str) -> Result<(), NumericConversionError>
+where
+    T: Zero,
+{
+    if value.is_zero() {
+        return Err(NumericConversionError::DivByZero { info: info.to_string() });
+    }
+    Ok(())
 }
