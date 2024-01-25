@@ -130,7 +130,7 @@ func test_nested_library_call{syscall_ptr: felt*}(
 ) -> (result: felt) {
     alloc_locals;
     assert calldata_len = 2;
-    local nested_library_calldata: felt* = new (
+    local nested_library_calldata: felt* = new(
         class_hash, nested_selector, 2, calldata[0] + 1, calldata[1] + 1
     );
     let (retdata_size: felt, retdata: felt*) = library_call(
@@ -221,6 +221,57 @@ func foo() {
 }
 
 @external
+func invoke_call_chain{syscall_ptr: felt*}(calldata_len: felt, calldata: felt*) -> (res: felt) {
+    // If the chain is too short, fail with division by zero.
+    if ((calldata_len * (calldata_len - 1) * (calldata_len - 2)) == 0) {
+        tempvar zero = calldata_len - calldata_len;
+        return (res=1 / zero);
+    }
+
+    // Pop the parameters for the next call in the chain.
+    let contract_id = calldata[0];
+    let function_selector = calldata[1];
+    let call_type = calldata[2];
+
+    let calldata = &calldata[3];
+    let calldata_len = calldata_len - 3;
+
+    // Choose call type according to the following options:
+    // 0 - call contract syscall. 1 - library call syscall. other - regular inner call.
+    // The remaining items of the call_chain array are passed on as calldata.
+    if (call_type == 0) {
+        call_contract(
+            contract_address=contract_id,
+            function_selector=function_selector,
+            calldata_size=calldata_len,
+            calldata=calldata,
+        );
+        return (res=0);
+    }
+    if (call_type == 1) {
+        library_call(
+            class_hash=contract_id,
+            function_selector=function_selector,
+            calldata_size=calldata_len,
+            calldata=calldata,
+        );
+        return (res=0);
+    }
+
+    let invoke_call_chain_selector = 0x0062c83572d28cb834a3de3c1e94977a4191469a4a8c26d1d7bc55305e640ed5;
+    let fail_selector = 0x032564d7e0fe091d49b4c20f4632191e4ed6986bf993849879abfef9465def25;
+    if (function_selector == invoke_call_chain_selector) {
+        return invoke_call_chain(calldata_len=calldata_len, calldata=calldata);
+    }
+    if (function_selector == fail_selector) {
+        fail();
+        return (res=0);
+    }
+
+    return (res=0);
+}
+
+@external
 func fail() {
     assert 0 = 1;
     return ();
@@ -246,7 +297,9 @@ func recurse(depth: felt) {
 }
 
 @external
-func recursive_syscall{syscall_ptr: felt*}(contract_address: felt, function_selector: felt, depth: felt) {
+func recursive_syscall{syscall_ptr: felt*}(
+    contract_address: felt, function_selector: felt, depth: felt
+) {
     alloc_locals;
     if (depth == 0) {
         return ();
