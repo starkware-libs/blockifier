@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use blockifier::execution::entry_point::CallType;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
+use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::py_utils::{to_py_vec, PyFelt};
 
@@ -51,11 +53,11 @@ pub struct PyCallInfo {
     #[pyo3(get)]
     pub entry_point_selector: PyFelt,
     #[pyo3(get)]
-    pub entry_point_type: u8,
+    pub entry_point_type: PyEntryPointType,
     #[pyo3(get)]
     pub calldata: Vec<PyFelt>,
     #[pyo3(get)]
-    pub call_type: u8,
+    pub call_type: PyCallType,
 
     // Call results.
     #[pyo3(get)]
@@ -86,6 +88,41 @@ pub struct PyCallInfo {
     pub code_address: Option<PyFelt>,
 }
 
+#[pyclass]
+#[derive(Clone)]
+pub enum PyCallType {
+    Call = 0,
+    Delegate = 1,
+}
+
+impl From<CallType> for PyCallType {
+    fn from(call_type: CallType) -> Self {
+        match call_type {
+            CallType::Call => PyCallType::Call,
+            CallType::Delegate => PyCallType::Delegate,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub enum PyEntryPointType {
+    Constructor,
+    External,
+    L1Handler,
+}
+
+impl From<EntryPointType> for PyEntryPointType {
+    fn from(enrty_point_type: EntryPointType) -> Self {
+        match enrty_point_type {
+            EntryPointType::Constructor => PyEntryPointType::Constructor,
+            EntryPointType::External => PyEntryPointType::External,
+            EntryPointType::L1Handler => PyEntryPointType::L1Handler,
+        }
+
+    }
+}
+
 impl From<CallInfo> for PyCallInfo {
     fn from(call_info: CallInfo) -> Self {
         let call = call_info.call;
@@ -96,7 +133,7 @@ impl From<CallInfo> for PyCallInfo {
             contract_address: PyFelt::from(call.storage_address),
             class_hash: call.class_hash.map(PyFelt::from),
             entry_point_selector: PyFelt(call.entry_point_selector.0),
-            entry_point_type: call.entry_point_type as u8,
+            entry_point_type: PyEntryPointType::from(call.entry_point_type),
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
             gas_consumed: execution.gas_consumed,
             failure_flag: execution.failed,
@@ -111,7 +148,7 @@ impl From<CallInfo> for PyCallInfo {
                 .into_iter()
                 .map(|storage_key| PyFelt(*storage_key.0.key()))
                 .collect(),
-            call_type: call.call_type as u8,
+            call_type: PyCallType::from(call.call_type),
             code_address: call.code_address.map(PyFelt::from),
         }
     }
