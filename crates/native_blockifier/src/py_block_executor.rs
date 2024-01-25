@@ -40,15 +40,14 @@ impl PyBlockExecutor {
         target_storage_config: StorageConfig,
     ) -> Self {
         log::debug!("Initializing Block Executor...");
-        let tx_executor = None;
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
-
         log::debug!("Initialized Block Executor.");
+
         Self {
             general_config,
             max_recursion_depth,
-            tx_executor,
+            tx_executor: None,
             storage: Box::new(storage),
             global_contract_cache: GlobalContractCache::default(),
         }
