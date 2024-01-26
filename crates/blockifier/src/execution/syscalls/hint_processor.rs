@@ -22,6 +22,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::abi::constants;
@@ -36,6 +37,7 @@ use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
     write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
 };
+use crate::execution::sierra_utils::starkfelt_to_felt;
 use crate::execution::syscalls::secp::{
     secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
     secp256r1_add, secp256r1_get_point_from_x, secp256r1_get_xy, secp256r1_mul, secp256r1_new,
@@ -102,6 +104,8 @@ pub const OUT_OF_GAS_ERROR: &str =
 // "Block number out of range";
 pub const BLOCK_NUMBER_OUT_OF_RANGE_ERROR: &str =
     "0x00000000000000426c6f636b206e756d626572206f7574206f662072616e6765";
+// "Invalid execution mode";
+pub const INVALID_EXECUTION_MODE_ERROR: &str = "0x00496e76616c696420657865637574696f6e206d6f6465";
 // "Invalid input length";
 pub const INVALID_INPUT_LENGTH_ERROR: &str =
     "0x000000000000000000000000496e76616c696420696e707574206c656e677468";
@@ -112,6 +116,51 @@ pub const INVALID_ARGUMENT: &str =
 pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c315f474153";
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
+// Forbidden Class Replacement
+pub const FORBIDDEN_CLASS_REPLACEMENT: &str =
+    "0x00466f7262696464656e20436c617373205265706c6163656d656e74";
+// Failed to set class hash
+pub const FAILED_TO_SET_CLASS_HASH: &str = "0x004661696c656420746f2073657420636c6173732068617368";
+// Failed to get contract class
+pub const FAILED_TO_GET_CONTRACT_CLASS: &str =
+    "0x004661696c656420746f2067657420636f6e747261637420636c617373";
+// Failed to execute call
+pub const FAILED_TO_EXECUTE_CALL: &str = "0x004661696c656420746f20657865637574652063616c6c";
+pub const X_NOT_EQUAL_Y: &str =
+    "0x00000000000000000000000000000000000000000000000000007820213d2079";
+// Failed to calculate address
+pub const FAILED_TO_CALCULATE_CONTRACT_ADDRESS: &str =
+    "0x004661696c656420746f2063616c63756c6174652061646472657373";
+// Failed to parse
+pub const FAILED_TO_PARSE: &str = "0x004661696c656420746f20706172736520";
+// Failed to read result
+pub const FAILED_TO_READ_RESULT: &str = "0x004661696c656420746f207265616420726573756c7420";
+// Failed to write
+pub const FAILED_TO_WRITE: &str = "0x004661696c656420746f20777269746520";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_felt_from_hex() {
+        assert!(Felt::from_hex(OUT_OF_GAS_ERROR).is_ok());
+        assert!(Felt::from_hex(BLOCK_NUMBER_OUT_OF_RANGE_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_INPUT_LENGTH_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_ARGUMENT).is_ok());
+        assert!(Felt::from_hex(L1_GAS).is_ok());
+        assert!(Felt::from_hex(L2_GAS).is_ok());
+        assert!(Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_SET_CLASS_HASH).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
+        assert!(Felt::from_hex(X_NOT_EQUAL_Y).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_PARSE).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_READ_RESULT).is_ok());
+    }
+}
 
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -659,6 +708,30 @@ pub fn execute_inner_call(
     syscall_handler.inner_calls.push(call_info);
 
     Ok(retdata_segment)
+}
+
+pub fn execute_inner_call_raw(
+    call: CallEntryPoint,
+    state: &mut dyn State,
+    execution_resources: &mut ExecutionResources,
+    context: &mut EntryPointExecutionContext,
+) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
+    // todo: remove execution resources?
+    let call_info = call
+        .execute(state, execution_resources, context)
+        .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
+
+    let raw_retdata = &call_info
+        .execution
+        .retdata
+        .0
+        .iter()
+        .map(|felt| starkfelt_to_felt(*felt))
+        .collect::<Vec<_>>();
+
+    let retdata = raw_retdata.to_vec();
+
+    if call_info.execution.failed { Err(retdata) } else { Ok(retdata) }
 }
 
 pub fn create_retdata_segment(

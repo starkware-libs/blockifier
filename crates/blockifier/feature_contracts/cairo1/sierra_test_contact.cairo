@@ -50,29 +50,29 @@ mod SierraTestContract {
     //     syscalls::storage_write_syscall(address_domain, storage_address, 1).unwrap_syscall();
     // }
 
-    // #[external(v0)]
-    // #[raw_output]
-    // fn test_call_contract(
-    //     self: @ContractState,
-    //     contract_address: ContractAddress,
-    //     entry_point_selector: felt252,
-    //     calldata: Array::<felt252>
-    // ) -> Span::<felt252> {
-    //     syscalls::call_contract_syscall(contract_address, entry_point_selector, calldata.span())
-    //         .unwrap_syscall()
-    //         .snapshot
-    //         .span()
-    // }
+    #[external(v0)]
+    #[raw_output]
+    fn test_call_contract(
+        self: @ContractState,
+        contract_address: ContractAddress,
+        entry_point_selector: felt252,
+        calldata: Array::<felt252>
+    ) -> Span::<felt252> {
+        syscalls::call_contract_syscall(contract_address, entry_point_selector, calldata.span())
+            .unwrap_syscall()
+            .snapshot
+            .span()
+    }
 
-    // #[external(v0)]
-    // fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
-    //     syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
+        syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+    }
 
-    // #[external(v0)]
-    // fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
-    //     syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
-    // }
+    #[external(v0)]
+    fn test_get_block_hash(self: @ContractState, block_number: u64) -> felt252 {
+        syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
+    }
 
     // #[external(v0)]
     // fn test_get_execution_info(
@@ -87,10 +87,10 @@ mod SierraTestContract {
     //     let execution_info = starknet::get_execution_info().unbox();
     //     let block_info = execution_info.block_info.unbox();
     //     assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
-    // 
+    //
     //     let tx_info = execution_info.tx_info.unbox();
     //     assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
-    // 
+    //
     //     assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
     //     assert(
     //         execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
@@ -101,19 +101,19 @@ mod SierraTestContract {
     //     );
     // }
 
-    // #[external(v0)]
-    // #[raw_output]
-    // fn test_library_call(
-    //     self: @ContractState,
-    //     class_hash: ClassHash,
-    //     function_selector: felt252,
-    //     calldata: Array<felt252>
-    // ) -> Span::<felt252> {
-    //     starknet::library_call_syscall(class_hash, function_selector, calldata.span())
-    //         .unwrap_syscall()
-    //         .snapshot
-    //         .span()
-    // }
+    #[external(v0)]
+    #[raw_output]
+    fn test_library_call(
+        self: @ContractState,
+        class_hash: ClassHash,
+        function_selector: felt252,
+        calldata: Array<felt252>
+    ) -> Span::<felt252> {
+        starknet::library_call_syscall(class_hash, function_selector, calldata.span())
+            .unwrap_syscall()
+            .snapshot
+            .span()
+    }
 
     // #[external(v0)]
     // #[raw_output]
@@ -135,7 +135,7 @@ mod SierraTestContract {
     //         class_hash, lib_selector, nested_library_calldata.span(),
     //     )
     //         .unwrap_syscall();
-    // 
+    //
     //     let mut calldata: Array::<felt252> = Default::default();
     //     calldata.append(a);
     //     calldata.append(b);
@@ -143,17 +143,17 @@ mod SierraTestContract {
     //         .unwrap_syscall()
     // }
 
-    // #[external(v0)]
-    // fn test_replace_class(self: @ContractState, class_hash: ClassHash) {
-    //     syscalls::replace_class_syscall(class_hash).unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_replace_class(self: @ContractState, class_hash: ClassHash) {
+        syscalls::replace_class_syscall(class_hash).unwrap_syscall();
+    }
 
-    // #[external(v0)]
-    // fn test_send_message_to_l1(
-    //     self: @ContractState, to_address: felt252, payload: Array::<felt252>
-    // ) {
-    //     starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_send_message_to_l1(
+        self: @ContractState, to_address: felt252, payload: Array::<felt252>
+    ) {
+        starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
 
     // /// An external method that requires the `segment_arena` builtin.
     // #[external(v0)]
@@ -176,39 +176,39 @@ mod SierraTestContract {
     //     value
     // }
 
-    // #[external(v0)]
-    // fn test_deploy(
-    //     self: @ContractState,
-    //     class_hash: ClassHash,
-    //     contract_address_salt: felt252,
-    //     calldata: Array::<felt252>,
-    //     deploy_from_zero: bool,
-    // ) {
-    //     syscalls::deploy_syscall(
-    //         class_hash, contract_address_salt, calldata.span(), deploy_from_zero
-    //     )
-    //         .unwrap_syscall();
-    // }
+    #[external(v0)]
+    fn test_deploy(
+        self: @ContractState,
+        class_hash: ClassHash,
+        contract_address_salt: felt252,
+        calldata: Array::<felt252>,
+        deploy_from_zero: bool,
+    ) {
+        syscalls::deploy_syscall(
+            class_hash, contract_address_salt, calldata.span(), deploy_from_zero
+        )
+            .unwrap_syscall();
+    }
 
 
-    // #[external(v0)]
-    // fn test_keccak(ref self: ContractState) {
-    //     let mut input: Array::<u256> = Default::default();
-    //     input.append(u256 { low: 1, high: 0 });
-    // 
-    //     let res = keccak::keccak_u256s_le_inputs(input.span());
-    //     assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
-    //     assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
-    // 
-    //     let mut input: Array::<u64> = Default::default();
-    //     input.append(1_u64);
-    //     match syscalls::keccak_syscall(input.span()) {
-    //         Result::Ok(_) => panic_with_felt252('Should fail'),
-    //         Result::Err(revert_reason) => assert(
-    //             *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
-    //         ),
-    //     }
-    // }
+    #[external(v0)]
+    fn test_keccak(ref self: ContractState) {
+        let mut input: Array::<u256> = Default::default();
+        input.append(u256 { low: 1, high: 0 });
+
+        let res = keccak::keccak_u256s_le_inputs(input.span());
+        assert(res.low == 0x587f7cc3722e9654ea3963d5fe8c0748, 'Wrong hash value');
+        assert(res.high == 0xa5963aa610cb75ba273817bce5f8c48f, 'Wrong hash value');
+
+        let mut input: Array::<u64> = Default::default();
+        input.append(1_u64);
+        match syscalls::keccak_syscall(input.span()) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
+            ),
+        }
+    }
 
     // #[external(v0)]
     // fn test_secp256k1(ref self: ContractState) {
@@ -355,11 +355,11 @@ mod SierraTestContract {
     //     }
     // }
 
-    // #[external(v0)]
-    // fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
-    //     assert(x == y, 'x != y');
-    //     'success'
-    // }
+    #[external(v0)]
+    fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
+         assert(x == y, 'x != y');
+         'success'
+    }
 
     // #[external(v0)]
     // fn recursive_fail(ref self: ContractState, depth: felt252) {

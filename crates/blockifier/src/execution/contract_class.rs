@@ -6,11 +6,10 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_sierra::program::Program as SierraProgram;
-use cairo_lang_starknet::contract_class::{
-    ContractClass as SierraContractClass,
-    ContractEntryPoints as SierraContractEntryPoints
-};
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet::contract_class::{
+    ContractClass as SierraContractClass, ContractEntryPoints as SierraContractEntryPoints,
+};
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -341,7 +340,9 @@ impl Deref for SierraContractClassV1 {
 }
 
 impl SierraContractClassV1 {
-    pub fn try_from_json_string(raw_contract_class: &str) -> Result<SierraContractClassV1, ProgramError> {
+    pub fn try_from_json_string(
+        raw_contract_class: &str,
+    ) -> Result<SierraContractClassV1, ProgramError> {
         let sierra_contract_class: SierraContractClass = serde_json::from_str(raw_contract_class)?;
         let contract_class: SierraContractClassV1 = sierra_contract_class.try_into()?;
 
