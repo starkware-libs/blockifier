@@ -31,18 +31,6 @@ pub fn calculate_tx_gas_and_blob_gas_usage<'a>(
     })
 }
 
-pub fn calculate_tx_gas_and_blob_gas_usage<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
-    l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<GasAndBlobGasUsages> {
-    Ok(GasAndBlobGasUsages {
-        gas_usage: calculate_tx_gas_usage(call_infos, state_changes_count, l1_handler_payload_size)?
-            as u128,
-        blob_gas_usage: 0,
-    })
-}
-
 /// Returns the blob-gas (data-gas) needed to publish the transaction's state diff in a blob.
 pub fn calculate_tx_blob_gas_usage(state_changes_count: StateChangesCount) -> usize {
     let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
