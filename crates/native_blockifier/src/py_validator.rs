@@ -1,7 +1,7 @@
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
-use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
@@ -31,12 +31,13 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
         max_recursion_depth: usize,
+        global_contract_cache_size: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
         let tx_executor = TransactionExecutor::new(
@@ -44,7 +45,7 @@ impl PyValidator {
             &general_config,
             next_block_info,
             max_recursion_depth,
-            GlobalContractCache::default(),
+            GlobalContractCache::new(global_contract_cache_size),
         )?;
         let validator = Self {
             general_config,
@@ -115,7 +116,7 @@ impl PyValidator {
             &general_config,
             next_block_info,
             max_recursion_depth,
-            GlobalContractCache::default(),
+            GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         )?;
         Ok(Self {
             general_config,

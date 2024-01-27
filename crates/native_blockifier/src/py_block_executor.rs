@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
-use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -33,10 +33,11 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
+    #[pyo3(signature = (general_config, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
         max_recursion_depth: usize,
+        global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
     ) -> Self {
         log::debug!("Initializing Block Executor...");
@@ -49,7 +50,7 @@ impl PyBlockExecutor {
             max_recursion_depth,
             tx_executor: None,
             storage: Box::new(storage),
-            global_contract_cache: GlobalContractCache::default(),
+            global_contract_cache: GlobalContractCache::new(global_contract_cache_size),
         }
     }
 
@@ -202,7 +203,7 @@ impl PyBlockExecutor {
             general_config,
             max_recursion_depth: 50,
             tx_executor: None,
-            global_contract_cache: GlobalContractCache::default(),
+            global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
     }
 }
@@ -225,7 +226,7 @@ impl PyBlockExecutor {
             general_config: PyGeneralConfig::default(),
             max_recursion_depth: 50,
             tx_executor: None,
-            global_contract_cache: GlobalContractCache::default(),
+            global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
     }
 }
