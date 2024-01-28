@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::block_context::BlockContext;
-use blockifier::block_execution::pre_process_block;
+use blockifier::block_execution::{pre_process_block, BlockNumberHashPair};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
@@ -15,7 +15,6 @@ use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTr
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
-use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
@@ -184,7 +183,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let old_block_number_and_hash = old_block_number_and_hash
-            .map(|(block_number, block_hash)| (BlockNumber(block_number), BlockHash(block_hash.0)));
+            .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
 
         pre_process_block(&mut self.state, old_block_number_and_hash)?;
 
