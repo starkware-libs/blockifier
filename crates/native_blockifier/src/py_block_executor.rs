@@ -8,7 +8,10 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{
+    InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
+    NativeBlockifierResult,
+};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
@@ -306,10 +309,38 @@ pub fn into_block_context_args(
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
         gas_prices: GasPrices {
-            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
-            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
-            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
-            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
+            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
+                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                    InvalidNativeBlockifierInputError::InvalidGasPriceWei(
+                        block_info.l1_gas_price.price_in_wei,
+                    ),
+                )
+            })?,
+            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri.try_into().map_err(|_| {
+                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                    InvalidNativeBlockifierInputError::InvalidGasPriceFri(
+                        block_info.l1_gas_price.price_in_fri,
+                    ),
+                )
+            })?,
+            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei.try_into().map_err(
+                |_| {
+                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                        InvalidNativeBlockifierInputError::InvalidDataGasPriceWei(
+                            block_info.l1_data_gas_price.price_in_wei,
+                        ),
+                    )
+                },
+            )?,
+            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri.try_into().map_err(
+                |_| {
+                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                        InvalidNativeBlockifierInputError::InvalidDataGasPriceFri(
+                            block_info.l1_data_gas_price.price_in_fri,
+                        ),
+                    )
+                },
+            )?,
         },
 
         use_kzg_da: block_info.use_kzg_da,

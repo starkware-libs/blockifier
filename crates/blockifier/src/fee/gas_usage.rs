@@ -284,5 +284,5 @@ pub fn compute_discounted_gas_from_gas_vector(
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let data_gas_price =
         block_context.block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
-    gas_usage + (blob_gas_usage * data_gas_price) / gas_price
+    gas_usage + (blob_gas_usage * u128::from(data_gas_price)) / gas_price
 }

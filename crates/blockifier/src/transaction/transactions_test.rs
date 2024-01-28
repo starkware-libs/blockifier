@@ -820,7 +820,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
 
     let gas_prices = &block_context.block_info.gas_prices;
     // TODO(Aner, 21/01/24) change to linear combination.
-    let minimal_fee = Fee(minimal_l1_gas * gas_prices.eth_l1_gas_price);
+    let minimal_fee = Fee(minimal_l1_gas * u128::from(gas_prices.eth_l1_gas_price));
     // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
     let invalid_v1_tx = account_invoke_tx(
@@ -845,7 +845,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     let insufficient_max_l1_gas_amount =
         (minimal_l1_gas - 1).try_into().expect("Failed to convert u128 to u64.");
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
-        resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price),
+        resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price.into()),
         version: TransactionVersion::THREE,
         ..valid_invoke_tx_args.clone()
     });
@@ -864,7 +864,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // Max L1 gas price too low.
-    let insufficient_max_l1_gas_price = actual_strk_l1_gas_price - 1;
+    let insufficient_max_l1_gas_price = u128::from(actual_strk_l1_gas_price) - 1;
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
@@ -879,7 +879,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
             TransactionPreValidationError::TransactionFeeError(
                 TransactionFeeError::MaxL1GasPriceTooLow{ max_l1_gas_price, actual_l1_gas_price }))
         if max_l1_gas_price == insufficient_max_l1_gas_price &&
-        actual_l1_gas_price == actual_strk_l1_gas_price
+        actual_l1_gas_price == actual_strk_l1_gas_price.into()
     );
 }
 
@@ -904,7 +904,8 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         estimate_minimal_gas_vector(block_context, &account_invoke_tx(invoke_tx_args.clone()))
             .unwrap()
             .l1_gas;
-    let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
+    let minimal_fee =
+        Fee(minimal_l1_gas * u128::from(block_context.block_info.gas_prices.eth_l1_gas_price));
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
 

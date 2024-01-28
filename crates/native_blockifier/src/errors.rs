@@ -73,6 +73,8 @@ native_blockifier_errors!(
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
     #[error(transparent)]
+    InvalidNativeBlockifierInputError(#[from] InvalidNativeBlockifierInputError),
+    #[error(transparent)]
     ParseError(#[from] ParseError),
     #[error(transparent)]
     ProgramError(#[from] ProgramError),
@@ -82,6 +84,18 @@ pub enum NativeBlockifierInputError {
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
     UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+}
+
+#[derive(Debug, Error)]
+pub enum InvalidNativeBlockifierInputError {
+    #[error("Invalid Wei gas price: {0}.")]
+    InvalidGasPriceWei(u128),
+    #[error("Invalid Fri gas price: {0}.")]
+    InvalidGasPriceFri(u128),
+    #[error("Invalid Wei data gas price: {0}.")]
+    InvalidDataGasPriceWei(u128),
+    #[error("Invalid Fri data gas price: {0}.")]
+    InvalidDataGasPriceFri(u128),
 }
 
 create_exception!(native_blockifier, UndeclaredClassHashError, PyException);
