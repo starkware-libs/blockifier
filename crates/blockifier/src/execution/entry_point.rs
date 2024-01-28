@@ -24,6 +24,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::{checked_div, checked_div_f64};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -246,13 +247,13 @@ impl EntryPointExecutionContext {
 
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
+        let fee_type = account_tx_context.fee_type();
         let tx_gas_upper_bound = match account_tx_context {
             AccountTransactionContext::Deprecated(context) => {
-                (context.max_fee.0
-                    / block_info
-                        .gas_prices
-                        .get_gas_price_by_fee_type(&account_tx_context.fee_type()))
-                    as usize
+                let gas_price = block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
+                checked_div(context.max_fee.0, gas_price).unwrap_or_else(|_| {
+                    panic!("Invalid gas price {gas_price} for fee type {fee_type:?}.")
+                }) as usize
             }
             AccountTransactionContext::Current(context) => {
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
@@ -265,8 +266,11 @@ impl EntryPointExecutionContext {
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
-        Ok(min(tx_upper_bound, block_upper_bound))
+        let tx_upper_bound = checked_div_f64(tx_gas_upper_bound as f64, *gas_per_step)
+            .unwrap_or_else(|_| {
+                panic!("Invalid gas per step {gas_per_step} for fee type {fee_type:?}.")
+            });
+        Ok(min(tx_upper_bound.floor() as usize, block_upper_bound))
     }
 
     /// Returns the available steps in run resources.
