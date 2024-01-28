@@ -105,13 +105,12 @@ pub fn calculate_tx_weights(
 ) -> Result<ResourcesMap, TransactionExecutionError> {
     let mut tx_weights: HashMap<String, usize> = HashMap::new();
     let mut cairo_resource_usage: HashMap<String, usize> = actual_resources;
-    if let Some(value) = cairo_resource_usage.remove("l1_gas_usage") {
-        tx_weights.insert("gas_weight".to_string(), value);
-    } else {
-        return Err(TransactionExecutionError::InvalidTransactionExecutionInfo {
+    let value = cairo_resource_usage.remove("l1_gas_usage").ok_or(
+        TransactionExecutionError::InvalidTransactionExecutionInfo {
             field: "l1_gas_usage".to_string(),
-        });
-    }
+        },
+    )?;
+    tx_weights.insert("gas_weight".to_string(), value);
     let os_cairo_usage: HashMap<String, usize> =
         vm_execution_resources_to_hash_map(additional_os_resources);
     let cairo_usage = merge_hashmaps(&cairo_resource_usage, &os_cairo_usage);
