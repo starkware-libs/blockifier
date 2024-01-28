@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroU128;
 use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
@@ -306,10 +307,14 @@ pub fn into_block_context(
             sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
             vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
             gas_prices: GasPrices {
-                eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
-                strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
-                eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
-                strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
+                eth_l1_gas_price: NonZeroU128::new(block_info.l1_gas_price.price_in_wei)
+                    .unwrap_or_else(|| panic!("Wei gas price is zero.")),
+                strk_l1_gas_price: NonZeroU128::new(block_info.l1_gas_price.price_in_fri)
+                    .unwrap_or_else(|| panic!("Fri gas price is zero.")),
+                eth_l1_data_gas_price: NonZeroU128::new(block_info.l1_data_gas_price.price_in_wei)
+                    .unwrap_or_else(|| panic!("Wei data gas price is zero.")),
+                strk_l1_data_gas_price: NonZeroU128::new(block_info.l1_data_gas_price.price_in_fri)
+                    .unwrap_or_else(|| panic!("Fri data gas price is zero.")),
             },
 
             use_kzg_da: block_info.use_kzg_da,

@@ -122,7 +122,7 @@ impl FeeCheckReport {
                 let data_gas_price =
                     block_context.block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
                 let total_discounted_gas_used =
-                    gas_usage + (blob_gas_usage * data_gas_price) / gas_price;
+                    gas_usage + (u128::from(data_gas_price) * blob_gas_usage) / gas_price;
 
                 if total_discounted_gas_used > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {

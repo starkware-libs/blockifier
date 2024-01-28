@@ -81,7 +81,8 @@ pub fn get_fee_by_l1_gas_usage(
     fee_type: &FeeType,
 ) -> Fee {
     // TODO(Aner, 25/01/24) compute via linear combination and rename function accordingly.
-    Fee(l1_gas_usages.gas_usage * block_info.gas_prices.get_gas_price_by_fee_type(fee_type))
+    Fee(l1_gas_usages.gas_usage
+        * u128::from(block_info.gas_prices.get_gas_price_by_fee_type(fee_type)))
 }
 
 /// Calculates the fee that should be charged, given execution resources.

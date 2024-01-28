@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroU128;
 
 use assert_matches::assert_matches;
 use cairo_vm::vm::runners::builtin_runner::{
@@ -72,8 +73,9 @@ fn test_discounted_gas_overdraft(
     #[case] expect_failure: bool,
 ) {
     let mut block_context = BlockContext::create_for_account_testing();
-    block_context.block_info.gas_prices.strk_l1_gas_price = gas_price;
-    block_context.block_info.gas_prices.strk_l1_data_gas_price = data_gas_price;
+    block_context.block_info.gas_prices.strk_l1_gas_price = NonZeroU128::new(gas_price).unwrap();
+    block_context.block_info.gas_prices.strk_l1_data_gas_price =
+        NonZeroU128::new(data_gas_price).unwrap();
 
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
     let mut state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);

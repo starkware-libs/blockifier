@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroU128;
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::builtin_runner::{
@@ -104,10 +105,10 @@ impl BlockInfo {
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             vm_resource_fee_cost: Default::default(),
             gas_prices: GasPrices {
-                eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE,
-                strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE,
-                eth_l1_data_gas_price: DEFAULT_ETH_L1_DATA_GAS_PRICE,
-                strk_l1_data_gas_price: DEFAULT_STRK_L1_DATA_GAS_PRICE,
+                eth_l1_gas_price: NonZeroU128::new(DEFAULT_ETH_L1_GAS_PRICE).unwrap(),
+                strk_l1_gas_price: NonZeroU128::new(DEFAULT_STRK_L1_GAS_PRICE).unwrap(),
+                eth_l1_data_gas_price: NonZeroU128::new(DEFAULT_ETH_L1_DATA_GAS_PRICE).unwrap(),
+                strk_l1_data_gas_price: NonZeroU128::new(DEFAULT_STRK_L1_DATA_GAS_PRICE).unwrap(),
             },
             use_kzg_da: false,
             // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
