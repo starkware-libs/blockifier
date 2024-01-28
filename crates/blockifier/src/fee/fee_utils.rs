@@ -82,8 +82,10 @@ pub fn get_fee_by_l1_gas_usages(
     l1_gas_usages: GasVector,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(l1_gas_usages.l1_gas * block_info.gas_prices.get_gas_price_by_fee_type(fee_type)
-        + l1_gas_usages.blob_gas * block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type))
+    Fee(l1_gas_usages.l1_gas
+        * u128::from(block_info.gas_prices.get_gas_price_by_fee_type(fee_type))
+        + l1_gas_usages.blob_gas
+            * u128::from(block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type)))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
