@@ -78,13 +78,16 @@ pub fn calculate_tx_gas_vector(
     })
 }
 
+/// Converts the gas vector to a fee.
 pub fn get_fee_by_gas_vector(
     block_info: &BlockInfo,
     gas_vector: GasVector,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(gas_vector.l1_gas * block_info.gas_prices.get_gas_price_by_fee_type(fee_type)
-        + gas_vector.blob_gas * block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type))
+    gas_vector.saturated_cost(
+        u128::from(block_info.gas_prices.get_gas_price_by_fee_type(fee_type)),
+        u128::from(block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type)),
+    )
 }
 
 /// Calculates the fee that should be charged, given execution resources.

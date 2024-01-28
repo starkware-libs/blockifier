@@ -135,6 +135,15 @@ pub struct GasVector {
     pub blob_gas: u128,
 }
 
+impl GasVector {
+    /// Computes the cost (in fee token units) of the gas vector (saturating on overflow).
+    pub fn saturated_cost(&self, gas_price: u128, blob_gas_price: u128) -> Fee {
+        let l1_gas_cost = self.l1_gas.saturating_mul(gas_price);
+        let l1_data_gas_cost = self.blob_gas.saturating_mul(blob_gas_price);
+        Fee(l1_gas_cost.saturating_add(l1_data_gas_cost))
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CommonAccountFields {
     pub transaction_hash: TransactionHash,

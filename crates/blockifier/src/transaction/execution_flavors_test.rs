@@ -231,7 +231,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
         (BALANCE / gas_price).try_into().expect("Failed to convert u128 to u64.");
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(BALANCE + 1),
-        resource_bounds: l1_resource_bounds(balance_over_gas_price + 10, gas_price),
+        resource_bounds: l1_resource_bounds(balance_over_gas_price + 10, gas_price.into()),
         nonce: nonce_manager.next(account_address),
         ..pre_validation_base_args.clone()
     })
@@ -271,7 +271,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     // Fourth scenario: L1 gas price bound lower than the price on the block.
     if !is_deprecated {
         let result = account_invoke_tx(invoke_tx_args! {
-            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, gas_price - 1),
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, u128::from(gas_price) - 1),
             nonce: nonce_manager.next(account_address),
             ..pre_validation_base_args
         })
@@ -437,7 +437,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10087, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: fee_bound,
-        resource_bounds: l1_resource_bounds(gas_bound, gas_price),
+        resource_bounds: l1_resource_bounds(gas_bound, gas_price.into()),
         calldata: recurse_calldata(test_contract_address, false, 1000),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args.clone()
@@ -489,7 +489,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: huge_fee,
-        resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price),
+        resource_bounds: l1_resource_bounds(huge_gas_limit, gas_price.into()),
         calldata: recurse_calldata(test_contract_address, false, 10000),
         nonce: nonce_manager.next(account_address),
         ..execution_base_args
@@ -558,7 +558,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     let (unlimited_gas_used, unlimited_fee) = gas_and_fee(10087, validate, &fee_type);
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: just_not_enough_fee_bound,
-        resource_bounds: l1_resource_bounds(just_not_enough_gas_bound, gas_price),
+        resource_bounds: l1_resource_bounds(just_not_enough_gas_bound, gas_price.into()),
         calldata: recurse_calldata(test_contract_address, false, 1000),
         nonce: nonce_manager.next(account_address),
         sender_address: account_address,
@@ -610,7 +610,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {
         max_fee: actual_fee,
-        resource_bounds: l1_resource_bounds(success_actual_gas, gas_price),
+        resource_bounds: l1_resource_bounds(success_actual_gas, gas_price.into()),
         calldata: transfer_calldata,
         nonce: nonce_manager.next(account_address),
         sender_address: account_address,

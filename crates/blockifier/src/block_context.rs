@@ -1,9 +1,14 @@
 use std::collections::HashMap;
+use std::num::NonZeroU128;
 use std::sync::Arc;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
+use crate::test_utils::{
+    DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE,
+    DEFAULT_STRK_L1_GAS_PRICE,
+};
 use crate::transaction::objects::FeeType;
 
 /// Create via [`crate::block_execution::pre_process_block`] to ensure correctness.
@@ -90,26 +95,37 @@ impl FeeTokenAddresses {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct GasPrices {
-    pub eth_l1_gas_price: u128,       // In wei.
-    pub strk_l1_gas_price: u128,      // In fri.
-    pub eth_l1_data_gas_price: u128,  // In wei.
-    pub strk_l1_data_gas_price: u128, // In fri.
+    pub eth_l1_gas_price: NonZeroU128,       // In wei.
+    pub strk_l1_gas_price: NonZeroU128,      // In fri.
+    pub eth_l1_data_gas_price: NonZeroU128,  // In wei.
+    pub strk_l1_data_gas_price: NonZeroU128, // In fri.
 }
 
 impl GasPrices {
-    pub fn get_gas_price_by_fee_type(&self, fee_type: &FeeType) -> u128 {
+    pub fn get_gas_price_by_fee_type(&self, fee_type: &FeeType) -> NonZeroU128 {
         match fee_type {
             FeeType::Strk => self.strk_l1_gas_price,
             FeeType::Eth => self.eth_l1_gas_price,
         }
     }
 
-    pub fn get_data_gas_price_by_fee_type(&self, fee_type: &FeeType) -> u128 {
+    pub fn get_data_gas_price_by_fee_type(&self, fee_type: &FeeType) -> NonZeroU128 {
         match fee_type {
             FeeType::Strk => self.strk_l1_data_gas_price,
             FeeType::Eth => self.eth_l1_data_gas_price,
+        }
+    }
+}
+
+impl Default for GasPrices {
+    fn default() -> Self {
+        Self {
+            eth_l1_gas_price: NonZeroU128::new(DEFAULT_ETH_L1_GAS_PRICE).unwrap(),
+            strk_l1_gas_price: NonZeroU128::new(DEFAULT_STRK_L1_GAS_PRICE).unwrap(),
+            eth_l1_data_gas_price: NonZeroU128::new(DEFAULT_ETH_L1_DATA_GAS_PRICE).unwrap(),
+            strk_l1_data_gas_price: NonZeroU128::new(DEFAULT_STRK_L1_DATA_GAS_PRICE).unwrap(),
         }
     }
 }
