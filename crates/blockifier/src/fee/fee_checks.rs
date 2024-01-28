@@ -13,6 +13,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType,
     TransactionExecutionResult,
 };
+use crate::utils::checked_div;
 
 #[derive(Clone, Copy, Debug, Error)]
 pub enum FeeCheckError {
@@ -121,8 +122,10 @@ impl FeeCheckReport {
                     block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
                 let data_gas_price =
                     block_context.block_info.gas_prices.get_data_gas_price_by_fee_type(&fee_type);
-                let total_discounted_gas_used =
-                    gas_usage + (blob_gas_usage * data_gas_price) / gas_price;
+                let total_discounted_gas_used = gas_usage
+                    + checked_div(blob_gas_usage * data_gas_price, gas_price).expect(&format!(
+                        "Invalid gas price {gas_price} for fee type {fee_type:?}"
+                    ));
 
                 if total_discounted_gas_used > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {

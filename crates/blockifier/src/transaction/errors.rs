@@ -110,3 +110,11 @@ pub enum ParseError {
     #[error("Unsupported transaction type: {0}")]
     UnknownTransactionType(String),
 }
+
+#[derive(Debug, Error)]
+pub enum NumericError {
+    #[error("checked_div({numerator}, {denominator}) failed.")]
+    CheckedDiv { numerator: String, denominator: String },
+    #[error("checked_div_f64({numerator}, {denominator}) failed.")]
+    CheckedDivF64 { numerator: f64, denominator: f64 },
+}
