@@ -136,6 +136,37 @@ pub struct GasVector {
     pub blob_gas: u128,
 }
 
+impl GasVector {
+    /// Computes the cost (in fee token units) of the gas vector (saturating on overflow).
+    pub fn saturated_cost(&self, gas_price: u128, blob_gas_price: u128) -> Fee {
+        let l1_gas_cost = self.l1_gas.checked_mul(gas_price).unwrap_or_else(|| {
+            log::warn!(
+                "L1 gas cost overflowed: multiplication of {} by {} resulted in overflow.",
+                self.l1_gas,
+                gas_price
+            );
+            u128::MAX
+        });
+        let l1_data_gas_cost = self.blob_gas.checked_mul(blob_gas_price).unwrap_or_else(|| {
+            log::warn!(
+                "L1 blob gas cost overflowed: multiplication of {} by {} resulted in overflow.",
+                self.blob_gas,
+                blob_gas_price
+            );
+            u128::MAX
+        });
+        let total = l1_gas_cost.checked_add(l1_data_gas_cost).unwrap_or_else(|| {
+            log::warn!(
+                "Total gas cost overflowed: addition of {} and {} resulted in overflow.",
+                l1_gas_cost,
+                l1_data_gas_cost
+            );
+            u128::MAX
+        });
+        Fee(total)
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CommonAccountFields {
     pub transaction_hash: TransactionHash,
