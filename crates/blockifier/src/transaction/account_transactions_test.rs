@@ -347,7 +347,7 @@ fn test_max_fee_limit_validate(
             // works.
             resource_bounds: l1_resource_bounds(
                 estimated_min_l1_gas.try_into().expect("Failed to convert u128 to u64."),
-                block_info.gas_prices.get_gas_price_by_fee_type(&account_tx.fee_type())
+                block_info.gas_prices.get_gas_price_by_fee_type(&account_tx.fee_type()).into()
             ),
             ..tx_args
         },
@@ -846,7 +846,7 @@ fn test_max_fee_to_max_steps_conversion(
         sender_address: account_address,
         calldata: execute_calldata.clone(),
         version,
-        resource_bounds: l1_resource_bounds(actual_gas_used, actual_strk_gas_price),
+        resource_bounds: l1_resource_bounds(actual_gas_used, actual_strk_gas_price.into()),
         nonce: nonce_manager.next(account_address),
     });
     let tx_context1 = Arc::new(block_context.to_tx_context(&account_tx1));
@@ -866,7 +866,7 @@ fn test_max_fee_to_max_steps_conversion(
         sender_address: account_address,
         calldata: execute_calldata,
         version,
-        resource_bounds: l1_resource_bounds(2 * actual_gas_used, actual_strk_gas_price),
+        resource_bounds: l1_resource_bounds(2 * actual_gas_used, actual_strk_gas_price.into()),
         nonce: nonce_manager.next(account_address),
     });
     let tx_context2 = Arc::new(block_context.to_tx_context(&account_tx2));
