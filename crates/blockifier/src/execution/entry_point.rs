@@ -19,11 +19,11 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
-use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::state_api::State;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::usize_from_u128;
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -306,7 +306,8 @@ impl EntryPointExecutionContext {
             .map(|call_info| call_info.vm_resources.n_steps)
             .unwrap_or_default();
 
-        let overhead_steps = OS_RESOURCES.resources_for_tx_type(tx_type, calldata_length).n_steps;
+        let overhead_steps =
+            self.versioned_constants().os_resources_for_tx_type(tx_type, calldata_length).n_steps;
         self.subtract_steps(validate_steps + overhead_steps)
     }
 
@@ -327,8 +328,12 @@ impl EntryPointExecutionContext {
             .join("\n")
     }
 
+    pub fn versioned_constants(&self) -> &VersionedConstants {
+        &self.tx_context.block_context.versioned_constants
+    }
+
     pub fn get_gas_cost(&self, name: &str) -> u64 {
-        self.tx_context.block_context.versioned_constants.gas_cost(name)
+        self.versioned_constants().gas_cost(name)
     }
 }
 

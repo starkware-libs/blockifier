@@ -5,7 +5,6 @@ use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
-use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
@@ -208,8 +207,9 @@ pub fn estimate_minimal_gas_vector(
     tx: &AccountTransaction,
 ) -> TransactionPreValidationResult<GasVector> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
+    let BlockContext { block_info, versioned_constants, .. } = block_context;
     let os_steps_for_type =
-        OS_RESOURCES.resources_for_tx_type(&tx.tx_type(), tx.calldata_length()).n_steps;
+        versioned_constants.os_resources_for_tx_type(&tx.tx_type(), tx.calldata_length()).n_steps;
     let state_changes_by_account_transaction = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
@@ -234,9 +234,8 @@ pub fn estimate_minimal_gas_vector(
             n_modified_contracts: 1,
         },
     };
-    let use_kzg_da = block_context.block_info.use_kzg_da;
     let GasVector { l1_gas: gas_cost, blob_gas: blob_gas_cost } =
-        get_da_gas_cost(state_changes_by_account_transaction, use_kzg_da);
+        get_da_gas_cost(state_changes_by_account_transaction, block_info.use_kzg_da);
 
     let resources = ResourcesMapping(HashMap::from([
         (
@@ -251,7 +250,7 @@ pub fn estimate_minimal_gas_vector(
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
-    Ok(calculate_tx_gas_vector(&resources, &block_context.versioned_constants)?)
+    Ok(calculate_tx_gas_vector(&resources, versioned_constants)?)
 }
 
 /// Compute l1_gas estimation from gas_vector using the following formula:
