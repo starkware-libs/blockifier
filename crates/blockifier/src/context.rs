@@ -41,6 +41,10 @@ impl BlockContext {
     pub fn chain_info(&self) -> &ChainInfo {
         &self.chain_info
     }
+
+    pub fn versioned_constants(&self) -> &VersionedConstants {
+        &self.versioned_constants
+    }
 }
 
 impl BlockContext {
