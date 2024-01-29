@@ -6,7 +6,6 @@ use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
-use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use starknet_api::core::Nonce;
@@ -94,8 +93,9 @@ impl PyValidator {
         }
 
         // `__validate__` call.
+        let versioned_constants = &tx_context.block_context.versioned_constants;
         let (_optional_call_info, actual_cost) =
-            self.validate(account_tx, Transaction::initial_gas())?;
+            self.validate(account_tx, versioned_constants.tx_initial_gas())?;
 
         // Post validations.
         // TODO(Ayelet, 09/11/2023): Check call succeeded.

@@ -12,7 +12,6 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
-use crate::abi::constants;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -28,6 +27,7 @@ use crate::test_utils::{
     create_calldata, trivial_external_entry_point, trivial_external_entry_point_with_address,
     CairoVersion, BALANCE,
 };
+use crate::versioned_constants::VersionedConstants;
 
 const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 65;
 
@@ -197,11 +197,12 @@ fn run_security_test(
     entry_point_name: &str,
     calldata: Calldata,
 ) {
+    let versioned_constants = VersionedConstants::create_for_testing();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
         storage_address: security_contract.get_instance_address(0),
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: versioned_constants.gas_cost("initial_gas_cost"),
         ..Default::default()
     };
     let error = match entry_point_call.execute_directly(state) {
