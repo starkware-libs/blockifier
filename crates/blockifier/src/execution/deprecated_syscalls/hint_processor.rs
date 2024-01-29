@@ -24,7 +24,6 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::abi::constants;
 use crate::block::BlockInfo;
 use crate::context::TransactionContext;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
@@ -458,7 +457,7 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address,
         caller_address: syscall_handler.caller_address,
         call_type: CallType::Delegate,
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: syscall_handler.context.get_gas_cost("initial_gas_cost"),
     };
 
     execute_inner_call(entry_point, vm, syscall_handler)
