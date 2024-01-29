@@ -55,6 +55,8 @@ impl<S: StateReader> CachedState<S> {
         CachedState::new(MutRefState::new(state), global_class_hash_to_class)
     }
 
+    // TODO(Arni, 1/2/2024): Consider renameing this function. This function is no longer used only
+    // for fee charge.
     /// Returns the storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
@@ -617,6 +619,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         self,
         tx_executed_class_hashes: HashSet<ClassHash>,
         tx_visited_storage_entries: HashSet<StorageEntry>,
+        tx_state_changes: StateChanges,
     ) -> StagedTransactionalState {
         let TransactionalState {
             cache,
@@ -632,6 +635,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             tx_executed_class_hashes,
             tx_visited_storage_entries,
             visited_pcs,
+            tx_state_changes,
         }
     }
 
@@ -663,6 +667,7 @@ pub struct StagedTransactionalState {
     pub tx_executed_class_hashes: HashSet<ClassHash>,
     pub tx_visited_storage_entries: HashSet<StorageEntry>,
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
+    pub tx_state_changes: StateChanges,
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
