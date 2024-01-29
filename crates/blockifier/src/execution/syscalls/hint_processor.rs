@@ -24,7 +24,6 @@ use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::abi::constants;
 use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
@@ -229,72 +228,87 @@ impl<'a> SyscallHintProcessor<'a> {
             self.increment_syscall_count(&selector);
         }
 
+        let get_gas_cost = |name: &str| -> u64 { self.context.get_gas_cost(name) };
         match selector {
             SyscallSelector::CallContract => {
-                self.execute_syscall(vm, call_contract, constants::CALL_CONTRACT_GAS_COST)
+                self.execute_syscall(vm, call_contract, get_gas_cost("call_contract_gas_cost"))
             }
-            SyscallSelector::Deploy => self.execute_syscall(vm, deploy, constants::DEPLOY_GAS_COST),
+            SyscallSelector::Deploy => {
+                self.execute_syscall(vm, deploy, get_gas_cost("deploy_gas_cost"))
+            }
             SyscallSelector::EmitEvent => {
-                self.execute_syscall(vm, emit_event, constants::EMIT_EVENT_GAS_COST)
+                self.execute_syscall(vm, emit_event, get_gas_cost("emit_event_gas_cost"))
             }
             SyscallSelector::GetBlockHash => {
-                self.execute_syscall(vm, get_block_hash, constants::GET_BLOCK_HASH_GAS_COST)
+                self.execute_syscall(vm, get_block_hash, get_gas_cost("get_block_hash_gas_cost"))
             }
-            SyscallSelector::GetExecutionInfo => {
-                self.execute_syscall(vm, get_execution_info, constants::GET_EXECUTION_INFO_GAS_COST)
+            SyscallSelector::GetExecutionInfo => self.execute_syscall(
+                vm,
+                get_execution_info,
+                get_gas_cost("get_execution_info_gas_cost"),
+            ),
+            SyscallSelector::Keccak => {
+                self.execute_syscall(vm, keccak, get_gas_cost("keccak_gas_cost"))
             }
-            SyscallSelector::Keccak => self.execute_syscall(vm, keccak, constants::KECCAK_GAS_COST),
             SyscallSelector::LibraryCall => {
-                self.execute_syscall(vm, library_call, constants::LIBRARY_CALL_GAS_COST)
+                self.execute_syscall(vm, library_call, get_gas_cost("library_call_gas_cost"))
             }
-            SyscallSelector::LibraryCallL1Handler => {
-                self.execute_syscall(vm, library_call_l1_handler, constants::LIBRARY_CALL_GAS_COST)
-            }
+            SyscallSelector::LibraryCallL1Handler => self.execute_syscall(
+                vm,
+                library_call_l1_handler,
+                get_gas_cost("library_call_gas_cost"),
+            ),
             SyscallSelector::ReplaceClass => {
-                self.execute_syscall(vm, replace_class, constants::REPLACE_CLASS_GAS_COST)
+                self.execute_syscall(vm, replace_class, get_gas_cost("replace_class_gas_cost"))
             }
             SyscallSelector::Secp256k1Add => {
-                self.execute_syscall(vm, secp256k1_add, constants::SECP256K1_ADD_GAS_COST)
+                self.execute_syscall(vm, secp256k1_add, get_gas_cost("secp256k1_add_gas_cost"))
             }
             SyscallSelector::Secp256k1GetPointFromX => self.execute_syscall(
                 vm,
                 secp256k1_get_point_from_x,
-                constants::SECP256K1_GET_POINT_FROM_X_GAS_COST,
+                get_gas_cost("secp256k1_get_point_from_x_gas_cost"),
             ),
-            SyscallSelector::Secp256k1GetXy => {
-                self.execute_syscall(vm, secp256k1_get_xy, constants::SECP256K1_GET_XY_GAS_COST)
-            }
+            SyscallSelector::Secp256k1GetXy => self.execute_syscall(
+                vm,
+                secp256k1_get_xy,
+                get_gas_cost("secp256k1_get_xy_gas_cost"),
+            ),
             SyscallSelector::Secp256k1Mul => {
-                self.execute_syscall(vm, secp256k1_mul, constants::SECP256K1_MUL_GAS_COST)
+                self.execute_syscall(vm, secp256k1_mul, get_gas_cost("secp256k1_mul_gas_cost"))
             }
             SyscallSelector::Secp256k1New => {
-                self.execute_syscall(vm, secp256k1_new, constants::SECP256K1_NEW_GAS_COST)
+                self.execute_syscall(vm, secp256k1_new, get_gas_cost("secp256k1_new_gas_cost"))
             }
             SyscallSelector::Secp256r1Add => {
-                self.execute_syscall(vm, secp256r1_add, constants::SECP256R1_ADD_GAS_COST)
+                self.execute_syscall(vm, secp256r1_add, get_gas_cost("secp256r1_add_gas_cost"))
             }
             SyscallSelector::Secp256r1GetPointFromX => self.execute_syscall(
                 vm,
                 secp256r1_get_point_from_x,
-                constants::SECP256R1_GET_POINT_FROM_X_GAS_COST,
+                get_gas_cost("secp256r1_get_point_from_x_gas_cost"),
             ),
-            SyscallSelector::Secp256r1GetXy => {
-                self.execute_syscall(vm, secp256r1_get_xy, constants::SECP256R1_GET_XY_GAS_COST)
-            }
+            SyscallSelector::Secp256r1GetXy => self.execute_syscall(
+                vm,
+                secp256r1_get_xy,
+                get_gas_cost("secp256r1_get_xy_gas_cost"),
+            ),
             SyscallSelector::Secp256r1Mul => {
-                self.execute_syscall(vm, secp256r1_mul, constants::SECP256R1_MUL_GAS_COST)
+                self.execute_syscall(vm, secp256r1_mul, get_gas_cost("secp256r1_mul_gas_cost"))
             }
             SyscallSelector::Secp256r1New => {
-                self.execute_syscall(vm, secp256r1_new, constants::SECP256R1_NEW_GAS_COST)
+                self.execute_syscall(vm, secp256r1_new, get_gas_cost("secp256r1_new_gas_cost"))
             }
-            SyscallSelector::SendMessageToL1 => {
-                self.execute_syscall(vm, send_message_to_l1, constants::SEND_MESSAGE_TO_L1_GAS_COST)
-            }
+            SyscallSelector::SendMessageToL1 => self.execute_syscall(
+                vm,
+                send_message_to_l1,
+                get_gas_cost("send_message_to_l1_gas_cost"),
+            ),
             SyscallSelector::StorageRead => {
-                self.execute_syscall(vm, storage_read, constants::STORAGE_READ_GAS_COST)
+                self.execute_syscall(vm, storage_read, get_gas_cost("storage_read_gas_cost"))
             }
             SyscallSelector::StorageWrite => {
-                self.execute_syscall(vm, storage_write, constants::STORAGE_WRITE_GAS_COST)
+                self.execute_syscall(vm, storage_write, get_gas_cost("storage_write_gas_cost"))
             }
             _ => Err(HintError::UnknownHint(
                 format!("Unsupported syscall selector {selector:?}.").into(),
@@ -361,7 +375,7 @@ impl<'a> SyscallHintProcessor<'a> {
         ) -> SyscallResult<Response>,
     {
         // Refund `SYSCALL_BASE_GAS_COST` as it was pre-charged.
-        let required_gas = syscall_gas_cost - constants::SYSCALL_BASE_GAS_COST;
+        let required_gas = syscall_gas_cost - self.context.get_gas_cost("syscall_base_gas_cost");
 
         let SyscallRequestWrapper { gas_counter, request } =
             SyscallRequestWrapper::<Request>::read(vm, &mut self.syscall_ptr)?;

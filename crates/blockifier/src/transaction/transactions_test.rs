@@ -8,7 +8,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -67,14 +67,19 @@ use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
     FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
 };
-use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
+use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
     deploy_account_tx_args, invoke_tx_args, retdata,
 };
+
+#[fixture]
+fn initial_gas() -> u64 {
+    VersionedConstants::latest_constants().tx_initial_gas()
+}
 
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
@@ -143,7 +148,7 @@ fn expected_validate_call_info(
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: Transaction::initial_gas(),
+            initial_gas: initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
         vm_resources,
@@ -179,7 +184,7 @@ fn expected_fee_transfer_call_info(
         storage_address,
         caller_address: account_address,
         call_type: CallType::Call,
-        initial_gas: abi_constants::INITIAL_GAS_COST,
+        initial_gas: block_context.versioned_constants.gas_cost("initial_gas_cost"),
     };
     let expected_fee_sender_address = *account_address.0.key();
     let expected_fee_transfer_event = OrderedEvent {
@@ -302,7 +307,7 @@ fn default_invoke_tx_args(
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
-        inner_call_initial_gas: abi_constants::INITIAL_GAS_COST,
+        inner_call_initial_gas: VersionedConstants::create_for_account_testing().gas_cost("initial_gas_cost"),
     },
     CairoVersion::Cairo0;
     "With Cairo0 account")]
@@ -371,7 +376,7 @@ fn test_invoke_tx(
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
-        initial_gas: Transaction::initial_gas() - expected_arguments.validate_gas_consumed,
+        initial_gas: initial_gas() - expected_arguments.validate_gas_consumed,
         ..expected_validate_call_info.as_ref().unwrap().call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata);
@@ -1163,6 +1168,7 @@ fn test_deploy_account_tx(
     #[case] expected_range_check_builtin: usize,
     #[case] expected_n_steps_resource: usize,
     #[case] cairo_version: CairoVersion,
+    initial_gas: u64,
 ) {
     let block_context = &BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
@@ -1220,7 +1226,7 @@ fn test_deploy_account_tx(
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,
-            initial_gas: Transaction::initial_gas(),
+            initial_gas,
             ..Default::default()
         },
         ..Default::default()
@@ -1626,8 +1632,8 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
     }
 }
 
-#[test]
-fn test_l1_handler() {
+#[rstest]
+fn test_l1_handler(initial_gas: u64) {
     let state = &mut create_test_state();
     let block_context = &BlockContext::create_for_account_testing();
     let from_address = StarkFelt::from_u128(0x123);
@@ -1650,7 +1656,7 @@ fn test_l1_handler() {
             storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: Transaction::initial_gas(),
+            initial_gas,
         },
         execution: CallExecution {
             retdata: Retdata(vec![value]),

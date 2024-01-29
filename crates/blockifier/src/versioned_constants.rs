@@ -47,6 +47,12 @@ impl VersionedConstants {
         &DEFAULT_CONSTANTS
     }
 
+    /// Returns the initial gas of any transaction to run with.
+    pub fn tx_initial_gas(&self) -> u64 {
+        let os_consts = &self.starknet_os_constants;
+        os_consts.gas_costs["initial_gas_cost"] - os_consts.gas_costs["transaction_gas_cost"]
+    }
+
     pub fn vm_resource_fee_cost(&self) -> &HashMap<String, f64> {
         &self.vm_resource_fee_cost
     }
@@ -120,12 +126,19 @@ impl StarknetOSConstants {
         "step_gas_cost",
         "range_check_gas_cost",
         "memory_hole_gas_cost",
+        // An estimation of the initial gas for a transaction to run with. This solution is
+        // temporary and this value will become a field of the transaction.
         "initial_gas_cost",
+        // ** Compiler gas costs **
         "entry_point_initial_budget",
+        // The initial gas budget for a system call (this value is hard-coded by the compiler).
+        // This needs to be high enough to cover OS costs in the case of failure due to out of gas.
         "syscall_base_gas_cost",
+        // ** OS gas costs **
         "entry_point_gas_cost",
         "fee_transfer_gas_cost",
         "transaction_gas_cost",
+        // ** Required gas for each syscall **
         "call_contract_gas_cost",
         "deploy_gas_cost",
         "get_block_hash_gas_cost",
