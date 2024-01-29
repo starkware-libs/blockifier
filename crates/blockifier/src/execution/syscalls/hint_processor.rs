@@ -90,7 +90,7 @@ pub enum SyscallExecutionError {
 // cairo-rs API.
 impl From<SyscallExecutionError> for HintError {
     fn from(error: SyscallExecutionError) -> Self {
-        HintError::CustomHint(error.to_string().into())
+        HintError::Internal(VirtualMachineError::Other(error.into()))
     }
 }
 
@@ -214,9 +214,9 @@ impl<'a> SyscallHintProcessor<'a> {
         hint: &StarknetHint,
     ) -> HintExecutionResult {
         let StarknetHint::SystemCall { system: syscall } = hint else {
-            return Err(HintError::CustomHint(
-                "Test functions are unsupported on starknet.".into(),
-            ));
+            let custom_hint_error =
+                HintError::CustomHint("Test functions are unsupported on starknet.".into());
+            return Err(HintError::Internal(VirtualMachineError::Other(custom_hint_error.into())));
         };
         let initial_syscall_ptr = get_ptr_from_res_operand_unchecked(vm, syscall);
         self.verify_syscall_ptr(initial_syscall_ptr)?;
