@@ -5,7 +5,7 @@ use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
-use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::actual_cost::{get_new_state_changes, ActualCost};
 use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, StateChanges, StateChangesCount,
@@ -133,9 +133,12 @@ impl<S: StateReader> TransactionExecutor<S> {
                     message_segment_length,
                 )?;
 
-                let fee_token_address = self.block_context.chain_info.fee_token_address(&fee_type);
-                self.new_state_changes = transactional_state
-                    .get_actual_state_changes_for_fee_charge(fee_token_address, sender_address)?;
+                self.new_state_changes = get_new_state_changes(
+                    &fee_type,
+                    self.block_context.clone(),
+                    sender_address,
+                    &mut transactional_state,
+                )?;
                 let state_changes_count = StateChangesCount::from(&self.new_state_changes);
                 let state_diff_size = get_onchain_data_segment_length(state_changes_count);
 

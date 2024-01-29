@@ -9,7 +9,8 @@ use crate::fee::gas_usage::calculate_tx_gas_and_blob_gas_usage;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    AccountTransactionContext, FeeType, HasRelatedFeeType, ResourcesMapping,
+    TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
@@ -51,6 +52,16 @@ pub struct ActualCostBuilder<'a> {
     l1_payload_size: Option<usize>,
     calldata_length: usize,
     n_reverted_steps: usize,
+}
+
+pub fn get_new_state_changes(
+    fee_type: &FeeType,
+    block_context: BlockContext,
+    sender_address: Option<ContractAddress>,
+    state: &mut CachedState<impl StateReader>,
+) -> StateResult<StateChanges> {
+    let fee_token_address = block_context.chain_info.fee_token_address(fee_type);
+    state.get_actual_state_changes_for_fee_charge(fee_token_address, sender_address)
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -105,11 +116,12 @@ impl<'a> ActualCostBuilder<'a> {
         mut self,
         state: &mut CachedState<impl StateReader>,
     ) -> StateResult<Self> {
-        let fee_token_address =
-            self.block_context.chain_info.fee_token_address(&self.account_tx_context.fee_type());
-
-        let new_state_changes = state
-            .get_actual_state_changes_for_fee_charge(fee_token_address, self.sender_address)?;
+        let new_state_changes = get_new_state_changes(
+            &self.account_tx_context.fee_type(),
+            self.block_context.clone(),
+            self.sender_address,
+            state,
+        )?;
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
         Ok(self)
     }
