@@ -1,8 +1,13 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
-use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::execution::execution_utils::execution_resources_from_hashmap;
+use blockifier::transaction::errors::TransactionExecutionError;
+use blockifier::transaction::objects::{
+    ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
+};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -217,14 +222,61 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
 
 #[pyclass]
 #[derive(Clone, Default)]
-// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
 pub struct PyBouncerInfo {
     #[pyo3(get)]
-    // The number of felts needed to store L1<>L2 messages.
-    pub message_segment_length: usize,
+    pub state_diff_size: usize, // The number of felts needed to store the state diff.
     #[pyo3(get)]
-    // The number of felts needed to store the state diff.
-    pub state_diff_size: usize,
+    pub l1_gas_amount: usize,
     #[pyo3(get)]
-    pub tx_weights: HashMap<String, usize>,
+    pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
+    #[pyo3(get)]
+    pub execution_resources: PyVmExecutionResources,
+}
+
+impl PyBouncerInfo {
+    pub fn calculate(
+        additional_os_resources: VmExecutionResources,
+        actual_resources: ResourcesMapping,
+        message_segment_length: usize,
+        state_diff_size: usize,
+    ) -> TransactionExecutionResult<Self> {
+        let l1_gas_amount = actual_resources.0.get("l1_gas_usage").ok_or_else(|| {
+            TransactionExecutionError::InvalidTransactionExecutionInfo {
+                field: "l1_gas_usage".to_string(),
+            }
+        })?;
+
+        let actual_resources = execution_resources_from_hashmap(&actual_resources.0);
+
+        let mut merged_resources = additional_os_resources.add(&actual_resources);
+
+        merged_resources.n_steps += merged_resources.n_memory_holes;
+
+        let pedersen_builtin = merged_resources
+            .builtin_instance_counter
+            .get("pedersen_builtin")
+            .ok_or_else(|| TransactionExecutionError::InvalidTransactionExecutionInfo {
+                field: "pedersen_builtin".to_string(),
+            })?;
+
+        let range_check_builtin = merged_resources
+            .builtin_instance_counter
+            .get("range_check_builtin")
+            .ok_or_else(|| TransactionExecutionError::InvalidTransactionExecutionInfo {
+                field: "range_check_builtin".to_string(),
+            })?;
+
+        let mut builtin_instance_counter = HashMap::new();
+        builtin_instance_counter.insert("pedersen_builtin".to_string(), *pedersen_builtin);
+        builtin_instance_counter.insert("range_check_builtin".to_string(), *range_check_builtin);
+
+        let execution_resources = PyVmExecutionResources::from(merged_resources);
+
+        Ok(Self {
+            state_diff_size,
+            l1_gas_amount: *l1_gas_amount,
+            message_segment_length,
+            execution_resources,
+        })
+    }
 }

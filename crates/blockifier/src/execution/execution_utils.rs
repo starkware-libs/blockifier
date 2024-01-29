@@ -10,7 +10,7 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::CairoArg;
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, ExecutionResources as VmExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use starknet_api::core::ClassHash;
@@ -284,4 +284,17 @@ pub fn format_panic_data(felts: &[StarkFelt]) -> String {
         items.push(item.quote_if_string());
     }
     if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
+}
+
+pub fn execution_resources_from_hashmap(input: &HashMap<String, usize>) -> VmExecutionResources {
+    let mut builtin_instance_counter = HashMap::new();
+    let pedersen_builtin = input.get("pedersen_builtin").unwrap_or(&0);
+    builtin_instance_counter.insert("pedersen_builtin".to_string(), *pedersen_builtin);
+    let range_check_builtin = input.get("range_check_builtin").unwrap_or(&0);
+    builtin_instance_counter.insert("range_check_builtin".to_string(), *range_check_builtin);
+    VmExecutionResources {
+        n_steps: *input.get("n_steps").unwrap_or(&0),
+        builtin_instance_counter,
+        n_memory_holes: *input.get("n_memory_holes").unwrap_or(&0),
+    }
 }
