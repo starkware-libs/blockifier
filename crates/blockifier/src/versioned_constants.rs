@@ -1,13 +1,22 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::builtin_runner;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
+use serde::de::Error as DeserializationError;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Number, Value};
+use strum::IntoEnumIterator;
 use thiserror::Error;
+
+use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
+use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::transaction_types::TransactionType;
 
 #[cfg(test)]
 #[path = "versioned_constants_test.rs"]
@@ -29,6 +38,9 @@ pub struct VersionedConstants {
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
 
+    // Resources.
+    os_resources: Arc<OsResources>,
+
     // Fee related.
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
@@ -37,7 +49,7 @@ pub struct VersionedConstants {
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
-    starknet_os_constants: Arc<StarknetOSConstants>,
+    os_constants: Arc<OSConstants>,
 }
 
 impl VersionedConstants {
@@ -49,7 +61,7 @@ impl VersionedConstants {
 
     /// Returns the initial gas of any transaction to run with.
     pub fn tx_initial_gas(&self) -> u64 {
-        let os_consts = &self.starknet_os_constants;
+        let os_consts = &self.os_constants;
         os_consts.gas_costs["initial_gas_cost"] - os_consts.gas_costs["transaction_gas_cost"]
     }
 
@@ -58,23 +70,42 @@ impl VersionedConstants {
     }
 
     pub fn gas_cost(&self, name: &str) -> u64 {
-        match self.starknet_os_constants.gas_costs.get(name) {
+        match self.os_constants.gas_costs.get(name) {
             Some(&cost) => cost,
-            None if StarknetOSConstants::ALLOWED_GAS_COST_NAMES.contains(&name) => {
+            None if OSConstants::ALLOWED_GAS_COST_NAMES.contains(&name) => {
                 panic!(
-                    "{} is present in `StarknetOSConstants::GAS_COSTS` but not in `self`; was \
-                     validation skipped?",
+                    "{} is present in `OSConstants::GAS_COSTS` but not in `self`; was validation \
+                     skipped?",
                     name
                 )
             }
             None => {
                 panic!(
-                    "Only gas costs listed in `StarknetOsConstants::GAS_COSTS` should be \
-                     requested, got: {}",
+                    "Only gas costs listed in `OsConstants::GAS_COSTS` should be requested, got: \
+                     {}",
                     name
                 )
             }
         }
+    }
+
+    pub fn os_resources_for_tx_type(
+        &self,
+        tx_type: &TransactionType,
+        calldata_length: usize,
+    ) -> VmExecutionResources {
+        self.os_resources.resources_for_tx_type(tx_type, calldata_length)
+    }
+
+    /// Calculates the additional resources needed for the OS to run the given syscalls;
+    /// i.e., the resources of the Starknet OS function `execute_syscalls`.
+    pub fn get_additional_os_resources(
+        &self,
+        syscall_counter: &SyscallCounter,
+        tx_type: TransactionType,
+        calldata_length: usize,
+    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+        self.os_resources.get_additional_os_resources(syscall_counter, tx_type, calldata_length)
     }
 
     #[cfg(any(feature = "testing", test))]
@@ -102,8 +133,127 @@ impl TryFrom<&Path> for VersionedConstants {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+// Serde trick for adding validations via a customr deserializer, without forgoing the derive.
+// See: https://github.com/serde-rs/serde/issues/1220.
+#[serde(remote = "Self")]
+pub struct OsResources {
+    // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
+    // steps).
+    // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
+    // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
+    execute_syscalls: HashMap<DeprecatedSyscallSelector, VmExecutionResources>,
+    // Mapping from every transaction to its extra execution resources in the OS,
+    // i.e., resources that don't count during the execution itself.
+    // For each transaction the OS uses a constant amount of VM resources, and an
+    // additional variable amount that depends on the calldata length.
+    execute_txs_inner: HashMap<TransactionType, ResourcesParams>,
+}
+
+impl OsResources {
+    /// Calculates the additional resources needed for the OS to run the given syscalls;
+    /// i.e., the resources of the Starknet OS function `execute_syscalls`.
+    fn get_additional_os_resources(
+        &self,
+        syscall_counter: &SyscallCounter,
+        tx_type: TransactionType,
+        calldata_length: usize,
+    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+        let mut os_additional_vm_resources = VmExecutionResources::default();
+        for (syscall_selector, count) in syscall_counter {
+            let syscall_resources =
+                self.execute_syscalls.get(syscall_selector).unwrap_or_else(|| {
+                    panic!("OS resources of syscall '{syscall_selector:?}' are unknown.")
+                });
+            os_additional_vm_resources += &(syscall_resources * *count);
+        }
+
+        // Calculates the additional resources needed for the OS to run the given transaction;
+        // i.e., the resources of the Starknet OS function `execute_transactions_inner`.
+        // Also adds the resources needed for the fee transfer execution, performed in the end·
+        // of every transaction.
+        let os_resources = self.resources_for_tx_type(&tx_type, calldata_length);
+        Ok(&os_additional_vm_resources + &os_resources)
+    }
+
+    fn resources_params_for_tx_type(&self, tx_type: &TransactionType) -> &ResourcesParams {
+        self.execute_txs_inner
+            .get(tx_type)
+            .unwrap_or_else(|| panic!("should contain transaction type '{tx_type:?}'."))
+    }
+
+    fn resources_for_tx_type(
+        &self,
+        tx_type: &TransactionType,
+        calldata_length: usize,
+    ) -> VmExecutionResources {
+        let resources_vector = self.resources_params_for_tx_type(tx_type);
+        &resources_vector.constant + &(&(resources_vector.calldata_factor) * calldata_length)
+    }
+}
+
+impl<'de> Deserialize<'de> for OsResources {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let os_resources = Self::deserialize(deserializer)?;
+
+        // Validations.
+
+        for tx_type in TransactionType::iter() {
+            if !os_resources.execute_txs_inner.contains_key(&tx_type) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: os_resources.execute_tx_inner is missing transaction_type: \
+                     {tx_type:?}"
+                )));
+            }
+        }
+
+        for syscall_handler in DeprecatedSyscallSelector::iter() {
+            if !os_resources.execute_syscalls.contains_key(&syscall_handler) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: os_resources.execute_syscalls are missing syscall handler: \
+                     {syscall_handler:?}"
+                )));
+            }
+        }
+
+        let known_builtin_names: HashSet<&str> = HashSet::from([
+            builtin_runner::OUTPUT_BUILTIN_NAME,
+            builtin_runner::HASH_BUILTIN_NAME,
+            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
+            builtin_runner::SIGNATURE_BUILTIN_NAME,
+            builtin_runner::BITWISE_BUILTIN_NAME,
+            builtin_runner::EC_OP_BUILTIN_NAME,
+            builtin_runner::KECCAK_BUILTIN_NAME,
+            builtin_runner::POSEIDON_BUILTIN_NAME,
+            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
+        ]);
+
+        let execution_resources = os_resources
+            .execute_txs_inner
+            .values()
+            .flat_map(|resources_vector| {
+                [&resources_vector.constant, &resources_vector.calldata_factor]
+            })
+            .chain(os_resources.execute_syscalls.values());
+        let builtin_names =
+            execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
+        for builtin_name in builtin_names {
+            if !(known_builtin_names.contains(builtin_name.as_str())) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: unknown os resource {builtin_name}"
+                )));
+            }
+        }
+
+        Ok(os_resources)
+    }
+}
+
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
-// `StarknetOSConstantsRawJSON`, then calls the `try_from` of the newtype, which handles the
+// `OSConstantsRawJSON`, then calls the `try_from` of the newtype, which handles the
 // conversion into actual values.
 // Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
 // must appear before this value in the JSON.
@@ -115,12 +265,12 @@ impl TryFrom<&Path> for VersionedConstants {
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(try_from = "StarknetOSConstantsRawJSON")]
-pub struct StarknetOSConstants {
+#[serde(try_from = "OSConstantsRawJSON")]
+pub struct OSConstants {
     gas_costs: IndexMap<String, u64>,
 }
 
-impl StarknetOSConstants {
+impl OSConstants {
     // List of all gas cost constants that *must* be present in the JSON file, all other consts are
     // ignored. See documentation in core/os/constants.cairo.
     const ALLOWED_GAS_COST_NAMES: [&'static str; 31] = [
@@ -180,10 +330,10 @@ impl StarknetOSConstants {
     }
 }
 
-impl TryFrom<StarknetOSConstantsRawJSON> for StarknetOSConstants {
+impl TryFrom<OSConstantsRawJSON> for OSConstants {
     type Error = StarknetConstantsSerdeError;
 
-    fn try_from(raw_json_data: StarknetOSConstantsRawJSON) -> Result<Self, Self::Error> {
+    fn try_from(raw_json_data: OSConstantsRawJSON) -> Result<Self, Self::Error> {
         let mut gas_costs = IndexMap::new();
 
         let gas_cost_whitelist: IndexSet<_> =
@@ -227,7 +377,7 @@ impl TryFrom<StarknetOSConstantsRawJSON> for StarknetOSConstants {
             }
         }
 
-        let os_constants = StarknetOSConstants { gas_costs };
+        let os_constants = OSConstants { gas_costs };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(any(feature = "testing", test)))]
@@ -240,7 +390,7 @@ impl TryFrom<StarknetOSConstantsRawJSON> for StarknetOSConstants {
 // Intermediate representation of the JSON file in order to make the deserialization easier, using a
 // regular the try_from.
 #[derive(Debug, Deserialize)]
-struct StarknetOSConstantsRawJSON {
+struct OSConstantsRawJSON {
     #[serde(flatten)]
     raw_json_file_as_dict: IndexMap<String, Value>,
 }
@@ -269,4 +419,10 @@ pub enum StarknetConstantsSerdeError {
     InvalidFactorFormat(Value),
     #[error("Unhandled value type: {0}")]
     UnhandledValueType(Value),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ResourcesParams {
+    pub constant: VmExecutionResources,
+    pub calldata_factor: VmExecutionResources,
 }
