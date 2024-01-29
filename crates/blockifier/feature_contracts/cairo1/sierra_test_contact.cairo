@@ -74,32 +74,32 @@ mod SierraTestContract {
         syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
     }
 
-    // #[external(v0)]
-    // fn test_get_execution_info(
-    //     self: @ContractState,
-    //     expected_block_info: BlockInfo,
-    //     expected_tx_info: TxInfo,
-    //     // Expected call info.
-    //     expected_caller_address: felt252,
-    //     expected_contract_address: felt252,
-    //     expected_entry_point_selector: felt252,
-    // ) {
-    //     let execution_info = starknet::get_execution_info().unbox();
-    //     let block_info = execution_info.block_info.unbox();
-    //     assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
-    //
-    //     let tx_info = execution_info.tx_info.unbox();
-    //     assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
-    //
-    //     assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
-    //     assert(
-    //         execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
-    //     );
-    //     assert(
-    //         execution_info.entry_point_selector == expected_entry_point_selector,
-    //         'SELECTOR_MISMATCH'
-    //     );
-    // }
+    #[external(v0)]
+    fn test_get_execution_info(
+        self: @ContractState,
+        expected_block_info: BlockInfo,
+        expected_tx_info: TxInfo,
+        // Expected call info.
+        expected_caller_address: felt252,
+        expected_contract_address: felt252,
+        expected_entry_point_selector: felt252,
+    ) {
+        let execution_info = starknet::get_execution_info().unbox();
+        let block_info = execution_info.block_info.unbox();
+        assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
+    
+        let tx_info = execution_info.tx_info.unbox();
+        assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
+    
+        assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
+        assert(
+            execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
+        );
+        assert(
+            execution_info.entry_point_selector == expected_entry_point_selector,
+            'SELECTOR_MISMATCH'
+        );
+    }
 
     #[external(v0)]
     #[raw_output]
