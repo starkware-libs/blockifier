@@ -5,7 +5,7 @@ use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
-use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::actual_cost::{get_block_context_dependent_state_changes, ActualCost};
 use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, StateChanges, StateChangesCount,
@@ -39,8 +39,7 @@ pub struct TransactionExecutor<S: StateReader> {
 
     // State-related fields.
     pub state: CachedState<S>,
-    pub block_level_state_changes: StateChanges,
-    pub new_state_changes: StateChanges,
+    pub state_changes: StateChanges,
 
     // Transactional state, awaiting commit/abort call.
     // Is `Some` only after transaction has finished executing, and before commit/revert have been
@@ -62,8 +61,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),
-            block_level_state_changes: StateChanges::default(),
-            new_state_changes: StateChanges::default(),
+            state_changes: StateChanges::default(),
             staged_for_commit_state: None,
         };
         log::debug!("Initialized Transaction Executor.");
@@ -133,17 +131,32 @@ impl<S: StateReader> TransactionExecutor<S> {
                     message_segment_length,
                 )?;
 
-                let fee_token_address = self.block_context.chain_info.fee_token_address(&fee_type);
-                self.new_state_changes = transactional_state
-                    .get_actual_state_changes_for_fee_charge(fee_token_address, sender_address)?;
-                let state_changes_count = StateChangesCount::from(&self.new_state_changes);
-                let state_diff_size = get_onchain_data_segment_length(state_changes_count);
+                let state_changes_count = StateChangesCount::from(&self.state_changes);
+                let current_state_diff_size = get_onchain_data_segment_length(state_changes_count);
+                let tx_state_changes = get_block_context_dependent_state_changes(
+                    &fee_type,
+                    self.block_context.clone(),
+                    sender_address,
+                    &mut transactional_state,
+                )?;
+                let tx_state_changes_count = StateChangesCount::from(&tx_state_changes);
+                let tx_state_diff_size = get_onchain_data_segment_length(tx_state_changes_count);
+
+                // TODO(Arni, 1/3/2024): Deal with redundant writes (0 -> 1 -> 0) in the bouncer's
+                // context.
+                let state_diff_size = if current_state_diff_size <= tx_state_diff_size {
+                    tx_state_diff_size - current_state_diff_size
+                } else {
+                    0
+                };
 
                 let py_bouncer_info =
                     PyBouncerInfo { message_segment_length, state_diff_size, tx_weights };
-                self.staged_for_commit_state = Some(
-                    transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
-                );
+                self.staged_for_commit_state = Some(transactional_state.stage(
+                    tx_executed_class_hashes,
+                    tx_visited_storage_entries,
+                    tx_state_changes,
+                ));
                 let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
                 Ok((py_tx_execution_info, py_bouncer_info))
             }
@@ -230,13 +243,10 @@ impl<S: StateReader> TransactionExecutor<S> {
             panic!("commit called without a transactional state")
         };
 
-        (self.block_level_state_changes, self.new_state_changes) = (
-            StateChanges::merge(vec![
-                self.block_level_state_changes.clone(),
-                self.new_state_changes.clone(),
-            ]),
-            StateChanges::default(),
-        );
+        self.state_changes = StateChanges::merge(vec![
+            self.state_changes.clone(),
+            finalized_transactional_state.tx_state_changes,
+        ]);
         let child_cache = finalized_transactional_state.cache;
         self.state.update_cache(child_cache);
         self.state.update_contract_class_caches(
