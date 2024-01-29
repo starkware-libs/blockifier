@@ -7,7 +7,6 @@ use crate::abi::constants;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
-use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
@@ -195,7 +194,7 @@ pub fn estimate_minimal_l1_gas(
     tx: &AccountTransaction,
 ) -> TransactionPreValidationResult<GasAndBlobGasUsages> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
-    let os_steps_for_type = OS_RESOURCES.resources_for_tx_type(&tx.tx_type()).n_steps;
+    let os_steps_for_type = versioned_constants.resources_for_tx_type(&tx.tx_type()).n_steps;
     let gas_cost: usize = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20

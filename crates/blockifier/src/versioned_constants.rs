@@ -1,13 +1,22 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::builtin_runner;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
+use serde::de::Error as DeserializationError;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Number, Value};
+use strum::IntoEnumIterator;
 use thiserror::Error;
+
+use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
+use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::transaction_types::TransactionType;
 
 #[cfg(test)]
 #[path = "versioned_constants_test.rs"]
@@ -28,6 +37,9 @@ pub struct VersionedConstants {
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
+
+    // Resources.
+    os_resources: Arc<OsResources>,
 
     // Fee related.
     // TODO: Consider making this a struct, this will require change the way we access these
@@ -78,6 +90,21 @@ impl VersionedConstants {
         }
     }
 
+    pub fn resources_for_tx_type(&self, tx_type: &TransactionType) -> &VmExecutionResources {
+        self.os_resources.resources_for_tx_type(tx_type)
+    }
+
+    /// Calculates the additional resources needed for the OS to run the given syscalls;
+    /// i.e., the resources of the Starknet OS function `execute_syscalls`.
+    pub fn get_additional_os_resources(
+        &self,
+        syscall_counter: &SyscallCounter,
+        tx_type: TransactionType,
+        calldata_length: usize,
+    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+        self.os_resources.get_additional_os_resources(syscall_counter, tx_type, calldata_length)
+    }
+
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
@@ -100,6 +127,108 @@ impl TryFrom<&Path> for VersionedConstants {
 
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         Ok(serde_json::from_reader(std::fs::File::open(path)?)?)
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+// Serde trick for adding validations via a customr deserializer, without forgoing the derive.
+// See: https://github.com/serde-rs/serde/issues/1220.
+#[serde(remote = "Self")]
+pub struct OsResources {
+    // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
+    // steps).
+    // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
+    // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
+    execute_syscalls: HashMap<DeprecatedSyscallSelector, VmExecutionResources>,
+    // Mapping from every transaction to its extra execution resources in the OS,
+    // i.e., resources that don't count during the execution itself.
+    execute_txs_inner: HashMap<TransactionType, VmExecutionResources>,
+}
+
+impl OsResources {
+    fn get_additional_os_resources(
+        &self,
+        syscall_counter: &SyscallCounter,
+        tx_type: TransactionType,
+        _calldata_length: usize,
+    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+        // TODO(Noa, 21/01/24): Use calldata_length.
+        let mut os_additional_vm_resources = VmExecutionResources::default();
+        for (syscall_selector, count) in syscall_counter {
+            let syscall_resources =
+                self.execute_syscalls.get(syscall_selector).unwrap_or_else(|| {
+                    panic!("OS resources of syscall '{syscall_selector:?}' are unknown.")
+                });
+            os_additional_vm_resources += &(syscall_resources * *count);
+        }
+
+        // Calculates the additional resources needed for the OS to run the given transaction;
+        // i.e., the resources of the Starknet OS function `execute_transactions_inner`.
+        // Also adds the resources needed for the fee transfer execution, performed in the end·
+        // of every transaction.
+        let os_resources = self.resources_for_tx_type(&tx_type);
+        Ok(&os_additional_vm_resources + os_resources)
+    }
+
+    fn resources_for_tx_type(&self, tx_type: &TransactionType) -> &VmExecutionResources {
+        self.execute_txs_inner
+            .get(tx_type)
+            .unwrap_or_else(|| panic!("should contain transaction type '{tx_type:?}'."))
+    }
+}
+
+impl<'de> Deserialize<'de> for OsResources {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let os_resources = Self::deserialize(deserializer)?;
+
+        // Validations.
+
+        for tx_type in TransactionType::iter() {
+            if !os_resources.execute_txs_inner.contains_key(&tx_type) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: os_resources.execute_tx_inner is missing transaction_type: \
+                     {tx_type:?}"
+                )));
+            }
+        }
+
+        for syscall_handler in DeprecatedSyscallSelector::iter() {
+            if !os_resources.execute_syscalls.contains_key(&syscall_handler) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: os_resources.execute_syscalls are missing syscall handler: \
+                     {syscall_handler:?}"
+                )));
+            }
+        }
+
+        let known_builtin_names: HashSet<&str> = HashSet::from([
+            builtin_runner::OUTPUT_BUILTIN_NAME,
+            builtin_runner::HASH_BUILTIN_NAME,
+            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
+            builtin_runner::SIGNATURE_BUILTIN_NAME,
+            builtin_runner::BITWISE_BUILTIN_NAME,
+            builtin_runner::EC_OP_BUILTIN_NAME,
+            builtin_runner::KECCAK_BUILTIN_NAME,
+            builtin_runner::POSEIDON_BUILTIN_NAME,
+            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
+        ]);
+        let all_resources =
+            os_resources.execute_syscalls.values().chain(os_resources.execute_txs_inner.values());
+
+        for resources in all_resources {
+            for builtin_name in resources.builtin_instance_counter.keys() {
+                if !known_builtin_names.contains(builtin_name.as_str()) {
+                    return Err(DeserializationError::custom(format!(
+                        "ValidationError: unknown os resource {builtin_name}"
+                    )));
+                }
+            }
+        }
+
+        Ok(os_resources)
     }
 }
 

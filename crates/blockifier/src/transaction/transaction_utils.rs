@@ -9,16 +9,17 @@ use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::os_usage::get_additional_os_resources;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::merge_hashmaps;
+use crate::versioned_constants::VersionedConstants;
 
 /// Calculates the total resources needed to include the transaction in a Starknet block as
 /// most-recent (recent w.r.t. application on the given state).
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(
+    versioned_constants: &VersionedConstants,
     execution_resources: &ExecutionResources,
     l1_gas_usages: GasAndBlobGasUsages,
     tx_type: TransactionType,
@@ -27,7 +28,7 @@ pub fn calculate_tx_resources(
     let l1_gas_usage = l1_gas_usages.gas_usage.try_into()?;
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
-        + &get_additional_os_resources(
+        + &versioned_constants.get_additional_os_resources(
             &execution_resources.syscall_counter,
             tx_type,
             calldata_length,
