@@ -239,11 +239,6 @@ impl EntryPointExecutionContext {
             return Ok(block_upper_bound);
         }
 
-        let gas_per_step =
-            block_info.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(|| {
-                panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
-            });
-
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
         let tx_gas_upper_bound = match account_tx_context {
@@ -265,7 +260,8 @@ impl EntryPointExecutionContext {
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        let tx_upper_bound =
+            (tx_gas_upper_bound as f64 / block_info.vm_resource_fee_cost.n_steps).floor() as usize;
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 

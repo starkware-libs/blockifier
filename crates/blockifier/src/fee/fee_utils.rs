@@ -4,7 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
-use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
+use crate::block_context::{BlockContext, BlockInfo, ChainInfo, VmResourceCosts};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
@@ -41,20 +41,15 @@ pub fn calculate_l1_gas_by_vm_usage(
     vm_resource_usage: &ResourcesMapping,
 ) -> TransactionFeeResult<f64> {
     let vm_resource_fee_costs = &block_context.block_info.vm_resource_fee_cost;
-    let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
-    if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
+    let vm_resource_names = HashSet::from_iter(
+        vm_resource_usage.0.keys().map(|s| s.clone()).collect::<HashSet<String>>(),
+    );
+    if !vm_resource_names.is_subset(&VmResourceCosts::resource_names()) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
 
     // Convert Cairo usage to L1 gas usage.
-    let vm_l1_gas_usage = vm_resource_fee_costs
-        .iter()
-        .map(|(key, resource_val)| {
-            (*resource_val) * vm_resource_usage.0.get(key).cloned().unwrap_or_default() as f64
-        })
-        .fold(f64::NAN, f64::max);
-
-    Ok(vm_l1_gas_usage)
+    Ok(vm_resource_usage.cost(vm_resource_fee_costs))
 }
 
 /// Computes and returns the total L1 gas consumption.
