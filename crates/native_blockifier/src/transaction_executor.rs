@@ -5,14 +5,15 @@ use blockifier::block_context::BlockContext;
 use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
+use blockifier::execution::execution_utils::execution_resources_from_hashmap;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, StagedTransactionalState, StorageEntry, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::errors::TransactionExecutionError;
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -114,15 +115,26 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.visited_storage_entries,
                     &tx_visited_storage_entries,
                 )?;
+
+                let actual_resources =
+                    execution_resources_from_hashmap(&tx_execution_info.actual_resources.0);
+
+                let l1_gas_amount =
+                    tx_execution_info.actual_resources.0.get("l1_gas_usage").ok_or_else(|| {
+                        TransactionExecutionError::InvalidTransactionExecutionInfo {
+                            field: "l1_gas_usage".to_string(),
+                        }
+                    })?;
+
                 let state_diff_size = 0;
-                let actual_resources = tx_execution_info.actual_resources.0.clone();
-                let tx_weights = calculate_tx_weights(
+
+                let py_bouncer_info = PyBouncerInfo::calculate(
                     additional_os_resources,
                     actual_resources,
                     message_segment_length,
+                    state_diff_size,
+                    *l1_gas_amount,
                 )?;
-                let py_bouncer_info =
-                    PyBouncerInfo { message_segment_length, state_diff_size, tx_weights };
                 self.staged_for_commit_state = Some(
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
