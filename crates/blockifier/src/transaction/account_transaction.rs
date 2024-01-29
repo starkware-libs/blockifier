@@ -8,7 +8,6 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants as abi_constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -30,7 +29,6 @@ use crate::transaction::objects::{
     HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
     TransactionInfoCreator, TransactionPreValidationResult,
 };
-use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::transaction::transactions::{
@@ -307,7 +305,7 @@ impl AccountTransaction {
             caller_address: tx_info.sender_address(),
             call_type: CallType::Call,
             // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
-            initial_gas: abi_constants::INITIAL_GAS_COST,
+            initial_gas: block_context.versioned_constants.gas_cost("initial_gas_cost"),
         };
 
         let mut context = EntryPointExecutionContext::new_invoke(tx_context, true)?;
@@ -562,7 +560,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         self.perform_pre_validation_stage(state, &tx_context, charge_fee, strict_nonce_check)?;
 
         // Run validation and execution.
-        let mut remaining_gas = Transaction::initial_gas();
+        let mut remaining_gas = block_context.versioned_constants.tx_initial_gas();
         let ValidateExecuteCallInfo {
             validate_call_info,
             execute_call_info,

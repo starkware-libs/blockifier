@@ -3,7 +3,6 @@ use std::sync::Arc;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
-use crate::abi::constants as abi_constants;
 use crate::context::BlockContext;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
@@ -28,11 +27,6 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    /// Returns the initial gas of the transaction to run with.
-    pub fn initial_gas() -> u64 {
-        abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
-    }
-
     pub fn from_api(
         tx: StarknetApiTransaction,
         tx_hash: TransactionHash,
@@ -114,7 +108,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
 
         let mut execution_resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(tx_context.clone(), true)?;
-        let mut remaining_gas = Transaction::initial_gas();
+        let mut remaining_gas = block_context.versioned_constants.tx_initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
