@@ -388,6 +388,7 @@ dependencies = [
 name = "blockifier"
 version = "0.5.0-dev.0"
 dependencies = [
+ "anyhow",
  "ark-ec",
  "ark-ff",
  "ark-secp256k1",
