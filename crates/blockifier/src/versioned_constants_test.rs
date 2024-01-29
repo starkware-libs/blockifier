@@ -19,8 +19,9 @@ fn test_successful_parsing() {
         "ignore the gas string": "GAS!",
         "I look like a gas cost but my name is all wrong": 0
     }"#;
-    let starknet_os_constants: Arc<StarknetOSConstants> = serde_json::from_str(json_data).unwrap();
-    let versioned_constants = VersionedConstants { starknet_os_constants, ..Default::default() };
+    let os_constants: Arc<OSConstants> = serde_json::from_str(json_data).unwrap();
+    let versioned_constants =
+        VersionedConstants { os_constants, ..Default::default() };
 
     assert_eq!(versioned_constants.gas_cost("step_gas_cost"), 2);
     assert_eq!(versioned_constants.gas_cost("entry_point_initial_budget"), 6); // step_gas_cost * 3.
@@ -29,7 +30,7 @@ fn test_successful_parsing() {
     assert_eq!(versioned_constants.gas_cost("entry_point_gas_cost"), 34);
 
     // Only the 3 values asserted against should be present, the rest are ignored.
-    assert_eq!(versioned_constants.starknet_os_constants.gas_costs.len(), 3);
+    assert_eq!(versioned_constants.os_constants.gas_costs.len(), 3);
 }
 
 #[test]
@@ -50,7 +51,7 @@ fn test_string_inside_composed_field() {
 }
 
 fn check_constants_serde_error(json_data: &str, expected_error_message: &str) {
-    let error = serde_json::from_str::<StarknetOSConstants>(json_data).unwrap_err();
+    let error = serde_json::from_str::<OSConstants>(json_data).unwrap_err();
     assert_eq!(error.to_string(), expected_error_message);
 }
 

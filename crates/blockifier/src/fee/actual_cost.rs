@@ -141,6 +141,7 @@ impl<'a> ActualCostBuilder<'a> {
         )?;
 
         let mut actual_resources = calculate_tx_resources(
+            &self.tx_context.block_context.versioned_constants,
             execution_resources,
             l1_gas_and_blob_gas_usage,
             self.tx_type,
