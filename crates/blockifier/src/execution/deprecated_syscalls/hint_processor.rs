@@ -79,7 +79,7 @@ pub enum DeprecatedSyscallExecutionError {
 // cairo-rs API.
 impl From<DeprecatedSyscallExecutionError> for HintError {
     fn from(error: DeprecatedSyscallExecutionError) -> Self {
-        HintError::CustomHint(error.to_string().into())
+        HintError::Internal(VirtualMachineError::Other(error.into()))
     }
 }
 

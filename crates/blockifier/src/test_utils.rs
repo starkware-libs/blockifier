@@ -232,8 +232,11 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 macro_rules! check_inner_exc_for_custom_hint {
     ($inner_exc:expr, $expected_hint:expr) => {
         if let cairo_vm::vm::errors::vm_errors::VirtualMachineError::Hint(hint) = $inner_exc {
-            if let cairo_vm::vm::errors::hint_errors::HintError::CustomHint(custom_hint) = &hint.1 {
-                assert_eq!(custom_hint.as_ref(), $expected_hint)
+            if let cairo_vm::vm::errors::hint_errors::HintError::Internal(
+                cairo_vm::vm::errors::vm_errors::VirtualMachineError::Other(content),
+            ) = &hint.1
+            {
+                assert_eq!(content.to_string(), $expected_hint.to_string());
             } else {
                 panic!("Unexpected hint: {:?}", hint);
             }

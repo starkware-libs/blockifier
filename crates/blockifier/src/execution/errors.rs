@@ -92,8 +92,7 @@ impl VirtualMachineExecutionError {
                 // to append inner representation.
                 // Otherwise, add the inner representation. Prefer using the error attribute as the
                 // description of the error; if it is unavailable, use the inner exception string.
-                let outer_call_prefix =
-                    format!("{HINT_ERROR_STR}Hint Error: Error in the called contract");
+                let outer_call_prefix = format!("{HINT_ERROR_STR}Error in the called contract");
                 if inner_exc_string.starts_with(&outer_call_prefix) {
                     trace_string += "Got an exception while executing a hint.";
                 } else if let Some(error_attribute) = &exception.error_attr_value {

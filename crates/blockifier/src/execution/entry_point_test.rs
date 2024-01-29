@@ -370,7 +370,7 @@ fn test_syscall_execution_security_failures() {
         run_security_test(
             state,
             security_contract,
-            "Hint Error: Out of range",
+            "Out of range",
             "test_read_bad_address",
             calldata.clone(),
         );
@@ -378,7 +378,7 @@ fn test_syscall_execution_security_failures() {
         run_security_test(
             state,
             security_contract,
-            "Hint Error: Expected integer",
+            "Expected integer",
             "test_relocatable_storage_address",
             calldata,
         );
@@ -396,7 +396,7 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Hint Error: Expected relocatable",
+        "Expected relocatable",
         "test_bad_syscall_request_arg_type",
         calldata![],
     );
@@ -652,8 +652,7 @@ Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({}):
 Error at pc=0:4942:
-Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: 0x6661696c \
-         ('fail').
+Got an exception while executing a hint: Execution failed. Failure reason: 0x6661696c ('fail').
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -745,8 +744,7 @@ Unknown location (pc=0:{})
             format!(
                 "Error in the called contract ({contract_address_felt}):
 Error at pc=0:7981:
-Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
-                 {expected_error}.
+Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -854,8 +852,7 @@ Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
 Error at pc=0:{}:
-Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
-                 {expected_error}.
+Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
