@@ -14,7 +14,6 @@ use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
@@ -135,24 +134,22 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let state_diff_size = 0;
 
                 // Finalize counting logic.
-                let actual_resources = tx_execution_info.actual_resources.0.clone();
-                let tx_weights = calculate_tx_weights(
-                    additional_os_resources,
-                    actual_resources,
-                    message_segment_length,
-                )?;
-                let py_bouncer_info =
-                    PyBouncerInfo { message_segment_length, state_diff_size, tx_weights };
-                self.staged_for_commit_state = Some(
-                    transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
-                );
-
                 let typed_tx_execution_info = TypedTransactionExecutionInfo {
                     info: tx_execution_info,
                     tx_type: tx_type.to_string(),
                 };
-                let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+                let actual_resources = &typed_tx_execution_info.info.actual_resources;
+                let py_bouncer_info = PyBouncerInfo::calculate(
+                    actual_resources,
+                    additional_os_resources,
+                    message_segment_length,
+                    state_diff_size,
+                )?;
 
+                self.staged_for_commit_state = Some(
+                    transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
+                );
+                let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
                 Ok((raw_tx_execution_info, py_bouncer_info))
             }
             Err(error) => {
