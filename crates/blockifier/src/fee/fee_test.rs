@@ -51,7 +51,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     invalid_vm_resource_usage.0.insert(String::from("bad_resource_name"), 17);
     let error =
         calculate_l1_gas_by_vm_usage(&block_context, &invalid_vm_resource_usage).unwrap_err();
-    assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
+    assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts { .. });
 }
 
 /// Test the L1 gas limit bound, as applied to the case where both gas and data gas are consumed.

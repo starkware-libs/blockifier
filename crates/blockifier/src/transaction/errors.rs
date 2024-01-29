@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
@@ -11,8 +13,14 @@ use crate::state::errors::StateError;
 
 #[derive(Debug, Error)]
 pub enum TransactionFeeError {
-    #[error("Cairo resource names must be contained in fee cost dict.")]
-    CairoResourcesNotContainedInFeeCosts,
+    #[error(
+        "Cairo resource names must be contained in fee cost dict. Resource names: \
+         {resource_names:?}, fee cost names: {fee_cost_names:?}."
+    )]
+    CairoResourcesNotContainedInFeeCosts {
+        resource_names: HashSet<String>,
+        fee_cost_names: HashSet<String>,
+    },
     #[error(transparent)]
     ExecuteFeeTransferError(#[from] EntryPointExecutionError),
     #[error("Actual fee ({actual_fee:?}) exceeded max fee ({max_fee:?}).")]

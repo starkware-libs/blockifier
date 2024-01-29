@@ -1,8 +1,14 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
+use blockifier::abi::constants::N_STEPS_RESOURCE;
+use blockifier::block_context::{
+    BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices, VmResourceCosts,
+};
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
+    OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
+};
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -235,7 +241,7 @@ impl PyBlockExecutor {
 #[derive(Default)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
-    pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
+    pub cairo_resource_fee_weights: VmResourceCosts,
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
 }
@@ -243,11 +249,28 @@ pub struct PyGeneralConfig {
 impl FromPyObject<'_> for PyGeneralConfig {
     fn extract(general_config: &PyAny) -> PyResult<Self> {
         let starknet_os_config: PyOsConfig = py_attr(general_config, "starknet_os_config")?;
-        let cairo_resource_fee_weights: HashMap<String, f64> =
-            py_attr(general_config, "cairo_resource_fee_weights")?;
-        let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
         let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
         let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
+
+        // Resource fee weights.
+        let cairo_resource_map: HashMap<String, f64> =
+            py_attr(general_config, "cairo_resource_fee_weights")?;
+        fn get_or_expect(cairo_resource_fee_weights: &HashMap<String, f64>, field: &str) -> f64 {
+            *cairo_resource_fee_weights
+                .get(field)
+                .expect(&(field.to_owned() + " missing from resource fee weights."))
+        }
+        let cairo_resource_fee_weights = VmResourceCosts {
+            bitwise_builtin: get_or_expect(&cairo_resource_map, BITWISE_BUILTIN_NAME),
+            keccak_builtin: get_or_expect(&cairo_resource_map, KECCAK_BUILTIN_NAME),
+            ec_op_builtin: get_or_expect(&cairo_resource_map, EC_OP_BUILTIN_NAME),
+            ecdsa_builtin: get_or_expect(&cairo_resource_map, SIGNATURE_BUILTIN_NAME),
+            n_steps: get_or_expect(&cairo_resource_map, N_STEPS_RESOURCE),
+            output_builtin: get_or_expect(&cairo_resource_map, OUTPUT_BUILTIN_NAME),
+            pedersen_builtin: get_or_expect(&cairo_resource_map, HASH_BUILTIN_NAME),
+            poseidon_builtin: get_or_expect(&cairo_resource_map, POSEIDON_BUILTIN_NAME),
+            range_check_builtin: get_or_expect(&cairo_resource_map, RANGE_CHECK_BUILTIN_NAME),
+        };
 
         Ok(Self {
             starknet_os_config,

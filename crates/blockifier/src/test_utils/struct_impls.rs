@@ -1,10 +1,3 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
-};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
@@ -15,9 +8,10 @@ use super::{
     DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE, DEFAULT_STRK_L1_GAS_PRICE,
     TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2, TEST_SEQUENCER_ADDRESS,
 };
-use crate::abi::constants;
 use crate::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
-use crate::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
+use crate::block_context::{
+    BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices, VmResourceCosts,
+};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
@@ -123,16 +117,17 @@ impl BlockInfo {
     }
 
     pub fn create_for_account_testing() -> Self {
-        let vm_resource_fee_cost = Arc::new(HashMap::from([
-            (constants::N_STEPS_RESOURCE.to_string(), 1_f64),
-            (HASH_BUILTIN_NAME.to_string(), 1_f64),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 1_f64),
-            (SIGNATURE_BUILTIN_NAME.to_string(), 1_f64),
-            (BITWISE_BUILTIN_NAME.to_string(), 1_f64),
-            (POSEIDON_BUILTIN_NAME.to_string(), 1_f64),
-            (OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
-            (EC_OP_BUILTIN_NAME.to_string(), 1_f64),
-        ]));
+        let vm_resource_fee_cost = VmResourceCosts {
+            bitwise_builtin: 1.0,
+            ec_op_builtin: 1.0,
+            ecdsa_builtin: 1.0,
+            keccak_builtin: 1.0,
+            n_steps: 1.0,
+            output_builtin: 1.0,
+            pedersen_builtin: 1.0,
+            poseidon_builtin: 1.0,
+            range_check_builtin: 1.0,
+        };
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }
     }

@@ -8,10 +8,8 @@ use crate::py_transaction_execution_info::PyVmExecutionResources;
 
 #[pyfunction]
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
-    Err(TransactionExecutionError::TransactionFeeError(
-        TransactionFeeError::CairoResourcesNotContainedInFeeCosts,
-    )
-    .into())
+    Err(TransactionExecutionError::TransactionFeeError(TransactionFeeError::MissingL1GasBounds)
+        .into())
 }
 
 /// Wrapper for [estimate_casm_hash_computation_resources] that can be used for testing.

@@ -11,7 +11,7 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
-use crate::block_context::BlockContext;
+use crate::block_context::{BlockContext, VmResourceCosts};
 use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -198,6 +198,20 @@ impl TransactionExecutionInfo {
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
 impl ResourcesMapping {
+    // TODO(Dori, 1/4/2024): Once ResourceMapping is no longer a HashMap, compute explicit linear
+    //   combination (scalar vector multiplication) of the usages with their costs.
+    /// Compute the cost of the resource consumption, given the unit costs of each resource.
+    pub fn cost(&self, costs: &VmResourceCosts) -> f64 {
+        VmResourceCosts::resource_names()
+            .iter()
+            .map(|resource_name| {
+                (costs.get(resource_name))
+                    .unwrap_or_else(|_| panic!("Resource {resource_name} not found in costs."))
+                    * self.0.get(resource_name).cloned().unwrap_or_default() as f64
+            })
+            .fold(f64::NAN, f64::max)
+    }
+
     #[cfg(test)]
     pub fn n_steps(&self) -> usize {
         *self.0.get(crate::abi::constants::N_STEPS_RESOURCE).unwrap()

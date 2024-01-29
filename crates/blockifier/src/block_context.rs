@@ -1,15 +1,54 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::collections::HashSet;
 
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 
-use crate::transaction::objects::FeeType;
+use crate::transaction::errors::TransactionFeeError;
+use crate::transaction::objects::{FeeType, TransactionFeeResult};
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
     pub block_info: BlockInfo,
     pub chain_info: ChainInfo,
+}
+
+macro_rules! define_vm_resource_costs {
+    ($(($field:ident, $field_type:ty)),* $(,)?) => {
+        #[derive(Clone, Debug, Default)]
+        pub struct VmResourceCosts {
+            $(pub $field: $field_type,)*
+        }
+
+        // TODO(Dori, 1/4/2024): Once ResourceMapping is also no longer a HashMap, we may be able to
+        //   remove the impl block for VmResourceCosts (and perhaps ResourcesMapping as well).
+        impl VmResourceCosts {
+            pub fn resource_names() -> HashSet<String> {
+                HashSet::from([$(stringify!($field).to_string(),)*])
+            }
+
+            pub fn get(&self, resource_name: &str) -> TransactionFeeResult<f64> {
+                match resource_name {
+                    $(stringify!($field) => Ok(self.$field),)*
+                    _ => Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts {
+                        resource_names: HashSet::from([resource_name.to_string()]),
+                        fee_cost_names: Self::resource_names(),
+                    }),
+                }
+            }
+        }
+    };
+}
+
+define_vm_resource_costs! {
+    (bitwise_builtin, f64),
+    (ec_op_builtin, f64),
+    (ecdsa_builtin, f64),
+    (keccak_builtin, f64),
+    (n_steps, f64),
+    (output_builtin, f64),
+    (pedersen_builtin, f64),
+    (poseidon_builtin, f64),
+    (range_check_builtin, f64),
 }
 
 #[derive(Clone, Debug)]
@@ -19,7 +58,7 @@ pub struct BlockInfo {
 
     // Fee-related.
     pub sequencer_address: ContractAddress,
-    pub vm_resource_fee_cost: Arc<HashMap<String, f64>>,
+    pub vm_resource_fee_cost: VmResourceCosts,
     pub gas_prices: GasPrices,
     pub use_kzg_da: bool,
 
