@@ -6,11 +6,14 @@ use blockifier::block_execution::pre_process_block;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, GlobalContractCache, StagedTransactionalState, StateChanges, StateChangesCount,
+    StorageEntry, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::objects::{FeeType, HasRelatedFeeType};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
@@ -36,6 +39,8 @@ pub struct TransactionExecutor<S: StateReader> {
 
     // State-related fields.
     pub state: CachedState<S>,
+    pub block_level_state_changes: StateChanges,
+    pub new_state_changes: StateChanges,
 
     // Transactional state, awaiting commit/abort call.
     // Is `Some` only after transaction has finished executing, and before commit/revert have been
@@ -57,6 +62,8 @@ impl<S: StateReader> TransactionExecutor<S> {
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),
+            block_level_state_changes: StateChanges::default(),
+            new_state_changes: StateChanges::default(),
             staged_for_commit_state: None,
         };
         log::debug!("Initialized Transaction Executor.");
@@ -74,12 +81,19 @@ impl<S: StateReader> TransactionExecutor<S> {
         charge_fee: bool,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
-        let l1_handler_payload_size: usize =
-            if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
-                l1_handler_tx.payload_size()
-            } else {
-                0
-            };
+        let (sender_address, fee_type, l1_handler_payload_size) = match &tx {
+            Transaction::AccountTransaction(account_transaction) => {
+                let account_transaction_context = account_transaction.get_account_tx_context();
+                (
+                    account_transaction_context.sender_address().into(),
+                    account_transaction_context.fee_type(),
+                    0,
+                )
+            }
+            Transaction::L1HandlerTransaction(l1_handler_tx) => {
+                (None, FeeType::Eth, l1_handler_tx.payload_size())
+            }
+        };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
@@ -112,13 +126,19 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.visited_storage_entries,
                     &tx_visited_storage_entries,
                 )?;
-                let state_diff_size = 0;
                 let actual_resources = tx_execution_info.actual_resources.0.clone();
                 let tx_weights = calculate_tx_weights(
                     additional_os_resources,
                     actual_resources,
                     message_segment_length,
                 )?;
+
+                let fee_token_address = self.block_context.chain_info.fee_token_address(&fee_type);
+                self.new_state_changes = transactional_state
+                    .get_actual_state_changes_for_fee_charge(fee_token_address, sender_address)?;
+                let state_changes_count = StateChangesCount::from(&self.new_state_changes);
+                let state_diff_size = get_onchain_data_segment_length(state_changes_count);
+
                 let py_bouncer_info =
                     PyBouncerInfo { message_segment_length, state_diff_size, tx_weights };
                 self.staged_for_commit_state = Some(
@@ -210,6 +230,13 @@ impl<S: StateReader> TransactionExecutor<S> {
             panic!("commit called without a transactional state")
         };
 
+        (self.block_level_state_changes, self.new_state_changes) = (
+            StateChanges::merge(vec![
+                self.block_level_state_changes.clone(),
+                self.new_state_changes.clone(),
+            ]),
+            StateChanges::default(),
+        );
         let child_cache = finalized_transactional_state.cache;
         self.state.update_cache(child_cache);
         self.state.update_contract_class_caches(
