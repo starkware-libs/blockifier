@@ -6,6 +6,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
+use crate::abi::abi_utils::selector_to_name;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
@@ -155,6 +156,16 @@ impl CallInfo {
                 }),
             },
         )
+    }
+
+    pub fn check_call_succeeded(&self) -> TransactionExecutionResult<()> {
+        if self.execution.failed {
+            return Err(TransactionExecutionError::CallFailedError {
+                entry_point_name: selector_to_name(self.call.entry_point_selector.0),
+                error_data: self.execution.retdata.0.clone(),
+            });
+        }
+        Ok(())
     }
 }
 

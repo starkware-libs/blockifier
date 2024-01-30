@@ -93,6 +93,12 @@ impl<S: StateReader> TransactionExecutor<S> {
             Ok(tx_execution_info) => {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+                if let Some(validate_call_info) = &tx_execution_info.validate_call_info {
+                    validate_call_info.check_call_succeeded()?;
+                }
+                if let Some(execute_call_info) = &tx_execution_info.execute_call_info {
+                    execute_call_info.check_call_succeeded()?;
+                }
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
                 let call_infos: IntoIter<&CallInfo> =
                     [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
