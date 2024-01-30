@@ -28,8 +28,9 @@ pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, Reso
 
 pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
     let mut vm_resource_usage = resources.0.clone();
-    // TODO(Aner, 21/01/24) change unwrap_or to expect.
-    let l1_blob_gas_usage = vm_resource_usage.remove(constants::BLOB_GAS_USAGE).unwrap_or(0);
+    let l1_blob_gas_usage = vm_resource_usage
+        .remove(constants::BLOB_GAS_USAGE)
+        .expect("`ResourcesMapping` does not have the key `blob_gas_usage`.");
 
     (l1_blob_gas_usage, ResourcesMapping(vm_resource_usage))
 }
