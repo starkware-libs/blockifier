@@ -18,7 +18,7 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::ResourcesMapping;
+use crate::transaction::objects::{GasVector, ResourcesMapping};
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 
 fn get_vm_resource_usage() -> ResourcesMapping {
@@ -84,6 +84,10 @@ fn test_discounted_gas_overdraft(
     });
     let actual_cost = ActualCost {
         actual_fee: Fee(7),
+        actual_gas: GasVector {
+            l1_gas: l1_gas_used.try_into().unwrap(),
+            blob_gas: l1_data_gas_used.try_into().unwrap(),
+        },
         actual_resources: ResourcesMapping(HashMap::from([
             (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
             (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),

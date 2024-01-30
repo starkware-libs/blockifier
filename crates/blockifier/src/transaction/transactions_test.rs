@@ -33,7 +33,7 @@ use crate::execution::call_info::{
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usages};
 use crate::fee::gas_usage::{
     calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector, estimate_minimal_l1_gas,
     get_onchain_data_cost,
@@ -399,6 +399,8 @@ fn test_invoke_tx(
     });
 
     // Build expected fee transfer call info.
+    let expected_actual_gas =
+        calculate_tx_l1_gas_usages(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
@@ -423,6 +425,7 @@ fn test_invoke_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        actual_gas: expected_actual_gas,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
@@ -1129,6 +1132,8 @@ fn test_declare_tx(
     );
 
     // Build expected fee transfer call info.
+    let expected_actual_gas =
+        calculate_tx_l1_gas_usages(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
@@ -1147,6 +1152,7 @@ fn test_declare_tx(
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        actual_gas: expected_actual_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage.try_into().unwrap()),
@@ -1263,6 +1269,8 @@ fn test_deploy_account_tx(
     });
 
     // Build expected fee transfer call info.
+    let expected_actual_gas =
+        calculate_tx_l1_gas_usages(&actual_execution_info.actual_resources, block_context).unwrap();
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
@@ -1289,6 +1297,7 @@ fn test_deploy_account_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        actual_gas: expected_actual_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
@@ -1722,10 +1731,15 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         ..Default::default()
     };
 
-    // Build the expected resource mapping.
+    // Build the expected resource mapping and gas usage.
     let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
         true => (16023, 128),
         false => (17675, 0),
+    };
+    let expected_gas_vector = if use_kzg_da {
+        GasVector { l1_gas: 17413, blob_gas: 128 }
+    } else {
+        GasVector { l1_gas: 19065, blob_gas: 0 }
     };
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
@@ -1742,6 +1756,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         execute_call_info: Some(expected_call_info),
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
+        actual_gas: expected_gas_vector,
         actual_resources: expected_resource_mapping,
         revert_error: None,
     };
