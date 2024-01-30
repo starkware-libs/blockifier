@@ -105,7 +105,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
-        let ActualCost { actual_fee, actual_resources } =
+        let ActualCost { actual_fee, da_gas, actual_resources } =
             ActualCost::builder_for_l1_handler(block_context, tx_context, l1_handler_payload_size)
                 .with_execute_call_info(&execute_call_info)
                 .try_add_state_changes(state)?
@@ -123,6 +123,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             execute_call_info,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
+            da_gas,
             actual_resources,
             revert_error: None,
         })

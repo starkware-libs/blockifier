@@ -39,6 +39,22 @@ pub fn calculate_tx_gas_usage_vector<'a>(
     })
 }
 
+pub fn calculate_da_gas_usage(
+    state_changes_count: StateChangesCount,
+    use_kzg_da: bool,
+) -> GasVector {
+    GasVector {
+        l1_gas: if use_kzg_da {
+            0
+        } else {
+            u128_from_usize(get_onchain_data_cost(state_changes_count))
+                .expect("Onchain DA segment length conversion failure.")
+        },
+        blob_gas: u128_from_usize(calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da))
+            .expect("Blob gas for DA conversion failed."),
+    }
+}
+
 /// Returns the blob-gas (data-gas) needed to publish the transaction's state diff (if use_kzg_da is
 /// false, zero blob is needed).
 // TODO(Aner, 30/1/24) Refactor: create a new function get_da_gas_cost(state_changes_count,

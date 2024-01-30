@@ -88,6 +88,7 @@ fn test_discounted_gas_overdraft(
             (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
             (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
         ])),
+        ..Default::default()
     };
     let report = PostExecutionReport::new(
         &mut state,
