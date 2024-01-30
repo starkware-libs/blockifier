@@ -35,7 +35,7 @@ use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecution
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector, estimate_minimal_l1_gas,
+    calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
     get_onchain_data_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
@@ -809,10 +809,12 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // The minimal gas estimate does not depend on tx version.
-    let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(valid_invoke_tx_args.clone()))
-            .unwrap()
-            .l1_gas;
+    let minimal_l1_gas = estimate_minimal_gas_vector(
+        block_context,
+        &account_invoke_tx(valid_invoke_tx_args.clone()),
+    )
+    .unwrap()
+    .l1_gas;
 
     // Test V1 transaction.
 
@@ -899,7 +901,7 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone()))
+        estimate_minimal_gas_vector(block_context, &account_invoke_tx(invoke_tx_args.clone()))
             .unwrap()
             .l1_gas;
     let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);

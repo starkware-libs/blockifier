@@ -26,7 +26,7 @@ use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_usage_vector};
-use crate::fee::gas_usage::estimate_minimal_l1_gas;
+use crate::fee::gas_usage::estimate_minimal_gas_vector;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
@@ -332,7 +332,7 @@ fn test_max_fee_limit_validate(
         ..tx_args.clone()
     });
     let estimated_min_gas_usage_vector =
-        estimate_minimal_l1_gas(&block_context, &account_tx).unwrap();
+        estimate_minimal_gas_vector(&block_context, &account_tx).unwrap();
     let estimated_min_l1_gas = estimated_min_gas_usage_vector.l1_gas;
     let estimated_min_fee = get_fee_by_gas_usage_vector(
         block_info,
