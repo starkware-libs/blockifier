@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usages, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usages,
+    calculate_tx_gas_vector, get_balance_and_if_covers_fee, get_fee_by_gas_vector,
 };
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
@@ -72,7 +72,7 @@ impl FeeCheckReport {
             // resource bounds), the sender should be able to pay this fee.
             FeeCheckError::MaxFeeExceeded { .. } | FeeCheckError::MaxL1GasAmountExceeded { .. } => {
                 match account_tx_context {
-                    AccountTransactionContext::Current(context) => get_fee_by_l1_gas_usages(
+                    AccountTransactionContext::Current(context) => get_fee_by_gas_vector(
                         block_info,
                         GasVector {
                             l1_gas: context.l1_resource_bounds()?.max_amount.into(),
@@ -104,7 +104,7 @@ impl FeeCheckReport {
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
 
                 let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } =
-                    calculate_tx_l1_gas_usages(actual_resources, block_context)?;
+                    calculate_tx_gas_vector(actual_resources, block_context)?;
 
                 // TODO(Dori, 1/7/2024): When data gas limit is added (and enforced) in resource
                 //   bounds, check it here as well (separately, with a different error variant if
