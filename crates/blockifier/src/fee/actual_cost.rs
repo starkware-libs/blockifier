@@ -5,11 +5,13 @@ use crate::abi::constants as abi_constants;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
+use crate::fee::fee_utils::calculate_tx_l1_gas_usages;
 use crate::fee::gas_usage::calculate_tx_gas_usage_vector;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    AccountTransactionContext, GasVector, HasRelatedFeeType, ResourcesMapping,
+    TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
@@ -18,6 +20,7 @@ use crate::transaction::transaction_utils::calculate_tx_resources;
 // get passed around together.
 pub struct ActualCost {
     pub actual_fee: Fee,
+    pub actual_gas: GasVector,
     pub actual_resources: ResourcesMapping,
 }
 
@@ -155,6 +158,7 @@ impl<'a> ActualCostBuilder<'a> {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
+        let actual_gas = calculate_tx_l1_gas_usages(&actual_resources, &self.block_context)?;
         let actual_fee = if self.account_tx_context.enforce_fee()?
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
             || self.tx_type == TransactionType::L1Handler
@@ -164,6 +168,6 @@ impl<'a> ActualCostBuilder<'a> {
             Fee(0)
         };
 
-        Ok(ActualCost { actual_fee, actual_resources })
+        Ok(ActualCost { actual_fee, actual_gas, actual_resources })
     }
 }

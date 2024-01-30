@@ -4,9 +4,7 @@ use thiserror::Error;
 
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::fee::actual_cost::ActualCost;
-use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usages, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usages,
-};
+use crate::fee::fee_utils::{get_balance_and_if_covers_fee, get_fee_by_l1_gas_usages};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
@@ -94,7 +92,7 @@ impl FeeCheckReport {
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, actual_resources } = actual_cost;
+        let ActualCost { actual_fee, actual_gas, .. } = actual_cost;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
@@ -103,8 +101,7 @@ impl FeeCheckReport {
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
 
-                let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } =
-                    calculate_tx_l1_gas_usages(actual_resources, block_context)?;
+                let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } = actual_gas;
 
                 // TODO(Dori, 1/7/2024): When data gas limit is added (and enforced) in resource
                 //   bounds, check it here as well (separately, with a different error variant if

@@ -14,7 +14,7 @@ use strum_macros::EnumIter;
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_l1_gas_usages};
 use crate::state::cached_state::StorageEntry;
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -156,6 +156,8 @@ pub struct TransactionExecutionInfo {
     pub fee_transfer_call_info: Option<CallInfo>,
     /// The actual fee that was charged (in Wei).
     pub actual_fee: Fee,
+    /// Actual gas consumption the transaction is charged for.
+    pub actual_gas: GasVector,
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
