@@ -61,7 +61,7 @@ pub fn calculate_l1_gas_by_vm_usage(
 /// Computes and returns the total L1 gas consumption.
 /// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1 messages)
 /// to the gas consumed by Cairo VM resource.
-pub fn calculate_tx_l1_gas_usages(
+pub fn calculate_tx_gas_vector(
     resources: &ResourcesMapping,
     block_context: &BlockContext,
 ) -> TransactionFeeResult<GasVector> {
@@ -77,13 +77,13 @@ pub fn calculate_tx_l1_gas_usages(
     })
 }
 
-pub fn get_fee_by_l1_gas_usages(
+pub fn get_fee_by_gas_vector(
     block_info: &BlockInfo,
-    l1_gas_usages: GasVector,
+    gas_vector: GasVector,
     fee_type: &FeeType,
 ) -> Fee {
-    Fee(l1_gas_usages.l1_gas * block_info.gas_prices.get_gas_price_by_fee_type(fee_type)
-        + l1_gas_usages.blob_gas * block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type))
+    Fee(gas_vector.l1_gas * block_info.gas_prices.get_gas_price_by_fee_type(fee_type)
+        + gas_vector.blob_gas * block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
@@ -92,8 +92,8 @@ pub fn calculate_tx_fee(
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
-    let l1_gas_usage_vector = calculate_tx_l1_gas_usages(resources, block_context)?;
-    Ok(get_fee_by_l1_gas_usages(&block_context.block_info, l1_gas_usage_vector, fee_type))
+    let gas_vector = calculate_tx_gas_vector(resources, block_context)?;
+    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.

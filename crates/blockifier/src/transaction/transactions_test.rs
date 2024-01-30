@@ -1047,10 +1047,7 @@ fn declare_validate_callinfo(
 
 /// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
 /// a declare transaction.
-fn declare_expected_l1_gas_usage_vector(
-    version: TransactionVersion,
-    use_kzg_da: bool,
-) -> GasVector {
+fn declare_expected_gas_vector(version: TransactionVersion, use_kzg_da: bool) -> GasVector {
     let state_changes_count = match version {
         TransactionVersion::ZERO => StateChangesCount {
             n_storage_updates: 1, // Sender balance.
@@ -1140,7 +1137,7 @@ fn test_declare_tx(
     );
 
     let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        declare_expected_l1_gas_usage_vector(tx_version, use_kzg_da);
+        declare_expected_gas_vector(tx_version, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1509,10 +1506,10 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage_vector =
+    let gas_vector =
         calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
             .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = l1_gas_usage_vector;
+    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
         l1_gas_usage
@@ -1554,10 +1551,10 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_usage_vector =
+    let gas_vector =
         calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
             .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = l1_gas_usage_vector;
+    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
         l1_gas_usage
