@@ -208,39 +208,45 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
 }
 
 /// Return an estimated lower bound for the L1 gas on an account transaction.
-pub fn estimate_minimal_l1_gas(
+pub fn estimate_minimal_gas_vector(
     block_context: &BlockContext,
     tx: &AccountTransaction,
 ) -> TransactionPreValidationResult<GasVector> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
     let os_steps_for_type = OS_RESOURCES.resources_for_tx_type(&tx.tx_type()).n_steps;
-    let gas_cost: usize = match tx {
+    let state_changes_by_account_transaction = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
         // contract modification since it occurs for every tx).
-        AccountTransaction::Declare(_) => get_onchain_data_cost(StateChangesCount {
+        AccountTransaction::Declare(_) => StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
-        }),
-        AccountTransaction::Invoke(_) => get_onchain_data_cost(StateChangesCount {
+        },
+        AccountTransaction::Invoke(_) => StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 0,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
-        }),
+        },
         // DeployAccount also updates the address -> class hash mapping.
-        AccountTransaction::DeployAccount(_) => get_onchain_data_cost(StateChangesCount {
+        AccountTransaction::DeployAccount(_) => StateChangesCount {
             n_storage_updates: 1,
             n_class_hash_updates: 1,
             n_compiled_class_hash_updates: 0,
             n_modified_contracts: 1,
-        }),
+        },
     };
+    let use_kzg_da = block_context.block_info.use_kzg_da;
+    let (gas_cost, blob_gas_cost): (usize, usize) = match use_kzg_da {
+        true => (0, calculate_tx_blob_gas_usage(state_changes_by_account_transaction, use_kzg_da)),
+        false => (get_onchain_data_cost(state_changes_by_account_transaction), 0),
+    };
+
     let resources = ResourcesMapping(HashMap::from([
         (constants::L1_GAS_USAGE.to_string(), gas_cost),
-        (constants::BLOB_GAS_USAGE.to_string(), 0),
+        (constants::BLOB_GAS_USAGE.to_string(), blob_gas_cost),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
@@ -251,7 +257,7 @@ pub fn estimate_minimal_fee(
     block_context: &BlockContext,
     tx: &AccountTransaction,
 ) -> TransactionExecutionResult<Fee> {
-    let estimated_minimal_l1_gas = estimate_minimal_l1_gas(block_context, tx)?;
+    let estimated_minimal_l1_gas = estimate_minimal_gas_vector(block_context, tx)?;
     Ok(get_fee_by_gas_usage_vector(
         &block_context.block_info,
         estimated_minimal_l1_gas,
