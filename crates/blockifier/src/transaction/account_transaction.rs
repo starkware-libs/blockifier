@@ -16,7 +16,7 @@ use crate::execution::entry_point::{
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
-use crate::fee::gas_usage::estimate_minimal_l1_gas;
+use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::{State, StateReader};
@@ -177,9 +177,14 @@ impl AccountTransaction {
         account_tx_context: &AccountTransactionContext,
         block_context: &BlockContext,
     ) -> TransactionPreValidationResult<()> {
-        // TODO(Aner, 21/01/24) modify for 4844 (blob_gas).
-        let minimal_l1_gas_amount_vector = estimate_minimal_l1_gas(block_context, self)?;
-        let minimal_l1_gas_amount = minimal_l1_gas_amount_vector.l1_gas;
+        let minimal_l1_gas_amount_vector = estimate_minimal_gas_vector(block_context, self)?;
+        // TODO(Aner, 30/01/24): modify once data gas limit is enforced.
+        let minimal_l1_gas_amount = compute_discounted_gas_from_gas_vector(
+            &minimal_l1_gas_amount_vector,
+            account_tx_context,
+            block_context,
+        );
+
         let block_info = &block_context.block_info;
 
         match account_tx_context {
