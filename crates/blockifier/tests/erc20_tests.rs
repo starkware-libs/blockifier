@@ -12,8 +12,8 @@ use blockifier::test_utils::{
     TEST_ERC20_FULL_CONTRACT_CLASS_HASH,
 };
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::hash::{StarkHash};
+use starknet_api::{class_hash, contract_address, patricia_key};
 
 pub fn create_erc20_deploy_test_state() -> CachedState<DictStateReader> {
     let address_to_class_hash: HashMap<ContractAddress, ClassHash> = HashMap::from([(
@@ -32,18 +32,14 @@ pub fn create_erc20_deploy_test_state() -> CachedState<DictStateReader> {
 fn mint_works() {
     let mut state = create_erc20_deploy_test_state();
 
-    let calldata = create_calldata(
-        contract_address!(TEST_ERC20_FULL_CONTRACT_ADDRESS),
-        "mint",
-        &[
-            stark_felt!(405_u16), // Calldata: address.
-            stark_felt!(48_u8),   // Calldata: value.
-        ],
-    );
+    let entry_point_name = "total_supply";
+
+    let calldata =
+        create_calldata(contract_address!(TEST_ERC20_FULL_CONTRACT_ADDRESS), entry_point_name, &[]);
 
     let entry_point_call = CallEntryPoint {
         calldata,
-        entry_point_selector: selector_from_name("mint"),
+        entry_point_selector: selector_from_name(entry_point_name),
         ..erc20_external_entry_point()
     };
 

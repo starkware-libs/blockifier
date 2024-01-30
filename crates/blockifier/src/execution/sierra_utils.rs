@@ -10,6 +10,7 @@ use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
 use cairo_native::metadata::syscall_handler::SyscallHandlerMeta;
+use cairo_native::OptLevel;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
@@ -85,7 +86,7 @@ pub fn get_native_executor<'context>(
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
                 Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program),
+                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
             })
         }
         ProgramCache::Jit(_) => todo!("Sierra util: get native executor - jit"),
