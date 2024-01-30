@@ -85,7 +85,7 @@ fn test_discounted_gas_overdraft(
     let actual_cost = ActualCost {
         actual_fee: Fee(7),
         actual_resources: ResourcesMapping(HashMap::from([
-            (constants::GAS_USAGE.to_string(), l1_gas_used),
+            (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
             (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
         ])),
     };

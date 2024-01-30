@@ -130,9 +130,9 @@ pub struct DeprecatedAccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct GasAndBlobGasUsages {
-    pub gas_usage: u128,
-    pub blob_gas_usage: u128,
+pub struct GasVector {
+    pub l1_gas: u128,
+    pub blob_gas: u128,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -205,7 +205,7 @@ impl ResourcesMapping {
 
     #[cfg(test)]
     pub fn gas_usage(&self) -> usize {
-        *self.0.get(crate::abi::constants::GAS_USAGE).unwrap()
+        *self.0.get(crate::abi::constants::L1_GAS_USAGE).unwrap()
     }
 
     #[cfg(test)]
