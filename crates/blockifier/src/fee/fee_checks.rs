@@ -2,11 +2,10 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 use thiserror::Error;
 
+use super::fee_utils::calculate_tx_l1_gas_usages;
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
 use crate::fee::actual_cost::ActualCost;
-use crate::fee::fee_utils::{
-    calculate_tx_l1_gas_usages, get_balance_and_if_covers_fee, get_fee_by_l1_gas_usages,
-};
+use crate::fee::fee_utils::{get_balance_and_if_covers_fee, get_fee_by_l1_gas_usages};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
@@ -94,7 +93,7 @@ impl FeeCheckReport {
         account_tx_context: &AccountTransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, actual_resources } = actual_cost;
+        let ActualCost { actual_fee, actual_resources, .. } = actual_cost;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.

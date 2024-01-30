@@ -35,8 +35,8 @@ use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecution
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector, estimate_minimal_l1_gas,
-    get_onchain_data_cost,
+    calculate_da_gas_usage, calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector,
+    estimate_minimal_l1_gas, get_onchain_data_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -414,6 +414,8 @@ fn test_invoke_tx(
         n_modified_contracts: 1,
         ..StateChangesCount::default()
     };
+    let expected_da_gas =
+        calculate_da_gas_usage(state_changes_count, block_context.block_info.use_kzg_da);
     let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
         true => (0, calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da)),
         false => (get_onchain_data_cost(state_changes_count), 0),
@@ -423,6 +425,7 @@ fn test_invoke_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas: expected_da_gas,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
@@ -1045,13 +1048,8 @@ fn declare_validate_callinfo(
     }
 }
 
-/// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
-/// a declare transaction.
-fn declare_expected_l1_gas_usage_vector(
-    version: TransactionVersion,
-    use_kzg_da: bool,
-) -> GasVector {
-    let state_changes_count = match version {
+fn declare_expected_state_changes(version: TransactionVersion) -> StateChangesCount {
+    match version {
         TransactionVersion::ZERO => StateChangesCount {
             n_storage_updates: 1, // Sender balance.
             ..StateChangesCount::default()
@@ -1068,7 +1066,16 @@ fn declare_expected_l1_gas_usage_vector(
             ..StateChangesCount::default()
         },
         version => panic!("Unsupported version {version:?}."),
-    };
+    }
+}
+
+/// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
+/// a declare transaction.
+fn declare_expected_l1_gas_usage_vector(
+    version: TransactionVersion,
+    use_kzg_da: bool,
+) -> GasVector {
+    let state_changes_count = declare_expected_state_changes(version);
 
     let expected_gas_usage = match use_kzg_da {
         true => 0,
@@ -1129,6 +1136,10 @@ fn test_declare_tx(
     );
 
     // Build expected fee transfer call info.
+    let expected_da_gas = calculate_da_gas_usage(
+        declare_expected_state_changes(tx_version),
+        block_context.block_info.use_kzg_da,
+    );
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
@@ -1147,6 +1158,7 @@ fn test_declare_tx(
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas: expected_da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage.try_into().unwrap()),
@@ -1279,6 +1291,8 @@ fn test_deploy_account_tx(
         n_class_hash_updates: 1,
         ..StateChangesCount::default()
     };
+    let expected_da_gas =
+        calculate_da_gas_usage(state_changes_count, block_context.block_info.use_kzg_da);
     let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
         true => (0, calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da)),
         false => (get_onchain_data_cost(state_changes_count), 0),
@@ -1289,6 +1303,7 @@ fn test_deploy_account_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas: expected_da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
@@ -1722,10 +1737,15 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         ..Default::default()
     };
 
-    // Build the expected resource mapping.
+    // Build the expected resource mapping and gas usage.
     let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
         true => (16023, 128),
         false => (17675, 0),
+    };
+    let expected_da_gas = if use_kzg_da {
+        GasVector { l1_gas: 0, blob_gas: 128 }
+    } else {
+        GasVector { l1_gas: 1652, blob_gas: 0 }
     };
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
@@ -1742,6 +1762,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         execute_call_info: Some(expected_call_info),
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
+        da_gas: expected_da_gas,
         actual_resources: expected_resource_mapping,
         revert_error: None,
     };
