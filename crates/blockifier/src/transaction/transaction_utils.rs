@@ -20,13 +20,13 @@ use crate::utils::{merge_hashmaps, usize_from_u128};
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(
     execution_resources: &ExecutionResources,
-    l1_gas_usages: GasVector,
+    l1_gas_usage_vector: GasVector,
     tx_type: TransactionType,
     calldata_length: usize,
 ) -> TransactionExecutionResult<ResourcesMapping> {
-    let l1_gas_usage = usize_from_u128(l1_gas_usages.l1_gas)
+    let l1_gas_usage = usize_from_u128(l1_gas_usage_vector.l1_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
-    let l1_blob_gas_usage = usize_from_u128(l1_gas_usages.blob_gas)
+    let l1_blob_gas_usage = usize_from_u128(l1_gas_usage_vector.blob_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources

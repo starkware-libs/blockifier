@@ -11,7 +11,7 @@ use crate::block_context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{
-    calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usages,
+    calculate_tx_fee, calculate_tx_gas_vector, get_fee_by_gas_usage_vector,
 };
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
@@ -88,7 +88,7 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
     let gas = base_gas + if validate_mode { VALIDATE_GAS_OVERHEAD } else { 0 };
     (
         gas,
-        get_fee_by_l1_gas_usages(
+        get_fee_by_gas_usage_vector(
             &BlockContext::create_for_account_testing().block_info,
             GasVector { l1_gas: gas.into(), blob_gas: 0 },
             fee_type,
@@ -107,9 +107,7 @@ fn check_gas_and_fee(
     expected_cost_of_resources: Fee,
 ) {
     assert_eq!(
-        calculate_tx_l1_gas_usages(&tx_execution_info.actual_resources, block_context)
-            .unwrap()
-            .l1_gas,
+        calculate_tx_gas_vector(&tx_execution_info.actual_resources, block_context).unwrap().l1_gas,
         expected_actual_gas.into()
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
@@ -486,7 +484,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let invoke_tx_max_n_steps_as_u64: u64 =
         low_step_block_context.block_info.invoke_tx_max_n_steps.into();
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1720;
-    let block_limit_fee = get_fee_by_l1_gas_usages(
+    let block_limit_fee = get_fee_by_gas_usage_vector(
         &block_context.block_info,
         GasVector { l1_gas: block_limit_gas.into(), blob_gas: 0 },
         &fee_type,
