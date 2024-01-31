@@ -426,19 +426,16 @@ fn test_invoke_tx(
         n_modified_contracts: 1,
         ..StateChangesCount::default()
     };
-    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        get_da_gas_cost(state_changes_count, use_kzg_da);
+    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas: da_gas.clone(),
         actual_resources: ResourcesMapping(HashMap::from([
-            (
-                abi_constants::BLOB_GAS_USAGE.to_string(),
-                usize_from_u128(expected_blob_gas_usage).unwrap(),
-            ),
-            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), usize_from_u128(da_gas.blob_gas).unwrap()),
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 16 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -1124,21 +1121,18 @@ fn test_declare_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
-    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        declare_expected_gas_vector(tx_version, use_kzg_da);
+    let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas: da_gas.clone(),
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage.try_into().unwrap()),
-            (
-                abi_constants::BLOB_GAS_USAGE.to_string(),
-                expected_blob_gas_usage.try_into().unwrap(),
-            ),
+            (abi_constants::L1_GAS_USAGE.to_string(), da_gas.l1_gas.try_into().unwrap()),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), da_gas.blob_gas.try_into().unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 15),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1264,21 +1258,18 @@ fn test_deploy_account_tx(
         n_class_hash_updates: 1,
         ..StateChangesCount::default()
     };
-    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        get_da_gas_cost(state_changes_count, use_kzg_da);
+    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas: da_gas.clone(),
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
-            (
-                abi_constants::BLOB_GAS_USAGE.to_string(),
-                usize_from_u128(expected_blob_gas_usage).unwrap(),
-            ),
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), usize_from_u128(da_gas.blob_gas).unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -1710,17 +1701,24 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     };
 
     // Build the expected resource mapping.
-    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
-        true => (16023, 128),
-        false => (17675, 0),
+    let expected_gas = match use_kzg_da {
+        true => GasVector { l1_gas: 16023, blob_gas: 128 },
+        false => GasVector { l1_gas: 17675, blob_gas: 0 },
+    };
+    let expected_da_gas = match use_kzg_da {
+        true => GasVector { l1_gas: 0, blob_gas: 128 },
+        false => GasVector { l1_gas: 1652, blob_gas: 0 },
     };
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1416),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
-        (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
+        (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas.l1_gas).unwrap()),
+        (
+            abi_constants::BLOB_GAS_USAGE.to_string(),
+            usize_from_u128(expected_gas.blob_gas).unwrap(),
+        ),
     ]));
 
     // Build the expected execution info.
@@ -1729,6 +1727,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         execute_call_info: Some(expected_call_info),
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
+        da_gas: expected_da_gas,
         actual_resources: expected_resource_mapping,
         revert_error: None,
     };

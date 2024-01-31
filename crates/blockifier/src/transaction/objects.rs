@@ -124,7 +124,7 @@ pub struct DeprecatedTransactionInfo {
     pub max_fee: Fee,
 }
 
-#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct GasVector {
     pub l1_gas: u128,
     pub blob_gas: u128,
@@ -182,6 +182,8 @@ pub struct TransactionExecutionInfo {
     pub fee_transfer_call_info: Option<CallInfo>,
     /// The actual fee that was charged (in Wei).
     pub actual_fee: Fee,
+    /// Actual gas consumption the transaction is charged for data availability.
+    pub da_gas: GasVector,
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,

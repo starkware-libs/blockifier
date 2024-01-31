@@ -487,7 +487,7 @@ impl AccountTransaction {
                             post_execution_error.to_string(),
                             ActualCost {
                                 actual_fee: post_execution_report.recommended_fee(),
-                                actual_resources: revert_cost.actual_resources,
+                                ..revert_cost
                             },
                         ))
                     }
@@ -512,7 +512,7 @@ impl AccountTransaction {
                     execution_context.error_trace(),
                     ActualCost {
                         actual_fee: post_execution_report.recommended_fee(),
-                        actual_resources: revert_cost.actual_resources,
+                        ..revert_cost
                     },
                 ))
             }
@@ -582,7 +582,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate_call_info,
             execute_call_info,
             revert_error,
-            final_cost: ActualCost { actual_fee: final_fee, actual_resources: final_resources },
+            final_cost:
+                ActualCost {
+                    actual_fee: final_fee,
+                    da_gas: final_da_gas,
+                    actual_resources: final_resources,
+                },
         } = self.run_or_revert(
             state,
             &mut remaining_gas,
@@ -598,6 +603,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             execute_call_info,
             fee_transfer_call_info,
             actual_fee: final_fee,
+            da_gas: final_da_gas,
             actual_resources: final_resources,
             revert_error,
         };
