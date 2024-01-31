@@ -134,8 +134,11 @@ fn test_nested_library_call() {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
         ..nested_storage_entry_point
     };
-    let storage_entry_point_vm_resources =
-        VmExecutionResources { n_steps: 42, ..Default::default() };
+    let storage_entry_point_vm_resources = VmExecutionResources {
+        n_steps: 218,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
+    };
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
@@ -145,9 +148,9 @@ fn test_nested_library_call() {
         ..Default::default()
     };
     let mut library_call_vm_resources = VmExecutionResources {
-        n_steps: 39,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
-        ..Default::default()
+        n_steps: 790,
+        n_memory_holes: 4,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
     };
     library_call_vm_resources += &storage_entry_point_vm_resources;
     let library_call_info = CallInfo {
@@ -167,7 +170,12 @@ fn test_nested_library_call() {
     };
 
     // Nested library call cost: library_call(inner) + library_call(library_call(inner)).
-    let mut main_call_vm_resources = VmExecutionResources { n_steps: 45, ..Default::default() };
+    let mut main_call_vm_resources = VmExecutionResources {
+        n_steps: 796,
+        n_memory_holes: 4,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 20)]),
+    };
+    //{ n_steps: 45, ..Default::default() };
     main_call_vm_resources += &(&library_call_vm_resources * 2);
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
@@ -218,7 +226,11 @@ fn test_call_contract() {
             ..trivial_external_entry_point
         },
         execution: expected_execution.clone(),
-        vm_resources: VmExecutionResources { n_steps: 42, ..Default::default() },
+        vm_resources: VmExecutionResources {
+            n_steps: 218,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
+        },
         storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
@@ -235,9 +247,9 @@ fn test_call_contract() {
         },
         execution: expected_execution,
         vm_resources: VmExecutionResources {
-            n_steps: 81,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
-            ..Default::default()
+            n_steps: 1017,
+            n_memory_holes: 4,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
         },
         ..Default::default()
     };
