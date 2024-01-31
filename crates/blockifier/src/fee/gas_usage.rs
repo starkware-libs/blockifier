@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use super::fee_utils::calculate_tx_gas_vector;
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::eth_gas_constants;
+use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;

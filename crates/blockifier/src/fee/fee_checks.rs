@@ -93,7 +93,7 @@ impl FeeCheckReport {
         tx_context: &TransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, actual_resources } = actual_cost;
+        let ActualCost { actual_fee, actual_resources, .. } = actual_cost;
         let TransactionContext { tx_info, block_context } = tx_context;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
