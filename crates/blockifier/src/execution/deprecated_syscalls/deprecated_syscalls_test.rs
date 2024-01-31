@@ -18,6 +18,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::block_context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
@@ -27,9 +28,12 @@ use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
 };
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    trivial_external_entry_point, trivial_external_entry_point_with_address, CairoVersion,
+    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -178,35 +182,38 @@ fn test_nested_library_call() {
 
 #[test]
 fn test_call_contract() {
-    let mut state = deprecated_create_test_state();
+    let chain_info = &ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(chain_info, 0, &[(test_contract, 1)]);
+    let test_address = test_contract.get_instance_address(0);
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let (key, value) = (stark_felt!(405_u16), stark_felt!(48_u8));
     let inner_calldata = calldata![key, value];
     let calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
-        inner_entry_point_selector.0,       // Function selector.
-        stark_felt!(2_u8),                  // Calldata length.
-        key,                                // Calldata: address.
-        value                               // Calldata: value.
+        *test_address.0.key(),        // Contract address.
+        inner_entry_point_selector.0, // Function selector.
+        stark_felt!(2_u8),            // Calldata length.
+        key,                          // Calldata: address.
+        value                         // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata: calldata.clone(),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address)
     };
     let call_info = entry_point_call.execute_directly(&mut state).unwrap();
 
     let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
     let expected_inner_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-            code_address: Some(contract_address!(TEST_CONTRACT_ADDRESS)),
+            class_hash: Some(test_contract.get_class_hash()),
+            code_address: Some(test_address),
             entry_point_selector: inner_entry_point_selector,
             calldata: inner_calldata,
-            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
-            caller_address: contract_address!(TEST_CONTRACT_ADDRESS),
-            ..trivial_external_entry_point()
+            storage_address: test_address,
+            caller_address: test_address,
+            ..trivial_external_entry_point_with_address(test_address)
         },
         execution: expected_execution.clone(),
         vm_resources: VmExecutionResources { n_steps: 42, ..Default::default() },
@@ -217,12 +224,12 @@ fn test_call_contract() {
     let expected_call_info = CallInfo {
         inner_calls: vec![expected_inner_call_info],
         call: CallEntryPoint {
-            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-            code_address: Some(contract_address!(TEST_CONTRACT_ADDRESS)),
+            class_hash: Some(test_contract.get_class_hash()),
+            code_address: Some(test_address),
             entry_point_selector: outer_entry_point_selector,
             calldata,
-            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
-            ..trivial_external_entry_point()
+            storage_address: test_address,
+            ..trivial_external_entry_point_with_address(test_address)
         },
         execution: expected_execution,
         vm_resources: VmExecutionResources {
