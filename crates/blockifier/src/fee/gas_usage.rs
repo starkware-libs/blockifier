@@ -14,7 +14,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, GasVector, HasRelatedFeeType, ResourcesMapping,
     TransactionExecutionResult, TransactionPreValidationResult,
 };
-use crate::utils::u128_from_usize;
+use crate::utils::{u128_from_usize, usize_from_u128};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -96,8 +96,10 @@ pub fn calculate_messages_l1_gas_usage<'a>(
     // (Note that we will probably get a refund of 15,000 gas for each consumed message but we
     // ignore it since refunded gas cannot be used for the current transaction execution).
     + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE
-    + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
-    + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
+    + usize_from_u128(get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size).l1_gas)
+    .expect("Cannot convert messages to L2 emissions gas from u128 to usize.")
+    + usize_from_u128(get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths).l1_gas)
+    .expect("Cannot convert messages to L1 emissions gas from u128 to usize.");
 
     let sharp_gas_usage = message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
@@ -180,9 +182,12 @@ pub fn get_message_segment_length(
 
 /// Returns the cost of ConsumedMessageToL2 event emissions caused by an L1 handler with the given
 /// payload size.
-pub fn get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size: Option<usize>) -> usize {
+pub fn get_consumed_message_to_l2_emissions_cost(
+    l1_handler_payload_size: Option<usize>,
+) -> GasVector {
     match l1_handler_payload_size {
-        None => 0, // The corresponding transaction is not an L1 handler.,
+        // The corresponding transaction is not an L1 handler.,
+        None => GasVector { l1_gas: 0, blob_gas: 0 },
         Some(l1_handler_payload_size) => {
             get_event_emission_cost(
                 constants::CONSUMED_MSG_TO_L2_N_TOPICS,
@@ -194,7 +199,7 @@ pub fn get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size: Option
 }
 
 /// Returns the cost of LogMessageToL1 event emissions caused by the given messages payload length.
-pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) -> usize {
+pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) -> GasVector {
     l2_to_l1_payload_lengths
         .iter()
         .map(|length| {
@@ -207,10 +212,16 @@ pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) 
         .sum()
 }
 
-fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
-    eth_gas_constants::GAS_PER_LOG
-        + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
-        + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD
+fn get_event_emission_cost(n_topics: usize, data_length: usize) -> GasVector {
+    GasVector {
+        l1_gas: u128_from_usize(
+            eth_gas_constants::GAS_PER_LOG
+                + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
+                + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD,
+        )
+        .expect("Cannot convert event emission gas from usize to u128."),
+        blob_gas: 0,
+    }
 }
 
 /// Return an estimated lower bound for the L1 gas on an account transaction.

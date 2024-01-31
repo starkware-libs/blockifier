@@ -129,7 +129,7 @@ pub struct DeprecatedAccountTransactionContext {
     pub max_fee: Fee,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq)]
 pub struct GasVector {
     pub l1_gas: u128,
     pub blob_gas: u128,
