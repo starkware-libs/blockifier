@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use starknet_api::transaction::TransactionVersion;
 
-use super::objects::GasVector;
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::usize_from_u128;
 use crate::versioned_constants::VersionedConstants;
