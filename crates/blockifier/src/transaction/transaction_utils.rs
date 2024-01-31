@@ -9,7 +9,7 @@ use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::os_usage::get_additional_os_resources;
+use crate::fee::os_usage::{get_additional_tx_type_os_resources, get_entry_point_syscall_resources};
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
@@ -26,9 +26,12 @@ pub fn calculate_tx_resources(
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let l1_gas_usage = l1_gas_usages.gas_usage.try_into()?;
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let total_vm_usage = &execution_resources.vm_resources
-        + &get_additional_os_resources(
+    let vm_and_syscall_usage = &execution_resources.vm_resources
+        + &get_entry_point_syscall_resources(
             &execution_resources.syscall_counter,
+        )?;
+    let total_vm_usage = &vm_and_syscall_usage
+        + &get_additional_tx_type_os_resources(
             tx_type,
             calldata_length,
         )?;
