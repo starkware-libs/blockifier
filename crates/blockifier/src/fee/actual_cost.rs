@@ -3,6 +3,7 @@ use std::sync::Arc;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
+use super::gas_usage::get_da_gas_cost;
 use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
@@ -11,15 +12,17 @@ use crate::fee::gas_usage::calculate_tx_gas_usage_vector;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
+#[derive(Default)]
 pub struct ActualCost {
     pub actual_fee: Fee,
+    pub da_gas: GasVector,
     pub actual_resources: ResourcesMapping,
 }
 
@@ -140,6 +143,10 @@ impl<'a> ActualCostBuilder<'a> {
                 .chain_info
                 .fee_token_address(&self.tx_context.tx_info.fee_type()),
         );
+        let da_gas = get_da_gas_cost(
+            state_changes_count,
+            self.tx_context.block_context.block_info.use_kzg_da,
+        );
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
@@ -173,6 +180,6 @@ impl<'a> ActualCostBuilder<'a> {
             Fee(0)
         };
 
-        Ok(ActualCost { actual_fee, actual_resources })
+        Ok(ActualCost { actual_fee, da_gas, actual_resources })
     }
 }
