@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
+use crate::execution::errors::PostExecutionError;
 use crate::fee::os_resources::OS_RESOURCES;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
@@ -61,7 +62,7 @@ pub fn get_additional_os_tx_resources(
 /// i.e., the resources of the Starknet OS function `execute_syscalls`.
 pub fn get_additional_os_syscall_resources(
     syscall_counter: &SyscallCounter,
-) -> Result<VmExecutionResources, TransactionExecutionError> {
+) -> Result<VmExecutionResources, PostExecutionError> {
     let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
