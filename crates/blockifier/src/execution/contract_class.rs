@@ -25,12 +25,16 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
     Program as DeprecatedProgram,
 };
+use starknet_api::hash::StarkHash;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
+use crate::execution::sierra_utils::felt_to_starkfelt;
+
 /// Represents a runnable Starknet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
@@ -47,7 +51,14 @@ impl ContractClass {
         match self {
             ContractClass::V0(class) => class.constructor_selector(),
             ContractClass::V1(class) => class.constructor_selector(),
-            ContractClass::V1Sierra(_) => todo!("sierra constructor selector"),
+            ContractClass::V1Sierra(class) => {
+                // todo : review it
+                class.entrypoints_by_type.constructor.first().map(|ep| {
+                    EntryPointSelector(StarkHash::from(felt_to_starkfelt(
+                        Felt::from_bytes_be_slice(ep.selector.to_bytes_be().as_slice()),
+                    )))
+                })
+            }
         }
     }
 

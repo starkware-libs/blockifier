@@ -39,7 +39,12 @@ pub fn match_entrypoint(
     contract_entrypoints: &ContractEntryPoints,
 ) -> &ContractEntryPoint {
     match entry_point_type {
-        EntryPointType::Constructor => todo!("Sierra util: match_entrypoint - constructor"),
+        // todo: check it
+        EntryPointType::Constructor => contract_entrypoints
+            .constructor
+            .iter()
+            .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
+            .expect("entrypoint not found"),
         EntryPointType::External => contract_entrypoints
             .external
             .iter()
@@ -81,12 +86,16 @@ pub fn get_native_executor<'context>(
     program_cache: Rc<RefCell<ProgramCache<'context, ClassHash>>>,
 ) -> NativeExecutor<'context> {
     let program_cache = &mut (*program_cache.borrow_mut());
+
     match program_cache {
         ProgramCache::Aot(cache) => {
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
                 Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
+                None => {
+                    // panic!("here 1");
+                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
+                }
             })
         }
         ProgramCache::Jit(_) => todo!("Sierra util: get native executor - jit"),

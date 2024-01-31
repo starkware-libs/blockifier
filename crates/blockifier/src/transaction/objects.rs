@@ -112,6 +112,20 @@ pub struct CurrentAccountTransactionContext {
     pub account_deployment_data: AccountDeploymentData,
 }
 
+impl Default for CurrentAccountTransactionContext {
+    fn default() -> Self {
+        Self {
+            common_fields: Default::default(),
+            resource_bounds: Default::default(),
+            tip: Default::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: Default::default(),
+            account_deployment_data: Default::default(),
+        }
+    }
+}
+
 impl CurrentAccountTransactionContext {
     /// Fetch the L1 resource bounds, if they exist.
     pub fn l1_resource_bounds(&self) -> TransactionFeeResult<ResourceBounds> {

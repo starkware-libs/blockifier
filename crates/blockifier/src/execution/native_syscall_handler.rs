@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use cairo_native::starknet::{ExecutionInfo, ExecutionInfoV2, Secp256k1Point, StarkNetSyscallHandler, SyscallResult, U256};
+use cairo_native::starknet::{
+    BlockInfo, ExecutionInfo, ExecutionInfoV2, Secp256k1Point, StarkNetSyscallHandler,
+    SyscallResult, TxInfo, TxV2Info, U256,
+};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
     PatriciaKey,
@@ -76,15 +79,57 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         }
     }
 
-    fn get_execution_info(
-        &mut self,
-        _remaining_gas: &mut u128,
-    ) -> SyscallResult<ExecutionInfo> {
-        todo!("Native syscall handler - get_execution_info") // only implemented for v1 in cairo native, but untested
+    fn get_execution_info(&mut self, _remaining_gas: &mut u128) -> SyscallResult<ExecutionInfo> {
+        Ok(ExecutionInfo {
+            block_info: BlockInfo {
+                block_number: 0,
+                block_timestamp: 0,
+                sequencer_address: Default::default(),
+            },
+            tx_info: TxInfo {
+                version: Default::default(),
+                account_contract_address: Default::default(),
+                max_fee: 0,
+                signature: vec![],
+                transaction_hash: Default::default(),
+                chain_id: Default::default(),
+                nonce: Default::default(),
+            },
+            caller_address: Default::default(),
+            contract_address: Default::default(),
+            entry_point_selector: Default::default(),
+        })
     }
 
-    fn get_execution_info_v2(&mut self, _remaining_gas: &mut u128) -> SyscallResult<ExecutionInfoV2> {
-        todo!("Native syscall handler - get_execution_info_v2")
+    fn get_execution_info_v2(
+        &mut self,
+        _remaining_gas: &mut u128,
+    ) -> SyscallResult<ExecutionInfoV2> {
+        Ok(ExecutionInfoV2 {
+            block_info: BlockInfo {
+                block_number: 0,
+                block_timestamp: 0,
+                sequencer_address: Default::default(),
+            },
+            tx_info: TxV2Info {
+                version: Default::default(),
+                account_contract_address: Default::default(),
+                max_fee: 0,
+                signature: vec![],
+                transaction_hash: Default::default(),
+                chain_id: Default::default(),
+                nonce: Default::default(),
+                resource_bounds: vec![],
+                tip: 0,
+                paymaster_data: vec![],
+                nonce_data_availability_mode: 0,
+                fee_data_availability_mode: 0,
+                account_deployment_data: vec![],
+            },
+            caller_address: Default::default(),
+            contract_address: Default::default(),
+            entry_point_selector: Default::default(),
+        })
     }
 
     fn deploy(
@@ -141,11 +186,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         Ok((contract_address_felt, return_data))
     }
 
-    fn replace_class(
-        &mut self,
-        class_hash: Felt,
-        _remaining_gas: &mut u128,
-    ) -> SyscallResult<()> {
+    fn replace_class(&mut self, class_hash: Felt, _remaining_gas: &mut u128) -> SyscallResult<()> {
         let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
         let contract_class = self
             .state
@@ -322,11 +363,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         Ok(())
     }
 
-    fn keccak(
-        &mut self,
-        input: &[u64],
-        _remaining_gas: &mut u128,
-    ) -> SyscallResult<U256> {
+    fn keccak(&mut self, input: &[u64], _remaining_gas: &mut u128) -> SyscallResult<U256> {
         let input_len = input.len();
 
         const KECCAK_FULL_RATE_IN_WORDS: usize = 17;
@@ -381,10 +418,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &self,
         _p: Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<(
-        U256,
-        U256,
-    )> {
+    ) -> SyscallResult<(U256, U256)> {
         todo!("Native syscall handler - secp256k1_get_xy") // unimplemented in cairo native
     }
 
@@ -428,10 +462,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &self,
         _p: Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<(
-        U256,
-        U256,
-    )> {
+    ) -> SyscallResult<(U256, U256)> {
         todo!("Native syscall handler - secp256r1_get_xy") // unimplemented in cairo native
     }
 
