@@ -18,7 +18,7 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::ResourcesMapping;
+use crate::transaction::objects::{GasVector, ResourcesMapping};
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 
 fn get_vm_resource_usage() -> ResourcesMapping {
@@ -41,7 +41,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
     assert_eq!(
-        *l1_gas_by_vm_usage as f64,
+        GasVector { l1_gas: *l1_gas_by_vm_usage as u128, blob_gas: 0 },
         calculate_l1_gas_by_vm_usage(&block_context, &vm_resource_usage).unwrap()
     );
 
