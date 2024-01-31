@@ -7,13 +7,12 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector,
-    get_consumed_message_to_l2_emissions_cost, get_log_message_to_l1_emissions_cost,
-    get_message_segment_length, get_onchain_data_cost,
+    calculate_tx_l1_gas_usage, get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
+    get_log_message_to_l1_emissions_cost, get_message_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
-use crate::utils::u128_from_usize;
+use crate::utils::{u128_from_usize, usize_from_u128};
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -53,7 +52,11 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
     let manual_blob_gas_usage =
         on_chain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT;
 
-    assert_eq!(manual_blob_gas_usage, calculate_tx_blob_gas_usage(state_changes_count, true));
+    let computed_gas_vector = get_da_gas_cost(state_changes_count, true);
+    assert_eq!(
+        GasVector { l1_gas: 0, blob_gas: u128_from_usize(manual_blob_gas_usage).unwrap() },
+        computed_gas_vector
+    );
 }
 
 /// This test goes over six cases. In each case, we calculate the gas usage given the parameters.
@@ -70,7 +73,7 @@ fn test_calculate_tx_blob_gas_usage_basic(#[case] state_changes_count: StateChan
 #[rstest]
 fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // An empty transaction (a theoretical case for sanity check).
-    let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
+    let empty_tx_gas_usage_vector = calculate_tx_l1_gas_usage(
         std::iter::empty(),
         StateChangesCount::default(),
         None,
@@ -90,12 +93,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
-    let (manual_sharp_gas_usage, manual_sharp_blob_gas_usage) = match use_kzg_da {
-        true => (0, calculate_tx_blob_gas_usage(deploy_account_state_changes_count, use_kzg_da)),
-        false => (get_onchain_data_cost(deploy_account_state_changes_count), 0),
-    };
+    let GasVector { l1_gas: manual_sharp_gas_usage, blob_gas: manual_sharp_blob_gas_usage } =
+        get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
 
-    let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
+    let deploy_account_gas_usage_vector = calculate_tx_l1_gas_usage(
         std::iter::empty(),
         deploy_account_state_changes_count,
         None,
@@ -104,19 +105,13 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     .unwrap();
     let GasVector { l1_gas: deploy_account_gas_usage, blob_gas: deploy_account_blob_gas_usage } =
         deploy_account_gas_usage_vector;
-    assert_eq!(
-        u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
-        deploy_account_gas_usage,
-    );
-    assert_eq!(
-        u128_from_usize(manual_sharp_blob_gas_usage).unwrap(),
-        deploy_account_blob_gas_usage
-    );
+    assert_eq!(manual_starknet_gas_usage + manual_sharp_gas_usage, deploy_account_gas_usage,);
+    assert_eq!(manual_sharp_blob_gas_usage, deploy_account_blob_gas_usage);
 
     // L1 handler.
 
     let l1_handler_payload_size = 4;
-    let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
+    let l1_handler_gas_usage_vector = calculate_tx_l1_gas_usage(
         std::iter::empty(),
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
@@ -177,7 +172,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
         n_modified_contracts: 1,
     };
-    let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
+    let l2_to_l1_messages_gas_usage_vector = calculate_tx_l1_gas_usage(
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
         None,
@@ -197,21 +192,16 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
     let manual_sharp_gas_usage = message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
-        + match use_kzg_da {
-            true => 0,
-            false => get_onchain_data_cost(l2_to_l1_state_changes_count),
-        };
+        + usize_from_u128(get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_gas)
+            .unwrap();
     let manual_sharp_blob_gas_usage =
-        calculate_tx_blob_gas_usage(l2_to_l1_state_changes_count, use_kzg_da);
+        get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).blob_gas;
 
     assert_eq!(
         u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
         l2_to_l1_messages_gas_usage
     );
-    assert_eq!(
-        u128_from_usize(manual_sharp_blob_gas_usage).unwrap(),
-        l2_to_l1_messages_blob_gas_usage
-    );
+    assert_eq!(manual_sharp_blob_gas_usage, l2_to_l1_messages_blob_gas_usage);
 
     // Any calculation with storage writings.
 
@@ -223,7 +213,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
         n_modified_contracts,
     };
-    let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
+    let storage_writings_gas_usage_vector = calculate_tx_l1_gas_usage(
         std::iter::empty(),
         storage_writes_state_changes_count,
         None,
@@ -235,17 +225,12 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     // Manual calculation.
     let (manual_starknet_gas_usage, manual_starknet_blob_gas_usage) = (0, 0);
-    let (manual_sharp_gas_usage, manual_sharp_blob_gas_usage) = match use_kzg_da {
-        true => (0, calculate_tx_blob_gas_usage(storage_writes_state_changes_count, use_kzg_da)),
-        false => (get_onchain_data_cost(storage_writes_state_changes_count), 0),
-    };
+    let GasVector { l1_gas: manual_sharp_gas_usage, blob_gas: manual_sharp_blob_gas_usage } =
+        get_da_gas_cost(storage_writes_state_changes_count, use_kzg_da);
 
+    assert_eq!(manual_starknet_gas_usage + manual_sharp_gas_usage, storage_writings_gas_usage);
     assert_eq!(
-        u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
-        storage_writings_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(manual_starknet_blob_gas_usage + manual_sharp_blob_gas_usage).unwrap(),
+        manual_starknet_blob_gas_usage + manual_sharp_blob_gas_usage,
         storage_writings_blob_gas_usage
     );
 
@@ -257,14 +242,13 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts: storage_writes_state_changes_count.n_modified_contracts
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
-    let gas_usage_vector = calculate_tx_gas_usage_vector(
+    let gas_usage_vector = calculate_tx_l1_gas_usage(
         call_infos_iter,
         combined_state_changes_count,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
     .unwrap();
-    let GasVector { l1_gas, blob_gas } = gas_usage_vector;
 
     // Manual calculation.
     let fee_balance_discount = match use_kzg_da {
@@ -274,24 +258,25 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         }
     };
 
-    let expected_gas_usage = l1_handler_gas_usage
+    let expected_gas_vector = GasVector {
+        l1_gas: l1_handler_gas_usage
         + l2_to_l1_messages_gas_usage
         + storage_writings_gas_usage
         // l2_to_l1_messages_gas_usage and storage_writings_gas_usage got a discount each, while
         // the combined calculation got it once.
-        + u128_from_usize(fee_balance_discount).unwrap();
-    let expected_blob_gas_usage =
-        u128_from_usize(calculate_tx_blob_gas_usage(combined_state_changes_count, use_kzg_da))
-            .unwrap();
+        + u128_from_usize(fee_balance_discount).unwrap(),
+        // Expected blob gas usage is from data availability only.
+        blob_gas: get_da_gas_cost(combined_state_changes_count, use_kzg_da).blob_gas,
+    };
 
-    assert_eq!(l1_gas, expected_gas_usage);
-    assert_eq!(blob_gas, expected_blob_gas_usage);
+    assert_eq!(expected_gas_vector, gas_usage_vector);
 }
 
 #[test]
 fn test_onchain_data_discount() {
+    let use_kzg_da = false;
     // Check that there's no negative cost.
-    assert_eq!(get_onchain_data_cost(StateChangesCount::default()), 0);
+    assert_eq!(get_da_gas_cost(StateChangesCount::default(), use_kzg_da).l1_gas, 0);
 
     // Check discount: modified_contract_felt and fee balance discount.
     let state_changes_count = StateChangesCount {
@@ -320,14 +305,17 @@ fn test_onchain_data_discount() {
         + fee_balance_key_cost
         + fee_balance_value_cost;
 
-    assert_eq!(get_onchain_data_cost(state_changes_count), expected_cost);
+    assert_eq!(
+        get_da_gas_cost(state_changes_count, use_kzg_da).l1_gas,
+        expected_cost.try_into().unwrap()
+    );
 
     // Test 10% discount.
     let state_changes_count =
         StateChangesCount { n_storage_updates: 27, ..StateChangesCount::default() };
 
     let cost_without_discount = (state_changes_count.n_storage_updates * 2) * (512 + 100);
-    let actual_cost = get_onchain_data_cost(state_changes_count);
+    let actual_cost = get_da_gas_cost(state_changes_count, use_kzg_da).l1_gas;
     let cost_ratio = (actual_cost as f64) / (cost_without_discount as f64);
     assert!(cost_ratio <= 0.9);
     assert!(cost_ratio >= 0.88);

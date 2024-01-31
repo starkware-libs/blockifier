@@ -20,42 +20,6 @@ use crate::utils::u128_from_usize;
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-pub fn calculate_tx_gas_usage_vector<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
-    l1_handler_payload_size: Option<usize>,
-    use_kzg_da: bool,
-) -> TransactionExecutionResult<GasVector> {
-    Ok(GasVector {
-        l1_gas: u128_from_usize(calculate_tx_l1_gas_usage(
-            call_infos,
-            state_changes_count,
-            l1_handler_payload_size,
-            use_kzg_da,
-        )?)
-        .expect("Result of calculate_tx_l1_gas_usage failed conversion to u128."),
-        blob_gas: u128_from_usize(calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da))
-            .expect("Result of calculate_tx_blob_gas_usage failed conversion to u128."),
-    })
-}
-
-/// Returns the blob-gas (data-gas) needed to publish the transaction's state diff (if use_kzg_da is
-/// false, zero blob is needed).
-// TODO(Aner, 30/1/24) Refactor: create a new function get_da_gas_cost(state_changes_count,
-// use_kzg_da) -> GasVector that replaces calculate_tx_blob_gas_usage and get_onchain_data_cost, and
-// delete these functions.
-pub fn calculate_tx_blob_gas_usage(
-    state_changes_count: StateChangesCount,
-    use_kzg_da: bool,
-) -> usize {
-    if use_kzg_da {
-        let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
-        onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT
-    } else {
-        0
-    }
-}
-
 /// Returns an estimation of the L1 gas amount that will be used (by Starknet's state update and
 /// the Verifier) following the addition of a transaction with the given parameters to a batch;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
@@ -65,14 +29,9 @@ pub fn calculate_tx_l1_gas_usage<'a>(
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
     use_kzg_da: bool,
-) -> TransactionExecutionResult<usize> {
-    let gas_for_messages = calculate_messages_l1_gas_usage(call_infos, l1_handler_payload_size)?;
-    if use_kzg_da {
-        Ok(gas_for_messages)
-    } else {
-        let gas_for_da = get_onchain_data_cost(state_changes_count);
-        Ok(gas_for_messages + gas_for_da)
-    }
+) -> TransactionExecutionResult<GasVector> {
+    Ok(calculate_messages_l1_gas_usage(call_infos, l1_handler_payload_size)?
+        + get_da_gas_cost(state_changes_count, use_kzg_da))
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
@@ -80,7 +39,7 @@ pub fn calculate_tx_l1_gas_usage<'a>(
 pub fn calculate_messages_l1_gas_usage<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<usize> {
+) -> TransactionExecutionResult<GasVector> {
     let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
         MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
 
@@ -101,7 +60,11 @@ pub fn calculate_messages_l1_gas_usage<'a>(
 
     let sharp_gas_usage = message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
 
-    Ok(starknet_gas_usage + sharp_gas_usage)
+    Ok(GasVector {
+        l1_gas: u128_from_usize(starknet_gas_usage + sharp_gas_usage)
+            .expect("Failed to convert messages L1 gas usage from usize to u128."),
+        blob_gas: 0,
+    })
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
@@ -124,33 +87,45 @@ fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> us
     onchain_data_segment_length
 }
 
-/// Returns the gas cost of publishing the onchain data on L1.
-// TODO(Aner, 30/1/24) Refactor: create a new function get_da_gas_cost(state_changes_count,
-// use_kzg_da) -> GasVector that replaces calculate_tx_blob_gas_usage and get_onchain_data_cost, and
-// delete these functions.
-pub fn get_onchain_data_cost(state_changes_count: StateChangesCount) -> usize {
+/// Returns the gas cost of data availability on L1.
+pub fn get_da_gas_cost(state_changes_count: StateChangesCount, use_kzg_da: bool) -> GasVector {
     let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
-    // TODO(Yoni, 1/5/2024): count the exact amount of nonzero bytes for each DA entry.
-    let naive_cost = onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_DA_WORD;
 
-    // For each modified contract, the expected non-zeros bytes in the second word are:
-    // 1 bytes for class hash flag; 2 for number of storage updates (up to 64K);
-    // 3 for nonce update (up to 16M).
-    let modified_contract_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
-    let modified_contract_discount =
-        eth_gas_constants::GAS_PER_MEMORY_WORD - modified_contract_cost;
-    let mut discount = state_changes_count.n_modified_contracts * modified_contract_discount;
-
-    // Up to balance of 8*(10**10) ETH.
-    let fee_balance_value_cost = eth_gas_constants::get_calldata_word_cost(12);
-    discount += eth_gas_constants::GAS_PER_MEMORY_WORD - fee_balance_value_cost;
-
-    if naive_cost < discount {
-        // Cost must be non-negative after discount.
-        0
+    let (l1_gas, blob_gas) = if use_kzg_da {
+        (
+            0,
+            u128_from_usize(
+                onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT,
+            )
+            .expect("Failed to convert blob gas usage from usize to u128."),
+        )
     } else {
-        naive_cost - discount
-    }
+        // TODO(Yoni, 1/5/2024): count the exact amount of nonzero bytes for each DA entry.
+        let naive_cost = onchain_data_segment_length * eth_gas_constants::SHARP_GAS_PER_DA_WORD;
+
+        // For each modified contract, the expected non-zeros bytes in the second word are:
+        // 1 bytes for class hash flag; 2 for number of storage updates (up to 64K);
+        // 3 for nonce update (up to 16M).
+        let modified_contract_cost = eth_gas_constants::get_calldata_word_cost(1 + 2 + 3);
+        let modified_contract_discount =
+            eth_gas_constants::GAS_PER_MEMORY_WORD - modified_contract_cost;
+        let mut discount = state_changes_count.n_modified_contracts * modified_contract_discount;
+
+        // Up to balance of 8*(10**10) ETH.
+        let fee_balance_value_cost = eth_gas_constants::get_calldata_word_cost(12);
+        discount += eth_gas_constants::GAS_PER_MEMORY_WORD - fee_balance_value_cost;
+
+        let gas = if naive_cost < discount {
+            // Cost must be non-negative after discount.
+            0
+        } else {
+            naive_cost - discount
+        };
+
+        (u128_from_usize(gas).expect("Failed to convert L1 gas usage from usize to u128."), 0)
+    };
+
+    GasVector { l1_gas, blob_gas }
 }
 
 /// Returns the number of felts added to the output messages segment as a result of adding
@@ -245,14 +220,12 @@ pub fn estimate_minimal_gas_vector(
         },
     };
     let use_kzg_da = block_context.block_info.use_kzg_da;
-    let (gas_cost, blob_gas_cost): (usize, usize) = match use_kzg_da {
-        true => (0, calculate_tx_blob_gas_usage(state_changes_by_account_transaction, use_kzg_da)),
-        false => (get_onchain_data_cost(state_changes_by_account_transaction), 0),
-    };
+    let GasVector { l1_gas: gas_cost, blob_gas: blob_gas_cost } =
+        get_da_gas_cost(state_changes_by_account_transaction, use_kzg_da);
 
     let resources = ResourcesMapping(HashMap::from([
-        (constants::L1_GAS_USAGE.to_string(), gas_cost),
-        (constants::BLOB_GAS_USAGE.to_string(), blob_gas_cost),
+        (constants::L1_GAS_USAGE.to_string(), gas_cost.try_into().unwrap()),
+        (constants::BLOB_GAS_USAGE.to_string(), blob_gas_cost.try_into().unwrap()),
         (constants::N_STEPS_RESOURCE.to_string(), os_steps_for_type),
     ]));
 
