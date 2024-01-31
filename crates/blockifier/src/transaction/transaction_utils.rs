@@ -9,7 +9,7 @@ use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::os_usage::{get_additional_os_syscall_resources, get_additional_os_tx_resources};
+use crate::fee::os_usage::get_additional_os_tx_resources;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
@@ -29,10 +29,11 @@ pub fn calculate_tx_resources(
     let l1_blob_gas_usage = usize_from_u128(gas_vector.blob_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let vm_and_syscall_usage = &execution_resources.vm_resources
-        + &get_additional_os_syscall_resources(&execution_resources.syscall_counter)?;
-    let total_vm_usage =
-        &vm_and_syscall_usage + &get_additional_os_tx_resources(tx_type, calldata_length)?;
+    let total_vm_usage = &execution_resources.vm_resources
+        + &get_additional_os_tx_resources(
+            tx_type,
+            calldata_length,
+        )?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.

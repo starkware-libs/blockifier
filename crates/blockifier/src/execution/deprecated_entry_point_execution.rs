@@ -22,6 +22,7 @@ use crate::execution::errors::{
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
 };
+use crate::fee::os_usage::get_entry_point_syscall_resources;
 use crate::state::state_api::State;
 
 pub struct VmExecutionContext<'a> {
@@ -235,13 +236,16 @@ pub fn finalize_execution(
     let implicit_args_end_ptr = (vm.get_ap() - 2)?;
     validate_run(&mut vm, &runner, &syscall_handler, implicit_args, implicit_args_end_ptr)?;
 
-    // Take into account the VM execution resources of the current call, without inner calls.
+    // Take into account the VM execution resources of the current call.
     // Has to happen after marking holes in segments as accessed.
     let vm_resources_without_inner_calls = runner
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.resources.vm_resources += &get_entry_point_syscall_resources(
+        &syscall_handler.syscall_counter,
+    )?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
