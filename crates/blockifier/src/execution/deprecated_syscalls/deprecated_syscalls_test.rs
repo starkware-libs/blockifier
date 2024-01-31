@@ -248,29 +248,32 @@ fn test_call_contract() {
 #[test]
 fn test_replace_class() {
     // Negative flow.
-    let mut state = deprecated_create_deploy_test_state();
+    let chain_info = &ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo0);
+    let mut state = test_state(chain_info, 0, &[(test_contract, 1), (empty_contract, 1)]);
+    let test_address = test_contract.get_instance_address(0);
     // Replace with undeclared class hash.
     let calldata = calldata![stark_felt!(1234_u16)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address)
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
 
     // Positive flow.
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    let old_class_hash = class_hash!(TEST_CLASS_HASH);
-    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
+    let old_class_hash = test_contract.get_class_hash();
+    let new_class_hash = empty_contract.get_class_hash();
+    assert_eq!(state.get_class_hash_at(test_address).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address)
     };
     entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
+    assert_eq!(state.get_class_hash_at(test_address).unwrap(), new_class_hash);
 }
 
 #[test_case(
