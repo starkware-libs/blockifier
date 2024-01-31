@@ -156,6 +156,8 @@ pub struct TransactionExecutionInfo {
     pub fee_transfer_call_info: Option<CallInfo>,
     /// The actual fee that was charged (in Wei).
     pub actual_fee: Fee,
+    /// Actual gas consumption the transaction is charged for data availability.
+    pub da_gas: GasVector,
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
