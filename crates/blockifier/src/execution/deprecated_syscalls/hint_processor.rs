@@ -98,6 +98,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
     pub inner_calls: Vec<CallInfo>,
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    pub entry_point_syscall_counter: SyscallCounter,
 
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
@@ -133,6 +134,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
+            entry_point_syscall_counter: SyscallCounter::default(),
             read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
@@ -289,6 +291,9 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
         let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
+        let entry_point_syscall_count =
+            self.entry_point_syscall_counter.entry(*selector).or_default();
+        *entry_point_syscall_count += 1;
     }
 
     fn allocate_tx_signature_segment(
