@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
-use blockifier::block_context::BlockContext;
-use blockifier::block_execution::{pre_process_block, BlockNumberHashPair};
+use blockifier::block::{pre_process_block, BlockNumberHashPair};
+use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
@@ -192,7 +192,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         (PyStateDiff::from(self.state.to_state_diff()), visited_pcs)
     }
 
-    // Block pre-processing; see `block_execution::pre_process_block` documentation.
+    // Block pre-processing; see `block::pre_process_block` documentation.
     pub fn pre_process_block(
         &mut self,
         old_block_number_and_hash: Option<(u64, PyFelt)>,

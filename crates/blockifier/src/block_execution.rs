@@ -10,17 +10,6 @@ use crate::state::state_api::{State, StateResult};
 #[path = "block_execution_test.rs"]
 pub mod test;
 
-pub struct BlockNumberHashPair {
-    pub number: BlockNumber,
-    pub hash: BlockHash,
-}
-
-impl BlockNumberHashPair {
-    pub fn new(block_number: u64, block_hash: StarkFelt) -> BlockNumberHashPair {
-        BlockNumberHashPair { number: BlockNumber(block_number), hash: BlockHash(block_hash) }
-    }
-}
-
 // Block pre-processing.
 // Writes the hash of the (current_block_number - N) block under its block number in the dedicated
 // contract state, where N=STORED_BLOCK_HASH_BUFFER.
