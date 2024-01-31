@@ -120,7 +120,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + eth_gas_constants::GAS_PER_COUNTER_DECREASE
-        + get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size));
+        + usize_from_u128(
+            get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size)).l1_gas,
+        )
+        .unwrap();
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
     let manual_gas_computation = GasVector {
@@ -180,7 +183,8 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let n_l2_to_l1_messages = l2_to_l1_payload_lengths.len();
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
-        + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
+        + usize_from_u128(get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths).l1_gas)
+            .unwrap();
     let manual_sharp_gas_usage = message_segment_length
         * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD
         + usize_from_u128(get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_gas)

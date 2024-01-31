@@ -46,25 +46,32 @@ pub fn calculate_messages_gas_vector<'a>(
     let n_l2_to_l1_messages = l2_to_l1_payload_lengths.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
-    let starknet_gas_usage =
-    // Starknet's updateState gets the message segment as an argument.
-    message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
-    // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
-    + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
-    // Starknet's updateState decreases a (storage) counter for each L1-to-L2 consumed message.
-    // (Note that we will probably get a refund of 15,000 gas for each consumed message but we
-    // ignore it since refunded gas cannot be used for the current transaction execution).
-    + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE
-    + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
-    + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
-
-    let sharp_gas_usage = message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
-
-    Ok(GasVector {
-        l1_gas: u128_from_usize(starknet_gas_usage + sharp_gas_usage)
-            .expect("Failed to convert messages L1 gas usage from usize to u128."),
+    let starknet_gas_usage = GasVector {
+        // Starknet's updateState gets the message segment as an argument.
+        l1_gas: u128_from_usize(
+            message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
+            // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
+            + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
+            // Starknet's updateState decreases a (storage) counter for each L1-to-L2 consumed
+            // message (note that we will probably get a refund of 15,000 gas for each consumed
+            // message but we ignore it since refunded gas cannot be used for the current
+            // transaction execution).
+            + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE,
+        )
+        .expect("Could not convert starknet gas usage from usize to u128."),
         blob_gas: 0,
-    })
+    } + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
+        + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
+
+    let sharp_gas_usage = GasVector {
+        l1_gas: u128_from_usize(
+            message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
+        )
+        .expect("Could not convert sharp gas usage from usize to u128."),
+        blob_gas: 0,
+    };
+
+    Ok(starknet_gas_usage + sharp_gas_usage)
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
@@ -155,9 +162,12 @@ pub fn get_message_segment_length(
 
 /// Returns the cost of ConsumedMessageToL2 event emissions caused by an L1 handler with the given
 /// payload size.
-pub fn get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size: Option<usize>) -> usize {
+pub fn get_consumed_message_to_l2_emissions_cost(
+    l1_handler_payload_size: Option<usize>,
+) -> GasVector {
     match l1_handler_payload_size {
-        None => 0, // The corresponding transaction is not an L1 handler.,
+        // The corresponding transaction is not an L1 handler.,
+        None => GasVector { l1_gas: 0, blob_gas: 0 },
         Some(l1_handler_payload_size) => {
             get_event_emission_cost(
                 constants::CONSUMED_MSG_TO_L2_N_TOPICS,
@@ -169,7 +179,7 @@ pub fn get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size: Option
 }
 
 /// Returns the cost of LogMessageToL1 event emissions caused by the given messages payload length.
-pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) -> usize {
+pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) -> GasVector {
     l2_to_l1_payload_lengths
         .iter()
         .map(|length| {
@@ -182,10 +192,16 @@ pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) 
         .sum()
 }
 
-fn get_event_emission_cost(n_topics: usize, data_length: usize) -> usize {
-    eth_gas_constants::GAS_PER_LOG
-        + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
-        + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD
+fn get_event_emission_cost(n_topics: usize, data_length: usize) -> GasVector {
+    GasVector {
+        l1_gas: u128_from_usize(
+            eth_gas_constants::GAS_PER_LOG
+                + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
+                + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD,
+        )
+        .expect("Cannot convert event emission gas from usize to u128."),
+        blob_gas: 0,
+    }
 }
 
 /// Return an estimated lower bound for the L1 gas on an account transaction.
