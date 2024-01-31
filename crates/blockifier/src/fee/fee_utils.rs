@@ -42,7 +42,7 @@ pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, Resour
 pub fn calculate_l1_gas_by_vm_usage(
     versioned_constants: &VersionedConstants,
     vm_resource_usage: &ResourcesMapping,
-) -> TransactionFeeResult<f64> {
+) -> TransactionFeeResult<GasVector> {
     let vm_resource_fee_costs = &versioned_constants.vm_resource_fee_cost;
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
@@ -57,7 +57,8 @@ pub fn calculate_l1_gas_by_vm_usage(
         })
         .fold(f64::NAN, f64::max);
 
-    Ok(vm_l1_gas_usage)
+    // TODO(Dori, 1/5/2024): Check this conversion.
+    Ok(GasVector { l1_gas: vm_l1_gas_usage.ceil() as u128, blob_gas: 0 })
 }
 
 /// Computes and returns the total L1 gas consumption.
@@ -69,14 +70,14 @@ pub fn calculate_tx_gas_vector(
 ) -> TransactionFeeResult<GasVector> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
-    let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
-    let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
+    let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
 
     Ok(GasVector {
-        l1_gas: total_l1_gas_usage.ceil() as u128,
+        l1_gas: u128_from_usize(l1_gas_usage)
+            .expect("Conversion from usize to u128 should not fail."),
         blob_gas: u128_from_usize(l1_blob_gas_usage)
             .expect("Conversion from usize to u128 should not fail."),
-    })
+    } + vm_usage_gas_vector)
 }
 
 pub fn get_fee_by_gas_vector(
