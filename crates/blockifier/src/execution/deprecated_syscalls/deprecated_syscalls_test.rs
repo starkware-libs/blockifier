@@ -18,6 +18,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::block_context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
@@ -27,9 +28,12 @@ use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
 };
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    trivial_external_entry_point, trivial_external_entry_point_with_address, CairoVersion,
+    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -239,29 +243,32 @@ fn test_call_contract() {
 #[test]
 fn test_replace_class() {
     // Negative flow.
-    let mut state = deprecated_create_deploy_test_state();
+    let chain_info = &ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo0);
+    let mut state = test_state(chain_info, 0, &[(test_contract, 1), (empty_contract, 1)]);
+    let test_address_0 = test_contract.get_instance_address(0);
     // Replace with undeclared class hash.
     let calldata = calldata![stark_felt!(1234_u16)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address_0)
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
 
     // Positive flow.
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    let old_class_hash = class_hash!(TEST_CLASS_HASH);
-    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
+    let old_class_hash = test_contract.get_class_hash();
+    let new_class_hash = empty_contract.get_class_hash();
+    assert_eq!(state.get_class_hash_at(test_address_0).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address_0)
     };
     entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
+    assert_eq!(state.get_class_hash_at(test_address_0).unwrap(), new_class_hash);
 }
 
 #[test_case(
