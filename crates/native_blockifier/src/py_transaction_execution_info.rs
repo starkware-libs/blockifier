@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
-use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::transaction::objects::{GasVector, TransactionExecutionInfo};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -21,6 +21,8 @@ pub struct PyTransactionExecutionInfo {
     #[pyo3(get)]
     pub actual_fee: u128,
     #[pyo3(get)]
+    pub da_gas: PyGasVector,
+    #[pyo3(get)]
     pub actual_resources: HashMap<String, usize>,
     #[pyo3(get)]
     pub revert_error: Option<String>,
@@ -34,9 +36,25 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
             execute_call_info: info.execute_call_info.map(PyCallInfo::from),
             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
             actual_fee: info.actual_fee.0,
+            da_gas: info.da_gas.into(),
             actual_resources: info.actual_resources.0,
             revert_error: info.revert_error,
         }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyGasVector {
+    #[pyo3(get)]
+    pub l1_gas: u128,
+    #[pyo3(get)]
+    pub blob_gas: u128,
+}
+
+impl From<GasVector> for PyGasVector {
+    fn from(value: GasVector) -> Self {
+        Self { l1_gas: value.l1_gas, blob_gas: value.blob_gas }
     }
 }
 
