@@ -6,8 +6,7 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
-use super::default_testing_resource_bounds;
-use crate::test_utils::NonceManager;
+use crate::test_utils::{default_testing_resource_bounds, NonceManager};
 use crate::transaction::transactions::DeployAccountTransaction;
 
 #[derive(Clone)]
