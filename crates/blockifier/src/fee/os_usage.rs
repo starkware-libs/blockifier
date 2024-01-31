@@ -31,14 +31,25 @@ impl OsResources {
     }
 }
 
-/// Calculates the additional resources needed for the OS to run the given syscalls;
-/// i.e., the resources of the Starknet OS function `execute_syscalls`.
-pub fn get_additional_os_resources(
-    syscall_counter: &SyscallCounter,
+// Calculates the additional resources needed for the OS to run the given transaction;
+// i.e., the resources of the Starknet OS function `execute_transactions_inner`.
+// Also adds the resources needed for the fee transfer execution, performed in the end·
+// of every transaction.
+pub fn get_additional_tx_type_os_resources(
     tx_type: TransactionType,
     _calldata_length: usize,
 ) -> Result<VmExecutionResources, TransactionExecutionError> {
     // TODO(Noa, 21/01/24): Use calldata_length.
+    let os_additional_vm_resources = VmExecutionResources::default();
+    let os_resources = OS_RESOURCES.resources_for_tx_type(&tx_type);
+    Ok(&os_additional_vm_resources + os_resources)
+}
+
+/// Calculates the additional resources needed for the OS to run the given syscalls;
+/// i.e., the resources of the Starknet OS function `execute_syscalls`.
+pub fn get_entry_point_syscall_resources(
+    syscall_counter: &SyscallCounter,
+) -> Result<VmExecutionResources, TransactionExecutionError> {
     let mut os_additional_vm_resources = VmExecutionResources::default();
     for (syscall_selector, count) in syscall_counter {
         let syscall_resources =
@@ -47,11 +58,5 @@ pub fn get_additional_os_resources(
             });
         os_additional_vm_resources += &(syscall_resources * *count);
     }
-
-    // Calculates the additional resources needed for the OS to run the given transaction;
-    // i.e., the resources of the Starknet OS function `execute_transactions_inner`.
-    // Also adds the resources needed for the fee transfer execution, performed in the end·
-    // of every transaction.
-    let os_resources = OS_RESOURCES.resources_for_tx_type(&tx_type);
-    Ok(&os_additional_vm_resources + os_resources)
+    Ok(os_additional_vm_resources)
 }
