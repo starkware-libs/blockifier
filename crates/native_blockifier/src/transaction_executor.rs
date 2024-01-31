@@ -14,13 +14,14 @@ use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
+use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
+use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
@@ -46,15 +47,13 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
         state_reader: S,
         general_config: &PyGeneralConfig,
+        versioned_constants: &VersionedConstants,
         block_info: PyBlockInfo,
-        max_recursion_depth: usize,
         global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
-        let block_context_args =
-            into_block_context_args(general_config, block_info, max_recursion_depth)?;
         let tx_executor = Self {
-            block_context: BlockContext::new_unchecked(block_context_args),
+            block_context: into_block_context(general_config, versioned_constants, block_info)?,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),

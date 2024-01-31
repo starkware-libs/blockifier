@@ -182,7 +182,7 @@ impl AccountTransaction {
         let minimal_l1_gas_amount = compute_discounted_gas_from_gas_vector(
             &minimal_l1_gas_amount_vector,
             account_tx_context,
-            block_context,
+            &block_context.block_info,
         );
 
         let block_info = &block_context.block_info;

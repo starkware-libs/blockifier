@@ -20,6 +20,7 @@ use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::ResourcesMapping;
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
+use crate::versioned_constants::VersionedConstants;
 
 fn get_vm_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
@@ -34,7 +35,7 @@ fn get_vm_resource_usage() -> ResourcesMapping {
 
 #[test]
 fn test_calculate_l1_gas_by_vm_usage() {
-    let block_context = BlockContext::create_for_account_testing();
+    let versioned_constants = VersionedConstants::create_for_account_testing();
     let vm_resource_usage = get_vm_resource_usage();
 
     // Positive flow.
@@ -42,7 +43,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
     assert_eq!(
         *l1_gas_by_vm_usage as f64,
-        calculate_l1_gas_by_vm_usage(&block_context, &vm_resource_usage).unwrap()
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
     );
 
     // Negative flow.
@@ -50,7 +51,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     let mut invalid_vm_resource_usage = ResourcesMapping(vm_resource_usage.0.clone());
     invalid_vm_resource_usage.0.insert(String::from("bad_resource_name"), 17);
     let error =
-        calculate_l1_gas_by_vm_usage(&block_context, &invalid_vm_resource_usage).unwrap_err();
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &invalid_vm_resource_usage).unwrap_err();
     assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
 }
 
