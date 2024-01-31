@@ -35,8 +35,7 @@ use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecution
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_blob_gas_usage, calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
-    get_onchain_data_cost,
+    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -71,7 +70,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
-use crate::utils::u128_from_usize;
+use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::{
     check_transaction_execution_error_for_custom_hint,
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
@@ -414,18 +413,19 @@ fn test_invoke_tx(
         n_modified_contracts: 1,
         ..StateChangesCount::default()
     };
-    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
-        true => (0, calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da)),
-        false => (get_onchain_data_cost(state_changes_count), 0),
-    };
+    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
+        get_da_gas_cost(state_changes_count, use_kzg_da);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
-            (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
+            (
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(expected_blob_gas_usage).unwrap(),
+            ),
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -1069,13 +1069,7 @@ fn declare_expected_gas_vector(version: TransactionVersion, use_kzg_da: bool) ->
         version => panic!("Unsupported version {version:?}."),
     };
 
-    let expected_gas_usage = match use_kzg_da {
-        true => 0,
-        false => u128_from_usize(get_onchain_data_cost(state_changes_count)).unwrap(),
-    };
-    let expected_blob_gas_usage =
-        u128_from_usize(calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da)).unwrap();
-    GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage }
+    get_da_gas_cost(state_changes_count, use_kzg_da)
 }
 
 #[rstest]
@@ -1278,10 +1272,8 @@ fn test_deploy_account_tx(
         n_class_hash_updates: 1,
         ..StateChangesCount::default()
     };
-    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
-        true => (0, calculate_tx_blob_gas_usage(state_changes_count, use_kzg_da)),
-        false => (get_onchain_data_cost(state_changes_count), 0),
-    };
+    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
+        get_da_gas_cost(state_changes_count, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1290,8 +1282,11 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
-            (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
+            (
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(expected_blob_gas_usage).unwrap(),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),

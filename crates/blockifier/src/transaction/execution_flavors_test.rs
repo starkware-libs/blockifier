@@ -115,7 +115,7 @@ fn check_gas_and_fee(
     );
     assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
     // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
-    // `calculate_tx_fee` is simply the result of `calculate_tx_l1_gas_usage` times gas price).
+    // `calculate_tx_fee` is simply the result of `calculate_tx_gas_usage_vector` times gas price).
     assert_eq!(
         calculate_tx_fee(&tx_execution_info.actual_resources, block_context, fee_type).unwrap(),
         expected_cost_of_resources
