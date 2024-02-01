@@ -118,7 +118,14 @@ impl PyBlockExecutor {
     /// visited PC values.
     pub fn finalize(&mut self, is_pending_block: bool) -> (PyStateDiff, Vec<(PyFelt, Vec<usize>)>) {
         log::debug!("Finalizing execution...");
-        let finalized_state = self.tx_executor().finalize(is_pending_block);
+        let (commitment_state_diff, visited_pcs) = self.tx_executor().finalize(is_pending_block);
+        let visited_pcs = visited_pcs
+            .iter()
+            .map(|(class_hash, class_visited_pcs_vec)| {
+                (PyFelt::from(*class_hash), class_visited_pcs_vec.clone())
+            })
+            .collect();
+        let finalized_state = (PyStateDiff::from(commitment_state_diff), visited_pcs);
         log::debug!("Finalized execution.");
 
         finalized_state
