@@ -3,6 +3,7 @@
         "max_calldata_length": 4000,
         "max_contract_bytecode_size": 61440
     },
+    "milli_gas_per_calldata_byte": 40,
     "invoke_tx_max_n_steps": 3000000,
     "max_recursion_depth": 50,
     "os_resources": {

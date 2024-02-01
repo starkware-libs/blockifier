@@ -35,7 +35,8 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_da_gas_cost,
+    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_calldata_gas_cost,
+    get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -339,6 +340,7 @@ fn test_invoke_tx(
     #[values(false, true)] use_kzg_da: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -426,7 +428,8 @@ fn test_invoke_tx(
         n_modified_contracts: 1,
         ..StateChangesCount::default()
     };
-    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
+    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da)
+        + get_calldata_gas_cost(*calldata_length, versioned_constants);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1470,6 +1473,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
@@ -1480,6 +1484,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         account_contract_address,
         test_contract.get_instance_address(0),
     ));
+    let calldata_length = account_tx.calldata_length();
     let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -1492,9 +1497,15 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let gas_vector =
-        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
-            .unwrap();
+    let gas_vector = calculate_tx_gas_usage_vector(
+        versioned_constants,
+        std::iter::empty(),
+        state_changes_count,
+        calldata_length,
+        None,
+        use_kzg_da,
+    )
+    .unwrap();
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
@@ -1525,6 +1536,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         nonce: Nonce(stark_felt!(1_u8)),
     });
 
+    let calldata_length = account_tx.calldata_length();
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.
     let n_storage_updates = 2;
@@ -1537,9 +1549,15 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let gas_vector =
-        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
-            .unwrap();
+    let gas_vector = calculate_tx_gas_usage_vector(
+        versioned_constants,
+        std::iter::empty(),
+        state_changes_count,
+        calldata_length,
+        None,
+        use_kzg_da,
+    )
+    .unwrap();
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
@@ -1708,8 +1726,8 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Build the expected resource mapping.
     let expected_gas = match use_kzg_da {
-        true => GasVector { l1_gas: 16023, l1_data_gas: 128 },
-        false => GasVector { l1_gas: 17675, l1_data_gas: 0 },
+        true => GasVector { l1_gas: 16033, l1_data_gas: 128 },
+        false => GasVector { l1_gas: 17685, l1_data_gas: 0 },
     };
     let expected_da_gas = match use_kzg_da {
         true => GasVector { l1_gas: 0, l1_data_gas: 128 },
@@ -1760,7 +1778,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1742800000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1743800000000000)
     );
 }
 
