@@ -7,7 +7,8 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
+    calculate_tx_gas_usage_vector, get_calldata_gas_cost,
+    get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
     get_log_message_to_l1_emissions_cost, get_message_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
@@ -76,6 +77,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         StateChangesCount::default(),
+        0,
         None,
         use_kzg_da,
     )
@@ -93,12 +95,15 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
+    let calldata_length = 0;
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
-        + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
+        + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da)
+        + get_calldata_gas_cost(calldata_length);
 
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         deploy_account_state_changes_count,
+        calldata_length,
         None,
         use_kzg_da,
     )
@@ -111,6 +116,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         StateChangesCount::default(),
+        l1_handler_payload_size,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
@@ -123,7 +129,8 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + usize_from_u128(
             get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size)).l1_gas,
         )
-        .unwrap();
+        .unwrap()
+        + usize_from_u128(get_calldata_gas_cost(l1_handler_payload_size).l1_gas).unwrap();
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
     let manual_gas_computation = GasVector {
@@ -173,6 +180,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -211,6 +219,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         storage_writes_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -232,6 +241,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let gas_usage_vector = calculate_tx_gas_usage_vector(
         call_infos_iter,
         combined_state_changes_count,
+        l1_handler_payload_size,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
