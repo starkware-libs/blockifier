@@ -142,19 +142,16 @@ pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler<'_>) -> S
     SyscallHandlerMeta::new(syscall_handler)
 }
 
-// todo(rodro): String parsing is the lowest way to get from one to the other,
-//              we should find a faster one.
-//              Also, should we implement `From` traits for this?
 pub fn starkfelt_to_felt(starkfelt: StarkFelt) -> Felt {
-    Felt::from_hex(&starkfelt.to_string()).unwrap()
+    Felt::from_bytes_be_slice(starkfelt.bytes())
 }
 
 pub fn felt_to_starkfelt(felt: Felt) -> StarkFelt {
-    StarkFelt::try_from(felt.to_hex_string().as_str()).unwrap()
+    StarkFelt::new(felt.to_bytes_be()).unwrap()
 }
 
 pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
-    Felt::from_hex(&contract_address.0.key().to_string()).unwrap()
+    Felt::from_bytes_be_slice(&contract_address.0.key().bytes())
 }
 
 fn starkfelts_to_felts(data: &[StarkFelt]) -> Vec<Felt> {

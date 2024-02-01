@@ -5,13 +5,16 @@ use std::sync::Arc;
 
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::block_context::BlockContext;
+use blockifier::execution::call_info::Retdata;
 use blockifier::execution::common_hints::ExecutionMode;
 use blockifier::execution::contract_address;
 use blockifier::execution::entry_point::{
     CallEntryPoint, ConstructorContext, EntryPointExecutionContext,
 };
 use blockifier::execution::execution_utils::execute_deployment;
-use blockifier::execution::sierra_utils::{felt_to_starkfelt, starkfelt_to_felt};
+use blockifier::execution::sierra_utils::{
+    contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
+};
 use blockifier::execution::syscalls::hint_processor::{
     FAILED_TO_CALCULATE_CONTRACT_ADDRESS, FAILED_TO_EXECUTE_CALL,
 };
@@ -110,7 +113,7 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
         class_hash,
         Felt::from(0),
         &[
-            Felt::from(0), // Owner
+            contract_address_to_felt(ContractAddress::default()), // Owner
         ],
     )
     .unwrap();
@@ -127,23 +130,29 @@ fn should_deploy() {
     let (_contract_address, _state) = prepare_erc20_deploy_test_state();
 }
 
-// #[test]
-// fn mint_works() {
-//     let mut state = create_erc20_deploy_test_state();
-//
-//     let entry_point_name = "total_supply";
-//
-//     let calldata = Calldata(Arc::new(vec![]));
-//
-//     let entry_point_call = CallEntryPoint {
-//         calldata,
-//         entry_point_selector: selector_from_name(entry_point_name),
-//         ..erc20_external_entry_point()
-//     };
-//
-//     let result = entry_point_call.execute_directly(&mut state);
-//
-//     println!("result: {:?}", result);
-//
-//     assert!(result.is_ok());
-// }
+#[test]
+fn mint_works() {
+    let (contract_address, mut state) = prepare_erc20_deploy_test_state();
+
+    let entry_point_name = "total_supply";
+
+    let calldata = Calldata(Arc::new(vec![]));
+
+    let entry_point_call = CallEntryPoint {
+        calldata,
+        entry_point_selector: selector_from_name(entry_point_name),
+        code_address: Some(contract_address),
+        storage_address: contract_address,
+        ..erc20_external_entry_point()
+    };
+
+    println!("entry_point_call: {:?}", entry_point_call);
+
+    let result = entry_point_call.execute_directly(&mut state);
+
+    let result = result.unwrap();
+
+    let return_data = Retdata(vec![StarkFelt::from_u128(1000000000000000000000)]);
+
+    assert_eq!(result.execution.retdata, return_data);
+}
