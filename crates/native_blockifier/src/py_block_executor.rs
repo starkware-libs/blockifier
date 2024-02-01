@@ -25,6 +25,9 @@ use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecut
 #[path = "py_block_executor_test.rs"]
 mod py_block_executor_test;
 
+const MAX_STEPS_PER_TX: u32 = 4_000_000;
+const MAX_VALIDATE_STEPS_PER_TX: u32 = 1_000_000;
+
 #[pyclass]
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
@@ -348,5 +351,16 @@ pub fn into_block_context(
         use_kzg_da: block_info.use_kzg_da,
     };
 
-    Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
+    // Input validation.
+    if versioned_constants.invoke_tx_max_n_steps > MAX_STEPS_PER_TX {
+        Err(NativeBlockifierInputError::MaxStepsPerTxOutOfRange(
+            versioned_constants.invoke_tx_max_n_steps,
+        ))?
+    } else if versioned_constants.validate_max_n_steps > MAX_VALIDATE_STEPS_PER_TX {
+        Err(NativeBlockifierInputError::MaxValidateStepsPerTxOutOfRange(
+            versioned_constants.validate_max_n_steps,
+        ))?
+    } else {
+        Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
+    }
 }
