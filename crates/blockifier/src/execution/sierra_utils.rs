@@ -116,7 +116,9 @@ pub fn get_sierra_entry_function_id<'a>(
 
 pub fn setup_syscall_handler(
     state: &mut dyn State,
-    storage_address: ContractAddress,
+    caller_address: ContractAddress,
+    contract_address: ContractAddress,
+    entry_point_selector: StarkFelt,
     execution_resources: crate::execution::entry_point::ExecutionResources,
     execution_context: EntryPointExecutionContext,
     events: Vec<OrderedEvent>,
@@ -125,7 +127,9 @@ pub fn setup_syscall_handler(
 ) -> NativeSyscallHandler<'_> {
     NativeSyscallHandler {
         state,
-        storage_address,
+        caller_address,
+        contract_address,
+        entry_point_selector,
         execution_context,
         events,
         l2_to_l1_messages,
@@ -138,12 +142,19 @@ pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler<'_>) -> S
     SyscallHandlerMeta::new(syscall_handler)
 }
 
+// todo(rodro): String parsing is the lowest way to get from one to the other,
+//              we should find a faster one.
+//              Also, should we implement `From` traits for this?
 pub fn starkfelt_to_felt(starkfelt: StarkFelt) -> Felt {
     Felt::from_hex(&starkfelt.to_string()).unwrap()
 }
 
 pub fn felt_to_starkfelt(felt: Felt) -> StarkFelt {
     StarkFelt::try_from(felt.to_hex_string().as_str()).unwrap()
+}
+
+pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
+    Felt::from_hex(&contract_address.0.key().to_string()).unwrap()
 }
 
 fn starkfelts_to_felts(data: &[StarkFelt]) -> Vec<Felt> {

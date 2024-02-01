@@ -37,7 +37,9 @@ pub fn execute_entry_point_call(
 
     let mut syscall_handler: NativeSyscallHandler<'_> = setup_syscall_handler(
         state,
+        call.caller_address,
         call.storage_address,
+        call.entry_point_selector.0,
         resources.clone(),
         context.clone(),
         Vec::new(),
