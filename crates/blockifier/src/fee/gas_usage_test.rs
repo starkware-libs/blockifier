@@ -76,6 +76,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         StateChangesCount::default(),
+        0,
         None,
         use_kzg_da,
     )
@@ -99,6 +100,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         deploy_account_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -111,6 +113,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         StateChangesCount::default(),
+        0,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
@@ -173,6 +176,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -211,6 +215,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
         std::iter::empty(),
         storage_writes_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -232,6 +237,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let gas_usage_vector = calculate_tx_gas_usage_vector(
         call_infos_iter,
         combined_state_changes_count,
+        0,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
