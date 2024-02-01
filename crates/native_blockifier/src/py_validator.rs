@@ -12,9 +12,9 @@ use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::PyGeneralConfig;
+use crate::py_block_executor::{PyGeneralConfig, TypedTransactionExecutionInfo};
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::py_account_tx;
+use crate::py_transaction::{py_account_tx, py_tx};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
@@ -129,7 +129,14 @@ impl PyValidator {
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
-        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+        let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
+        let tx: Transaction = py_tx(tx, raw_contract_class)?;
+        let (tx_execution_info, py_bouncer_info) =
+            self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
+        let typed_tx_execution_info =
+            TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };
+        let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+        Ok((raw_tx_execution_info, py_bouncer_info))
     }
 }
 
