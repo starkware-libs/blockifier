@@ -72,6 +72,10 @@ native_blockifier_errors!(
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
+    #[error("Invalid max steps per tx: {0}.")]
+    InvalidMaxStepsPerTx(u32),
+    #[error("Invalid max validate steps per tx: {0}.")]
+    InvalidMaxValidateStepsPerTx(u32),
     #[error(transparent)]
     ParseError(#[from] ParseError),
     #[error(transparent)]
