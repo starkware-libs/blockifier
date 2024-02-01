@@ -9,8 +9,11 @@ use blockifier::state::cached_state::{
     CachedState, GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
 };
 use blockifier::state::state_api::State;
+use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
+use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
@@ -20,6 +23,7 @@ use crate::errors::{
     NativeBlockifierResult,
 };
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
+use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
@@ -29,6 +33,14 @@ use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecut
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
 mod py_block_executor_test;
+
+#[pyclass]
+#[derive(Debug, Serialize)]
+pub(crate) struct TypedTransactionExecutionInfo {
+    #[serde(flatten)]
+    pub info: TransactionExecutionInfo,
+    pub tx_type: String,
+}
 
 #[pyclass]
 pub struct PyBlockExecutor {
@@ -104,7 +116,14 @@ impl PyBlockExecutor {
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
-        self.tx_executor().execute(tx, raw_contract_class, charge_fee)
+        let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
+        let tx: Transaction = py_tx(tx, raw_contract_class)?;
+        let (tx_execution_info, py_bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+        let typed_tx_execution_info =
+            TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };
+        let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+
+        Ok((raw_tx_execution_info, py_bouncer_info))
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
