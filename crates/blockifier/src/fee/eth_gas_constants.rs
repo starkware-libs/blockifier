@@ -4,6 +4,10 @@ pub const GAS_PER_MEMORY_BYTE: usize = 16;
 pub const WORD_WIDTH: usize = 32;
 pub const GAS_PER_MEMORY_WORD: usize = GAS_PER_MEMORY_BYTE * WORD_WIDTH;
 
+// L2 Calldata.
+pub const GAS_PER_CALLDATA_BYTE: f64 = 0.16;
+pub const GAS_PER_CALLDATA_WORD: f64 = GAS_PER_CALLDATA_BYTE * WORD_WIDTH as f64;
+
 // Blob Data.
 pub const FIELD_ELEMENTS_PER_BLOB: usize = 1 << 12;
 pub const DATA_GAS_PER_BLOB: usize = 1 << 17;
