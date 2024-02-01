@@ -13,6 +13,7 @@ use serde_json::{Number, Value};
 use strum::IntoEnumIterator;
 use thiserror::Error;
 
+use crate::bouncer::bouncer::BouncerWeights;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::errors::PostExecutionError;
@@ -34,6 +35,7 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 /// automatically ignored during deserialization.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
+    pub bouncer: BouncerConfig,
     // Limits.
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
@@ -147,6 +149,12 @@ pub struct L2ResourceGasCosts {
     pub milligas_per_data_felt: u128,
     pub event_key_factor: u128,
     pub milligas_per_code_byte: u128,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct BouncerConfig {
+    pub max_weights: BouncerWeights,
+    pub max_tx_lifespan: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

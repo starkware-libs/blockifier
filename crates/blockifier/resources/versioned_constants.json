@@ -1,4 +1,25 @@
 {
+    "bouncer": {
+        "max_weights": {
+            "gas": 5000000,
+            "number_of_steps": 20000000,
+            "number_of_steps_with_keccak": 10000000, 
+            "message_segment_length": 3750,
+            "state_diff_size": 20000,
+            "state_diff_size_with_kzg": 4000,
+            "builtin_count": {
+                "bitwise": 1,
+                "ecdsa": 1,
+                "ec_op": 1,
+                "keccak": 1,
+                "output": 1,
+                "pedersen": 1,
+                "poseidon": 1,
+                "range_check": 1
+            }
+        },
+        "max_tx_lifespan": 180
+    },
     "gateway": {
         "max_calldata_length": 4000,
         "max_contract_bytecode_size": 61440
