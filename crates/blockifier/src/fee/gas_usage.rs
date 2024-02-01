@@ -24,11 +24,13 @@ pub mod test;
 pub fn calculate_tx_gas_usage_vector<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     state_changes_count: StateChangesCount,
+    calldata_length: usize,
     l1_handler_payload_size: Option<usize>,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<GasVector> {
     Ok(calculate_messages_gas_vector(call_infos, l1_handler_payload_size)?
-        + get_da_gas_cost(state_changes_count, use_kzg_da))
+        + get_da_gas_cost(state_changes_count, use_kzg_da)
+        + get_calldata_gas_cost(calldata_length))
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
@@ -69,6 +71,19 @@ pub fn calculate_messages_gas_vector<'a>(
     };
 
     Ok(starknet_gas_usage + sharp_gas_usage)
+}
+
+// Return the gas cost for transaction calldata. Each calldata felt costs a fixed and configurable
+// amount of gas. This cost represents the cost of storing the calldata on L2.
+pub fn get_calldata_gas_cost(calldata_length: usize) -> GasVector {
+    // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
+    // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
+    let calldata_gas_cost = calldata_length * eth_gas_constants::MILLIGAS_PER_CALLDATA_WORD / 1000;
+    GasVector {
+        l1_gas: u128_from_usize(calldata_gas_cost)
+            .expect("Could not convert calldata gas cost from usize to u128."),
+        blob_gas: 0,
+    }
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
