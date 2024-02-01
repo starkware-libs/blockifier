@@ -7,7 +7,7 @@ use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
-    CachedState, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, CommitmentStateDiff, StagedTransactionalState, StorageEntry, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -19,9 +19,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction_execution_info::PyBouncerInfo;
-use crate::py_utils::PyFelt;
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 
@@ -167,7 +165,10 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
     /// visited PC values.
-    pub fn finalize(&mut self, is_pending_block: bool) -> (PyStateDiff, Vec<(PyFelt, Vec<usize>)>) {
+    pub fn finalize(
+        &mut self,
+        is_pending_block: bool,
+    ) -> (CommitmentStateDiff, Vec<(ClassHash, Vec<usize>)>) {
         // Do not cache classes that were declared during a pending block.
         // They will be redeclared, and should not be cached since the content of this block is
         // transient.
@@ -183,11 +184,11 @@ impl<S: StateReader> TransactionExecutor<S> {
             .map(|(class_hash, class_visited_pcs)| {
                 let mut class_visited_pcs_vec: Vec<_> = class_visited_pcs.iter().cloned().collect();
                 class_visited_pcs_vec.sort();
-                (PyFelt::from(*class_hash), class_visited_pcs_vec)
+                (*class_hash, class_visited_pcs_vec)
             })
             .collect();
 
-        (PyStateDiff::from(self.state.to_state_diff()), visited_pcs)
+        (self.state.to_state_diff(), visited_pcs)
     }
 
     pub fn commit(&mut self) {
