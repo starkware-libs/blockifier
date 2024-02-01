@@ -4,7 +4,9 @@ use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::{AccountTransactionContext, TransactionExecutionResult};
+use blockifier::transaction::objects::{
+    AccountTransactionContext, TransactionExecutionInfo, TransactionExecutionResult,
+};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
@@ -14,11 +16,11 @@ use starknet_api::hash::StarkFelt;
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::py_account_tx;
+use crate::py_transaction::{py_account_tx, py_tx};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
-use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
+use crate::transaction_executor::TransactionExecutor;
 
 /// Manages transaction validation for pre-execution flows.
 #[pyclass]
@@ -72,8 +74,7 @@ impl PyValidator {
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let (_raw_tx_execution_info, _py_bouncer_info) =
-                self.execute(tx, raw_contract_class)?;
+            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, raw_contract_class)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -120,20 +121,21 @@ impl PyValidator {
         )?;
         Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
     }
+}
 
+impl PyValidator {
     /// Applicable solely to account deployment transactions: the execution of the constructor
     /// is required before they can be validated.
     fn execute(
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(TransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
-        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+        let tx: Transaction = py_tx(tx, raw_contract_class)?;
+        self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)
     }
-}
 
-impl PyValidator {
     fn perform_pre_validation_stage(
         &mut self,
         account_tx: &AccountTransaction,
