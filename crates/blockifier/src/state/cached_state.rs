@@ -55,16 +55,7 @@ impl<S: StateReader> CachedState<S> {
         CachedState::new(MutRefState::new(state), global_class_hash_to_class)
     }
 
-    /// Returns the storage changes done through this state.
-    /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
-    /// root); the state updates correspond to them.
-    pub fn get_actual_state_changes_for_fee_charge(
-        &mut self,
-        fee_token_address: ContractAddress,
-        sender_address: Option<ContractAddress>,
-    ) -> StateResult<StateChanges> {
-        self.update_initial_values_of_write_only_access()?;
-
+    pub fn get_members_for_state_changes(&self) -> StateResult<StateChanges> {
         // Storage Update.
         let storage_updates = &mut self.cache.get_storage_updates();
         let mut modified_contracts: HashSet<ContractAddress> =
@@ -81,6 +72,26 @@ impl<S: StateReader> CachedState<S> {
         // Compiled class hash updates (declare Cairo 1 contract).
         let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
 
+        Ok(StateChanges {
+            storage_updates: storage_updates.clone(),
+            class_hash_updates: class_hash_updates.clone(),
+            compiled_class_hash_updates: compiled_class_hash_updates.clone(),
+            modified_contracts,
+        })
+    }
+
+    /// Returns the storage changes done through this state.
+    /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
+    /// root); the state updates correspond to them.
+    pub fn get_actual_state_changes_for_fee_charge(
+        &mut self,
+        fee_token_address: ContractAddress,
+        sender_address: Option<ContractAddress>,
+    ) -> StateResult<StateChanges> {
+        self.update_initial_values_of_write_only_access()?;
+
+        let mut state_changes = self.get_members_for_state_changes()?;
+
         // For account transactions, we need to compute the transaction fee before we can execute
         // the fee transfer, and the fee should cover the state changes that happen in the
         // fee transfer. The fee transfer is going to update the balance of the sequencer
@@ -91,19 +102,16 @@ impl<S: StateReader> CachedState<S> {
             // StarkFelt::default() value is zero, which must be different from the initial balance,
             // otherwise the transaction would have failed the "max fee lower than
             // balance" validation.
-            storage_updates.insert((fee_token_address, sender_balance_key), StarkFelt::default());
+            state_changes
+                .storage_updates
+                .insert((fee_token_address, sender_balance_key), StarkFelt::default());
         }
 
         // Exclude the fee token contract modification, since it’s charged once throughout the
         // block.
-        modified_contracts.remove(&fee_token_address);
+        state_changes.modified_contracts.remove(&fee_token_address);
 
-        Ok(StateChanges {
-            storage_updates: storage_updates.clone(),
-            modified_contracts,
-            class_hash_updates: class_hash_updates.clone(),
-            compiled_class_hash_updates: compiled_class_hash_updates.clone(),
-        })
+        Ok(state_changes)
     }
 
     /// Drains contract-class cache collected during execution and updates the global cache.
@@ -701,6 +709,25 @@ impl StateChanges {
         }
 
         merged_state_changes
+    }
+
+    pub fn subtract(self, other: Self) -> StateResult<Self> {
+        Ok(StateChanges {
+            storage_updates: subtract_mappings(&self.storage_updates, &other.storage_updates),
+            class_hash_updates: subtract_mappings(
+                &self.class_hash_updates,
+                &other.class_hash_updates,
+            ),
+            compiled_class_hash_updates: subtract_mappings(
+                &self.compiled_class_hash_updates,
+                &other.compiled_class_hash_updates,
+            ),
+            modified_contracts: self
+                .modified_contracts
+                .difference(&other.modified_contracts)
+                .cloned()
+                .collect(),
+        })
     }
 }
 

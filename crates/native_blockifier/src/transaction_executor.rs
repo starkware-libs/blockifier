@@ -6,8 +6,10 @@ use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, GlobalContractCache, StagedTransactionalState, StateChangesCount, StorageEntry,
+    TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -95,6 +97,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
+        let state_changes = self.state.get_members_for_state_changes()?;
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -130,7 +133,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                 )?;
 
                 // Count blob resources.
-                let state_diff_size = 0;
+                let transactional_state_changes =
+                    transactional_state.get_members_for_state_changes()?;
+                let tx_state_changes = transactional_state_changes.subtract(state_changes)?;
+                let tx_state_changes_count = StateChangesCount::from(&tx_state_changes);
+                let state_diff_size = get_onchain_data_segment_length(tx_state_changes_count);
 
                 // Finalize counting logic.
                 let actual_resources = tx_execution_info.actual_resources.0.clone();

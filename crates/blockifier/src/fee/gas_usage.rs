@@ -78,7 +78,7 @@ pub fn calculate_messages_gas_vector<'a>(
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
 /// modified contracts - are not counted.
-fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
+pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
     // For each newly modified contract:
     // contract address (1 word).
     // + 1 word with the following info: A flag indicating whether the class hash was updated, the
