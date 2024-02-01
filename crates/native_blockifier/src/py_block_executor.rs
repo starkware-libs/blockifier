@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use blockifier::abi::constants::{MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX};
 use blockifier::block::{BlockInfo, GasPrices};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
@@ -10,7 +11,7 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
@@ -314,6 +315,24 @@ pub fn into_block_context(
         },
         use_kzg_da: block_info.use_kzg_da,
     };
+
+    // Input validation.
+    if versioned_constants.invoke_tx_max_n_steps
+        > MAX_STEPS_PER_TX.try_into().expect("Failed to convert MAX_STEPS_PER_TX to u32.")
+    {
+        return Err(NativeBlockifierInputError::InvalidMaxStepsPerTx(
+            versioned_constants.invoke_tx_max_n_steps,
+        ))?;
+    }
+    if versioned_constants.validate_max_n_steps
+        > MAX_VALIDATE_STEPS_PER_TX
+            .try_into()
+            .expect("Failed to convert MAX_VALIDATE_STEPS_PER_TX to u32.")
+    {
+        return Err(NativeBlockifierInputError::InvalidMaxValidateStepsPerTx(
+            versioned_constants.validate_max_n_steps,
+        ))?;
+    }
 
     Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
 }
