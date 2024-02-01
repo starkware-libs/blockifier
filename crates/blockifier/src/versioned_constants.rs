@@ -46,6 +46,7 @@ pub struct VersionedConstants {
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
     vm_resource_fee_cost: Arc<HashMap<String, f64>>,
+    pub milligas_per_calldata_byte: usize,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.

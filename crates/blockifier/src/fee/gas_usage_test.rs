@@ -7,12 +7,14 @@ use starknet_api::transaction::L2ToL1Payload;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
+    calculate_tx_gas_usage_vector, get_calldata_gas_cost,
+    get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
     get_log_message_to_l1_emissions_cost, get_message_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
 use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -73,9 +75,12 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 #[rstest]
 fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // An empty transaction (a theoretical case for sanity check).
+    let versioned_constants = VersionedConstants::default();
     let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
+        0,
         None,
         use_kzg_da,
     )
@@ -93,12 +98,16 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
+    let calldata_length = 0;
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
-        + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
+        + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da)
+        + get_calldata_gas_cost(calldata_length, &versioned_constants);
 
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         deploy_account_state_changes_count,
+        calldata_length,
         None,
         use_kzg_da,
     )
@@ -109,8 +118,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     let l1_handler_payload_size = 4;
     let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
+        l1_handler_payload_size,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
@@ -122,6 +133,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + eth_gas_constants::GAS_PER_COUNTER_DECREASE
         + usize_from_u128(
             get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size)).l1_gas,
+        )
+        .unwrap()
+        + usize_from_u128(
+            get_calldata_gas_cost(l1_handler_payload_size, &versioned_constants).l1_gas,
         )
         .unwrap();
     let manual_sharp_gas_usage =
@@ -171,8 +186,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts: 1,
     };
     let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -209,8 +226,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts,
     };
     let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         storage_writes_state_changes_count,
+        0,
         None,
         use_kzg_da,
     )
@@ -230,8 +249,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
     let gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter,
         combined_state_changes_count,
+        l1_handler_payload_size,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )

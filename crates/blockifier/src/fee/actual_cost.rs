@@ -144,8 +144,10 @@ impl<'a> ActualCostBuilder<'a> {
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
         let gas_usage_vector = calculate_tx_gas_usage_vector(
+            &self.tx_context.block_context.versioned_constants,
             non_optional_call_infos,
             state_changes_count,
+            self.calldata_length,
             self.l1_payload_size,
             self.tx_context.block_context.block_info.use_kzg_da,
         )?;
