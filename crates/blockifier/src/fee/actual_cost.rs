@@ -132,7 +132,7 @@ impl<'a> ActualCostBuilder<'a> {
         execution_resources: &ExecutionResources,
         n_reverted_steps: usize,
     ) -> TransactionExecutionResult<ActualCost> {
-        let state_changes_count = StateChangesCount::from(&self.state_changes);
+        let state_changes_count = StateChangesCount::deprecated_from(&self.state_changes);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data

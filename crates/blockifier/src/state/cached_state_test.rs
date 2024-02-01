@@ -288,7 +288,7 @@ fn test_get_actual_state_changes_for_fee_charge() {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let state_changes = create_state_changes_for_test(&mut state, contract_address!("0x17"));
     assert_eq!(
-        StateChangesCount::from(&state_changes),
+        StateChangesCount::deprecated_from(&state_changes),
         StateChangesCount {
             n_storage_updates: 2, // 1 for storage update + 1 for sender balance update.
             n_modified_contracts: 2,
