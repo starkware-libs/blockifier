@@ -108,12 +108,15 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
 
     let class_hash = Felt::from_hex(TEST_ERC20_FULL_CONTRACT_CLASS_HASH).unwrap();
 
+    println!("--- deploying ---");
+    println!("constructor selector: {}", selector_from_name("constructor").0.to_string());
+
     let (contract_address, _) = deploy_contract(
         &mut state,
         class_hash,
         Felt::from(0),
         &[
-            contract_address_to_felt(ContractAddress::default()), // Owner
+            contract_address_to_felt(ContractAddress::from(1u128)), // Owner
         ],
     )
     .unwrap();
@@ -131,10 +134,14 @@ fn should_deploy() {
 }
 
 #[test]
-fn mint_works() {
+fn test_total_supply() {
     let (contract_address, mut state) = prepare_erc20_deploy_test_state();
 
     let entry_point_name = "total_supply";
+
+    println!("--- calling {} ---", entry_point_name);
+
+    println!("entry_point_selector: {}", selector_from_name(entry_point_name).0.to_string());
 
     let calldata = Calldata(Arc::new(vec![]));
 
@@ -143,16 +150,16 @@ fn mint_works() {
         entry_point_selector: selector_from_name(entry_point_name),
         code_address: Some(contract_address),
         storage_address: contract_address,
+        caller_address: contract_address,
         ..erc20_external_entry_point()
     };
-
-    println!("entry_point_call: {:?}", entry_point_call);
 
     let result = entry_point_call.execute_directly(&mut state);
 
     let result = result.unwrap();
 
-    let return_data = Retdata(vec![StarkFelt::from_u128(1000000000000000000000)]);
+    let return_data =
+        Retdata(vec![StarkFelt::from_u128(10000000000000000000000), StarkFelt::from(0u8)]);
 
     assert_eq!(result.execution.retdata, return_data);
 }

@@ -324,6 +324,12 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let read_result = self.state.get_storage_at(self.contract_address, storage_key);
         let unsafe_read_result =
             read_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_READ_RESULT).unwrap()])?;
+        println!(
+            "[{}]: storage_read {}={}",
+            self.entry_point_selector,
+            address.to_hex_string(),
+            unsafe_read_result.to_string()
+        );
         Ok(starkfelt_to_felt(unsafe_read_result))
     }
 
@@ -334,7 +340,20 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         value: Felt,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<()> {
-        let storage_key = StorageKey(PatriciaKey::try_from(felt_to_starkfelt(address)).unwrap());
+        println!(
+            "[{}]: storage_write {}={}",
+            self.entry_point_selector,
+            address.to_hex_string(),
+            value.to_hex_string()
+        );
+
+        let storage_key = StorageKey(
+            PatriciaKey::try_from(felt_to_starkfelt(address))
+                .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?,
+        );
+
+        println!("{}", felt_to_starkfelt(value).to_string());
+
         let write_result =
             self.state.set_storage_at(self.contract_address, storage_key, felt_to_starkfelt(value));
         write_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_WRITE).unwrap()])?;
