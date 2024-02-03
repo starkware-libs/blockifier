@@ -28,6 +28,8 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
         .expect("Versioned constants JSON file is malformed")
 });
 
+pub type ResourceCost = num_rational::Ratio<u128>;
+
 /// Contains constants for the Blockifier that may vary between versions.
 /// Additional constants in the JSON file, not used by Blockifier but included for transparency, are
 /// automatically ignored during deserialization.
@@ -44,7 +46,7 @@ pub struct VersionedConstants {
     // Fee related.
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
-    vm_resource_fee_cost: Arc<HashMap<String, f64>>,
+    vm_resource_fee_cost: Arc<HashMap<String, ResourceCost>>,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
@@ -65,7 +67,7 @@ impl VersionedConstants {
         os_consts.gas_costs["initial_gas_cost"] - os_consts.gas_costs["transaction_gas_cost"]
     }
 
-    pub fn vm_resource_fee_cost(&self) -> &HashMap<String, f64> {
+    pub fn vm_resource_fee_cost(&self) -> &HashMap<String, ResourceCost> {
         &self.vm_resource_fee_cost
     }
 
@@ -110,15 +112,20 @@ impl VersionedConstants {
 
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_account_testing() -> Self {
+        use cairo_vm::vm::runners::builtin_runner::{
+            BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
+            POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
+        };
+
         let vm_resource_fee_cost = Arc::new(HashMap::from([
-            (crate::abi::constants::N_STEPS_RESOURCE.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::SIGNATURE_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::BITWISE_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(), 1_f64),
+            (crate::abi::constants::N_STEPS_RESOURCE.to_string(), ResourceCost::from_integer(1)),
+            (HASH_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
+            (SIGNATURE_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
+            (BITWISE_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
+            (POSEIDON_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
+            (OUTPUT_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
+            (EC_OP_BUILTIN_NAME.to_string(), ResourceCost::from_integer(1)),
         ]));
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }

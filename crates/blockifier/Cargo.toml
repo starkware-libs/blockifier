@@ -35,6 +35,7 @@ keccak.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 num-integer.workspace = true
+num-rational = { workspace = true, features = ["serde"] }
 num-traits.workspace = true
 once_cell.workspace = true
 phf.workspace = true
