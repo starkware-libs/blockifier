@@ -1,8 +1,10 @@
-use blockifier::context::TransactionContext;
+use blockifier::context::{BlockContext, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
-use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
+use blockifier::state::cached_state::{
+    CachedState, GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
+};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
@@ -13,7 +15,7 @@ use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::PyGeneralConfig;
+use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::py_account_tx;
 use crate::py_transaction_execution_info::PyBouncerInfo;
@@ -41,15 +43,17 @@ impl PyValidator {
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
         let versioned_constants = versioned_constants_with_overrides(max_recursion_depth);
+        let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
+        let state_reader = PyStateReader::new(state_reader_proxy);
+        let state = CachedState::new(state_reader, global_contract_cache);
 
-        let tx_executor = TransactionExecutor::new(
-            PyStateReader::new(state_reader_proxy),
-            &general_config,
-            // TODO(Gilad): add max_validate_n_steps override argument and override here.
-            &versioned_constants,
-            next_block_info,
-            GlobalContractCache::new(global_contract_cache_size),
-        )?;
+        let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
+        // TODO(Yael 24/01/24): calc block_context using pre_process_block
+        let block_context =
+            BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+        // TODO(Gilad): add max_validate_n_steps override argument and override here.
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
+
         let validator = Self {
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
             tx_executor,
@@ -112,13 +116,19 @@ impl PyValidator {
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<Self> {
-        let tx_executor = TransactionExecutor::new(
-            PyStateReader::new(state_reader_proxy),
-            &general_config,
-            &VersionedConstants::latest_constants().clone(),
-            next_block_info,
-            GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
-        )?;
+        let state_reader = PyStateReader::new(state_reader_proxy);
+        let global_contract_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
+        let state = CachedState::new(state_reader, global_contract_cache);
+
+        let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
+        let block_context = BlockContext::new_unchecked(
+            &block_info,
+            &chain_info,
+            VersionedConstants::latest_constants(),
+        );
+        // TODO(Yael 24/01/24): calc block_context using pre_process_block
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
+
         Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
     }
 
