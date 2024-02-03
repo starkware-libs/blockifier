@@ -1,9 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block::{BlockInfo, GasPrices};
+use blockifier::block::{
+    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
+};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
+use blockifier::state::cached_state::{
+    CachedState, GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
+};
+use blockifier::state::state_api::State;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -60,20 +65,24 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info))]
+    #[pyo3(signature = (next_block_info, old_block_number_and_hash))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
+        old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
-
-        let tx_executor = TransactionExecutor::new(
-            papyrus_reader,
+        let global_contract_cache = self.global_contract_cache.clone();
+        let mut state = CachedState::new(papyrus_reader, global_contract_cache);
+        let block_context = pre_process_block(
+            &mut state,
+            old_block_number_and_hash,
             &self.general_config,
+            &next_block_info,
             &self.versioned_constants,
-            next_block_info,
-            self.global_contract_cache.clone(),
         )?;
+
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -101,14 +110,6 @@ impl PyBlockExecutor {
         log::debug!("Finalized execution.");
 
         finalized_state
-    }
-
-    #[pyo3(signature = (old_block_number_and_hash))]
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        self.tx_executor().pre_process_block(old_block_number_and_hash)
     }
 
     pub fn commit_tx(&mut self) {
@@ -296,11 +297,10 @@ impl Default for PyOsConfig {
     }
 }
 
-pub fn into_block_context(
+pub fn into_block_info_and_chain_info(
     general_config: &PyGeneralConfig,
-    versioned_constants: &VersionedConstants,
-    block_info: PyBlockInfo,
-) -> NativeBlockifierResult<BlockContext> {
+    block_info: &PyBlockInfo,
+) -> NativeBlockifierResult<(BlockInfo, ChainInfo)> {
     let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
@@ -315,5 +315,28 @@ pub fn into_block_context(
         use_kzg_da: block_info.use_kzg_da,
     };
 
-    Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
+    Ok((block_info, chain_info))
+}
+
+// Executes block pre-processing; see `block_execution::pre_process_block` documentation.
+fn pre_process_block(
+    state: &mut dyn State,
+    old_block_number_and_hash: Option<(u64, PyFelt)>,
+    general_config: &PyGeneralConfig,
+    block_info: &PyBlockInfo,
+    versioned_constants: &VersionedConstants,
+) -> NativeBlockifierResult<BlockContext> {
+    let old_block_number_and_hash = old_block_number_and_hash
+        .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
+
+    let (block_info, chain_info) = into_block_info_and_chain_info(general_config, block_info)?;
+    let block_context = pre_process_block_blockifier(
+        state,
+        old_block_number_and_hash,
+        &block_info,
+        &chain_info,
+        versioned_constants,
+    )?;
+
+    Ok(block_context)
 }
