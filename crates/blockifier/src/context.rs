@@ -49,6 +49,15 @@ impl ChainInfo {
     }
 }
 
+impl Default for ChainInfo {
+    fn default() -> Self {
+        ChainInfo {
+            chain_id: ChainId("0x0".to_string()),
+            fee_token_addresses: FeeTokenAddresses::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,

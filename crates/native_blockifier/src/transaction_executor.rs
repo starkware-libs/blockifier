@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
-use blockifier::block::{pre_process_block, BlockNumberHashPair};
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, StagedTransactionalState, StorageEntry, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -15,7 +14,6 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
-use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use pyo3::prelude::*;
@@ -23,8 +21,7 @@ use serde::Serialize;
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_block_executor::{into_block_context, PyGeneralConfig};
-use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
+use crate::py_state_diff::PyStateDiff;
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::PyFelt;
@@ -56,19 +53,13 @@ pub struct TransactionExecutor<S: StateReader> {
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
-    pub fn new(
-        state_reader: S,
-        general_config: &PyGeneralConfig,
-        versioned_constants: &VersionedConstants,
-        block_info: PyBlockInfo,
-        global_contract_cache: GlobalContractCache,
-    ) -> NativeBlockifierResult<Self> {
+    pub fn new(state: CachedState<S>, block_context: BlockContext) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
-            block_context: into_block_context(general_config, versioned_constants, block_info)?,
+            block_context,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
-            state: CachedState::new(state_reader, global_contract_cache),
+            state,
             staged_for_commit_state: None,
         };
         log::debug!("Initialized Transaction Executor.");
@@ -216,19 +207,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             .collect();
 
         (PyStateDiff::from(self.state.to_state_diff()), visited_pcs)
-    }
-
-    // Block pre-processing; see `block::pre_process_block` documentation.
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        let old_block_number_and_hash = old_block_number_and_hash
-            .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
-
-        pre_process_block(&mut self.state, old_block_number_and_hash)?;
-
-        Ok(())
     }
 
     pub fn commit(&mut self) {
