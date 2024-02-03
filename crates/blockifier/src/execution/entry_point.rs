@@ -22,6 +22,7 @@ use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
@@ -255,7 +256,19 @@ impl EntryPointExecutionContext {
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        let tx_upper_bound = usize_from_u128(
+            gas_per_step.floor_cost(
+                u128_from_usize(tx_gas_upper_bound)
+                    .expect("Conversion of usize to u128 should not fail."),
+            ),
+        )
+        .unwrap_or_else(|_| {
+            let (numerator, denominator) = gas_per_step.fraction();
+            panic!(
+                "At {numerator}/{denominator} gas per step and a gas bound of \
+                 {tx_gas_upper_bound} the step bound is out of usize range."
+            )
+        });
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 

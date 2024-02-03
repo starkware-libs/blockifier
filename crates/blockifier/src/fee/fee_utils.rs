@@ -50,15 +50,17 @@ pub fn calculate_l1_gas_by_vm_usage(
     };
 
     // Convert Cairo usage to L1 gas usage.
-    let vm_l1_gas_usage = vm_resource_fee_costs
+    let l1_gas = vm_resource_fee_costs
         .iter()
         .map(|(key, resource_val)| {
-            (*resource_val) * vm_resource_usage.0.get(key).cloned().unwrap_or_default() as f64
+            resource_val.ceil_cost(
+                u128_from_usize(vm_resource_usage.0.get(key).cloned().unwrap_or_default())
+                    .expect("Conversion of usize to u128 should not fail."),
+            )
         })
-        .fold(f64::NAN, f64::max);
+        .fold(0, u128::max);
 
-    // TODO(Dori, 1/5/2024): Check this conversion.
-    Ok(GasVector { l1_gas: vm_l1_gas_usage.ceil() as u128, blob_gas: 0 })
+    Ok(GasVector { l1_gas, blob_gas: 0 })
 }
 
 /// Computes and returns the total L1 gas consumption.
