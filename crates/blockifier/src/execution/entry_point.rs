@@ -5,6 +5,7 @@ use std::sync::Arc;
 use cairo_vm::vm::runners::cairo_runner::{
     ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
 };
+use num_traits::{Inv, Zero};
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -22,7 +23,7 @@ use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
-use crate::utils::usize_from_u128;
+use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
@@ -252,14 +253,25 @@ impl EntryPointExecutionContext {
 
         // Use saturating upper bound to avoid overflow. This is safe because the upper bound is
         // bounded above by the block's limit, which is a usize.
-        let upper_bound_u128 = (tx_gas_upper_bound as f64 / gas_per_step).floor() as u128;
-        let tx_upper_bound = usize_from_u128(upper_bound_u128).unwrap_or_else(|_| {
-            log::warn!(
-                "Failed to convert u128 to usize: {upper_bound_u128}. Upper bound from tx is \
-                 {tx_gas_upper_bound}, gas per step is {gas_per_step}."
-            );
+        let tx_upper_bound = if gas_per_step.is_zero() {
+            // Zero gas per step, no step limit due to fee limit.
             usize::MAX
-        });
+        } else {
+            // Gas per step is non-zero, so gas_per_step.inv() is safe.
+            usize_from_u128(
+                (gas_per_step.inv()
+                    * u128_from_usize(tx_gas_upper_bound)
+                        .expect("Conversion of usize to u128 should not fail."))
+                .to_integer(),
+            )
+            .unwrap_or_else(|_| {
+                log::warn!(
+                    "At {gas_per_step:?} gas per step and a gas bound of {tx_gas_upper_bound} the \
+                     step bound is out of usize range."
+                );
+                usize::MAX
+            })
+        };
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 
