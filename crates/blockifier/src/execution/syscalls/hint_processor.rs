@@ -447,10 +447,8 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     pub fn increment_syscall_count_by(&mut self, selector: &SyscallSelector, n: usize) {
-        let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.syscall_counter.entry(*selector).or_default();
         *syscall_count += n;
-        let entry_point_syscall_count = self.syscall_counter.entry(*selector).or_default();
-        *entry_point_syscall_count += n;
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
