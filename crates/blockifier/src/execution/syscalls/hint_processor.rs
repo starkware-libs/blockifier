@@ -126,6 +126,7 @@ pub struct SyscallHintProcessor<'a> {
     pub inner_calls: Vec<CallInfo>,
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    pub syscall_counter: SyscallCounter,
 
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
@@ -163,6 +164,7 @@ impl<'a> SyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
+            syscall_counter: SyscallCounter::default(),
             read_only_segments,
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
@@ -418,6 +420,8 @@ impl<'a> SyscallHintProcessor<'a> {
     pub fn increment_syscall_count_by(&mut self, selector: &SyscallSelector, n: usize) {
         let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
         *syscall_count += n;
+        let entry_point_syscall_count = self.syscall_counter.entry(*selector).or_default();
+        *entry_point_syscall_count += n;
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
