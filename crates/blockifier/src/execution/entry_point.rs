@@ -16,7 +16,6 @@ use crate::abi::constants;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::fee::os_resources::OS_RESOURCES;
@@ -134,7 +133,6 @@ pub struct ConstructorContext {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
-    pub syscall_counter: SyscallCounter,
 }
 
 #[derive(Debug)]
