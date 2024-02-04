@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::block::{BlockInfo, GasPrices};
 use blockifier::state::cached_state::CommitmentStateDiff;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
+use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::state::{StateDiff, StorageKey};
 
@@ -128,4 +130,23 @@ pub struct PyBlockInfo {
     pub l1_data_gas_price: PyResourcePrice,
     pub sequencer_address: PyFelt,
     pub use_kzg_da: bool,
+}
+
+impl TryFrom<PyBlockInfo> for BlockInfo {
+    type Error = NativeBlockifierError;
+
+    fn try_from(py_block_info: PyBlockInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            block_number: BlockNumber(py_block_info.block_number),
+            block_timestamp: BlockTimestamp(py_block_info.block_timestamp),
+            sequencer_address: ContractAddress::try_from(py_block_info.sequencer_address.0)?,
+            gas_prices: GasPrices {
+                eth_l1_gas_price: py_block_info.l1_gas_price.price_in_wei,
+                strk_l1_gas_price: py_block_info.l1_gas_price.price_in_fri,
+                eth_l1_data_gas_price: py_block_info.l1_data_gas_price.price_in_wei,
+                strk_l1_data_gas_price: py_block_info.l1_data_gas_price.price_in_fri,
+            },
+            use_kzg_da: py_block_info.use_kzg_da,
+        })
+    }
 }
