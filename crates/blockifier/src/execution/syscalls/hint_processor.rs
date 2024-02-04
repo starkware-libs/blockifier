@@ -49,7 +49,7 @@ use crate::execution::syscalls::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::objects::{AccountTransactionContext, CurrentAccountTransactionContext};
+use crate::transaction::objects::{CurrentTransactionInfo, TransactionInfo};
 use crate::transaction::transaction_utils::update_remaining_gas;
 
 pub type SyscallCounter = HashMap<SyscallSelector, usize>;
@@ -319,11 +319,11 @@ impl<'a> SyscallHintProcessor<'a> {
     fn allocate_tx_resource_bounds_segment(
         &mut self,
         vm: &mut VirtualMachine,
-        context: &CurrentAccountTransactionContext,
+        tx_info: &CurrentTransactionInfo,
     ) -> SyscallResult<(Relocatable, Relocatable)> {
         let l1_gas = StarkFelt::try_from(L1_GAS).map_err(SyscallExecutionError::from)?;
         let l2_gas = StarkFelt::try_from(L2_GAS).map_err(SyscallExecutionError::from)?;
-        let flat_resource_bounds = context
+        let flat_resource_bounds: Vec<StarkFelt> = tx_info
             .resource_bounds
             .0
             .iter()
@@ -341,7 +341,7 @@ impl<'a> SyscallHintProcessor<'a> {
             })
             .collect();
 
-        self.allocate_data_segment(vm, flat_resource_bounds)
+        self.allocate_data_segment(vm, &flat_resource_bounds)
     }
 
     fn execute_syscall<Request, Response, ExecuteCallback>(
@@ -434,7 +434,7 @@ impl<'a> SyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
-        let block_info = &self.context.block_context.block_info;
+        let block_info = &self.context.tx_context.block_context.block_info;
         let block_timestamp = StarkFelt::from(block_info.block_timestamp.0);
         let block_number = StarkFelt::from(block_info.block_number.0);
         let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
@@ -448,7 +448,7 @@ impl<'a> SyscallHintProcessor<'a> {
         } else {
             vec![block_number, block_timestamp, *block_info.sequencer_address.0.key()]
         };
-        let (block_info_segment_start_ptr, _) = self.allocate_data_segment(vm, block_data)?;
+        let (block_info_segment_start_ptr, _) = self.allocate_data_segment(vm, &block_data)?;
 
         Ok(block_info_segment_start_ptr)
     }
@@ -456,7 +456,7 @@ impl<'a> SyscallHintProcessor<'a> {
     fn allocate_data_segment(
         &mut self,
         vm: &mut VirtualMachine,
-        data: Vec<StarkFelt>,
+        data: &[StarkFelt],
     ) -> SyscallResult<(Relocatable, Relocatable)> {
         let data = data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let data_segment_start_ptr = self.read_only_segments.allocate(vm, &data)?;
@@ -465,34 +465,36 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     fn allocate_tx_info_segment(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Relocatable> {
+        let tx_info = &self.context.tx_context.clone().tx_info;
         let (tx_signature_start_ptr, tx_signature_end_ptr) =
-            &self.allocate_data_segment(vm, self.context.account_tx_context.signature().0)?;
-        let account_tx_context = self.context.account_tx_context.clone();
+            &self.allocate_data_segment(vm, &tx_info.signature().0)?;
 
-        let mut tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(self.context.account_tx_context.signed_version().0).into(),
-            stark_felt_to_felt(*self.context.account_tx_context.sender_address().0.key()).into(),
-            max_fee_for_execution_info(&account_tx_context).into(),
+        let mut tx_data: Vec<MaybeRelocatable> = vec![
+            stark_felt_to_felt(tx_info.signed_version().0).into(),
+            stark_felt_to_felt(*tx_info.sender_address().0.key()).into(),
+            max_fee_for_execution_info(tx_info).into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
-            stark_felt_to_felt((self.context.account_tx_context).transaction_hash().0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_info.chain_id.0.as_bytes())
-                .into(),
-            stark_felt_to_felt((self.context.account_tx_context).nonce().0).into(),
+            stark_felt_to_felt((tx_info).transaction_hash().0).into(),
+            Felt252::from_bytes_be(
+                self.context.tx_context.block_context.chain_info.chain_id.0.as_bytes(),
+            )
+            .into(),
+            stark_felt_to_felt((tx_info).nonce().0).into(),
         ];
 
-        match account_tx_context {
-            AccountTransactionContext::Current(context) => {
+        match tx_info {
+            TransactionInfo::Current(context) => {
                 let (tx_resource_bounds_start_ptr, tx_resource_bounds_end_ptr) =
-                    &self.allocate_tx_resource_bounds_segment(vm, &context)?;
+                    &self.allocate_tx_resource_bounds_segment(vm, context)?;
 
                 let (tx_paymaster_data_start_ptr, tx_paymaster_data_end_ptr) =
-                    &self.allocate_data_segment(vm, context.paymaster_data.0)?;
+                    &self.allocate_data_segment(vm, &context.paymaster_data.0)?;
 
                 let (tx_account_deployment_data_start_ptr, tx_account_deployment_data_end_ptr) =
-                    &self.allocate_data_segment(vm, context.account_deployment_data.0)?;
+                    &self.allocate_data_segment(vm, &context.account_deployment_data.0)?;
 
-                tx_info.extend_from_slice(&[
+                tx_data.extend_from_slice(&[
                     tx_resource_bounds_start_ptr.into(),
                     tx_resource_bounds_end_ptr.into(),
                     Felt252::from(context.tip.0).into(),
@@ -504,9 +506,9 @@ impl<'a> SyscallHintProcessor<'a> {
                     tx_account_deployment_data_end_ptr.into(),
                 ]);
             }
-            AccountTransactionContext::Deprecated(_) => {
+            TransactionInfo::Deprecated(_) => {
                 let zero_felt: MaybeRelocatable = Felt252::zero().into();
-                tx_info.extend_from_slice(&[
+                tx_data.extend_from_slice(&[
                     zero_felt.clone(), // Empty segment of resource bounds (start ptr).
                     zero_felt.clone(), // Empty segment of resource bounds (end ptr).
                     zero_felt.clone(), // Tip.
@@ -520,7 +522,7 @@ impl<'a> SyscallHintProcessor<'a> {
             }
         };
 
-        let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
+        let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_data)?;
         Ok(tx_info_start_ptr)
     }
 
@@ -665,8 +667,7 @@ pub fn create_retdata_segment(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     raw_retdata: &[StarkFelt],
 ) -> SyscallResult<ReadOnlySegment> {
-    let (retdata_segment_start_ptr, _) =
-        syscall_handler.allocate_data_segment(vm, raw_retdata.to_vec())?;
+    let (retdata_segment_start_ptr, _) = syscall_handler.allocate_data_segment(vm, raw_retdata)?;
 
     Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: raw_retdata.len() })
 }
