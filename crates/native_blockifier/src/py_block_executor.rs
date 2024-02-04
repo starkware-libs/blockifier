@@ -1,22 +1,19 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block::{pre_process_block, BlockInfo, BlockNumberHashPair, GasPrices};
-use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use blockifier::block::{pre_process_block, BlockInfo, BlockNumberHashPair};
+use blockifier::context::{ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use serde::Serialize;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::BlockNumber;
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::{
-    InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
-    NativeBlockifierResult,
-};
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::py_tx;
 use crate::py_transaction_execution_info::PyBouncerInfo;
@@ -84,11 +81,13 @@ impl PyBlockExecutor {
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
 
+        let chain_info = self.general_config.starknet_os_config.clone().try_into()?;
+        let block_info = BlockInfo::try_from(next_block_info)?;
         let tx_executor = TransactionExecutor::new(
             papyrus_reader,
-            &self.general_config,
+            &chain_info,
             &self.versioned_constants,
-            next_block_info,
+            &block_info,
             self.global_contract_cache.clone(),
         )?;
         self.tx_executor = Some(tx_executor);
@@ -330,54 +329,4 @@ impl Default for PyOsConfig {
             fee_token_address: Default::default(),
         }
     }
-}
-
-pub fn into_block_context(
-    general_config: &PyGeneralConfig,
-    versioned_constants: &VersionedConstants,
-    block_info: PyBlockInfo,
-) -> NativeBlockifierResult<BlockContext> {
-    let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
-    let block_info = BlockInfo {
-        block_number: BlockNumber(block_info.block_number),
-        block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-        gas_prices: GasPrices {
-            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
-                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                    InvalidNativeBlockifierInputError::InvalidGasPriceWei(
-                        block_info.l1_gas_price.price_in_wei,
-                    ),
-                )
-            })?,
-            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri.try_into().map_err(|_| {
-                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                    InvalidNativeBlockifierInputError::InvalidGasPriceFri(
-                        block_info.l1_gas_price.price_in_fri,
-                    ),
-                )
-            })?,
-            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei.try_into().map_err(
-                |_| {
-                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                        InvalidNativeBlockifierInputError::InvalidDataGasPriceWei(
-                            block_info.l1_data_gas_price.price_in_wei,
-                        ),
-                    )
-                },
-            )?,
-            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri.try_into().map_err(
-                |_| {
-                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                        InvalidNativeBlockifierInputError::InvalidDataGasPriceFri(
-                            block_info.l1_data_gas_price.price_in_fri,
-                        ),
-                    )
-                },
-            )?,
-        },
-        use_kzg_da: block_info.use_kzg_da,
-    };
-
-    Ok(BlockContext::new_unchecked(&block_info, &chain_info, versioned_constants))
 }

@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-use blockifier::context::BlockContext;
+use blockifier::block::BlockInfo;
+use blockifier::context::{BlockContext, ChainInfo};
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
@@ -22,8 +23,6 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_block_executor::{into_block_context, PyGeneralConfig};
-use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction_execution_info::PyBouncerInfo;
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
@@ -48,14 +47,14 @@ pub struct TransactionExecutor<S: StateReader> {
 impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
         state_reader: S,
-        general_config: &PyGeneralConfig,
+        chain_info: &ChainInfo,
         versioned_constants: &VersionedConstants,
-        block_info: PyBlockInfo,
+        block_info: &BlockInfo,
         global_contract_cache: GlobalContractCache,
     ) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
-            block_context: into_block_context(general_config, versioned_constants, block_info)?,
+            block_context: BlockContext::new_unchecked(block_info, chain_info, versioned_constants),
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             state: CachedState::new(state_reader, global_contract_cache),

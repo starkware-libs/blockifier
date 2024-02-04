@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::block::{BlockInfo, GasPrices};
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::test_utils::{
     DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE,
@@ -8,10 +9,11 @@ use blockifier::test_utils::{
 };
 use indexmap::IndexMap;
 use pyo3::prelude::*;
+use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::state::{StateDiff, StorageKey};
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_utils::PyFelt;
 
 #[pyclass]
@@ -151,5 +153,40 @@ impl Default for PyBlockInfo {
             sequencer_address: PyFelt::default(),
             use_kzg_da: bool::default(),
         }
+    }
+}
+
+impl TryFrom<PyBlockInfo> for BlockInfo {
+    type Error = NativeBlockifierError;
+
+    fn try_from(py_block_info: PyBlockInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            block_number: BlockNumber(py_block_info.block_number),
+            block_timestamp: BlockTimestamp(py_block_info.block_timestamp),
+            sequencer_address: ContractAddress::try_from(py_block_info.sequencer_address.0)?,
+            gas_prices: GasPrices {
+                eth_l1_gas_price: py_block_info
+                    .l1_gas_price
+                    .price_in_wei
+                    .try_into()
+                    .map_err(NativeBlockifierInputError::TryFromIntError)?,
+                strk_l1_gas_price: py_block_info
+                    .l1_gas_price
+                    .price_in_fri
+                    .try_into()
+                    .map_err(NativeBlockifierInputError::TryFromIntError)?,
+                eth_l1_data_gas_price: py_block_info
+                    .l1_data_gas_price
+                    .price_in_wei
+                    .try_into()
+                    .map_err(NativeBlockifierInputError::TryFromIntError)?,
+                strk_l1_data_gas_price: py_block_info
+                    .l1_data_gas_price
+                    .price_in_fri
+                    .try_into()
+                    .map_err(NativeBlockifierInputError::TryFromIntError)?,
+            },
+            use_kzg_da: py_block_info.use_kzg_da,
+        })
     }
 }

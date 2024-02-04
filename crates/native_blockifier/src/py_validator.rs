@@ -1,3 +1,4 @@
+use blockifier::block::BlockInfo;
 use blockifier::context::TransactionContext;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
@@ -46,11 +47,14 @@ impl PyValidator {
         let versioned_constants =
             versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
 
+        let chain_info = general_config.starknet_os_config.try_into()?;
+        let block_info = BlockInfo::try_from(next_block_info)?;
         let tx_executor = TransactionExecutor::new(
             PyStateReader::new(state_reader_proxy),
-            &general_config,
+            &chain_info,
+            // TODO(Gilad): add max_validate_n_steps override argument and override here.
             &versioned_constants,
-            next_block_info,
+            &block_info,
             GlobalContractCache::new(global_contract_cache_size),
         )?;
         let validator = Self {
@@ -114,11 +118,13 @@ impl PyValidator {
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<Self> {
+        let chain_info = general_config.starknet_os_config.try_into()?;
+        let block_info = BlockInfo::try_from(next_block_info)?;
         let tx_executor = TransactionExecutor::new(
             PyStateReader::new(state_reader_proxy),
-            &general_config,
+            &chain_info,
             &VersionedConstants::latest_constants().clone(),
-            next_block_info,
+            &block_info,
             GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         )?;
         Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })

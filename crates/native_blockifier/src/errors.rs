@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
     ParseError, TransactionExecutionError, TransactionPreValidationError,
@@ -80,6 +82,8 @@ pub enum NativeBlockifierInputError {
     ProgramError(#[from] ProgramError),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error(transparent)]
+    TryFromIntError(#[from] TryFromIntError),
     #[error("Contract class of version {version} is unsupported.")]
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
