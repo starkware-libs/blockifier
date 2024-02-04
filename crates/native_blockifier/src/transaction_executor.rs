@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-use blockifier::block::{pre_process_block, BlockNumberHashPair};
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
@@ -26,7 +25,6 @@ use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_block_executor::{into_block_context, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction_execution_info::PyBouncerInfo;
-use crate::py_utils::PyFelt;
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 
@@ -201,19 +199,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             .collect();
 
         (self.state.to_state_diff(), visited_pcs)
-    }
-
-    // Block pre-processing; see `block::pre_process_block` documentation.
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        let old_block_number_and_hash = old_block_number_and_hash
-            .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
-
-        pre_process_block(&mut self.state, old_block_number_and_hash)?;
-
-        Ok(())
     }
 
     pub fn commit(&mut self) {
