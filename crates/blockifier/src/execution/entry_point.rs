@@ -23,6 +23,7 @@ use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::state_api::State;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::usize_from_u128;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -255,7 +256,19 @@ impl EntryPointExecutionContext {
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        // Use saturating upper bound to avoid overflow. This is safe because the upper bound is
+        // bounded above by the block's limit, which is a usize.
+        let upper_bound_u128 = (tx_gas_upper_bound as f64 / gas_per_step).floor() as u128;
+        let tx_upper_bound = match usize_from_u128(upper_bound_u128) {
+            Ok(bound) => bound,
+            Err(_) => {
+                log::warn!(
+                    "Failed to convert u128 to usize: {upper_bound_u128}. Upper bound from tx is \
+                     {tx_gas_upper_bound}, gas per step is {gas_per_step}."
+                );
+                usize::MAX
+            }
+        };
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 
