@@ -19,7 +19,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_transaction_execution_info::PyBouncerInfo;
+use crate::py_transaction_execution_info::BouncerInfo;
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 
@@ -62,7 +62,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> NativeBlockifierResult<(TransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(TransactionExecutionInfo, BouncerInfo)> {
         let l1_handler_payload_size: usize =
             if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
                 l1_handler_tx.payload_size()
@@ -110,18 +110,17 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 // Finalize counting logic.
                 let actual_resources = &tx_execution_info.actual_resources;
-                let py_bouncer_info = PyBouncerInfo::calculate(
+                let bouncer_info = BouncerInfo::calculate(
                     actual_resources,
                     additional_os_resources,
                     message_segment_length,
                     state_diff_size,
                 )?;
-
                 self.staged_for_commit_state = Some(
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
 
-                Ok((tx_execution_info, py_bouncer_info))
+                Ok((tx_execution_info, bouncer_info))
             }
             Err(error) => {
                 transactional_state.abort();
