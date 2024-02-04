@@ -141,8 +141,11 @@ impl PyValidator {
     ) -> NativeBlockifierResult<(TransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
+        let (tx_execution_info, bouncer_info) =
+            self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
+        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)
+        Ok((tx_execution_info, py_bouncer_info))
     }
 
     fn perform_pre_validation_stage(
