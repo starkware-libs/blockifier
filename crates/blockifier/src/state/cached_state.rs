@@ -49,6 +49,52 @@ impl<S: StateReader> CachedState<S> {
         }
     }
 
+    pub fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        let cache = self.cache.borrow_mut();
+
+        let value = cache.get_storage_initial_value(contract_address, key).unwrap_or_else(|| {
+            panic!("Cannot retrieve '{contract_address:?}' and '{key:?}' from the cache.")
+        });
+        Ok(*value)
+    }
+
+    pub fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        let cache = self.cache.borrow_mut();
+
+        let value = cache
+            .get_nonce_initial_value(contract_address)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        Ok(*value)
+    }
+
+    pub fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> StateResult<ClassHash> {
+        let cache = self.cache.borrow_mut();
+
+        let value = cache
+            .get_class_hash_initial_value(contract_address)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        Ok(*value)
+    }
+
+    pub fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<CompiledClassHash> {
+        let cache = self.cache.borrow_mut();
+
+        let value = cache
+            .get_compiled_class_hash_initial_value(class_hash)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
+        Ok(*value)
+    }
+
     /// Creates a transactional instance from the given cached state.
     /// It allows performing buffered modifying actions on the given state, which
     /// will either all happen (will be committed) or none of them (will be discarded).
@@ -406,10 +452,23 @@ impl StateCache {
             .or_else(|| self.storage_initial_values.get(&contract_storage_key))
     }
 
+    fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> Option<&StarkFelt> {
+        let contract_storage_key = (contract_address, key);
+        self.storage_initial_values.get(&contract_storage_key)
+    }
+
     fn get_nonce_at(&self, contract_address: ContractAddress) -> Option<&Nonce> {
         self.nonce_writes
             .get(&contract_address)
             .or_else(|| self.nonce_initial_values.get(&contract_address))
+    }
+
+    fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> Option<&Nonce> {
+        self.nonce_initial_values.get(&contract_address)
     }
 
     pub fn set_storage_initial_value(
@@ -446,6 +505,13 @@ impl StateCache {
             .or_else(|| self.class_hash_initial_values.get(&contract_address))
     }
 
+    fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> Option<&ClassHash> {
+        self.class_hash_initial_values.get(&contract_address)
+    }
+
     fn set_class_hash_initial_value(
         &mut self,
         contract_address: ContractAddress,
@@ -462,6 +528,13 @@ impl StateCache {
         self.compiled_class_hash_writes
             .get(&class_hash)
             .or_else(|| self.compiled_class_hash_initial_values.get(&class_hash))
+    }
+
+    fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> Option<&CompiledClassHash> {
+        self.compiled_class_hash_initial_values.get(&class_hash)
     }
 
     fn set_compiled_class_hash_initial_value(
