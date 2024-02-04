@@ -30,9 +30,21 @@ impl StateReader for DictStateReader {
         Ok(value)
     }
 
+    fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        self.get_storage_at(contract_address, key)
+    }
+
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let nonce = self.address_to_nonce.get(&contract_address).copied().unwrap_or_default();
         Ok(nonce)
+    }
+
+    fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.get_nonce_at(contract_address)
     }
 
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
@@ -49,6 +61,13 @@ impl StateReader for DictStateReader {
         Ok(class_hash)
     }
 
+    fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> StateResult<ClassHash> {
+        self.get_class_hash_at(contract_address)
+    }
+
     fn get_compiled_class_hash(
         &self,
         class_hash: ClassHash,
@@ -56,5 +75,12 @@ impl StateReader for DictStateReader {
         let compiled_class_hash =
             self.class_hash_to_compiled_class_hash.get(&class_hash).copied().unwrap_or_default();
         Ok(compiled_class_hash)
+    }
+
+    fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<starknet_api::core::CompiledClassHash> {
+        self.get_compiled_class_hash(class_hash)
     }
 }

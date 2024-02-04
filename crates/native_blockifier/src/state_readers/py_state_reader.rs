@@ -93,6 +93,37 @@ impl StateReader for PyStateReader {
         .map(|felt| CompiledClassHash(felt.0))
         .map_err(|err| StateError::StateReadError(err.to_string()))
     }
+
+    fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        let _ = key;
+        let _ = contract_address;
+        todo!()
+    }
+
+    fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        let _ = contract_address;
+        todo!()
+    }
+
+    fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> StateResult<ClassHash> {
+        let _ = contract_address;
+        todo!()
+    }
+
+    fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<CompiledClassHash> {
+        let _ = class_hash;
+        todo!()
+    }
 }
 
 #[derive(FromPyObject)]
