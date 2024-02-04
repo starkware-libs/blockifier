@@ -108,10 +108,11 @@ impl PyBlockExecutor {
         let charge_fee = true;
         let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, raw_contract_class)?;
-        let (tx_execution_info, py_bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+        let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
         let typed_tx_execution_info =
             TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };
         let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
         Ok((raw_tx_execution_info, py_bouncer_info))
     }

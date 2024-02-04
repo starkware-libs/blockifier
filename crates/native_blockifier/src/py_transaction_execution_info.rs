@@ -215,9 +215,19 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
     }
 }
 
+#[derive(Clone, Default)]
+// TODO(Barak, 24/01/2024): Move to blockifier crate.
+// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
+pub struct BouncerInfo {
+    // The number of felts needed to store L1<>L2 messages.
+    pub message_segment_length: usize,
+    // The number of felts needed to store the state diff.
+    pub state_diff_size: usize,
+    pub tx_weights: HashMap<String, usize>,
+}
+
 #[pyclass]
 #[derive(Clone, Default)]
-// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
 pub struct PyBouncerInfo {
     #[pyo3(get)]
     // The number of felts needed to store L1<>L2 messages.
@@ -227,4 +237,14 @@ pub struct PyBouncerInfo {
     pub state_diff_size: usize,
     #[pyo3(get)]
     pub tx_weights: HashMap<String, usize>,
+}
+
+impl From<BouncerInfo> for PyBouncerInfo {
+    fn from(bouncer_info: BouncerInfo) -> Self {
+        Self {
+            message_segment_length: bouncer_info.message_segment_length,
+            state_diff_size: bouncer_info.state_diff_size,
+            tx_weights: bouncer_info.tx_weights,
+        }
+    }
 }
