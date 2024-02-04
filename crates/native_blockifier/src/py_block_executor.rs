@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block::{BlockInfo, GasPrices};
+use blockifier::block::{pre_process_block, BlockInfo, BlockNumberHashPair, GasPrices};
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -139,7 +139,12 @@ impl PyBlockExecutor {
         &mut self,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
-        self.tx_executor().pre_process_block(old_block_number_and_hash)
+        let old_block_number_and_hash = old_block_number_and_hash
+            .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
+        let state = &mut self.tx_executor().state;
+        pre_process_block(state, old_block_number_and_hash)?;
+
+        Ok(())
     }
 
     pub fn commit_tx(&mut self) {
