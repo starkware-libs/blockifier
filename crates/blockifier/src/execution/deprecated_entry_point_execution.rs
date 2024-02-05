@@ -58,6 +58,7 @@ pub fn execute_entry_point_call(
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
+    let previous_syscall_resources = syscall_handler.resources.syscall_resources.clone();
 
     // Execute.
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
@@ -68,6 +69,7 @@ pub fn execute_entry_point_call(
         syscall_handler,
         call,
         previous_vm_resources,
+        previous_syscall_resources,
         implicit_args,
         n_total_args,
     )?)
@@ -211,12 +213,14 @@ pub fn run_entry_point(
     Ok(result?)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
     syscall_handler: DeprecatedSyscallHintProcessor<'_>,
     call: CallEntryPoint,
     previous_vm_resources: VmExecutionResources,
+    previous_syscall_resources: VmExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -242,8 +246,13 @@ pub fn finalize_execution(
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    let versioned_constants = syscall_handler.context.versioned_constants();
+    syscall_handler.resources.syscall_resources += &versioned_constants
+        .get_additional_os_syscall_resources_copy(&syscall_handler.syscall_counter)?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    let full_syscall_resaources =
+        &syscall_handler.resources.syscall_resources - &previous_syscall_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {
@@ -254,6 +263,7 @@ pub fn finalize_execution(
             gas_consumed: 0,
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        syscall_resources: full_syscall_resaources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
