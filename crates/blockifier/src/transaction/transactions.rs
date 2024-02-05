@@ -101,11 +101,35 @@ pub trait ValidatableTransaction {
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
+// TODO(Ayelet,10/02/2024): use this struct's fields and remove the clippy tag.
+#[allow(dead_code)]
+pub struct PyClassInfo {
+    raw_contract_class: String,
+    sierra_program_length: usize,
+    abi_length: usize,
+}
+
+#[derive(Clone, Debug)]
+// TODO(Avi,10/02/2024): use this struct's fields and remove the clippy tag.
+// TODO(Ayelet,10/02/2024): Change to bytes.
+#[allow(dead_code)]
+pub struct ClassInfo {
+    contract_class: ContractClass,
+    sierra_length: usize,
+    abi_length: usize,
+}
+
+impl ClassInfo {
+    fn _bytecode_length(&self) -> usize {
+        self.contract_class.bytecode_length()
+    }
+}
 
 #[derive(Debug)]
 pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
     tx_hash: TransactionHash,
+    // TODO(Ayelet,10/02/2024): Remove this field since it's now included in ClassInfo.
     contract_class: ContractClass,
     // Indicates the presence of the only_query bit in the version.
     only_query: bool,

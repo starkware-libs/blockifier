@@ -15,6 +15,7 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
+use crate::transaction::transactions::ClassInfo;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -55,6 +56,7 @@ pub struct ActualCostBuilder<'a> {
     // TODO(Avi,10/02/2024): use this field and remove the clippy tag.
     #[allow(dead_code)]
     signature_length: usize,
+    class_info: Option<ClassInfo>,
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -76,6 +78,7 @@ impl<'a> ActualCostBuilder<'a> {
             calldata_length,
             n_reverted_steps: 0,
             signature_length,
+            class_info: None,
         }
     }
 
@@ -102,6 +105,11 @@ impl<'a> ActualCostBuilder<'a> {
 
     pub fn with_execute_call_info(mut self, execute_call_info: &'a Option<CallInfo>) -> Self {
         self.execute_call_info = execute_call_info.as_ref();
+        self
+    }
+
+    pub fn with_class_info(mut self, class_info: ClassInfo) -> Self {
+        self.class_info = Some(class_info);
         self
     }
 
