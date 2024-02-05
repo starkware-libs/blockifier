@@ -102,6 +102,16 @@ pub trait ValidatableTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
+#[derive(Clone, Copy, Debug)]
+// TODO(Avi,10/02/2024): use this struct's fields and remove the clippy tag.
+// TODO(Ayelet,10/02/2024): Change to bytes.
+#[allow(dead_code)]
+pub struct ChargeableClassInfo {
+    casm_length: usize,
+    sierra_length: usize,
+    abi_length: usize,
+}
+
 #[derive(Debug)]
 pub struct DeclareTransaction {
     tx: starknet_api::transaction::DeclareTransaction,
@@ -109,6 +119,9 @@ pub struct DeclareTransaction {
     contract_class: ContractClass,
     // Indicates the presence of the only_query bit in the version.
     only_query: bool,
+    // TODO(Avi,10/02/2024): use this field and remove the clippy tag.
+    #[allow(dead_code)]
+    pub class_info: ChargeableClassInfo,
 }
 
 impl DeclareTransaction {
@@ -120,7 +133,13 @@ impl DeclareTransaction {
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
         let contract_class = verify_contract_class_version(contract_class, declare_version)?;
-        Ok(Self { tx: declare_tx, tx_hash, contract_class, only_query })
+        let class_info = ChargeableClassInfo {
+            casm_length: contract_class.bytecode_length(),
+            // TODO(Ayelet,10/02/2024): Fill these fields.
+            sierra_length: 0,
+            abi_length: 0,
+        };
+        Ok(Self { tx: declare_tx, tx_hash, contract_class, only_query, class_info })
     }
 
     pub fn new(
