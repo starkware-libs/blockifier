@@ -14,7 +14,7 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - name: Install llvm
-        run: sudo apt-get update && sudo apt-get install -y llvm
+        run: sudo apt-get update && sudo apt-get install -y llvm-17
       - name: Install gmplib
         run: sudo apt install -y libgmp3-dev
       - uses: actions/checkout@v3
@@ -26,11 +26,10 @@ jobs:
         run: |
           cd cairo_native/runtime
           cargo build --release
-      - name: Set env vars
-        run: |
-          echo "MLIR_SYS_170_PREFIX=/usr/lib/llvm-17" >> $GITHUB_ENV
-          echo "LLVM_SYS_170_PREFIX=/usr/lib/llvm-17" >> $GITHUB_ENV
-          echo "TABLEGEN_170_PREFIX=/usr/lib/llvm-17" >> $GITHUB_ENV
-          echo "CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/cairo_native/runtime/target/release" >> $GITHUB_ENV
       - name: Run ERC20 Native Tests
         run: cd crates/blockifier && cargo test --test erc20_tests --features testing
+        env:
+          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
+          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
+          TABLEGEN_170_PREFIX: /usr/lib/llvm-17
+          CAIRO_NATIVE_RUNTIME_LIBDIR: $(pwd)/cairo_native/runtime/target/release
