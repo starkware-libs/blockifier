@@ -166,12 +166,13 @@ impl<S: StateReader> TransactionExecutor<S> {
         // Note: This assumes that the state is reset between calls to validate.
         self.state.increment_nonce(tx_info.sender_address())?;
 
+        let limit_steps_by_resources = true;
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
             tx_context.clone(),
             &mut remaining_gas,
-            true,
+            limit_steps_by_resources,
         )?;
 
         let actual_cost = account_tx
