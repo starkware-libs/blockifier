@@ -29,15 +29,6 @@ jobs:
           repository: 'lambdaclass/cairo_native'
           ref: "main"
           path: 'cairo_native'
-#      - name: Build cairo_native runtime
-#        run: |
-#          cd cairo_native/runtime
-#          cargo build --release
-#          cd ..
-#          ls
-#          echo "export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/target/release"
-#          echo "export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/target/release" >> $GITHUB_ENV
-#          export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/target/release
       - name: Run ERC20 Native Tests
         run: cd ./cairo_native/runtime && 
           cargo build --release && 
