@@ -1,10 +1,5 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
-};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
@@ -15,7 +10,6 @@ use super::{
     DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE, DEFAULT_STRK_L1_GAS_PRICE,
     TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2, TEST_SEQUENCER_ADDRESS,
 };
-use crate::abi::constants;
 use crate::block::{BlockInfo, GasPrices};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -86,21 +80,6 @@ impl CallEntryPoint {
 impl VersionedConstants {
     pub fn create_for_testing() -> Self {
         Self::latest_constants().clone()
-    }
-
-    pub fn create_for_account_testing() -> Self {
-        let vm_resource_fee_cost = Arc::new(HashMap::from([
-            (constants::N_STEPS_RESOURCE.to_string(), 1_f64),
-            (HASH_BUILTIN_NAME.to_string(), 1_f64),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 1_f64),
-            (SIGNATURE_BUILTIN_NAME.to_string(), 1_f64),
-            (BITWISE_BUILTIN_NAME.to_string(), 1_f64),
-            (POSEIDON_BUILTIN_NAME.to_string(), 1_f64),
-            (OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
-            (EC_OP_BUILTIN_NAME.to_string(), 1_f64),
-        ]));
-
-        Self { vm_resource_fee_cost, ..Self::create_for_testing() }
     }
 }
 
