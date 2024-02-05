@@ -6,6 +6,10 @@ on:
 
 jobs:
   erc20-native-tests:
+    env:
+      MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
+      LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
+      TABLEGEN_170_PREFIX: /usr/lib/llvm-17
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -30,13 +34,9 @@ jobs:
           ref: "main"
           path: 'cairo_native'
       - name: Run ERC20 Native Tests
-        run: cd ./cairo_native/runtime |
-          cargo build --release
-          cd ../.. 
-          cd crates/blockifier 
-          export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/cairo_native/runtime/target/release
+        run: cd ./cairo_native/runtime &&
+          cargo build --release &&
+          cd ../.. &&
+          cd crates/blockifier && 
+          export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/cairo_native/runtime/target/release &&
           cargo test --test erc20_tests --features testing
-        env:
-          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
-          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
-          TABLEGEN_170_PREFIX: /usr/lib/llvm-17
