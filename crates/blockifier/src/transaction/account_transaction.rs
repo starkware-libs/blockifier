@@ -552,12 +552,16 @@ impl AccountTransaction {
         &self,
         tx_context: Arc<TransactionContext>,
     ) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(
+        let mut actual_cost_builder = ActualCostBuilder::new(
             tx_context,
             self.tx_type(),
             self.calldata_length(),
             self.signature_length(),
-        )
+        );
+        if let Self::Declare(tx) = self {
+            actual_cost_builder = actual_cost_builder.with_class_info(tx.chargeable_class_info);
+        }
+        actual_cost_builder
     }
 }
 
