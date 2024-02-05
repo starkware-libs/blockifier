@@ -98,17 +98,9 @@ impl FeeCheckReport {
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
-<<<<<<< HEAD
         // TODO(Aner, 21/01/24) modify for 4844 (include check for blob_gas).
-        match account_tx_context {
-            AccountTransactionContext::Current(context) => {
-||||||| 9575e81e
-        match account_tx_context {
-            AccountTransactionContext::Current(context) => {
-=======
         match tx_info {
             TransactionInfo::Current(context) => {
->>>>>>> origin/main-v0.13.1
                 // Check L1 gas limit.
                 let max_l1_gas = context.l1_resource_bounds()?.max_amount.into();
 
