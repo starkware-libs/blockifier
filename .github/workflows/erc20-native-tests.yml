@@ -19,8 +19,8 @@ jobs:
         run: sudo apt install -y libgmp3-dev
       - uses: actions/checkout@v3
         with:
-          repository: 'NethermindEth/cairo_native'
-          ref: 'execution_info_v2_update'
+          repository: 'lambdaclass/cairo_native'
+          ref: "67a8c4e"
           path: 'cairo_native'
       - name: Build cairo_native runtime
         run: |
