@@ -49,4 +49,4 @@ jobs:
           MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
           LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
           TABLEGEN_170_PREFIX: /usr/lib/llvm-17
-          CAIRO_NATIVE_RUNTIME_LIBDIR: $(pwd)/cairo_native/target/release
+          CAIRO_NATIVE_RUNTIME_LIBDIR: {{ workflow.workspace }}/cairo_native/runtime/target/release
