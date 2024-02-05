@@ -33,7 +33,7 @@ use starknet_types_core::felt::Felt;
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants::{self};
 use crate::block_context::BlockContext;
-use crate::execution::call_info::CallInfo;
+use crate::execution::call_info::{CallInfo, OrderedEvent};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
@@ -524,16 +524,31 @@ impl Into<StarkFelt> for Signers {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TestEvent {
+    pub data: Vec<Felt>,
+    pub keys: Vec<Felt>,
+}
+
+impl From<OrderedEvent> for TestEvent {
+    fn from(value: OrderedEvent) -> Self {
+        let event_data = value.event.data.0.iter().map(|e| starkfelt_to_felt(*e)).collect();
+        let event_keys = value.event.keys.iter().map(|e| starkfelt_to_felt(e.0)).collect();
+        Self { data: event_data, keys: event_keys }
+    }
+}
+
 pub struct TestContext {
     pub contract_address: ContractAddress,
     pub state: CachedState<DictStateReader>,
     pub caller_address: ContractAddress,
+    pub events: Vec<TestEvent>,
 }
 
 impl TestContext {
     pub fn new() -> Self {
         let (contract_address, state) = prepare_erc20_deploy_test_state();
-        Self { contract_address, state, caller_address: contract_address }
+        Self { contract_address, state, caller_address: contract_address, events: vec![] }
     }
 
     pub fn with_caller(mut self, caller_address: ContractAddress) -> Self {
@@ -571,6 +586,16 @@ impl TestContext {
             ..erc20_external_entry_point()
         };
 
-        entry_point_call.execute_directly(&mut self.state).unwrap()
+        let result = entry_point_call.execute_directly(&mut self.state).unwrap();
+
+        let events = result.execution.events.clone();
+
+        self.events.extend(events.iter().map(|e| e.clone().into()));
+
+        result
+    }
+
+    pub fn get_event(&self, index: usize) -> Option<TestEvent> {
+        self.events.get(index).cloned()
     }
 }
