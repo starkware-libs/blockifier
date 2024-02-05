@@ -340,10 +340,12 @@ pub fn finalize_execution(
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
-    syscall_handler.resources.syscall_resources += &get_additional_os_syscall_resources_copy(&syscall_handler.syscall_counter)?;
+    syscall_handler.resources.syscall_resources +=
+        &get_additional_os_syscall_resources_copy(&syscall_handler.syscall_counter)?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
-    let full_call_syscall_resources = &syscall_handler.resources.syscall_resources - &previous_syscall_resources;
+    let full_call_syscall_resources =
+        &syscall_handler.resources.syscall_resources - &previous_syscall_resources;
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {

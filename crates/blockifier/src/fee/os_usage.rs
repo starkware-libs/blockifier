@@ -75,7 +75,6 @@ pub fn get_additional_os_syscall_resources(
     Ok(os_additional_vm_resources)
 }
 
-
 /// Calculates the additional resources needed for the OS to run the given syscalls;
 /// i.e., the resources of the Starknet OS function `execute_syscalls`.
 pub fn get_additional_os_syscall_resources_copy(
