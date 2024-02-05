@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: 'lambdaclass/cairo_native'
-          ref: "67a8c4e"
+          ref: "main"
           path: 'cairo_native'
       - name: Build cairo_native runtime
         run: |
