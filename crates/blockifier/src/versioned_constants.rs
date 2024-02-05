@@ -15,6 +15,7 @@ use thiserror::Error;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
+use crate::execution::errors::PostExecutionError;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
 
@@ -114,7 +115,7 @@ impl VersionedConstants {
     pub fn get_additional_os_syscall_resources(
         &self,
         syscall_counter: &SyscallCounter,
-    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    ) -> Result<VmExecutionResources, PostExecutionError> {
         self.os_resources.get_additional_os_syscall_resources(syscall_counter)
     }
 
@@ -178,7 +179,7 @@ impl OsResources {
     pub fn get_additional_os_syscall_resources(
         &self,
         syscall_counter: &SyscallCounter,
-    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    ) -> Result<VmExecutionResources, PostExecutionError> {
         let mut os_additional_vm_resources = VmExecutionResources::default();
         for (syscall_selector, count) in syscall_counter {
             let syscall_resources =

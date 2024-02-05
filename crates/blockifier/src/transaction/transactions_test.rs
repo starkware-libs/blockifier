@@ -309,9 +309,9 @@ fn default_invoke_tx_args(
         range_check: 102,
         n_steps: 4496,
         vm_resources: VmExecutionResources {
-            n_steps:  62,
-            n_memory_holes:  0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+            n_steps:  822,
+            n_memory_holes:  4,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
@@ -323,9 +323,9 @@ fn default_invoke_tx_args(
         range_check: 115,
         n_steps: 4949,
         vm_resources: VmExecutionResources {
-            n_steps: 284,
-            n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
+            n_steps: 1106,
+            n_memory_holes: 5,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
             // arguments.
@@ -1701,9 +1701,9 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             ..Default::default()
         },
         vm_resources: VmExecutionResources {
-            n_steps: 143,
+            n_steps: 232,
             n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 6)]),
         },
         accessed_storage_keys: HashSet::from_iter(vec![accessed_storage_key]),
         ..Default::default()

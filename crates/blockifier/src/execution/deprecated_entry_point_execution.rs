@@ -23,6 +23,7 @@ use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
 };
 use crate::state::state_api::State;
+use crate::versioned_constants::VersionedConstants;
 
 pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
@@ -241,7 +242,11 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
+    // TODO(Ori, 14/2/2024): Rename `vm_resources`.
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    let versioned_constants = VersionedConstants::latest_constants();
+    syscall_handler.resources.vm_resources += &versioned_constants
+        .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
