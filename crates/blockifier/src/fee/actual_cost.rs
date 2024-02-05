@@ -28,9 +28,15 @@ impl ActualCost {
         tx_context: Arc<TransactionContext>,
         l1_handler_payload_size: usize,
     ) -> ActualCostBuilder<'a> {
-        ActualCostBuilder::new(tx_context, TransactionType::L1Handler, l1_handler_payload_size)
-            .without_sender_address()
-            .with_l1_payload_size(l1_handler_payload_size)
+        let signature_length = 0; // Signature is validated on L1.
+        ActualCostBuilder::new(
+            tx_context,
+            TransactionType::L1Handler,
+            l1_handler_payload_size,
+            signature_length,
+        )
+        .without_sender_address()
+        .with_l1_payload_size(l1_handler_payload_size)
     }
 }
 
@@ -46,6 +52,9 @@ pub struct ActualCostBuilder<'a> {
     l1_payload_size: Option<usize>,
     calldata_length: usize,
     n_reverted_steps: usize,
+    // TODO(Avi,10/02/2024): use this field and remove the clippy tag.
+    #[allow(dead_code)]
+    signature_length: usize,
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -54,6 +63,7 @@ impl<'a> ActualCostBuilder<'a> {
         tx_context: Arc<TransactionContext>,
         tx_type: TransactionType,
         calldata_length: usize,
+        signature_length: usize,
     ) -> Self {
         Self {
             sender_address: Some(tx_context.tx_info.sender_address()),
@@ -65,6 +75,7 @@ impl<'a> ActualCostBuilder<'a> {
             l1_payload_size: None,
             calldata_length,
             n_reverted_steps: 0,
+            signature_length,
         }
     }
 
