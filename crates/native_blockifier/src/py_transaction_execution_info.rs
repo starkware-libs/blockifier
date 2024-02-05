@@ -54,7 +54,7 @@ pub struct PyGasVector {
 
 impl From<GasVector> for PyGasVector {
     fn from(gas_vector: GasVector) -> Self {
-        Self { l1_gas: gas_vector.l1_gas, blob_gas: gas_vector.blob_gas }
+        Self { l1_gas: gas_vector.l1_gas, blob_gas: gas_vector.l1_data_gas }
     }
 }
 
