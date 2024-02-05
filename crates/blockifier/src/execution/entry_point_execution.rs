@@ -27,6 +27,7 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
+use crate::versioned_constants::VersionedConstants;
 
 // TODO(spapini): Try to refactor this file into a StarknetRunner struct.
 
@@ -335,7 +336,11 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
+    // TODO(Ori, 14/2/2024): Rename `vm_resources`.
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    let versioned_constants = VersionedConstants::latest_constants();
+    syscall_handler.resources.vm_resources +=
+        &versioned_constants.get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {
