@@ -63,7 +63,18 @@ pub enum SyscallExecutionError {
     #[error("Invalid address domain: {address_domain}.")]
     InvalidAddressDomain { address_domain: StarkFelt },
     #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
+    EntryPointExecutionError(#[from] EntryPointExecutionError),
+    #[error("{error}")]
+    CallContractExecutionError {
+        storage_address: ContractAddress,
+        error: Box<SyscallExecutionError>,
+    },
+    #[error("{error}")]
+    LibraryCallExecutionError {
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+        error: Box<SyscallExecutionError>,
+    },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
@@ -91,6 +102,24 @@ pub enum SyscallExecutionError {
 impl From<SyscallExecutionError> for HintError {
     fn from(error: SyscallExecutionError) -> Self {
         HintError::Internal(VirtualMachineError::Other(error.into()))
+    }
+}
+
+impl SyscallExecutionError {
+    pub fn as_call_contract_execution_error(self, storage_address: ContractAddress) -> Self {
+        SyscallExecutionError::CallContractExecutionError { storage_address, error: Box::new(self) }
+    }
+
+    pub fn as_lib_call_execution_error(
+        self,
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+    ) -> Self {
+        SyscallExecutionError::LibraryCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(self),
+        }
     }
 }
 
@@ -696,7 +725,9 @@ pub fn execute_library_call(
         initial_gas: *remaining_gas,
     };
 
-    execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
+    execute_inner_call(entry_point, vm, syscall_handler, remaining_gas).map_err(|error| {
+        error.as_lib_call_execution_error(class_hash, syscall_handler.storage_address())
+    })
 }
 
 pub fn read_felt_array<TErr>(
