@@ -1,13 +1,13 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionVersion;
+use starknet_types_core::felt::Felt;
 
 pub const CONSTRUCTOR_ENTRY_POINT_NAME: &str = "constructor";
 pub const DEFAULT_ENTRY_POINT_NAME: &str = "__default__";
-pub const DEFAULT_ENTRY_POINT_SELECTOR: u64 = 0;
+pub const DEFAULT_ENTRY_POINT_SELECTOR: &str = "0x0";
 pub const DEFAULT_L1_ENTRY_POINT_NAME: &str = "__l1_default__";
 
 // The version is considered 0 for L1-Handler transaction hash calculation purposes.
-pub const L1_HANDLER_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ZERO);
+pub const L1_HANDLER_VERSION: TransactionVersion = TransactionVersion(Felt::ZERO);
 
 // OS-related constants.
 pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;
@@ -97,7 +97,7 @@ pub const STORAGE_WRITE_GAS_COST: u64 = SYSCALL_BASE_GAS_COST + 50 * STEP_GAS_CO
 // This contract stores the block number -> block hash mapping.
 // TODO(Arni, 14/6/2023): Replace BLOCK_HASH_CONSTANT_ADDRESS with a lazy calculation.
 //      pub static BLOCK_HASH_CONTRACT_ADDRESS: Lazy<ContractAddress> = ...
-pub const BLOCK_HASH_CONTRACT_ADDRESS: u64 = 1;
+pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "0x1";
 
 // The block number -> block hash mapping is written for the current block number minus this number.
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;

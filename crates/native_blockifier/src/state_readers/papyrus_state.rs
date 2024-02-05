@@ -7,8 +7,8 @@ use papyrus_storage::state::StateStorageReader;
 use papyrus_storage::StorageReader;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateNumber, StorageKey};
+use starknet_types_core::felt::Felt;
 
 #[cfg(test)]
 #[path = "papyrus_state_test.rs"]
@@ -39,7 +39,7 @@ impl StateReader for PapyrusReader {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         let state_number = StateNumber(self.latest_block);
         self.reader()?
             .get_state_reader()

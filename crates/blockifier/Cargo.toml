@@ -20,7 +20,6 @@ ark-ff.workspace = true
 ark-secp256k1.workspace = true
 ark-secp256r1.workspace = true
 cached.workspace = true
-cairo-felt.workspace = true
 cairo-lang-casm.workspace = true
 cairo-lang-runner.workspace = true
 cairo-lang-starknet.workspace = true
@@ -39,6 +38,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 sha3.workspace = true
 starknet_api = { workspace = true, features = ["testing"] }
+starknet-types-core = { workspace = true, features = ["num-traits"] }
 starknet-crypto.workspace = true
 strum.workspace = true
 strum_macros.workspace = true

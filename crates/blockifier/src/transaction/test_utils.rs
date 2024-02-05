@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use rstest::fixture;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, InvokeTransactionV0, InvokeTransactionV1,
     InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
@@ -107,7 +107,7 @@ pub fn deploy_and_fund_account(
     for fee_type in FeeType::iter() {
         let fee_token_address = chain_info.fee_token_address(&fee_type);
         state
-            .set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE))
+            .set_storage_at(fee_token_address, deployed_account_balance_key, Felt::from(BALANCE))
             .unwrap();
     }
 
@@ -130,8 +130,8 @@ pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion
 
 pub fn create_account_tx_test_state(
     account_class: ContractClass,
-    account_class_hash: &str,
-    account_address: &str,
+    account_class_hash: u64,
+    account_address: u64,
     erc20_account_balance_key: StorageKey,
     initial_account_balance: u128,
     test_contract_class: ContractClass,
@@ -160,13 +160,13 @@ pub fn create_account_tx_test_state(
     ]);
     let minter_var_address = get_storage_var_address("permitted_minter", &[]);
 
-    let initial_balance_felt = stark_felt!(initial_account_balance);
+    let initial_balance_felt = Felt::from(initial_account_balance);
     let storage_view = HashMap::from([
         ((test_strk_token_address, erc20_account_balance_key), initial_balance_felt),
         ((test_eth_token_address, erc20_account_balance_key), initial_balance_felt),
         // Give the account mint permission.
-        ((test_strk_token_address, minter_var_address), *test_account_address.0.key()),
-        ((test_eth_token_address, minter_var_address), *test_account_address.0.key()),
+        ((test_strk_token_address, minter_var_address), test_account_address.0.to_felt()),
+        ((test_eth_token_address, minter_var_address), test_account_address.0.to_felt()),
     ]);
     CachedState::from(DictStateReader {
         address_to_class_hash,
@@ -193,7 +193,7 @@ pub struct FaultyAccountTxCreatorArgs {
     pub tx_type: TransactionType,
     pub scenario: u64,
     // Should be None unless scenario is CALL_CONTRACT.
-    pub additional_data: Option<StarkFelt>,
+    pub additional_data: Option<Felt>,
     // Should be use with tx_type Declare or InvokeFunction.
     pub sender_address: ContractAddress,
     // Should be used with tx_type DeployAccount.
@@ -241,8 +241,8 @@ pub fn create_account_tx_for_validate_test(
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
     let signature = TransactionSignature(vec![
-        StarkFelt::from(scenario),
-        // Assumes the default value of StarkFelt is 0.
+        Felt::from(scenario),
+        // Assumes the default value of Felt is 0.
         additional_data.unwrap_or_default(),
     ]);
 
@@ -266,7 +266,7 @@ pub fn create_account_tx_for_validate_test(
         TransactionType::DeployAccount => {
             // We do not use the sender address here because the transaction generates the actual
             // sender address.
-            let constructor_calldata = calldata![stark_felt!(match validate_constructor {
+            let constructor_calldata = calldata![Felt::from(match validate_constructor {
                 true => constants::FELT_TRUE,
                 false => constants::FELT_FALSE,
             })];

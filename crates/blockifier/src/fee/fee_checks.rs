@@ -1,5 +1,5 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
@@ -24,7 +24,7 @@ pub enum FeeCheckError {
         "Insufficient fee token balance. Fee: {fee:?}, balance: low/high \
          {balance_low:?}/{balance_high:?}."
     )]
-    InsufficientFeeTokenBalance { fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+    InsufficientFeeTokenBalance { fee: Fee, balance_low: Felt, balance_high: Felt },
 }
 
 /// This struct holds the result of fee checks: recommended fee to charge (useful in post-execution

@@ -1,11 +1,10 @@
 use assert_matches::assert_matches;
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::patricia_key;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Fee, ResourceBoundsMapping, TransactionVersion};
-use starknet_api::{patricia_key, stark_felt};
-use starknet_crypto::FieldElement;
+use starknet_types_core::felt::Felt;
 
 use crate::block_context::{BlockContext, ChainInfo};
 use crate::fee::fee_checks::FeeCheckError;
@@ -38,21 +37,21 @@ fn init_data_by_version(chain_info: &ChainInfo, cairo_version: CairoVersion) -> 
 
 fn calldata_for_write_and_transfer(
     test_contract_address: ContractAddress,
-    storage_address: StarkFelt,
-    storage_value: StarkFelt,
-    recipient: StarkFelt,
-    transfer_amount: StarkFelt,
+    storage_address: Felt,
+    storage_value: Felt,
+    recipient: Felt,
+    transfer_amount: Felt,
     fee_token_address: ContractAddress,
 ) -> Calldata {
     create_calldata(
         test_contract_address,
         "test_write_and_transfer",
         &[
-            storage_address,            // Calldata: storage address.
-            storage_value,              // Calldata: storage value.
-            recipient,                  // Calldata: to.
-            transfer_amount,            // Calldata: amount.
-            *fee_token_address.0.key(), // Calldata: fee token address.
+            storage_address,               // Calldata: storage address.
+            storage_value,                 // Calldata: storage value.
+            recipient,                     // Calldata: to.
+            transfer_amount,               // Calldata: amount.
+            fee_token_address.0.to_felt(), // Calldata: fee token address.
         ],
     )
 }
@@ -73,30 +72,30 @@ fn test_revert_on_overdraft(
     let chain_info = &block_context.chain_info;
     let fee_token_address = chain_info.fee_token_addresses.get_by_fee_type(&fee_type);
     // An address to be written into to observe state changes.
-    let storage_address = stark_felt!(10_u8);
+    let storage_address = Felt::from(10_u8);
     let storage_key = StorageKey::try_from(storage_address).unwrap();
     // Final storage value expected in the address at the end of this test.
-    let expected_final_value = stark_felt!(77_u8);
+    let expected_final_value = Felt::from(77_u8);
     // An address to be used as recipient of a transfer.
-    let recipient = stark_felt!(7_u8);
+    let recipient = Felt::from(7_u8);
     let recipient_address = ContractAddress(patricia_key!(recipient));
     // Amount expected to be transferred successfully.
-    let final_received_amount = stark_felt!(80_u8);
+    let final_received_amount = Felt::from(80_u8);
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         init_data_by_version(chain_info, cairo_version);
 
     // Verify the contract's storage key initial value is empty.
-    assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), stark_felt!(0_u8));
+    assert_eq!(state.get_storage_at(contract_address, storage_key).unwrap(), Felt::ZERO);
 
     // Approve the test contract to transfer funds.
     let approve_calldata = create_calldata(
         fee_token_address,
         "approve",
         &[
-            *contract_address.0.key(), // Calldata: to.
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
+            contract_address.0.to_felt(), // Calldata: to.
+            Felt::from(BALANCE),
+            Felt::ZERO,
         ],
     );
 
@@ -158,7 +157,7 @@ fn test_revert_on_overdraft(
             calldata: calldata_for_write_and_transfer(
                 contract_address,
                 storage_address,
-                stark_felt!(0_u8),
+                Felt::ZERO,
                 recipient,
                 balance,
                 fee_token_address
@@ -171,8 +170,7 @@ fn test_revert_on_overdraft(
     .unwrap();
 
     // Compute the expected balance after the reverted write+transfer (tx fee should be charged).
-    let expected_new_balance: StarkFelt =
-        StarkFelt::from(FieldElement::from(balance) - FieldElement::from(transfer_tx_fee.0));
+    let expected_new_balance: Felt = balance - Felt::from(transfer_tx_fee.0);
 
     // Verify the execution was reverted (including nonce bump) with the correct error.
     assert!(execution_info.is_reverted());
@@ -190,7 +188,7 @@ fn test_revert_on_overdraft(
                 chain_info.fee_token_address(&account_tx_context.fee_type()),
             )
             .unwrap(),
-        (expected_new_balance, stark_felt!(0_u8))
+        (expected_new_balance, Felt::ZERO)
     );
     assert_eq!(
         state
@@ -199,7 +197,7 @@ fn test_revert_on_overdraft(
                 chain_info.fee_token_address(&account_tx_context.fee_type())
             )
             .unwrap(),
-        (final_received_amount, stark_felt!(0_u8))
+        (final_received_amount, Felt::ZERO)
     );
 }
 
@@ -233,7 +231,7 @@ fn test_revert_on_resource_overuse(
         create_calldata(
             contract_address,
             "write_a_lot",
-            &[stark_felt!(n_writes), stark_felt!(value_to_write)],
+            &[Felt::from(n_writes), Felt::from(value_to_write)],
         )
     };
 

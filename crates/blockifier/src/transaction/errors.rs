@@ -1,7 +1,7 @@
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
@@ -26,11 +26,11 @@ pub enum TransactionFeeError {
     L1GasBoundsExceedBalance {
         max_amount: u64,
         max_price: u128,
-        balance_low: StarkFelt,
-        balance_high: StarkFelt,
+        balance_low: Felt,
+        balance_high: Felt,
     },
     #[error("Max fee ({max_fee:?}) exceeds balance (Uint256({balance_low:?}, {balance_high:?})).")]
-    MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+    MaxFeeExceedsBalance { max_fee: Fee, balance_low: Felt, balance_high: Felt },
     #[error("Max fee ({max_fee:?}) is too low. Minimum fee: {min_fee:?}.")]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
     #[error(

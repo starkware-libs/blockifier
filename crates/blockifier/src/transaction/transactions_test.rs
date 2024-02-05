@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
@@ -11,13 +10,13 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 use strum::IntoEnumIterator;
 use test_case::test_case;
 
@@ -32,7 +31,6 @@ use crate::execution::call_info::{
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     calculate_tx_gas_and_blob_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
@@ -95,7 +93,7 @@ fn expected_validate_call_info(
 ) -> Option<CallInfo> {
     let retdata = match cairo_version {
         CairoVersion::Cairo0 => Retdata::default(),
-        CairoVersion::Cairo1 => retdata!(stark_felt!(constants::VALIDATE_RETDATA)),
+        CairoVersion::Cairo1 => retdata!(Felt::from_hex_unchecked(constants::VALIDATE_RETDATA)),
     };
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks = match cairo_version {
@@ -160,11 +158,11 @@ fn expected_fee_transfer_call_info(
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
     let expected_sequencer_address = block_context.block_info.sequencer_address;
-    let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
+    let expected_sequencer_address_felt = expected_sequencer_address.0.to_felt();
     // The least significant 128 bits of the expected amount transferred.
-    let lsb_expected_amount = stark_felt!(actual_fee.0);
+    let lsb_expected_amount = Felt::from(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
-    let msb_expected_amount = stark_felt!(0_u8);
+    let msb_expected_amount = Felt::ZERO;
     let storage_address = block_context.chain_info.fee_token_address(fee_type);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
@@ -181,7 +179,7 @@ fn expected_fee_transfer_call_info(
         call_type: CallType::Call,
         initial_gas: abi_constants::INITIAL_GAS_COST,
     };
-    let expected_fee_sender_address = *account_address.0.key();
+    let expected_fee_sender_address = account_address.0.to_felt();
     let expected_fee_transfer_event = OrderedEvent {
         order: 0,
         event: EventContent {
@@ -204,7 +202,7 @@ fn expected_fee_transfer_call_info(
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
-            retdata: retdata![stark_felt!(constants::FELT_TRUE)],
+            retdata: retdata![Felt::from(constants::FELT_TRUE)],
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
@@ -212,14 +210,14 @@ fn expected_fee_transfer_call_info(
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
+            Felt::from(BALANCE),
+            Felt::ZERO,
+            Felt::from(BALANCE),
+            Felt::ZERO,
+            Felt::ZERO,
+            Felt::ZERO,
+            Felt::ZERO,
+            Felt::ZERO,
         ],
         accessed_storage_keys: HashSet::from_iter(vec![
             sender_balance_key_low,
@@ -245,8 +243,8 @@ fn validate_final_balances(
 ) {
     // Expected balances of account and sequencer, per fee type.
     let (expected_sequencer_balance_eth, expected_sequencer_balance_strk) = match fee_type {
-        FeeType::Eth => (stark_felt!(expected_actual_fee.0), StarkFelt::ZERO),
-        FeeType::Strk => (StarkFelt::ZERO, stark_felt!(expected_actual_fee.0)),
+        FeeType::Eth => (Felt::from(expected_actual_fee.0), Felt::ZERO),
+        FeeType::Strk => (Felt::ZERO, Felt::from(expected_actual_fee.0)),
     };
     let mut expected_account_balance_eth = initial_account_balance_eth;
     let mut expected_account_balance_strk = initial_account_balance_strk;
@@ -264,10 +262,10 @@ fn validate_final_balances(
         (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
     ] {
         let account_balance = state.get_storage_at(fee_address, erc20_account_balance_key).unwrap();
-        assert_eq!(account_balance, stark_felt!(expected_account_balance));
+        assert_eq!(account_balance, Felt::from(expected_account_balance));
         assert_eq!(
             state.get_storage_at(fee_address, test_erc20_sequencer_balance_key()).unwrap(),
-            stark_felt!(expected_sequencer_balance)
+            expected_sequencer_balance
         );
     }
 }
@@ -279,7 +277,7 @@ fn default_invoke_tx_args(
     let execute_calldata = create_calldata(
         test_contract_address,
         "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
+        &[Felt::TWO], // Calldata: num.
     );
 
     invoke_tx_args! {
@@ -357,7 +355,7 @@ fn test_invoke_tx(
     );
 
     // Build expected execute call info.
-    let expected_return_result_calldata = vec![stark_felt!(2_u8)];
+    let expected_return_result_calldata = vec![Felt::TWO];
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
         class_hash: Some(test_contract.get_class_hash()),
@@ -433,7 +431,7 @@ fn test_invoke_tx(
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
+    assert_eq!(nonce_from_state, Nonce(Felt::ONE));
 
     // Test final balances.
     validate_final_balances(
@@ -452,9 +450,9 @@ fn verify_storage_after_invoke_advanced_operations(
     state: &mut CachedState<DictStateReader>,
     contract_address: ContractAddress,
     account_address: ContractAddress,
-    index: StarkFelt,
-    expected_counters: [StarkFelt; 2],
-    expected_ec_point: [StarkFelt; 2],
+    index: Felt,
+    expected_counters: [Felt; 2],
+    expected_ec_point: [Felt; 2],
     expected_nonce: Nonce,
 ) {
     // Verify the two_counters values in storage.
@@ -489,7 +487,7 @@ fn test_invoke_tx_advanced_operations(
         &mut test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let account_address = account.get_instance_address(0);
     let contract_address = test_contract.get_instance_address(0);
-    let index = stark_felt!(123_u32);
+    let index = Felt::from(123_u32);
     let base_tx_args = invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
         sender_address: account_address,
@@ -498,7 +496,7 @@ fn test_invoke_tx_advanced_operations(
     // Invoke advance_counter function.
     let mut nonce_manager = NonceManager::default();
     let counter_diffs = [101_u32, 102_u32];
-    let initial_counters = [stark_felt!(counter_diffs[0]), stark_felt!(counter_diffs[1])];
+    let initial_counters = [Felt::from(counter_diffs[0]), Felt::from(counter_diffs[1])];
     let calldata_args = vec![index, initial_counters[0], initial_counters[1]];
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
@@ -510,7 +508,7 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let next_nonce = nonce_manager.next(account_address);
-    let initial_ec_point = [StarkFelt::ZERO, StarkFelt::ZERO];
+    let initial_ec_point = [Felt::ZERO, Felt::ZERO];
     verify_storage_after_invoke_advanced_operations(
         state,
         contract_address,
@@ -524,10 +522,10 @@ fn test_invoke_tx_advanced_operations(
     // Invoke call_xor_counters function.
     let xor_values = [31_u32, 32_u32];
     let calldata_args = vec![
-        *contract_address.0.key(),
+        contract_address.0.to_felt(),
         index,
-        stark_felt!(xor_values[0]),
-        stark_felt!(xor_values[1]),
+        Felt::from(xor_values[0]),
+        Felt::from(xor_values[1]),
     ];
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
@@ -539,8 +537,8 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let expected_counters = [
-        stark_felt!(counter_diffs[0] ^ xor_values[0]),
-        stark_felt!(counter_diffs[1] ^ xor_values[1]),
+        Felt::from(counter_diffs[0] ^ xor_values[0]),
+        Felt::from(counter_diffs[1] ^ xor_values[1]),
     ];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
@@ -563,18 +561,16 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let expected_ec_point = [
-        StarkFelt::new([
+        Felt::from_bytes_be(&[
             0x05, 0x07, 0xF8, 0x28, 0xEA, 0xE0, 0x0C, 0x08, 0xED, 0x10, 0x60, 0x5B, 0xAA, 0xD4,
             0x80, 0xB7, 0x4B, 0x0E, 0x9B, 0x61, 0x9C, 0x1A, 0x2C, 0x53, 0xFB, 0x75, 0x86, 0xE3,
             0xEE, 0x1A, 0x82, 0xBA,
-        ])
-        .unwrap(),
-        StarkFelt::new([
+        ]),
+        Felt::from_bytes_be(&[
             0x05, 0x43, 0x9A, 0x5D, 0xC0, 0x8C, 0xC1, 0x35, 0x64, 0x11, 0xA4, 0x57, 0x8F, 0x50,
             0x71, 0x54, 0xB4, 0x84, 0x7B, 0xAA, 0x73, 0x70, 0x68, 0x17, 0x1D, 0xFA, 0x6C, 0x8A,
             0xB3, 0x49, 0x9D, 0x8B,
-        ])
-        .unwrap(),
+        ]),
     ];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
@@ -588,8 +584,9 @@ fn test_invoke_tx_advanced_operations(
     );
 
     // Invoke add_signature_to_counters function.
-    let signature_values = [Felt252::from(200_u64), Felt252::from(300_u64)];
-    let signature = TransactionSignature(signature_values.iter().map(felt_to_stark_felt).collect());
+    let signature_values =
+        vec![Felt::from_hex_unchecked("0x200"), Felt::from_hex_unchecked("0x300")];
+    let signature = TransactionSignature(signature_values.clone());
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
         signature,
@@ -600,14 +597,8 @@ fn test_invoke_tx_advanced_operations(
     });
     account_tx.execute(state, block_context, true, true).unwrap();
 
-    let expected_counters = [
-        felt_to_stark_felt(
-            &(stark_felt_to_felt(expected_counters[0]) + signature_values[0].clone()),
-        ),
-        felt_to_stark_felt(
-            &(stark_felt_to_felt(expected_counters[1]) + signature_values[1].clone()),
-        ),
-    ];
+    let expected_counters =
+        [expected_counters[0] + signature_values[0], expected_counters[1] + signature_values[1]];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
         state,
@@ -620,11 +611,11 @@ fn test_invoke_tx_advanced_operations(
     );
 
     // Invoke send_message function that send a message to L1.
-    let to_address = Felt252::from(85);
+    let to_address = Felt::from(85);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         nonce: next_nonce,
         calldata:
-            create_calldata(contract_address, "send_message", &[felt_to_stark_felt(&to_address)]),
+            create_calldata(contract_address, "send_message", &[to_address]),
         ..base_tx_args
     });
     let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
@@ -641,8 +632,8 @@ fn test_invoke_tx_advanced_operations(
     let expected_msg = OrderedL2ToL1Message {
         order: 0,
         message: MessageToL1 {
-            to_address: EthAddress::try_from(felt_to_stark_felt(&to_address)).unwrap(),
-            payload: L2ToL1Payload(vec![stark_felt!(12_u32), stark_felt!(34_u32)]),
+            to_address: EthAddress::try_from(to_address).unwrap(),
+            payload: L2ToL1Payload(vec![Felt::from(12_u32), Felt::from(34_u32)]),
         },
     };
     assert_eq!(
@@ -665,8 +656,8 @@ fn test_state_get_fee_token_balance(
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let account_address = account.get_instance_address(0);
-    let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
-    let recipient = stark_felt!(10_u8);
+    let (mint_high, mint_low) = (Felt::from(54_u8), Felt::from(39_u8));
+    let recipient = Felt::from(10_u8);
     let fee_token_address = chain_info.fee_token_address(&fee_type);
 
     // Give the account mint privileges.
@@ -674,7 +665,7 @@ fn test_state_get_fee_token_balance(
         .set_storage_at(
             fee_token_address,
             get_storage_var_address("permitted_minter", &[]),
-            *account_address.0.key(),
+            account_address.0.to_felt(),
         )
         .unwrap();
 
@@ -927,7 +918,7 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let mut transactional_state = CachedState::create_transactional(state);
 
     // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
-    let invalid_nonce = Nonce(stark_felt!(1_u8));
+    let invalid_nonce = Nonce(Felt::ONE);
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
     let invalid_tx_context = invalid_tx.get_account_tx_context();
@@ -952,7 +943,7 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     // Non-strict.
 
     // Positive flow: account nonce = 0, incoming tx nonce = 1.
-    let valid_nonce = Nonce(stark_felt!(1_u8));
+    let valid_nonce = Nonce(Felt::ONE);
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
     let valid_tx_context = valid_tx.get_account_tx_context();
@@ -967,7 +958,7 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
         .unwrap();
 
     // Negative flow: account nonce = 1, incoming tx nonce = 0.
-    let invalid_nonce = Nonce(stark_felt!(0_u8));
+    let invalid_nonce = Nonce(Felt::ZERO);
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
     let pre_validation_err = invalid_tx
@@ -985,7 +976,7 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
         pre_validation_err,
         TransactionPreValidationError::InvalidNonce {address, account_nonce, incoming_tx_nonce}
         if (address, account_nonce, incoming_tx_nonce) ==
-        (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
+        (valid_invoke_tx_args.sender_address, Nonce(Felt::ONE), invalid_nonce)
     );
 }
 
@@ -1042,23 +1033,26 @@ fn declare_validate_callinfo(
 
 /// Returns the expected used L1 gas due to execution of a declare transaction.
 fn declare_expected_l1_gas_usage(version: TransactionVersion) -> usize {
-    let state_changes_count = match version {
-        TransactionVersion::ZERO => StateChangesCount {
+    let state_changes_count = if version == TransactionVersion::ZERO {
+        StateChangesCount {
             n_storage_updates: 1, // Sender balance.
             ..StateChangesCount::default()
-        },
-        TransactionVersion::ONE => StateChangesCount {
+        }
+    } else if version == TransactionVersion::ONE {
+        StateChangesCount {
             n_storage_updates: 1,    // Sender balance.
             n_modified_contracts: 1, // Nonce.
             ..StateChangesCount::default()
-        },
-        TransactionVersion::TWO | TransactionVersion::THREE => StateChangesCount {
+        }
+    } else if version == TransactionVersion::TWO || version == TransactionVersion::THREE {
+        StateChangesCount {
             n_storage_updates: 1,             // Sender balance.
             n_modified_contracts: 1,          // Nonce.
             n_compiled_class_hash_updates: 1, // Also set compiled class hash.
             ..StateChangesCount::default()
-        },
-        version => panic!("Unsupported version {version:?}."),
+        }
+    } else {
+        panic!("Unsupported version {version:?}.")
     };
 
     get_onchain_data_cost(state_changes_count)
@@ -1148,7 +1142,7 @@ fn test_declare_tx(
 
     // Test nonce update. V0 transactions do not update nonce.
     let expected_nonce =
-        Nonce(stark_felt!(if tx_version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 }));
+        Nonce(Felt::from(if tx_version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 }));
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
     assert_eq!(nonce_from_state, expected_nonce);
 
@@ -1202,7 +1196,7 @@ fn test_deploy_account_tx(
             .set_storage_at(
                 chain_info.fee_token_address(&fee_type),
                 deployed_account_balance_key,
-                stark_felt!(BALANCE),
+                Felt::from(BALANCE),
             )
             .unwrap();
     }
@@ -1276,7 +1270,7 @@ fn test_deploy_account_tx(
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
+    assert_eq!(nonce_from_state, Nonce(Felt::ONE));
 
     // Test final balances.
     validate_final_balances(
@@ -1315,7 +1309,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[]);
     let mut nonce_manager = NonceManager::default();
-    let undeclared_hash = class_hash!("0xdeadbeef");
+    let undeclared_hash = class_hash!(0xdeadbeefu64);
     let deploy_account = deploy_account_tx(
         deploy_account_tx_args! { max_fee: Fee(MAX_FEE), class_hash: undeclared_hash },
         &mut nonce_manager,
@@ -1326,7 +1320,7 @@ fn test_fail_deploy_account_undeclared_class_hash() {
         .set_storage_at(
             chain_info.fee_token_address(&FeeType::Eth),
             get_fee_token_var_address(deploy_account.contract_address),
-            stark_felt!(BALANCE),
+            Felt::from(BALANCE),
         )
         .unwrap();
 
@@ -1391,8 +1385,10 @@ fn test_validate_accounts_tx(
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: CALL_CONTRACT,
-            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
-                                                           * address of faulty_account. */
+            additional_data: Some(Felt::from_hex_unchecked("0x1991")), /* Some address different
+                                                                        * than the
+                                                                        * address of
+                                                                        * faulty_account. */
             contract_address_salt: salt_manager.next_salt(),
             ..default_args
         },
@@ -1443,7 +1439,7 @@ fn test_validate_accounts_tx(
             nonce_manager,
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
-                additional_data: Some(*sender_address.0.key()),
+                additional_data: Some(sender_address.0.to_felt()),
                 ..default_args
             },
         );
@@ -1492,9 +1488,9 @@ fn test_calculate_tx_gas_usage() {
         fee_token_address,
         constants::TRANSFER_ENTRY_POINT_NAME,
         &[
-            *some_other_account_address.0.key(), // Calldata: recipient.
-            stark_felt!(2_u8),                   // Calldata: lsb amount.
-            stark_felt!(0_u8),                   // Calldata: msb amount.
+            some_other_account_address.0.to_felt(), // Calldata: recipient.
+            Felt::TWO,                              // Calldata: lsb amount.
+            Felt::ZERO,                             // Calldata: msb amount.
         ],
     );
 
@@ -1503,7 +1499,7 @@ fn test_calculate_tx_gas_usage() {
         sender_address: account_contract_address,
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(1_u8)),
+        nonce: Nonce(Felt::ONE),
     });
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
@@ -1562,48 +1558,49 @@ fn test_only_query_flag(#[case] only_query: bool) {
         account_balance,
         &[(account, 1), (test_contract, 1)],
     );
-    let mut version = Felt252::from(1_u8);
+    let mut version = Felt::ONE;
     if only_query {
-        let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
+        let query_version_base = Pow::pow(Felt::TWO, constants::QUERY_VERSION_BASE_BIT);
         version += query_version_base;
     }
     let sender_address = account.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
     let max_fee = Fee(MAX_FEE);
     let expected_tx_info = vec![
-        felt_to_stark_felt(&version), // Transaction version.
-        *sender_address.0.key(),      // Account address.
-        stark_felt!(max_fee.0),       // Max fee.
-        StarkFelt::ZERO,              // Signature.
-        StarkFelt::ZERO,              // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        StarkFelt::ZERO,              // Nonce.
-        StarkFelt::ZERO,              // Length of resource bounds array.
-        StarkFelt::ZERO,              // Tip.
-        StarkFelt::ZERO,              // Paymaster data.
-        StarkFelt::ZERO,              // Nonce DA.
-        StarkFelt::ZERO,              // Fee DA.
-        StarkFelt::ZERO,              // Account data.
+        version,                                                               /* Transaction
+                                                                                * version. */
+        sender_address.0.to_felt(), // Account address.
+        Felt::from(max_fee.0),      // Max fee.
+        Felt::ZERO,                 // Signature.
+        Felt::ZERO,                 // Transaction hash.
+        Felt::from_hex(&ChainId(CHAIN_ID_NAME.to_string()).as_hex()).unwrap(), // Chain ID.
+        Felt::ZERO,                 // Nonce.
+        Felt::ZERO,                 // Length of resource bounds array.
+        Felt::ZERO,                 // Tip.
+        Felt::ZERO,                 // Paymaster data.
+        Felt::ZERO,                 // Nonce DA.
+        Felt::ZERO,                 // Fee DA.
+        Felt::ZERO,                 // Account data.
     ];
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
-        *sender_address.0.key(),             // Caller address.
-        *test_contract_address.0.key(),      // Storage address.
-        stark_felt!(entry_point_selector.0), // Entry point selector.
+        sender_address.0.to_felt(),        // Caller address.
+        test_contract_address.0.to_felt(), // Storage address.
+        entry_point_selector.0,            // Entry point selector.
     ];
     let expected_block_info = [
-        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        stark_felt!(TEST_SEQUENCER_ADDRESS),  // Sequencer address.
+        Felt::from(CURRENT_BLOCK_NUMBER),    // Block number.
+        Felt::from(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+        Felt::from(TEST_SEQUENCER_ADDRESS),  // Sequencer address.
     ];
     let calldata_len =
         expected_block_info.len() + expected_tx_info.len() + expected_call_info.len();
     let execute_calldata = vec![
-        *test_contract_address.0.key(), // Contract address.
-        entry_point_selector.0,         // EP selector.
+        test_contract_address.0.to_felt(), // Contract address.
+        entry_point_selector.0,            // EP selector.
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
-        stark_felt!(u64::try_from(calldata_len).expect("Failed to convert usize to u64.")), /* Calldata length. */
+        Felt::from(u64::try_from(calldata_len).expect("Failed to convert usize to u64.")), /* Calldata length. */
     ];
     let execute_calldata = Calldata(
         [
@@ -1642,9 +1639,9 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
 fn test_l1_handler() {
     let state = &mut create_test_state();
     let block_context = &BlockContext::create_for_account_testing();
-    let from_address = StarkFelt::from_u128(0x123);
-    let key = StarkFelt::from_u128(0x876);
-    let value = StarkFelt::from_u128(0x44);
+    let from_address = Felt::from_hex_unchecked("0x123");
+    let key = Felt::from_hex_unchecked("0x876");
+    let value = Felt::from_hex_unchecked("0x44");
     let calldata = calldata![from_address, key, value];
     let tx = l1_handler_tx(&calldata, Fee(1));
 
@@ -1734,7 +1731,7 @@ fn test_execute_tx_with_invalid_transaction_version() {
     let calldata = create_calldata(
         test_contract.get_instance_address(0),
         "test_tx_version",
-        &[stark_felt!(invalid_version)],
+        &[Felt::from(invalid_version)],
     );
     let account_tx = account_invoke_tx(invoke_tx_args! {
         max_fee: Fee(MAX_FEE),

@@ -32,13 +32,16 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { workspace = true, features = ["testing"] }
+papyrus_storage = { git = "https://github.com/LucasLvy/papyrus", rev = "399b3fa", features = [
+    "testing",
+] }
 pyo3 = { workspace = true, features = ["num-bigint", "hashbrown"] }
 pyo3-log.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 starknet_api = { workspace = true, features = ["testing"] }
+starknet-types-core = { workspace = true, features = ["num-traits"] }
 thiserror.workspace = true
-
+num-traits.workspace = true
 [dev-dependencies]
 cached.workspace = true
 criterion = { workspace = true, features = ["html_reports"] }

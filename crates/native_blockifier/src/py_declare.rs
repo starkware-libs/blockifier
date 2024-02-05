@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
 use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::DeclareTransaction;
+use num_traits::ToPrimitive;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
@@ -10,6 +11,7 @@ use starknet_api::transaction::{
     AccountDeploymentData, DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, Fee,
     PaymasterData, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
 };
+use starknet_api::StarknetApiError;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_transaction::{PyDataAvailabilityMode, PyResourceBoundsMapping};
@@ -103,7 +105,13 @@ pub fn py_declare(
     py_tx: &PyAny,
     raw_contract_class: &str,
 ) -> NativeBlockifierResult<DeclareTransaction> {
-    let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
+    let version =
+        py_attr::<PyFelt>(py_tx, "version")?.0.to_usize().ok_or(StarknetApiError::OutOfRange {
+            string: format!(
+                "Felt value to big for usize {}",
+                py_attr::<PyFelt>(py_tx, "version")?.0.to_fixed_hex_string()
+            ),
+        })?;
     let tx = match version {
         0 => {
             let py_declare_tx: PyDeclareTransactionV0V1 = py_tx.extract()?;

@@ -1,4 +1,3 @@
-use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use serde::Deserialize;
@@ -7,11 +6,11 @@ use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
 };
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EventContent, EventData, EventKey, L2ToL1Payload,
 };
+use starknet_types_core::felt::Felt;
 use strum_macros::EnumIter;
 
 use self::hint_processor::{
@@ -69,11 +68,11 @@ pub enum DeprecatedSyscallSelector {
     StorageWrite,
 }
 
-impl TryFrom<StarkFelt> for DeprecatedSyscallSelector {
+impl TryFrom<Felt> for DeprecatedSyscallSelector {
     type Error = DeprecatedSyscallExecutionError;
-    fn try_from(raw_selector: StarkFelt) -> Result<Self, Self::Error> {
+    fn try_from(raw_selector: Felt) -> Result<Self, Self::Error> {
         // Remove leading zero bytes from selector.
-        let selector_bytes = raw_selector.bytes();
+        let selector_bytes = raw_selector.to_bytes_be();
         let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
 
         match &selector_bytes[first_non_zero..] {
@@ -293,7 +292,7 @@ impl SyscallResponse for DeployResponse {
     // `constructor_retdata`.
     // Nonempty constructor retdata is currently not supported.
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_stark_felt(vm, ptr, *self.contract_address.0.key())?;
+        write_stark_felt(vm, ptr, self.contract_address.0.to_felt())?;
         write_maybe_relocatable(vm, ptr, 0)?;
         write_maybe_relocatable(vm, ptr, 0)?;
         Ok(())
@@ -386,7 +385,7 @@ pub struct GetBlockNumberResponse {
 
 impl SyscallResponse for GetBlockNumberResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_maybe_relocatable(vm, ptr, Felt252::from(self.block_number.0))?;
+        write_maybe_relocatable(vm, ptr, Felt::from(self.block_number.0))?;
         Ok(())
     }
 }
@@ -413,7 +412,7 @@ pub struct GetBlockTimestampResponse {
 
 impl SyscallResponse for GetBlockTimestampResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_maybe_relocatable(vm, ptr, Felt252::from(self.block_timestamp.0))?;
+        write_maybe_relocatable(vm, ptr, Felt::from(self.block_timestamp.0))?;
         Ok(())
     }
 }
@@ -453,7 +452,7 @@ pub struct GetContractAddressResponse {
 
 impl SyscallResponse for GetContractAddressResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_stark_felt(vm, ptr, *self.address.0.key())?;
+        write_stark_felt(vm, ptr, self.address.0.to_felt())?;
         Ok(())
     }
 }
@@ -675,7 +674,7 @@ impl SyscallRequest for StorageReadRequest {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadResponse {
-    pub value: StarkFelt,
+    pub value: Felt,
 }
 
 impl SyscallResponse for StorageReadResponse {
@@ -698,7 +697,7 @@ pub fn storage_read(
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
     pub address: StorageKey,
-    pub value: StarkFelt,
+    pub value: Felt,
 }
 
 impl SyscallRequest for StorageWriteRequest {

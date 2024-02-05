@@ -8,7 +8,7 @@ use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
-use starknet_api::hash::StarkFelt;
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
@@ -166,7 +166,7 @@ impl PyBlockExecutor {
         let mut block_id_fixed_bytes = [0_u8; 32];
         block_id_fixed_bytes.copy_from_slice(&block_id_bytes);
 
-        Ok(Some(PyFelt(StarkFelt::new(block_id_fixed_bytes)?)))
+        Ok(Some(PyFelt(Felt::from_bytes_be(&block_id_fixed_bytes))))
     }
 
     #[pyo3(signature = (source_block_number))]

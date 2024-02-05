@@ -12,10 +12,10 @@ use indexmap::IndexMap;
 use papyrus_storage::state::StateStorageWriter;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::state_readers::papyrus_state::PapyrusReader;
 
@@ -42,8 +42,8 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let mut state = CachedState::from(papyrus_reader);
 
     // Call entrypoint that want to write to storage, which updates the cached state's write cache.
-    let key = stark_felt!(1234_u16);
-    let value = stark_felt!(18_u8);
+    let key = Felt::from(1234_u16);
+    let value = Felt::from(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,

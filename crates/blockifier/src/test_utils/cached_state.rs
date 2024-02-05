@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::state::cached_state::{CachedState, ContractClassMapping};
@@ -62,8 +62,8 @@ fn create_deploy_test_state_from_classes(
         ContractAddressSalt::default(),
         class_hash,
         &calldata![
-            stark_felt!(3_u8), // Calldata: address.
-            stark_felt!(3_u8)  // Calldata: value.
+            Felt::THREE, // Calldata: address.
+            Felt::THREE  // Calldata: value.
         ],
         contract_address!(TEST_CONTRACT_ADDRESS),
     )

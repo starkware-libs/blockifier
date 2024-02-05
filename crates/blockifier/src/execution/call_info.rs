@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::{ClassHash, EthAddress};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
+use starknet_types_core::felt::Felt;
 
 use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
@@ -13,7 +13,7 @@ use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Retdata(pub Vec<StarkFelt>);
+pub struct Retdata(pub Vec<Felt>);
 
 #[macro_export]
 macro_rules! retdata {
@@ -86,7 +86,7 @@ pub struct CallInfo {
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
-    pub storage_read_values: Vec<StarkFelt>,
+    pub storage_read_values: Vec<Felt>,
     pub accessed_storage_keys: HashSet<StorageKey>,
 }
 

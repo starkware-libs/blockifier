@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
@@ -10,8 +9,7 @@ use cairo_vm::vm::runners::cairo_runner::{
 };
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_types_core::felt::Felt;
 
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
@@ -22,8 +20,7 @@ use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
 use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
-    ReadOnlySegments,
+    read_execution_retdata, write_maybe_relocatable, write_stark_felt, Args, ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -94,7 +91,8 @@ pub fn execute_entry_point_call(
 
     // Collect the set PC values that were visited during the entry point execution.
     register_visited_pcs(
-        &mut vm,
+        &mut runner,
+        &vm,
         syscall_handler.state,
         class_hash,
         program_segment_size,
@@ -120,7 +118,8 @@ pub fn execute_entry_point_call(
 
 // Collects the set PC values that were visited during the entry point execution.
 fn register_visited_pcs(
-    vm: &mut VirtualMachine,
+    runner: &mut CairoRunner,
+    vm: &VirtualMachine,
     state: &mut dyn State,
     class_hash: starknet_api::core::ClassHash,
     program_segment_size: usize,
@@ -131,8 +130,9 @@ fn register_visited_pcs(
     // after it.
     // TODO(lior): Avoid unnecessary relocation once the VM has a non-relocated `get_trace()`
     //   function.
-    vm.relocate_trace(&[1, 1 + program_segment_size])?;
-    for trace_entry in vm.get_relocated_trace()? {
+    runner.relocate_trace(vm, &vec![1, 1 + program_segment_size])?;
+    // Trace was just relocated so safe to unwrap
+    for trace_entry in runner.relocated_trace.as_ref().unwrap() {
         let pc = trace_entry.pc;
         if pc < 1 {
             return Err(EntryPointExecutionError::InternalError(format!(
@@ -222,7 +222,7 @@ fn prepare_program_extra_data(
     // additional `ret` statement).
     let mut ptr = (vm.get_pc() + contract_class.bytecode_length())?;
     // Push a `ret` opcode.
-    write_stark_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe"))?;
+    write_stark_felt(vm, &mut ptr, Felt::from(0x208b7fff7fff7ffeu64))?;
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
@@ -253,8 +253,8 @@ pub fn prepare_call_arguments(
             // Write into segment_arena.
             let mut ptr = segment_arena;
             let info_segment = vm.add_memory_segment();
-            let n_constructed = StarkFelt::default();
-            let n_destructed = StarkFelt::default();
+            let n_constructed = Felt::default();
+            let n_destructed = Felt::default();
             write_maybe_relocatable(vm, &mut ptr, info_segment)?;
             write_stark_felt(vm, &mut ptr, n_constructed)?;
             write_stark_felt(vm, &mut ptr, n_destructed)?;
@@ -265,14 +265,13 @@ pub fn prepare_call_arguments(
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
     // Push gas counter.
-    args.push(CairoArg::Single(MaybeRelocatable::from(Felt252::from(call.initial_gas))));
+    args.push(CairoArg::Single(MaybeRelocatable::from(Felt::from(call.initial_gas))));
     // Push syscall ptr.
     args.push(CairoArg::Single(MaybeRelocatable::from(initial_syscall_ptr)));
 
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;
-    let calldata: Vec<MaybeRelocatable> =
-        calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
+    let calldata: Vec<MaybeRelocatable> = calldata.iter().map(MaybeRelocatable::from).collect();
 
     let calldata_start_ptr = read_only_segments.allocate(vm, &calldata)?;
     let calldata_end_ptr = MaybeRelocatable::from((calldata_start_ptr + calldata.len())?);

@@ -26,16 +26,16 @@ use blockifier::transaction::transactions::ExecutableTransaction;
 use blockifier::{deploy_account_tx_args, invoke_tx_args};
 use criterion::{criterion_group, criterion_main, Criterion};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{calldata, class_hash, stark_felt};
+use starknet_api::{calldata, class_hash};
+use starknet_types_core::felt::Felt;
 
 const N_ACCOUNTS: usize = 10000;
 
 fn create_state() -> CachedState<DictStateReader> {
     // Declare all the needed contracts.
-    let test_account_class_hash = ClassHash(stark_felt!(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
-    let test_erc20_class_hash = ClassHash(stark_felt!(TEST_ERC20_CONTRACT_CLASS_HASH));
+    let test_account_class_hash = ClassHash(Felt::from(TEST_ACCOUNT_CONTRACT_CLASS_HASH));
+    let test_erc20_class_hash = ClassHash(Felt::from(TEST_ERC20_CONTRACT_CLASS_HASH));
     let class_hash_to_class = HashMap::from([
         (test_account_class_hash, ContractClassV0::from_file(ACCOUNT_CONTRACT_CAIRO0_PATH).into()),
         (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
@@ -86,15 +86,15 @@ fn do_transfer(
         selector_from_name(blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME);
     // TODO(gilad, 06/09/2023): NEW_TOKEN_SUPPORT this should depend the version of invoke tx.
     let contract_address =
-        *block_context.chain_info.fee_token_addresses.eth_fee_token_address.0.key();
+        block_context.chain_info.fee_token_addresses.eth_fee_token_address.0.to_felt();
 
     let execute_calldata = calldata![
-        contract_address,                   // Contract address.
-        entry_point_selector.0,             // EP selector.
-        stark_felt!(3_u8),                  // Calldata length.
-        *recipient_account_address.0.key(), // Calldata: recipient.
-        stark_felt!(1_u8),                  // Calldata: lsb amount.
-        stark_felt!(0_u8)                   // Calldata: msb amount.
+        contract_address,                      // Contract address.
+        entry_point_selector.0,                // EP selector.
+        Felt::THREE,                           // Calldata length.
+        recipient_account_address.0.to_felt(), // Calldata: recipient.
+        Felt::ONE,                             // Calldata: lsb amount.
+        Felt::ZERO                             // Calldata: msb amount.
     ];
 
     let tx = invoke_tx(invoke_tx_args! {
@@ -102,7 +102,7 @@ fn do_transfer(
         sender_address,
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(nonce)),
+        nonce: Nonce(Felt::from(nonce)),
     });
     let account_tx = AccountTransaction::Invoke(tx);
     let charge_fee = false;
@@ -123,8 +123,8 @@ fn prepare_accounts(
         let max_fee = Fee(MAX_FEE);
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
-        let constructor_address_salt = ContractAddressSalt(stark_felt!(
-            u64::try_from(account_salt).expect("Failed to convert usize to u64.")
+        let constructor_address_salt = ContractAddressSalt(Felt::from(
+            u64::try_from(account_salt).expect("Failed to convert usize to u64."),
         ));
         let nonce_manager = &mut NonceManager::default();
         let deploy_account_tx = deploy_account_tx(
@@ -145,7 +145,7 @@ fn prepare_accounts(
             .set_storage_at(
                 block_context.chain_info.fee_token_addresses.eth_fee_token_address,
                 deployed_account_balance_key,
-                stark_felt!(BALANCE * 1000),
+                Felt::from(BALANCE * 1000),
             )
             .unwrap();
 

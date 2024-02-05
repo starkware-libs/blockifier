@@ -1,8 +1,8 @@
 use rstest::rstest;
+use starknet_api::calldata;
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, stark_felt};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
@@ -43,7 +43,7 @@ fn test_calculate_contract_address() {
 
         assert_eq!(
             entry_point_call.execute_directly(state).unwrap().execution,
-            CallExecution::from_retdata(retdata![*contract_address.0.key()])
+            CallExecution::from_retdata(retdata![contract_address.0.to_felt()])
         );
     }
 
@@ -53,22 +53,22 @@ fn test_calculate_contract_address() {
 
     // Without constructor.
     let calldata_no_constructor = calldata![
-        salt.0,                    // Contract_address_salt.
-        class_hash.0,              // Class hash.
-        stark_felt!(0_u8),         // Calldata length.
-        *deployer_address.0.key()  // deployer_address.
+        salt.0,                       // Contract_address_salt.
+        class_hash.0,                 // Class hash.
+        Felt::ZERO,                   // Calldata length.
+        deployer_address.0.to_felt()  // deployer_address.
     ];
     run_test(salt, class_hash, &calldata![], calldata_no_constructor, deployer_address, &mut state);
 
     // With constructor.
-    let constructor_calldata = calldata![stark_felt!(1_u8), stark_felt!(1_u8)];
+    let constructor_calldata = calldata![Felt::ONE, Felt::ONE];
     let calldata = calldata![
-        salt.0,                    // Contract_address_salt.
-        class_hash.0,              // Class hash.
-        stark_felt!(2_u8),         // Calldata length.
-        stark_felt!(1_u8),         // Calldata: address.
-        stark_felt!(1_u8),         // Calldata: value.
-        *deployer_address.0.key()  // deployer_address.
+        salt.0,                       // Contract_address_salt.
+        class_hash.0,                 // Class hash.
+        Felt::TWO,                    // Calldata length.
+        Felt::ONE,                    // Calldata: address.
+        Felt::ONE,                    // Calldata: value.
+        deployer_address.0.to_felt()  // deployer_address.
     ];
     run_test(salt, class_hash, &constructor_calldata, calldata, deployer_address, &mut state);
 }

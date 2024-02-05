@@ -4,9 +4,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use cached::{Cached, SizedCache};
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
@@ -88,10 +89,10 @@ impl<S: StateReader> CachedState<S> {
         // sequencer balance change as it is amortized across the block.
         if let Some(sender_address) = sender_address {
             let sender_balance_key = get_fee_token_var_address(sender_address);
-            // StarkFelt::default() value is zero, which must be different from the initial balance,
+            // Felt::default() value is zero, which must be different from the initial balance,
             // otherwise the transaction would have failed the "max fee lower than
             // balance" validation.
-            storage_updates.insert((fee_token_address, sender_balance_key), StarkFelt::default());
+            storage_updates.insert((fee_token_address, sender_balance_key), Felt::default());
         }
 
         // Exclude the fee token contract modification, since it’s charged once throughout the
@@ -199,7 +200,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         if self.cache.get_storage_at(contract_address, key).is_none() {
             let storage_value = self.state.get_storage_at(contract_address, key)?;
             self.cache.set_storage_initial_value(contract_address, key, storage_value);
@@ -284,7 +285,7 @@ impl<S: StateReader> State for CachedState<S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> StateResult<()> {
         self.cache.set_storage_value(contract_address, key, value);
 
@@ -295,10 +296,10 @@ impl<S: StateReader> State for CachedState<S> {
         let current_nonce = self.get_nonce_at(contract_address)?;
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
-        let current_nonce_as_u64: u64 =
-            usize::try_from(current_nonce.0)?.try_into().expect("Failed to convert usize to u64.");
+        let current_nonce_as_u64 =
+            current_nonce.0.to_u64().expect("Failed to convert usize to u64.");
         let next_nonce_val = 1_u64 + current_nonce_as_u64;
-        let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
+        let next_nonce = Nonce(Felt::from(next_nonce_val));
         self.cache.set_nonce_value(contract_address, next_nonce);
 
         Ok(())
@@ -336,7 +337,7 @@ impl<S: StateReader> State for CachedState<S> {
     }
 
     fn to_state_diff(&mut self) -> CommitmentStateDiff {
-        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
+        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>;
 
         // TODO(Gilad): Consider returning an error here, would require changing the API though.
         self.update_initial_values_of_write_only_access()
@@ -379,10 +380,10 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
 pub type StorageEntry = (ContractAddress, StorageKey);
 
 #[derive(Debug, Default, IntoIterator)]
-pub struct StorageView(pub HashMap<StorageEntry, StarkFelt>);
+pub struct StorageView(pub HashMap<StorageEntry, Felt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
-impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
+impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, Felt>> {
     fn from(storage_view: StorageView) -> Self {
         let mut storage_updates = Self::new();
         for ((address, key), value) in storage_view.into_iter() {
@@ -407,22 +408,18 @@ pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
+    storage_initial_values: HashMap<StorageEntry, Felt>,
     compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
 
     // Writer's cached information.
     nonce_writes: HashMap<ContractAddress, Nonce>,
     class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    storage_writes: HashMap<StorageEntry, StarkFelt>,
+    storage_writes: HashMap<StorageEntry, Felt>,
     compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
 }
 
 impl StateCache {
-    fn get_storage_at(
-        &self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> Option<&StarkFelt> {
+    fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> Option<&Felt> {
         let contract_storage_key = (contract_address, key);
         self.storage_writes
             .get(&contract_storage_key)
@@ -439,7 +436,7 @@ impl StateCache {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) {
         let contract_storage_key = (contract_address, key);
         self.storage_initial_values.insert(contract_storage_key, value);
@@ -449,7 +446,7 @@ impl StateCache {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) {
         let contract_storage_key = (contract_address, key);
         self.storage_writes.insert(contract_storage_key, value);
@@ -503,7 +500,7 @@ impl StateCache {
         self.compiled_class_hash_writes.insert(class_hash, compiled_class_hash);
     }
 
-    fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
+    fn get_storage_updates(&self) -> HashMap<StorageEntry, Felt> {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
@@ -539,7 +536,7 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         self.0.get_storage_at(contract_address, key)
     }
 
@@ -565,7 +562,7 @@ impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> StateResult<()> {
         self.0.set_storage_at(contract_address, key, value)
     }
@@ -670,7 +667,7 @@ pub struct CommitmentStateDiff {
     // Contract instance attributes (per address).
     pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
     pub address_to_nonce: IndexMap<ContractAddress, Nonce>,
-    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>,
 
     // Global attributes.
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
@@ -679,7 +676,7 @@ pub struct CommitmentStateDiff {
 /// Holds the state changes.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
-    pub storage_updates: HashMap<StorageEntry, StarkFelt>,
+    pub storage_updates: HashMap<StorageEntry, Felt>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
     pub modified_contracts: HashSet<ContractAddress>,

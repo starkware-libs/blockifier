@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::DeployAccountTransaction;
+use num_traits::ToPrimitive;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
@@ -9,6 +10,7 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeployAccountTransactionV1, DeployAccountTransactionV3, Fee,
     PaymasterData, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
 };
+use starknet_api::StarknetApiError;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_transaction::{PyDataAvailabilityMode, PyResourceBoundsMapping};
@@ -72,7 +74,13 @@ impl TryFrom<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
 }
 
 pub fn py_deploy_account(py_tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
-    let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
+    let version =
+        py_attr::<PyFelt>(py_tx, "version")?.0.to_usize().ok_or(StarknetApiError::OutOfRange {
+            string: format!(
+                "Felt value to big for usize {}",
+                py_attr::<PyFelt>(py_tx, "version")?.0.to_fixed_hex_string()
+            ),
+        })?;
     let tx = match version {
         1 => {
             let py_deploy_account_tx: PyDeployAccountTransactionV1 = py_tx.extract()?;

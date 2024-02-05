@@ -5,9 +5,9 @@ use cairo_vm::vm::errors::runner_errors::RunnerError;
 use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::{VirtualMachineError, HINT_ERROR_STR};
 use num_bigint::{BigInt, TryFromBigIntError};
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::execution::execution_utils::format_panic_data;
@@ -19,8 +19,8 @@ use crate::state::errors::StateError;
 pub enum PreExecutionError {
     #[error("Entry point {selector:?} of type {typ:?} is not unique.")]
     DuplicatedEntryPointSelector { selector: EntryPointSelector, typ: EntryPointType },
-    #[error("Entry point {0:?} not found in contract.")]
-    EntryPointNotFound(EntryPointSelector),
+    #[error("Entry point {0} not found in contract.")]
+    EntryPointNotFound(String),
     #[error("Fraud attempt blocked.")]
     FraudAttempt,
     #[error("Invalid builtin {0:?}.")]
@@ -39,8 +39,8 @@ pub enum PreExecutionError {
     RunnerError(Box<RunnerError>),
     #[error(transparent)]
     StateError(#[from] StateError),
-    #[error("Requested contract address {0:?} is not deployed.")]
-    UninitializedStorageAddress(ContractAddress),
+    #[error("Requested contract address {0} is not deployed.")]
+    UninitializedStorageAddress(String),
 }
 
 impl From<RunnerError> for PreExecutionError {
@@ -85,7 +85,7 @@ impl VirtualMachineExecutionError {
     pub fn try_to_vm_trace(&self) -> String {
         match self {
             VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
-                let mut trace_string = format!("Error at pc=0:{}:\n", exception.pc);
+                let mut trace_string = format!("Error at pc={}:\n", exception.pc);
                 let inner_exc_string = &exception.inner_exc.to_string();
 
                 // If this error is the result of call_contract returning in error, we do not want
@@ -124,7 +124,7 @@ impl VirtualMachineExecutionError {
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
     #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
-    ExecutionFailed { error_data: Vec<StarkFelt> },
+    ExecutionFailed { error_data: Vec<Felt> },
     #[error("Internal error: {0}")]
     InternalError(String),
     #[error("Invalid input: {input_descriptor}; {info}")]

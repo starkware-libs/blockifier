@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use num_traits::Pow;
@@ -9,12 +8,12 @@ use rstest::rstest;
 use starknet_api::core::{
     calculate_contract_address, ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -22,7 +21,6 @@ use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
-use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
@@ -40,8 +38,8 @@ use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 #[test]
 fn test_storage_read_write() {
     let mut state = deprecated_create_test_state();
-    let key = stark_felt!(1234_u16);
-    let value = stark_felt!(18_u8);
+    let key = Felt::from(1234_u16);
+    let value = Felt::from(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -51,7 +49,7 @@ fn test_storage_read_write() {
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(value)])
+        CallExecution::from_retdata(retdata![value])
     );
     // Verify that the state has changed.
     let value_from_state =
@@ -64,11 +62,11 @@ fn test_library_call() {
     let mut state = deprecated_create_test_state();
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        Felt::from(TEST_CLASS_HASH),  // Class hash.
         inner_entry_point_selector.0, // Function selector.
-        stark_felt!(2_u8),            // Calldata length.
-        stark_felt!(1234_u16),        // Calldata: address.
-        stark_felt!(91_u16)           // Calldata: value.
+        Felt::TWO,                    // Calldata length.
+        Felt::from(1234_u16),         // Calldata: address.
+        Felt::from(91_u16)            // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
@@ -78,7 +76,7 @@ fn test_library_call() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(91_u16)])
+        CallExecution::from_retdata(retdata![Felt::from(91_u16)])
     );
 }
 
@@ -89,12 +87,12 @@ fn test_nested_library_call() {
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let main_entry_point_calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        Felt::from(TEST_CLASS_HASH),  // Class hash.
         outer_entry_point_selector.0, // Library call function selector.
         inner_entry_point_selector.0, // Storage function selector.
-        stark_felt!(2_u8),            // Calldata length.
-        stark_felt!(key),             // Calldata: address.
-        stark_felt!(value)            // Calldata: value.
+        Felt::TWO,                    // Calldata length.
+        Felt::from(key),              // Calldata: address.
+        Felt::from(value)             // Calldata: value.
     ];
 
     // Create expected call info tree.
@@ -106,7 +104,7 @@ fn test_nested_library_call() {
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: inner_entry_point_selector,
-        calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
+        calldata: calldata![Felt::from(key + 1), Felt::from(value + 1)],
         class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         code_address: None,
         call_type: CallType::Delegate,
@@ -115,11 +113,11 @@ fn test_nested_library_call() {
     let library_entry_point = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata: calldata![
-            stark_felt!(TEST_CLASS_HASH), // Class hash.
+            Felt::from(TEST_CLASS_HASH),  // Class hash.
             inner_entry_point_selector.0, // Storage function selector.
-            stark_felt!(2_u8),            // Calldata length.
-            stark_felt!(key + 1),         // Calldata: address.
-            stark_felt!(value + 1)        // Calldata: value.
+            Felt::TWO,                    // Calldata length.
+            Felt::from(key + 1),          // Calldata: address.
+            Felt::from(value + 1)         // Calldata: value.
         ],
         class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         code_address: None,
@@ -127,16 +125,16 @@ fn test_nested_library_call() {
         ..trivial_external_entry_point()
     };
     let storage_entry_point = CallEntryPoint {
-        calldata: calldata![stark_felt!(key), stark_felt!(value)],
+        calldata: calldata![Felt::from(key), Felt::from(value)],
         ..nested_storage_entry_point
     };
     let storage_entry_point_vm_resources =
         VmExecutionResources { n_steps: 42, ..Default::default() };
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
-        execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
+        execution: CallExecution::from_retdata(retdata![Felt::from(value + 1)]),
         vm_resources: storage_entry_point_vm_resources.clone(),
-        storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
+        storage_read_values: vec![Felt::ZERO, Felt::from(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
@@ -148,16 +146,16 @@ fn test_nested_library_call() {
     library_call_vm_resources += &storage_entry_point_vm_resources;
     let library_call_info = CallInfo {
         call: library_entry_point,
-        execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
+        execution: CallExecution::from_retdata(retdata![Felt::from(value + 1)]),
         vm_resources: library_call_vm_resources.clone(),
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
-        execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
+        execution: CallExecution::from_retdata(retdata![Felt::from(value)]),
         vm_resources: storage_entry_point_vm_resources.clone(),
-        storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
+        storage_read_values: vec![Felt::ZERO, Felt::from(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
@@ -167,7 +165,7 @@ fn test_nested_library_call() {
     main_call_vm_resources += &(&library_call_vm_resources * 2);
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
-        execution: CallExecution::from_retdata(retdata![stark_felt!(0_u8)]),
+        execution: CallExecution::from_retdata(retdata![Felt::ZERO]),
         vm_resources: main_call_vm_resources,
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
@@ -181,14 +179,14 @@ fn test_call_contract() {
     let mut state = deprecated_create_test_state();
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
-    let (key, value) = (stark_felt!(405_u16), stark_felt!(48_u8));
+    let (key, value) = (Felt::from(405_u16), Felt::from(48_u8));
     let inner_calldata = calldata![key, value];
     let calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
-        inner_entry_point_selector.0,       // Function selector.
-        stark_felt!(2_u8),                  // Calldata length.
-        key,                                // Calldata: address.
-        value                               // Calldata: value.
+        Felt::from(TEST_CONTRACT_ADDRESS), // Contract address.
+        inner_entry_point_selector.0,      // Function selector.
+        Felt::TWO,                         // Calldata length.
+        key,                               // Calldata: address.
+        value                              // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
@@ -210,7 +208,7 @@ fn test_call_contract() {
         },
         execution: expected_execution.clone(),
         vm_resources: VmExecutionResources { n_steps: 42, ..Default::default() },
-        storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
+        storage_read_values: vec![Felt::ZERO, value],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
@@ -241,7 +239,7 @@ fn test_replace_class() {
     // Negative flow.
     let mut state = deprecated_create_deploy_test_state();
     // Replace with undeclared class hash.
-    let calldata = calldata![stark_felt!(1234_u16)];
+    let calldata = calldata![Felt::from(1234_u16)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_replace_class"),
@@ -267,10 +265,10 @@ fn test_replace_class() {
 #[test_case(
     class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
     calldata![
-    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+    Felt::from(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
     ContractAddressSalt::default().0, // Contract_address_salt.
-    stark_felt!(0_u8), // Calldata length.
-    stark_felt!(0_u8) // deploy_from_zero.
+    Felt::ZERO, // Calldata length.
+    Felt::ZERO // deploy_from_zero.
     ],
     calldata![],
     None ;
@@ -278,16 +276,16 @@ fn test_replace_class() {
 #[test_case(
     class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
     calldata![
-        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+        Felt::from(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8), // Calldata length.
-        stark_felt!(2_u8), // Calldata: address.
-        stark_felt!(1_u8), // Calldata: value.
-        stark_felt!(0_u8) // deploy_from_zero.
+        Felt::TWO, // Calldata length.
+        Felt::TWO, // Calldata: address.
+        Felt::ONE, // Calldata: value.
+        Felt::ZERO // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(2_u8), // Calldata: address.
-        stark_felt!(1_u8) // Calldata: value.
+        Felt::TWO, // Calldata: address.
+        Felt::ONE // Calldata: value.
     ],
     Some(
     "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
@@ -295,52 +293,52 @@ fn test_replace_class() {
 #[test_case(
     class_hash!(TEST_CLASS_HASH),
     calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        Felt::from(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8), // Calldata length.
-        stark_felt!(1_u8), // Calldata: address.
-        stark_felt!(1_u8), // Calldata: value.
-        stark_felt!(0_u8) // deploy_from_zero.
+        Felt::TWO, // Calldata length.
+        Felt::ONE, // Calldata: address.
+        Felt::ONE, // Calldata: value.
+        Felt::ZERO // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(1_u8), // Calldata: address.
-        stark_felt!(1_u8) // Calldata: value.
+        Felt::ONE, // Calldata: address.
+        Felt::ONE // Calldata: value.
     ],
     None;
     "With constructor: Positive flow")]
 #[test_case(
     class_hash!(TEST_CLASS_HASH),
     calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        Felt::from(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8), // Calldata length.
-        stark_felt!(3_u8), // Calldata: address.
-        stark_felt!(3_u8), // Calldata: value.
-        stark_felt!(0_u8) // deploy_from_zero.
+        Felt::TWO, // Calldata length.
+        Felt::THREE, // Calldata: address.
+        Felt::THREE, // Calldata: value.
+        Felt::ZERO // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(3_u8), // Calldata: address.
-        stark_felt!(3_u8) // Calldata: value.
+        Felt::THREE, // Calldata: address.
+        Felt::THREE // Calldata: value.
     ],
     Some("is unavailable for deployment.");
     "With constructor: Negative flow: deploy to the same address")]
 #[test_case(
     class_hash!(TEST_CLASS_HASH),
     calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        Felt::from(TEST_CLASS_HASH), // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8), // Calldata length.
-        stark_felt!(1_u8), // Calldata: address.
-        stark_felt!(1_u8), // Calldata: value.
-        stark_felt!(2_u8) // deploy_from_zero.
+        Felt::TWO, // Calldata length.
+        Felt::ONE, // Calldata: address.
+        Felt::ONE, // Calldata: value.
+        Felt::TWO // deploy_from_zero.
     ],
     calldata![
-        stark_felt!(1_u8), // Calldata: address.
-        stark_felt!(1_u8) // Calldata: value.
+        Felt::ONE, // Calldata: address.
+        Felt::ONE // Calldata: value.
     ],
     Some(&format!(
         "Invalid syscall input: {:?}; {:}",
-        stark_felt!(2_u8),
+        Felt::TWO,
         "The deploy_from_zero field in the deploy system call must be 0 or 1.",
     ));
     "With constructor: Negative flow: illegal value for deploy_from_zero")]
@@ -373,28 +371,28 @@ fn test_deploy(
     .unwrap();
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![*contract_address.0.key()])
+        CallExecution::from_retdata(retdata![contract_address.0.to_felt()])
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
 
 #[test_case(
-    ExecutionMode::Execute, "block_number", calldata![stark_felt!(CURRENT_BLOCK_NUMBER)];
+    ExecutionMode::Execute, "block_number", calldata![Felt::from(CURRENT_BLOCK_NUMBER)];
     "Test the syscall get_block_number in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "block_number", calldata![stark_felt!(CURRENT_BLOCK_NUMBER)];
+    ExecutionMode::Validate, "block_number", calldata![Felt::from(CURRENT_BLOCK_NUMBER)];
     "Test the syscall get_block_number in execution mode Validate")]
 #[test_case(
-    ExecutionMode::Execute, "block_timestamp", calldata![stark_felt!(CURRENT_BLOCK_TIMESTAMP)];
+    ExecutionMode::Execute, "block_timestamp", calldata![Felt::from(CURRENT_BLOCK_TIMESTAMP)];
     "Test the syscall get_block_timestamp in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "block_timestamp", calldata![stark_felt!(CURRENT_BLOCK_TIMESTAMP)];
+    ExecutionMode::Validate, "block_timestamp", calldata![Felt::from(CURRENT_BLOCK_TIMESTAMP)];
     "Test the syscall get_block_timestamp in execution mode Validate")]
 #[test_case(
-    ExecutionMode::Execute, "sequencer_address", calldata![stark_felt!(TEST_SEQUENCER_ADDRESS)];
+    ExecutionMode::Execute, "sequencer_address", calldata![Felt::from(TEST_SEQUENCER_ADDRESS)];
     "Test the syscall get_sequencer_address in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "sequencer_address", calldata![stark_felt!(0_u64)];
+    ExecutionMode::Validate, "sequencer_address", calldata![Felt::ZERO];
     "Test the syscall get_sequencer_address in execution mode Validate")]
 fn test_block_info_syscalls(
     execution_mode: ExecutionMode,
@@ -428,22 +426,23 @@ fn test_block_info_syscalls(
 #[case(false)]
 fn test_tx_info(#[case] only_query: bool) {
     let mut state = deprecated_create_deploy_test_state();
-    let mut version = Felt252::from(1_u8);
+    let mut version = Felt::ONE;
     if only_query {
-        let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
+        let simulate_version_base = Pow::pow(Felt::TWO, QUERY_VERSION_BASE_BIT);
         version += simulate_version_base;
     }
-    let tx_hash = TransactionHash(stark_felt!(1991_u16));
+    let tx_hash = TransactionHash(Felt::from(1991_u16));
     let max_fee = Fee(0);
-    let nonce = Nonce(stark_felt!(3_u16));
+    let nonce = Nonce(Felt::from(3_u16));
     let sender_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
     let expected_tx_info = calldata![
-        felt_to_stark_felt(&version), // Transaction version.
-        *sender_address.0.key(),      // Account address.
-        stark_felt!(max_fee.0),       // Max fee.
-        tx_hash.0,                    // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        nonce.0                       // Nonce.
+        version,                                                               /* Transaction
+                                                                                * version. */
+        sender_address.0.to_felt(), // Account address.
+        Felt::from(max_fee.0),      // Max fee.
+        tx_hash.0,                  // Transaction hash.
+        Felt::from_hex(&ChainId(CHAIN_ID_NAME.to_string()).as_hex()).unwrap(), // Chain ID.
+        nonce.0                     // Nonce.
     ];
     let entry_point_selector = selector_from_name("test_get_tx_info");
     let entry_point_call = CallEntryPoint {

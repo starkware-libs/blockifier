@@ -90,7 +90,7 @@ impl From<CommitmentStateDiff> for PyStateDiff {
                     PyFelt::from(*address),
                     storage_diff
                         .iter()
-                        .map(|(key, value)| (PyFelt(*key.0.key()), PyFelt(*value)))
+                        .map(|(key, value)| (PyFelt(key.0.to_felt()), PyFelt(*value)))
                         .collect(),
                 )
             })

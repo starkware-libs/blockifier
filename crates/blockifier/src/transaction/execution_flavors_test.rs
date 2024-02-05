@@ -1,15 +1,12 @@
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
 use crate::block_context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{
     calculate_tx_fee, calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage,
 };
@@ -63,13 +60,13 @@ fn create_flavors_test_state(
 /// Checks that balance of the account decreased if and only if `charge_fee` is true.
 /// Returns the new balance.
 fn check_balance<S: StateReader>(
-    current_balance: StarkFelt,
+    current_balance: Felt,
     state: &mut CachedState<S>,
     account_address: ContractAddress,
     chain_info: &ChainInfo,
     fee_type: &FeeType,
     charge_fee: bool,
-) -> StarkFelt {
+) -> Felt {
     let (new_balance, _) = state
         .get_fee_token_balance(account_address, chain_info.fee_token_address(fee_type))
         .unwrap();
@@ -125,7 +122,7 @@ fn recurse_calldata(contract_address: ContractAddress, fail: bool, depth: u32) -
     create_calldata(
         contract_address,
         if fail { "recursive_fail" } else { "recurse" },
-        &[stark_felt!(depth)],
+        &[Felt::from(depth)],
     )
 }
 
@@ -164,13 +161,13 @@ fn test_simulate_validate_charge_fee_pre_validate(
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         sender_address: account_address,
-        calldata: create_calldata(test_contract_address, "return_result", &[stark_felt!(2_u8)]),
+        calldata: create_calldata(test_contract_address, "return_result", &[Felt::TWO]),
         version,
         only_query,
     };
 
     // First scenario: invalid nonce. Regardless of flags, should fail.
-    let invalid_nonce = Nonce(stark_felt!(7_u8));
+    let invalid_nonce = Nonce(Felt::from(7_u8));
     let account_nonce = state.get_nonce_at(account_address).unwrap();
     let result = account_invoke_tx(
         invoke_tx_args! {nonce: invalid_nonce, ..pre_validation_base_args.clone()},
@@ -333,8 +330,8 @@ fn test_simulate_validate_charge_fee_fail_validate(
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         signature: TransactionSignature(vec![
-            StarkFelt::from(INVALID),
-            StarkFelt::ZERO
+            Felt::from(INVALID),
+            Felt::ZERO
         ]),
         sender_address: faulty_account_address,
         calldata: create_calldata(faulty_account_address, "foo", &[]),
@@ -600,16 +597,16 @@ fn test_simulate_validate_charge_fee_post_execution(
     // Execute a transfer, and make sure we get the expected result.
     let (success_actual_gas, actual_fee) = gas_and_fee(8585, validate, &fee_type);
     let (fail_actual_gas, fail_actual_cost) = gas_and_fee(5833, validate, &fee_type);
-    assert!(stark_felt!(actual_fee) < current_balance);
-    let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
-    let recipient = stark_felt!(7_u8);
+    assert!(Felt::from(actual_fee) < current_balance);
+    let transfer_amount = current_balance - Felt::from(actual_fee.0 / 2);
+    let recipient = Felt::from(7_u8);
     let transfer_calldata = create_calldata(
         fee_token_address,
         "transfer",
         &[
             recipient, // Calldata: to.
-            felt_to_stark_felt(&transfer_amount),
-            stark_felt!(0_u8),
+            transfer_amount,
+            Felt::ZERO,
         ],
     );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {

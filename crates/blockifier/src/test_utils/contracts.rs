@@ -1,5 +1,4 @@
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};

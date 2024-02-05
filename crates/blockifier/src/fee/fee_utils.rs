@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::constants;
 use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
@@ -100,7 +100,7 @@ pub fn get_balance_and_if_covers_fee(
     account_tx_context: &AccountTransactionContext,
     chain_info: &ChainInfo,
     fee: Fee,
-) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
+) -> TransactionFeeResult<(Felt, Felt, bool)> {
     let (balance_low, balance_high) = state.get_fee_token_balance(
         account_tx_context.sender_address(),
         chain_info.fee_token_address(&account_tx_context.fee_type()),
@@ -110,7 +110,7 @@ pub fn get_balance_and_if_covers_fee(
         balance_high,
         // TODO(Dori,1/10/2023): If/when fees can be more than 128 bit integers, this should be
         //   updated.
-        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0),
+        balance_high > Felt::ZERO || balance_low >= Felt::from(fee.0),
     ))
 }
 

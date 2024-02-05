@@ -1,20 +1,19 @@
 use std::collections::{HashMap, HashSet};
 
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV2, Fee, ResourceBoundsMapping,
     TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
@@ -24,7 +23,6 @@ use crate::block_context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage};
 use crate::fee::gas_usage::estimate_minimal_l1_gas;
 use crate::state::cached_state::CachedState;
@@ -95,7 +93,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
             calldata: create_calldata(
                 contract_address,
                 "return_result",
-                &[stark_felt!(2_u8)]  // Calldata: num.
+                &[Felt::TWO]  // Calldata: num.
             ),
             version,
             nonce: nonce_manager.next(account_address),
@@ -128,7 +126,7 @@ fn test_account_flow_test(
             calldata: create_calldata(
                 contract_address,
                 "return_result",
-                &[stark_felt!(2_u8)]  // Calldata: num.
+                &[Felt::TWO]  // Calldata: num.
             ),
             version: tx_version,
             nonce: nonce_manager.next(account_address),
@@ -152,7 +150,7 @@ fn test_invoke_tx_from_non_deployed_account(
     // Invoke a function from the newly deployed contract.
     let entry_point_selector = selector_from_name("return_result");
 
-    let non_deployed_contract_address = StarkHash::TWO;
+    let non_deployed_contract_address = Felt::TWO;
 
     let tx_result = run_invoke_tx(
         &mut state,
@@ -163,8 +161,8 @@ fn test_invoke_tx_from_non_deployed_account(
             calldata: calldata![
                 non_deployed_contract_address, // Contract address.
                 entry_point_selector.0,    // EP selector.
-                stark_felt!(1_u8),         // Calldata length.
-                stark_felt!(2_u8)          // Calldata: num.
+                Felt::ONE,         // Calldata length.
+                Felt::TWO          // Calldata: num.
             ],
             version: tx_version,
             nonce: nonce_manager.next(account_address),
@@ -183,7 +181,7 @@ fn test_invoke_tx_from_non_deployed_account(
                 if trace.contains(expected_error)
             ));
             // We expect to get an error only when tx_version is 0, on other versions to revert.
-            assert!(matches!(tx_version, TransactionVersion::ZERO));
+            assert_eq!(tx_version, TransactionVersion::ZERO);
         }
     }
 }
@@ -206,15 +204,15 @@ fn test_infinite_recursion(
     let recursion_depth = if success { 3_u32 } else { 1000_u32 };
 
     let execute_calldata = if normal_recurse {
-        create_calldata(contract_address, "recurse", &[stark_felt!(recursion_depth)])
+        create_calldata(contract_address, "recurse", &[Felt::from(recursion_depth)])
     } else {
         create_calldata(
             contract_address,
             "recursive_syscall",
             &[
-                *contract_address.0.key(), // Calldata: raw contract address.
+                contract_address.0.to_felt(), // Calldata: raw contract address.
                 selector_from_name("recursive_syscall").0, // Calldata: raw selector
-                stark_felt!(recursion_depth),
+                Felt::from(recursion_depth),
             ],
         )
     };
@@ -275,8 +273,8 @@ fn test_max_fee_limit_validate(
 
     // Deploy grindy account with a lot of grind in the constructor.
     // Expect this to fail without bumping nonce, so pass a temporary nonce manager.
-    let mut ctor_grind_arg = stark_felt!(1_u8); // Grind in deploy phase.
-    let ctor_storage_arg = stark_felt!(1_u8); // Not relevant for this test.
+    let mut ctor_grind_arg = Felt::ONE; // Grind in deploy phase.
+    let ctor_storage_arg = Felt::ONE; // Not relevant for this test.
     let (deploy_account_tx, _) = deploy_and_fund_account(
         &mut state,
         &mut NonceManager::default(),
@@ -297,7 +295,7 @@ fn test_max_fee_limit_validate(
     );
 
     // Deploy grindy account successfully this time.
-    ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
+    ctor_grind_arg = Felt::ZERO; // Do not grind in deploy phase.
     let (deploy_account_tx, grindy_account_address) = deploy_and_fund_account(
         &mut state,
         &mut nonce_manager,
@@ -319,7 +317,7 @@ fn test_max_fee_limit_validate(
         calldata: create_calldata(
             contract_address,
             "return_result",
-            &[stark_felt!(2_u8)], // Calldata: num.
+            &[Felt::TWO], // Calldata: num.
         ),
         version,
         nonce: nonce_manager.next(grindy_account_address)
@@ -396,9 +394,9 @@ fn test_recursion_depth_exceeded(
         contract_address,
         recursive_syscall_entry_point_name,
         &[
-            *contract_address.0.key(), // Calldata: raw contract address.
+            contract_address.0.to_felt(), // Calldata: raw contract address.
             selector_from_name(recursive_syscall_entry_point_name).0, // Calldata: raw selector.
-            stark_felt!(max_inner_recursion_depth),
+            Felt::from(max_inner_recursion_depth),
         ],
     );
     let invoke_args = invoke_tx_args! {
@@ -421,9 +419,9 @@ fn test_recursion_depth_exceeded(
         contract_address,
         recursive_syscall_entry_point_name,
         &[
-            *contract_address.0.key(), // Calldata: raw contract address.
+            contract_address.0.to_felt(), // Calldata: raw contract address.
             selector_from_name(recursive_syscall_entry_point_name).0, // Calldata: raw selector.
-            stark_felt!(exceeding_recursion_depth),
+            Felt::from(exceeding_recursion_depth),
         ],
     );
     let invoke_args = crate::test_utils::invoke::InvokeTxArgs {
@@ -456,7 +454,7 @@ fn test_revert_invoke(
     let mut nonce_manager = NonceManager::default();
 
     // Invoke a function that changes the state and reverts.
-    let storage_key = stark_felt!(9_u8);
+    let storage_key = Felt::from(9_u8);
     let tx_execution_info = run_invoke_tx(
         state,
         &block_context,
@@ -467,7 +465,7 @@ fn test_revert_invoke(
                 test_contract_address,
                 "write_and_revert",
                 // Write some non-zero value.
-                &[storage_key, stark_felt!(99_u8)]
+                &[storage_key, Felt::from(99_u8)]
             ),
             version: transaction_version,
             nonce: nonce_manager.next(account_address),
@@ -486,13 +484,13 @@ fn test_revert_invoke(
         state
             .get_fee_token_balance(account_address, chain_info.fee_token_address(&fee_type))
             .unwrap(),
-        (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
+        (Felt::from(BALANCE - tx_execution_info.actual_fee.0), Felt::ZERO)
     );
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
     // Check that execution state changes were reverted.
     assert_eq!(
-        stark_felt!(0_u8),
+        Felt::ZERO,
         state
             .get_storage_at(test_contract_address, StorageKey::try_from(storage_key).unwrap())
             .unwrap()
@@ -535,7 +533,7 @@ fn test_fail_deploy_account(
     check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, false);
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
-    assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
+    assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(Felt::ZERO));
     assert_eq!(
         state.get_fee_token_balance(deploy_address, fee_token_address).unwrap(),
         initial_balance
@@ -604,7 +602,7 @@ fn recursive_function_calldata(
     create_calldata(
         *contract_address,
         if failure_variant { "recursive_fail" } else { "recurse" },
-        &[stark_felt!(depth)], // Calldata: recursion depth.
+        &[Felt::from(depth)], // Calldata: recursion depth.
     )
 }
 
@@ -842,7 +840,7 @@ fn test_max_fee_to_max_steps_conversion(
     let execute_calldata = create_calldata(
         contract_address,
         "with_arg",
-        &[stark_felt!(25_u8)], // Calldata: arg.
+        &[Felt::from(25_u8)], // Calldata: arg.
     );
 
     // First invocation of `with_arg` gets the exact pre-calculated actual fee as max_fee.
@@ -980,8 +978,8 @@ fn test_deploy_account_constructor_storage_write(
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(grindy_account, 1)]);
 
-    let ctor_storage_arg = stark_felt!(1_u8);
-    let ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
+    let ctor_storage_arg = Felt::ONE;
+    let ctor_grind_arg = Felt::ZERO; // Do not grind in deploy phase.
     let constructor_calldata = calldata![ctor_grind_arg, ctor_storage_arg];
     let (deploy_account_tx, _) = deploy_and_fund_account(
         state,
@@ -1032,19 +1030,18 @@ fn test_count_actual_storage_changes(
     let mut nonce_manager = NonceManager::default();
 
     let sequencer_address = block_context.block_info.sequencer_address;
-    let initial_sequencer_balance = stark_felt_to_felt(
-        state.get_fee_token_balance(sequencer_address, fee_token_address).unwrap().0,
-    );
+    let initial_sequencer_balance =
+        state.get_fee_token_balance(sequencer_address, fee_token_address).unwrap().0;
 
     // Calldata types.
     let write_1_calldata =
         create_calldata(contract_address, "test_count_actual_storage_changes", &[]);
-    let recipient = stark_felt!(435_u16);
-    let transfer_amount: Felt252 = 1.into();
+    let recipient = Felt::from(435_u16);
+    let transfer_amount: Felt = 1.into();
     let transfer_calldata = create_calldata(
         fee_token_address,
         TRANSFER_ENTRY_POINT_NAME,
-        &[recipient, felt_to_stark_felt(&transfer_amount), stark_felt!(0_u8)],
+        &[recipient, transfer_amount, Felt::ZERO],
     );
 
     // Run transactions; using transactional state to count only storage changes of the current
@@ -1068,13 +1065,13 @@ fn test_count_actual_storage_changes(
         .unwrap();
 
     let cell_write_storage_change =
-        ((contract_address, StorageKey(patricia_key!(15_u8))), stark_felt!(1_u8));
+        ((contract_address, StorageKey(patricia_key!(15_u8))), Felt::ONE);
     let fee_nullify_storage_change =
-        ((fee_token_address, get_fee_token_var_address(account_address)), stark_felt!(0_u8));
-    let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
+        ((fee_token_address, get_fee_token_var_address(account_address)), Felt::ZERO);
+    let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt::from(fee_1.0);
     let mut expected_sequencer_fee_update = (
         (fee_token_address, get_fee_token_var_address(sequencer_address)),
-        felt_to_stark_felt(&expected_sequencer_total_fee),
+        expected_sequencer_total_fee,
     );
 
     let expected_modified_contracts = HashSet::from([account_address, contract_address]);
@@ -1100,8 +1097,8 @@ fn test_count_actual_storage_changes(
         .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
         .unwrap();
 
-    expected_sequencer_total_fee += Felt252::from(fee_2.0);
-    expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+    expected_sequencer_total_fee += Felt::from(fee_2.0);
+    expected_sequencer_fee_update.1 = expected_sequencer_total_fee;
 
     let expected_modified_contracts_2 = HashSet::from([account_address]);
     let expected_storage_updates_2 =
@@ -1125,11 +1122,11 @@ fn test_count_actual_storage_changes(
         .unwrap();
     let transfer_receipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
-        felt_to_stark_felt(&transfer_amount),
+        transfer_amount,
     );
 
-    expected_sequencer_total_fee += Felt252::from(fee_transfer.0);
-    expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+    expected_sequencer_total_fee += Felt::from(fee_transfer.0);
+    expected_sequencer_fee_update.1 = expected_sequencer_total_fee;
 
     let expected_modified_contracts_transfer = HashSet::from([account_address]);
     let expected_storage_update_transfer = HashMap::from([

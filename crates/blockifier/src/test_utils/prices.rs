@@ -1,9 +1,9 @@
 use cached::proc_macro::cached;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use starknet_api::calldata;
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::block_context::BlockContext;
@@ -52,7 +52,7 @@ fn fee_transfer_resources(
         .set_storage_at(
             token_address,
             get_fee_token_var_address(account_contract_address),
-            stark_felt!(BALANCE),
+            Felt::from(BALANCE),
         )
         .unwrap();
 
@@ -60,9 +60,9 @@ fn fee_transfer_resources(
     let fee_transfer_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
-            *block_context.block_info.sequencer_address.0.key(), // Recipient.
-            stark_felt!(7_u8),                                   // LSB of Amount.
-            stark_felt!(0_u8)                                    // MSB of Amount.
+            block_context.block_info.sequencer_address.0.to_felt(), // Recipient.
+            Felt::from_hex_unchecked("7"),                          // LSB of Amount.
+            Felt::ZERO                                              // MSB of Amount.
         ],
         storage_address: token_address,
         caller_address: account_contract_address,

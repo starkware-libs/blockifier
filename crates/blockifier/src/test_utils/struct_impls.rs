@@ -7,7 +7,6 @@ use cairo_vm::vm::runners::builtin_runner::{
 };
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 
 use super::{

@@ -11,8 +11,8 @@ use pyo3::prelude::*;
 use starknet_api::block::{BlockHash, BlockHeader, BlockNumber};
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkHash;
 use starknet_api::state::{ContractClass, StateDiff, StateNumber};
+use starknet_types_core::felt::Felt;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
@@ -93,7 +93,7 @@ impl Storage for PapyrusStorage {
             .reader()
             .begin_ro_txn()?
             .get_block_header(block_number)?
-            .map(|block_header| Vec::from(block_header.block_hash.0.bytes()));
+            .map(|block_header| Vec::from(block_header.block_hash.0.to_bytes_be()));
         Ok(block_hash)
     }
 
@@ -102,7 +102,7 @@ impl Storage for PapyrusStorage {
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer().begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
-        let (revert_txn, _) = revert_txn.revert_header(block_number)?;
+        let (revert_txn, _, _) = revert_txn.revert_header(block_number)?;
 
         revert_txn.commit()?;
         Ok(())
@@ -206,7 +206,7 @@ impl Storage for PapyrusStorage {
 
         let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));
         let block_header = BlockHeader {
-            block_hash: BlockHash(StarkHash::from(block_id)),
+            block_hash: BlockHash(Felt::from(block_id)),
             parent_hash: BlockHash(previous_block_id.0),
             block_number,
             ..Default::default()

@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_felt::Felt252;
 use itertools::concat;
 use num_traits::Pow;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -9,11 +8,11 @@ use starknet_api::transaction::{
     AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping,
     Tip, TransactionHash, TransactionSignature, TransactionVersion,
 };
+use starknet_types_core::felt::Felt;
 use strum_macros::EnumIter;
 
 use crate::block_context::BlockContext;
 use crate::execution::call_info::CallInfo;
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::StorageEntry;
 use crate::transaction::constants;
@@ -75,9 +74,9 @@ impl AccountTransactionContext {
             return version;
         }
 
-        let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
-        let query_version = query_version_base + stark_felt_to_felt(version.0);
-        TransactionVersion(felt_to_stark_felt(&query_version))
+        let query_version_base = Pow::pow(Felt::TWO, constants::QUERY_VERSION_BASE_BIT);
+        let query_version = query_version_base + version.0;
+        TransactionVersion(query_version)
     }
 
     pub fn enforce_fee(&self) -> TransactionFeeResult<bool> {

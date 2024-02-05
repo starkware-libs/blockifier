@@ -109,7 +109,7 @@ impl From<CallInfo> for PyCallInfo {
             accessed_storage_keys: call_info
                 .accessed_storage_keys
                 .into_iter()
-                .map(|storage_key| PyFelt(*storage_key.0.key()))
+                .map(|storage_key| PyFelt(storage_key.0.to_felt()))
                 .collect(),
             call_type: call.call_type as u8,
             code_address: call.code_address.map(PyFelt::from),

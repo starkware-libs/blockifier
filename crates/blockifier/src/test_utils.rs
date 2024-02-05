@@ -12,51 +12,49 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use cairo_felt::Felt252;
 use num_traits::{One, Zero};
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointType,
 };
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
 };
-use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, contract_address, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants::{self};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::utils::const_max;
 
 // TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
 //   `initial_test_state` modules for testing.
 // Addresses.
-pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
-pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
-pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
-pub const LEGACY_TEST_CONTRACT_ADDRESS: &str = "0x400";
-pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
-pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
-pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
-pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
+pub const TEST_CONTRACT_ADDRESS: u64 = 0x100;
+pub const TEST_CONTRACT_ADDRESS_2: u64 = 0x200;
+pub const SECURITY_TEST_CONTRACT_ADDRESS: u64 = 0x300;
+pub const LEGACY_TEST_CONTRACT_ADDRESS: u64 = 0x400;
+pub const TEST_ACCOUNT_CONTRACT_ADDRESS: u64 = 0x101;
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: u64 = 0x102;
+pub const TEST_SEQUENCER_ADDRESS: u64 = 0x1000;
+pub const TEST_ERC20_CONTRACT_ADDRESS: u64 = 0x1001;
+pub const TEST_ERC20_CONTRACT_ADDRESS2: u64 = 0x1002;
 
 // Class hashes.
-pub const TEST_CLASS_HASH: &str = "0x110";
-pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
-pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
-pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
-pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0: &str = "0x115";
-pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1: &str = "0x116";
-pub const LEGACY_TEST_CLASS_HASH: &str = "0x117";
+pub const TEST_CLASS_HASH: u64 = 0x110;
+pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: u64 = 0x111;
+pub const TEST_EMPTY_CONTRACT_CLASS_HASH: u64 = 0x112;
+pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: u64 = 0x113;
+pub const SECURITY_TEST_CLASS_HASH: u64 = 0x114;
+pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0: u64 = 0x115;
+pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1: u64 = 0x116;
+pub const LEGACY_TEST_CLASS_HASH: u64 = 0x117;
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
-pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
+pub const TEST_ERC20_CONTRACT_CLASS_HASH: u64 = 0x1010;
 
 // Paths.
 pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
@@ -133,21 +131,21 @@ pub const CHAIN_ID_NAME: &str = "SN_GOERLI";
 
 #[derive(Default)]
 pub struct NonceManager {
-    next_nonce: HashMap<ContractAddress, Felt252>,
+    next_nonce: HashMap<ContractAddress, Felt>,
 }
 
 impl NonceManager {
     pub fn next(&mut self, account_address: ContractAddress) -> Nonce {
-        let zero = Felt252::zero();
-        let next_felt252 = self.next_nonce.get(&account_address).unwrap_or(&zero);
-        let next = Nonce(felt_to_stark_felt(next_felt252));
-        self.next_nonce.insert(account_address, Felt252::one() + next_felt252);
+        let zero = Felt::zero();
+        let next_felt = self.next_nonce.get(&account_address).unwrap_or(&zero);
+        let next = Nonce(*next_felt);
+        self.next_nonce.insert(account_address, Felt::one() + next_felt);
         next
     }
 
     /// Decrements the nonce of the account, unless it is zero.
     pub fn rollback(&mut self, account_address: ContractAddress) {
-        let zero = Felt252::zero();
+        let zero = Felt::zero();
         let current = self.next_nonce.get(&account_address).unwrap_or(&zero);
         if !current.is_zero() {
             self.next_nonce.insert(account_address, current - 1);
@@ -162,7 +160,7 @@ pub struct SaltManager {
 
 impl SaltManager {
     pub fn next_salt(&mut self) -> ContractAddressSalt {
-        let next_contract_address_salt = ContractAddressSalt(stark_felt!(self.next_salt));
+        let next_contract_address_salt = ContractAddressSalt(Felt::from(self.next_salt));
         self.next_salt += 1;
         next_contract_address_salt
     }
@@ -207,7 +205,7 @@ pub fn trivial_external_entry_point_with_address(
         class_hash: None,
         code_address: Some(contract_address),
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(stark_felt!(0_u8)),
+        entry_point_selector: EntryPointSelector(Felt::ZERO),
         calldata: calldata![],
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
@@ -356,13 +354,13 @@ macro_rules! check_transaction_execution_error_for_invalid_scenario {
 pub fn create_calldata(
     contract_address: ContractAddress,
     entry_point_name: &str,
-    entry_point_args: &[StarkFelt],
+    entry_point_args: &[Felt],
 ) -> Calldata {
     let n_args = u128::try_from(entry_point_args.len()).expect("Calldata too big");
-    let n_args = StarkFelt::from(n_args);
+    let n_args = Felt::from(n_args);
 
     let mut calldata = vec![
-        *contract_address.0.key(),              // Contract address.
+        contract_address.0.to_felt(),           // Contract address.
         selector_from_name(entry_point_name).0, // EP selector name.
         n_args,
     ];

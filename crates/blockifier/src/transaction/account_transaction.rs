@@ -2,8 +2,8 @@ use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants as abi_constants;
@@ -304,9 +304,9 @@ impl AccountTransaction {
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
         // The least significant 128 bits of the amount transferred.
-        let lsb_amount = StarkFelt::from(actual_fee.0);
+        let lsb_amount = Felt::from(actual_fee.0);
         // The most significant 128 bits of the amount transferred.
-        let msb_amount = StarkFelt::from(0_u8);
+        let msb_amount = Felt::ZERO;
 
         // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
         let storage_address =
@@ -317,7 +317,7 @@ impl AccountTransaction {
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
             calldata: calldata![
-                *block_context.block_info.sequencer_address.0.key(), // Recipient.
+                block_context.block_info.sequencer_address.0.to_felt(), // Recipient.
                 lsb_amount,
                 msb_amount
             ],
@@ -726,7 +726,7 @@ impl ValidatableTransaction for AccountTransaction {
         if let ContractClass::V1(_) = contract_class {
             // The account contract class is a Cairo 1.0 contract; the `validate` entry point should
             // return `VALID`.
-            let expected_retdata = retdata![StarkFelt::try_from(constants::VALIDATE_RETDATA)?];
+            let expected_retdata = retdata![Felt::from_hex_unchecked(constants::VALIDATE_RETDATA)];
             if validate_call_info.execution.retdata != expected_retdata {
                 return Err(TransactionExecutionError::InvalidValidateReturnData {
                     actual: validate_call_info.execution.retdata,

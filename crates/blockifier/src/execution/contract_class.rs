@@ -2,11 +2,9 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
-use cairo_lang_starknet::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -22,12 +20,13 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
     Program as DeprecatedProgram,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::PreExecutionError;
-use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
+use crate::execution::execution_utils::sn_api_to_cairo_vm_program;
 /// Represents a runnable Starknet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
@@ -37,7 +36,11 @@ pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
 }
-
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NestedIntList {
+    Leaf(usize),
+    Node(Vec<NestedIntList>),
+}
 impl ContractClass {
     pub fn constructor_selector(&self) -> Option<EntryPointSelector> {
         match self {
@@ -161,7 +164,9 @@ impl ContractClassV1 {
             .collect();
 
         match &filtered_entry_points[..] {
-            [] => Err(PreExecutionError::EntryPointNotFound(call.entry_point_selector)),
+            [] => Err(PreExecutionError::EntryPointNotFound(
+                call.entry_point_selector.0.to_fixed_hex_string(),
+            )),
             [entry_point] => Ok((*entry_point).clone()),
             _ => Err(PreExecutionError::DuplicatedEntryPointSelector {
                 selector: call.entry_point_selector,
@@ -283,7 +288,7 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
         let data: Vec<MaybeRelocatable> = class
             .bytecode
             .into_iter()
-            .map(|x| MaybeRelocatable::from(Felt252::from(x.value)))
+            .map(|x| MaybeRelocatable::from(Felt::from(x.value)))
             .collect();
 
         let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
@@ -334,15 +339,11 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             convert_entry_points_v1(class.entry_points_by_type.l1_handler)?,
         );
 
-        let bytecode_segment_lengths = class
-            .bytecode_segment_lengths
-            .unwrap_or_else(|| NestedIntList::Leaf(program.data_len()));
-
         Ok(Self(Arc::new(ContractClassV1Inner {
+            bytecode_segment_lengths: NestedIntList::Leaf(program.data_len()),
             program,
             entry_points_by_type,
             hints: string_to_hint,
-            bytecode_segment_lengths,
         })))
     }
 }
@@ -379,7 +380,7 @@ fn convert_entry_points_v1(
         .into_iter()
         .map(|ep| -> Result<_, ProgramError> {
             Ok(EntryPointV1 {
-                selector: EntryPointSelector(felt_to_stark_felt(&Felt252::from(ep.selector))),
+                selector: EntryPointSelector(Felt::from(ep.selector)),
                 offset: EntryPointOffset(ep.offset),
                 builtins: ep.builtins.into_iter().map(|builtin| builtin + "_builtin").collect(),
             })

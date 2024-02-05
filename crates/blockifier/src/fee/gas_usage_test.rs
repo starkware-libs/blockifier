@@ -1,8 +1,7 @@
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::L2ToL1Payload;
+use starknet_types_core::felt::Felt;
 
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
@@ -128,7 +127,7 @@ fn test_calculate_tx_gas_usage_basic() {
     let mut call_infos = Vec::new();
 
     for i in 0..4 {
-        let payload_vec = vec![stark_felt!(0_u16); i];
+        let payload_vec = vec![Felt::ZERO; i];
 
         let call_info = CallInfo {
             execution: CallExecution {

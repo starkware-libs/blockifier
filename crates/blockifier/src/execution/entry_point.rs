@@ -7,8 +7,8 @@ use cairo_vm::vm::runners::cairo_runner::{
 };
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
@@ -77,7 +77,10 @@ impl CallEntryPoint {
         let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
-            return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
+            return Err(PreExecutionError::UninitializedStorageAddress(
+                self.storage_address.to_fixed_hex_string(),
+            )
+            .into());
         }
 
         let class_hash = match self.class_hash {
@@ -86,10 +89,7 @@ impl CallEntryPoint {
         };
         // Hack to prevent version 0 attack on argent accounts.
         if context.account_tx_context.version() == TransactionVersion::ZERO
-            && class_hash
-                == ClassHash(
-                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
-                )
+            && class_hash == ClassHash(Felt::from_hex_unchecked(FAULTY_CLASS_HASH))
         {
             return Err(PreExecutionError::FraudAttempt.into());
         }
@@ -319,7 +319,7 @@ impl EntryPointExecutionContext {
             .map(|(contract_address, trace_string)| {
                 format!(
                     "Error in the called contract ({}):\n{}",
-                    contract_address.0.key(),
+                    contract_address.0.to_felt().to_fixed_hex_string(),
                     trace_string
                 )
             })

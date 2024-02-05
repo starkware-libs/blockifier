@@ -6,10 +6,10 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::{EntryPointOffset, EntryPointType};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::abi::constants;
@@ -41,20 +41,20 @@ fn test_call_info_iteration() {
     //           |
     //       left_leaf (2)
     let left_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(2_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![Felt::TWO], ..Default::default() },
         ..Default::default()
     };
     let right_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(3_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![Felt::THREE], ..Default::default() },
         ..Default::default()
     };
     let inner_node = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(1_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![Felt::ONE], ..Default::default() },
         inner_calls: vec![left_leaf],
         ..Default::default()
     };
     let root = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(0_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![Felt::ZERO], ..Default::default() },
         inner_calls: vec![inner_node, right_leaf],
         ..Default::default()
     };
@@ -64,7 +64,7 @@ fn test_call_info_iteration() {
         // works.
         assert_eq!(
             call_info.call.calldata,
-            calldata![stark_felt!(u64::try_from(i).expect("Failed to convert usize to u64."))]
+            calldata![Felt::from(u64::try_from(i).expect("Failed to convert usize to u64."))]
         );
     }
 }
@@ -85,7 +85,7 @@ fn test_entry_point_without_arg() {
 #[test]
 fn test_entry_point_with_arg() {
     let mut state = deprecated_create_test_state();
-    let calldata = calldata![stark_felt!(25_u8)];
+    let calldata = calldata![Felt::from(25_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("with_arg"),
@@ -109,11 +109,11 @@ fn test_long_retdata() {
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![
-            stark_felt!(0_u8),
-            stark_felt!(1_u8),
-            stark_felt!(2_u8),
-            stark_felt!(3_u8),
-            stark_felt!(4_u8)
+            Felt::ZERO,
+            Felt::ONE,
+            Felt::TWO,
+            Felt::THREE,
+            Felt::from(4_u8)
         ])
     );
 }
@@ -121,7 +121,7 @@ fn test_long_retdata() {
 #[test]
 fn test_entry_point_with_builtin() {
     let mut state = deprecated_create_test_state();
-    let calldata = calldata![stark_felt!(47_u8), stark_felt!(31_u8)];
+    let calldata = calldata![Felt::from(47_u8), Felt::from(31_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("bitwise_and"),
@@ -136,7 +136,7 @@ fn test_entry_point_with_builtin() {
 #[test]
 fn test_entry_point_with_hint() {
     let mut state = deprecated_create_test_state();
-    let calldata = calldata![stark_felt!(81_u8)];
+    let calldata = calldata![Felt::from(81_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("sqrt"),
@@ -151,7 +151,7 @@ fn test_entry_point_with_hint() {
 #[test]
 fn test_entry_point_with_return_value() {
     let mut state = deprecated_create_test_state();
-    let calldata = calldata![stark_felt!(23_u8)];
+    let calldata = calldata![Felt::from(23_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("return_result"),
@@ -159,19 +159,22 @@ fn test_entry_point_with_return_value() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(23_u8)])
+        CallExecution::from_retdata(retdata![Felt::from(23_u8)])
     );
 }
 
 #[test]
 fn test_entry_point_not_found_in_contract() {
     let mut state = deprecated_create_test_state();
-    let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
+    let entry_point_selector = EntryPointSelector(Felt::TWO);
     let entry_point_call =
         CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_eq!(
-        format!("Entry point {entry_point_selector:?} not found in contract."),
+        format!(
+            "Entry point {} not found in contract.",
+            entry_point_selector.0.to_fixed_hex_string()
+        ),
         format!("{error}")
     );
 }
@@ -364,7 +367,7 @@ fn test_syscall_execution_security_failures() {
     for perform_inner_call_to_foo in 0..2 {
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
-        let calldata = calldata![stark_felt!(
+        let calldata = calldata![Felt::from(
             u8::try_from(perform_inner_call_to_foo).expect("Failed to convert i32 to u8.")
         )];
         run_security_test(
@@ -388,8 +391,7 @@ fn test_syscall_execution_security_failures() {
         state,
         security_contract,
         "Requested contract address \
-         ContractAddress(PatriciaKey(StarkFelt(\"\
-         0x0000000000000000000000000000000000000000000000000000000000000017\"))) is not deployed",
+         0x0000000000000000000000000000000000000000000000000000000000000017 is not deployed",
         "test_bad_call_address",
         calldata![],
     );
@@ -403,10 +405,8 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Entry point \
-         EntryPointSelector(StarkFelt(\"\
-         0x0000000000000000000000000000000000000000000000000000000000000019\")) not found in \
-         contract",
+        "Entry point 0x0000000000000000000000000000000000000000000000000000000000000019 not found \
+         in contract",
         "test_bad_call_selector",
         calldata![],
     );
@@ -481,7 +481,7 @@ fn test_post_run_validation_security_failure() {
         "test_write_to_call_contract_return_value",
         calldata![],
     );
-    let calldata = calldata![stark_felt!(1_u8), stark_felt!(1_u8)];
+    let calldata = calldata![Felt::ONE, Felt::ONE];
     run_security_test(
         state,
         security_contract,
@@ -503,15 +503,15 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point()
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), stark_felt!(39_u8)]);
+    assert_eq!(actual_call_info.storage_read_values, vec![Felt::ZERO, Felt::from(39_u8)]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
-        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1_u8)])])
+        HashSet::from([get_storage_var_address("number_map", &[Felt::ONE])])
     );
 
     // Test raw storage read and write.
-    let key = stark_felt!(1234_u16);
-    let value = stark_felt!(18_u8);
+    let key = Felt::from(1234_u16);
+    let value = Felt::from(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -519,7 +519,7 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point()
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), value]);
+    assert_eq!(actual_call_info.storage_read_values, vec![Felt::ZERO, value]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
         HashSet::from([StorageKey(patricia_key!(key))])
@@ -595,9 +595,9 @@ fn test_stack_trace(
         test_contract_address_2, // contract_address
         call_contract_function_name,
         &[
-            *test_contract_address_3.0.key(), // Contract address.
-            inner_entry_point_selector.0,     // Function selector.
-            stark_felt!(0_u8),                // Innermost calldata length.
+            test_contract_address_3.0.to_felt(), // Contract address.
+            inner_entry_point_selector.0,        // Function selector.
+            Felt::ZERO,                          // Innermost calldata length.
         ],
     );
     let entry_point_call = CallEntryPoint {
@@ -637,9 +637,9 @@ An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:1178)
 ",
-        *test_contract_address.0.key(),
-        *test_contract_address_2.0.key(),
-        *test_contract_address_3.0.key(),
+        test_contract_address.0.to_felt().to_fixed_hex_string(),
+        test_contract_address_2.0.to_felt().to_fixed_hex_string(),
+        test_contract_address_3.0.to_felt().to_fixed_hex_string(),
     );
 
     let pc_location = entry_point_offset.0 + 82;
@@ -660,9 +660,9 @@ Unknown location (pc=0:{pc_location})
 Error in the called contract ({}):
 Execution failed. Failure reason: 0x6661696c ('fail').
 ",
-        *test_contract_address.0.key(),
-        *test_contract_address_2.0.key(),
-        *test_contract_address_3.0.key(),
+        test_contract_address.0.to_felt().to_fixed_hex_string(),
+        test_contract_address_2.0.to_felt().to_fixed_hex_string(),
+        test_contract_address_3.0.to_felt().to_fixed_hex_string(),
     );
 
     let expected_trace = match cairo_version {
@@ -693,20 +693,20 @@ fn test_trace_callchain_ends_with_regular_call(
     let test_contract = FeatureContract::TestContract(cairo_version);
     let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
-    let contract_address_felt = *test_contract_address.0.key();
+    let contract_address_felt = test_contract_address.0.to_felt();
 
     // invoke_call_chain -> call_contract_syscall invoke_call_chain -> regular call to final func.
     let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
 
     let calldata = calldata![
-        stark_felt!(7_u8),                    // Calldata length
+        Felt::from(7_u8),                     // Calldata length
         contract_address_felt,                // Contract address.
         invoke_call_chain_selector.0,         // Function selector.
-        stark_felt!(0_u8),                    // Call type: call_contract_syscall.
-        stark_felt!(3_u8),                    // Calldata length
+        Felt::ZERO,                           // Call type: call_contract_syscall.
+        Felt::THREE,                          // Calldata length
         contract_address_felt,                // Contract address.
         selector_from_name(last_func_name).0, // Function selector.
-        stark_felt!(2_u8)                     // Call type: regular call.
+        Felt::TWO                             // Call type: regular call.
     ];
 
     let entry_point_call = CallEntryPoint {
@@ -723,36 +723,41 @@ fn test_trace_callchain_ends_with_regular_call(
             let call_location = entry_point_offset.0 + 12;
             let entry_point_location = entry_point_offset.0 - 61;
             format!(
-                "Error in the called contract ({contract_address_felt}):
+                "Error in the called contract ({}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-Error in the called contract ({contract_address_felt}):
+Error in the called contract ({}):
 Error at pc=0:{}:
 {expected_error}
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{})
 ",
-                expected_pc_locations.0, expected_pc_locations.1
+                contract_address_felt.to_fixed_hex_string(),
+                contract_address_felt.to_fixed_hex_string(),
+                expected_pc_locations.0,
+                expected_pc_locations.1
             )
         }
         CairoVersion::Cairo1 => {
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             format!(
-                "Error in the called contract ({contract_address_felt}):
+                "Error in the called contract ({}):
 Error at pc=0:7981:
 Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
                  {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({contract_address_felt}):
+Error in the called contract ({}):
 Execution failed. Failure reason: {expected_error}.
-"
+",
+                contract_address_felt.to_fixed_hex_string(),
+                contract_address_felt.to_fixed_hex_string(),
             )
         }
     };
@@ -783,7 +788,7 @@ fn test_trace_call_chain_with_syscalls(
     let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let test_contract_hash = test_contract.get_class_hash().0;
-    let address_felt = *test_contract_address.0.key();
+    let address_felt = test_contract_address.0.to_felt();
     let contract_id = if call_type == 0 { address_felt } else { test_contract_hash };
 
     // invoke_call_chain -> call_contract_syscall invoke_call_chain -> call_contract_syscall /
@@ -791,19 +796,19 @@ fn test_trace_call_chain_with_syscalls(
     let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
 
     let mut calldata = vec![
-        stark_felt!(7_u8 + calldata_extra_length), // Calldata length
-        address_felt,                              // Contract address.
-        invoke_call_chain_selector.0,              // Function selector.
-        stark_felt!(0_u8),                         // Call type: call_contract_syscall.
-        stark_felt!(3_u8 + calldata_extra_length), // Calldata length
-        contract_id,                               // Contract address / class hash.
-        selector_from_name(last_func_name).0,      // Function selector.
-        stark_felt!(call_type),                    // Syscall type: library_call or call_contract.
+        Felt::from(7_u8 + calldata_extra_length), // Calldata length
+        address_felt,                             // Contract address.
+        invoke_call_chain_selector.0,             // Function selector.
+        Felt::ZERO,                               // Call type: call_contract_syscall.
+        Felt::from(3_u8 + calldata_extra_length), // Calldata length
+        contract_id,                              // Contract address / class hash.
+        selector_from_name(last_func_name).0,     // Function selector.
+        Felt::from(call_type),                    // Syscall type: library_call or call_contract.
     ];
 
     // Need to send an empty array for the last call in `invoke_call_chain` variant.
     if last_func_name == "invoke_call_chain" {
-        calldata.push(stark_felt!(0_u8));
+        calldata.push(Felt::ZERO);
     }
 
     let entry_point_call = CallEntryPoint {
@@ -820,49 +825,58 @@ fn test_trace_call_chain_with_syscalls(
             let call_location = entry_point_offset.0 + 12;
             let entry_point_location = entry_point_offset.0 - 61;
             format!(
-                "Error in the called contract ({address_felt}):
+                "Error in the called contract ({}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-Error in the called contract ({address_felt}):
+Error in the called contract ({}):
 Error at pc=0:{}:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{})
 
-Error in the called contract ({address_felt}):
+Error in the called contract ({}):
 Error at pc=0:{}:
 {expected_error}
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{})
 ",
-                expected_pcs.0, expected_pcs.1, expected_pcs.2, expected_pcs.3
+                address_felt.to_fixed_hex_string(),
+                address_felt.to_fixed_hex_string(),
+                expected_pcs.0,
+                expected_pcs.1,
+                address_felt.to_fixed_hex_string(),
+                expected_pcs.2,
+                expected_pcs.3
             )
         }
         CairoVersion::Cairo1 => {
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             format!(
-                "Error in the called contract ({address_felt}):
+                "Error in the called contract ({}):
 Error at pc=0:7981:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({address_felt}):
+Error in the called contract ({}):
 Error at pc=0:{}:
 Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
                  {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({address_felt}):
+Error in the called contract ({}):
 Execution failed. Failure reason: {expected_error}.
 ",
-                expected_pcs.0
+                address_felt.to_fixed_hex_string(),
+                address_felt.to_fixed_hex_string(),
+                expected_pcs.0,
+                address_felt.to_fixed_hex_string(),
             )
         }
     };

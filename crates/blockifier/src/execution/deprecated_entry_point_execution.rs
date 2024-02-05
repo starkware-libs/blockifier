@@ -6,7 +6,7 @@ use cairo_vm::vm::runners::cairo_runner::{
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkHash;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
@@ -19,9 +19,7 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{
     PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
 };
-use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
-};
+use crate::execution::execution_utils::{read_execution_retdata, Args, ReadOnlySegments};
 use crate::state::state_api::State;
 
 pub struct VmExecutionContext<'a> {
@@ -128,11 +126,13 @@ pub fn resolve_entry_point_pc(
         match entry_points_of_same_type.first() {
             Some(entry_point) => {
                 if entry_point.selector
-                    == EntryPointSelector(StarkHash::from(DEFAULT_ENTRY_POINT_SELECTOR))
+                    == EntryPointSelector(Felt::from_hex_unchecked(DEFAULT_ENTRY_POINT_SELECTOR))
                 {
                     return Ok(entry_point.offset.0);
                 } else {
-                    return Err(PreExecutionError::EntryPointNotFound(call.entry_point_selector));
+                    return Err(PreExecutionError::EntryPointNotFound(
+                        call.entry_point_selector.0.to_fixed_hex_string(),
+                    ));
                 }
             }
             None => {
@@ -164,8 +164,7 @@ pub fn prepare_call_arguments(
     let mut args: Args = vec![];
 
     // Prepare called EP details.
-    let entry_point_selector =
-        MaybeRelocatable::from(stark_felt_to_felt(call.entry_point_selector.0));
+    let entry_point_selector = MaybeRelocatable::from(call.entry_point_selector.0);
     args.push(CairoArg::from(entry_point_selector));
 
     // Prepare implicit arguments.
@@ -179,7 +178,7 @@ pub fn prepare_call_arguments(
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
-        calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
+        calldata.iter().map(Into::<MaybeRelocatable>::into).collect();
     let calldata_length = MaybeRelocatable::from(calldata.len());
     args.push(CairoArg::from(calldata_length));
 

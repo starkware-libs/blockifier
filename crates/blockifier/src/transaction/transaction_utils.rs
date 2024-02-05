@@ -59,7 +59,9 @@ pub fn verify_contract_class_version(
 ) -> Result<ContractClass, TransactionExecutionError> {
     match contract_class {
         ContractClass::V0(_) => {
-            if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
+            if TransactionVersion::ZERO == declare_version
+                || TransactionVersion::ONE == declare_version
+            {
                 Ok(contract_class)
             } else {
                 Err(TransactionExecutionError::ContractClassVersionMismatch {
@@ -69,7 +71,9 @@ pub fn verify_contract_class_version(
             }
         }
         ContractClass::V1(_) => {
-            if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
+            if TransactionVersion::TWO == declare_version
+                || TransactionVersion::THREE == declare_version
+            {
                 Ok(contract_class)
             } else {
                 Err(TransactionExecutionError::ContractClassVersionMismatch {

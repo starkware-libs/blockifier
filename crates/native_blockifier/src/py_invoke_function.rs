@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use blockifier::transaction::transaction_types::TransactionType;
 use blockifier::transaction::transactions::InvokeTransaction;
+use num_traits::ToPrimitive;
 use pyo3::prelude::*;
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
@@ -11,6 +12,7 @@ use starknet_api::transaction::{
     InvokeTransactionV3, PaymasterData, ResourceBoundsMapping, Tip, TransactionHash,
     TransactionSignature,
 };
+use starknet_api::StarknetApiError;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_transaction::{PyDataAvailabilityMode, PyResourceBoundsMapping};
@@ -97,7 +99,13 @@ impl TryFrom<PyInvokeTransactionV3> for InvokeTransactionV3 {
 }
 
 pub fn py_invoke_function(py_tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
-    let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
+    let version =
+        py_attr::<PyFelt>(py_tx, "version")?.0.to_usize().ok_or(StarknetApiError::OutOfRange {
+            string: format!(
+                "Felt value to big for usize {}",
+                py_attr::<PyFelt>(py_tx, "version")?.0.to_fixed_hex_string()
+            ),
+        })?;
     let tx = match version {
         0 => {
             let py_invoke_tx: PyInvokeTransactionV0 = py_tx.extract()?;

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt252;
 use cairo_lang_runner::casm_run::format_next_item;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
@@ -15,8 +14,8 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
+use starknet_types_core::felt::Felt;
 
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -35,15 +34,6 @@ pub type Args = Vec<CairoArg>;
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
 pub mod test;
-
-pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt252 {
-    Felt252::from_bytes_be(stark_felt.bytes())
-}
-
-pub fn felt_to_stark_felt(felt: &Felt252) -> StarkFelt {
-    let biguint = format!("{:#x}", felt.to_biguint());
-    StarkFelt::try_from(biguint.as_str()).expect("Felt252 must be in StarkFelt's range.")
-}
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
@@ -92,14 +82,14 @@ pub fn read_execution_retdata(
 pub fn stark_felt_from_ptr(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
-) -> Result<StarkFelt, VirtualMachineError> {
-    Ok(felt_to_stark_felt(&felt_from_ptr(vm, ptr)?))
+) -> Result<Felt, VirtualMachineError> {
+    felt_from_ptr(vm, ptr)
 }
 
 pub fn felt_from_ptr(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
-) -> Result<Felt252, VirtualMachineError> {
+) -> Result<Felt, VirtualMachineError> {
     let felt = vm.get_integer(*ptr)?.into_owned();
     *ptr = (*ptr + 1)?;
     Ok(felt)
@@ -110,18 +100,18 @@ pub fn write_u256(
     ptr: &mut Relocatable,
     value: BigUint,
 ) -> Result<(), MemoryError> {
-    write_felt(vm, ptr, Felt252::from(&value & BigUint::from(u128::MAX)))?;
-    write_felt(vm, ptr, Felt252::from(value >> 128))
+    write_felt(vm, ptr, Felt::from(&value & BigUint::from(u128::MAX)))?;
+    write_felt(vm, ptr, Felt::from(value >> 128))
 }
 
 pub fn felt_range_from_ptr(
     vm: &VirtualMachine,
     ptr: Relocatable,
     size: usize,
-) -> Result<Vec<StarkFelt>, VirtualMachineError> {
+) -> Result<Vec<Felt>, VirtualMachineError> {
     let values = vm.get_integer_range(ptr, size)?;
-    // Extract values as `StarkFelt`.
-    let values = values.into_iter().map(|felt| felt_to_stark_felt(felt.as_ref())).collect();
+    // Extract values as `Felt`.
+    let values = values.into_iter().map(|felt| felt.into_owned()).collect();
     Ok(values)
 }
 
@@ -246,15 +236,15 @@ pub fn execute_deployment(
 pub fn write_stark_felt(
     vm: &mut VirtualMachine,
     ptr: &mut Relocatable,
-    felt: StarkFelt,
+    felt: Felt,
 ) -> Result<(), MemoryError> {
-    write_felt(vm, ptr, stark_felt_to_felt(felt))
+    write_felt(vm, ptr, felt)
 }
 
 pub fn write_felt(
     vm: &mut VirtualMachine,
     ptr: &mut Relocatable,
-    felt: Felt252,
+    felt: Felt,
 ) -> Result<(), MemoryError> {
     write_maybe_relocatable(vm, ptr, felt)
 }
@@ -269,7 +259,7 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     Ok(())
 }
 
-pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext) -> Felt252 {
+pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext) -> Felt {
     match account_tx_context {
         AccountTransactionContext::Current(_) => 0,
         AccountTransactionContext::Deprecated(context) => context.max_fee.0,
@@ -277,8 +267,8 @@ pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext
     .into()
 }
 
-pub fn format_panic_data(felts: &[StarkFelt]) -> String {
-    let mut felts = felts.iter().map(|felt| stark_felt_to_felt(*felt));
+pub fn format_panic_data(felts: &[Felt]) -> String {
+    let mut felts = felts.iter().copied();
     let mut items = Vec::new();
     while let Some(item) = format_next_item(&mut felts) {
         items.push(item.quote_if_string());
