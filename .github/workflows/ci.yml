@@ -35,6 +35,7 @@ jobs:
           path: 'cairo_native'
       - name: Run ERC20 Native Tests
         run: cd ./cairo_native/runtime &&
+          echo $CAIRO_NATIVE_RUNTIME_LIBDIR &&
           cargo build --release &&
           cd ../.. &&
           cd crates/blockifier && 
