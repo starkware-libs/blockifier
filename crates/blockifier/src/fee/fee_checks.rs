@@ -76,7 +76,7 @@ impl FeeCheckReport {
                         &tx_context.block_context.block_info,
                         GasVector {
                             l1_gas: info.l1_resource_bounds()?.max_amount.into(),
-                            blob_gas: 0,
+                            l1_data_gas: 0,
                         },
                         &FeeType::Strk,
                     ),
