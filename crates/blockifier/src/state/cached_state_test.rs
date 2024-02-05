@@ -258,7 +258,9 @@ fn cached_state_state_diff_conversion() {
     assert_eq!(expected_state_diff, state.to_state_diff());
 }
 
-fn create_state_changes_for_test<S: StateReader>(
+// TODO(Arni, 5/2/2024): This test is using the util: 'get_actual_state_changes_for_fee_charge',
+// which is deprecated.
+fn deprecated_create_state_changes_for_test<S: StateReader>(
     state: &mut CachedState<S>,
     sender_address: Option<ContractAddress>,
     fee_token_address: ContractAddress,
@@ -297,8 +299,13 @@ fn test_get_actual_state_changes_for_fee_charge(
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let fee_token_address = contract_address!("0x17");
     let state_changes =
-        create_state_changes_for_test(&mut state, sender_address, fee_token_address);
-
+        deprecated_create_state_changes_for_test(&mut state, sender_address, fee_token_address);
+    let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
+        &state_changes,
+        sender_address,
+        fee_token_address,
+    );
+    let deprecated_state_changes_count = StateChangesCount::deprecated_from(&state_changes);
     let expected_state_changes_count = StateChangesCount {
         // 1 for storage update + 1 for sender balance update if sender is defined.
         n_storage_updates: 1 + usize::from(sender_address.is_some()),
@@ -306,7 +313,8 @@ fn test_get_actual_state_changes_for_fee_charge(
         n_compiled_class_hash_updates: 1,
         n_modified_contracts: 2,
     };
-    assert_eq!(StateChangesCount::from(&state_changes), expected_state_changes_count);
+    assert_eq!(state_changes_count, expected_state_changes_count);
+    assert_eq!(deprecated_state_changes_count, expected_state_changes_count);
 }
 
 #[rstest]
@@ -319,8 +327,11 @@ fn test_state_changes_merge(
     let mut transactional_state = CachedState::create_transactional(&mut state);
     let block_context = BlockContext::create_for_testing();
     let fee_token_address = block_context.chain_info.fee_token_addresses.eth_fee_token_address;
-    let state_changes1 =
-        create_state_changes_for_test(&mut transactional_state, sender_address, fee_token_address);
+    let state_changes1 = deprecated_create_state_changes_for_test(
+        &mut transactional_state,
+        sender_address,
+        fee_token_address,
+    );
     transactional_state.commit();
 
     // After performing `commit`, the transactional state is moved (into state).  We need to create
