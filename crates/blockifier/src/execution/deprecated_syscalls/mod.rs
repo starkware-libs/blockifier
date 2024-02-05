@@ -18,7 +18,6 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
-use crate::abi::constants;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
@@ -201,7 +200,7 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address,
         call_type: CallType::Call,
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: syscall_handler.context.get_gas_cost("initial_gas_cost"),
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
 
@@ -329,7 +328,7 @@ pub fn deploy(
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
-        constants::INITIAL_GAS_COST,
+        syscall_handler.context.get_gas_cost("initial_gas_cost"),
     )?;
     syscall_handler.inner_calls.push(call_info);
 
@@ -397,9 +396,7 @@ pub fn get_block_number(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
     // TODO(Yoni, 1/5/2024): disable for validate.
-    Ok(GetBlockNumberResponse {
-        block_number: syscall_handler.context.block_context.block_info.block_number,
-    })
+    Ok(GetBlockNumberResponse { block_number: syscall_handler.get_block_info().block_number })
 }
 
 // GetBlockTimestamp syscall.
@@ -425,7 +422,7 @@ pub fn get_block_timestamp(
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
     // TODO(Yoni, 1/5/2024): disable for validate.
     Ok(GetBlockTimestampResponse {
-        block_timestamp: syscall_handler.context.block_context.block_info.block_timestamp,
+        block_timestamp: syscall_handler.get_block_info().block_timestamp,
     })
 }
 
@@ -477,9 +474,7 @@ pub fn get_sequencer_address(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetSequencerAddressResponse> {
     syscall_handler.verify_not_in_validate_mode("get_sequencer_address")?;
-    Ok(GetSequencerAddressResponse {
-        address: syscall_handler.context.block_context.block_info.sequencer_address,
-    })
+    Ok(GetSequencerAddressResponse { address: syscall_handler.get_block_info().sequencer_address })
 }
 
 // GetTxInfo syscall.
@@ -518,7 +513,7 @@ pub fn get_tx_signature(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetTxSignatureResponse> {
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.context.account_tx_context.signature().0.len();
+    let length = syscall_handler.context.tx_context.tx_info.signature().0.len();
 
     Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }

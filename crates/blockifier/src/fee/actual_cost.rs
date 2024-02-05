@@ -1,15 +1,17 @@
+use std::sync::Arc;
+
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
+use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_and_blob_gas_usage;
+use crate::fee::gas_usage::calculate_tx_gas_usage_vector;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    AccountTransactionContext, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
@@ -22,16 +24,16 @@ pub struct ActualCost {
 }
 
 impl ActualCost {
-    pub fn builder_for_l1_handler(
-        block_context: &BlockContext,
-        tx_context: AccountTransactionContext,
+    pub fn builder_for_l1_handler<'a>(
+        tx_context: Arc<TransactionContext>,
         l1_handler_payload_size: usize,
-    ) -> ActualCostBuilder<'_> {
+    ) -> ActualCostBuilder<'a> {
+        let signature_length = 0; // Signature is validated on L1.
         ActualCostBuilder::new(
-            block_context,
             tx_context,
             TransactionType::L1Handler,
             l1_handler_payload_size,
+            signature_length,
         )
         .without_sender_address()
         .with_l1_payload_size(l1_handler_payload_size)
@@ -41,9 +43,8 @@ impl ActualCost {
 #[derive(Debug, Clone)]
 // Invariant: private fields initialized after `new` is called via dedicated methods.
 pub struct ActualCostBuilder<'a> {
-    pub account_tx_context: AccountTransactionContext,
+    pub tx_context: Arc<TransactionContext>,
     pub tx_type: TransactionType,
-    pub block_context: BlockContext,
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
@@ -51,20 +52,22 @@ pub struct ActualCostBuilder<'a> {
     l1_payload_size: Option<usize>,
     calldata_length: usize,
     n_reverted_steps: usize,
+    // TODO(Avi,10/02/2024): use this field and remove the clippy tag.
+    #[allow(dead_code)]
+    signature_length: usize,
 }
 
 impl<'a> ActualCostBuilder<'a> {
     // Recommendation: use constructor from account transaction, or from actual cost, to build this.
     pub fn new(
-        block_context: &BlockContext,
-        account_tx_context: AccountTransactionContext,
+        tx_context: Arc<TransactionContext>,
         tx_type: TransactionType,
         calldata_length: usize,
+        signature_length: usize,
     ) -> Self {
         Self {
-            block_context: block_context.clone(),
-            sender_address: Some(account_tx_context.sender_address()),
-            account_tx_context,
+            sender_address: Some(tx_context.tx_info.sender_address()),
+            tx_context,
             tx_type,
             validate_call_info: None,
             execute_call_info: None,
@@ -72,6 +75,7 @@ impl<'a> ActualCostBuilder<'a> {
             l1_payload_size: None,
             calldata_length,
             n_reverted_steps: 0,
+            signature_length,
         }
     }
 
@@ -105,8 +109,11 @@ impl<'a> ActualCostBuilder<'a> {
         mut self,
         state: &mut CachedState<impl StateReader>,
     ) -> StateResult<Self> {
-        let fee_token_address =
-            self.block_context.chain_info.fee_token_address(&self.account_tx_context.fee_type());
+        let fee_token_address = self
+            .tx_context
+            .block_context
+            .chain_info
+            .fee_token_address(&self.tx_context.tx_info.fee_type());
 
         let new_state_changes = state
             .get_actual_state_changes_for_fee_charge(fee_token_address, self.sender_address)?;
@@ -137,16 +144,17 @@ impl<'a> ActualCostBuilder<'a> {
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
-        // TODO(Aner, 21/01/24) Include gas for data availability according to use_kzg_da flag.
-        let l1_gas_and_blob_gas_usage = calculate_tx_gas_and_blob_gas_usage(
+        let gas_usage_vector = calculate_tx_gas_usage_vector(
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
+            self.tx_context.block_context.block_info.use_kzg_da,
         )?;
 
         let mut actual_resources = calculate_tx_resources(
+            &self.tx_context.block_context.versioned_constants,
             execution_resources,
-            l1_gas_and_blob_gas_usage,
+            gas_usage_vector,
             self.tx_type,
             self.calldata_length,
         )?;
@@ -155,11 +163,12 @@ impl<'a> ActualCostBuilder<'a> {
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             n_reverted_steps;
 
-        let actual_fee = if self.account_tx_context.enforce_fee()?
+        let tx_info = &self.tx_context.tx_info;
+        let actual_fee = if tx_info.enforce_fee()?
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
             || self.tx_type == TransactionType::L1Handler
         {
-            self.account_tx_context.calculate_tx_fee(&actual_resources, &self.block_context)?
+            tx_info.calculate_tx_fee(&actual_resources, &self.tx_context.block_context)?
         } else {
             Fee(0)
         };

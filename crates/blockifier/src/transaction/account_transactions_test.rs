@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
@@ -20,13 +21,13 @@ use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
 use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::{calculate_tx_l1_gas_usages, get_fee_by_l1_gas_usage};
-use crate::fee::gas_usage::estimate_minimal_l1_gas;
+use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
+use crate::fee::gas_usage::estimate_minimal_gas_vector;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
@@ -41,7 +42,7 @@ use crate::test_utils::{
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
     deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
@@ -73,7 +74,7 @@ fn test_fee_enforcement(
     );
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account_tx);
-    let enforce_fee = account_tx.get_account_tx_context().enforce_fee().unwrap();
+    let enforce_fee = account_tx.create_tx_info().enforce_fee().unwrap();
     let result = account_tx.execute(state, &block_context, true, true);
     assert_eq!(result.is_err(), enforce_fee);
 }
@@ -107,7 +108,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
 }
 
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
-// TODO(Dori, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
+// TODO(Dori, 10/10/2023): Add V3 case once `create_tx_info` is supported for V3.
 #[rstest]
 fn test_account_flow_test(
     block_context: BlockContext,
@@ -141,7 +142,7 @@ fn test_account_flow_test(
 #[rstest]
 #[case(TransactionVersion::ZERO)]
 #[case(TransactionVersion::ONE)]
-// TODO(Nimrod, 10/10/2023): Add V3 case once `get_account_tx_context` is supported for V3.
+// TODO(Nimrod, 10/10/2023): Add V3 case once `get_tx_info` is supported for V3.
 fn test_invoke_tx_from_non_deployed_account(
     block_context: BlockContext,
     max_fee: Fee,
@@ -198,7 +199,7 @@ fn test_infinite_recursion(
     mut block_context: BlockContext,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.block_info.invoke_tx_max_n_steps = 4000;
+    block_context.versioned_constants.invoke_tx_max_n_steps = 4000;
 
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
@@ -331,14 +332,11 @@ fn test_max_fee_limit_validate(
         resource_bounds: max_resource_bounds,
         ..tx_args.clone()
     });
-    let estimated_min_l1_gas_and_blob_gas =
-        estimate_minimal_l1_gas(&block_context, &account_tx).unwrap();
-    let estimated_min_l1_gas = estimated_min_l1_gas_and_blob_gas.gas_usage;
-    let estimated_min_fee = get_fee_by_l1_gas_usage(
-        block_info,
-        estimated_min_l1_gas_and_blob_gas,
-        &account_tx.fee_type(),
-    );
+    let estimated_min_gas_usage_vector =
+        estimate_minimal_gas_vector(&block_context, &account_tx).unwrap();
+    let estimated_min_l1_gas = estimated_min_gas_usage_vector.l1_gas;
+    let estimated_min_fee =
+        get_fee_by_gas_vector(block_info, estimated_min_gas_usage_vector, &account_tx.fee_type());
 
     let error = run_invoke_tx(
         &mut state,
@@ -349,7 +347,7 @@ fn test_max_fee_limit_validate(
             // works.
             resource_bounds: l1_resource_bounds(
                 estimated_min_l1_gas.try_into().expect("Failed to convert u128 to u64."),
-                block_info.gas_prices.get_gas_price_by_fee_type(&account_tx.fee_type())
+                block_info.gas_prices.get_gas_price_by_fee_type(&account_tx.fee_type()).into()
             ),
             ..tx_args
         },
@@ -387,7 +385,7 @@ fn test_recursion_depth_exceeded(
     // 2. The base case for recursion occurs at depth 0, not at depth 1.
 
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
-    let max_inner_recursion_depth: u8 = (block_context.block_info.max_recursion_depth - 2)
+    let max_inner_recursion_depth: u8 = (block_context.versioned_constants.max_recursion_depth - 2)
         .try_into()
         .expect("Failed to convert usize to u8.");
 
@@ -575,12 +573,9 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     );
 
     // Fail execution, assert nonce and balance are unchanged.
-    let account_tx_context = declare_account_tx.get_account_tx_context();
+    let tx_info = declare_account_tx.create_tx_info();
     let initial_balance = state
-        .get_fee_token_balance(
-            account_address,
-            chain_info.fee_token_address(&account_tx_context.fee_type()),
-        )
+        .get_fee_token_balance(account_address, chain_info.fee_token_address(&tx_info.fee_type()))
         .unwrap();
     declare_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
 
@@ -589,7 +584,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
         state
             .get_fee_token_balance(
                 account_address,
-                chain_info.fee_token_address(&account_tx_context.fee_type())
+                chain_info.fee_token_address(&tx_info.fee_type())
             )
             .unwrap(),
         initial_balance
@@ -625,7 +620,7 @@ fn test_reverted_reach_steps_limit(
         create_test_init_data(&block_context.chain_info, cairo_version);
 
     // Limit the number of execution steps (so we quickly hit the limit).
-    block_context.block_info.invoke_tx_max_n_steps = 5000;
+    block_context.versioned_constants.invoke_tx_max_n_steps = 5000;
     let recursion_base_args = invoke_tx_args! {
         max_fee,
         resource_bounds: max_resource_bounds,
@@ -674,7 +669,7 @@ fn test_reverted_reach_steps_limit(
     let steps_diff = n_steps_1 - n_steps_0;
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     let steps_diff_as_u32: u32 = steps_diff.try_into().expect("Failed to convert usize to u32.");
-    let fail_depth = block_context.block_info.invoke_tx_max_n_steps / steps_diff_as_u32;
+    let fail_depth = block_context.versioned_constants.invoke_tx_max_n_steps / steps_diff_as_u32;
 
     // Invoke the `recurse` function with `fail_depth` iterations. This call should fail.
     let result = run_invoke_tx(
@@ -834,7 +829,7 @@ fn test_max_fee_to_max_steps_conversion(
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
-    let actual_gas_used = 6108;
+    let actual_gas_used = 6140;
     let actual_gas_used_as_u128: u128 = actual_gas_used.into();
     let actual_fee = actual_gas_used_as_u128 * 100000000000;
     let actual_strk_gas_price =
@@ -851,20 +846,19 @@ fn test_max_fee_to_max_steps_conversion(
         sender_address: account_address,
         calldata: execute_calldata.clone(),
         version,
-        resource_bounds: l1_resource_bounds(actual_gas_used, actual_strk_gas_price),
+        resource_bounds: l1_resource_bounds(actual_gas_used, actual_strk_gas_price.into()),
         nonce: nonce_manager.next(account_address),
     });
-    let execution_context1 = EntryPointExecutionContext::new_invoke(
-        &block_context,
-        &account_tx1.get_account_tx_context(),
-        true,
-    )
-    .unwrap();
+    let tx_context1 = Arc::new(block_context.to_tx_context(&account_tx1));
+    let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true).unwrap();
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.n_steps();
-    let gas_and_blob_gas_used1 =
-        calculate_tx_l1_gas_usages(&tx_execution_info1.actual_resources, &block_context).unwrap();
+    let gas_used_vector1 = calculate_tx_gas_vector(
+        &tx_execution_info1.actual_resources,
+        &block_context.versioned_constants,
+    )
+    .unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let account_tx2 = account_invoke_tx(invoke_tx_args! {
@@ -872,20 +866,19 @@ fn test_max_fee_to_max_steps_conversion(
         sender_address: account_address,
         calldata: execute_calldata,
         version,
-        resource_bounds: l1_resource_bounds(2 * actual_gas_used, actual_strk_gas_price),
+        resource_bounds: l1_resource_bounds(2 * actual_gas_used, actual_strk_gas_price.into()),
         nonce: nonce_manager.next(account_address),
     });
-    let execution_context2 = EntryPointExecutionContext::new_invoke(
-        &block_context,
-        &account_tx2.get_account_tx_context(),
-        true,
-    )
-    .unwrap();
+    let tx_context2 = Arc::new(block_context.to_tx_context(&account_tx2));
+    let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true).unwrap();
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.n_steps();
-    let gas_and_blob_gas_used2 =
-        calculate_tx_l1_gas_usages(&tx_execution_info2.actual_resources, &block_context).unwrap();
+    let gas_used_vector2 = calculate_tx_gas_vector(
+        &tx_execution_info2.actual_resources,
+        &block_context.versioned_constants,
+    )
+    .unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());
@@ -894,11 +887,11 @@ fn test_max_fee_to_max_steps_conversion(
     // TODO(Aner, 21/01/24): verify test compliant with 4844 (or modify accordingly).
     assert_eq!(
         actual_gas_used,
-        u64::try_from(gas_and_blob_gas_used2.gas_usage).expect("Failed to convert u128 to u64.")
+        u64::try_from(gas_used_vector2.l1_gas).expect("Failed to convert u128 to u64.")
     );
     assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
     assert_eq!(n_steps1, n_steps2);
-    assert_eq!(gas_and_blob_gas_used1, gas_and_blob_gas_used2);
+    assert_eq!(gas_used_vector1, gas_used_vector2);
 }
 
 #[rstest]

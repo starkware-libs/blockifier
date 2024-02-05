@@ -1,20 +1,30 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block_context::{BlockContext, BlockInfo, ChainInfo, FeeTokenAddresses, GasPrices};
-use blockifier::state::cached_state::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
+use blockifier::block::{
+    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
+};
+use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use blockifier::state::cached_state::{
+    CachedState, GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
+};
+use blockifier::state::state_api::State;
+use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::errors::{
+    InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
+    NativeBlockifierResult,
+};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
-use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
+use crate::py_transaction_execution_info::PyBouncerInfo;
+use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
-use crate::transaction_executor::TransactionExecutor;
+use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
 
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
@@ -23,7 +33,7 @@ mod py_block_executor_test;
 #[pyclass]
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
-    pub max_recursion_depth: usize,
+    pub versioned_constants: VersionedConstants,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     /// `Send` trait is required for `pyclass` compatibility as Python objects must be threadsafe.
     pub storage: Box<dyn Storage + Send>,
@@ -33,9 +43,10 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
+        validate_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
@@ -43,12 +54,27 @@ impl PyBlockExecutor {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
+<<<<<<< HEAD
+||||||| 9575e81e
+
+=======
+        let versioned_constants =
+            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+>>>>>>> origin/main-v0.13.1
         log::debug!("Initialized Block Executor.");
 
         Self {
             general_config,
+<<<<<<< HEAD
             max_recursion_depth,
             tx_executor: None,
+||||||| 9575e81e
+            max_recursion_depth,
+            tx_executor,
+=======
+            versioned_constants,
+            tx_executor: None,
+>>>>>>> origin/main-v0.13.1
             storage: Box::new(storage),
             global_contract_cache: GlobalContractCache::new(global_contract_cache_size),
         }
@@ -57,20 +83,24 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info))]
+    #[pyo3(signature = (next_block_info, old_block_number_and_hash))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
+        old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
-
-        let tx_executor = TransactionExecutor::new(
-            papyrus_reader,
+        let global_contract_cache = self.global_contract_cache.clone();
+        let mut state = CachedState::new(papyrus_reader, global_contract_cache);
+        let block_context = pre_process_block(
+            &mut state,
+            old_block_number_and_hash,
             &self.general_config,
-            next_block_info,
-            self.max_recursion_depth,
-            self.global_contract_cache.clone(),
+            &next_block_info,
+            &self.versioned_constants,
         )?;
+
+        let tx_executor = TransactionExecutor::new(state, block_context)?;
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -85,7 +115,7 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
         self.tx_executor().execute(tx, raw_contract_class, charge_fee)
     }
@@ -98,14 +128,6 @@ impl PyBlockExecutor {
         log::debug!("Finalized execution.");
 
         finalized_state
-    }
-
-    #[pyo3(signature = (old_block_number_and_hash))]
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        self.tx_executor().pre_process_block(old_block_number_and_hash)
     }
 
     pub fn commit_tx(&mut self) {
@@ -201,7 +223,7 @@ impl PyBlockExecutor {
                 &general_config.starknet_os_config.chain_id,
             )),
             general_config,
-            max_recursion_depth: 50,
+            versioned_constants: VersionedConstants::latest_constants().clone(),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
@@ -224,7 +246,7 @@ impl PyBlockExecutor {
         Self {
             storage: Box::new(storage),
             general_config: PyGeneralConfig::default(),
-            max_recursion_depth: 50,
+            versioned_constants: VersionedConstants::latest_constants().clone(),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
@@ -293,31 +315,74 @@ impl Default for PyOsConfig {
     }
 }
 
-pub fn into_block_context(
+pub fn into_block_context_args(
     general_config: &PyGeneralConfig,
-    block_info: PyBlockInfo,
-    max_recursion_depth: usize,
-) -> NativeBlockifierResult<BlockContext> {
-    let block_context = BlockContext {
-        block_info: BlockInfo {
-            block_number: BlockNumber(block_info.block_number),
-            block_timestamp: BlockTimestamp(block_info.block_timestamp),
-            sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-            vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
-            gas_prices: GasPrices {
-                eth_l1_gas_price: block_info.l1_gas_price.price_in_wei,
-                strk_l1_gas_price: block_info.l1_gas_price.price_in_fri,
-                eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei,
-                strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri,
-            },
-
-            use_kzg_da: block_info.use_kzg_da,
-            invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-            validate_max_n_steps: general_config.validate_max_n_steps,
-            max_recursion_depth,
+    block_info: &PyBlockInfo,
+) -> NativeBlockifierResult<(BlockInfo, ChainInfo)> {
+    let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
+    let block_info = BlockInfo {
+        block_number: BlockNumber(block_info.block_number),
+        block_timestamp: BlockTimestamp(block_info.block_timestamp),
+        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
+        gas_prices: GasPrices {
+            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
+                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                    InvalidNativeBlockifierInputError::InvalidGasPriceWei(
+                        block_info.l1_gas_price.price_in_wei,
+                    ),
+                )
+            })?,
+            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri.try_into().map_err(|_| {
+                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                    InvalidNativeBlockifierInputError::InvalidGasPriceFri(
+                        block_info.l1_gas_price.price_in_fri,
+                    ),
+                )
+            })?,
+            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei.try_into().map_err(
+                |_| {
+                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                        InvalidNativeBlockifierInputError::InvalidDataGasPriceWei(
+                            block_info.l1_data_gas_price.price_in_wei,
+                        ),
+                    )
+                },
+            )?,
+            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri.try_into().map_err(
+                |_| {
+                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+                        InvalidNativeBlockifierInputError::InvalidDataGasPriceFri(
+                            block_info.l1_data_gas_price.price_in_fri,
+                        ),
+                    )
+                },
+            )?,
         },
-        chain_info: general_config.starknet_os_config.clone().try_into()?,
+        use_kzg_da: block_info.use_kzg_da,
     };
+
+    Ok((block_info, chain_info))
+}
+
+// Executes block pre-processing; see `block_execution::pre_process_block` documentation.
+fn pre_process_block(
+    state: &mut dyn State,
+    old_block_number_and_hash: Option<(u64, PyFelt)>,
+    general_config: &PyGeneralConfig,
+    block_info: &PyBlockInfo,
+    versioned_constants: &VersionedConstants,
+) -> NativeBlockifierResult<BlockContext> {
+    let old_block_number_and_hash = old_block_number_and_hash
+        .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
+
+    let (block_info, chain_info) = into_block_context_args(general_config, block_info)?;
+    let block_context = pre_process_block_blockifier(
+        state,
+        old_block_number_and_hash,
+        block_info,
+        chain_info,
+        versioned_constants.clone(),
+    )?;
 
     Ok(block_context)
 }

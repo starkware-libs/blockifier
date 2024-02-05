@@ -351,7 +351,8 @@ pub fn get_block_hash(
     }
 
     let requested_block_number = request.block_number.0;
-    let current_block_number = syscall_handler.context.block_context.block_info.block_number.0;
+    let current_block_number =
+        syscall_handler.context.tx_context.block_context.block_info.block_number.0;
 
     if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
         || requested_block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
@@ -660,7 +661,8 @@ pub fn keccak(
 
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     let n_rounds_as_u64 = u64::try_from(n_rounds).expect("Failed to convert usize to u64.");
-    let gas_cost = n_rounds_as_u64 * constants::KECCAK_ROUND_COST_GAS_COST;
+    let gas_cost =
+        n_rounds_as_u64 * syscall_handler.context.get_gas_cost("keccak_round_cost_gas_cost");
     if gas_cost > *remaining_gas {
         let out_of_gas_error =
             StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;

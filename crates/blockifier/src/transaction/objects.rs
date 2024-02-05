@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use cairo_felt::Felt252;
 use itertools::concat;
 use num_traits::Pow;
+use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
@@ -11,7 +12,7 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
@@ -36,20 +37,14 @@ macro_rules! implement_getters {
     };
 }
 
-#[derive(Clone, Copy, Hash, EnumIter, Eq, PartialEq)]
-pub enum FeeType {
-    Strk,
-    Eth,
-}
-
 /// Contains the account information of the transaction (outermost call).
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AccountTransactionContext {
-    Current(CurrentAccountTransactionContext),
-    Deprecated(DeprecatedAccountTransactionContext),
+pub enum TransactionInfo {
+    Current(CurrentTransactionInfo),
+    Deprecated(DeprecatedTransactionInfo),
 }
 
-impl AccountTransactionContext {
+impl TransactionInfo {
     implement_getters!(
         (transaction_hash, TransactionHash),
         (version, TransactionVersion),
@@ -82,17 +77,17 @@ impl AccountTransactionContext {
 
     pub fn enforce_fee(&self) -> TransactionFeeResult<bool> {
         match self {
-            AccountTransactionContext::Current(context) => {
+            TransactionInfo::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
                 let max_amount: u128 = l1_bounds.max_amount.into();
                 Ok(max_amount * l1_bounds.max_price_per_unit > 0)
             }
-            AccountTransactionContext::Deprecated(context) => Ok(context.max_fee != Fee(0)),
+            TransactionInfo::Deprecated(context) => Ok(context.max_fee != Fee(0)),
         }
     }
 }
 
-impl HasRelatedFeeType for AccountTransactionContext {
+impl HasRelatedFeeType for TransactionInfo {
     fn version(&self) -> TransactionVersion {
         self.version()
     }
@@ -103,7 +98,7 @@ impl HasRelatedFeeType for AccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CurrentAccountTransactionContext {
+pub struct CurrentTransactionInfo {
     pub common_fields: CommonAccountFields,
     pub resource_bounds: ResourceBoundsMapping,
     pub tip: Tip,
@@ -113,7 +108,7 @@ pub struct CurrentAccountTransactionContext {
     pub account_deployment_data: AccountDeploymentData,
 }
 
-impl CurrentAccountTransactionContext {
+impl CurrentTransactionInfo {
     /// Fetch the L1 resource bounds, if they exist.
     pub fn l1_resource_bounds(&self) -> TransactionFeeResult<ResourceBounds> {
         match self.resource_bounds.0.get(&Resource::L1Gas).copied() {
@@ -124,15 +119,46 @@ impl CurrentAccountTransactionContext {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct DeprecatedAccountTransactionContext {
+pub struct DeprecatedTransactionInfo {
     pub common_fields: CommonAccountFields,
     pub max_fee: Fee,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct GasAndBlobGasUsages {
-    pub gas_usage: u128,
-    pub blob_gas_usage: u128,
+#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq)]
+pub struct GasVector {
+    pub l1_gas: u128,
+    pub blob_gas: u128,
+}
+
+impl GasVector {
+    /// Computes the cost (in fee token units) of the gas vector (saturating on overflow).
+    pub fn saturated_cost(&self, gas_price: u128, blob_gas_price: u128) -> Fee {
+        let l1_gas_cost = self.l1_gas.checked_mul(gas_price).unwrap_or_else(|| {
+            log::warn!(
+                "L1 gas cost overflowed: multiplication of {} by {} resulted in overflow.",
+                self.l1_gas,
+                gas_price
+            );
+            u128::MAX
+        });
+        let l1_data_gas_cost = self.blob_gas.checked_mul(blob_gas_price).unwrap_or_else(|| {
+            log::warn!(
+                "L1 blob gas cost overflowed: multiplication of {} by {} resulted in overflow.",
+                self.blob_gas,
+                blob_gas_price
+            );
+            u128::MAX
+        });
+        let total = l1_gas_cost.checked_add(l1_data_gas_cost).unwrap_or_else(|| {
+            log::warn!(
+                "Total gas cost overflowed: addition of {} and {} resulted in overflow.",
+                l1_gas_cost,
+                l1_data_gas_cost
+            );
+            u128::MAX
+        });
+        Fee(total)
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -146,7 +172,7 @@ pub struct CommonAccountFields {
 }
 
 /// Contains the information gathered by the execution of a transaction.
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct TransactionExecutionInfo {
     /// Transaction validation call info; [None] for `L1Handler`.
     pub validate_call_info: Option<CallInfo>,
@@ -194,7 +220,7 @@ impl TransactionExecutionInfo {
 
 /// A mapping from a transaction execution resource to its actual usage.
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
 impl ResourcesMapping {
@@ -205,7 +231,7 @@ impl ResourcesMapping {
 
     #[cfg(test)]
     pub fn gas_usage(&self) -> usize {
-        *self.0.get(crate::abi::constants::GAS_USAGE).unwrap()
+        *self.0.get(crate::abi::constants::L1_GAS_USAGE).unwrap()
     }
 
     #[cfg(test)]
@@ -234,4 +260,14 @@ pub trait HasRelatedFeeType {
     ) -> TransactionExecutionResult<Fee> {
         Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
     }
+}
+
+#[derive(Clone, Copy, Hash, EnumIter, Eq, PartialEq)]
+pub enum FeeType {
+    Strk,
+    Eth,
+}
+
+pub trait TransactionInfoCreator {
+    fn create_tx_info(&self) -> TransactionInfo;
 }
