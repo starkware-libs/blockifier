@@ -561,6 +561,11 @@ fn test_nested_library_call() {
             ..CallExecution::default()
         },
         vm_resources: storage_entry_point_vm_resources.clone(),
+        syscall_resources: VmExecutionResources {
+            n_steps: 176,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
+        },
         storage_read_values: vec![stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
@@ -578,6 +583,11 @@ fn test_nested_library_call() {
             ..CallExecution::default()
         },
         vm_resources: library_call_vm_resources,
+        syscall_resources: VmExecutionResources {
+            n_steps: 927,
+            n_memory_holes: 4,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 22)]),
+        },
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
@@ -589,6 +599,11 @@ fn test_nested_library_call() {
             ..CallExecution::default()
         },
         vm_resources: storage_entry_point_vm_resources,
+        syscall_resources: VmExecutionResources {
+            n_steps: 176,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
+        },
         storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
@@ -607,6 +622,11 @@ fn test_nested_library_call() {
             ..CallExecution::default()
         },
         vm_resources: main_call_vm_resources,
+        syscall_resources: VmExecutionResources {
+            n_steps: 2605,
+            n_memory_holes: 12,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 64)]),
+        },
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };

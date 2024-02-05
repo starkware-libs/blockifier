@@ -81,6 +81,7 @@ struct ExpectedResultTestInvokeTx {
     range_check: usize,
     n_steps: usize,
     vm_resources: VmExecutionResources,
+    syscall_resources: VmExecutionResources,
     validate_gas_consumed: u64,
     execute_gas_consumed: u64,
     inner_call_initial_gas: u64,
@@ -210,6 +211,11 @@ fn expected_fee_transfer_call_info(
             ..Default::default()
         },
         vm_resources: Prices::FeeTransfer(account_address, *fee_type).into(),
+        syscall_resources: VmExecutionResources {
+            n_steps: 827,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 10)]),
+        },
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
@@ -302,6 +308,11 @@ fn default_invoke_tx_args(
             n_memory_holes:  0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
+        syscall_resources: VmExecutionResources {
+            n_steps:  760,
+            n_memory_holes:  4,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 20)]),
+        },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
         inner_call_initial_gas: abi_constants::INITIAL_GAS_COST,
@@ -315,6 +326,11 @@ fn default_invoke_tx_args(
             n_steps: 284,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
+        },
+        syscall_resources: VmExecutionResources {
+            n_steps: 822,
+            n_memory_holes: 4,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
             // arguments.
@@ -385,6 +401,7 @@ fn test_invoke_tx(
             ..Default::default()
         },
         vm_resources: expected_arguments.vm_resources,
+        syscall_resources: expected_arguments.syscall_resources,
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
@@ -1713,6 +1730,11 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             n_steps: 143,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
+        },
+        syscall_resources: VmExecutionResources {
+            n_steps: 89,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
         accessed_storage_keys: HashSet::from_iter(vec![accessed_storage_key]),
         ..Default::default()

@@ -135,6 +135,7 @@ pub struct ConstructorContext {
 pub struct ExecutionResources {
     pub vm_resources: VmExecutionResources,
     pub syscall_counter: SyscallCounter,
+    pub syscall_resources: VmExecutionResources,
 }
 
 #[derive(Debug)]

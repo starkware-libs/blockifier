@@ -26,6 +26,7 @@ use crate::execution::execution_utils::{
     ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
+use crate::fee::os_usage::get_additional_os_syscall_resources_copy;
 use crate::state::state_api::State;
 
 // TODO(spapini): Try to refactor this file into a StarknetRunner struct.
@@ -79,6 +80,7 @@ pub fn execute_entry_point_call(
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
     let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
+    let previous_syscall_resources = syscall_handler.resources.syscall_resources.clone();
 
     // Execute.
     let bytecode_length = contract_class.bytecode_length();
@@ -106,6 +108,7 @@ pub fn execute_entry_point_call(
         runner,
         syscall_handler,
         previous_vm_resources,
+        previous_syscall_resources,
         n_total_args,
         program_extra_data_length,
     )?;
@@ -309,6 +312,7 @@ pub fn finalize_execution(
     runner: CairoRunner,
     syscall_handler: SyscallHintProcessor<'_>,
     previous_vm_resources: VmExecutionResources,
+    previous_syscall_resources: VmExecutionResources,
     n_total_args: usize,
     program_extra_data_length: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -336,8 +340,10 @@ pub fn finalize_execution(
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    syscall_handler.resources.syscall_resources += &get_additional_os_syscall_resources_copy(&syscall_handler.syscall_counter)?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    let full_call_syscall_resources = &syscall_handler.resources.syscall_resources - &previous_syscall_resources;
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {
@@ -348,6 +354,7 @@ pub fn finalize_execution(
             gas_consumed: call_result.gas_consumed,
         },
         vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        syscall_resources: full_call_syscall_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,

@@ -30,9 +30,10 @@ pub fn calculate_tx_resources(
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
     let vm_and_syscall_usage = &execution_resources.vm_resources
-        + &get_additional_os_syscall_resources(&execution_resources.syscall_counter)?;
-    let total_vm_usage =
-        &vm_and_syscall_usage + &get_additional_os_tx_resources(tx_type, calldata_length)?;
+        + &get_additional_os_tx_resources(tx_type, calldata_length)?;
+    let syscall_usage =&get_additional_os_syscall_resources(&execution_resources.syscall_counter)?;
+    assert_eq!(&syscall_usage.clone(), &execution_resources.syscall_resources.clone());
+    let total_vm_usage = &vm_and_syscall_usage + syscall_usage;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.

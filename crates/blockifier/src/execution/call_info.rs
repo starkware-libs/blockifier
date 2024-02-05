@@ -94,6 +94,7 @@ pub struct CallInfo {
     pub execution: CallExecution,
     #[serde(with = "VmExecutionResourcesDef")]
     pub vm_resources: VmExecutionResources,
+    pub syscall_resources: VmExecutionResources,
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
