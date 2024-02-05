@@ -33,9 +33,10 @@ jobs:
           cd cairo_native/runtime
           cargo build --release
           cd ..
+          ls
           echo "export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/target/release" >> $GITHUB_ENV
       - name: Run ERC20 Native Tests
-        run: cd crates/blockifier && cargo test --test erc20_tests --features testing
+        run: echo $CAIRO_NATIVE_RUNTIME_LIBDIR && ls $CAIRO_NATIVE_RUNTIME_LIBDIR && cd crates/blockifier && cargo test --test erc20_tests --features testing
         env:
           MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
           LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
