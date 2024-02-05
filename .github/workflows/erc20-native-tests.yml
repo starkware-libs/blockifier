@@ -13,12 +13,14 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install llvm
-        run:
-          wget https://apt.llvm.org/llvm.sh &&
-          chmod +x llvm.sh &&
-          sudo ./llvm.sh 17 all
-
+      - name: add llvm deb repository
+        uses: myci-actions/add-deb-repo@10
+        with:
+          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main
+          repo-name: llvm-repo
+          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+      - name: Install LLVM
+        run: sudo apt-get install llvm-17 llvm-17-dev llvm-17-runtime clang-17 clang-tools-17 lld-17 libpolly-17-dev libmlir-17-dev mlir-17-tools
       - name: Install gmplib
         run: sudo apt install -y libgmp3-dev
       - uses: actions/checkout@v3
