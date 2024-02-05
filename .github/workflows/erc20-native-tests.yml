@@ -14,7 +14,11 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
       - name: Install llvm
-        run: sudo apt-get update && sudo apt-get install libllvm-17-ocaml-dev libllvm17 llvm-17 llvm-17-dev llvm-17-doc llvm-17-examples llvm-17-runtime
+        run:
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 17
+
       - name: Install gmplib
         run: sudo apt install -y libgmp3-dev
       - uses: actions/checkout@v3
