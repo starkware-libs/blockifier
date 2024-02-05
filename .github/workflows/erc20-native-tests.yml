@@ -2,6 +2,7 @@ name: ERC20 Native Tests
 
 on:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   erc20-native-tests:
