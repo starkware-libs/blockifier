@@ -208,6 +208,75 @@ mod allowance_tests {
     }
 
     #[test]
+    fn test_increase_allowance() {
+        let address_from = Signers::Alice;
+        let address_to = Signers::Bob;
+
+        let balance_to_transfer = felt_to_starkfelt(Felt::from(BALANCE_TO_TRANSFER));
+
+        let mut context = TestContext::new().with_caller(address_from.into());
+
+        assert_eq!(
+            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
+            vec![Felt::from(0u128), Felt::from(0u128)]
+        );
+
+        assert_eq!(
+            context.call_entry_point(
+                "increase_allowance",
+                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+            ),
+            vec![Felt::from(true)]
+        );
+
+        assert_eq!(
+            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
+            vec![starkfelt_to_felt(balance_to_transfer), Felt::from(0u128)]
+        );
+    }
+
+    #[test]
+    fn test_decrease_allowance() {
+        let address_from = Signers::Alice;
+        let address_to = Signers::Bob;
+
+        let balance_to_transfer = felt_to_starkfelt(Felt::from(BALANCE_TO_TRANSFER));
+
+        let mut context = TestContext::new().with_caller(address_from.into());
+
+        assert_eq!(
+            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
+            vec![Felt::from(0u128), Felt::from(0u128)]
+        );
+
+        assert_eq!(
+            context.call_entry_point(
+                "approve",
+                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+            ),
+            vec![Felt::from(true)]
+        );
+
+        assert_eq!(
+            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
+            vec![starkfelt_to_felt(balance_to_transfer), Felt::from(0u128)]
+        );
+
+        assert_eq!(
+            context.call_entry_point(
+                "decrease_allowance",
+                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+            ),
+            vec![Felt::from(true)]
+        );
+
+        assert_eq!(
+            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
+            vec![Felt::from(0u128), Felt::from(0u128)]
+        );
+    }
+
+    #[test]
     fn test_approve_emits_event() {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
