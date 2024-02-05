@@ -58,7 +58,18 @@ pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
+    EntryPointExecutionError(#[from] EntryPointExecutionError),
+    #[error("{error}")]
+    CallContractExecutionError {
+        storage_address: ContractAddress,
+        error: Box<DeprecatedSyscallExecutionError>,
+    },
+    #[error("{error}")]
+    LibraryCallExecutionError {
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+        error: Box<DeprecatedSyscallExecutionError>,
+    },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
@@ -82,6 +93,27 @@ pub enum DeprecatedSyscallExecutionError {
 impl From<DeprecatedSyscallExecutionError> for HintError {
     fn from(error: DeprecatedSyscallExecutionError) -> Self {
         HintError::Internal(VirtualMachineError::Other(error.into()))
+    }
+}
+
+impl DeprecatedSyscallExecutionError {
+    pub fn as_call_contract_execution_error(self, storage_address: ContractAddress) -> Self {
+        DeprecatedSyscallExecutionError::CallContractExecutionError {
+            storage_address,
+            error: Box::new(self),
+        }
+    }
+
+    pub fn as_lib_call_execution_error(
+        self,
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+    ) -> Self {
+        DeprecatedSyscallExecutionError::LibraryCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(self),
+        }
     }
 }
 
@@ -461,7 +493,9 @@ pub fn execute_library_call(
         initial_gas: constants::INITIAL_GAS_COST,
     };
 
-    execute_inner_call(entry_point, vm, syscall_handler)
+    execute_inner_call(entry_point, vm, syscall_handler).map_err(|error| {
+        error.as_lib_call_execution_error(class_hash, syscall_handler.storage_address)
+    })
 }
 
 pub fn read_felt_array<TErr>(
