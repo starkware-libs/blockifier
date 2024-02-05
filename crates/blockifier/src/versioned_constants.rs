@@ -15,6 +15,7 @@ use thiserror::Error;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
+use crate::execution::errors::PostExecutionError;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
 
@@ -97,10 +98,6 @@ impl VersionedConstants {
         self.os_resources.resources_for_tx_type(tx_type, calldata_length)
     }
 
-    // Calculates the additional resources needed for the OS to run the given transaction;
-    // i.e., the resources of the Starknet OS function `execute_transactions_inner`.
-    // Also adds the resources needed for the fee transfer execution, performed in the end·
-    // of every transaction.
     pub fn get_additional_os_tx_resources(
         &self,
         tx_type: TransactionType,
@@ -109,12 +106,10 @@ impl VersionedConstants {
         self.os_resources.get_additional_os_tx_resources(tx_type, calldata_length)
     }
 
-    /// Calculates the additional resources needed for the OS to run the given syscalls;
-    /// i.e., the resources of the Starknet OS function `execute_syscalls`.
     pub fn get_additional_os_syscall_resources(
         &self,
         syscall_counter: &SyscallCounter,
-    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    ) -> Result<VmExecutionResources, PostExecutionError> {
         self.os_resources.get_additional_os_syscall_resources(syscall_counter)
     }
 
@@ -178,7 +173,7 @@ impl OsResources {
     pub fn get_additional_os_syscall_resources(
         &self,
         syscall_counter: &SyscallCounter,
-    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    ) -> Result<VmExecutionResources, PostExecutionError> {
         let mut os_additional_vm_resources = VmExecutionResources::default();
         for (syscall_selector, count) in syscall_counter {
             let syscall_resources =
