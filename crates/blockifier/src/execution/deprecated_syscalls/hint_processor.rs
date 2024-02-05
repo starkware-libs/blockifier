@@ -58,7 +58,13 @@ pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
+    EntryPointExecutionError(#[from] EntryPointExecutionError),
+    #[error("{error}")]
+    InnerCallExecutionError {
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+        error: Box<DeprecatedSyscallExecutionError>,
+    },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
@@ -426,13 +432,26 @@ pub fn execute_inner_call(
     vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
-    let call_info =
-        call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
+    let class_hash: ClassHash = call.class_hash.unwrap_or_default();
+    let storage_address = call.storage_address;
+    let call_info = call
+        .execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)
+        .map_err(|error| DeprecatedSyscallExecutionError::InnerCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(error.into()),
+        })?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
         retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
-    let retdata_segment_start_ptr = syscall_handler.read_only_segments.allocate(vm, &retdata)?;
-
+    let retdata_segment_start_ptr = syscall_handler
+        .read_only_segments
+        .allocate(vm, &retdata)
+        .map_err(|error| DeprecatedSyscallExecutionError::InnerCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(error.into()),
+        })?;
     syscall_handler.inner_calls.push(call_info);
     Ok(ReadOnlySegment { start_ptr: retdata_segment_start_ptr, length: retdata.len() })
 }

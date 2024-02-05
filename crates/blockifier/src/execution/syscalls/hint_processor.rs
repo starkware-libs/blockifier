@@ -63,7 +63,13 @@ pub enum SyscallExecutionError {
     #[error("Invalid address domain: {address_domain}.")]
     InvalidAddressDomain { address_domain: StarkFelt },
     #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
+    EntryPointExecutionError(#[from] EntryPointExecutionError),
+    #[error("{error}")]
+    InnerCallExecutionError {
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+        error: Box<SyscallExecutionError>,
+    },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
@@ -644,17 +650,38 @@ pub fn execute_inner_call(
     syscall_handler: &mut SyscallHintProcessor<'_>,
     remaining_gas: &mut u64,
 ) -> SyscallResult<ReadOnlySegment> {
-    let call_info =
-        call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
+    let class_hash = call.class_hash.unwrap_or_default();
+    let storage_address = call.storage_address;
+    let call_info = call
+        .execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)
+        .map_err(|error| SyscallExecutionError::InnerCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(error.into()),
+        })?;
+
     let raw_retdata = &call_info.execution.retdata.0;
 
     if call_info.execution.failed {
         // TODO(spapini): Append an error word according to starknet spec if needed.
         // Something like "EXECUTION_ERROR".
-        return Err(SyscallExecutionError::SyscallError { error_data: raw_retdata.clone() });
+        let syscall_error = SyscallExecutionError::SyscallError { error_data: raw_retdata.clone() };
+        return Err(SyscallExecutionError::InnerCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(syscall_error),
+        });
     }
 
-    let retdata_segment = create_retdata_segment(vm, syscall_handler, raw_retdata)?;
+    let retdata_segment =
+        create_retdata_segment(vm, syscall_handler, raw_retdata).map_err(|error| {
+            SyscallExecutionError::InnerCallExecutionError {
+                class_hash,
+                storage_address,
+                error: Box::new(error),
+            }
+        })?;
+
     update_remaining_gas(remaining_gas, &call_info);
 
     syscall_handler.inner_calls.push(call_info);
