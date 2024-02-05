@@ -139,7 +139,7 @@ impl DeclareTransaction {
         Self::create(declare_tx, tx_hash, contract_class, true)
     }
 
-    implement_inner_tx_getter_calls!((class_hash, ClassHash));
+    implement_inner_tx_getter_calls!((class_hash, ClassHash), (signature, TransactionSignature));
 
     pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
         &self.tx

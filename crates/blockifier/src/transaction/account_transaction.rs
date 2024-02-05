@@ -113,11 +113,23 @@ impl AccountTransaction {
     }
 
     pub fn calldata_length(&self) -> usize {
-        match self {
-            Self::Declare(_tx) => 0,
-            Self::DeployAccount(tx) => tx.constructor_calldata().0.len(),
-            Self::Invoke(tx) => tx.calldata().0.len(),
-        }
+        let calldata = match self {
+            Self::Declare(_tx) => calldata![],
+            Self::DeployAccount(tx) => tx.constructor_calldata(),
+            Self::Invoke(tx) => tx.calldata(),
+        };
+
+        calldata.0.len()
+    }
+
+    pub fn signature_length(&self) -> usize {
+        let signature = match self {
+            Self::Declare(tx) => tx.signature(),
+            Self::DeployAccount(tx) => tx.signature(),
+            Self::Invoke(tx) => tx.signature(),
+        };
+
+        signature.0.len()
     }
 
     fn verify_tx_version(&self, version: TransactionVersion) -> TransactionExecutionResult<()> {
@@ -542,7 +554,12 @@ impl AccountTransaction {
         &self,
         tx_context: Arc<TransactionContext>,
     ) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(tx_context, self.tx_type(), self.calldata_length())
+        ActualCostBuilder::new(
+            tx_context,
+            self.tx_type(),
+            self.calldata_length(),
+            self.signature_length(),
+        )
     }
 }
 
