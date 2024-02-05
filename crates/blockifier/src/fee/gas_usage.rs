@@ -57,7 +57,7 @@ pub fn calculate_messages_gas_vector<'a>(
             + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE,
         )
         .expect("Could not convert starknet gas usage from usize to u128."),
-        blob_gas: 0,
+        l1_data_gas: 0,
     } + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
         + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
 
@@ -66,7 +66,7 @@ pub fn calculate_messages_gas_vector<'a>(
             message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
         )
         .expect("Could not convert sharp gas usage from usize to u128."),
-        blob_gas: 0,
+        l1_data_gas: 0,
     };
 
     Ok(starknet_gas_usage + sharp_gas_usage)
@@ -130,7 +130,7 @@ pub fn get_da_gas_cost(state_changes_count: StateChangesCount, use_kzg_da: bool)
         (u128_from_usize(gas).expect("Failed to convert L1 gas usage from usize to u128."), 0)
     };
 
-    GasVector { l1_gas, blob_gas }
+    GasVector { l1_gas, l1_data_gas: blob_gas }
 }
 
 /// Returns the number of felts added to the output messages segment as a result of adding
@@ -165,7 +165,7 @@ pub fn get_consumed_message_to_l2_emissions_cost(
 ) -> GasVector {
     match l1_handler_payload_size {
         // The corresponding transaction is not an L1 handler.,
-        None => GasVector { l1_gas: 0, blob_gas: 0 },
+        None => GasVector { l1_gas: 0, l1_data_gas: 0 },
         Some(l1_handler_payload_size) => {
             get_event_emission_cost(
                 constants::CONSUMED_MSG_TO_L2_N_TOPICS,
@@ -198,7 +198,7 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> GasVector {
                 + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD,
         )
         .expect("Cannot convert event emission gas from usize to u128."),
-        blob_gas: 0,
+        l1_data_gas: 0,
     }
 }
 
@@ -235,7 +235,7 @@ pub fn estimate_minimal_gas_vector(
         },
     };
     let use_kzg_da = block_context.block_info.use_kzg_da;
-    let GasVector { l1_gas: gas_cost, blob_gas: blob_gas_cost } =
+    let GasVector { l1_gas: gas_cost, l1_data_gas: blob_gas_cost } =
         get_da_gas_cost(state_changes_by_account_transaction, use_kzg_da);
 
     let resources = ResourcesMapping(HashMap::from([
@@ -266,7 +266,7 @@ pub fn compute_discounted_gas_from_gas_vector(
     tx_context: &TransactionContext,
 ) -> u128 {
     let gas_prices = &tx_context.block_context.block_info.gas_prices;
-    let GasVector { l1_gas: gas_usage, blob_gas: blob_gas_usage } = gas_usage_vector;
+    let GasVector { l1_gas: gas_usage, l1_data_gas: blob_gas_usage } = gas_usage_vector;
     let fee_type = tx_context.tx_info.fee_type();
     let gas_price = gas_prices.get_gas_price_by_fee_type(&fee_type);
     let data_gas_price = gas_prices.get_data_gas_price_by_fee_type(&fee_type);

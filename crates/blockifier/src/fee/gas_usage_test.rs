@@ -54,7 +54,7 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 
     let computed_gas_vector = get_da_gas_cost(state_changes_count, true);
     assert_eq!(
-        GasVector { l1_gas: 0, blob_gas: u128_from_usize(manual_blob_gas_usage).unwrap() },
+        GasVector { l1_gas: 0, l1_data_gas: u128_from_usize(manual_blob_gas_usage).unwrap() },
         computed_gas_vector
     );
 }
@@ -80,7 +80,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         use_kzg_da,
     )
     .unwrap();
-    assert_eq!(empty_tx_gas_usage_vector, GasVector { l1_gas: 0, blob_gas: 0 });
+    assert_eq!(empty_tx_gas_usage_vector, GasVector { l1_gas: 0, l1_data_gas: 0 });
 
     // DeployAccount.
 
@@ -128,7 +128,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
     let manual_gas_computation = GasVector {
         l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
-        blob_gas: 0,
+        l1_data_gas: 0,
     };
 
     assert_eq!(l1_handler_gas_usage_vector, manual_gas_computation);
@@ -190,10 +190,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + usize_from_u128(get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_gas)
             .unwrap();
     let manual_sharp_blob_gas_usage =
-        get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).blob_gas;
+        get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_data_gas;
     let manual_gas_computation = GasVector {
         l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
-        blob_gas: manual_sharp_blob_gas_usage,
+        l1_data_gas: manual_sharp_blob_gas_usage,
     };
 
     assert_eq!(l2_to_l1_messages_gas_usage_vector, manual_gas_computation);
@@ -253,7 +253,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         // the combined calculation got it once.
         + u128_from_usize(fee_balance_discount).unwrap(),
         // Expected blob gas usage is from data availability only.
-        blob_gas: get_da_gas_cost(combined_state_changes_count, use_kzg_da).blob_gas,
+        l1_data_gas: get_da_gas_cost(combined_state_changes_count, use_kzg_da).l1_data_gas,
     };
 
     assert_eq!(expected_gas_vector, gas_usage_vector);

@@ -127,7 +127,7 @@ pub struct DeprecatedTransactionInfo {
 #[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct GasVector {
     pub l1_gas: u128,
-    pub blob_gas: u128,
+    pub l1_data_gas: u128,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

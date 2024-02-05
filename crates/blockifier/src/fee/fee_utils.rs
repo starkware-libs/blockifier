@@ -58,7 +58,7 @@ pub fn calculate_l1_gas_by_vm_usage(
         .fold(f64::NAN, f64::max);
 
     // TODO(Dori, 1/5/2024): Check this conversion.
-    Ok(GasVector { l1_gas: vm_l1_gas_usage.ceil() as u128, blob_gas: 0 })
+    Ok(GasVector { l1_gas: vm_l1_gas_usage.ceil() as u128, l1_data_gas: 0 })
 }
 
 /// Computes and returns the total L1 gas consumption.
@@ -75,7 +75,7 @@ pub fn calculate_tx_gas_vector(
     Ok(GasVector {
         l1_gas: u128_from_usize(l1_gas_usage)
             .expect("Conversion from usize to u128 should not fail."),
-        blob_gas: u128_from_usize(l1_blob_gas_usage)
+        l1_data_gas: u128_from_usize(l1_blob_gas_usage)
             .expect("Conversion from usize to u128 should not fail."),
     } + vm_usage_gas_vector)
 }
@@ -87,7 +87,7 @@ pub fn get_fee_by_gas_vector(
 ) -> Fee {
     let gas_prices = &block_info.gas_prices;
     Fee(gas_vector.l1_gas * gas_prices.get_gas_price_by_fee_type(fee_type)
-        + gas_vector.blob_gas * gas_prices.get_data_gas_price_by_fee_type(fee_type))
+        + gas_vector.l1_data_gas * gas_prices.get_data_gas_price_by_fee_type(fee_type))
 }
 
 /// Calculates the fee that should be charged, given execution resources.
