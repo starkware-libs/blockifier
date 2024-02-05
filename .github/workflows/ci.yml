@@ -35,7 +35,7 @@ jobs:
           path: 'cairo_native'
       - name: Run ERC20 Native Tests
         run: cd ./cairo_native/runtime &&
-          export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/cairo_native/runtime/target/release &&
+          export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/../target/release &&
           echo $CAIRO_NATIVE_RUNTIME_LIBDIR &&
           cargo build --release &&
           cd ../.. &&
