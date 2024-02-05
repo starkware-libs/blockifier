@@ -9,7 +9,7 @@ use starknet_types_core::felt::Felt;
 
 pub const TOTAL_SUPPLY: u128 = 10_000_000_000_000_000_000_000u128;
 pub const BALANCE_TO_TRANSFER: u128 = 10u128;
-pub const BALANCE_AFTER_TRANSFER: u128 = 9_999_999_999_999_999_999_990u128;
+pub const BALANCE_AFTER_TRANSFER: u128 = TOTAL_SUPPLY - BALANCE_TO_TRANSFER;
 pub const U256_UNDERFLOW: &str = "0x753235365f737562204f766572666c6f77";
 pub const NAME: &str = "Native";
 pub const SYMBOL: &str = "MTK";
