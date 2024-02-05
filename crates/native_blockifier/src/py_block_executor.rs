@@ -54,27 +54,14 @@ impl PyBlockExecutor {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
-<<<<<<< HEAD
-||||||| 9575e81e
-
-=======
         let versioned_constants =
             versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
->>>>>>> origin/main-v0.13.1
         log::debug!("Initialized Block Executor.");
 
         Self {
             general_config,
-<<<<<<< HEAD
-            max_recursion_depth,
-            tx_executor: None,
-||||||| 9575e81e
-            max_recursion_depth,
-            tx_executor,
-=======
             versioned_constants,
             tx_executor: None,
->>>>>>> origin/main-v0.13.1
             storage: Box::new(storage),
             global_contract_cache: GlobalContractCache::new(global_contract_cache_size),
         }
