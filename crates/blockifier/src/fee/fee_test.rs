@@ -42,7 +42,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
     assert_eq!(
-        GasVector { l1_gas: *l1_gas_by_vm_usage as u128, blob_gas: 0 },
+        GasVector { l1_gas: *l1_gas_by_vm_usage as u128, l1_data_gas: 0 },
         calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
     );
 

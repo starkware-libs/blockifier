@@ -25,7 +25,7 @@ pub fn calculate_tx_resources(
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
-    let l1_blob_gas_usage = usize_from_u128(gas_vector.blob_gas)
+    let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources

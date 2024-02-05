@@ -434,7 +434,10 @@ fn test_invoke_tx(
         actual_fee: expected_actual_fee,
         da_gas: da_gas.clone(),
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::BLOB_GAS_USAGE.to_string(), usize_from_u128(da_gas.blob_gas).unwrap()),
+            (
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(da_gas.l1_data_gas).unwrap(),
+            ),
             (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 14 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
@@ -1132,7 +1135,7 @@ fn test_declare_tx(
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), da_gas.l1_gas.try_into().unwrap()),
-            (abi_constants::BLOB_GAS_USAGE.to_string(), da_gas.blob_gas.try_into().unwrap()),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), da_gas.l1_data_gas.try_into().unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1269,7 +1272,10 @@ fn test_deploy_account_tx(
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
-            (abi_constants::BLOB_GAS_USAGE.to_string(), usize_from_u128(da_gas.blob_gas).unwrap()),
+            (
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(da_gas.l1_data_gas).unwrap(),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
@@ -1489,7 +1495,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let gas_vector =
         calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
             .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
+    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
         l1_gas_usage
@@ -1534,7 +1540,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let gas_vector =
         calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
             .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
+    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
         l1_gas_usage
@@ -1702,12 +1708,12 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Build the expected resource mapping.
     let expected_gas = match use_kzg_da {
-        true => GasVector { l1_gas: 16023, blob_gas: 128 },
-        false => GasVector { l1_gas: 17675, blob_gas: 0 },
+        true => GasVector { l1_gas: 16023, l1_data_gas: 128 },
+        false => GasVector { l1_gas: 17675, l1_data_gas: 0 },
     };
     let expected_da_gas = match use_kzg_da {
-        true => GasVector { l1_gas: 0, blob_gas: 128 },
-        false => GasVector { l1_gas: 1652, blob_gas: 0 },
+        true => GasVector { l1_gas: 0, l1_data_gas: 128 },
+        false => GasVector { l1_gas: 1652, l1_data_gas: 0 },
     };
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
@@ -1717,7 +1723,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas.l1_gas).unwrap()),
         (
             abi_constants::BLOB_GAS_USAGE.to_string(),
-            usize_from_u128(expected_gas.blob_gas).unwrap(),
+            usize_from_u128(expected_gas.l1_data_gas).unwrap(),
         ),
     ]));
 
