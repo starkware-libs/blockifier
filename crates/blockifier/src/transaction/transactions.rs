@@ -101,6 +101,21 @@ pub trait ValidatableTransaction {
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
+#[derive(Clone, Debug)]
+// TODO(Avi,10/02/2024): use this struct's fields and remove the clippy tag.
+// TODO(Ayelet,10/02/2024): Change to bytes.
+#[allow(dead_code)]
+pub struct ClassInfo {
+    contract_class: ContractClass,
+    sierra_length: usize,
+    abi_length: usize,
+}
+
+impl ClassInfo {
+    fn _bytecode_length(&self) -> usize {
+        self.contract_class.bytecode_length()
+    }
+}
 
 #[derive(Debug)]
 pub struct DeclareTransaction {
