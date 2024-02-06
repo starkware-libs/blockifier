@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -11,9 +12,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
