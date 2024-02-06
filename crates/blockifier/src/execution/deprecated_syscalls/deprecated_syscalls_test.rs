@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -134,7 +134,7 @@ fn test_nested_library_call() {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
         ..nested_storage_entry_point
     };
-    let storage_entry_point_vm_resources = VmExecutionResources {
+    let storage_entry_point_resources = ExecutionResources {
         n_steps: 218,
         n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
@@ -142,44 +142,44 @@ fn test_nested_library_call() {
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let mut library_call_vm_resources = VmExecutionResources {
+    let mut library_call_resources = ExecutionResources {
         n_steps: 790,
         n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
     };
-    library_call_vm_resources += &storage_entry_point_vm_resources;
+    library_call_resources += &storage_entry_point_resources;
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
-        vm_resources: library_call_vm_resources.clone(),
+        resources: library_call_resources.clone(),
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
     let storage_call_info = CallInfo {
         call: storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
 
     // Nested library call cost: library_call(inner) + library_call(library_call(inner)).
-    let mut main_call_vm_resources = VmExecutionResources {
+    let mut main_call_resources = ExecutionResources {
         n_steps: 796,
         n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 20)]),
     };
-    main_call_vm_resources += &(&library_call_vm_resources * 2);
+    main_call_resources += &(&library_call_resources * 2);
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution::from_retdata(retdata![stark_felt!(0_u8)]),
-        vm_resources: main_call_vm_resources,
+        resources: main_call_resources,
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };
@@ -225,7 +225,7 @@ fn test_call_contract() {
             ..trivial_external_entry_point
         },
         execution: expected_execution.clone(),
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps: 218,
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
@@ -245,7 +245,7 @@ fn test_call_contract() {
             ..trivial_external_entry_point
         },
         execution: expected_execution,
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps: 1017,
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),

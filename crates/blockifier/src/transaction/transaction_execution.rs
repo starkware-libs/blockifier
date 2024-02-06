@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
 use crate::context::BlockContext;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
+use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
