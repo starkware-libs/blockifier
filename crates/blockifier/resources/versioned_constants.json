@@ -11,7 +11,7 @@
                 "builtin_instance_counter": {
                     "range_check_builtin": 20
                 },
-                "n_memory_holes": 4,
+                "n_memory_holes": 0,
                 "n_steps": 760
             },
             "DelegateCall": {
@@ -33,8 +33,8 @@
                     "pedersen_builtin": 7,
                     "range_check_builtin": 19
                 },
-                "n_memory_holes": 13,
-                "n_steps": 1010
+                "n_memory_holes": 0,
+                "n_steps": 1012
             },
             "EmitEvent": {
                 "builtin_instance_counter": {
@@ -48,7 +48,7 @@
                     "range_check_builtin": 2
                 },
                 "n_memory_holes": 0,
-                "n_steps": 74
+                "n_steps": 104
             },
             "GetBlockNumber": {
                 "builtin_instance_counter": {},
@@ -65,21 +65,21 @@
                     "range_check_builtin": 1
                 },
                 "n_memory_holes": 0,
-                "n_steps": 62
+                "n_steps": 64
             },
             "GetContractAddress": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 1
                 },
                 "n_memory_holes": 0,
-                "n_steps": 62
+                "n_steps": 64
             },
             "GetExecutionInfo": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 1
                 },
                 "n_memory_holes": 0,
-                "n_steps": 62
+                "n_steps": 64
             },
             "GetSequencerAddress": {
                 "builtin_instance_counter": {},
@@ -91,7 +91,7 @@
                     "range_check_builtin": 1
                 },
                 "n_memory_holes": 0,
-                "n_steps": 62
+                "n_steps": 64
             },
             "GetTxSignature": {
                 "builtin_instance_counter": {},
@@ -111,7 +111,7 @@
                 "builtin_instance_counter": {
                     "range_check_builtin": 20
                 },
-                "n_memory_holes": 4,
+                "n_memory_holes": 0,
                 "n_steps": 751
             },
             "LibraryCallL1Handler": {
@@ -133,70 +133,70 @@
                     "range_check_builtin": 29
                 },
                 "n_memory_holes": 0,
-                "n_steps": 406
+                "n_steps": 408
             },
             "Secp256k1GetPointFromX": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 30
                 },
-                "n_memory_holes": 18,
-                "n_steps": 391
+                "n_memory_holes": 0,
+                "n_steps": 393
             },
             "Secp256k1GetXy": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 11
                 },
-                "n_memory_holes": 40,
-                "n_steps": 239
+                "n_memory_holes": 0,
+                "n_steps": 241
             },
             "Secp256k1Mul": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 7045
                 },
-                "n_memory_holes": 2,
-                "n_steps": 76501
+                "n_memory_holes": 0,
+                "n_steps": 76503
             },
             "Secp256k1New": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 35
                 },
-                "n_memory_holes": 40,
-                "n_steps": 475
+                "n_memory_holes": 0,
+                "n_steps": 477
             },
             "Secp256r1Add": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 57
                 },
                 "n_memory_holes": 0,
-                "n_steps": 589
+                "n_steps": 591
             },
             "Secp256r1GetPointFromX": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 44
                 },
-                "n_memory_holes": 20,
-                "n_steps": 510
+                "n_memory_holes": 0,
+                "n_steps": 512
             },
             "Secp256r1GetXy": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 11
                 },
-                "n_memory_holes": 40,
-                "n_steps": 241
+                "n_memory_holes": 0,
+                "n_steps": 243
             },
             "Secp256r1Mul": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 13961
                 },
-                "n_memory_holes": 2,
-                "n_steps": 125340
+                "n_memory_holes": 0,
+                "n_steps": 125342
             },
             "Secp256r1New": {
                 "builtin_instance_counter": {
                     "range_check_builtin": 49
                 },
-                "n_memory_holes": 40,
-                "n_steps": 594
+                "n_memory_holes": 0,
+                "n_steps": 596
             },
             "SendMessageToL1": {
                 "builtin_instance_counter": {
@@ -224,11 +224,11 @@
             "Declare": {
                 "constant": {
                     "builtin_instance_counter": {
-                        "pedersen_builtin": 15,
+                        "pedersen_builtin": 16,
                         "range_check_builtin": 63
                     },
-                    "n_memory_holes": 66,
-                    "n_steps": 2843
+                    "n_memory_holes": 0,
+                    "n_steps": 2839
                 },
                 "calldata_factor": {
                     "builtin_instance_counter": {
@@ -245,8 +245,8 @@
                         "pedersen_builtin": 23,
                         "range_check_builtin": 83
                     },
-                    "n_memory_holes": 82,
-                    "n_steps": 3798
+                    "n_memory_holes": 0,
+                    "n_steps": 3796
                 },
                 "calldata_factor": {
                     "builtin_instance_counter": {
@@ -260,11 +260,11 @@
             "InvokeFunction": {
                 "constant": {
                     "builtin_instance_counter": {
-                        "pedersen_builtin": 16,
+                        "pedersen_builtin": 14,
                         "range_check_builtin": 80
                     },
-                    "n_memory_holes": 68,
-                    "n_steps": 3549
+                    "n_memory_holes": 0,
+                    "n_steps": 3546
                 },
                 "calldata_factor": {
                     "builtin_instance_counter": {
@@ -282,7 +282,7 @@
                         "range_check_builtin": 17
                     },
                     "n_memory_holes": 0,
-                    "n_steps": 1157
+                    "n_steps": 1146
                 },
                 "calldata_factor": {
                     "builtin_instance_counter": {
