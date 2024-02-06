@@ -22,14 +22,14 @@ pub const fn const_max(a: u128, b: u128) -> u128 {
     [a, b][(a < b) as usize]
 }
 
-/// Conversion from usize to u128. Currently, usize has 64 bits, so this conversion should never
-/// fail.
+/// Conversion from u128 to usize. This conversion should only be used if the value came from a
+/// usize.
 pub fn usize_from_u128(val: u128) -> Result<usize, NumericConversionError> {
     val.try_into().map_err(|_| NumericConversionError::U128ToUsizeError(val))
 }
 
-/// Conversion from u128 to usize. This conversion should only be used if the value came from a
-/// usize.
+/// Conversion from usize to u128. May fail on architectures with over 128 bits
+/// of address space.
 pub fn u128_from_usize(val: usize) -> Result<u128, NumericConversionError> {
     val.try_into().map_err(|_| NumericConversionError::UsizeToU128Error(val))
 }
