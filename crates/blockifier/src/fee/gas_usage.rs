@@ -11,6 +11,7 @@ use crate::transaction::objects::{
     GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
     TransactionPreValidationResult,
 };
+use crate::transaction::transactions::ChargeableClassInfo;
 use crate::utils::{u128_from_usize, usize_from_u128};
 
 #[cfg(test)]
@@ -27,11 +28,13 @@ pub fn calculate_tx_gas_usage_vector<'a>(
     calldata_length: usize,
     signature_length: usize,
     l1_handler_payload_size: Option<usize>,
+    class_info: Option<ChargeableClassInfo>,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<GasVector> {
     Ok(calculate_messages_gas_vector(call_infos, l1_handler_payload_size)?
         + get_da_gas_cost(state_changes_count, use_kzg_da)
-        + get_calldata_gas_cost(calldata_length, signature_length))
+        + get_calldata_gas_cost(calldata_length, signature_length)
+        + get_code_gas_cost(class_info))
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
@@ -74,7 +77,7 @@ pub fn calculate_messages_gas_vector<'a>(
     Ok(starknet_gas_usage + sharp_gas_usage)
 }
 
-// Return the gas cost for transaction calldata. Each calldata felt costs a fixed and configurable
+// Returns the gas cost for transaction calldata. Each calldata felt costs a fixed and configurable
 // amount of gas. This cost represents the cost of storing the calldata on L2.
 pub fn get_calldata_gas_cost(calldata_length: usize, signature_length: usize) -> GasVector {
     // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
@@ -84,6 +87,23 @@ pub fn get_calldata_gas_cost(calldata_length: usize, signature_length: usize) ->
         l1_gas: u128_from_usize(calldata_gas_cost)
             .expect("Could not convert calldata gas cost from usize to u128."),
         blob_gas: 0,
+    }
+}
+
+// Returns the gas cost of class information added to L2 via a Declare transaction. Each code felt
+// costs a fixed and configurable amount of gas. The cost is 0 for non-Declare transactions.
+pub fn get_code_gas_cost(class_info: Option<ChargeableClassInfo>) -> GasVector {
+    if let Some(class_info) = class_info {
+        let total_code_length =
+            class_info.casm_length + class_info.sierra_length + class_info.abi_length;
+        let code_gas_cost = total_code_length * eth_gas_constants::MILLIGAS_PER_CODE_WORD / 1000;
+        GasVector {
+            l1_gas: u128_from_usize(code_gas_cost)
+                .expect("Failed to convert code gas cost from usize to u128."),
+            blob_gas: 0,
+        }
+    } else {
+        GasVector { l1_gas: 0, blob_gas: 0 }
     }
 }
 

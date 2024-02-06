@@ -155,6 +155,7 @@ impl<'a> ActualCostBuilder<'a> {
             self.calldata_length,
             self.signature_length,
             self.l1_payload_size,
+            self.class_info,
             self.tx_context.block_context.block_info.use_kzg_da,
         )?;
 

@@ -103,13 +103,11 @@ pub trait ValidatableTransaction {
 }
 
 #[derive(Clone, Copy, Debug)]
-// TODO(Avi,10/02/2024): use this struct's fields and remove the clippy tag.
 // TODO(Ayelet,10/02/2024): Change to bytes.
-#[allow(dead_code)]
 pub struct ChargeableClassInfo {
-    casm_length: usize,
-    sierra_length: usize,
-    abi_length: usize,
+    pub casm_length: usize,
+    pub sierra_length: usize,
+    pub abi_length: usize,
 }
 
 #[derive(Debug)]
