@@ -6,8 +6,9 @@ use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
-    CachedState, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, StagedTransactionalState, StateChangesCount, StorageEntry, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -87,6 +88,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
+        let state_changes = self.state.get_actual_state_changes()?;
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -122,7 +124,10 @@ impl<S: StateReader> TransactionExecutor<S> {
                 )?;
 
                 // Count blob resources.
-                let state_diff_size = 0;
+                let transaction_state_changes = transactional_state.get_actual_state_changes()?;
+                let new_state_changes = &(transaction_state_changes - state_changes);
+                let state_diff_size =
+                    get_onchain_data_segment_length(StateChangesCount::from(new_state_changes));
 
                 // Finalize counting logic.
                 let typed_tx_execution_info = TypedTransactionExecutionInfo {
