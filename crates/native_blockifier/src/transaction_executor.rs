@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::vec::IntoIter;
 
 use blockifier::context::BlockContext;
+use blockifier::execution::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
@@ -19,7 +20,6 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_transaction_execution_info::BouncerInfo;
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 
