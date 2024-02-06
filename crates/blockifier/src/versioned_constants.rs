@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::builtin_runner;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
 use serde::de::Error as DeserializationError;
@@ -94,7 +94,7 @@ impl VersionedConstants {
         &self,
         tx_type: &TransactionType,
         calldata_length: usize,
-    ) -> VmExecutionResources {
+    ) -> ExecutionResources {
         self.os_resources.resources_for_tx_type(tx_type, calldata_length)
     }
 
@@ -102,14 +102,14 @@ impl VersionedConstants {
         &self,
         tx_type: TransactionType,
         calldata_length: usize,
-    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    ) -> Result<ExecutionResources, TransactionExecutionError> {
         self.os_resources.get_additional_os_tx_resources(tx_type, calldata_length)
     }
 
     pub fn get_additional_os_syscall_resources(
         &self,
         syscall_counter: &SyscallCounter,
-    ) -> Result<VmExecutionResources, PostExecutionError> {
+    ) -> Result<ExecutionResources, PostExecutionError> {
         self.os_resources.get_additional_os_syscall_resources(syscall_counter)
     }
 
@@ -147,7 +147,7 @@ pub struct OsResources {
     // steps).
     // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
     // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
-    execute_syscalls: HashMap<DeprecatedSyscallSelector, VmExecutionResources>,
+    execute_syscalls: HashMap<DeprecatedSyscallSelector, ExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
     // For each transaction the OS uses a constant amount of VM resources, and an
@@ -164,7 +164,7 @@ impl OsResources {
         &self,
         tx_type: TransactionType,
         calldata_length: usize,
-    ) -> Result<VmExecutionResources, TransactionExecutionError> {
+    ) -> Result<ExecutionResources, TransactionExecutionError> {
         Ok(self.resources_for_tx_type(&tx_type, calldata_length))
     }
 
@@ -173,17 +173,17 @@ impl OsResources {
     fn get_additional_os_syscall_resources(
         &self,
         syscall_counter: &SyscallCounter,
-    ) -> Result<VmExecutionResources, PostExecutionError> {
-        let mut os_additional_vm_resources = VmExecutionResources::default();
+    ) -> Result<ExecutionResources, PostExecutionError> {
+        let mut os_additional_resources = ExecutionResources::default();
         for (syscall_selector, count) in syscall_counter {
             let syscall_resources =
                 self.execute_syscalls.get(syscall_selector).unwrap_or_else(|| {
                     panic!("OS resources of syscall '{syscall_selector:?}' are unknown.")
                 });
-            os_additional_vm_resources += &(syscall_resources * *count);
+            os_additional_resources += &(syscall_resources * *count);
         }
 
-        Ok(os_additional_vm_resources)
+        Ok(os_additional_resources)
     }
 
     fn resources_params_for_tx_type(&self, tx_type: &TransactionType) -> &ResourcesParams {
@@ -196,7 +196,7 @@ impl OsResources {
         &self,
         tx_type: &TransactionType,
         calldata_length: usize,
-    ) -> VmExecutionResources {
+    ) -> ExecutionResources {
         let resources_vector = self.resources_params_for_tx_type(tx_type);
         &resources_vector.constant + &(&(resources_vector.calldata_factor) * calldata_length)
     }
@@ -438,6 +438,6 @@ pub enum OsConstantsSerdeError {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ResourcesParams {
-    pub constant: VmExecutionResources,
-    pub calldata_factor: VmExecutionResources,
+    pub constant: ExecutionResources,
+    pub calldata_factor: ExecutionResources,
 }

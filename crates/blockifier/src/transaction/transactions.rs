@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
@@ -12,7 +13,7 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext, ExecutionResources,
+    CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, TransactionalState};
