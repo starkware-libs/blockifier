@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::ExecutionResources;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
@@ -28,7 +28,7 @@ pub fn calculate_tx_resources(
     let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let total_vm_usage = &execution_resources.vm_resources
+    let total_vm_usage = execution_resources
         + &versioned_constants.get_additional_os_tx_resources(tx_type, calldata_length)?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
