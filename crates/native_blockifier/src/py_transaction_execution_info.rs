@@ -219,20 +219,17 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
     }
 }
 
-#[pyclass]
 #[derive(Clone, Default)]
-pub struct PyBouncerInfo {
-    #[pyo3(get)]
+// TODO(Barak, 24/01/2024): Move to blockifier crate.
+// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
+pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
-    #[pyo3(get)]
     pub l1_gas_amount: usize,
-    #[pyo3(get)]
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
-    #[pyo3(get)]
-    pub execution_resources: PyVmExecutionResources,
+    pub execution_resources: VmExecutionResources,
 }
 
-impl PyBouncerInfo {
+impl BouncerInfo {
     pub fn calculate(
         tx_actual_resources: &ResourcesMapping,
         tx_additional_os_resources: VmExecutionResources,
@@ -287,7 +284,31 @@ impl PyBouncerInfo {
             state_diff_size,
             l1_gas_amount,
             message_segment_length,
-            execution_resources: PyVmExecutionResources::from(merged_resources),
+            execution_resources: merged_resources,
         })
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Default)]
+pub struct PyBouncerInfo {
+    #[pyo3(get)]
+    pub state_diff_size: usize, // The number of felts needed to store the state diff.
+    #[pyo3(get)]
+    pub l1_gas_amount: usize,
+    #[pyo3(get)]
+    pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
+    #[pyo3(get)]
+    pub execution_resources: PyVmExecutionResources,
+}
+
+impl From<BouncerInfo> for PyBouncerInfo {
+    fn from(bouncer_info: BouncerInfo) -> Self {
+        Self {
+            state_diff_size: bouncer_info.state_diff_size,
+            l1_gas_amount: bouncer_info.l1_gas_amount,
+            message_segment_length: bouncer_info.message_segment_length,
+            execution_resources: PyVmExecutionResources::from(bouncer_info.execution_resources),
+        }
     }
 }
