@@ -2,16 +2,13 @@ use blockifier::context::{BlockContext, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
-use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
-};
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{
     TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
 };
 use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
@@ -119,6 +116,9 @@ impl PyValidator {
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
     ) -> NativeBlockifierResult<Self> {
+        use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
+        use blockifier::versioned_constants::VersionedConstants;
+
         let state_reader = PyStateReader::new(state_reader_proxy);
         let global_contract_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
         let state = CachedState::new(state_reader, global_contract_cache);

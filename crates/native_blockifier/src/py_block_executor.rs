@@ -5,9 +5,7 @@ use blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
-};
+use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::State;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
@@ -234,6 +232,7 @@ impl PyBlockExecutor {
     #[pyo3(signature = (general_config, path))]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
+        use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             storage: Box::new(PapyrusStorage::new_for_testing(
                 path,
@@ -260,6 +259,7 @@ impl PyBlockExecutor {
 
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_testing_with_storage(storage: impl Storage + Send + 'static) -> Self {
+        use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             storage: Box::new(storage),
             general_config: PyGeneralConfig::default(),
