@@ -28,7 +28,7 @@ use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecution
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::fee::gas_usage::estimate_minimal_gas_vector;
-use crate::state::cached_state::CachedState;
+use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
@@ -1001,7 +1001,9 @@ fn test_deploy_account_constructor_storage_write(
     assert_eq!(ctor_storage_arg, read_storage_arg);
 }
 
-// Test for counting actual storage changes.
+// TODO(Arni, 6/2/2024): Use StateChangesCount::from_state_changes_for_fee_charge once it is
+// implemented.
+/// Test for counting actual storage changes.
 #[rstest]
 #[case(TransactionVersion::ONE, FeeType::Eth)]
 #[case(TransactionVersion::THREE, FeeType::Strk)]
@@ -1077,8 +1079,20 @@ fn test_count_actual_storage_changes(
         expected_sequencer_fee_update,
     ]);
 
+    let state_changes_count_1 = StateChangesCount::from(storage_updates_1);
+    let expected_state_changes_count_1 = StateChangesCount {
+        // See expected storage updates.
+        n_storage_updates: 3,
+        // The contract address (storage update) and the account address (nonce update). Does not
+        // include the fee token address as a modified contract.
+        n_modified_contracts: 2,
+        ..Default::default()
+    };
+
     assert_eq!(expected_modified_contracts, storage_updates_1.modified_contracts);
     assert_eq!(expected_storage_updates_1, storage_updates_1.storage_updates);
+
+    assert_eq!(state_changes_count_1, expected_state_changes_count_1);
 
     // Second transaction: storage cell starts and ends with value 1.
     let mut state = CachedState::create_transactional(&mut state);
@@ -1100,8 +1114,20 @@ fn test_count_actual_storage_changes(
     let expected_storage_updates_2 =
         HashMap::from([fee_nullify_storage_change, expected_sequencer_fee_update]);
 
+    let state_changes_count_2 = StateChangesCount::from(storage_updates_2);
+    let expected_state_changes_count_2 = StateChangesCount {
+        // See expected storage updates.
+        n_storage_updates: 2,
+        // The account address (nonce update). Does not include the fee token address as a modified
+        // contract.
+        n_modified_contracts: 1,
+        ..Default::default()
+    };
+
     assert_eq!(expected_modified_contracts_2, storage_updates_2.modified_contracts);
     assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
+
+    assert_eq!(state_changes_count_2, expected_state_changes_count_2);
 
     // Transfer transaction: transfer 1 ETH to recepient.
     let mut state = CachedState::create_transactional(&mut state);
@@ -1131,6 +1157,20 @@ fn test_count_actual_storage_changes(
         expected_sequencer_fee_update,
     ]);
 
+    println!("{:?}", storage_updates_transfer);
+
+    let state_changes_count_3 = StateChangesCount::from(storage_updates_transfer);
+    let expected_state_changes_count_3 = StateChangesCount {
+        // See expected storage updates.
+        n_storage_updates: 3,
+        // The account address (nonce update). Does not include the fee token address as a modified
+        // contract.
+        n_modified_contracts: 1,
+        ..Default::default()
+    };
+
     assert_eq!(expected_modified_contracts_transfer, storage_updates_transfer.modified_contracts);
     assert_eq!(expected_storage_update_transfer, storage_updates_transfer.storage_updates);
+
+    assert_eq!(state_changes_count_3, expected_state_changes_count_3);
 }
