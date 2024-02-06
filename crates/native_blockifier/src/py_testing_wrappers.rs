@@ -4,7 +4,7 @@ use cairo_lang_starknet::NestedIntList;
 use pyo3::{pyfunction, PyResult};
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_transaction_execution_info::PyVmExecutionResources;
+use crate::py_transaction_execution_info::PyExecutionResources;
 
 #[pyfunction]
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
@@ -19,7 +19,7 @@ pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
 #[pyfunction]
 pub fn estimate_casm_hash_computation_resources_for_testing_single(
     bytecode_segment_lengths: usize,
-) -> PyResult<PyVmExecutionResources> {
+) -> PyResult<PyExecutionResources> {
     let node = NestedIntList::Leaf(bytecode_segment_lengths);
     Ok(estimate_casm_hash_computation_resources(&node).into())
 }
@@ -29,7 +29,7 @@ pub fn estimate_casm_hash_computation_resources_for_testing_single(
 #[pyfunction]
 pub fn estimate_casm_hash_computation_resources_for_testing_list(
     bytecode_segment_lengths: Vec<usize>,
-) -> PyResult<PyVmExecutionResources> {
+) -> PyResult<PyExecutionResources> {
     let node = NestedIntList::Node(
         bytecode_segment_lengths.into_iter().map(NestedIntList::Leaf).collect(),
     );

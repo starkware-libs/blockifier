@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
-use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::{calculate_tx_gas_usage_vector, get_da_gas_cost};
 use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::state_api::{StateReader, StateResult};

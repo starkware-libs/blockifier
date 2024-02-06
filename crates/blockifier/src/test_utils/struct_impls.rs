@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
@@ -10,7 +11,7 @@ use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionCont
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
 use crate::state::state_api::State;
 use crate::test_utils::{

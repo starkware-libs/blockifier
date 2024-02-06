@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cached::proc_macro::cached;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
@@ -10,9 +10,7 @@ use starknet_api::{calldata, stark_felt};
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::context::BlockContext;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionContext};
 use crate::state::state_api::State;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::InvokeTxArgs;
@@ -28,7 +26,7 @@ pub enum Prices {
     FeeTransfer(ContractAddress, FeeType),
 }
 
-impl From<Prices> for VmExecutionResources {
+impl From<Prices> for ExecutionResources {
     fn from(value: Prices) -> Self {
         match value {
             Prices::FeeTransfer(contract_address, fee_type) => {
@@ -43,7 +41,7 @@ impl From<Prices> for VmExecutionResources {
 fn fee_transfer_resources(
     account_contract_address: ContractAddress,
     fee_type: FeeType,
-) -> VmExecutionResources {
+) -> ExecutionResources {
     let block_context = &BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[]);
@@ -82,5 +80,5 @@ fn fee_transfer_resources(
             .unwrap(),
         )
         .unwrap()
-        .vm_resources
+        .resources
 }
