@@ -32,7 +32,7 @@ cairo-vm.workspace = true
 indexmap.workspace = true
 log.workspace = true
 num-bigint.workspace = true
-papyrus_storage = { git = "https://github.com/LucasLvy/papyrus", rev = "399b3fa", features = [
+papyrus_storage = { git = "https://github.com/LucasLvy/papyrus", rev = "b753b3f", features = [
     "testing",
 ] }
 pyo3 = { workspace = true, features = ["num-bigint", "hashbrown"] }

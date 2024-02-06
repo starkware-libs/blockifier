@@ -2330,7 +2330,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.3.0-dev.1"
-source = "git+https://github.com/LucasLvy/papyrus?rev=399b3fa#399b3fa3a94cee68c961eefbe3970fa1f56920df"
+source = "git+https://github.com/LucasLvy/papyrus?rev=b753b3f#b753b3fea701d7a71e4a706f8672841a68f39b32"
 dependencies = [
  "clap 4.4.18",
  "itertools 0.10.5",
@@ -2344,7 +2344,7 @@ dependencies = [
 [[package]]
 name = "papyrus_proc_macros"
 version = "0.3.0-dev.1"
-source = "git+https://github.com/LucasLvy/papyrus?rev=399b3fa#399b3fa3a94cee68c961eefbe3970fa1f56920df"
+source = "git+https://github.com/LucasLvy/papyrus?rev=b753b3f#b753b3fea701d7a71e4a706f8672841a68f39b32"
 dependencies = [
  "quote",
  "syn 2.0.48",
@@ -2353,7 +2353,7 @@ dependencies = [
 [[package]]
 name = "papyrus_storage"
 version = "0.3.0-dev.1"
-source = "git+https://github.com/LucasLvy/papyrus?rev=399b3fa#399b3fa3a94cee68c961eefbe3970fa1f56920df"
+source = "git+https://github.com/LucasLvy/papyrus?rev=b753b3f#b753b3fea701d7a71e4a706f8672841a68f39b32"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
