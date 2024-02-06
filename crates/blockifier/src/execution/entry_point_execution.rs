@@ -5,9 +5,7 @@ use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
 use starknet_api::hash::StarkFelt;
@@ -16,7 +14,7 @@ use starknet_api::stark_felt;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
 use crate::execution::errors::{
     EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
@@ -77,8 +75,8 @@ pub fn execute_entry_point_call(
     )?;
     let n_total_args = args.len();
 
-    // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
+    // Fix the resources, in order to calculate the usage of this run at the end.
+    let previous_resources = syscall_handler.resources.clone();
 
     // Execute.
     let bytecode_length = contract_class.bytecode_length();
@@ -105,7 +103,7 @@ pub fn execute_entry_point_call(
         vm,
         runner,
         syscall_handler,
-        previous_vm_resources,
+        previous_resources,
         n_total_args,
         program_extra_data_length,
     )?;
@@ -308,7 +306,7 @@ pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
     syscall_handler: SyscallHintProcessor<'_>,
-    previous_vm_resources: VmExecutionResources,
+    previous_resources: ExecutionResources,
     n_total_args: usize,
     program_extra_data_length: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -331,18 +329,17 @@ pub fn finalize_execution(
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
-    let vm_resources_without_inner_calls = runner
+    let resources_without_inner_calls = runner
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    // TODO(Ori, 14/2/2024): Rename `vm_resources`.
-    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    *syscall_handler.resources += &resources_without_inner_calls;
     let versioned_constants = syscall_handler.context.versioned_constants();
     // Take into account the syscall resources of the current call.
-    syscall_handler.resources.vm_resources += &versioned_constants
+    *syscall_handler.resources += &versioned_constants
         .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
-    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    let full_call_resources = &syscall_handler.resources.clone() - &previous_resources;
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {
@@ -352,7 +349,7 @@ pub fn finalize_execution(
             failed: call_result.failed,
             gas_consumed: call_result.gas_consumed,
         },
-        vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        resources: full_call_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,

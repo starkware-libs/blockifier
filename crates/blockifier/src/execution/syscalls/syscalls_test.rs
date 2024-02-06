@@ -4,7 +4,7 @@ use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
@@ -541,7 +541,7 @@ fn test_nested_library_call() {
         initial_gas: 9999625070,
         ..nested_storage_entry_point
     };
-    let storage_entry_point_vm_resources = VmExecutionResources {
+    let storage_entry_point_resources = ExecutionResources {
         n_steps: 319,
         n_memory_holes: 1,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
@@ -553,12 +553,12 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let library_call_vm_resources = VmExecutionResources {
+    let library_call_resources = ExecutionResources {
         n_steps: 1338,
         n_memory_holes: 6,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 35)]),
@@ -570,7 +570,7 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
             ..CallExecution::default()
         },
-        vm_resources: library_call_vm_resources,
+        resources: library_call_resources,
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
@@ -581,13 +581,13 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources,
+        resources: storage_entry_point_resources,
         storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
 
-    let main_call_vm_resources = VmExecutionResources {
+    let main_call_resources = ExecutionResources {
         n_steps: 3370,
         n_memory_holes: 16,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 87)]),
@@ -599,7 +599,7 @@ fn test_nested_library_call() {
             gas_consumed: 316180,
             ..CallExecution::default()
         },
-        vm_resources: main_call_vm_resources,
+        resources: main_call_resources,
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };

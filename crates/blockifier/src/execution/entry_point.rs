@@ -2,9 +2,7 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::sync::Arc;
 
-use cairo_vm::vm::runners::cairo_runner::{
-    ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -128,11 +126,6 @@ pub struct ConstructorContext {
     pub code_address: Option<ContractAddress>,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ExecutionResources {
-    pub vm_resources: VmExecutionResources,
 }
 
 #[derive(Debug)]
@@ -301,7 +294,7 @@ impl EntryPointExecutionContext {
     ) -> usize {
         let validate_steps = validate_call_info
             .as_ref()
-            .map(|call_info| call_info.vm_resources.n_steps)
+            .map(|call_info| call_info.resources.n_steps)
             .unwrap_or_default();
 
         let overhead_steps =

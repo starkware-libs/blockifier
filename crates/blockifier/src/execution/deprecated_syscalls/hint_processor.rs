@@ -14,7 +14,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -38,9 +38,7 @@ use crate::execution::deprecated_syscalls::{
     DeprecatedSyscallSelector, StorageReadResponse, StorageWriteResponse, SyscallRequest,
     SyscallResponse,
 };
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,

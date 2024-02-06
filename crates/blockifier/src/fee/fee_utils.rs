@@ -68,9 +68,9 @@ pub fn calculate_tx_gas_vector(
     resources: &ResourcesMapping,
     versioned_constants: &VersionedConstants,
 ) -> TransactionFeeResult<GasVector> {
-    let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
-    let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
-    let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
+    let (l1_gas_usage, resources) = extract_l1_gas_and_vm_usage(resources);
+    let (l1_blob_gas_usage, resources) = extract_l1_blob_gas_usage(&resources);
+    let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(versioned_constants, &resources)?;
 
     Ok(GasVector {
         l1_gas: u128_from_usize(l1_gas_usage)
