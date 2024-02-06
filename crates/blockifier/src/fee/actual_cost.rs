@@ -109,14 +109,7 @@ impl<'a> ActualCostBuilder<'a> {
         mut self,
         state: &mut CachedState<impl StateReader>,
     ) -> StateResult<Self> {
-        let fee_token_address = self
-            .tx_context
-            .block_context
-            .chain_info
-            .fee_token_address(&self.tx_context.tx_info.fee_type());
-
-        let new_state_changes = state
-            .get_actual_state_changes_for_fee_charge(fee_token_address, self.sender_address)?;
+        let new_state_changes = state.get_actual_state_changes()?;
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
         Ok(self)
     }
@@ -139,7 +132,14 @@ impl<'a> ActualCostBuilder<'a> {
         execution_resources: &ExecutionResources,
         n_reverted_steps: usize,
     ) -> TransactionExecutionResult<ActualCost> {
-        let state_changes_count = StateChangesCount::from(&self.state_changes);
+        let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
+            &self.state_changes,
+            self.sender_address,
+            self.tx_context
+                .block_context
+                .chain_info
+                .fee_token_address(&self.tx_context.tx_info.fee_type()),
+        );
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data

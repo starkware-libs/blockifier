@@ -287,18 +287,22 @@ fn create_state_changes_for_test<S: StateReader>(
         state.set_storage_at(fee_token_address, sender_balance_key, stark_felt!("0x1999")).unwrap();
     }
 
-    state.get_actual_state_changes_for_fee_charge(fee_token_address, sender_address).unwrap()
+    state.get_actual_state_changes().unwrap()
 }
 
 #[rstest]
-fn test_get_actual_state_changes_for_fee_charge(
+fn test_from_state_changes_for_fee_charge(
     #[values(Some(contract_address!("0x102")), None)] sender_address: Option<ContractAddress>,
 ) {
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let fee_token_address = contract_address!("0x17");
     let state_changes =
         create_state_changes_for_test(&mut state, sender_address, fee_token_address);
-
+    let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
+        &state_changes,
+        sender_address,
+        fee_token_address,
+    );
     let expected_state_changes_count = StateChangesCount {
         // 1 for storage update + 1 for sender balance update if sender is defined.
         n_storage_updates: 1 + usize::from(sender_address.is_some()),
@@ -306,7 +310,7 @@ fn test_get_actual_state_changes_for_fee_charge(
         n_compiled_class_hash_updates: 1,
         n_modified_contracts: 2,
     };
-    assert_eq!(StateChangesCount::from(&state_changes), expected_state_changes_count);
+    assert_eq!(state_changes_count, expected_state_changes_count);
 }
 
 #[rstest]
@@ -326,12 +330,10 @@ fn test_state_changes_merge(
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
     let mut transactional_state = CachedState::create_transactional(&mut state);
-    // Make sure that `get_actual_state_changes_for_fee_charge` on a newly created transactional
-    // state returns null state changes and that merging null state changes with non-null state
-    // changes results in the non-null state changes, no matter the order.
-    let state_changes2 = transactional_state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, None)
-        .unwrap();
+    // Make sure that `get_actual_state_changes` on a newly created transactional state returns null
+    // state changes and that merging null state changes with non-null state changes results in the
+    // non-null state changes, no matter the order.
+    let state_changes2 = transactional_state.get_actual_state_changes().unwrap();
     assert_eq!(state_changes2, StateChanges::default());
     assert_eq!(
         StateChanges::merge(vec![state_changes1.clone(), state_changes2.clone()]),
@@ -359,16 +361,13 @@ fn test_state_changes_merge(
         .unwrap();
     transactional_state.increment_nonce(contract_address).unwrap();
     // Get the new state changes and then commit the transactional state.
-    let state_changes3 = transactional_state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, None)
-        .unwrap();
+    let state_changes3 = transactional_state.get_actual_state_changes().unwrap();
     transactional_state.commit();
 
     // Get the total state changes of the CachedState underlying all the temporary transactional
     // states. We expect the state_changes to match the merged state_changes of the transactional
     // states, but only when done in the right order.
-    let state_changes_final =
-        state.get_actual_state_changes_for_fee_charge(fee_token_address, sender_address).unwrap();
+    let state_changes_final = state.get_actual_state_changes().unwrap();
     assert_eq!(
         StateChanges::merge(vec![
             state_changes1.clone(),

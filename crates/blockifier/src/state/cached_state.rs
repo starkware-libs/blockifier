@@ -58,51 +58,16 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
-    pub fn get_actual_state_changes_for_fee_charge(
-        &mut self,
-        fee_token_address: ContractAddress,
-        sender_address: Option<ContractAddress>,
-    ) -> StateResult<StateChanges> {
+    pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
 
-        // Storage Update.
-        let storage_updates = &mut self.cache.get_storage_updates();
-        let mut modified_contracts: HashSet<ContractAddress> =
-            storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
-
-        // Class hash Update (deployed contracts + replace_class syscall).
-        let class_hash_updates = &self.cache.get_class_hash_updates();
-        modified_contracts.extend(class_hash_updates.keys());
-
-        // Nonce updates.
-        let nonce_updates = &self.cache.get_nonce_updates();
-        modified_contracts.extend(nonce_updates.keys());
-
-        // Compiled class hash updates (declare Cairo 1 contract).
-        let compiled_class_hash_updates = &self.cache.get_compiled_class_hash_updates();
-
-        // For account transactions, we need to compute the transaction fee before we can execute
-        // the fee transfer, and the fee should cover the state changes that happen in the
-        // fee transfer. The fee transfer is going to update the balance of the sequencer
-        // and the balance of the sender contract, but we don't charge the sender for the
-        // sequencer balance change as it is amortized across the block.
-        if let Some(sender_address) = sender_address {
-            let sender_balance_key = get_fee_token_var_address(sender_address);
-            // StarkFelt::default() value is zero, which must be different from the initial balance,
-            // otherwise the transaction would have failed the "max fee lower than
-            // balance" validation.
-            storage_updates.insert((fee_token_address, sender_balance_key), StarkFelt::default());
-        }
-
-        // Exclude the fee token contract modification, since it’s charged once throughout the
-        // block.
-        modified_contracts.remove(&fee_token_address);
-
         Ok(StateChanges {
-            storage_updates: storage_updates.clone(),
-            modified_contracts,
-            class_hash_updates: class_hash_updates.clone(),
-            compiled_class_hash_updates: compiled_class_hash_updates.clone(),
+            storage_updates: self.cache.get_storage_updates(),
+            nonce_updates: self.cache.get_nonce_updates(),
+            // Class hash Update (deployed contracts + replace_class syscall).
+            class_hash_updates: self.cache.get_class_hash_updates(),
+            // Compiled class hash updates (declare Cairo 1 contract).
+            compiled_class_hash_updates: self.cache.get_compiled_class_hash_updates(),
         })
     }
 
@@ -681,9 +646,9 @@ pub struct CommitmentStateDiff {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateChanges {
     pub storage_updates: HashMap<StorageEntry, StarkFelt>,
+    pub nonce_updates: HashMap<ContractAddress, Nonce>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
-    pub modified_contracts: HashSet<ContractAddress>,
 }
 
 impl StateChanges {
@@ -693,14 +658,26 @@ impl StateChanges {
         let mut merged_state_changes = Self::default();
         for state_change in state_changes {
             merged_state_changes.storage_updates.extend(state_change.storage_updates);
+            merged_state_changes.nonce_updates.extend(state_change.nonce_updates);
             merged_state_changes.class_hash_updates.extend(state_change.class_hash_updates);
             merged_state_changes
                 .compiled_class_hash_updates
                 .extend(state_change.compiled_class_hash_updates);
-            merged_state_changes.modified_contracts.extend(state_change.modified_contracts);
         }
 
         merged_state_changes
+    }
+
+    pub fn get_modified_contracts(&self) -> HashSet<ContractAddress> {
+        // Storage Update.
+        let mut modified_contracts: HashSet<ContractAddress> =
+            self.storage_updates.keys().map(|address_key_pair| address_key_pair.0).collect();
+        // Nonce updates.
+        modified_contracts.extend(self.nonce_updates.keys());
+        // Class hash Update (deployed contracts + replace_class syscall).
+        modified_contracts.extend(self.class_hash_updates.keys());
+
+        modified_contracts
     }
 }
 
@@ -715,11 +692,49 @@ pub struct StateChangesCount {
 
 impl From<&StateChanges> for StateChangesCount {
     fn from(state_changes: &StateChanges) -> Self {
+        let modified_contracts = state_changes.get_modified_contracts();
+
         Self {
             n_storage_updates: state_changes.storage_updates.len(),
             n_class_hash_updates: state_changes.class_hash_updates.len(),
             n_compiled_class_hash_updates: state_changes.compiled_class_hash_updates.len(),
-            n_modified_contracts: state_changes.modified_contracts.len(),
+            n_modified_contracts: modified_contracts.len(),
+        }
+    }
+}
+
+impl StateChangesCount {
+    // TODO(Arni, 13/2/2024) : Change this method so that it would consume state_changes.
+    pub fn from_state_changes_for_fee_charge(
+        state_changes: &StateChanges,
+        sender_address: Option<ContractAddress>,
+        fee_token_address: ContractAddress,
+    ) -> Self {
+        let mut storage_updates = state_changes.storage_updates.clone();
+        let mut modified_contracts = state_changes.get_modified_contracts();
+
+        // For account transactions, we need to compute the transaction fee before we can execute
+        // the fee transfer, and the fee should cover the state changes that happen in the
+        // fee transfer. The fee transfer is going to update the balance of the sequencer
+        // and the balance of the sender contract, but we don't charge the sender for the
+        // sequencer balance change as it is amortized across the block.
+        if let Some(sender_address) = sender_address {
+            let sender_balance_key = get_fee_token_var_address(sender_address);
+            // StarkFelt::default() value is zero, which must be different from the initial balance,
+            // otherwise the transaction would have failed the "max fee lower than
+            // balance" validation.
+            storage_updates.insert((fee_token_address, sender_balance_key), StarkFelt::default());
+        }
+
+        // Exclude the fee token contract modification, since it’s charged once throughout the
+        // block.
+        modified_contracts.remove(&fee_token_address);
+
+        Self {
+            n_storage_updates: storage_updates.len(),
+            n_class_hash_updates: state_changes.class_hash_updates.len(),
+            n_compiled_class_hash_updates: state_changes.compiled_class_hash_updates.len(),
+            n_modified_contracts: modified_contracts.len(),
         }
     }
 }
