@@ -21,8 +21,8 @@ pub mod transaction_executor;
 use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;
 use py_transaction_execution_info::{
-    PyBouncerInfo, PyCallInfo, PyGasVector, PyOrderedEvent, PyOrderedL2ToL1Message,
-    PyTransactionExecutionInfo, PyVmExecutionResources,
+    PyBouncerInfo, PyCallInfo, PyOrderedEvent, PyOrderedL2ToL1Message, PyTransactionExecutionInfo,
+    PyVmExecutionResources,
 };
 use py_validator::PyValidator;
 use pyo3::prelude::*;
@@ -43,7 +43,6 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyBlockExecutor>()?;
     py_module.add_class::<PyBouncerInfo>()?;
     py_module.add_class::<PyCallInfo>()?;
-    py_module.add_class::<PyGasVector>()?;
     py_module.add_class::<PyOrderedEvent>()?;
     py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
