@@ -1511,6 +1511,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         calldata_length,
         signature_length,
         None,
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -1564,6 +1565,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         state_changes_count,
         calldata_length,
         signature_length,
+        None,
         None,
         use_kzg_da,
     )

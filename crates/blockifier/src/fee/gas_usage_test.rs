@@ -83,6 +83,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         0,
         0,
         None,
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -112,6 +113,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         calldata_length,
         signature_length,
         None,
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -127,6 +129,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         l1_handler_payload_size,
         signature_length,
         Some(l1_handler_payload_size),
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -197,6 +200,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         0,
         0,
         None,
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -238,6 +242,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         0,
         0,
         None,
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -262,6 +267,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         l1_handler_payload_size,
         signature_length,
         Some(l1_handler_payload_size),
+        None,
         use_kzg_da,
     )
     .unwrap();

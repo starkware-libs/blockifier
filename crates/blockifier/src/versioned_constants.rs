@@ -47,6 +47,7 @@ pub struct VersionedConstants {
     // values.
     vm_resource_fee_cost: Arc<HashMap<String, f64>>,
     pub milli_gas_per_calldata_byte: usize,
+    pub milli_gas_per_code_byte: usize,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
