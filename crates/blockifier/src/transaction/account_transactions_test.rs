@@ -1005,8 +1005,8 @@ fn test_deploy_account_constructor_storage_write(
 // implemented.
 /// Test for counting actual storage changes.
 #[rstest]
-#[case(TransactionVersion::ONE, FeeType::Eth)]
-#[case(TransactionVersion::THREE, FeeType::Strk)]
+#[case::tx_version_1(TransactionVersion::ONE, FeeType::Eth)]
+#[case::tx_version_3(TransactionVersion::THREE, FeeType::Strk)]
 fn test_count_actual_storage_changes(
     max_fee: Fee,
     block_context: BlockContext,
@@ -1030,6 +1030,10 @@ fn test_count_actual_storage_changes(
     let initial_sequencer_balance = stark_felt_to_felt(
         state.get_fee_token_balance(sequencer_address, fee_token_address).unwrap().0,
     );
+
+    // Fee token var address.
+    let sequencer_fee_token_var_address = get_fee_token_var_address(sequencer_address);
+    let account_fee_token_var_address = get_fee_token_var_address(account_address);
 
     // Calldata types.
     let write_1_calldata =
@@ -1058,28 +1062,32 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_1 = execution_info.actual_fee;
-    let storage_updates_1 = &state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
-        .unwrap();
+    let storage_updates_1 = state.get_actual_state_changes().unwrap();
 
     let cell_write_storage_change =
         ((contract_address, StorageKey(patricia_key!(15_u8))), stark_felt!(1_u8));
-    let fee_nullify_storage_change =
-        ((fee_token_address, get_fee_token_var_address(account_address)), stark_felt!(0_u8));
     let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
     let mut expected_sequencer_fee_update = (
-        (fee_token_address, get_fee_token_var_address(sequencer_address)),
+        (fee_token_address, sequencer_fee_token_var_address),
         felt_to_stark_felt(&expected_sequencer_total_fee),
     );
+    let mut account_balance = BALANCE - fee_1.0;
+    let account_balance_storage_change =
+        ((fee_token_address, account_fee_token_var_address), stark_felt!(account_balance));
 
-    let expected_modified_contracts = HashSet::from([account_address, contract_address]);
+    let expected_modified_contracts =
+        HashSet::from([account_address, contract_address, fee_token_address]);
     let expected_storage_updates_1 = HashMap::from([
         cell_write_storage_change,
-        fee_nullify_storage_change,
+        account_balance_storage_change,
         expected_sequencer_fee_update,
     ]);
 
-    let state_changes_count_1 = StateChangesCount::from(storage_updates_1);
+    let state_changes_count_1 = StateChangesCount::from_state_changes_for_fee_charge(
+        &storage_updates_1,
+        Some(account_address),
+        fee_token_address,
+    );
     let expected_state_changes_count_1 = StateChangesCount {
         // See expected storage updates.
         n_storage_updates: 3,
@@ -1089,7 +1097,7 @@ fn test_count_actual_storage_changes(
         ..Default::default()
     };
 
-    assert_eq!(expected_modified_contracts, storage_updates_1.modified_contracts);
+    assert_eq!(expected_modified_contracts, storage_updates_1.get_modified_contracts());
     assert_eq!(expected_storage_updates_1, storage_updates_1.storage_updates);
 
     assert_eq!(state_changes_count_1, expected_state_changes_count_1);
@@ -1103,18 +1111,23 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_2 = execution_info.actual_fee;
-    let storage_updates_2 = &state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
-        .unwrap();
+    let storage_updates_2 = state.get_actual_state_changes().unwrap();
 
     expected_sequencer_total_fee += Felt252::from(fee_2.0);
     expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+    account_balance -= fee_2.0;
+    let account_balance_storage_change =
+        ((fee_token_address, account_fee_token_var_address), stark_felt!(account_balance));
 
-    let expected_modified_contracts_2 = HashSet::from([account_address]);
+    let expected_modified_contracts_2 = HashSet::from([account_address, fee_token_address]);
     let expected_storage_updates_2 =
-        HashMap::from([fee_nullify_storage_change, expected_sequencer_fee_update]);
+        HashMap::from([account_balance_storage_change, expected_sequencer_fee_update]);
 
-    let state_changes_count_2 = StateChangesCount::from(storage_updates_2);
+    let state_changes_count_2 = StateChangesCount::from_state_changes_for_fee_charge(
+        &storage_updates_2,
+        Some(account_address),
+        fee_token_address,
+    );
     let expected_state_changes_count_2 = StateChangesCount {
         // See expected storage updates.
         n_storage_updates: 2,
@@ -1124,7 +1137,7 @@ fn test_count_actual_storage_changes(
         ..Default::default()
     };
 
-    assert_eq!(expected_modified_contracts_2, storage_updates_2.modified_contracts);
+    assert_eq!(expected_modified_contracts_2, storage_updates_2.get_modified_contracts());
     assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
 
     assert_eq!(state_changes_count_2, expected_state_changes_count_2);
@@ -1139,9 +1152,7 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_transfer = execution_info.actual_fee;
-    let storage_updates_transfer = &state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(account_address))
-        .unwrap();
+    let storage_updates_transfer = state.get_actual_state_changes().unwrap();
     let transfer_receipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
         felt_to_stark_felt(&transfer_amount),
@@ -1149,15 +1160,22 @@ fn test_count_actual_storage_changes(
 
     expected_sequencer_total_fee += Felt252::from(fee_transfer.0);
     expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
+    account_balance -= fee_transfer.0 + 1; // Reduce the fee and the transfered amount (1).
+    let account_balance_storage_change =
+        ((fee_token_address, account_fee_token_var_address), stark_felt!(account_balance));
 
-    let expected_modified_contracts_transfer = HashSet::from([account_address]);
+    let expected_modified_contracts_transfer = HashSet::from([account_address, fee_token_address]);
     let expected_storage_update_transfer = HashMap::from([
         transfer_receipient_storage_change,
-        fee_nullify_storage_change,
+        account_balance_storage_change,
         expected_sequencer_fee_update,
     ]);
 
-    let state_changes_count_3 = StateChangesCount::from(storage_updates_transfer);
+    let state_changes_count_3 = StateChangesCount::from_state_changes_for_fee_charge(
+        &storage_updates_transfer,
+        Some(account_address),
+        fee_token_address,
+    );
     let expected_state_changes_count_3 = StateChangesCount {
         // See expected storage updates.
         n_storage_updates: 3,
@@ -1167,7 +1185,10 @@ fn test_count_actual_storage_changes(
         ..Default::default()
     };
 
-    assert_eq!(expected_modified_contracts_transfer, storage_updates_transfer.modified_contracts);
+    assert_eq!(
+        expected_modified_contracts_transfer,
+        storage_updates_transfer.get_modified_contracts()
+    );
     assert_eq!(expected_storage_update_transfer, storage_updates_transfer.storage_updates);
 
     assert_eq!(state_changes_count_3, expected_state_changes_count_3);
