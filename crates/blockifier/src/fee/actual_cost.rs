@@ -137,6 +137,7 @@ impl<'a> ActualCostBuilder<'a> {
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
+        let use_kzg_da = self.use_kzg_da();
         let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
             self.state_changes,
             self.sender_address,
@@ -145,7 +146,7 @@ impl<'a> ActualCostBuilder<'a> {
                 .chain_info
                 .fee_token_address(&self.tx_context.tx_info.fee_type()),
         );
-        let da_gas = get_da_gas_cost(state_changes_count, self.use_kzg_da());
+        let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
@@ -154,7 +155,7 @@ impl<'a> ActualCostBuilder<'a> {
             non_optional_call_infos,
             state_changes_count,
             self.l1_payload_size,
-            self.use_kzg_da(),
+            use_kzg_da,
         )?;
 
         let mut actual_resources = calculate_tx_resources(
