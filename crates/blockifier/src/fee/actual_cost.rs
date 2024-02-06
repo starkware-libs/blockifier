@@ -90,7 +90,7 @@ impl<'a> ActualCostBuilder<'a> {
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
-        self.calculate_actual_fee_and_resources(execution_resources, self.n_reverted_steps)
+        self.calculate_actual_fee_and_resources(execution_resources)
     }
 
     // Setters.
@@ -128,12 +128,11 @@ impl<'a> ActualCostBuilder<'a> {
 
     // Construct the actual cost object using all fields that were set in the builder.
     fn calculate_actual_fee_and_resources(
-        &self,
+        self,
         execution_resources: &ExecutionResources,
-        n_reverted_steps: usize,
     ) -> TransactionExecutionResult<ActualCost> {
         let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
-            &self.state_changes,
+            self.state_changes,
             self.sender_address,
             self.tx_context
                 .block_context
@@ -161,7 +160,7 @@ impl<'a> ActualCostBuilder<'a> {
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            n_reverted_steps;
+            self.n_reverted_steps;
 
         let tx_info = &self.tx_context.tx_info;
         let actual_fee = if tx_info.enforce_fee()?
