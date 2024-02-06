@@ -16,8 +16,10 @@ use thiserror::Error;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::errors::PostExecutionError;
+use crate::fee::eth_gas_constants::WORD_WIDTH;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::u128_from_usize;
 
 #[cfg(test)]
 #[path = "versioned_constants_test.rs"]
@@ -46,12 +48,13 @@ pub struct VersionedConstants {
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
     vm_resource_fee_cost: Arc<HashMap<String, f64>>,
-    pub milli_gas_per_calldata_byte: usize,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
     os_constants: Arc<OSConstants>,
+
+    l2_resource_gas_costs: Arc<L2ResourceGasCosts>,
 }
 
 impl VersionedConstants {
@@ -114,6 +117,10 @@ impl VersionedConstants {
         self.os_resources.get_additional_os_syscall_resources(syscall_counter)
     }
 
+    pub fn get_l2_resource_gas_costs(&self) -> &L2ResourceGasCosts {
+        &self.l2_resource_gas_costs
+    }
+
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
@@ -136,6 +143,21 @@ impl TryFrom<&Path> for VersionedConstants {
 
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         Ok(serde_json::from_reader(std::fs::File::open(path)?)?)
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct L2ResourceGasCosts {
+    // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
+    // divide the value by 32 in the JSON file.
+    pub milligas_per_data_word: u128,
+    pub event_key_factor: u128,
+    pub milligas_per_code_byte: u128,
+}
+
+impl L2ResourceGasCosts {
+    pub fn get_milligas_per_code_word(&self) -> u128 {
+        self.milligas_per_code_byte * u128_from_usize(WORD_WIDTH).unwrap()
     }
 }
 
