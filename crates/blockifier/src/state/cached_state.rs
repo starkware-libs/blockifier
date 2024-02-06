@@ -345,8 +345,7 @@ impl<S: StateReader> State for CachedState<S> {
         let state_cache = &self.cache;
         let class_hash_updates = state_cache.get_class_hash_updates();
         let storage_diffs = state_cache.get_storage_updates();
-        let nonces =
-            subtract_mappings(&state_cache.nonce_writes, &state_cache.nonce_initial_values);
+        let nonces = state_cache.get_nonce_updates();
         let declared_classes = state_cache.compiled_class_hash_writes.clone();
 
         CommitmentStateDiff {
