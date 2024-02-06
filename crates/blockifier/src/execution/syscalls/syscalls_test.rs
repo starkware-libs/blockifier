@@ -560,7 +560,7 @@ fn test_nested_library_call() {
     };
     let library_call_vm_resources = VmExecutionResources {
         n_steps: 1338,
-        n_memory_holes: 6,
+        n_memory_holes: 2,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 35)]),
     };
     let library_call_info = CallInfo {
@@ -589,7 +589,7 @@ fn test_nested_library_call() {
 
     let main_call_vm_resources = VmExecutionResources {
         n_steps: 3370,
-        n_memory_holes: 16,
+        n_memory_holes: 4,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 87)]),
     };
     let expected_call_info = CallInfo {

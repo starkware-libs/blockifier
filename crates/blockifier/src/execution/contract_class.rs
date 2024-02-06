@@ -223,7 +223,7 @@ pub fn estimate_casm_hash_computation_resources(
             };
             let base_segment_cost = VmExecutionResources {
                 n_steps: 24,
-                n_memory_holes: 1,
+                n_memory_holes: 0,
                 builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 1)]),
             };
             for segment in segments {

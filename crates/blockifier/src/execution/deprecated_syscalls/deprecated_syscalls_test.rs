@@ -149,7 +149,7 @@ fn test_nested_library_call() {
     };
     let mut library_call_vm_resources = VmExecutionResources {
         n_steps: 790,
-        n_memory_holes: 4,
+        n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
     };
     library_call_vm_resources += &storage_entry_point_vm_resources;
@@ -172,7 +172,7 @@ fn test_nested_library_call() {
     // Nested library call cost: library_call(inner) + library_call(library_call(inner)).
     let mut main_call_vm_resources = VmExecutionResources {
         n_steps: 796,
-        n_memory_holes: 4,
+        n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 20)]),
     };
     main_call_vm_resources += &(&library_call_vm_resources * 2);
@@ -247,7 +247,7 @@ fn test_call_contract() {
         execution: expected_execution,
         vm_resources: VmExecutionResources {
             n_steps: 1017,
-            n_memory_holes: 4,
+            n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
         },
         ..Default::default()
