@@ -81,6 +81,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
         StateChangesCount::default(),
         0,
+        0,
         None,
         use_kzg_da,
     )
@@ -99,15 +100,17 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // Manual calculation.
     let manual_starknet_gas_usage = 0;
     let calldata_length = 0;
+    let signature_length = 0;
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
         + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da)
-        + get_calldata_gas_cost(calldata_length, &versioned_constants);
+        + get_calldata_gas_cost(calldata_length, signature_length, &versioned_constants);
 
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
         &versioned_constants,
         std::iter::empty(),
         deploy_account_state_changes_count,
         calldata_length,
+        signature_length,
         None,
         use_kzg_da,
     )
@@ -122,6 +125,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
         StateChangesCount::default(),
         l1_handler_payload_size,
+        signature_length,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
@@ -136,7 +140,8 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         )
         .unwrap()
         + usize_from_u128(
-            get_calldata_gas_cost(l1_handler_payload_size, &versioned_constants).l1_gas,
+            get_calldata_gas_cost(l1_handler_payload_size, signature_length, &versioned_constants)
+                .l1_gas,
         )
         .unwrap();
     let manual_sharp_gas_usage =
@@ -190,6 +195,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
         0,
+        0,
         None,
         use_kzg_da,
     )
@@ -230,6 +236,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
         storage_writes_state_changes_count,
         0,
+        0,
         None,
         use_kzg_da,
     )
@@ -253,6 +260,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         call_infos_iter,
         combined_state_changes_count,
         l1_handler_payload_size,
+        signature_length,
         Some(l1_handler_payload_size),
         use_kzg_da,
     )
