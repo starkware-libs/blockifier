@@ -1084,7 +1084,7 @@ fn test_count_actual_storage_changes(
     ]);
 
     let state_changes_count_1 = StateChangesCount::from_state_changes_for_fee_charge(
-        &storage_updates_1,
+        storage_updates_1.clone(),
         Some(account_address),
         fee_token_address,
     );
@@ -1099,7 +1099,6 @@ fn test_count_actual_storage_changes(
 
     assert_eq!(expected_modified_contracts, storage_updates_1.get_modified_contracts());
     assert_eq!(expected_storage_updates_1, storage_updates_1.storage_updates);
-
     assert_eq!(state_changes_count_1, expected_state_changes_count_1);
 
     // Second transaction: storage cell starts and ends with value 1.
@@ -1124,7 +1123,7 @@ fn test_count_actual_storage_changes(
         HashMap::from([account_balance_storage_change, expected_sequencer_fee_update]);
 
     let state_changes_count_2 = StateChangesCount::from_state_changes_for_fee_charge(
-        &storage_updates_2,
+        storage_updates_2.clone(),
         Some(account_address),
         fee_token_address,
     );
@@ -1139,7 +1138,6 @@ fn test_count_actual_storage_changes(
 
     assert_eq!(expected_modified_contracts_2, storage_updates_2.get_modified_contracts());
     assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
-
     assert_eq!(state_changes_count_2, expected_state_changes_count_2);
 
     // Transfer transaction: transfer 1 ETH to recepient.
@@ -1152,7 +1150,7 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_transfer = execution_info.actual_fee;
-    let storage_updates_transfer = state.get_actual_state_changes().unwrap();
+    let state_changes_transfer = state.get_actual_state_changes().unwrap();
     let transfer_receipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
         felt_to_stark_felt(&transfer_amount),
@@ -1172,7 +1170,7 @@ fn test_count_actual_storage_changes(
     ]);
 
     let state_changes_count_3 = StateChangesCount::from_state_changes_for_fee_charge(
-        &storage_updates_transfer,
+        state_changes_transfer.clone(),
         Some(account_address),
         fee_token_address,
     );
@@ -1187,9 +1185,8 @@ fn test_count_actual_storage_changes(
 
     assert_eq!(
         expected_modified_contracts_transfer,
-        storage_updates_transfer.get_modified_contracts()
+        state_changes_transfer.get_modified_contracts()
     );
-    assert_eq!(expected_storage_update_transfer, storage_updates_transfer.storage_updates);
-
+    assert_eq!(expected_storage_update_transfer, state_changes_transfer.storage_updates);
     assert_eq!(state_changes_count_3, expected_state_changes_count_3);
 }

@@ -299,7 +299,7 @@ fn test_from_state_changes_for_fee_charge(
     let state_changes =
         create_state_changes_for_test(&mut state, sender_address, fee_token_address);
     let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
-        &state_changes,
+        state_changes,
         sender_address,
         fee_token_address,
     );

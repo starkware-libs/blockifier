@@ -704,9 +704,8 @@ impl From<&StateChanges> for StateChangesCount {
 }
 
 impl StateChangesCount {
-    // TODO(Arni, 13/2/2024) : Change this method so that it would consume state_changes.
     pub fn from_state_changes_for_fee_charge(
-        state_changes: &StateChanges,
+        state_changes: StateChanges,
         sender_address: Option<ContractAddress>,
         fee_token_address: ContractAddress,
     ) -> Self {
