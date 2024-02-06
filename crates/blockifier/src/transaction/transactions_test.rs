@@ -4,7 +4,7 @@ use std::sync::Arc;
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
@@ -90,7 +90,7 @@ fn versioned_constants_for_account_testing() -> VersionedConstants {
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
     n_steps: usize,
-    vm_resources: VmExecutionResources,
+    resources: ExecutionResources,
     validate_gas_consumed: u64,
     execute_gas_consumed: u64,
     inner_call_initial_gas: u64,
@@ -134,7 +134,7 @@ fn expected_validate_call_info(
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 188_usize,
         (selector, _) => panic!("Selector {selector} is not a known validate selector."),
     };
-    let vm_resources = VmExecutionResources {
+    let resources = ExecutionResources {
         n_steps,
         n_memory_holes,
         builtin_instance_counter: HashMap::from([(
@@ -157,7 +157,7 @@ fn expected_validate_call_info(
             initial_gas: tx_initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
-        vm_resources,
+        resources,
         execution: CallExecution { retdata, gas_consumed, ..Default::default() },
         ..Default::default()
     })
@@ -220,7 +220,7 @@ fn expected_fee_transfer_call_info(
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
-        vm_resources: Prices::FeeTransfer(account_address, *fee_type).into(),
+        resources: Prices::FeeTransfer(account_address, *fee_type).into(),
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
@@ -308,7 +308,7 @@ fn default_invoke_tx_args(
     ExpectedResultTestInvokeTx{
         range_check: 102,
         n_steps: 4421,
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps:  822,
             n_memory_holes:  0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
@@ -322,7 +322,7 @@ fn default_invoke_tx_args(
     ExpectedResultTestInvokeTx{
         range_check: 115,
         n_steps: 4876,
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps: 1108,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
@@ -396,15 +396,11 @@ fn test_invoke_tx(
             gas_consumed: expected_arguments.execute_gas_consumed,
             ..Default::default()
         },
-        vm_resources: expected_arguments.vm_resources,
+        resources: expected_arguments.resources,
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
-            vm_resources: VmExecutionResources {
-                n_steps: 23,
-                n_memory_holes: 0,
-                ..Default::default()
-            },
+            resources: ExecutionResources { n_steps: 23, n_memory_holes: 0, ..Default::default() },
             ..Default::default()
         }],
         ..Default::default()
@@ -1700,7 +1696,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             gas_consumed: 19650,
             ..Default::default()
         },
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps: 232,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 6)]),
