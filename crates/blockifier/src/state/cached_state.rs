@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::Sub;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use cached::{Cached, SizedCache};
@@ -649,6 +650,22 @@ pub struct StateChanges {
     pub nonce_updates: HashMap<ContractAddress, Nonce>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
+}
+
+impl Sub for StateChanges {
+    type Output = Self;
+
+    // TODO(Barak, 7/2/2024): Add a test for this function.
+    fn sub(self, rhs: Self) -> Self::Output {
+        let storage_updates = subtract_mappings(&self.storage_updates, &rhs.storage_updates);
+        let nonce_updates = subtract_mappings(&self.nonce_updates, &rhs.nonce_updates);
+        let class_hash_updates =
+            subtract_mappings(&self.class_hash_updates, &rhs.class_hash_updates);
+        let compiled_class_hash_updates =
+            subtract_mappings(&self.compiled_class_hash_updates, &rhs.compiled_class_hash_updates);
+
+        Self { storage_updates, nonce_updates, class_hash_updates, compiled_class_hash_updates }
+    }
 }
 
 impl StateChanges {
