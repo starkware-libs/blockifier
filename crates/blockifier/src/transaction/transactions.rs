@@ -111,7 +111,7 @@ pub struct ClassInfo {
 }
 
 impl ClassInfo {
-    fn _bytecode_length(&self) -> usize {
+    pub fn bytecode_length(&self) -> usize {
         self.contract_class.bytecode_length()
     }
 }
