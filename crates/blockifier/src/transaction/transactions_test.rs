@@ -307,7 +307,7 @@ fn default_invoke_tx_args(
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
         range_check: 102,
-        n_steps: 4496,
+        n_steps: 4421,
         vm_resources: VmExecutionResources {
             n_steps:  62,
             n_memory_holes:  0,
@@ -321,7 +321,7 @@ fn default_invoke_tx_args(
 #[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
         range_check: 115,
-        n_steps: 4949,
+        n_steps: 4876,
         vm_resources: VmExecutionResources {
             n_steps: 284,
             n_memory_holes: 1,
@@ -439,7 +439,7 @@ fn test_invoke_tx(
                 usize_from_u128(expected_blob_gas_usage).unwrap(),
             ),
             (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
-            (HASH_BUILTIN_NAME.to_string(), 16 + calldata_length),
+            (HASH_BUILTIN_NAME.to_string(), 14 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
         ])),
@@ -1007,11 +1007,11 @@ fn declare_expected_range_check_builtin(
 /// Returns the expected number of cairo steps in a declare transaction.
 fn declare_n_steps(version: TransactionVersion, declared_contract_version: CairoVersion) -> usize {
     if version == TransactionVersion::ZERO {
-        2909 // No `__validate__`. Same number of steps, regardless of declared contract version.
+        2839 // No `__validate__`. Same number of steps, regardless of declared contract version.
     } else {
         match declared_contract_version {
-            CairoVersion::Cairo0 => 2921,
-            CairoVersion::Cairo1 => 2959,
+            CairoVersion::Cairo0 => 2851,
+            CairoVersion::Cairo1 => 2889,
         }
     }
 }
@@ -1139,7 +1139,7 @@ fn test_declare_tx(
                 abi_constants::BLOB_GAS_USAGE.to_string(),
                 expected_blob_gas_usage.try_into().unwrap(),
             ),
-            (HASH_BUILTIN_NAME.to_string(), 15),
+            (HASH_BUILTIN_NAME.to_string(), 16),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
                 declare_expected_range_check_builtin(tx_version, account_cairo_version),
@@ -1177,8 +1177,8 @@ fn test_declare_tx(
 }
 
 #[rstest]
-#[case(83, 3893, CairoVersion::Cairo0)]
-#[case(85, 3949, CairoVersion::Cairo1)]
+#[case(83, 3809, CairoVersion::Cairo0)]
+#[case(85, 3865, CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
     #[case] expected_range_check_builtin: usize,
     #[case] expected_n_steps_resource: usize,
@@ -1717,7 +1717,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 1416),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 1405),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
         (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
         (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
@@ -1755,7 +1755,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1743900000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1742800000000000)
     );
 }
 
