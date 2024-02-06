@@ -104,9 +104,9 @@ pub trait ValidatableTransaction {
 
 #[derive(Debug)]
 pub struct DeclareTransaction {
-    tx: starknet_api::transaction::DeclareTransaction,
-    tx_hash: TransactionHash,
-    contract_class: ContractClass,
+    pub tx: starknet_api::transaction::DeclareTransaction,
+    pub tx_hash: TransactionHash,
+    pub contract_class: ContractClass,
     // Indicates the presence of the only_query bit in the version.
     only_query: bool,
 }
@@ -141,22 +141,10 @@ impl DeclareTransaction {
 
     implement_inner_tx_getter_calls!((class_hash, ClassHash));
 
-    pub fn tx(&self) -> &starknet_api::transaction::DeclareTransaction {
-        &self.tx
-    }
-
-    pub fn tx_hash(&self) -> TransactionHash {
-        self.tx_hash
-    }
-
-    pub fn contract_class(&self) -> ContractClass {
-        self.contract_class.clone()
-    }
-
     pub fn get_account_tx_context(&self) -> AccountTransactionContext {
         // TODO(Nir, 01/11/2023): Consider to move this (from all get_account_tx_context methods).
         let common_fields = CommonAccountFields {
-            transaction_hash: self.tx_hash(),
+            transaction_hash: self.tx_hash,
             version: self.tx.version(),
             signature: self.tx.signature(),
             nonce: self.tx.nonce(),

@@ -59,8 +59,8 @@ pub enum AccountTransaction {
 impl HasRelatedFeeType for AccountTransaction {
     fn version(&self) -> TransactionVersion {
         match self {
-            Self::Declare(tx) => tx.tx().version(),
-            Self::DeployAccount(tx) => tx.tx().version(),
+            Self::Declare(tx) => tx.tx.version(),
+            Self::DeployAccount(tx) => tx.tx.version(),
             Self::Invoke(tx) => match tx.tx {
                 starknet_api::transaction::InvokeTransaction::V0(_) => TransactionVersion::ZERO,
                 starknet_api::transaction::InvokeTransaction::V1(_) => TransactionVersion::ONE,
