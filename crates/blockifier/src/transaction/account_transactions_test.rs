@@ -1110,7 +1110,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(expected_modified_contracts_2, storage_updates_2.modified_contracts);
     assert_eq!(expected_storage_updates_2, storage_updates_2.storage_updates);
 
-    // Transfer transaction: transfer 1 ETH to recepient.
+    // Transfer transaction: transfer 1 ETH to recipient.
     let mut state = CachedState::create_transactional(&mut state);
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
