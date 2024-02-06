@@ -186,10 +186,11 @@ pub fn call_contract(
     let storage_address = request.contract_address;
     // Check that the call is legal if in Validate execution mode.
     if syscall_handler.is_validate_mode() && syscall_handler.storage_address != storage_address {
-        return Err(DeprecatedSyscallExecutionError::InvalidSyscallInExecutionMode {
+        let error = DeprecatedSyscallExecutionError::InvalidSyscallInExecutionMode {
             syscall_name: "call_contract".to_string(),
             execution_mode: syscall_handler.execution_mode(),
-        });
+        };
+        return Err(error.as_call_contract_execution_error(storage_address));
     }
     let entry_point = CallEntryPoint {
         class_hash: None,
@@ -202,7 +203,8 @@ pub fn call_contract(
         call_type: CallType::Call,
         initial_gas: syscall_handler.context.get_gas_cost("initial_gas_cost"),
     };
-    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
+    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)
+        .map_err(|error| error.as_call_contract_execution_error(storage_address))?;
 
     Ok(CallContractResponse { segment: retdata_segment })
 }
