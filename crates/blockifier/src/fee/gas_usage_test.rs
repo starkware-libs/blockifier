@@ -13,6 +13,7 @@ use crate::fee::gas_usage::{
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
 use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::ResourceCost;
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -303,7 +304,8 @@ fn test_onchain_data_discount() {
 
     let cost_without_discount = (state_changes_count.n_storage_updates * 2) * (512 + 100);
     let actual_cost = get_da_gas_cost(state_changes_count, use_kzg_da).l1_gas;
-    let cost_ratio = (actual_cost as f64) / (cost_without_discount as f64);
-    assert!(cost_ratio <= 0.9);
-    assert!(cost_ratio >= 0.88);
+    let cost_ratio =
+        ResourceCost::new(actual_cost, u128_from_usize(cost_without_discount).unwrap());
+    assert!(cost_ratio <= ResourceCost::new(9, 10));
+    assert!(cost_ratio >= ResourceCost::new(88, 100));
 }
