@@ -329,7 +329,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     } = create_flavors_test_state(&block_context.chain_info, cairo_version);
 
     // Validation scenario: fallible validation.
-    let (actual_gas_used, actual_fee) = gas_and_fee(30786, validate, &fee_type);
+    let (actual_gas_used, actual_fee) = gas_and_fee(30789, validate, &fee_type);
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
