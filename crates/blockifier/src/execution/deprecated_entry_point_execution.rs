@@ -16,9 +16,7 @@ use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHint
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
-use crate::execution::errors::{
-    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
-};
+use crate::execution::errors::{EntryPointExecutionError, PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
 };
@@ -195,7 +193,7 @@ pub fn run_entry_point(
     hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
-) -> Result<(), VirtualMachineExecutionError> {
+) -> Result<(), EntryPointExecutionError> {
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();

@@ -263,10 +263,8 @@ macro_rules! check_entry_point_execution_error {
     ($error:expr, $expected_hint:expr $(,)?) => {
         if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
             source:
-                VirtualMachineExecutionError::CairoRunError(
-                    cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
-                        cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
-                    ),
+                cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
+                    cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
                 ),
             ..
         } = $error
