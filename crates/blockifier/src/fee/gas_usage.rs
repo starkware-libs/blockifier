@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
-use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
+use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
@@ -21,12 +21,13 @@ pub mod test;
 
 /// Returns an estimation of the L1 gas amount that will be used (by Starknet's state update and
 /// the Verifier) following the addition of a transaction with the given parameters to a batch;
-/// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
-/// which requires gas.
+/// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1
+/// contract which requires gas.
+// TODO(barak, 18/03/2024): Move to ActualCostBuilder impl block.
 #[allow(clippy::too_many_arguments)]
 pub fn calculate_tx_gas_usage_vector<'a>(
     versioned_constants: &VersionedConstants,
-    call_infos: impl Iterator<Item = &'a CallInfo>,
+    call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
     state_changes_count: StateChangesCount,
     calldata_length: usize,
     signature_length: usize,
@@ -34,19 +35,51 @@ pub fn calculate_tx_gas_usage_vector<'a>(
     class_info: Option<ClassInfo>,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<GasVector> {
-    Ok(calculate_messages_gas_vector(call_infos, l1_handler_payload_size)?
+    Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
         + get_da_gas_cost(state_changes_count, use_kzg_da)
         + get_calldata_and_signature_gas_cost(
             calldata_length,
             signature_length,
             versioned_constants,
         )
-        + get_code_gas_cost(class_info, versioned_constants))
+        + get_code_gas_cost(class_info, versioned_constants)
+        + get_tx_events_gas_cost(call_infos, versioned_constants))
+}
+
+pub fn get_tx_events_gas_cost<'a>(
+    call_infos: impl Iterator<Item = &'a CallInfo>,
+    versioned_constants: &VersionedConstants,
+) -> GasVector {
+    let l1_milligas: u128 = call_infos
+        .map(|call_info| get_events_milligas_cost(&call_info.execution.events, versioned_constants))
+        .sum();
+    GasVector { l1_gas: l1_milligas / 1000_u128, l1_data_gas: 0_u128 }
+}
+
+pub fn get_events_milligas_cost(
+    events: &[OrderedEvent],
+    versioned_constants: &VersionedConstants,
+) -> u128 {
+    let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
+    let (event_key_factor, data_word_cost) =
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+    let safe_u128_from_usize =
+        |x| u128_from_usize(x).expect("Could not convert starknet gas usage from usize to u128.");
+    events
+        .iter()
+        .map(|OrderedEvent { event, .. }| {
+            // TODO(barak: 18/03/2024): Once we start charging per byte change to num_bytes_keys and
+            // num_bytes_data.
+            let keys_size = safe_u128_from_usize(event.keys.len());
+            let data_size = safe_u128_from_usize(event.data.0.len());
+            event_key_factor * data_word_cost * keys_size + data_word_cost * data_size
+        })
+        .sum()
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
 /// Starknet and SHARP contracts.
-pub fn calculate_messages_gas_vector<'a>(
+pub fn get_messages_gas_cost<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<GasVector> {
