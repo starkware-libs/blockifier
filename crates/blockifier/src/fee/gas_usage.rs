@@ -12,6 +12,7 @@ use crate::transaction::objects::{
     TransactionPreValidationResult,
 };
 use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -22,18 +23,57 @@ pub mod test;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
 /// which requires gas.
 pub fn calculate_tx_gas_usage_vector<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
+    versioned_constants: &VersionedConstants,
+    call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<GasVector> {
-    Ok(calculate_messages_gas_vector(call_infos, l1_handler_payload_size)?
-        + get_da_gas_cost(state_changes_count, use_kzg_da))
+    // TODO(barak, 18/03/2024): Iterate over call_infos once without cloning.
+    Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
+        + get_da_gas_cost(state_changes_count, use_kzg_da)
+        + get_events_gas_cost(call_infos, versioned_constants))
+}
+
+pub fn get_events_gas_cost<'a>(
+    call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
+    versioned_constants: &VersionedConstants,
+) -> GasVector {
+    let milli_gas_vector = call_infos.fold(
+        GasVector { l1_gas: 0_u128, l1_data_gas: 0_u128 },
+        |sum, call_info: &CallInfo| {
+            sum + get_events_milligas_cost_from_events(call_info, versioned_constants)
+        },
+    );
+    GasVector {
+        l1_gas: milli_gas_vector.l1_gas / 1000,
+        l1_data_gas: milli_gas_vector.l1_data_gas / 1000,
+    }
+}
+
+pub fn get_events_milligas_cost_from_events(
+    call_info: &CallInfo,
+    versioned_constants: &VersionedConstants,
+) -> GasVector {
+    call_info.execution.events.iter().fold(
+        GasVector { l1_gas: 0_u128, l1_data_gas: 0_u128 },
+        |sum, ordered_eventd| {
+            sum + GasVector {
+                l1_gas: u128_from_usize(
+                    ordered_eventd.event.keys.len() * versioned_constants.milligas_per_key
+                        + ordered_eventd.event.data.0.len()
+                            * versioned_constants.milligas_per_data_word,
+                )
+                .expect("Could not convert starknet gas usage from usize to u128."),
+                l1_data_gas: 0_u128,
+            }
+        },
+    )
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
 /// Starknet and SHARP contracts.
-pub fn calculate_messages_gas_vector<'a>(
+pub fn get_messages_gas_cost<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<GasVector> {

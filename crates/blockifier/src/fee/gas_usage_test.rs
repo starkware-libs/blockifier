@@ -13,6 +13,7 @@ use crate::fee::gas_usage::{
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
 use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -73,7 +74,9 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 #[rstest]
 fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // An empty transaction (a theoretical case for sanity check).
+    let versioned_constants = VersionedConstants::default();
     let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
         None,
@@ -97,6 +100,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
 
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         deploy_account_state_changes_count,
         None,
@@ -109,6 +113,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     let l1_handler_payload_size = 4;
     let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
@@ -171,6 +176,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts: 1,
     };
     let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
         None,
@@ -209,6 +215,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts,
     };
     let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         storage_writes_state_changes_count,
         None,
@@ -230,6 +237,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
     let gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter,
         combined_state_changes_count,
         Some(l1_handler_payload_size),

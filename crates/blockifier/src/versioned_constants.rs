@@ -34,6 +34,12 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 /// automatically ignored during deserialization.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
+    // Gas.
+    pub milligas_per_key_byte: usize,
+    pub milligas_per_data_byte: usize,
+    pub milligas_per_key: usize,
+    pub milligas_per_data_word: usize,
+
     // Limits.
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
