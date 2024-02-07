@@ -71,20 +71,12 @@ impl From<RunnerError> for PostExecutionError {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum VirtualMachineExecutionError {
-    #[error(transparent)]
-    CairoRunError(#[from] CairoRunError),
-    #[error(transparent)]
-    VirtualMachineError(#[from] VirtualMachineError),
-}
-
-impl VirtualMachineExecutionError {
+impl EntryPointExecutionError {
     /// Unwrap inner VM exception and return it as a string. If this is a call_contract exception,
     /// the inner error (inner call errors) will not appear in the string.
     pub fn try_to_vm_trace(&self) -> String {
         match self {
-            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
+            EntryPointExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
                 let mut trace_string = format!("Error at pc=0:{}:\n", exception.pc);
                 let inner_exc_string = &exception.inner_exc.to_string();
 
@@ -122,6 +114,8 @@ impl VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
+    #[error(transparent)]
+    CairoRunError(#[from] CairoRunError),
     #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
     ExecutionFailed { error_data: Vec<StarkFelt> },
     #[error("Internal error: {0}")]
@@ -139,12 +133,10 @@ pub enum EntryPointExecutionError {
     #[error(transparent)]
     TraceError(#[from] TraceError),
     /// Gathers all errors from running the Cairo VM, excluding hints.
-    #[error(transparent)]
-    VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
     #[error("{trace}")]
     VirtualMachineExecutionErrorWithTrace {
         trace: String,
         #[source]
-        source: VirtualMachineExecutionError,
+        source: CairoRunError,
     },
 }
