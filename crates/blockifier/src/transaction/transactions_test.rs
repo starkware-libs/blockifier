@@ -1470,6 +1470,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
@@ -1492,9 +1493,14 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let gas_vector =
-        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
-            .unwrap();
+    let gas_vector = calculate_tx_gas_usage_vector(
+        versioned_constants,
+        std::iter::empty(),
+        state_changes_count,
+        None,
+        use_kzg_da,
+    )
+    .unwrap();
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
@@ -1537,9 +1543,14 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let gas_vector =
-        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
-            .unwrap();
+    let gas_vector = calculate_tx_gas_usage_vector(
+        versioned_constants,
+        std::iter::empty(),
+        state_changes_count,
+        None,
+        use_kzg_da,
+    )
+    .unwrap();
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),

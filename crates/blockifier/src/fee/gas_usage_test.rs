@@ -1,18 +1,119 @@
+use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
-use starknet_api::transaction::L2ToL1Payload;
+use starknet_api::transaction::{EventContent, EventData, EventKey, L2ToL1Payload};
 
-use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
+use crate::execution::call_info::{
+    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
+};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
-    get_log_message_to_l1_emissions_cost, get_message_segment_length,
+    get_events_gas_cost, get_log_message_to_l1_emissions_cost, get_message_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
 use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
+
+const DEFAULT_CONSTANTS_JSON: &str = include_str!("../../resources/versioned_constants.json");
+static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
+    serde_json::from_str(DEFAULT_CONSTANTS_JSON)
+        .expect("Versioned constants JSON file is malformed")
+});
+
+#[rstest]
+#[case::without_events(
+    vec![
+    CallInfo::default(),
+    CallInfo::default(),
+    CallInfo::default(),
+    ],
+    GasVector{l1_gas: 0_u128, l1_data_gas: 0_u128},
+)
+]
+#[case::non_zero(
+    vec![
+        CallInfo {
+            execution: CallExecution {
+                events: vec![
+                        OrderedEvent {
+                            order: 0,
+                            event: EventContent {
+                                keys: vec![EventKey(StarkFelt::ZERO)],
+                                data: EventData(vec![StarkFelt::ZERO, StarkFelt::ONE]),
+                            }
+                        },
+                        OrderedEvent {
+                            order: 0,
+                            event: EventContent {
+                                keys: vec![EventKey(StarkFelt::ZERO)],
+                                data: EventData(vec![StarkFelt::ZERO, StarkFelt::ONE]),
+                            }
+                        },
+                    ],
+                    ..Default::default()
+            },
+            ..Default::default()
+        },
+        CallInfo {
+            execution: CallExecution {events: vec![
+                    OrderedEvent {
+                        order: 0,
+                        event: EventContent {
+                            keys: vec![EventKey(StarkFelt::ZERO)],
+                            data: EventData(vec![]),
+                        }
+                    },
+                    OrderedEvent {
+                        order: 0,
+                        event: EventContent {
+                            keys: vec![],
+                            data: EventData(vec![StarkFelt::ZERO])
+                        }
+                    },
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        CallInfo {
+            execution: CallExecution {events: vec![
+                    OrderedEvent {
+                        order: 0,
+                        event: EventContent {
+                            keys: vec![],
+                            data: EventData(vec![StarkFelt::ZERO])
+                        }
+                    },
+                    OrderedEvent {
+                        order: 0,
+                        event: EventContent {
+                            keys: vec![EventKey(StarkFelt::ZERO)],
+                            data: EventData(vec![]),
+                        }
+                    },
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    ],
+    GasVector {
+        l1_gas: (
+            4_u128 * u128_from_usize(DEFAULT_CONSTANTS.milligas_per_key).unwrap() // 4 keys overall.
+                + 6_u128 * u128_from_usize(DEFAULT_CONSTANTS.milligas_per_data_word).unwrap() // 6 data words overall.
+        ) / 1000,
+        l1_data_gas: 0_u128
+    },
+)
+]
+fn test_get_events_gas_cost(#[case] call_infos: Vec<CallInfo>, #[case] expected: GasVector) {
+    let versioned_constants = VersionedConstants::latest_constants();
+    assert_eq!(expected, get_events_gas_cost(call_infos.iter(), versioned_constants))
+}
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -73,7 +174,9 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 #[rstest]
 fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // An empty transaction (a theoretical case for sanity check).
+    let versioned_constants = VersionedConstants::default();
     let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
         None,
@@ -97,6 +200,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
 
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         deploy_account_state_changes_count,
         None,
@@ -109,6 +213,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     let l1_handler_payload_size = 4;
     let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
@@ -171,6 +276,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts: 1,
     };
     let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
         None,
@@ -209,6 +315,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts,
     };
     let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         storage_writes_state_changes_count,
         None,
@@ -230,6 +337,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
     let gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter,
         combined_state_changes_count,
         Some(l1_handler_payload_size),
