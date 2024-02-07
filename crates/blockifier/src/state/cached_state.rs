@@ -679,38 +679,14 @@ impl StateChanges {
 
         modified_contracts
     }
-}
 
-/// Holds the number of state changes.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct StateChangesCount {
-    pub n_storage_updates: usize,
-    pub n_class_hash_updates: usize,
-    pub n_compiled_class_hash_updates: usize,
-    pub n_modified_contracts: usize,
-}
-
-impl From<&StateChanges> for StateChangesCount {
-    fn from(state_changes: &StateChanges) -> Self {
-        let modified_contracts = state_changes.get_modified_contracts();
-
-        Self {
-            n_storage_updates: state_changes.storage_updates.len(),
-            n_class_hash_updates: state_changes.class_hash_updates.len(),
-            n_compiled_class_hash_updates: state_changes.compiled_class_hash_updates.len(),
-            n_modified_contracts: modified_contracts.len(),
-        }
-    }
-}
-
-impl StateChangesCount {
-    pub fn from_state_changes_for_fee_charge(
-        state_changes: StateChanges,
+    pub fn count_for_fee_charge(
+        self,
         sender_address: Option<ContractAddress>,
         fee_token_address: ContractAddress,
-    ) -> Self {
-        let mut modified_contracts = state_changes.get_modified_contracts();
-        let mut storage_updates = state_changes.storage_updates;
+    ) -> StateChangesCount {
+        let mut modified_contracts = self.get_modified_contracts();
+        let mut storage_updates = self.storage_updates;
 
         // For account transactions, we need to compute the transaction fee before we can execute
         // the fee transfer, and the fee should cover the state changes that happen in the
@@ -729,13 +705,22 @@ impl StateChangesCount {
         // block.
         modified_contracts.remove(&fee_token_address);
 
-        Self {
+        StateChangesCount {
             n_storage_updates: storage_updates.len(),
-            n_class_hash_updates: state_changes.class_hash_updates.len(),
-            n_compiled_class_hash_updates: state_changes.compiled_class_hash_updates.len(),
+            n_class_hash_updates: self.class_hash_updates.len(),
+            n_compiled_class_hash_updates: self.compiled_class_hash_updates.len(),
             n_modified_contracts: modified_contracts.len(),
         }
     }
+}
+
+/// Holds the number of state changes.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct StateChangesCount {
+    pub n_storage_updates: usize,
+    pub n_class_hash_updates: usize,
+    pub n_compiled_class_hash_updates: usize,
+    pub n_modified_contracts: usize,
 }
 
 // Note: `ContractClassLRUCache` key-value types must align with `ContractClassMapping`.
