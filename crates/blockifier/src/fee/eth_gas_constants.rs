@@ -16,11 +16,19 @@ pub const GAS_PER_NONZERO_TO_INT_STORAGE_SET: usize = 2900;
 pub const GAS_PER_COUNTER_DECREASE: usize =
     GAS_PER_COLD_STORAGE_ACCESS + GAS_PER_NONZERO_TO_INT_STORAGE_SET;
 
-// Events.
+// L1 Events.
 pub const GAS_PER_LOG: usize = 375;
 pub const GAS_PER_LOG_TOPIC: usize = 375;
 pub const GAS_PER_LOG_DATA_BYTE: usize = 8;
 pub const GAS_PER_LOG_DATA_WORD: usize = GAS_PER_LOG_DATA_BYTE * WORD_WIDTH;
+
+// L2 Events.
+pub const MILLI_GAS_PER_KEY_BYTE: usize = 40;
+pub const MILLI_GAS_PER_DATA_BYTE: usize = 2 * MILLI_GAS_PER_KEY_BYTE;
+// TODO(barak, 18/03/2024): Remove calculation per StarkFelt.
+// Every key and every data word is a StarkFelt which contains 32 bytes.
+pub const MILLI_GAS_PER_KEY: usize = 32 * MILLI_GAS_PER_KEY_BYTE;
+pub const MILLI_GAS_PER_DATA_WORD: usize = 32 * MILLI_GAS_PER_DATA_BYTE;
 
 // SHARP empirical costs.
 pub const SHARP_ADDITIONAL_GAS_PER_MEMORY_WORD: usize = 100; // This value is not accurate.

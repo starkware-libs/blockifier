@@ -22,18 +22,42 @@ pub mod test;
 /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1 contract
 /// which requires gas.
 pub fn calculate_tx_gas_usage_vector<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
+    call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
     state_changes_count: StateChangesCount,
     l1_handler_payload_size: Option<usize>,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<GasVector> {
-    Ok(calculate_messages_gas_vector(call_infos, l1_handler_payload_size)?
-        + get_da_gas_cost(state_changes_count, use_kzg_da))
+    // TODO(barak, 18/03/2024): Iterate over call_infos once without cloning.
+    Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
+        + get_da_gas_cost(state_changes_count, use_kzg_da)
+        + get_events_gas_cost(call_infos))
+}
+
+fn get_events_gas_cost<'a>(call_infos: impl Iterator<Item = &'a CallInfo>) -> GasVector {
+    let mut milli_gas_vector = GasVector { l1_gas: 0, blob_gas: 0 };
+    for call_info in call_infos {
+        milli_gas_vector = milli_gas_vector
+            + call_info.execution.events.iter().fold(
+                GasVector { l1_gas: 0, blob_gas: 0 },
+                |sum, ordered_event| {
+                    sum + GasVector {
+                        l1_gas: u128_from_usize(
+                            ordered_event.event.keys.len() * eth_gas_constants::MILLI_GAS_PER_KEY
+                                + ordered_event.event.data.0.len()
+                                    * eth_gas_constants::MILLI_GAS_PER_DATA_WORD,
+                        )
+                        .expect("Could not convert starknet gas usage from usize to u128."),
+                        blob_gas: 0,
+                    }
+                },
+            )
+    }
+    GasVector { l1_gas: milli_gas_vector.l1_gas / 1000, blob_gas: milli_gas_vector.blob_gas / 1000 }
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
 /// Starknet and SHARP contracts.
-pub fn calculate_messages_gas_vector<'a>(
+pub fn get_messages_gas_cost<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<GasVector> {
