@@ -124,7 +124,30 @@ pub struct DeprecatedTransactionInfo {
     pub max_fee: Fee,
 }
 
-#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[derive(derive_more::Add, derive_more::Div, derive_more::Sum, Default)]
+pub struct MilligasVector {
+    pub l1_gas: u128,
+    pub l1_data_gas: u128,
+}
+
+impl From<MilligasVector> for GasVector {
+    fn from(milligas_vector: MilligasVector) -> Self {
+        let gas_vector = milligas_vector / 1000;
+        Self { l1_gas: gas_vector.l1_gas, l1_data_gas: gas_vector.l1_data_gas }
+    }
+}
+
+#[derive(
+    derive_more::Add,
+    derive_more::Div,
+    derive_more::Sum,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    Serialize,
+)]
 pub struct GasVector {
     pub l1_gas: u128,
     pub l1_data_gas: u128,
