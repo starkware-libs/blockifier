@@ -6,8 +6,9 @@ edition = "2023_10"
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
 
 [dependencies]
-openzeppelin = { path = "./cairo-contracts" }
-#openzeppelin = { git = "https://github.com/NethermindEth/oz-cairo-contracts", branch = "native-compilation-fix-v1" }
+#openzeppelin = { path = "../../../../oz-cairo-contracts" }
+#openzeppelin = { path = "./cairo-contracts" }
+openzeppelin = { git = "https://github.com/NethermindEth/oz-cairo-contracts", branch = "native-compilation-fix-v1" }
 
 
 [[target.starknet-contract]]
