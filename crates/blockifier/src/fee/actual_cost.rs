@@ -131,8 +131,7 @@ impl<'a> ActualCostBuilder<'a> {
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
-        let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
-            self.state_changes,
+        let state_changes_count = self.state_changes.count(
             self.sender_address,
             self.tx_context
                 .block_context

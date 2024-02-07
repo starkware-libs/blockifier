@@ -298,11 +298,7 @@ fn test_from_state_changes_for_fee_charge(
     let fee_token_address = contract_address!("0x17");
     let state_changes =
         create_state_changes_for_test(&mut state, sender_address, fee_token_address);
-    let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
-        state_changes,
-        sender_address,
-        fee_token_address,
-    );
+    let state_changes_count = state_changes.count(sender_address, fee_token_address);
     let expected_state_changes_count = StateChangesCount {
         // 1 for storage update + 1 for sender balance update if sender is defined.
         n_storage_updates: 1 + usize::from(sender_address.is_some()),
