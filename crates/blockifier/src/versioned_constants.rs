@@ -51,6 +51,8 @@ pub struct VersionedConstants {
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
     os_constants: Arc<OSConstants>,
+
+    l2_resource_gas_costs: Arc<L2ResourceGasCost>,
 }
 
 impl VersionedConstants {
@@ -113,6 +115,10 @@ impl VersionedConstants {
         self.os_resources.get_additional_os_syscall_resources(syscall_counter)
     }
 
+    pub fn get_l2_resource_gas_cost(&self) -> &L2ResourceGasCost {
+        &self.l2_resource_gas_costs
+    }
+
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
@@ -136,6 +142,14 @@ impl TryFrom<&Path> for VersionedConstants {
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         Ok(serde_json::from_reader(std::fs::File::open(path)?)?)
     }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct L2ResourceGasCost {
+    // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
+    // divide the value by 32 in the JSON file.
+    pub milligas_per_data_word: u128,
+    pub event_key_factor: u128,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
