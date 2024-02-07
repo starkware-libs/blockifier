@@ -104,9 +104,9 @@ pub trait ValidatableTransaction {
 
 #[derive(Debug)]
 pub struct DeclareTransaction {
-    tx: starknet_api::transaction::DeclareTransaction,
-    tx_hash: TransactionHash,
-    contract_class: ContractClass,
+    pub tx: starknet_api::transaction::DeclareTransaction,
+    pub tx_hash: TransactionHash,
+    pub contract_class: ContractClass,
     // Indicates the presence of the only_query bit in the version.
     only_query: bool,
 }
