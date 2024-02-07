@@ -8,7 +8,7 @@ use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
 use crate::fee::gas_usage::calculate_tx_gas_usage_vector;
-use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
+use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
     HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
@@ -131,8 +131,7 @@ impl<'a> ActualCostBuilder<'a> {
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
-        let state_changes_count = StateChangesCount::from_state_changes_for_fee_charge(
-            self.state_changes,
+        let state_changes_count = self.state_changes.count_for_fee_charge(
             self.sender_address,
             self.tx_context
                 .block_context

@@ -1001,8 +1001,6 @@ fn test_deploy_account_constructor_storage_write(
     assert_eq!(ctor_storage_arg, read_storage_arg);
 }
 
-// TODO(Arni, 6/2/2024): Use StateChangesCount::from_state_changes_for_fee_charge once it is
-// implemented.
 /// Test for counting actual storage changes.
 #[rstest]
 #[case::tx_version_1(TransactionVersion::ONE, FeeType::Eth)]
@@ -1083,11 +1081,8 @@ fn test_count_actual_storage_changes(
         expected_sequencer_fee_update,
     ]);
 
-    let state_changes_count_1 = StateChangesCount::from_state_changes_for_fee_charge(
-        state_changes_1.clone(),
-        Some(account_address),
-        fee_token_address,
-    );
+    let state_changes_count_1 =
+        state_changes_1.clone().count_for_fee_charge(Some(account_address), fee_token_address);
     let expected_state_changes_count_1 = StateChangesCount {
         // See expected storage updates.
         n_storage_updates: 3,
@@ -1122,11 +1117,8 @@ fn test_count_actual_storage_changes(
     let expected_storage_updates_2 =
         HashMap::from([account_balance_storage_change, expected_sequencer_fee_update]);
 
-    let state_changes_count_2 = StateChangesCount::from_state_changes_for_fee_charge(
-        state_changes_2.clone(),
-        Some(account_address),
-        fee_token_address,
-    );
+    let state_changes_count_2 =
+        state_changes_2.clone().count_for_fee_charge(Some(account_address), fee_token_address);
     let expected_state_changes_count_2 = StateChangesCount {
         // See expected storage updates.
         n_storage_updates: 2,
@@ -1169,11 +1161,9 @@ fn test_count_actual_storage_changes(
         expected_sequencer_fee_update,
     ]);
 
-    let state_changes_count_3 = StateChangesCount::from_state_changes_for_fee_charge(
-        state_changes_transfer.clone(),
-        Some(account_address),
-        fee_token_address,
-    );
+    let state_changes_count_3 = state_changes_transfer
+        .clone()
+        .count_for_fee_charge(Some(account_address), fee_token_address);
     let expected_state_changes_count_3 = StateChangesCount {
         // See expected storage updates.
         n_storage_updates: 3,
