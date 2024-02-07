@@ -22,7 +22,7 @@ ark-secp256k1.workspace = true
 ark-secp256r1.workspace = true
 cached.workspace = true
 cairo-felt.workspace = true
-cairo-lang-casm.workspace = true
+cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 cairo-lang-runner.workspace = true
 cairo-lang-starknet-classes.workspace = true
 cairo-lang-utils.workspace = true
@@ -49,6 +49,10 @@ thiserror.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+cairo-lang-casm = { workspace = true, features = [
+    "parity-scale-codec",
+    "schemars",
+] }
 pretty_assertions.workspace = true
 rstest.workspace = true
 test-case.workspace = true

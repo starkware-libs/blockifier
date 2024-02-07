@@ -417,6 +417,7 @@ dependencies = [
  "num-bigint",
  "num-traits 0.2.17",
  "parity-scale-codec",
+ "schemars",
  "serde",
 ]
 
@@ -852,6 +853,7 @@ dependencies = [
  "itertools 0.11.0",
  "num-bigint",
  "num-traits 0.2.17",
+ "parity-scale-codec",
  "schemars",
  "serde",
 ]
