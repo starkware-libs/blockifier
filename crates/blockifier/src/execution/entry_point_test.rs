@@ -12,8 +12,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
-use crate::abi::constants;
-use crate::block_context::ChainInfo;
+use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
@@ -28,6 +27,7 @@ use crate::test_utils::{
     create_calldata, trivial_external_entry_point, trivial_external_entry_point_with_address,
     CairoVersion, BALANCE,
 };
+use crate::versioned_constants::VersionedConstants;
 
 const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 65;
 
@@ -197,11 +197,12 @@ fn run_security_test(
     entry_point_name: &str,
     calldata: Calldata,
 ) {
+    let versioned_constants = VersionedConstants::create_for_testing();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
         storage_address: security_contract.get_instance_address(0),
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: versioned_constants.gas_cost("initial_gas_cost"),
         ..Default::default()
     };
     let error = match entry_point_call.execute_directly(state) {
@@ -370,7 +371,7 @@ fn test_syscall_execution_security_failures() {
         run_security_test(
             state,
             security_contract,
-            "Hint Error: Out of range",
+            "Out of range",
             "test_read_bad_address",
             calldata.clone(),
         );
@@ -378,7 +379,7 @@ fn test_syscall_execution_security_failures() {
         run_security_test(
             state,
             security_contract,
-            "Hint Error: Expected integer",
+            "Expected integer",
             "test_relocatable_storage_address",
             calldata,
         );
@@ -396,7 +397,7 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Hint Error: Expected relocatable",
+        "Expected relocatable",
         "test_bad_syscall_request_arg_type",
         calldata![],
     );
@@ -652,8 +653,7 @@ Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({}):
 Error at pc=0:4942:
-Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: 0x6661696c \
-         ('fail').
+Got an exception while executing a hint: Execution failed. Failure reason: 0x6661696c ('fail').
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -745,8 +745,7 @@ Unknown location (pc=0:{})
             format!(
                 "Error in the called contract ({contract_address_felt}):
 Error at pc=0:7981:
-Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
-                 {expected_error}.
+Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -854,8 +853,7 @@ Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
 Error at pc=0:{}:
-Got an exception while executing a hint: Hint Error: Execution failed. Failure reason: \
-                 {expected_error}.
+Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 

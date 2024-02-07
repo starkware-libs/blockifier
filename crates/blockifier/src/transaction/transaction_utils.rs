@@ -3,33 +3,34 @@ use std::collections::HashMap;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use starknet_api::transaction::TransactionVersion;
 
-use super::objects::GasAndBlobGasUsages;
+use super::objects::GasVector;
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::os_usage::get_additional_os_resources;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::usize_from_u128;
+use crate::versioned_constants::VersionedConstants;
 
 /// Calculates the total resources needed to include the transaction in a Starknet block as
 /// most-recent (recent w.r.t. application on the given state).
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(
+    versioned_constants: &VersionedConstants,
     execution_resources: &ExecutionResources,
-    l1_gas_usages: GasAndBlobGasUsages,
+    gas_vector: GasVector,
     tx_type: TransactionType,
     calldata_length: usize,
 ) -> TransactionExecutionResult<ResourcesMapping> {
-    let l1_gas_usage = l1_gas_usages.gas_usage.try_into()?;
+    let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
+        .expect("This conversion should not fail as the value is a converted usize.");
+    let l1_blob_gas_usage = usize_from_u128(gas_vector.blob_gas)
+        .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
     let total_vm_usage = &execution_resources.vm_resources
-        + &get_additional_os_resources(
-            &execution_resources.syscall_counter,
-            tx_type,
-            calldata_length,
-        )?;
+        + &versioned_constants.get_additional_os_tx_resources(tx_type, calldata_length)?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.
@@ -41,7 +42,8 @@ pub fn calculate_tx_resources(
             .unwrap_or_default();
 
     let mut tx_resources = HashMap::from([
-        (constants::GAS_USAGE.to_string(), l1_gas_usage),
+        (constants::L1_GAS_USAGE.to_string(), l1_gas_usage),
+        (constants::BLOB_GAS_USAGE.to_string(), l1_blob_gas_usage),
         (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);

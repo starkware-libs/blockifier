@@ -16,9 +16,7 @@ use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHint
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
-use crate::execution::errors::{
-    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
-};
+use crate::execution::errors::{PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
 };
@@ -195,7 +193,7 @@ pub fn run_entry_point(
     hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
-) -> Result<(), VirtualMachineExecutionError> {
+) -> EntryPointExecutionResult<()> {
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
@@ -241,7 +239,12 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
+    // TODO(Ori, 14/2/2024): Rename `vm_resources`.
     syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    let versioned_constants = syscall_handler.context.versioned_constants();
+    // Take into account the syscall resources of the current call.
+    syscall_handler.resources.vm_resources += &versioned_constants
+        .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
     let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
     Ok(CallInfo {

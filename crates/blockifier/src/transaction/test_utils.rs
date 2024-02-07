@@ -13,7 +13,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::block_context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;

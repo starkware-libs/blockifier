@@ -9,7 +9,7 @@ use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_checks::{FeeCheckError, FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
@@ -18,8 +18,9 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::ResourcesMapping;
+use crate::transaction::objects::{GasVector, ResourcesMapping};
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
+use crate::versioned_constants::VersionedConstants;
 
 fn get_vm_resource_usage() -> ResourcesMapping {
     ResourcesMapping(HashMap::from([
@@ -34,15 +35,15 @@ fn get_vm_resource_usage() -> ResourcesMapping {
 
 #[test]
 fn test_calculate_l1_gas_by_vm_usage() {
-    let block_context = BlockContext::create_for_account_testing();
+    let versioned_constants = VersionedConstants::create_for_account_testing();
     let vm_resource_usage = get_vm_resource_usage();
 
     // Positive flow.
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
     assert_eq!(
-        *l1_gas_by_vm_usage as f64,
-        calculate_l1_gas_by_vm_usage(&block_context, &vm_resource_usage).unwrap()
+        GasVector { l1_gas: *l1_gas_by_vm_usage as u128, blob_gas: 0 },
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
     );
 
     // Negative flow.
@@ -50,7 +51,7 @@ fn test_calculate_l1_gas_by_vm_usage() {
     let mut invalid_vm_resource_usage = ResourcesMapping(vm_resource_usage.0.clone());
     invalid_vm_resource_usage.0.insert(String::from("bad_resource_name"), 17);
     let error =
-        calculate_l1_gas_by_vm_usage(&block_context, &invalid_vm_resource_usage).unwrap_err();
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &invalid_vm_resource_usage).unwrap_err();
     assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
 }
 
@@ -72,8 +73,8 @@ fn test_discounted_gas_overdraft(
     #[case] expect_failure: bool,
 ) {
     let mut block_context = BlockContext::create_for_account_testing();
-    block_context.block_info.gas_prices.strk_l1_gas_price = gas_price;
-    block_context.block_info.gas_prices.strk_l1_data_gas_price = data_gas_price;
+    block_context.block_info.gas_prices.strk_l1_gas_price = gas_price.try_into().unwrap();
+    block_context.block_info.gas_prices.strk_l1_data_gas_price = data_gas_price.try_into().unwrap();
 
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
     let mut state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
@@ -85,16 +86,16 @@ fn test_discounted_gas_overdraft(
     let actual_cost = ActualCost {
         actual_fee: Fee(7),
         actual_resources: ResourcesMapping(HashMap::from([
-            (constants::GAS_USAGE.to_string(), l1_gas_used),
+            (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
             (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
         ])),
     };
+    let charge_fee = true;
     let report = PostExecutionReport::new(
         &mut state,
-        &block_context,
-        &tx.get_account_tx_context(),
+        &block_context.to_tx_context(&tx),
         &actual_cost,
-        true,
+        charge_fee,
     )
     .unwrap();
 

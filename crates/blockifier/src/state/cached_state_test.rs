@@ -3,15 +3,18 @@ use std::collections::HashMap;
 use assert_matches::assert_matches;
 use indexmap::indexmap;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 use starknet_api::core::PatriciaKey;
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::state::cached_state::*;
 use crate::test_utils::cached_state::deprecated_create_test_state;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{get_test_contract_class, TEST_CLASS_HASH, TEST_EMPTY_CONTRACT_CLASS_HASH};
+
+const CONTRACT_ADDRESS: &str = "0x100";
 
 fn set_initial_state_values(
     state: &mut CachedState<DictStateReader>,
@@ -257,9 +260,10 @@ fn cached_state_state_diff_conversion() {
 
 fn create_state_changes_for_test<S: StateReader>(
     state: &mut CachedState<S>,
+    sender_address: Option<ContractAddress>,
     fee_token_address: ContractAddress,
 ) -> StateChanges {
-    let contract_address = contract_address!("0x100");
+    let contract_address = contract_address!(CONTRACT_ADDRESS);
     let contract_address2 = contract_address!("0x101");
     let class_hash = class_hash!("0x10");
     let compiled_class_hash = CompiledClassHash(stark_felt!("0x11"));
@@ -277,47 +281,55 @@ fn create_state_changes_for_test<S: StateReader>(
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val).unwrap();
 
-    // Return the resulting state changes.
-    state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, Some(contract_address))
-        .unwrap()
+    if let Some(sender_address) = sender_address {
+        // Charge fee from the sender.
+        let sender_balance_key = get_fee_token_var_address(sender_address);
+        state.set_storage_at(fee_token_address, sender_balance_key, stark_felt!("0x1999")).unwrap();
+    }
+
+    state.get_actual_state_changes().unwrap()
 }
 
-#[test]
-fn test_get_actual_state_changes_for_fee_charge() {
+#[rstest]
+fn test_from_state_changes_for_fee_charge(
+    #[values(Some(contract_address!("0x102")), None)] sender_address: Option<ContractAddress>,
+) {
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let state_changes = create_state_changes_for_test(&mut state, contract_address!("0x17"));
-    assert_eq!(
-        StateChangesCount::from(&state_changes),
-        StateChangesCount {
-            n_storage_updates: 2, // 1 for storage update + 1 for sender balance update.
-            n_modified_contracts: 2,
-            n_class_hash_updates: 1,
-            n_compiled_class_hash_updates: 1
-        }
-    );
+    let fee_token_address = contract_address!("0x17");
+    let state_changes =
+        create_state_changes_for_test(&mut state, sender_address, fee_token_address);
+    let state_changes_count = state_changes.count_for_fee_charge(sender_address, fee_token_address);
+    let expected_state_changes_count = StateChangesCount {
+        // 1 for storage update + 1 for sender balance update if sender is defined.
+        n_storage_updates: 1 + usize::from(sender_address.is_some()),
+        n_class_hash_updates: 1,
+        n_compiled_class_hash_updates: 1,
+        n_modified_contracts: 2,
+    };
+    assert_eq!(state_changes_count, expected_state_changes_count);
 }
 
-#[test]
-fn test_state_changes_merge() {
+#[rstest]
+fn test_state_changes_merge(
+    #[values(Some(contract_address!("0x102")), None)] sender_address: Option<ContractAddress>,
+) {
     // Create a transactional state containing the `create_state_changes_for_test` logic, get the
     // state changes and then commit.
     let mut state: CachedState<DictStateReader> = CachedState::default();
     let mut transactional_state = CachedState::create_transactional(&mut state);
     let block_context = BlockContext::create_for_testing();
     let fee_token_address = block_context.chain_info.fee_token_addresses.eth_fee_token_address;
-    let state_changes1 = create_state_changes_for_test(&mut transactional_state, fee_token_address);
+    let state_changes1 =
+        create_state_changes_for_test(&mut transactional_state, sender_address, fee_token_address);
     transactional_state.commit();
 
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
     let mut transactional_state = CachedState::create_transactional(&mut state);
-    // Make sure that `get_actual_state_changes_for_fee_charge` on a newly created transactional
-    // state returns null state changes and that merging null state changes with non-null state
-    // changes results in the non-null state changes, no matter the order.
-    let state_changes2 = transactional_state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, None)
-        .unwrap();
+    // Make sure that `get_actual_state_changes` on a newly created transactional state returns null
+    // state changes and that merging null state changes with non-null state changes results in the
+    // non-null state changes, no matter the order.
+    let state_changes2 = transactional_state.get_actual_state_changes().unwrap();
     assert_eq!(state_changes2, StateChanges::default());
     assert_eq!(
         StateChanges::merge(vec![state_changes1.clone(), state_changes2.clone()]),
@@ -330,8 +342,9 @@ fn test_state_changes_merge() {
 
     // Get the storage updates addresses and keys from the state_changes1, to overwrite.
     let mut storage_updates_keys = state_changes1.storage_updates.keys();
-    let (contract_address, storage_key) = *storage_updates_keys.next().unwrap();
-    let (contract_address2, storage_key2) = *storage_updates_keys.next().unwrap();
+    let &(contract_address, storage_key) = storage_updates_keys
+        .find(|(contract_address, _)| contract_address == &contract_address!(CONTRACT_ADDRESS))
+        .unwrap();
     // A new address, not included in state_changes1, to write to.
     let new_contract_address = ContractAddress(patricia_key!("0x111"));
 
@@ -340,23 +353,17 @@ fn test_state_changes_merge() {
         .set_storage_at(contract_address, storage_key, stark_felt!("0x1234"))
         .unwrap();
     transactional_state
-        .set_storage_at(contract_address2, storage_key2, stark_felt!("0x4321"))
-        .unwrap();
-    transactional_state
         .set_storage_at(new_contract_address, storage_key, stark_felt!("0x43210"))
         .unwrap();
     transactional_state.increment_nonce(contract_address).unwrap();
     // Get the new state changes and then commit the transactional state.
-    let state_changes3 = transactional_state
-        .get_actual_state_changes_for_fee_charge(fee_token_address, None)
-        .unwrap();
+    let state_changes3 = transactional_state.get_actual_state_changes().unwrap();
     transactional_state.commit();
 
     // Get the total state changes of the CachedState underlying all the temporary transactional
     // states. We expect the state_changes to match the merged state_changes of the transactional
     // states, but only when done in the right order.
-    let state_changes_final =
-        state.get_actual_state_changes_for_fee_charge(fee_token_address, None).unwrap();
+    let state_changes_final = state.get_actual_state_changes().unwrap();
     assert_eq!(
         StateChanges::merge(vec![
             state_changes1.clone(),
