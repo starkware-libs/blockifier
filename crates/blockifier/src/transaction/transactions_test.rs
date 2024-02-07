@@ -64,8 +64,8 @@ use crate::transaction::objects::{
     TransactionInfo,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
-    FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
+    account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
+    l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -793,13 +793,15 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Declare.
     let contract_to_declare = FeatureContract::Empty(CairoVersion::Cairo0);
+    let class_info =
+        calculate_class_info_for_testing(CairoVersion::Cairo0, contract_to_declare.get_class());
     let invalid_tx = declare_tx(
         declare_tx_args! {
             class_hash: contract_to_declare.get_class_hash(),
             sender_address: account_contract_address,
             max_fee: invalid_max_fee,
         },
-        contract_to_declare.get_class(),
+        class_info,
     );
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 }
@@ -1081,7 +1083,8 @@ fn test_declare_tx(
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
     let class_hash = empty_contract.get_class_hash();
-    let contract_class = empty_contract.get_class();
+    let class_info =
+        calculate_class_info_for_testing(account_cairo_version, empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
 
     let account_tx = declare_tx(
@@ -1092,7 +1095,7 @@ fn test_declare_tx(
             resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
             class_hash,
         },
-        contract_class.clone(),
+        class_info.clone(),
     );
 
     // Check state before transaction application.
@@ -1173,7 +1176,7 @@ fn test_declare_tx(
 
     // Verify class declaration.
     let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
-    assert_eq!(contract_class_from_state, contract_class);
+    assert_eq!(contract_class_from_state, class_info.contract_class);
 }
 
 #[rstest]
