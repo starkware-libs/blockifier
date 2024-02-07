@@ -55,14 +55,15 @@ pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
     *remaining_gas -= call_info.execution.gas_consumed;
 }
 
+// TODO(Ayelet,01/03/2024): Consider removing this function.
 pub fn verify_contract_class_version(
-    contract_class: ContractClass,
+    contract_class: &ContractClass,
     declare_version: TransactionVersion,
-) -> Result<ContractClass, TransactionExecutionError> {
+) -> Result<(), TransactionExecutionError> {
     match contract_class {
         ContractClass::V0(_) => {
             if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
-                Ok(contract_class)
+                Ok(())
             } else {
                 Err(TransactionExecutionError::ContractClassVersionMismatch {
                     declare_version,
@@ -72,7 +73,7 @@ pub fn verify_contract_class_version(
         }
         ContractClass::V1(_) => {
             if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
-                Ok(contract_class)
+                Ok(())
             } else {
                 Err(TransactionExecutionError::ContractClassVersionMismatch {
                     declare_version,

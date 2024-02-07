@@ -9,14 +9,15 @@ use blockifier::transaction::objects::{
     TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
 };
 use blockifier::transaction::transaction_execution::Transaction;
-use pyo3::prelude::*;
+use blockifier::versioned_constants::VersionedConstants;
+use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::{py_account_tx, py_tx};
+use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
@@ -64,20 +65,20 @@ impl PyValidator {
 
     // Transaction Execution API.
 
-    #[pyo3(signature = (tx, raw_contract_class, deploy_account_tx_hash))]
+    #[pyo3(signature = (tx, optional_py_class_info, deploy_account_tx_hash))]
     pub fn perform_validations(
         &mut self,
         tx: &PyAny,
-        raw_contract_class: Option<&str>,
+        optional_py_class_info: Option<PyClassInfo>,
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
-        let account_tx = py_account_tx(tx, raw_contract_class)?;
+        let account_tx = py_account_tx(tx, optional_py_class_info)?;
         let tx_context = self.tx_executor.block_context.to_tx_context(&account_tx);
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, raw_contract_class)?;
+            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, None)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -142,10 +143,10 @@ impl PyValidator {
     fn execute(
         &mut self,
         tx: &PyAny,
-        raw_contract_class: Option<&str>,
+        optional_class_info: Option<PyClassInfo>,
     ) -> NativeBlockifierResult<(TransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
-        let tx: Transaction = py_tx(tx, raw_contract_class)?;
+        let tx: Transaction = py_tx(tx, optional_class_info)?;
         let (tx_execution_info, bouncer_info) =
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);

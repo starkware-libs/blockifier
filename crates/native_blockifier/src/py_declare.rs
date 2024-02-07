@@ -1,8 +1,7 @@
 use std::convert::TryFrom;
 
-use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
 use blockifier::transaction::transaction_types::TransactionType;
-use blockifier::transaction::transactions::DeclareTransaction;
+use blockifier::transaction::transactions::{ClassInfo, DeclareTransaction};
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
@@ -12,7 +11,7 @@ use starknet_api::transaction::{
 };
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
-use crate::py_transaction::{PyDataAvailabilityMode, PyResourceBoundsMapping};
+use crate::py_transaction::{PyClassInfo, PyDataAvailabilityMode, PyResourceBoundsMapping};
 use crate::py_utils::{from_py_felts, py_attr, PyFelt};
 
 #[derive(FromPyObject)]
@@ -101,7 +100,7 @@ impl TryFrom<PyDeclareTransactionV3> for DeclareTransactionV3 {
 
 pub fn py_declare(
     py_tx: &PyAny,
-    raw_contract_class: &str,
+    py_class_info: PyClassInfo,
 ) -> NativeBlockifierResult<DeclareTransaction> {
     let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
     let tx = match version {
@@ -131,17 +130,8 @@ pub fn py_declare(
         }),
     }?;
 
-    let contract_class = match tx {
-        starknet_api::transaction::DeclareTransaction::V0(_)
-        | starknet_api::transaction::DeclareTransaction::V1(_) => {
-            ContractClassV0::try_from_json_string(raw_contract_class)?.into()
-        }
-        starknet_api::transaction::DeclareTransaction::V2(_)
-        | starknet_api::transaction::DeclareTransaction::V3(_) => {
-            ContractClassV1::try_from_json_string(raw_contract_class)?.into()
-        }
-    };
+    let class_info = ClassInfo::try_from(py_class_info)?;
 
     let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);
-    Ok(DeclareTransaction::new(tx, tx_hash, contract_class)?)
+    Ok(DeclareTransaction::new(tx, tx_hash, class_info)?)
 }
