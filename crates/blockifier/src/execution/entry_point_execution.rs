@@ -18,9 +18,7 @@ use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
-use crate::execution::errors::{
-    EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
-};
+use crate::execution::errors::{EntryPointExecutionError, PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
     ReadOnlySegments,
@@ -125,7 +123,7 @@ fn register_visited_pcs(
     class_hash: starknet_api::core::ClassHash,
     program_segment_size: usize,
     bytecode_length: usize,
-) -> Result<(), EntryPointExecutionError> {
+) -> EntryPointExecutionResult<()> {
     let mut class_visited_pcs = HashSet::new();
     // Relocate the trace, putting the program segment at address 1 and the execution segment right
     // after it.
@@ -289,7 +287,7 @@ pub fn run_entry_point(
     entry_point: EntryPointV1,
     args: Args,
     program_segment_size: usize,
-) -> Result<(), VirtualMachineExecutionError> {
+) -> EntryPointExecutionResult<()> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
     let result = runner.run_from_entrypoint(

@@ -99,10 +99,11 @@ impl CallEntryPoint {
         let contract_class = state.get_compiled_contract_class(class_hash)?;
 
         execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
+            let vm_trace = error.try_to_vm_trace();
             match error {
                 // On VM error, pack the stack trace into the propagated error.
-                EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                    context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                EntryPointExecutionError::CairoRunError(internal_error) => {
+                    context.error_stack.push((storage_address, vm_trace));
                     // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
                     //   right now, each intermediate VM error is wrapped in a
                     //   VirtualMachineExecutionErrorWithTrace error with the stringified trace
@@ -111,7 +112,7 @@ impl CallEntryPoint {
                     let error_trace = context.error_trace();
                     EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
                         trace: error_trace[..min(10000, error_trace.len())].to_string(),
-                        source: error,
+                        source: internal_error,
                     }
                 }
                 other_error => {
