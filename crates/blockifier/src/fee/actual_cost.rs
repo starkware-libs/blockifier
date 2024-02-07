@@ -7,8 +7,11 @@ use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::{calculate_tx_gas_usage_vector, get_da_gas_cost};
-use crate::state::cached_state::{CachedState, StateChanges};
+use crate::fee::gas_usage::{
+    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost, get_messages_gas_cost,
+    get_tx_events_gas_cost,
+};
+use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
     GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
@@ -16,6 +19,11 @@ use crate::transaction::objects::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
 use crate::transaction::transactions::ClassInfo;
+use crate::versioned_constants::VersionedConstants;
+
+#[cfg(test)]
+#[path = "actual_cost_test.rs"]
+pub mod test;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
@@ -138,6 +146,32 @@ impl<'a> ActualCostBuilder<'a> {
         self.tx_context.block_context.block_info.use_kzg_da
     }
 
+    /// Returns an estimation of the L1 gas amount that will be used (by Starknet's state update and
+    /// the Verifier) following the addition of a transaction with the given parameters to a batch;
+    /// e.g., a message from L2 to L1 is followed by a storage write operation in Starknet L1
+    /// contract which requires gas.
+    #[allow(clippy::too_many_arguments)]
+    pub fn calculate_tx_gas_usage_vector(
+        versioned_constants: &VersionedConstants,
+        call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
+        state_changes_count: StateChangesCount,
+        calldata_length: usize,
+        signature_length: usize,
+        l1_handler_payload_size: Option<usize>,
+        class_info: Option<ClassInfo>,
+        use_kzg_da: bool,
+    ) -> TransactionExecutionResult<GasVector> {
+        Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
+            + get_da_gas_cost(state_changes_count, use_kzg_da)
+            + get_calldata_and_signature_gas_cost(
+                calldata_length,
+                signature_length,
+                versioned_constants,
+            )
+            + get_code_gas_cost(class_info, versioned_constants)
+            + get_tx_events_gas_cost(call_infos, versioned_constants))
+    }
+
     // Construct the actual cost object using all fields that were set in the builder.
     fn calculate_actual_fee_and_resources(
         self,
@@ -156,7 +190,7 @@ impl<'a> ActualCostBuilder<'a> {
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
-        let gas_usage_vector = calculate_tx_gas_usage_vector(
+        let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
             &self.tx_context.block_context.versioned_constants,
             non_optional_call_infos,
             state_changes_count,
