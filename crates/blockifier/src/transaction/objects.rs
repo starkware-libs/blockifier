@@ -124,7 +124,18 @@ pub struct DeprecatedTransactionInfo {
     pub max_fee: Fee,
 }
 
-#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[derive(
+    derive_more::Add,
+    derive_more::Div,
+    derive_more::Sum,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    Serialize,
+)]
 pub struct GasVector {
     pub l1_gas: u128,
     pub l1_data_gas: u128,
