@@ -44,9 +44,10 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test, create_test_init_data,
-    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
-    FaultyAccountTxCreatorArgs, TestInitData, INVALID,
+    account_invoke_tx, block_context, calculate_class_info_for_testing,
+    create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
+    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
+    TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -261,6 +262,8 @@ fn test_max_fee_limit_validate(
     let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
     let block_info = &block_context.block_info;
+    let class_info =
+        calculate_class_info_for_testing(CairoVersion::Cairo0, grindy_validate_account.get_class());
 
     // Declare the grindy-validation account.
     let account_tx = declare_tx(
@@ -270,7 +273,7 @@ fn test_max_fee_limit_validate(
             max_fee: Fee(MAX_FEE),
             nonce: nonce_manager.next(account_address),
         },
-        grindy_validate_account.get_class(),
+        class_info,
     );
     account_tx.execute(&mut state, &block_context, true, true).unwrap();
 
@@ -560,6 +563,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     };
     state.set_contract_class(class_hash, contract_class.clone()).unwrap();
     state.set_compiled_class_hash(class_hash, declare_tx.compiled_class_hash).unwrap();
+    let class_info = calculate_class_info_for_testing(CairoVersion::Cairo1, contract_class);
     let declare_account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
@@ -567,7 +571,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
                 ..declare_tx
             }),
             TransactionHash::default(),
-            contract_class,
+            class_info,
         )
         .unwrap(),
     );
