@@ -47,13 +47,13 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
+use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
-    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_SEQUENCER_ADDRESS,
+    create_calldata, default_invoke_tx_args, test_erc20_sequencer_balance_key, CairoVersion,
+    NonceManager, SaltManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -285,25 +285,6 @@ fn validate_final_balances(
     }
 }
 
-fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
-        test_contract_address,
-        "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-    }
-}
-
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
@@ -438,7 +419,7 @@ fn test_invoke_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        da_gas: da_gas.clone(),
+        da_gas,
         actual_resources: ResourcesMapping(HashMap::from([
             (
                 abi_constants::BLOB_GAS_USAGE.to_string(),
@@ -1139,14 +1120,14 @@ fn test_declare_tx(
 
     let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
     let code_gas: GasVector = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
-    let gas_usage = code_gas + da_gas.clone();
+    let gas_usage = code_gas + da_gas;
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        da_gas: da_gas.clone(),
+        da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
@@ -1283,7 +1264,7 @@ fn test_deploy_account_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        da_gas: da_gas.clone(),
+        da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
@@ -1511,7 +1492,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     };
 
     let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
+        &versioned_constants,
         std::iter::empty(),
         state_changes_count,
         calldata_length,
@@ -1566,7 +1547,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     };
 
     let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
+        &versioned_constants,
         std::iter::empty(),
         state_changes_count,
         calldata_length,
