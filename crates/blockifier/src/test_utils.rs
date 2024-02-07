@@ -21,7 +21,8 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
+    Calldata, ContractAddressSalt, Fee, Resource, ResourceBounds, ResourceBoundsMapping,
+    TransactionSignature,
 };
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
@@ -29,6 +30,8 @@ use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::invoke_tx_args;
+use crate::test_utils::invoke::InvokeTxArgs;
 use crate::utils::const_max;
 use crate::versioned_constants::VersionedConstants;
 

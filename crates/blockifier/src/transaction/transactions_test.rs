@@ -438,7 +438,7 @@ fn test_invoke_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        da_gas: da_gas.clone(),
+        da_gas,
         actual_resources: ResourcesMapping(HashMap::from([
             (
                 abi_constants::BLOB_GAS_USAGE.to_string(),
@@ -1139,14 +1139,14 @@ fn test_declare_tx(
 
     let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
     let code_gas: GasVector = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
-    let gas_usage = code_gas + da_gas.clone();
+    let gas_usage = code_gas + da_gas;
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        da_gas: da_gas.clone(),
+        da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
@@ -1283,7 +1283,7 @@ fn test_deploy_account_tx(
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
-        da_gas: da_gas.clone(),
+        da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
             (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
@@ -1511,7 +1511,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     };
 
     let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
+        &versioned_constants,
         std::iter::empty(),
         state_changes_count,
         calldata_length,
@@ -1566,7 +1566,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     };
 
     let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
+        &versioned_constants,
         std::iter::empty(),
         state_changes_count,
         calldata_length,
