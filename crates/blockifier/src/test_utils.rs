@@ -477,6 +477,7 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
         class_hash,
         Felt::from(0),
         &[
+            contract_address_to_felt(Signers::Alice.into()), // Recipient
             contract_address_to_felt(Signers::Alice.into()), // Owner
         ],
     )
