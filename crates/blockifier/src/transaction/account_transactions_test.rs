@@ -24,7 +24,7 @@ use crate::abi::constants as abi_constants;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
-use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::fee::gas_usage::estimate_minimal_gas_vector;
