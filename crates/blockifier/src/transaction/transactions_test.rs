@@ -310,7 +310,7 @@ fn default_invoke_tx_args(
         n_steps: 4421,
         vm_resources: VmExecutionResources {
             n_steps:  822,
-            n_memory_holes:  4,
+            n_memory_holes:  0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
         },
         validate_gas_consumed: 0,
@@ -323,8 +323,8 @@ fn default_invoke_tx_args(
         range_check: 115,
         n_steps: 4876,
         vm_resources: VmExecutionResources {
-            n_steps: 1106,
-            n_memory_holes: 5,
+            n_steps: 1108,
+            n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
