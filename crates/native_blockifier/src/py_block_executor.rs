@@ -21,7 +21,7 @@ use crate::errors::{
     NativeBlockifierResult,
 };
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction::py_tx;
+use crate::py_transaction::{py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
@@ -110,15 +110,15 @@ impl PyBlockExecutor {
         self.tx_executor = None;
     }
 
-    #[pyo3(signature = (tx, raw_contract_class))]
+    #[pyo3(signature = (tx, optional_py_class_info))]
     pub fn execute(
         &mut self,
         tx: &PyAny,
-        raw_contract_class: Option<&str>,
+        optional_py_class_info: Option<PyClassInfo>,
     ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
         let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
-        let tx: Transaction = py_tx(tx, raw_contract_class)?;
+        let tx: Transaction = py_tx(tx, optional_py_class_info)?;
         let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
         let typed_tx_execution_info =
             TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };

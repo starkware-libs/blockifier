@@ -100,6 +100,8 @@ pub enum InvalidNativeBlockifierInputError {
     InvalidDataGasPriceWei(u128),
     #[error("Invalid Fri data gas price: {0}.")]
     InvalidDataGasPriceFri(u128),
+    #[error("Invalid Sierra program length. Must be > 0 for tx version >= 2.")]
+    InvalidSierraProgramLength,
 }
 
 create_exception!(native_blockifier, UndeclaredClassHashError, PyException);

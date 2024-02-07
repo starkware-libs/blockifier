@@ -56,29 +56,27 @@ pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
 }
 
 pub fn verify_contract_class_version(
-    contract_class: ContractClass,
+    contract_class: &ContractClass,
     declare_version: TransactionVersion,
-) -> Result<ContractClass, TransactionExecutionError> {
+) -> Result<(), TransactionExecutionError> {
     match contract_class {
         ContractClass::V0(_) => {
             if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 0,
-                })
+                return Ok(());
             }
+            Err(TransactionExecutionError::ContractClassVersionMismatch {
+                declare_version,
+                cairo_version: 0,
+            })
         }
         ContractClass::V1(_) => {
             if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 1,
-                })
+                return Ok(());
             }
+            Err(TransactionExecutionError::ContractClassVersionMismatch {
+                declare_version,
+                cairo_version: 1,
+            })
         }
     }
 }
