@@ -1,19 +1,91 @@
 use pretty_assertions::assert_eq;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
-use starknet_api::transaction::L2ToL1Payload;
+use starknet_api::transaction::{EventContent, EventData, EventKey, L2ToL1Payload};
 
-use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
+use crate::execution::call_info::{
+    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
+};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
-    get_log_message_to_l1_emissions_cost, get_message_segment_length,
+    get_log_message_to_l1_emissions_cost, get_message_segment_length, get_tx_events_gas_cost,
 };
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
 use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
+
+#[fixture]
+fn versioned_constants() -> &'static VersionedConstants {
+    VersionedConstants::latest_constants()
+}
+
+#[rstest]
+fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
+    let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
+    let (event_key_factor, data_word_cost) =
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+
+    let call_info_1 = &CallInfo::default();
+    let call_info_2 = &CallInfo::default();
+    let call_info_3 = &CallInfo::default();
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
+
+    let create_trivial_ordered_event_from_keys_and_data_sizes =
+        |keys_size: usize, data_size: usize| OrderedEvent {
+            order: 0,
+            event: EventContent {
+                keys: vec![EventKey(StarkFelt::ZERO); keys_size],
+                data: EventData(vec![StarkFelt::ZERO; data_size]),
+            },
+        };
+    let call_info_1 = &CallInfo {
+        execution: CallExecution {
+            events: vec![
+                create_trivial_ordered_event_from_keys_and_data_sizes(1, 2),
+                create_trivial_ordered_event_from_keys_and_data_sizes(1, 2),
+            ],
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let call_info_2 = &CallInfo {
+        execution: CallExecution {
+            events: vec![
+                create_trivial_ordered_event_from_keys_and_data_sizes(1, 0),
+                create_trivial_ordered_event_from_keys_and_data_sizes(0, 1),
+            ],
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let call_info_3 = &CallInfo {
+        execution: CallExecution {
+            events: vec![create_trivial_ordered_event_from_keys_and_data_sizes(0, 1)],
+            ..Default::default()
+        },
+        inner_calls: vec![CallInfo {
+            execution: CallExecution {
+                events: vec![create_trivial_ordered_event_from_keys_and_data_sizes(1, 0)],
+                ..Default::default()
+            },
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let expected = GasVector {
+        // 4 keys and 6 data words overall.
+        l1_gas: (event_key_factor * data_word_cost * 4_u128 + data_word_cost * 6_u128) / 1000,
+        l1_data_gas: 0_u128,
+    };
+    let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
+    assert_eq!(expected, gas_vector);
+    assert_ne!(GasVector::default(), gas_vector)
+}
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
