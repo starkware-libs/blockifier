@@ -469,9 +469,6 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
 
     let class_hash = Felt::from_hex(TEST_ERC20_FULL_CONTRACT_CLASS_HASH).unwrap();
 
-    println!("--- deploying ---");
-    println!("constructor selector: {}", selector_from_name("constructor").0.to_string());
-
     let (contract_address, _) = deploy_contract(
         &mut state,
         class_hash,
@@ -573,10 +570,6 @@ impl TestContext {
     ) -> CallInfo {
         let entry_point_selector = selector_from_name(entry_point_name);
         let calldata = Calldata(Arc::new(calldata));
-
-        println!("--- calling {} ---", entry_point_name);
-
-        println!("entry_point_selector: {}", entry_point_selector.0.to_string());
 
         let entry_point_call = CallEntryPoint {
             calldata,
