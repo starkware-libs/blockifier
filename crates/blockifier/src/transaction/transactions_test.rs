@@ -8,7 +8,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -26,16 +26,16 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
-use crate::block_context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_and_blob_gas_usage, estimate_minimal_l1_gas, get_onchain_data_cost,
+    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -60,21 +60,32 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping,
-    TransactionExecutionInfo,
+    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
+    TransactionInfo,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
     FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
 };
-use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
+use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
     deploy_account_tx_args, invoke_tx_args, retdata,
 };
+
+#[fixture]
+fn tx_initial_gas() -> u64 {
+    VersionedConstants::create_for_testing().tx_initial_gas()
+}
+
+#[fixture]
+fn versioned_constants_for_account_testing() -> VersionedConstants {
+    VersionedConstants::create_for_account_testing()
+}
 
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
@@ -143,7 +154,7 @@ fn expected_validate_call_info(
             storage_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: Transaction::initial_gas(),
+            initial_gas: tx_initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
         vm_resources,
@@ -153,12 +164,13 @@ fn expected_validate_call_info(
 }
 
 fn expected_fee_transfer_call_info(
-    block_context: &BlockContext,
+    tx_context: &TransactionContext,
     account_address: ContractAddress,
     actual_fee: Fee,
-    fee_type: &FeeType,
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
+    let block_context = &tx_context.block_context;
+    let fee_type = &tx_context.tx_info.fee_type();
     let expected_sequencer_address = block_context.block_info.sequencer_address;
     let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
@@ -179,7 +191,7 @@ fn expected_fee_transfer_call_info(
         storage_address,
         caller_address: account_address,
         call_type: CallType::Call,
-        initial_gas: abi_constants::INITIAL_GAS_COST,
+        initial_gas: block_context.versioned_constants.gas_cost("initial_gas_cost"),
     };
     let expected_fee_sender_address = *account_address.0.key();
     let expected_fee_transfer_event = OrderedEvent {
@@ -291,42 +303,42 @@ fn default_invoke_tx_args(
     }
 }
 
-#[test_case(
+#[rstest]
+#[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
         range_check: 102,
-        n_steps: 4464,
+        n_steps: 4421,
         vm_resources: VmExecutionResources {
-            n_steps:  62,
+            n_steps:  822,
             n_memory_holes:  0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
-        inner_call_initial_gas: abi_constants::INITIAL_GAS_COST,
+        inner_call_initial_gas: versioned_constants_for_account_testing().gas_cost("initial_gas_cost"),
     },
-    CairoVersion::Cairo0;
-    "With Cairo0 account")]
-#[test_case(
+    CairoVersion::Cairo0)]
+#[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
         range_check: 115,
-        n_steps: 4917,
+        n_steps: 4876,
         vm_resources: VmExecutionResources {
-            n_steps: 284,
+            n_steps: 1108,
             n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
             // arguments.
         execute_gas_consumed: 103660,
         inner_call_initial_gas: 9999681980,
     },
-    CairoVersion::Cairo1;
-    "With Cairo1 account")]
+    CairoVersion::Cairo1)]
 fn test_invoke_tx(
-    expected_arguments: ExpectedResultTestInvokeTx,
-    account_cairo_version: CairoVersion,
+    #[case] expected_arguments: ExpectedResultTestInvokeTx,
+    #[case] account_cairo_version: CairoVersion,
+    #[values(false, true)] use_kzg_da: bool,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -339,10 +351,12 @@ fn test_invoke_tx(
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
+    let calldata_length = &invoke_tx.calldata().0.len();
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
-    let fee_type = &account_tx.fee_type();
+    let tx_context = block_context.to_tx_context(&account_tx);
+
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -371,7 +385,7 @@ fn test_invoke_tx(
     };
     let expected_execute_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::EXECUTE_ENTRY_POINT_NAME),
-        initial_gas: Transaction::initial_gas() - expected_arguments.validate_gas_consumed,
+        initial_gas: tx_initial_gas() - expected_arguments.validate_gas_consumed,
         ..expected_validate_call_info.as_ref().unwrap().call.clone()
     };
     let expected_return_result_retdata = Retdata(expected_return_result_calldata);
@@ -397,16 +411,23 @@ fn test_invoke_tx(
     });
 
     // Build expected fee transfer call info.
+    let fee_type = &tx_context.tx_info.fee_type();
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
-        block_context,
+        &tx_context,
         sender_address,
         expected_actual_fee,
-        fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
 
+    let state_changes_count = StateChangesCount {
+        n_storage_updates: 1,
+        n_modified_contracts: 1,
+        ..StateChangesCount::default()
+    };
+    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
+        get_da_gas_cost(state_changes_count, use_kzg_da);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -414,14 +435,11 @@ fn test_invoke_tx(
         actual_fee: expected_actual_fee,
         actual_resources: ResourcesMapping(HashMap::from([
             (
-                abi_constants::GAS_USAGE.to_string(),
-                get_onchain_data_cost(StateChangesCount {
-                    n_storage_updates: 1,
-                    n_modified_contracts: 1,
-                    ..StateChangesCount::default()
-                }),
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(expected_blob_gas_usage).unwrap(),
             ),
-            (HASH_BUILTIN_NAME.to_string(), 16),
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
+            (HASH_BUILTIN_NAME.to_string(), 14 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
         ])),
@@ -703,8 +721,8 @@ fn assert_failure_if_resource_bounds_exceed_balance(
     block_context: &BlockContext,
     invalid_tx: AccountTransaction,
 ) {
-    match invalid_tx.get_account_tx_context() {
-        AccountTransactionContext::Deprecated(context) => {
+    match block_context.to_tx_context(&invalid_tx).tx_info {
+        TransactionInfo::Deprecated(context) => {
             assert_matches!(
                 invalid_tx.execute(state, block_context, true, true).unwrap_err(),
                 TransactionExecutionError::TransactionPreValidationError(
@@ -713,7 +731,7 @@ fn assert_failure_if_resource_bounds_exceed_balance(
                 if max_fee == context.max_fee
             );
         }
-        AccountTransactionContext::Current(context) => {
+        TransactionInfo::Current(context) => {
             let l1_bounds = context.l1_resource_bounds().unwrap();
             assert_matches!(
                 invalid_tx.execute(state, block_context, true, true).unwrap_err(),
@@ -804,16 +822,14 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // The minimal gas estimate does not depend on tx version.
-    let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(valid_invoke_tx_args.clone()))
-            .unwrap()
-            .gas_usage;
+    let tx = &account_invoke_tx(valid_invoke_tx_args.clone());
+    let minimal_l1_gas = estimate_minimal_gas_vector(block_context, tx).unwrap().l1_gas;
 
     // Test V1 transaction.
 
     let gas_prices = &block_context.block_info.gas_prices;
     // TODO(Aner, 21/01/24) change to linear combination.
-    let minimal_fee = Fee(minimal_l1_gas * gas_prices.eth_l1_gas_price);
+    let minimal_fee = Fee(minimal_l1_gas * u128::from(gas_prices.eth_l1_gas_price));
     // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
     let invalid_v1_tx = account_invoke_tx(
@@ -838,7 +854,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     let insufficient_max_l1_gas_amount =
         (minimal_l1_gas - 1).try_into().expect("Failed to convert u128 to u64.");
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
-        resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price),
+        resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price.into()),
         version: TransactionVersion::THREE,
         ..valid_invoke_tx_args.clone()
     });
@@ -857,7 +873,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
     );
 
     // Max L1 gas price too low.
-    let insufficient_max_l1_gas_price = actual_strk_l1_gas_price - 1;
+    let insufficient_max_l1_gas_price = u128::from(actual_strk_l1_gas_price) - 1;
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
@@ -872,7 +888,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
             TransactionPreValidationError::TransactionFeeError(
                 TransactionFeeError::MaxL1GasPriceTooLow{ max_l1_gas_price, actual_l1_gas_price }))
         if max_l1_gas_price == insufficient_max_l1_gas_price &&
-        actual_l1_gas_price == actual_strk_l1_gas_price
+        actual_l1_gas_price == actual_strk_l1_gas_price.into()
     );
 }
 
@@ -893,11 +909,10 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         test_contract.get_instance_address(0),
     );
 
-    let minimal_l1_gas =
-        estimate_minimal_l1_gas(block_context, &account_invoke_tx(invoke_tx_args.clone()))
-            .unwrap()
-            .gas_usage;
-    let minimal_fee = Fee(minimal_l1_gas * block_context.block_info.gas_prices.eth_l1_gas_price);
+    let tx = &account_invoke_tx(invoke_tx_args.clone());
+    let minimal_l1_gas = estimate_minimal_gas_vector(block_context, tx).unwrap().l1_gas;
+    let minimal_fee =
+        Fee(minimal_l1_gas * u128::from(block_context.block_info.gas_prices.eth_l1_gas_price));
     // The estimated minimal fee is lower than the actual fee.
     let invalid_tx = account_invoke_tx(invoke_tx_args! { max_fee: minimal_fee, ..invoke_tx_args });
 
@@ -930,15 +945,9 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let invalid_nonce = Nonce(stark_felt!(1_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
-    let invalid_tx_context = invalid_tx.get_account_tx_context();
+    let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
     let pre_validation_err = invalid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &invalid_tx_context,
-            block_context,
-            false,
-            true,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &invalid_tx_context, false, true)
         .unwrap_err();
 
     // Test error.
@@ -955,29 +964,19 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     let valid_nonce = Nonce(stark_felt!(1_u8));
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
-    let valid_tx_context = valid_tx.get_account_tx_context();
+
+    let valid_tx_context = block_context.to_tx_context(&valid_tx);
     valid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &valid_tx_context,
-            block_context,
-            false,
-            false,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &valid_tx_context, false, false)
         .unwrap();
 
     // Negative flow: account nonce = 1, incoming tx nonce = 0.
     let invalid_nonce = Nonce(stark_felt!(0_u8));
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
+    let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
     let pre_validation_err = invalid_tx
-        .perform_pre_validation_stage(
-            &mut transactional_state,
-            &invalid_tx.get_account_tx_context(),
-            block_context,
-            false,
-            false,
-        )
+        .perform_pre_validation_stage(&mut transactional_state, &invalid_tx_context, false, false)
         .unwrap_err();
 
     // Test error.
@@ -1008,11 +1007,11 @@ fn declare_expected_range_check_builtin(
 /// Returns the expected number of cairo steps in a declare transaction.
 fn declare_n_steps(version: TransactionVersion, declared_contract_version: CairoVersion) -> usize {
     if version == TransactionVersion::ZERO {
-        2909 // No `__validate__`. Same number of steps, regardless of declared contract version.
+        2839 // No `__validate__`. Same number of steps, regardless of declared contract version.
     } else {
         match declared_contract_version {
-            CairoVersion::Cairo0 => 2921,
-            CairoVersion::Cairo1 => 2959,
+            CairoVersion::Cairo0 => 2851,
+            CairoVersion::Cairo1 => 2889,
         }
     }
 }
@@ -1040,8 +1039,9 @@ fn declare_validate_callinfo(
     }
 }
 
-/// Returns the expected used L1 gas due to execution of a declare transaction.
-fn declare_expected_l1_gas_usage(version: TransactionVersion) -> usize {
+/// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
+/// a declare transaction.
+fn declare_expected_gas_vector(version: TransactionVersion, use_kzg_da: bool) -> GasVector {
     let state_changes_count = match version {
         TransactionVersion::ZERO => StateChangesCount {
             n_storage_updates: 1, // Sender balance.
@@ -1061,7 +1061,7 @@ fn declare_expected_l1_gas_usage(version: TransactionVersion) -> usize {
         version => panic!("Unsupported version {version:?}."),
     };
 
-    get_onchain_data_cost(state_changes_count)
+    get_da_gas_cost(state_changes_count, use_kzg_da)
 }
 
 #[rstest]
@@ -1073,8 +1073,9 @@ fn test_declare_tx(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
     #[case] tx_version: TransactionVersion,
     #[case] empty_contract_version: CairoVersion,
+    #[values(false, true)] use_kzg_da: bool,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
     let empty_contract = FeatureContract::Empty(empty_contract_version);
     let account = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let chain_info = &block_context.chain_info;
@@ -1101,6 +1102,7 @@ fn test_declare_tx(
         undeclared_class_hash == class_hash
     );
     let fee_type = &account_tx.fee_type();
+    let tx_context = &block_context.to_tx_context(&account_tx);
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -1116,12 +1118,14 @@ fn test_declare_tx(
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
-        block_context,
+        tx_context,
         sender_address,
         expected_actual_fee,
-        fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
+
+    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
+        declare_expected_gas_vector(tx_version, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1130,8 +1134,12 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::GAS_USAGE.to_string(), declare_expected_l1_gas_usage(tx_version)),
-            (HASH_BUILTIN_NAME.to_string(), 15),
+            (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage.try_into().unwrap()),
+            (
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                expected_blob_gas_usage.try_into().unwrap(),
+            ),
+            (HASH_BUILTIN_NAME.to_string(), 16),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
                 declare_expected_range_check_builtin(tx_version, account_cairo_version),
@@ -1169,14 +1177,15 @@ fn test_declare_tx(
 }
 
 #[rstest]
-#[case(83, 3893, CairoVersion::Cairo0)]
-#[case(85, 3949, CairoVersion::Cairo1)]
+#[case(83, 3809, CairoVersion::Cairo0)]
+#[case(85, 3865, CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
     #[case] expected_range_check_builtin: usize,
     #[case] expected_n_steps_resource: usize,
     #[case] cairo_version: CairoVersion,
+    #[values(false, true)] use_kzg_da: bool,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
     let chain_info = &block_context.chain_info;
     let mut nonce_manager = NonceManager::default();
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
@@ -1209,6 +1218,7 @@ fn test_deploy_account_tx(
 
     let account_tx = AccountTransaction::DeployAccount(deploy_account);
     let fee_type = &account_tx.fee_type();
+    let tx_context = &block_context.to_tx_context(&account_tx);
     let actual_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
     // Build expected validate call info.
@@ -1232,7 +1242,7 @@ fn test_deploy_account_tx(
             entry_point_type: EntryPointType::Constructor,
             entry_point_selector: selector_from_name(abi_constants::CONSTRUCTOR_ENTRY_POINT_NAME),
             storage_address: deployed_account_address,
-            initial_gas: Transaction::initial_gas(),
+            initial_gas: tx_initial_gas(),
             ..Default::default()
         },
         ..Default::default()
@@ -1242,12 +1252,20 @@ fn test_deploy_account_tx(
     let expected_actual_fee =
         calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
-        block_context,
+        tx_context,
         deployed_account_address,
         expected_actual_fee,
-        fee_type,
         FeatureContract::ERC20.get_class_hash(),
     );
+
+    let state_changes_count = StateChangesCount {
+        n_storage_updates: 1,
+        n_modified_contracts: 1,
+        n_class_hash_updates: 1,
+        ..StateChangesCount::default()
+    };
+    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
+        get_da_gas_cost(state_changes_count, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1256,14 +1274,10 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
             (
-                abi_constants::GAS_USAGE.to_string(),
-                get_onchain_data_cost(StateChangesCount {
-                    n_storage_updates: 1,
-                    n_modified_contracts: 1,
-                    n_class_hash_updates: 1,
-                    ..StateChangesCount::default()
-                }),
+                abi_constants::BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(expected_blob_gas_usage).unwrap(),
             ),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
@@ -1454,11 +1468,11 @@ fn test_validate_accounts_tx(
 // Test that we exclude the fee token contract modification and adds the account’s balance change
 // in the state changes.
 // TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
-#[test]
-fn test_calculate_tx_gas_usage() {
+#[rstest]
+fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
@@ -1481,10 +1495,18 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_and_blob_gas_usage =
-        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
-    let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
-    assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
+    let gas_vector =
+        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
+            .unwrap();
+    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
+    assert_eq!(
+        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
+        l1_gas_usage
+    );
+    assert_eq!(
+        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
+        l1_blob_gas_usage
+    );
 
     // A tx that changes the account and some other balance in execute.
     let some_other_account_address = account_contract.get_instance_address(17);
@@ -1518,10 +1540,18 @@ fn test_calculate_tx_gas_usage() {
         n_compiled_class_hash_updates: 0,
     };
 
-    let l1_gas_and_blob_gas_usage =
-        calculate_tx_gas_and_blob_gas_usage(std::iter::empty(), state_changes_count, None).unwrap();
-    let GasAndBlobGasUsages { gas_usage: l1_gas_usage, .. } = l1_gas_and_blob_gas_usage;
-    assert_eq!(tx_execution_info.actual_resources.gas_usage() as u128, l1_gas_usage);
+    let gas_vector =
+        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
+            .unwrap();
+    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
+    assert_eq!(
+        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
+        l1_gas_usage
+    );
+    assert_eq!(
+        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
+        l1_blob_gas_usage
+    );
 }
 
 #[rstest]
@@ -1638,15 +1668,16 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
     }
 }
 
-#[test]
-fn test_l1_handler() {
+#[rstest]
+fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let state = &mut create_test_state();
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
     let from_address = StarkFelt::from_u128(0x123);
     let key = StarkFelt::from_u128(0x876);
     let value = StarkFelt::from_u128(0x44);
     let calldata = calldata![from_address, key, value];
     let tx = l1_handler_tx(&calldata, Fee(1));
+    let payload_size = tx.payload_size();
 
     let actual_execution_info = tx.execute(state, block_context, true, true).unwrap();
 
@@ -1662,7 +1693,7 @@ fn test_l1_handler() {
             storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
-            initial_gas: Transaction::initial_gas(),
+            initial_gas: tx_initial_gas(),
         },
         execution: CallExecution {
             retdata: Retdata(vec![value]),
@@ -1670,20 +1701,26 @@ fn test_l1_handler() {
             ..Default::default()
         },
         vm_resources: VmExecutionResources {
-            n_steps: 143,
+            n_steps: 232,
             n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 6)]),
         },
         accessed_storage_keys: HashSet::from_iter(vec![accessed_storage_key]),
         ..Default::default()
     };
 
     // Build the expected resource mapping.
+    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
+        true => (16023, 128),
+        false => (17675, 0),
+    };
+
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
-        (HASH_BUILTIN_NAME.to_string(), 11),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 1390),
+        (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
+        (abi_constants::N_STEPS_RESOURCE.to_string(), 1405),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::GAS_USAGE.to_string(), 17675),
+        (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
+        (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
     ]));
 
     // Build the expected execution info.
@@ -1718,7 +1755,7 @@ fn test_l1_handler() {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1741300000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1742800000000000)
     );
 }
 

@@ -7,9 +7,9 @@ use starknet_api::transaction::{Calldata, Fee, ResourceBoundsMapping, Transactio
 use starknet_api::{patricia_key, stark_felt};
 use starknet_crypto::FieldElement;
 
-use crate::block_context::{BlockContext, ChainInfo};
+use crate::context::{BlockContext, ChainInfo};
 use crate::fee::fee_checks::FeeCheckError;
-use crate::fee::fee_utils::calculate_tx_l1_gas_usages;
+use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -17,7 +17,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{create_calldata, CairoVersion, BALANCE, MAX_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, l1_resource_bounds, max_fee, max_resource_bounds,
     run_invoke_tx, TestInitData,
@@ -108,7 +108,7 @@ fn test_revert_on_overdraft(
         resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address),
     });
-    let account_tx_context = approve_tx.get_account_tx_context();
+    let tx_info = approve_tx.create_tx_info();
     let approval_execution_info =
         approve_tx.execute(&mut state, &block_context, true, true).unwrap();
     assert!(!approval_execution_info.is_reverted());
@@ -141,10 +141,7 @@ fn test_revert_on_overdraft(
 
     // Check the current balance, before next transaction.
     let (balance, _) = state
-        .get_fee_token_balance(
-            account_address,
-            chain_info.fee_token_address(&account_tx_context.fee_type()),
-        )
+        .get_fee_token_balance(account_address, chain_info.fee_token_address(&tx_info.fee_type()))
         .unwrap();
 
     // Attempt to transfer the entire balance, such that no funds remain to pay transaction fee.
@@ -187,7 +184,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 account_address,
-                chain_info.fee_token_address(&account_tx_context.fee_type()),
+                chain_info.fee_token_address(&tx_info.fee_type()),
             )
             .unwrap(),
         (expected_new_balance, stark_felt!(0_u8))
@@ -196,7 +193,7 @@ fn test_revert_on_overdraft(
         state
             .get_fee_token_balance(
                 recipient_address,
-                chain_info.fee_token_address(&account_tx_context.fee_type())
+                chain_info.fee_token_address(&tx_info.fee_type())
             )
             .unwrap(),
         (final_received_amount, stark_felt!(0_u8))
@@ -257,12 +254,14 @@ fn test_revert_on_resource_overuse(
     assert_eq!(execution_info_measure.revert_error, None);
     let actual_fee = execution_info_measure.actual_fee;
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
-    let actual_gas_usage: u64 =
-        calculate_tx_l1_gas_usages(&execution_info_measure.actual_resources, &block_context)
-            .unwrap()
-            .gas_usage
-            .try_into()
-            .expect("Failed to convert u128 to u64.");
+    let actual_gas_usage: u64 = calculate_tx_gas_vector(
+        &execution_info_measure.actual_resources,
+        &block_context.versioned_constants,
+    )
+    .unwrap()
+    .l1_gas
+    .try_into()
+    .expect("Failed to convert u128 to u64.");
 
     // Run the same function, with a different written value (to keep cost high), with the actual
     // resources used as upper bounds. Make sure execution does not revert.

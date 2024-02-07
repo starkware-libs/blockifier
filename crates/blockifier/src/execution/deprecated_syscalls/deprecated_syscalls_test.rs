@@ -18,22 +18,26 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
+use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
 };
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    trivial_external_entry_point, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    trivial_external_entry_point, trivial_external_entry_point_with_address, CairoVersion,
+    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
-    AccountTransactionContext, CommonAccountFields, DeprecatedAccountTransactionContext,
+    CommonAccountFields, DeprecatedTransactionInfo, TransactionInfo,
 };
 use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
@@ -130,8 +134,11 @@ fn test_nested_library_call() {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
         ..nested_storage_entry_point
     };
-    let storage_entry_point_vm_resources =
-        VmExecutionResources { n_steps: 42, ..Default::default() };
+    let storage_entry_point_vm_resources = VmExecutionResources {
+        n_steps: 218,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
+    };
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
@@ -141,9 +148,9 @@ fn test_nested_library_call() {
         ..Default::default()
     };
     let mut library_call_vm_resources = VmExecutionResources {
-        n_steps: 39,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
-        ..Default::default()
+        n_steps: 790,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
     };
     library_call_vm_resources += &storage_entry_point_vm_resources;
     let library_call_info = CallInfo {
@@ -163,7 +170,11 @@ fn test_nested_library_call() {
     };
 
     // Nested library call cost: library_call(inner) + library_call(library_call(inner)).
-    let mut main_call_vm_resources = VmExecutionResources { n_steps: 45, ..Default::default() };
+    let mut main_call_vm_resources = VmExecutionResources {
+        n_steps: 796,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 20)]),
+    };
     main_call_vm_resources += &(&library_call_vm_resources * 2);
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
@@ -178,38 +189,47 @@ fn test_nested_library_call() {
 
 #[test]
 fn test_call_contract() {
-    let mut state = deprecated_create_test_state();
+    let chain_info = &ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(chain_info, 0, &[(test_contract, 1)]);
+    let test_address = test_contract.get_instance_address(0);
+
+    let trivial_external_entry_point = trivial_external_entry_point_with_address(test_address);
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let (key, value) = (stark_felt!(405_u16), stark_felt!(48_u8));
     let inner_calldata = calldata![key, value];
     let calldata = calldata![
-        stark_felt!(TEST_CONTRACT_ADDRESS), // Contract address.
-        inner_entry_point_selector.0,       // Function selector.
-        stark_felt!(2_u8),                  // Calldata length.
-        key,                                // Calldata: address.
-        value                               // Calldata: value.
+        *test_address.0.key(),        // Contract address.
+        inner_entry_point_selector.0, // Function selector.
+        stark_felt!(2_u8),            // Calldata length.
+        key,                          // Calldata: address.
+        value                         // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata: calldata.clone(),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point
     };
     let call_info = entry_point_call.execute_directly(&mut state).unwrap();
 
     let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
     let expected_inner_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-            code_address: Some(contract_address!(TEST_CONTRACT_ADDRESS)),
+            class_hash: Some(test_contract.get_class_hash()),
+            code_address: Some(test_address),
             entry_point_selector: inner_entry_point_selector,
             calldata: inner_calldata,
-            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
-            caller_address: contract_address!(TEST_CONTRACT_ADDRESS),
-            ..trivial_external_entry_point()
+            storage_address: test_address,
+            caller_address: test_address,
+            ..trivial_external_entry_point
         },
         execution: expected_execution.clone(),
-        vm_resources: VmExecutionResources { n_steps: 42, ..Default::default() },
+        vm_resources: VmExecutionResources {
+            n_steps: 218,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
+        },
         storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
@@ -217,18 +237,18 @@ fn test_call_contract() {
     let expected_call_info = CallInfo {
         inner_calls: vec![expected_inner_call_info],
         call: CallEntryPoint {
-            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-            code_address: Some(contract_address!(TEST_CONTRACT_ADDRESS)),
+            class_hash: Some(test_contract.get_class_hash()),
+            code_address: Some(test_address),
             entry_point_selector: outer_entry_point_selector,
             calldata,
-            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
-            ..trivial_external_entry_point()
+            storage_address: test_address,
+            ..trivial_external_entry_point
         },
         execution: expected_execution,
         vm_resources: VmExecutionResources {
-            n_steps: 81,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
-            ..Default::default()
+            n_steps: 1017,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
         },
         ..Default::default()
     };
@@ -239,29 +259,32 @@ fn test_call_contract() {
 #[test]
 fn test_replace_class() {
     // Negative flow.
-    let mut state = deprecated_create_deploy_test_state();
+    let chain_info = &ChainInfo::create_for_testing();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo0);
+    let mut state = test_state(chain_info, 0, &[(test_contract, 1), (empty_contract, 1)]);
+    let test_address = test_contract.get_instance_address(0);
     // Replace with undeclared class hash.
     let calldata = calldata![stark_felt!(1234_u16)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address)
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
 
     // Positive flow.
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    let old_class_hash = class_hash!(TEST_CLASS_HASH);
-    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
+    let old_class_hash = test_contract.get_class_hash();
+    let new_class_hash = empty_contract.get_class_hash();
+    assert_eq!(state.get_class_hash_at(test_address).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_address)
     };
     entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
+    assert_eq!(state.get_class_hash_at(test_address).unwrap(), new_class_hash);
 }
 
 #[test_case(
@@ -451,20 +474,20 @@ fn test_tx_info(#[case] only_query: bool) {
         calldata: expected_tx_info,
         ..trivial_external_entry_point()
     };
-    let account_tx_context =
-        AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext {
-            common_fields: CommonAccountFields {
-                transaction_hash: tx_hash,
-                version: TransactionVersion::ONE,
-                nonce,
-                sender_address,
-                only_query,
-                ..Default::default()
-            },
-            max_fee,
-        });
+    let tx_info = TransactionInfo::Deprecated(DeprecatedTransactionInfo {
+        common_fields: CommonAccountFields {
+            transaction_hash: tx_hash,
+            version: TransactionVersion::ONE,
+            nonce,
+            sender_address,
+            only_query,
+            ..Default::default()
+        },
+        max_fee,
+    });
+    let limit_steps_by_resources = true;
     let result = entry_point_call
-        .execute_directly_given_account_context(&mut state, account_tx_context, true)
+        .execute_directly_given_tx_info(&mut state, tx_info, limit_steps_by_resources)
         .unwrap();
 
     assert!(!result.execution.failed)

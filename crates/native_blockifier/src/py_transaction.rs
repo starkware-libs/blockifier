@@ -135,3 +135,12 @@ pub fn py_tx(tx: &PyAny, raw_contract_class: Option<&str>) -> NativeBlockifierRe
         TransactionType::L1Handler => py_l1_handler(tx)?.into(),
     })
 }
+
+// TODO(Ayelet,10/02/2024): Use this struct's fields and remove the clippy tag.
+#[allow(dead_code)]
+#[derive(Clone, FromPyObject)]
+pub struct PyClassInfo {
+    raw_contract_class: String,
+    sierra_program_length: usize,
+    abi_length: usize,
+}

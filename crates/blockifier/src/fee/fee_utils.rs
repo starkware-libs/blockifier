@@ -4,13 +4,15 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants;
-use crate::block_context::{BlockContext, BlockInfo, ChainInfo};
+use crate::block::BlockInfo;
+use crate::context::{BlockContext, TransactionContext};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
-    AccountTransactionContext, FeeType, GasAndBlobGasUsages, HasRelatedFeeType, ResourcesMapping,
-    TransactionFeeResult,
+    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, TransactionFeeResult, TransactionInfo,
 };
+use crate::utils::u128_from_usize;
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "fee_test.rs"]
@@ -19,7 +21,7 @@ pub mod test;
 pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
     let mut vm_resource_usage = resources.0.clone();
     let l1_gas_usage = vm_resource_usage
-        .remove(constants::GAS_USAGE)
+        .remove(constants::L1_GAS_USAGE)
         .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
 
     (l1_gas_usage, ResourcesMapping(vm_resource_usage))
@@ -27,8 +29,9 @@ pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, Reso
 
 pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
     let mut vm_resource_usage = resources.0.clone();
-    // TODO(Aner, 21/01/24) change unwrap_or to expect.
-    let l1_blob_gas_usage = vm_resource_usage.remove(constants::BLOB_GAS_USAGE).unwrap_or(0);
+    let l1_blob_gas_usage = vm_resource_usage
+        .remove(constants::BLOB_GAS_USAGE)
+        .expect("`ResourcesMapping` does not have the key `blob_gas_usage`.");
 
     (l1_blob_gas_usage, ResourcesMapping(vm_resource_usage))
 }
@@ -37,10 +40,10 @@ pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, Resour
 /// I.e., returns the heaviest Cairo resource weight (in terms of L1 gas), as the size of
 /// a proof is determined similarly - by the (normalized) largest segment.
 pub fn calculate_l1_gas_by_vm_usage(
-    block_context: &BlockContext,
+    versioned_constants: &VersionedConstants,
     vm_resource_usage: &ResourcesMapping,
-) -> TransactionFeeResult<f64> {
-    let vm_resource_fee_costs = &block_context.block_info.vm_resource_fee_cost;
+) -> TransactionFeeResult<GasVector> {
+    let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
     let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
@@ -54,34 +57,39 @@ pub fn calculate_l1_gas_by_vm_usage(
         })
         .fold(f64::NAN, f64::max);
 
-    Ok(vm_l1_gas_usage)
+    // TODO(Dori, 1/5/2024): Check this conversion.
+    Ok(GasVector { l1_gas: vm_l1_gas_usage.ceil() as u128, blob_gas: 0 })
 }
 
 /// Computes and returns the total L1 gas consumption.
 /// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1 messages)
 /// to the gas consumed by Cairo VM resource.
-pub fn calculate_tx_l1_gas_usages(
+pub fn calculate_tx_gas_vector(
     resources: &ResourcesMapping,
-    block_context: &BlockContext,
-) -> TransactionFeeResult<GasAndBlobGasUsages> {
+    versioned_constants: &VersionedConstants,
+) -> TransactionFeeResult<GasVector> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
-    let l1_gas_by_vm_usage = calculate_l1_gas_by_vm_usage(block_context, &vm_resources)?;
-    let total_l1_gas_usage = l1_gas_usage as f64 + l1_gas_by_vm_usage;
+    let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
 
-    Ok(GasAndBlobGasUsages {
-        gas_usage: total_l1_gas_usage.ceil() as u128,
-        blob_gas_usage: l1_blob_gas_usage as u128,
-    })
+    Ok(GasVector {
+        l1_gas: u128_from_usize(l1_gas_usage)
+            .expect("Conversion from usize to u128 should not fail."),
+        blob_gas: u128_from_usize(l1_blob_gas_usage)
+            .expect("Conversion from usize to u128 should not fail."),
+    } + vm_usage_gas_vector)
 }
 
-pub fn get_fee_by_l1_gas_usage(
+/// Converts the gas vector to a fee.
+pub fn get_fee_by_gas_vector(
     block_info: &BlockInfo,
-    l1_gas_usages: GasAndBlobGasUsages,
+    gas_vector: GasVector,
     fee_type: &FeeType,
 ) -> Fee {
-    // TODO(Aner, 25/01/24) compute via linear combination and rename function accordingly.
-    Fee(l1_gas_usages.gas_usage * block_info.gas_prices.get_gas_price_by_fee_type(fee_type))
+    gas_vector.saturated_cost(
+        u128::from(block_info.gas_prices.get_gas_price_by_fee_type(fee_type)),
+        u128::from(block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type)),
+    )
 }
 
 /// Calculates the fee that should be charged, given execution resources.
@@ -90,20 +98,20 @@ pub fn calculate_tx_fee(
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
-    let l1_gas_and_blob_gas_usage = calculate_tx_l1_gas_usages(resources, block_context)?;
-    Ok(get_fee_by_l1_gas_usage(&block_context.block_info, l1_gas_and_blob_gas_usage, fee_type))
+    let gas_vector = calculate_tx_gas_vector(resources, &block_context.versioned_constants)?;
+    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
 pub fn get_balance_and_if_covers_fee(
     state: &mut dyn StateReader,
-    account_tx_context: &AccountTransactionContext,
-    chain_info: &ChainInfo,
+    tx_context: &TransactionContext,
     fee: Fee,
 ) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
+    let tx_info = &tx_context.tx_info;
     let (balance_low, balance_high) = state.get_fee_token_balance(
-        account_tx_context.sender_address(),
-        chain_info.fee_token_address(&account_tx_context.fee_type()),
+        tx_info.sender_address(),
+        tx_context.block_context.chain_info.fee_token_address(&tx_info.fee_type()),
     )?;
     Ok((
         balance_low,
@@ -118,26 +126,26 @@ pub fn get_balance_and_if_covers_fee(
 /// Error may indicate insufficient balance, or some other error.
 pub fn verify_can_pay_committed_bounds(
     state: &mut dyn StateReader,
-    account_tx_context: &AccountTransactionContext,
-    chain_info: &ChainInfo,
+    tx_context: &TransactionContext,
 ) -> TransactionFeeResult<()> {
-    let committed_fee = match account_tx_context {
-        AccountTransactionContext::Current(context) => {
+    let tx_info = &tx_context.tx_info;
+    let committed_fee = match tx_info {
+        TransactionInfo::Current(context) => {
             let l1_bounds = context.l1_resource_bounds()?;
             let max_amount: u128 = l1_bounds.max_amount.into();
             // Sender will not be charged by `max_price_per_unit`, but this check should not depend
             // on the current gas price.
             Fee(max_amount * l1_bounds.max_price_per_unit)
         }
-        AccountTransactionContext::Deprecated(context) => context.max_fee,
+        TransactionInfo::Deprecated(context) => context.max_fee,
     };
     let (balance_low, balance_high, can_pay) =
-        get_balance_and_if_covers_fee(state, account_tx_context, chain_info, committed_fee)?;
+        get_balance_and_if_covers_fee(state, tx_context, committed_fee)?;
     if can_pay {
         Ok(())
     } else {
-        Err(match account_tx_context {
-            AccountTransactionContext::Current(context) => {
+        Err(match tx_info {
+            TransactionInfo::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
                 TransactionFeeError::L1GasBoundsExceedBalance {
                     max_amount: l1_bounds.max_amount,
@@ -146,13 +154,11 @@ pub fn verify_can_pay_committed_bounds(
                     balance_high,
                 }
             }
-            AccountTransactionContext::Deprecated(context) => {
-                TransactionFeeError::MaxFeeExceedsBalance {
-                    max_fee: context.max_fee,
-                    balance_low,
-                    balance_high,
-                }
-            }
+            TransactionInfo::Deprecated(context) => TransactionFeeError::MaxFeeExceedsBalance {
+                max_fee: context.max_fee,
+                balance_low,
+                balance_high,
+            },
         })
     }
 }
