@@ -21,7 +21,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Resource};
-use starknet_api::StarknetApiError;
+use starknet_api::{stark_felt, StarknetApiError};
 use thiserror::Error;
 
 use crate::abi::sierra_types::SierraTypeError;
@@ -140,6 +140,12 @@ pub const INVALID_ARGUMENT: &str =
 pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c315f474153";
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
+
+// TODO(Tzahi, 1/4/2024): Move to an appropriate constants file.
+// Flooring factor for block number in validate mode.
+pub const VALIDATE_BLOCK_NUMBER_ROUNDING: u64 = 100;
+// Flooring factor for timestamp in validate mode.
+pub const VALIDATE_TIMESTAMP_ROUNDING: u64 = 3600;
 
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -483,13 +489,14 @@ impl<'a> SyscallHintProcessor<'a> {
         let block_timestamp = StarkFelt::from(block_info.block_timestamp.0);
         let block_number = StarkFelt::from(block_info.block_number.0);
         let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
-            vec![
-                // TODO(Yoni, 1/5/2024): set the number to be zero for `validate`.
-                block_number,
-                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
-                block_timestamp,
-                StarkFelt::ZERO,
-            ]
+            let block_number_u64: u64 = block_number.try_into()?;
+            let rounded_block_number = (block_number_u64 / VALIDATE_BLOCK_NUMBER_ROUNDING)
+                * VALIDATE_BLOCK_NUMBER_ROUNDING;
+            let block_timestamp_u64: u64 = block_timestamp.try_into()?;
+            let rounded_timestamp =
+                (block_timestamp_u64 / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING;
+
+            vec![stark_felt!(rounded_block_number), stark_felt!(rounded_timestamp), StarkFelt::ZERO]
         } else {
             vec![block_number, block_timestamp, *block_info.sequencer_address.0.key()]
         };
