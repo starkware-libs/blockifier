@@ -17,7 +17,7 @@ fn test_pre_process_block() {
     // Test the positive flow of pre_process_block inside the allowed block number interval
     let block_number = constants::STORED_BLOCK_HASH_BUFFER;
     let block_hash = StarkFelt::from(20_u8);
-    let mut block_info = BlockInfo::create_for_testing();
+    let mut block_info = BlockInfo::create_for_testing(false);
     block_info.block_number = BlockNumber(block_number);
     pre_process_block(
         &mut state,
@@ -36,7 +36,7 @@ fn test_pre_process_block() {
 
     // Test that block pre-process with block hash None is successful only within the allowed
     // block number interval.
-    let mut block_info = BlockInfo::create_for_testing();
+    let mut block_info = BlockInfo::create_for_testing(false);
     block_info.block_number = BlockNumber(constants::STORED_BLOCK_HASH_BUFFER - 1);
     assert!(
         pre_process_block(
@@ -49,7 +49,7 @@ fn test_pre_process_block() {
         .is_ok()
     );
 
-    let mut block_info = BlockInfo::create_for_testing();
+    let mut block_info = BlockInfo::create_for_testing(false);
     block_info.block_number = BlockNumber(constants::STORED_BLOCK_HASH_BUFFER);
     let error = pre_process_block(
         &mut state,

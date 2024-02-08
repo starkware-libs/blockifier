@@ -24,6 +24,9 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::syscalls::hint_processor::{
+    VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING,
+};
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
@@ -405,13 +408,15 @@ fn test_deploy(
     ExecutionMode::Execute, "block_number", calldata![stark_felt!(CURRENT_BLOCK_NUMBER)];
     "Test the syscall get_block_number in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "block_number", calldata![stark_felt!(CURRENT_BLOCK_NUMBER)];
+    ExecutionMode::Validate, "block_number", calldata![stark_felt!(
+        (CURRENT_BLOCK_NUMBER / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING)];
     "Test the syscall get_block_number in execution mode Validate")]
 #[test_case(
     ExecutionMode::Execute, "block_timestamp", calldata![stark_felt!(CURRENT_BLOCK_TIMESTAMP)];
     "Test the syscall get_block_timestamp in execution mode Execute")]
 #[test_case(
-    ExecutionMode::Validate, "block_timestamp", calldata![stark_felt!(CURRENT_BLOCK_TIMESTAMP)];
+    ExecutionMode::Validate, "block_timestamp", calldata![stark_felt!(
+        (CURRENT_BLOCK_TIMESTAMP  / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING)];
     "Test the syscall get_block_timestamp in execution mode Validate")]
 #[test_case(
     ExecutionMode::Execute, "sequencer_address", calldata![stark_felt!(TEST_SEQUENCER_ADDRESS)];
@@ -429,15 +434,22 @@ fn test_block_info_syscalls(
     let entry_point_call =
         CallEntryPoint { entry_point_selector, calldata, ..trivial_external_entry_point() };
 
-    if execution_mode == ExecutionMode::Validate && block_info_member_name == "sequencer_address" {
-        let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
-        check_entry_point_execution_error_for_custom_hint!(
-            &error,
-            &format!(
-                "Unauthorized syscall get_{} in execution mode Validate.",
-                block_info_member_name
-            ),
-        );
+    if execution_mode == ExecutionMode::Validate {
+        if block_info_member_name == "sequencer_address" {
+            let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+            check_entry_point_execution_error_for_custom_hint!(
+                &error,
+                &format!(
+                    "Unauthorized syscall get_{} in execution mode Validate.",
+                    block_info_member_name
+                ),
+            );
+        } else {
+            assert_eq!(
+                entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap().execution,
+                CallExecution::from_retdata(retdata![])
+            );
+        }
     } else {
         assert_eq!(
             entry_point_call.execute_directly(&mut state).unwrap().execution,

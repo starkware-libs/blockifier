@@ -12,6 +12,9 @@ use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
 };
+use crate::execution::syscalls::hint_processor::{
+    VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING,
+};
 use crate::state::state_api::State;
 use crate::test_utils::{
     get_raw_contract_class, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
@@ -40,7 +43,7 @@ impl CallEntryPoint {
         limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
         let tx_context =
-            TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
+            TransactionContext { block_context: BlockContext::create_for_testing(false), tx_info };
         let mut context =
             EntryPointExecutionContext::new_invoke(Arc::new(tx_context), limit_steps_by_resources)
                 .unwrap();
@@ -67,7 +70,7 @@ impl CallEntryPoint {
         limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
         let tx_context =
-            TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
+            TransactionContext { block_context: BlockContext::create_for_testing(true), tx_info };
         let mut context = EntryPointExecutionContext::new_validate(
             Arc::new(tx_context),
             limit_steps_by_resources,
@@ -96,10 +99,20 @@ impl ChainInfo {
 }
 
 impl BlockInfo {
-    pub fn create_for_testing() -> Self {
+    pub fn create_for_testing(is_validate: bool) -> Self {
+        let block_number = if is_validate {
+            (CURRENT_BLOCK_NUMBER / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING
+        } else {
+            CURRENT_BLOCK_NUMBER
+        };
+        let timestamp = if is_validate {
+            (CURRENT_BLOCK_TIMESTAMP / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING
+        } else {
+            CURRENT_BLOCK_TIMESTAMP
+        };
         Self {
-            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
+            block_number: BlockNumber(block_number),
+            block_timestamp: BlockTimestamp(timestamp),
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE.try_into().unwrap(),
@@ -112,14 +125,14 @@ impl BlockInfo {
     }
 
     pub fn create_for_testing_with_kzg(use_kzg_da: bool) -> Self {
-        Self { use_kzg_da, ..Self::create_for_testing() }
+        Self { use_kzg_da, ..Self::create_for_testing(false) }
     }
 }
 
 impl BlockContext {
-    pub fn create_for_testing() -> Self {
+    pub fn create_for_testing(is_validate: bool) -> Self {
         Self {
-            block_info: BlockInfo::create_for_testing(),
+            block_info: BlockInfo::create_for_testing(is_validate),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_testing(),
         }
@@ -127,7 +140,7 @@ impl BlockContext {
 
     pub fn create_for_account_testing() -> Self {
         Self {
-            block_info: BlockInfo::create_for_testing(),
+            block_info: BlockInfo::create_for_testing(false),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_account_testing(),
         }
