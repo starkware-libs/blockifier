@@ -18,6 +18,10 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
+use super::common_hints::ExecutionMode;
+use super::syscalls::hint_processor::{
+    VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING,
+};
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
@@ -397,8 +401,14 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
-    // TODO(Yoni, 1/5/2024): disable for validate.
-    Ok(GetBlockNumberResponse { block_number: syscall_handler.get_block_info().block_number })
+    let block_number = syscall_handler.get_block_info().block_number;
+    let block_number = match syscall_handler.execution_mode() {
+        ExecutionMode::Validate => BlockNumber(
+            (block_number.0 / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING,
+        ),
+        ExecutionMode::Execute => block_number,
+    };
+    Ok(GetBlockNumberResponse { block_number })
 }
 
 // GetBlockTimestamp syscall.
@@ -422,10 +432,14 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
-    // TODO(Yoni, 1/5/2024): disable for validate.
-    Ok(GetBlockTimestampResponse {
-        block_timestamp: syscall_handler.get_block_info().block_timestamp,
-    })
+    let block_timestamp = syscall_handler.get_block_info().block_timestamp;
+    let block_timestamp = match syscall_handler.execution_mode() {
+        ExecutionMode::Validate => BlockTimestamp(
+            (block_timestamp.0 / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING,
+        ),
+        ExecutionMode::Execute => block_timestamp,
+    };
+    Ok(GetBlockTimestampResponse { block_timestamp })
 }
 
 // GetCallerAddress syscall.

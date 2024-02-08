@@ -141,6 +141,12 @@ pub const L1_GAS: &str = "0x0000000000000000000000000000000000000000000000000000
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
 
+// TODO(Tzahi, 1/4/2024): Move to an appropriate constants file.
+// Flooring factor for block number in validate mode.
+pub const VALIDATE_BLOCK_NUMBER_ROUNDING: u64 = 100;
+// Flooring factor for timestamp in validate mode.
+pub const VALIDATE_TIMESTAMP_ROUNDING: u64 = 3600;
+
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
@@ -483,11 +489,18 @@ impl<'a> SyscallHintProcessor<'a> {
         let block_timestamp = StarkFelt::from(block_info.block_timestamp.0);
         let block_number = StarkFelt::from(block_info.block_number.0);
         let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
+            let block_number_u64: u64 = block_number.try_into()?;
+            // Round down to the nearest multiple of VALIDATE_BLOCK_NUMBER_ROUNDING.
+            let rounded_block_number = (block_number_u64 / VALIDATE_BLOCK_NUMBER_ROUNDING)
+                * VALIDATE_BLOCK_NUMBER_ROUNDING;
+            let block_timestamp_u64: u64 = block_timestamp.try_into()?;
+            // Round down to the nearest multiple of VALIDATE_TIMESTAMP_ROUNDING.
+            let rounded_timestamp =
+                (block_timestamp_u64 / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING;
+
             vec![
-                // TODO(Yoni, 1/5/2024): set the number to be zero for `validate`.
-                block_number,
-                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
-                block_timestamp,
+                StarkFelt::from(rounded_block_number),
+                StarkFelt::from(rounded_timestamp),
                 StarkFelt::ZERO,
             ]
         } else {
