@@ -151,7 +151,7 @@ pub fn felt_to_starkfelt(felt: Felt) -> StarkFelt {
 }
 
 pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
-    Felt::from_bytes_be_slice(&contract_address.0.key().bytes())
+    Felt::from_bytes_be_slice(contract_address.0.key().bytes())
 }
 
 fn starkfelts_to_felts(data: &[StarkFelt]) -> Vec<Felt> {
