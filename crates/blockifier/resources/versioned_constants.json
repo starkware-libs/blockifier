@@ -147,7 +147,7 @@
                     "range_check_builtin": 11
                 },
                 "n_memory_holes": 0,
-                "n_steps": 241
+                "n_steps": 205
             },
             "Secp256k1Mul": {
                 "builtin_instance_counter": {
@@ -161,7 +161,7 @@
                     "range_check_builtin": 35
                 },
                 "n_memory_holes": 0,
-                "n_steps": 477
+                "n_steps": 459
             },
             "Secp256r1Add": {
                 "builtin_instance_counter": {
@@ -182,7 +182,7 @@
                     "range_check_builtin": 11
                 },
                 "n_memory_holes": 0,
-                "n_steps": 243
+                "n_steps": 207
             },
             "Secp256r1Mul": {
                 "builtin_instance_counter": {
@@ -196,7 +196,7 @@
                     "range_check_builtin": 49
                 },
                 "n_memory_holes": 0,
-                "n_steps": 596
+                "n_steps": 578
             },
             "SendMessageToL1": {
                 "builtin_instance_counter": {
