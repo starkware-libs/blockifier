@@ -718,3 +718,45 @@ pub mod burnable_tests {
         todo!("Implement this test after resolving the problem with events")
     }
 }
+
+#[cfg(test)]
+pub mod ownable_tests {
+    use super::*;
+
+    #[test]
+    fn test_transfer_ownership() {
+        let current_owner = Signers::Alice;
+        let new_owner = Signers::Bob;
+
+        let mut context = TestContext::new().with_caller(Signers::Alice.into());
+
+        assert_eq!(context.call_entry_point("owner", vec![]), vec![current_owner.into()]);
+
+        assert_eq!(context.call_entry_point("transfer_ownership", vec![new_owner.into()]), vec![]);
+
+        assert_eq!(context.call_entry_point("owner", vec![]), vec![new_owner.into()]);
+    }
+
+    #[test]
+    fn test_not_owner_cannot_transfer_ownership() {
+        let current_owner = Signers::Alice;
+        let new_owner = Signers::Bob;
+
+        let mut context = TestContext::new().with_caller(Signers::Charlie.into());
+
+        assert_eq!(context.call_entry_point("owner", vec![]), vec![current_owner.into()]);
+
+        assert_eq!(
+            context.call_entry_point("transfer_ownership", vec![new_owner.into()]),
+            vec![Felt::from_hex(CALLER_IS_NOT_THE_OWNER).unwrap()]
+        );
+
+        assert_eq!(context.call_entry_point("owner", vec![]), vec![current_owner.into()]);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_transfer_ownership_emits_event() {
+        todo!("Implement this test after resolving the problem with events")
+    }
+}

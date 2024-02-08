@@ -592,4 +592,8 @@ impl TestContext {
     pub fn get_event(&self, index: usize) -> Option<TestEvent> {
         self.events.get(index).cloned()
     }
+
+    pub fn get_caller(&self) -> ContractAddress {
+        self.caller_address
+    }
 }
