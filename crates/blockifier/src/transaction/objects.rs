@@ -124,10 +124,10 @@ pub struct DeprecatedTransactionInfo {
     pub max_fee: Fee,
 }
 
-#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(derive_more::Add, derive_more::Sum, Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct GasVector {
     pub l1_gas: u128,
-    pub blob_gas: u128,
+    pub l1_data_gas: u128,
 }
 
 impl GasVector {
@@ -141,10 +141,10 @@ impl GasVector {
             );
             u128::MAX
         });
-        let l1_data_gas_cost = self.blob_gas.checked_mul(blob_gas_price).unwrap_or_else(|| {
+        let l1_data_gas_cost = self.l1_data_gas.checked_mul(blob_gas_price).unwrap_or_else(|| {
             log::warn!(
                 "L1 blob gas cost overflowed: multiplication of {} by {} resulted in overflow.",
-                self.blob_gas,
+                self.l1_data_gas,
                 blob_gas_price
             );
             u128::MAX
@@ -182,6 +182,8 @@ pub struct TransactionExecutionInfo {
     pub fee_transfer_call_info: Option<CallInfo>,
     /// The actual fee that was charged (in Wei).
     pub actual_fee: Fee,
+    /// Actual gas consumption the transaction is charged for data availability.
+    pub da_gas: GasVector,
     /// Actual execution resources the transaction is charged for,
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: ResourcesMapping,
