@@ -6,8 +6,10 @@ use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
-    CachedState, CommitmentStateDiff, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
+    TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -30,6 +32,8 @@ pub struct TransactionExecutor<S: StateReader> {
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
+    // This member should be consistent with the state's modified keys.
+    state_changes_keys: StateChangesKeys,
 
     // State-related fields.
     pub state: CachedState<S>,
@@ -47,6 +51,9 @@ impl<S: StateReader> TransactionExecutor<S> {
             block_context,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
+            // Note: the state might not be empty even at this point; it is the creator's
+            // responsibility to tune the bouncer according to pre and post block process.
+            state_changes_keys: StateChangesKeys::default(),
             state,
             staged_for_commit_state: None,
         };
@@ -79,6 +86,9 @@ impl<S: StateReader> TransactionExecutor<S> {
             .map_err(NativeBlockifierError::from);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                // Prepare bouncer info; the countings here should be linear in the transactional
+                // state changes and execution info rather than the cumulative state attributes.
+
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
@@ -105,8 +115,16 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_visited_storage_entries,
                 )?;
 
-                // Count blob resources.
-                let state_diff_size = 0;
+                // Count residual state diff size (w.r.t. the OS output encoding).
+                let tx_state_changes_keys =
+                    transactional_state.get_actual_state_changes()?.into_keys();
+                let tx_unique_state_changes_keys =
+                    tx_state_changes_keys.difference(&self.state_changes_keys);
+                // Note: block-constant felts are not counted here. so the bouncer needs to
+                // tune the size limit accordingly. E.g., the felt that encodes the number of
+                // modified contracts in a block.
+                let state_diff_size =
+                    get_onchain_data_segment_length(tx_unique_state_changes_keys.count());
 
                 // Finalize counting logic.
                 let actual_resources = &tx_execution_info.actual_resources;
@@ -116,9 +134,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                     message_segment_length,
                     state_diff_size,
                 )?;
-                self.staged_for_commit_state = Some(
-                    transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
-                );
+                self.staged_for_commit_state = Some(transactional_state.stage(
+                    tx_executed_class_hashes,
+                    tx_visited_storage_entries,
+                    tx_unique_state_changes_keys,
+                ));
 
                 Ok((tx_execution_info, bouncer_info))
             }
@@ -207,6 +227,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
         self.visited_storage_entries
             .extend(&finalized_transactional_state.tx_visited_storage_entries);
+
+        // Note: cancelling writes (0 -> 1 -> 0) will not be removed,
+        // but it's fine since fee was charged for them.
+        self.state_changes_keys.extend(&finalized_transactional_state.tx_unique_state_changes_keys);
 
         self.staged_for_commit_state = None
     }
