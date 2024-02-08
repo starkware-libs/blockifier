@@ -8,9 +8,13 @@ use starknet_api::{contract_address, patricia_key};
 use crate::block::{BlockInfo, GasPrices};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+};
+use crate::execution::syscalls::hint_processor::{
+    VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING,
 };
 use crate::state::state_api::State;
 use crate::test_utils::{
@@ -66,8 +70,12 @@ impl CallEntryPoint {
         tx_info: TransactionInfo,
         limit_steps_by_resources: bool,
     ) -> EntryPointExecutionResult<CallInfo> {
-        let tx_context =
-            TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
+        let tx_context = TransactionContext {
+            block_context: BlockContext::create_for_validation_mode_testing(
+                ExecutionMode::Validate,
+            ),
+            tx_info,
+        };
         let mut context = EntryPointExecutionContext::new_validate(
             Arc::new(tx_context),
             limit_steps_by_resources,
@@ -97,10 +105,31 @@ impl ChainInfo {
 
 impl BlockInfo {
     pub fn create_for_testing() -> Self {
+        Self::create_for_validation_mode_testing(ExecutionMode::Execute)
+    }
+
+    pub fn create_for_validation_mode_testing(execution_mode: ExecutionMode) -> Self {
+        let block_number: u64;
+        let timestamp: u64;
+        let test_sequencer_address: &str;
+        match execution_mode {
+            ExecutionMode::Validate => {
+                block_number = (CURRENT_BLOCK_NUMBER / VALIDATE_BLOCK_NUMBER_ROUNDING)
+                    * VALIDATE_BLOCK_NUMBER_ROUNDING;
+                timestamp = (CURRENT_BLOCK_TIMESTAMP / VALIDATE_TIMESTAMP_ROUNDING)
+                    * VALIDATE_TIMESTAMP_ROUNDING;
+                test_sequencer_address = "0x0";
+            }
+            ExecutionMode::Execute => {
+                block_number = CURRENT_BLOCK_NUMBER;
+                timestamp = CURRENT_BLOCK_TIMESTAMP;
+                test_sequencer_address = TEST_SEQUENCER_ADDRESS;
+            }
+        };
         Self {
-            block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
-            block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
-            sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
+            block_number: BlockNumber(block_number),
+            block_timestamp: BlockTimestamp(timestamp),
+            sequencer_address: contract_address!(test_sequencer_address),
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE.try_into().unwrap(),
                 strk_l1_gas_price: DEFAULT_STRK_L1_GAS_PRICE.try_into().unwrap(),
@@ -118,8 +147,12 @@ impl BlockInfo {
 
 impl BlockContext {
     pub fn create_for_testing() -> Self {
+        Self::create_for_validation_mode_testing(ExecutionMode::Execute)
+    }
+
+    pub fn create_for_validation_mode_testing(execution_mode: ExecutionMode) -> Self {
         Self {
-            block_info: BlockInfo::create_for_testing(),
+            block_info: BlockInfo::create_for_validation_mode_testing(execution_mode),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_testing(),
         }

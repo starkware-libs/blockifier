@@ -42,7 +42,8 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     create_calldata, trivial_external_entry_point, CairoVersion, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
@@ -284,11 +285,20 @@ fn test_get_execution_info(
         BALANCE,
         &[(legacy_contract, 1), (test_contract, 1)],
     );
-    let expected_block_info = [
-        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        *sequencer_address.0.key(),
-    ];
+    let expected_block_info = match execution_mode {
+        ExecutionMode::Validate => [
+            // Rounded block number.
+            stark_felt!(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+            // Rounded timestamp.
+            stark_felt!(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+            *sequencer_address.0.key(),
+        ],
+        ExecutionMode::Execute => [
+            stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
+            stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+            *sequencer_address.0.key(),
+        ],
+    };
 
     let (test_contract_address, expected_unsupported_fields) = if is_legacy {
         verify_compiler_version(legacy_contract, "2.1.0");
