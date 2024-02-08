@@ -15,6 +15,7 @@ from starkware.starknet.common.syscalls import (
     get_sequencer_address,
     replace_class,
     get_tx_info,
+    emit_event,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -304,4 +305,21 @@ func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(
     storage_write(address=322, value=tx_info.nonce);
 
     return ();
+}
+
+func emit_event_recurse{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    counter: felt, keys_len: felt, keys: felt*, data_len: felt, data: felt*
+) {
+    if (counter == 0) {
+        return ();
+    }
+    emit_event(keys_len, keys, data_len, data);
+    return emit_event_recurse(counter - 1, keys_len, keys, data_len, data);
+}
+
+@external
+func test_emit_events{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    events_count: felt, keys_len: felt, keys: felt*, data_len: felt, data: felt*
+) {
+    return emit_event_recurse(events_count, keys_len, keys, data_len, data);
 }

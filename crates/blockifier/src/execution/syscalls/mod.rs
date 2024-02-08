@@ -15,8 +15,8 @@ use starknet_api::transaction::{
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
-    read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
-    SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
+    read_call_params, read_calldata, read_felt_array, write_segment, EmitEventError,
+    SyscallExecutionError, SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
 use crate::abi::constants;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
@@ -41,6 +41,10 @@ pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
 type SyscallSelector = DeprecatedSyscallSelector;
+
+pub const SYSCALL_MAX_EVENT_KEYS: usize = 256;
+pub const SYSCALL_MAX_EVENT_DATA: usize = 256;
+pub const SYSCALL_MAX_EVENTS_COUNT: usize = 128;
 
 pub trait SyscallRequest: Sized {
     fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>;
@@ -286,6 +290,34 @@ impl SyscallRequest for EmitEventRequest {
 
 type EmitEventResponse = EmptyResponse;
 
+pub fn exceeds_event_size_limit(
+    events_count: usize,
+    event: &EventContent,
+) -> Result<(), EmitEventError> {
+    if events_count > SYSCALL_MAX_EVENTS_COUNT {
+        return Err(EmitEventError::ExceedsNumberOfEvents {
+            number_events: events_count,
+            max_number_events: SYSCALL_MAX_EVENTS_COUNT,
+        });
+    }
+    let key_length = event.keys.len();
+    if key_length > SYSCALL_MAX_EVENT_KEYS {
+        return Err(EmitEventError::ExceedsKeyLength {
+            key_length,
+            max_key_length: SYSCALL_MAX_EVENT_KEYS,
+        });
+    }
+    let data_length = event.data.0.len();
+    if data_length > SYSCALL_MAX_EVENT_DATA {
+        return Err(EmitEventError::ExceedsDataLength {
+            data_length,
+            max_data_length: SYSCALL_MAX_EVENT_DATA,
+        });
+    }
+
+    Ok(())
+}
+
 pub fn emit_event(
     request: EmitEventRequest,
     _vm: &mut VirtualMachine,
@@ -293,6 +325,7 @@ pub fn emit_event(
     _remaining_gas: &mut u64,
 ) -> SyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
+    exceeds_event_size_limit(execution_context.n_emitted_events + 2, &request.content)?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
