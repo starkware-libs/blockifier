@@ -46,6 +46,7 @@ use crate::execution::execution_utils::{
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
+use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -55,6 +56,8 @@ pub type SyscallCounter = HashMap<DeprecatedSyscallSelector, usize>;
 pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
     #[error(transparent)]
     InnerCallExecutionError(#[from] EntryPointExecutionError),
     #[error("Invalid syscall input: {input:?}; {info}")]
