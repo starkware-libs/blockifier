@@ -487,6 +487,28 @@ impl StateCache {
             &self.compiled_class_hash_initial_values,
         )
     }
+
+    pub fn get_write_keys(&self) -> StateWriteKeys {
+        // Storage Update.
+        let mut modified_contracts: HashSet<ContractAddress> =
+            self.storage_writes.keys().map(|address_key_pair| address_key_pair.0).collect();
+        // Nonce updates.
+        modified_contracts.extend(self.nonce_writes.keys());
+        // Class hash Update (deployed contracts + replace_class syscall).
+        modified_contracts.extend(self.class_hash_writes.keys());
+
+        StateWriteKeys {
+            nonce_write_keys: self.nonce_writes.keys().cloned().collect(),
+            class_hash_write_keys: self.class_hash_writes.keys().cloned().collect(),
+            storage_write_keys: self.storage_writes.keys().cloned().collect(),
+            compiled_class_hash_write_keys: self
+                .compiled_class_hash_writes
+                .keys()
+                .cloned()
+                .collect(),
+            modified_contracts,
+        }
+    }
 }
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
@@ -640,6 +662,76 @@ pub struct CommitmentStateDiff {
 
     // Global attributes.
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
+}
+
+/// Used to track the state diff size, which is determined by the number of new keys.
+/// Also, can be used to accuratly measure the contribution of a single (say, transactional)
+/// state to a cumulative state diff - provides set-like functionallities for this porpuse.
+///
+/// Note: Cancelling writes (0 -> 1 -> 0) are neglected here.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct StateWriteKeys {
+    pub nonce_write_keys: HashSet<ContractAddress>,
+    pub class_hash_write_keys: HashSet<ContractAddress>,
+    pub storage_write_keys: HashSet<StorageEntry>,
+    pub compiled_class_hash_write_keys: HashSet<ClassHash>,
+    // Note: this field may not be consistent with the above keys; specifically, it may be
+    // strictlly contained in them. For example, as a result of a `difference` operation.
+    pub modified_contracts: HashSet<ContractAddress>,
+}
+
+impl StateWriteKeys {
+    // For each set member, collects the values that are in `self` but not in `other`.
+    // The output represents the residual contribution of `self` to `other`'s corresponing
+    // state diff.
+    pub fn difference(&self, other: &Self) -> Self {
+        Self {
+            nonce_write_keys: self
+                .nonce_write_keys
+                .difference(&other.nonce_write_keys)
+                .cloned()
+                .collect(),
+            class_hash_write_keys: self
+                .class_hash_write_keys
+                .difference(&other.class_hash_write_keys)
+                .cloned()
+                .collect(),
+            storage_write_keys: self
+                .storage_write_keys
+                .difference(&other.storage_write_keys)
+                .cloned()
+                .collect(),
+            compiled_class_hash_write_keys: self
+                .compiled_class_hash_write_keys
+                .difference(&other.compiled_class_hash_write_keys)
+                .cloned()
+                .collect(),
+            modified_contracts: self
+                .modified_contracts
+                .difference(&other.modified_contracts)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    pub fn extend(&mut self, other: &Self) {
+        self.nonce_write_keys.extend(&other.nonce_write_keys);
+        self.class_hash_write_keys.extend(&other.class_hash_write_keys);
+        self.storage_write_keys.extend(&other.storage_write_keys);
+        self.compiled_class_hash_write_keys.extend(&other.compiled_class_hash_write_keys);
+        self.modified_contracts.extend(&other.modified_contracts);
+    }
+
+    pub fn count(&self) -> StateChangesCount {
+        // nonce_write_keys effect is captured by modified_contracts; it is not used but kept for
+        // completeness of this struct.
+        StateChangesCount {
+            n_storage_updates: self.storage_write_keys.len(),
+            n_class_hash_updates: self.class_hash_write_keys.len(),
+            n_compiled_class_hash_updates: self.compiled_class_hash_write_keys.len(),
+            n_modified_contracts: self.modified_contracts.len(),
+        }
+    }
 }
 
 /// Holds the state changes.
