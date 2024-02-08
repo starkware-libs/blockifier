@@ -6,7 +6,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use crate::abi::constants;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 // TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.

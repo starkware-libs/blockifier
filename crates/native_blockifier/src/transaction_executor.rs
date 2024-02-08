@@ -16,6 +16,7 @@ use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transaction_utils::calculate_tx_weights;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -126,6 +127,15 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let state_diff_size =
                     get_onchain_data_segment_length(tx_unique_state_changes_keys.count());
 
+                // test
+                let actual_resources = tx_execution_info.actual_resources.0.clone();
+                let tx_weights = calculate_tx_weights(
+                    additional_os_resources.clone(),
+                    actual_resources,
+                    message_segment_length,
+                )?;
+                dbg!("RESULTS: tx weights: ", &tx_weights);
+
                 // Finalize counting logic.
                 let actual_resources = &tx_execution_info.actual_resources;
                 let bouncer_info = BouncerInfo::calculate(
@@ -134,6 +144,87 @@ impl<S: StateReader> TransactionExecutor<S> {
                     message_segment_length,
                     state_diff_size,
                 )?;
+                dbg!("RESULTS: bouncer info: ", &bouncer_info);
+
+                assert_eq!(*tx_weights.get("gas_weight").unwrap(), bouncer_info.l1_gas_amount);
+                assert_eq!(
+                    *tx_weights.get("message_segment_length").unwrap(),
+                    bouncer_info.message_segment_length
+                );
+                assert_eq!(
+                    *tx_weights.get("n_steps").unwrap(),
+                    bouncer_info.execution_resources.n_steps
+                );
+                assert_eq!(
+                    *tx_weights.get("n_memory_holes").unwrap(),
+                    bouncer_info.execution_resources.n_memory_holes
+                );
+
+                assert_eq!(
+                    *tx_weights.get("pedersen_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("pedersen_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("range_check_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("range_check_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("ecdsa_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("ecdsa_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("output_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("output_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("keccak_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("keccak_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("bitwise_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("bitwise_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("ec_op_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("ec_op_builtin")
+                        .unwrap()
+                );
+                assert_eq!(
+                    *tx_weights.get("poseidon_builtin").unwrap_or(&0),
+                    *bouncer_info
+                        .execution_resources
+                        .builtin_instance_counter
+                        .get("poseidon_builtin")
+                        .unwrap()
+                );
+
                 self.staged_for_commit_state = Some(transactional_state.stage(
                     tx_executed_class_hashes,
                     tx_visited_storage_entries,

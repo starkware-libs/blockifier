@@ -1,6 +1,9 @@
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::ops::{Add, AddAssign};
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
 use crate::abi::constants;
@@ -80,4 +83,63 @@ pub fn verify_contract_class_version(
             }
         }
     }
+}
+
+// TODO(Ayelet, 01/02/2024): Move to VmExecutionResourcesWrapper when merged.
+pub fn vm_execution_resources_to_hash_map(
+    execution_resources: VmExecutionResources,
+) -> HashMap<String, usize> {
+    let mut result = execution_resources.builtin_instance_counter.clone();
+    result.insert(
+        String::from("n_steps"),
+        execution_resources.n_steps + execution_resources.n_memory_holes,
+    );
+    result
+}
+
+type ResourcesMap = HashMap<String, usize>;
+
+// TODO(Arni, 24/01/2024): Add state_diff_size to tx_weights
+pub fn calculate_tx_weights(
+    additional_os_resources: VmExecutionResources,
+    actual_resources: ResourcesMap,
+    message_segment_length: usize,
+) -> Result<ResourcesMap, TransactionExecutionError> {
+    let mut tx_weights: HashMap<String, usize> = HashMap::new();
+    let mut cairo_resource_usage: HashMap<String, usize> = actual_resources;
+    let value = cairo_resource_usage.remove("l1_gas_usage").ok_or(
+        TransactionExecutionError::InvalidOrder {
+            object: "l1_gas_usage".to_string(),
+            order: 1,
+            max_order: 1,
+        },
+    )?;
+    tx_weights.insert("gas_weight".to_string(), value);
+    let os_cairo_usage: HashMap<String, usize> =
+        vm_execution_resources_to_hash_map(additional_os_resources);
+    let cairo_usage = merge_hashmaps(&cairo_resource_usage, &os_cairo_usage);
+    tx_weights.extend(cairo_usage);
+    tx_weights.insert("message_segment_length".to_string(), message_segment_length);
+
+    let new_n_steps =
+        tx_weights.get("n_steps").unwrap() + tx_weights.get("n_memory_holes").unwrap_or(&0);
+    tx_weights.insert("n_steps".to_string(), new_n_steps);
+    tx_weights.insert("n_memory_holes".to_string(), 0);
+
+    Ok(tx_weights)
+}
+
+pub fn merge_hashmaps<K, V>(x: &HashMap<K, V>, y: &HashMap<K, V>) -> HashMap<K, V>
+where
+    K: Hash + Eq + Clone,
+    V: Add<Output = V> + AddAssign + Default + Clone,
+{
+    let mut result = x.clone();
+    for (key, value) in y {
+        result
+            .entry(key.clone())
+            .and_modify(|v| v.add_assign(value.clone()))
+            .or_insert(value.clone());
+    }
+    result
 }
