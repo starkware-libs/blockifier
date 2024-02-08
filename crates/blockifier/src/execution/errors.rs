@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use crate::execution::execution_utils::format_panic_data;
 use crate::state::errors::StateError;
+use crate::transaction::errors::TransactionExecutionError;
 
 // TODO(AlonH, 21/12/2022): Implement Display for all types that appear in errors.
 
@@ -139,4 +140,12 @@ pub enum EntryPointExecutionError {
         #[source]
         source: CairoRunError,
     },
+}
+
+#[derive(Debug, Error)]
+pub enum BlockExecutionError {
+    #[error(transparent)]
+    StateError(#[from] StateError),
+    #[error(transparent)]
+    TransactionExecutionError(#[from] TransactionExecutionError),
 }

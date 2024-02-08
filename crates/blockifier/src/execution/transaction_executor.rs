@@ -2,24 +2,26 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-use blockifier::context::BlockContext;
-use blockifier::execution::bouncer::BouncerInfo;
-use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
-use blockifier::execution::entry_point::ExecutionResources;
-use blockifier::fee::actual_cost::ActualCost;
-use blockifier::state::cached_state::{
-    CachedState, CommitmentStateDiff, StagedTransactionalState, StorageEntry, TransactionalState,
-};
-use blockifier::state::state_api::{State, StateReader};
-use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::TransactionExecutionInfo;
-use blockifier::transaction::transaction_execution::Transaction;
-use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::ClassHash;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
+use crate::context::BlockContext;
+use crate::execution::bouncer::BouncerInfo;
+use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
+use crate::execution::entry_point::ExecutionResources;
+use crate::execution::errors::BlockExecutionError;
+use crate::fee::actual_cost::ActualCost;
+use crate::state::cached_state::{
+    CachedState, CommitmentStateDiff, StagedTransactionalState, StorageEntry, TransactionalState,
+};
+use crate::state::state_api::{State, StateReader};
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::objects::TransactionExecutionInfo;
+use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
+
+pub type BlockExecutionResult<T> = Result<T, BlockExecutionError>;
 
 // TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
@@ -39,7 +41,7 @@ pub struct TransactionExecutor<S: StateReader> {
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
-    pub fn new(state: CachedState<S>, block_context: BlockContext) -> NativeBlockifierResult<Self> {
+    pub fn new(state: CachedState<S>, block_context: BlockContext) -> Self {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
             block_context,
@@ -50,7 +52,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         };
         log::debug!("Initialized Transaction Executor.");
 
-        Ok(tx_executor)
+        tx_executor
     }
 
     /// Executes the given transaction on the state maintained by the executor.
@@ -60,7 +62,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> NativeBlockifierResult<(TransactionExecutionInfo, BouncerInfo)> {
+    ) -> BlockExecutionResult<(TransactionExecutionInfo, BouncerInfo)> {
         let l1_handler_payload_size: usize =
             if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
                 l1_handler_tx.payload_size()
@@ -72,9 +74,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
-        let tx_execution_result = tx
-            .execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate)
-            .map_err(NativeBlockifierError::from);
+        let tx_execution_result =
+            tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
@@ -122,7 +123,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             }
             Err(error) => {
                 transactional_state.abort();
-                Err(error)
+                Err(BlockExecutionError::TransactionExecutionError(error))
             }
         }
     }
@@ -131,7 +132,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         account_tx: &AccountTransaction,
         mut remaining_gas: u64,
-    ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
+    ) -> BlockExecutionResult<(Option<CallInfo>, ActualCost)> {
         let mut execution_resources = ExecutionResources::default();
         let tx_context = Arc::new(self.block_context.to_tx_context(account_tx));
         let tx_info = &tx_context.tx_info;
@@ -220,7 +221,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
-) -> NativeBlockifierResult<VmExecutionResources> {
+) -> BlockExecutionResult<VmExecutionResources> {
     let newly_executed_class_hashes: HashSet<&ClassHash> =
         tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
 
@@ -242,7 +243,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
 pub fn get_particia_update_resources(
     block_visited_storage_entries: &HashSet<StorageEntry>,
     tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> NativeBlockifierResult<VmExecutionResources> {
+) -> BlockExecutionResult<VmExecutionResources> {
     let newly_visited_storage_entries: HashSet<&StorageEntry> =
         tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
     let n_newly_visited_leaves = newly_visited_storage_entries.len();

@@ -1,4 +1,5 @@
 use blockifier::context::{BlockContext, TransactionContext};
+use blockifier::execution::block_executor::versioned_constants_with_overrides;
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
@@ -18,7 +19,7 @@ use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, py_tx};
 use crate::py_transaction_execution_info::PyBouncerInfo;
-use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
+use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 use crate::transaction_executor::TransactionExecutor;
 

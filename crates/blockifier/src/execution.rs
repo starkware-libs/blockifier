@@ -1,3 +1,4 @@
+pub mod block_executor;
 pub mod bouncer;
 pub mod call_info;
 pub mod common_hints;
@@ -11,3 +12,4 @@ pub mod errors;
 pub mod execution_utils;
 pub mod hint_code;
 pub mod syscalls;
+pub mod transaction_executor;
