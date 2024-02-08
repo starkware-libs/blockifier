@@ -404,3 +404,176 @@ fn global_contract_cache_is_used() {
     assert_eq!(global_cache.lock().cache_hits().unwrap(), 1);
     assert_eq!(global_cache.lock().cache_size(), 1);
 }
+
+#[test]
+fn test_cache_get_write_keys() {
+    // Trivial case.
+    assert_eq!(StateCache::default().get_write_keys(), StateWriteKeys::default());
+
+    // Interesting case.
+    let some_felt = stark_felt!("0x1");
+    let some_class_hash = class_hash!("0x1");
+
+    let contract_address0 = contract_address!("0x200");
+    let contract_address1 = contract_address!("0x201");
+    let contract_address2 = contract_address!("0x202");
+    let contract_address3 = contract_address!("0x203");
+    // Used just by the initial values.
+    let contract_address4 = contract_address!("0x204");
+
+    let class_hash0 = class_hash!("0x300");
+    // Used just by the initial values.
+    let class_hash1 = class_hash!("0x301");
+
+    let cache = StateCache {
+        nonce_writes: HashMap::from([(contract_address0, Nonce(some_felt))]),
+        class_hash_writes: HashMap::from([
+            (contract_address1, some_class_hash),
+            (contract_address2, some_class_hash),
+        ]),
+        storage_writes: HashMap::from([
+            ((contract_address1, StorageKey(patricia_key!("0x300"))), some_felt),
+            ((contract_address1, StorageKey(patricia_key!("0x600"))), some_felt),
+            ((contract_address3, StorageKey(patricia_key!("0x600"))), some_felt),
+        ]),
+        compiled_class_hash_writes: HashMap::from([(
+            class_hash0,
+            CompiledClassHash(stark_felt!("0x3")),
+        )]),
+
+        // Add some noise to the initial values - they shouldn't affect the result.
+        nonce_initial_values: HashMap::from([(contract_address4, Nonce(some_felt))]),
+        class_hash_initial_values: HashMap::from([(contract_address4, class_hash!("0x0"))]),
+        storage_initial_values: HashMap::from([(
+            (contract_address4, StorageKey(patricia_key!("0x300"))),
+            some_felt,
+        )]),
+        compiled_class_hash_initial_values: HashMap::from([(
+            class_hash1,
+            CompiledClassHash(some_felt),
+        )]),
+    };
+
+    let expected_write_keys = StateWriteKeys {
+        nonce_write_keys: HashSet::from([contract_address0]),
+        class_hash_write_keys: HashSet::from([contract_address1, contract_address2]),
+        storage_write_keys: HashSet::from([
+            (contract_address1, StorageKey(patricia_key!("0x300"))),
+            (contract_address1, StorageKey(patricia_key!("0x600"))),
+            (contract_address3, StorageKey(patricia_key!("0x600"))),
+        ]),
+        compiled_class_hash_write_keys: HashSet::from([class_hash0]),
+        modified_contracts: HashSet::from([
+            contract_address0,
+            contract_address1,
+            contract_address2,
+            contract_address3,
+        ]),
+    };
+
+    assert_eq!(cache.get_write_keys(), expected_write_keys);
+}
+
+#[test]
+fn test_state_write_keys() {
+    let contract_address0 = contract_address!("0x200");
+    let contract_address1 = contract_address!("0x201");
+    let contract_address2 = contract_address!("0x202");
+    let contract_address3 = contract_address!("0x203");
+
+    let class_hash0 = class_hash!("0x300");
+    let class_hash1 = class_hash!("0x301");
+
+    let empty_keys = StateWriteKeys::default();
+    let mut keys0 = StateWriteKeys {
+        nonce_write_keys: HashSet::from([contract_address0]),
+        class_hash_write_keys: HashSet::from([contract_address1]),
+        storage_write_keys: HashSet::from([
+            (contract_address2, StorageKey(patricia_key!("0x300"))),
+            (contract_address2, StorageKey(patricia_key!("0x200"))),
+        ]),
+        compiled_class_hash_write_keys: HashSet::from([class_hash0, class_hash1]),
+        modified_contracts: HashSet::from([contract_address1, contract_address2]),
+    };
+
+    // Trivial cases.
+    assert_eq!(empty_keys, empty_keys.difference(&keys0));
+    assert_eq!(keys0, keys0.difference(&empty_keys));
+    assert_eq!(empty_keys, keys0.difference(&keys0));
+    assert_eq!(empty_keys.count(), StateChangesCount::default());
+    assert_eq!(
+        keys0.count(),
+        StateChangesCount {
+            n_storage_updates: 2,
+            n_class_hash_updates: 1,
+            n_compiled_class_hash_updates: 2,
+            n_modified_contracts: 2
+        }
+    );
+
+    let mut keys0_copy = keys0.clone();
+    let mut empty_keys_copy = empty_keys.clone();
+    keys0_copy.extend(&empty_keys);
+    empty_keys_copy.extend(&keys0);
+
+    assert_eq!(keys0, keys0_copy);
+    assert_eq!(keys0, empty_keys_copy);
+
+    // Interesting cases.
+    let mut keys1 = StateWriteKeys {
+        nonce_write_keys: HashSet::from([contract_address1]),
+        class_hash_write_keys: HashSet::from([contract_address1, contract_address2]),
+        storage_write_keys: HashSet::from([(
+            contract_address2,
+            StorageKey(patricia_key!("0x300")),
+        )]),
+        compiled_class_hash_write_keys: HashSet::from([class_hash0]),
+        modified_contracts: HashSet::from([contract_address1, contract_address3]),
+    };
+
+    assert_eq!(
+        keys0.difference(&keys1),
+        StateWriteKeys {
+            nonce_write_keys: HashSet::from([contract_address0]),
+            class_hash_write_keys: HashSet::new(),
+            storage_write_keys: HashSet::from([(
+                contract_address2,
+                StorageKey(patricia_key!("0x200")),
+            )]),
+            compiled_class_hash_write_keys: HashSet::from([class_hash1]),
+            modified_contracts: HashSet::from([contract_address2]),
+        }
+    );
+    assert_eq!(
+        keys1.difference(&keys0),
+        StateWriteKeys {
+            nonce_write_keys: HashSet::from([contract_address1]),
+            class_hash_write_keys: HashSet::from([contract_address2]),
+            storage_write_keys: HashSet::new(),
+            compiled_class_hash_write_keys: HashSet::new(),
+            modified_contracts: HashSet::from([contract_address3]),
+        }
+    );
+
+    let keys1_copy = keys1.clone();
+    keys1.extend(&keys0);
+    keys0.extend(&keys1_copy);
+    assert_eq!(keys0, keys1);
+    assert_eq!(
+        keys0,
+        StateWriteKeys {
+            nonce_write_keys: HashSet::from([contract_address0, contract_address1]),
+            class_hash_write_keys: HashSet::from([contract_address1, contract_address2]),
+            storage_write_keys: HashSet::from([
+                (contract_address2, StorageKey(patricia_key!("0x300"))),
+                (contract_address2, StorageKey(patricia_key!("0x200"))),
+            ]),
+            compiled_class_hash_write_keys: HashSet::from([class_hash0, class_hash1]),
+            modified_contracts: HashSet::from([
+                contract_address1,
+                contract_address2,
+                contract_address3
+            ]),
+        }
+    )
+}
