@@ -601,6 +601,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         self,
         tx_executed_class_hashes: HashSet<ClassHash>,
         tx_visited_storage_entries: HashSet<StorageEntry>,
+        tx_unique_write_keys: StateWriteKeys,
     ) -> StagedTransactionalState {
         let TransactionalState {
             cache,
@@ -615,6 +616,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             global_class_hash_to_class,
             tx_executed_class_hashes,
             tx_visited_storage_entries,
+            tx_unique_write_keys,
             visited_pcs,
         }
     }
@@ -633,6 +635,10 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
+
+    pub fn get_write_keys(&self) -> StateWriteKeys {
+        self.cache.get_write_keys()
+    }
 }
 
 /// Represents the interim state, containing the changes made by a transaction after execution but
@@ -646,6 +652,7 @@ pub struct StagedTransactionalState {
     // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
     pub tx_visited_storage_entries: HashSet<StorageEntry>,
+    pub tx_unique_write_keys: StateWriteKeys,
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
@@ -668,13 +675,13 @@ pub struct CommitmentStateDiff {
 /// Note: Cancelling writes (0 -> 1 -> 0) are neglected here.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateWriteKeys {
-    pub nonce_write_keys: HashSet<ContractAddress>,
-    pub class_hash_write_keys: HashSet<ContractAddress>,
-    pub storage_write_keys: HashSet<StorageEntry>,
-    pub compiled_class_hash_write_keys: HashSet<ClassHash>,
+    nonce_write_keys: HashSet<ContractAddress>,
+    class_hash_write_keys: HashSet<ContractAddress>,
+    storage_write_keys: HashSet<StorageEntry>,
+    compiled_class_hash_write_keys: HashSet<ClassHash>,
     // Note: this field may not be consistent with the above keys; specifically, it may be
     // strictlly contained in them. For example, as a result of a `difference` operation.
-    pub modified_contracts: HashSet<ContractAddress>,
+    modified_contracts: HashSet<ContractAddress>,
 }
 
 impl StateWriteKeys {
