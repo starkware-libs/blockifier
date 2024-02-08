@@ -15,7 +15,7 @@ use starknet_api::transaction::{
 };
 use starknet_types_core::felt::Felt;
 
-use super::sierra_utils::{contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt};
+use super::sierra_utils::{chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -84,39 +84,38 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<cairo_native::starknet::ExecutionInfo> {
+        let block_context = &self.execution_context.block_context;
+        let account_tx_context = &self.execution_context.account_tx_context;
+
+        let block_info: BlockInfo = BlockInfo {
+            block_number: block_context.block_number.0,
+            block_timestamp: block_context.block_timestamp.0,
+            sequencer_address: contract_address_to_felt(block_context.sequencer_address),
+        };
+
+        let signature = account_tx_context.signature().0.into_iter().map(starkfelt_to_felt).collect();
+
+        let tx_info = TxInfo {
+            version: starkfelt_to_felt(account_tx_context.version().0),
+            account_contract_address: contract_address_to_felt(account_tx_context.sender_address(),),
+            // todo(rodro): it is ok to unwrap as default? Also, will this be deprecated soon?
+            max_fee: account_tx_context.max_fee().unwrap_or_default().0,
+            signature,
+            transaction_hash: starkfelt_to_felt(account_tx_context.transaction_hash().0),
+            chain_id: chain_id_to_felt(&block_context.chain_id).unwrap(),
+            nonce: starkfelt_to_felt(account_tx_context.nonce().0),
+        };
+
+        let caller_address = contract_address_to_felt(self.caller_address);
+        let contract_address = contract_address_to_felt(self.contract_address);
+        let entry_point_selector = starkfelt_to_felt(self.entry_point_selector);
+
         Ok(cairo_native::starknet::ExecutionInfo {
-            block_info: BlockInfo {
-                block_number: self.execution_context.block_context.block_number.0,
-                block_timestamp: self.execution_context.block_context.block_timestamp.0,
-                sequencer_address: contract_address_to_felt(
-                    self.execution_context.block_context.sequencer_address,
-                ),
-            },
-            tx_info: TxInfo {
-                version: starkfelt_to_felt(self.execution_context.account_tx_context.version().0),
-                account_contract_address: contract_address_to_felt(
-                    self.execution_context.account_tx_context.sender_address(),
-                ),
-                // todo(rodro): it is ok to unwrap as default? Also, will this be deprecated soon?
-                max_fee: self.execution_context.account_tx_context.max_fee().unwrap_or_default().0,
-                signature: self
-                    .execution_context
-                    .account_tx_context
-                    .signature()
-                    .0
-                    .iter()
-                    .map(|stark_felt| starkfelt_to_felt(*stark_felt))
-                    .collect(),
-                transaction_hash: starkfelt_to_felt(
-                    self.execution_context.account_tx_context.transaction_hash().0,
-                ),
-                chain_id: Felt::from_hex(&self.execution_context.block_context.chain_id.as_hex())
-                    .unwrap(),
-                nonce: starkfelt_to_felt(self.execution_context.account_tx_context.nonce().0),
-            },
-            caller_address: contract_address_to_felt(self.caller_address),
-            contract_address: contract_address_to_felt(self.contract_address),
-            entry_point_selector: starkfelt_to_felt(self.entry_point_selector),
+            block_info,
+            tx_info,
+            caller_address,
+            contract_address,
+            entry_point_selector,
         })
     }
 
@@ -124,20 +123,19 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<ExecutionInfoV2> {
+        let block_context = &self.execution_context.block_context;
+        let account_tx_context = &self.execution_context.account_tx_context;
+
         Ok(ExecutionInfoV2 {
             block_info: BlockInfo {
-                block_number: self.execution_context.block_context.block_number.0,
-                block_timestamp: self.execution_context.block_context.block_timestamp.0,
-                sequencer_address: contract_address_to_felt(
-                    self.execution_context.block_context.sequencer_address,
-                ),
+                block_number: block_context.block_number.0,
+                block_timestamp: block_context.block_timestamp.0,
+                sequencer_address: contract_address_to_felt(block_context.sequencer_address),
             },
             tx_info: TxV2Info {
-                version: starkfelt_to_felt(self.execution_context.account_tx_context.version().0),
-                account_contract_address: contract_address_to_felt(
-                    self.execution_context.account_tx_context.sender_address(),
-                ),
-                max_fee: self.execution_context.account_tx_context.max_fee().unwrap_or_default().0,
+                version: starkfelt_to_felt(account_tx_context.version().0),
+                account_contract_address: contract_address_to_felt(account_tx_context.sender_address()),
+                max_fee: account_tx_context.max_fee().unwrap_or_default().0,
                 signature: vec![],
                 transaction_hash: Default::default(),
                 chain_id: Default::default(),

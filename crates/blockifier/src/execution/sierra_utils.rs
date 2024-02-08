@@ -13,10 +13,11 @@ use cairo_native::metadata::syscall_handler::SyscallHandlerMeta;
 use cairo_native::OptLevel;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use num_traits::ToBytes;
+use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_types_core::felt::Felt;
+use starknet_types_core::felt::{Felt, FromStrError};
 
 use super::call_info::{CallExecution, CallInfo, OrderedEvent, OrderedL2ToL1Message, Retdata};
 use super::contract_class::SierraContractClassV1;
@@ -30,7 +31,7 @@ pub fn get_program(contract_class: &SierraContractClassV1) -> &SierraProgram {
 }
 
 pub fn get_entrypoints(contract_class: &SierraContractClassV1) -> &ContractEntryPoints {
-    &contract_class.entrypoints_by_type
+    &contract_class.entry_points_by_type
 }
 
 pub fn match_entrypoint(
@@ -38,20 +39,16 @@ pub fn match_entrypoint(
     entrypoint_selector: EntryPointSelector,
     contract_entrypoints: &ContractEntryPoints,
 ) -> &ContractEntryPoint {
-    match entry_point_type {
-        // todo: check it
-        EntryPointType::Constructor => contract_entrypoints
-            .constructor
-            .iter()
-            .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
-            .expect("entrypoint not found"),
-        EntryPointType::External => contract_entrypoints
-            .external
-            .iter()
-            .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
-            .expect("entrypoint not found"),
-        EntryPointType::L1Handler => todo!("Sierra util: match_entrypoint - l1 handler"),
-    }
+    let entrypoints = match entry_point_type {
+        EntryPointType::Constructor => &contract_entrypoints.constructor,
+        EntryPointType::External => &contract_entrypoints.external,
+        EntryPointType::L1Handler => &contract_entrypoints.l1_handler,
+    };
+    
+    entrypoints
+        .iter()
+        .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
+        .expect("entrypoint not found")
 }
 
 fn cmp_selector_to_entrypoint(
@@ -92,10 +89,7 @@ pub fn get_native_executor<'context>(
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
                 Some(executor) => executor,
-                None => {
-                    // panic!("here 1");
-                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
-                }
+                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
             })
         }
         ProgramCache::Jit(_) => todo!("Sierra util: get native executor - jit"),
@@ -118,7 +112,7 @@ pub fn setup_syscall_handler(
     state: &mut dyn State,
     caller_address: ContractAddress,
     contract_address: ContractAddress,
-    entry_point_selector: StarkFelt,
+    entry_point_selector: EntryPointSelector,
     execution_resources: crate::execution::entry_point::ExecutionResources,
     execution_context: EntryPointExecutionContext,
     events: Vec<OrderedEvent>,
@@ -129,7 +123,7 @@ pub fn setup_syscall_handler(
         state,
         caller_address,
         contract_address,
-        entry_point_selector,
+        entry_point_selector: entry_point_selector.0,
         execution_context,
         events,
         l2_to_l1_messages,
@@ -152,6 +146,19 @@ pub fn felt_to_starkfelt(felt: Felt) -> StarkFelt {
 
 pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
     Felt::from_bytes_be_slice(contract_address.0.key().bytes())
+}
+
+pub fn contract_entrypoint_to_entrypoint_selector(entrypoint: &ContractEntryPoint) -> EntryPointSelector {
+    let selector_felt = Felt::from_bytes_be_slice(&entrypoint.selector.to_be_bytes());
+    EntryPointSelector(felt_to_starkfelt(selector_felt))
+}
+
+pub fn chain_id_to_felt(chain_id: &ChainId) -> Result<Felt, FromStrError> {
+    Felt::from_hex(&chain_id.as_hex())
+}
+
+pub fn parse_starkfelt_string(felt: StarkFelt) -> String {
+    String::from_utf8(felt.bytes().into()).unwrap()
 }
 
 fn starkfelts_to_felts(data: &[StarkFelt]) -> Vec<Felt> {
