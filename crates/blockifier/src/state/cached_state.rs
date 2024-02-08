@@ -342,6 +342,12 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
     }
 }
 
+impl<S: StateReader> CachedState<S> {
+    pub fn get_write_keys(&self) -> StateWriteKeys {
+        self.cache.get_write_keys()
+    }
+}
+
 pub type StorageEntry = (ContractAddress, StorageKey);
 
 #[derive(Debug, Default, IntoIterator)]
@@ -601,6 +607,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         self,
         tx_executed_class_hashes: HashSet<ClassHash>,
         tx_visited_storage_entries: HashSet<StorageEntry>,
+        tx_unique_write_keys: StateWriteKeys,
     ) -> StagedTransactionalState {
         let TransactionalState {
             cache,
@@ -615,6 +622,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             global_class_hash_to_class,
             tx_executed_class_hashes,
             tx_visited_storage_entries,
+            tx_unique_write_keys,
             visited_pcs,
         }
     }
@@ -646,6 +654,7 @@ pub struct StagedTransactionalState {
     // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
     pub tx_visited_storage_entries: HashSet<StorageEntry>,
+    pub tx_unique_write_keys: StateWriteKeys,
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
