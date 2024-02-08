@@ -246,7 +246,7 @@
                         "range_check_builtin": 83
                     },
                     "n_memory_holes": 0,
-                    "n_steps": 3796
+                    "n_steps": 3792
                 },
                 "calldata_factor": {
                     "builtin_instance_counter": {

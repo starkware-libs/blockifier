@@ -1174,8 +1174,8 @@ fn test_declare_tx(
 }
 
 #[rstest]
-#[case(83, 3809, CairoVersion::Cairo0)]
-#[case(85, 3865, CairoVersion::Cairo1)]
+#[case(83, 3805, CairoVersion::Cairo0)]
+#[case(85, 3861, CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
     #[case] expected_range_check_builtin: usize,
     #[case] expected_n_steps_resource: usize,
