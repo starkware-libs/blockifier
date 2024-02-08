@@ -124,7 +124,7 @@ pub const DEFAULT_ETH_L1_DATA_GAS_PRICE: u128 = u128::pow(10, 6); // Given in un
 pub const DEFAULT_STRK_L1_DATA_GAS_PRICE: u128 = u128::pow(10, 9); // Given in units of STRK.
 
 // The block number of the BlockContext being used for testing.
-pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
+pub const CURRENT_BLOCK_NUMBER: u64 = 2001;
 
 // The block timestamp of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_TIMESTAMP: u64 = 1072023;

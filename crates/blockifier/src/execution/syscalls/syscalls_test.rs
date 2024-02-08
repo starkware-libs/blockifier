@@ -35,6 +35,7 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
     BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+    VALIDATE_BLOCK_NUMBER_FLOORING, VALIDATE_TIMESTAMP_ROUNDING_CEILING,
 };
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
@@ -284,11 +285,24 @@ fn test_get_execution_info(
         BALANCE,
         &[(legacy_contract, 1), (test_contract, 1)],
     );
-    let expected_block_info = [
-        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        *sequencer_address.0.key(),
-    ];
+    let expected_block_info = match execution_mode {
+        ExecutionMode::Validate => [
+            stark_felt!(
+                (CURRENT_BLOCK_NUMBER / VALIDATE_BLOCK_NUMBER_FLOORING)
+                    * VALIDATE_BLOCK_NUMBER_FLOORING
+            ), // Rounded block number.
+            stark_felt!(
+                (CURRENT_BLOCK_TIMESTAMP / VALIDATE_TIMESTAMP_ROUNDING_CEILING + 1)
+                    * VALIDATE_TIMESTAMP_ROUNDING_CEILING
+            ), // Rounded timestamp.
+            *sequencer_address.0.key(),
+        ],
+        ExecutionMode::Execute => [
+            stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
+            stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+            *sequencer_address.0.key(),
+        ],
+    };
 
     let (test_contract_address, expected_unsupported_fields) = if is_legacy {
         verify_compiler_version(legacy_contract, "2.1.0");
