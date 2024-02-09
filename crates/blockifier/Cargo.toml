@@ -26,7 +26,7 @@ cairo-lang-runner.workspace = true
 cairo-lang-sierra.workspace = true
 cairo-lang-starknet.workspace = true
 cairo-lang-utils.workspace = true
-cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "67a8c4e" }
+cairo-native.workspace = true
 cairo-vm.workspace = true
 derive_more.workspace = true
 indexmap.workspace = true
