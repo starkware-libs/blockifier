@@ -422,9 +422,12 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
         let hash = hash.concat();
 
-        // todo: handle it properly
-        let hi: u128 = u128::from_le_bytes(hash[16..32].try_into().unwrap());
-        let lo: u128 = u128::from_le_bytes(hash[0..16].try_into().unwrap());
+        let hi: u128 = u128::from_le_bytes(
+            hash[16..32].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
+        );
+        let lo: u128 = u128::from_le_bytes(
+            hash[0..16].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
+        );
 
         Ok(cairo_native::starknet::U256 { hi, lo })
     }

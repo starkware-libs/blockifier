@@ -974,6 +974,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.1.0"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=986f344#986f344b8e6d108bdce4cd560bb6862f151f3886"
 dependencies = [
  "bumpalo",
  "cairo-lang-compiler",
@@ -1012,6 +1013,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.1.0"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=986f344#986f344b8e6d108bdce4cd560bb6862f151f3886"
 dependencies = [
  "cairo-lang-runner",
  "lazy_static",
