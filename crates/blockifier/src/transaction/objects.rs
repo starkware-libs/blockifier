@@ -89,6 +89,16 @@ impl AccountTransactionContext {
             AccountTransactionContext::Deprecated(context) => Ok(context.max_fee != Fee(0)),
         }
     }
+
+    pub fn max_fee(&self) -> TransactionFeeResult<Fee> {
+        match self {
+            AccountTransactionContext::Current(context) => {
+                let l1_bounds = context.l1_resource_bounds()?;
+                Ok(Fee(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit))
+            }
+            AccountTransactionContext::Deprecated(context) => Ok(context.max_fee),
+        }
+    }
 }
 
 impl HasRelatedFeeType for AccountTransactionContext {

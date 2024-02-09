@@ -74,32 +74,32 @@ mod SierraTestContract {
         syscalls::get_block_hash_syscall(block_number).unwrap_syscall()
     }
 
-    // #[external(v0)]
-    // fn test_get_execution_info(
-    //     self: @ContractState,
-    //     expected_block_info: BlockInfo,
-    //     expected_tx_info: TxInfo,
-    //     // Expected call info.
-    //     expected_caller_address: felt252,
-    //     expected_contract_address: felt252,
-    //     expected_entry_point_selector: felt252,
-    // ) {
-    //     let execution_info = starknet::get_execution_info().unbox();
-    //     let block_info = execution_info.block_info.unbox();
-    //     assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
-    //
-    //     let tx_info = execution_info.tx_info.unbox();
-    //     assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
-    //
-    //     assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
-    //     assert(
-    //         execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
-    //     );
-    //     assert(
-    //         execution_info.entry_point_selector == expected_entry_point_selector,
-    //         'SELECTOR_MISMATCH'
-    //     );
-    // }
+    #[external(v0)]
+    fn test_get_execution_info(
+        self: @ContractState,
+        expected_block_info: BlockInfo,
+        expected_tx_info: TxInfo,
+        // Expected call info.
+        expected_caller_address: felt252,
+        expected_contract_address: felt252,
+        expected_entry_point_selector: felt252,
+    ) {
+        let execution_info = starknet::get_execution_info().unbox();
+        let block_info = execution_info.block_info.unbox();
+        assert(block_info == expected_block_info, 'BLOCK_INFO_MISMATCH');
+    
+        let tx_info = execution_info.tx_info.unbox();
+        assert(tx_info == expected_tx_info, 'TX_INFO_MISMATCH');
+    
+        assert(execution_info.caller_address.into() == expected_caller_address, 'CALLER_MISMATCH');
+        assert(
+            execution_info.contract_address.into() == expected_contract_address, 'CONTRACT_MISMATCH'
+        );
+        assert(
+            execution_info.entry_point_selector == expected_entry_point_selector,
+            'SELECTOR_MISMATCH'
+        );
+    }
 
     #[external(v0)]
     #[raw_output]
@@ -306,54 +306,54 @@ mod SierraTestContract {
     //     (msg_hash, Signature { r, s, y_parity: true }, public_key_x, public_key_y, eth_address)
     // }
 
-    // impl ResourceBoundsPartialEq of PartialEq<ResourceBounds> {
-    //     #[inline(always)]
-    //     fn eq(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
-    //         (*lhs.resource == *rhs.resource)
-    //             && (*lhs.max_amount == *rhs.max_amount)
-    //             && (*lhs.max_price_per_unit == *rhs.max_price_per_unit)
-    //     }
-    //     #[inline(always)]
-    //     fn ne(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
-    //         !(*lhs == *rhs)
-    //     }
-    // }
+    impl ResourceBoundsPartialEq of PartialEq<ResourceBounds> {
+        #[inline(always)]
+        fn eq(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
+            (*lhs.resource == *rhs.resource)
+                && (*lhs.max_amount == *rhs.max_amount)
+                && (*lhs.max_price_per_unit == *rhs.max_price_per_unit)
+        }
+        #[inline(always)]
+        fn ne(lhs: @ResourceBounds, rhs: @ResourceBounds) -> bool {
+            !(*lhs == *rhs)
+        }
+    }
 
-    // impl TxInfoPartialEq of PartialEq<TxInfo> {
-    //     #[inline(always)]
-    //     fn eq(lhs: @TxInfo, rhs: @TxInfo) -> bool {
-    //         (*lhs.version == *rhs.version)
-    //             && (*lhs.account_contract_address == *rhs.account_contract_address)
-    //             && (*lhs.max_fee == *rhs.max_fee)
-    //             && (*lhs.signature == *rhs.signature)
-    //             && (*lhs.transaction_hash == *rhs.transaction_hash)
-    //             && (*lhs.chain_id == *rhs.chain_id)
-    //             && (*lhs.nonce == *rhs.nonce)
-    //             && (*lhs.resource_bounds == *rhs.resource_bounds)
-    //             && (*lhs.tip == *rhs.tip)
-    //             && (*lhs.paymaster_data == *rhs.paymaster_data)
-    //             && (*lhs.nonce_data_availability_mode == *rhs.nonce_data_availability_mode)
-    //             && (*lhs.fee_data_availability_mode == *rhs.fee_data_availability_mode)
-    //             && (*lhs.account_deployment_data == *rhs.account_deployment_data)
-    //     }
-    //     #[inline(always)]
-    //     fn ne(lhs: @TxInfo, rhs: @TxInfo) -> bool {
-    //         !(*lhs == *rhs)
-    //     }
-    // }
+    impl TxInfoPartialEq of PartialEq<TxInfo> {
+        #[inline(always)]
+        fn eq(lhs: @TxInfo, rhs: @TxInfo) -> bool {
+            (*lhs.version == *rhs.version)
+                && (*lhs.account_contract_address == *rhs.account_contract_address)
+                && (*lhs.max_fee == *rhs.max_fee)
+                && (*lhs.signature == *rhs.signature)
+                && (*lhs.transaction_hash == *rhs.transaction_hash)
+                && (*lhs.chain_id == *rhs.chain_id)
+                && (*lhs.nonce == *rhs.nonce)
+                && (*lhs.resource_bounds == *rhs.resource_bounds)
+                && (*lhs.tip == *rhs.tip)
+                && (*lhs.paymaster_data == *rhs.paymaster_data)
+                && (*lhs.nonce_data_availability_mode == *rhs.nonce_data_availability_mode)
+                && (*lhs.fee_data_availability_mode == *rhs.fee_data_availability_mode)
+                && (*lhs.account_deployment_data == *rhs.account_deployment_data)
+        }
+        #[inline(always)]
+        fn ne(lhs: @TxInfo, rhs: @TxInfo) -> bool {
+            !(*lhs == *rhs)
+        }
+    }
 
-    // impl BlockInfoPartialEq of PartialEq<BlockInfo> {
-    //     #[inline(always)]
-    //     fn eq(lhs: @BlockInfo, rhs: @BlockInfo) -> bool {
-    //         (*lhs.block_number == *rhs.block_number)
-    //             && (*lhs.block_timestamp == *rhs.block_timestamp)
-    //             && (*lhs.sequencer_address == *rhs.sequencer_address)
-    //     }
-    //     #[inline(always)]
-    //     fn ne(lhs: @BlockInfo, rhs: @BlockInfo) -> bool {
-    //         !(*lhs == *rhs)
-    //     }
-    // }
+    impl BlockInfoPartialEq of PartialEq<BlockInfo> {
+        #[inline(always)]
+        fn eq(lhs: @BlockInfo, rhs: @BlockInfo) -> bool {
+            (*lhs.block_number == *rhs.block_number)
+                && (*lhs.block_timestamp == *rhs.block_timestamp)
+                && (*lhs.sequencer_address == *rhs.sequencer_address)
+        }
+        #[inline(always)]
+        fn ne(lhs: @BlockInfo, rhs: @BlockInfo) -> bool {
+            !(*lhs == *rhs)
+        }
+    }
 
     #[external(v0)]
     fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
