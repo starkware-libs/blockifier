@@ -34,6 +34,9 @@ pub mod hint_processor;
 mod secp;
 
 #[cfg(test)]
+#[path = "syscall_tests_vm.rs"]
+mod syscall_tests_vm;
+#[cfg(test)]
 #[path = "syscalls_test.rs"]
 pub mod syscalls_test;
 
