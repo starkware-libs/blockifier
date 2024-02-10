@@ -70,12 +70,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: Transaction,
         charge_fee: bool,
     ) -> NativeBlockifierResult<(TransactionExecutionInfo, BouncerInfo)> {
-        let l1_handler_payload_size: usize =
-            if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
-                l1_handler_tx.payload_size()
-            } else {
-                0
-            };
+        let l1_handler_payload_size = if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx
+        {
+            Some(l1_handler_tx.payload_size())
+        } else {
+            None
+        };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
@@ -102,7 +102,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                         .collect::<Vec<&CallInfo>>()
                         .into_iter();
                 let MessageL1CostInfo { l2_to_l1_payload_lengths: _, message_segment_length } =
-                    MessageL1CostInfo::calculate(call_infos, Some(l1_handler_payload_size))?;
+                    MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
 
                 // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
