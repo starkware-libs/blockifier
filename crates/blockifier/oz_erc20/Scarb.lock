@@ -4,7 +4,7 @@ version = 1
 [[package]]
 name = "openzeppelin"
 version = "0.8.1"
-source = "git+https://github.com/OpenZeppelin/cairo-contracts.git?tag=v0.8.1#5c7a022f333dca721fe490c2191a811fa2566a89"
+source = "git+https://github.com/NethermindEth/oz-cairo-contracts?branch=native-compilation-fix-v1#0911bfaa9ed8ac50d4be913a58cceb303be5a822"
 
 [[package]]
 name = "oz_erc20"

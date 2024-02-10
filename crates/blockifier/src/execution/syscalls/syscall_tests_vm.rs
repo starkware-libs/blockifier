@@ -1,9 +1,10 @@
-use std::collections::BTreeMap;
-use std::panic;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC;
+use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
@@ -29,17 +30,14 @@ use crate::execution::call_info::{
 };
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClassV0;
-use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::entry_point::{CallEntryPoint, CallType};
+use crate::execution::errors::{EntryPointExecutionError, VirtualMachineExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS,
-    FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
-    X_NOT_EQUAL_Y,
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
-use crate::retdata;
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
+use crate::test_utils::cached_state::{create_deploy_test_state_vm, create_test_state_vm};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
@@ -52,6 +50,7 @@ use crate::transaction::objects::{
     AccountTransactionContext, CommonAccountFields, CurrentAccountTransactionContext,
     DeprecatedAccountTransactionContext,
 };
+use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
@@ -59,7 +58,7 @@ pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
 
 #[test]
 fn test_storage_read_write() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let key = stark_felt!(1234_u16);
     let value = stark_felt!(18_u8);
@@ -86,7 +85,7 @@ fn test_storage_read_write() {
 
 #[test]
 fn test_call_contract() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let calldata = create_calldata(
@@ -106,7 +105,7 @@ fn test_call_contract() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(48_u8)],
-            gas_consumed: 34650,
+            gas_consumed: REQUIRED_GAS_CALL_CONTRACT_TEST,
             ..CallExecution::default()
         }
     );
@@ -114,7 +113,7 @@ fn test_call_contract() {
 
 #[test]
 fn test_emit_event() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
@@ -139,7 +138,7 @@ fn test_emit_event() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: 34650,
+            gas_consumed: 52570,
             ..Default::default()
         }
     );
@@ -147,7 +146,7 @@ fn test_emit_event() {
 
 #[test]
 fn test_get_block_hash() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     // Initialize block number -> block hash entry.
     let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
@@ -168,16 +167,15 @@ fn test_get_block_hash() {
 
     assert_eq!(
         entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 34650, ..CallExecution::from_retdata(retdata![block_hash]) }
+        CallExecution { gas_consumed: 14250, ..CallExecution::from_retdata(retdata![block_hash]) }
     );
 
     // Negative flow. Execution mode is Validate.
-    let execution_result = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap();
-
-    matches!(execution_result, CallInfo { execution: CallExecution { failed: true, .. }, .. });
-
-    let expected_return_data = Retdata(vec![stark_felt!(INVALID_EXECUTION_MODE_ERROR)]);
-    assert_eq!(execution_result.execution.retdata, expected_return_data);
+    let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+    check_entry_point_execution_error_for_custom_hint!(
+        &error,
+        "Unauthorized syscall get_block_hash in execution mode Validate.",
+    );
 
     // Negative flow: Block number out of range.
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
@@ -188,18 +186,14 @@ fn test_get_block_hash() {
         calldata,
         ..trivial_external_entry_point()
     };
-    let execution_result = entry_point_call.execute_directly(&mut state).unwrap();
-
-    matches!(execution_result, CallInfo { execution: CallExecution { failed: true, .. }, .. });
-
-    let expected_return_data = Retdata(vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
-
-    assert_eq!(execution_result.execution.retdata, expected_return_data);
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
+    assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
+        if error_data == vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
 }
 
 #[test]
 fn test_keccak() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let calldata = Calldata(vec![].into());
     let entry_point_call = CallEntryPoint {
@@ -210,7 +204,7 @@ fn test_keccak() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 34650, ..CallExecution::from_retdata(retdata![]) }
+        CallExecution { gas_consumed: 354940, ..CallExecution::from_retdata(retdata![]) }
     );
 }
 
@@ -228,54 +222,54 @@ fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
 }
 
 #[test_case(
-    ExecutionMode::Validate,
-    contract_address!(StarkFelt::ZERO),
-    TransactionVersion::ONE,
-    false,
-    false;
-    "Validate execution mode: block info fields should be zeroed. Transaction V1.")]
+ExecutionMode::Validate,
+contract_address!(StarkFelt::ZERO),
+TransactionVersion::ONE,
+false,
+false;
+"Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
-    ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
-    TransactionVersion::ONE,
-    false,
-    false;
-    "Execute execution mode: block info should be as usual. Transaction V1.")]
+ExecutionMode::Execute,
+contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
+TransactionVersion::ONE,
+false,
+false;
+"Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
-    ExecutionMode::Validate,
-    contract_address!(StarkFelt::ZERO),
-    TransactionVersion::THREE,
-    false,
-    false;
-    "Validate execution mode: block info fields should be zeroed. Transaction V3.")]
+ExecutionMode::Validate,
+contract_address!(StarkFelt::ZERO),
+TransactionVersion::THREE,
+false,
+false;
+"Validate execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
-    ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
-    TransactionVersion::THREE,
-    false,
-    false;
-    "Execute execution mode: block info should be as usual. Transaction V3.")]
+ExecutionMode::Execute,
+contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
+TransactionVersion::THREE,
+false,
+false;
+"Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
-    ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
-    TransactionVersion::ONE,
-    true,
-    false;
-    "Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")]
+ExecutionMode::Execute,
+contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
+TransactionVersion::ONE,
+true,
+false;
+"Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
-    ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
-    TransactionVersion::THREE,
-    true,
-    false;
-    "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")]
+ExecutionMode::Execute,
+contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
+TransactionVersion::THREE,
+true,
+false;
+"Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
-    ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
-    TransactionVersion::THREE,
-    false,
-    true;
-    "Execute execution mode: block info should be as usual. Transaction V3. Query.")]
+ExecutionMode::Execute,
+contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
+TransactionVersion::THREE,
+false,
+true;
+"Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 fn test_get_execution_info(
     execution_mode: ExecutionMode,
     sequencer_address: ContractAddress,
@@ -445,7 +439,7 @@ fn test_get_execution_info(
 
 #[test]
 fn test_library_call() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
@@ -455,7 +449,6 @@ fn test_library_call() {
         stark_felt!(1234_u16),        // Calldata: address.
         stark_felt!(91_u8)            // Calldata: value.
     ];
-
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
@@ -467,14 +460,15 @@ fn test_library_call() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(91_u16)],
-            gas_consumed: 34650,
+            gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
             ..Default::default()
         }
     );
 }
+
 #[test]
 fn test_library_call_assert_fails() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
     let inner_entry_point_selector = selector_from_name("assert_eq");
     let calldata = calldata![
         stark_felt!(TEST_CLASS_HASH), // Class hash.
@@ -489,136 +483,134 @@ fn test_library_call_assert_fails() {
         class_hash: Some(class_hash!(TEST_CLASS_HASH)),
         ..trivial_external_entry_point()
     };
-    // x != y in hex =
-    //
-    let retdata = retdata![stark_felt!(X_NOT_EQUAL_Y)];
 
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 34650, failed: true, retdata, ..Default::default() }
+    assert_matches!(
+        entry_point_call.execute_directly(&mut state).unwrap_err(),
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } if trace.contains("x != y")
     );
 }
-// #[test]
-// fn test_nested_library_call() {
-//     let mut state = create_test_state();
-//
-//     let (key, value) = (255_u64, 44_u64);
-//     let outer_entry_point_selector = selector_from_name("test_library_call");
-//     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
-//     let main_entry_point_calldata = calldata![
-//         stark_felt!(TEST_CLASS_HASH), // Class hash.
-//         outer_entry_point_selector.0, // Library call function selector.
-//         inner_entry_point_selector.0, // Storage function selector.
-//         stark_felt!(key),             // Calldata: address.
-//         stark_felt!(value)            // Calldata: value.
-//     ];
-//
-//     // Create expected call info tree.
-//     let main_entry_point = CallEntryPoint {
-//         entry_point_selector: selector_from_name("test_nested_library_call"),
-//         calldata: main_entry_point_calldata,
-//         class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-//         initial_gas: 9999906600,
-//         ..trivial_external_entry_point()
-//     };
-//     let nested_storage_entry_point = CallEntryPoint {
-//         entry_point_selector: inner_entry_point_selector,
-//         calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
-//         class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-//         code_address: None,
-//         call_type: CallType::Delegate,
-//         initial_gas: 9999720720,
-//         ..trivial_external_entry_point()
-//     };
-//     let library_entry_point = CallEntryPoint {
-//         entry_point_selector: outer_entry_point_selector,
-//         calldata: calldata![
-//             stark_felt!(TEST_CLASS_HASH), // Class hash.
-//             inner_entry_point_selector.0, // Storage function selector.
-//             stark_felt!(2_u8),            // Calldata: address.
-//             stark_felt!(key + 1),         // Calldata: address.
-//             stark_felt!(value + 1)        // Calldata: value.
-//         ],
-//         class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-//         code_address: None,
-//         call_type: CallType::Delegate,
-//         initial_gas: 9999814150,
-//         ..trivial_external_entry_point()
-//     };
-//     let storage_entry_point = CallEntryPoint {
-//         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-//         initial_gas: 9999625070,
-//         ..nested_storage_entry_point
-//     };
-//     let storage_entry_point_vm_resources = VmExecutionResources {
-//         n_steps: 143,
-//         n_memory_holes: 1,
-//         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
-//     };
-//     let nested_storage_call_info = CallInfo {
-//         call: nested_storage_entry_point,
-//         execution: CallExecution {
-//             retdata: retdata![stark_felt!(value + 1)],
-//             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
-//             ..CallExecution::default()
-//         },
-//         vm_resources: storage_entry_point_vm_resources.clone(),
-//         storage_read_values: vec![stark_felt!(value + 1)],
-//         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
-//         ..Default::default()
-//     };
-//     let library_call_vm_resources = VmExecutionResources {
-//         n_steps: 411,
-//         n_memory_holes: 2,
-//         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 13)]),
-//     };
-//     let library_call_info = CallInfo {
-//         call: library_entry_point,
-//         execution: CallExecution {
-//             retdata: retdata![stark_felt!(value + 1)],
-//             gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
-//             ..CallExecution::default()
-//         },
-//         vm_resources: library_call_vm_resources,
-//         inner_calls: vec![nested_storage_call_info],
-//         ..Default::default()
-//     };
-//     let storage_call_info = CallInfo {
-//         call: storage_entry_point,
-//         execution: CallExecution {
-//             retdata: retdata![stark_felt!(value)],
-//             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
-//             ..CallExecution::default()
-//         },
-//         vm_resources: storage_entry_point_vm_resources,
-//         storage_read_values: vec![stark_felt!(value)],
-//         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
-//         ..Default::default()
-//     };
-//
-//     let main_call_vm_resources = VmExecutionResources {
-//         n_steps: 765,
-//         n_memory_holes: 4,
-//         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
-//     };
-//     let expected_call_info = CallInfo {
-//         call: main_entry_point.clone(),
-//         execution: CallExecution {
-//             retdata: retdata![stark_felt!(value)],
-//             gas_consumed: 316180,
-//             ..CallExecution::default()
-//         },
-//         vm_resources: main_call_vm_resources,
-//         inner_calls: vec![library_call_info, storage_call_info],
-//         ..Default::default()
-//     };
-//
-//     assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
-// }
+
+#[test]
+fn test_nested_library_call() {
+    let mut state = create_test_state_vm();
+
+    let (key, value) = (255_u64, 44_u64);
+    let outer_entry_point_selector = selector_from_name("test_library_call");
+    let inner_entry_point_selector = selector_from_name("test_storage_read_write");
+    let main_entry_point_calldata = calldata![
+        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        outer_entry_point_selector.0, // Library call function selector.
+        inner_entry_point_selector.0, // Storage function selector.
+        stark_felt!(key),             // Calldata: address.
+        stark_felt!(value)            // Calldata: value.
+    ];
+
+    // Create expected call info tree.
+    let main_entry_point = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_nested_library_call"),
+        calldata: main_entry_point_calldata,
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        initial_gas: 9999906600,
+        ..trivial_external_entry_point()
+    };
+    let nested_storage_entry_point = CallEntryPoint {
+        entry_point_selector: inner_entry_point_selector,
+        calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        code_address: None,
+        call_type: CallType::Delegate,
+        initial_gas: 9999720720,
+        ..trivial_external_entry_point()
+    };
+    let library_entry_point = CallEntryPoint {
+        entry_point_selector: outer_entry_point_selector,
+        calldata: calldata![
+            stark_felt!(TEST_CLASS_HASH), // Class hash.
+            inner_entry_point_selector.0, // Storage function selector.
+            stark_felt!(2_u8),            // Calldata: address.
+            stark_felt!(key + 1),         // Calldata: address.
+            stark_felt!(value + 1)        // Calldata: value.
+        ],
+        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        code_address: None,
+        call_type: CallType::Delegate,
+        initial_gas: 9999814150,
+        ..trivial_external_entry_point()
+    };
+    let storage_entry_point = CallEntryPoint {
+        calldata: calldata![stark_felt!(key), stark_felt!(value)],
+        initial_gas: 9999625070,
+        ..nested_storage_entry_point
+    };
+    let storage_entry_point_vm_resources = VmExecutionResources {
+        n_steps: 143,
+        n_memory_holes: 1,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 5)]),
+    };
+    let nested_storage_call_info = CallInfo {
+        call: nested_storage_entry_point,
+        execution: CallExecution {
+            retdata: retdata![stark_felt!(value + 1)],
+            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
+            ..CallExecution::default()
+        },
+        vm_resources: storage_entry_point_vm_resources.clone(),
+        storage_read_values: vec![stark_felt!(value + 1)],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
+        ..Default::default()
+    };
+    let library_call_vm_resources = VmExecutionResources {
+        n_steps: 411,
+        n_memory_holes: 2,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 13)]),
+    };
+    let library_call_info = CallInfo {
+        call: library_entry_point,
+        execution: CallExecution {
+            retdata: retdata![stark_felt!(value + 1)],
+            gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
+            ..CallExecution::default()
+        },
+        vm_resources: library_call_vm_resources,
+        inner_calls: vec![nested_storage_call_info],
+        ..Default::default()
+    };
+    let storage_call_info = CallInfo {
+        call: storage_entry_point,
+        execution: CallExecution {
+            retdata: retdata![stark_felt!(value)],
+            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
+            ..CallExecution::default()
+        },
+        vm_resources: storage_entry_point_vm_resources,
+        storage_read_values: vec![stark_felt!(value)],
+        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        ..Default::default()
+    };
+
+    let main_call_vm_resources = VmExecutionResources {
+        n_steps: 765,
+        n_memory_holes: 4,
+        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
+    };
+    let expected_call_info = CallInfo {
+        call: main_entry_point.clone(),
+        execution: CallExecution {
+            retdata: retdata![stark_felt!(value)],
+            gas_consumed: 316180,
+            ..CallExecution::default()
+        },
+        vm_resources: main_call_vm_resources,
+        inner_calls: vec![library_call_info, storage_call_info],
+        ..Default::default()
+    };
+
+    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+}
 
 #[test]
 fn test_replace_class() {
-    let mut state = create_deploy_test_state();
+    let mut state = create_deploy_test_state_vm();
 
     // Negative flow.
 
@@ -628,12 +620,8 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap();
-    let retdata = Retdata(vec![stark_felt!(FAILED_TO_GET_CONTRACT_CLASS)]);
-    assert_eq!(
-        error.execution,
-        CallExecution { gas_consumed: 34650, retdata, failed: true, ..Default::default() }
-    );
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    assert!(error.contains("is not declared"));
 
     // Replace with Cairo 0 class hash.
     let v0_class_hash = class_hash!(5678_u16);
@@ -645,13 +633,8 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-    let error = entry_point_call.execute_directly(&mut state);
-    let retdata = Retdata(vec![stark_felt!(FORBIDDEN_CLASS_REPLACEMENT)]);
-
-    assert_eq!(
-        error.unwrap().execution,
-        CallExecution { gas_consumed: 34650, retdata, failed: true, ..Default::default() }
-    );
+    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 
     // Positive flow.
     let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
@@ -663,51 +646,50 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point()
     };
-
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 34650, ..Default::default() }
+        CallExecution { gas_consumed: 14450, ..Default::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
 
-// #[test]
-// fn test_secp256k1() {
-//     let mut state = create_test_state();
-//
-//     let calldata = Calldata(vec![].into());
-//     let entry_point_call = CallEntryPoint {
-//         entry_point_selector: selector_from_name("test_secp256k1"),
-//         calldata,
-//         ..trivial_external_entry_point()
-//     };
-//
-//     assert_eq!(
-//         entry_point_call.execute_directly(&mut state).unwrap().execution,
-//         CallExecution { gas_consumed: 17210900_u64, ..Default::default() }
-//     );
-// }
-//
-// #[test]
-// fn test_secp256r1() {
-//     let mut state = create_test_state();
-//
-//     let calldata = Calldata(vec![].into());
-//     let entry_point_call = CallEntryPoint {
-//         entry_point_selector: selector_from_name("test_secp256r1"),
-//         calldata,
-//         ..trivial_external_entry_point()
-//     };
-//
-//     assert_eq!(
-//         entry_point_call.execute_directly(&mut state).unwrap().execution,
-//         CallExecution { gas_consumed: 27650390_u64, ..Default::default() }
-//     );
-// }
+#[test]
+fn test_secp256k1() {
+    let mut state = create_test_state_vm();
+
+    let calldata = Calldata(vec![].into());
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_secp256k1"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { gas_consumed: 17210900_u64, ..Default::default() }
+    );
+}
+
+#[test]
+fn test_secp256r1() {
+    let mut state = create_test_state_vm();
+
+    let calldata = Calldata(vec![].into());
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_secp256r1"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { gas_consumed: 27650390_u64, ..Default::default() }
+    );
+}
 
 #[test]
 fn test_send_message_to_l1() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let to_address = stark_felt!(1234_u16);
     let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
@@ -727,80 +709,79 @@ fn test_send_message_to_l1() {
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
-            gas_consumed: 34650,
+            gas_consumed: 37990,
             ..Default::default()
         }
     );
 }
 
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-    calldata![
-    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-    ContractAddressSalt::default().0,            // Contract_address_salt.
-    stark_felt!(0_u8),                           // Calldata length.
-    stark_felt!(0_u8)                            // deploy_from_zero.
-    ],
-    calldata![],
-    None ;
-    "No constructor: Positive flow"
-)]
+class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+calldata![
+stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+ContractAddressSalt::default().0,            // Contract_address_salt.
+stark_felt!(0_u8),                           // Calldata length.
+stark_felt!(0_u8)                            // deploy_from_zero.
+],
+calldata![],
+None ;
+"No constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-        ContractAddressSalt::default().0,            // Contract_address_salt.
-        stark_felt!(2_u8),                           // Calldata length.
-        stark_felt!(2_u8),                           // Calldata: address.
-        stark_felt!(1_u8),                           // Calldata: value.
-        stark_felt!(0_u8)                            // deploy_from_zero.
-    ],
-    calldata![
-        stark_felt!(2_u8),                           // Calldata: arg1.
-        stark_felt!(1_u8)                            // Calldata: arg2.
-    ],
-    Some(FAILED_TO_EXECUTE_CALL);
-    "No constructor: Negative flow: nonempty calldata")]
+class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+calldata![
+stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+ContractAddressSalt::default().0,            // Contract_address_salt.
+stark_felt!(2_u8),                           // Calldata length.
+stark_felt!(2_u8),                           // Calldata: address.
+stark_felt!(1_u8),                           // Calldata: value.
+stark_felt!(0_u8)                            // deploy_from_zero.
+],
+calldata![
+stark_felt!(2_u8),                           // Calldata: arg1.
+stark_felt!(1_u8)                            // Calldata: arg2.
+],
+Some(
+"Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
+"No constructor: Negative flow: nonempty calldata")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
-        ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8),                // Calldata length.
-        stark_felt!(1_u8),                // Calldata: arg1.
-        stark_felt!(1_u8),                // Calldata: arg2.
-        stark_felt!(0_u8)                 // deploy_from_zero.
-    ],
-    calldata![
-        stark_felt!(1_u8),                // Calldata: arg1.
-        stark_felt!(1_u8)                 // Calldata: arg2.
-    ],
-    None;
-    "With constructor: Positive flow")]
+class_hash!(TEST_CLASS_HASH),
+calldata![
+stark_felt!(TEST_CLASS_HASH),     // Class hash.
+ContractAddressSalt::default().0, // Contract_address_salt.
+stark_felt!(2_u8),                // Calldata length.
+stark_felt!(1_u8),                // Calldata: arg1.
+stark_felt!(1_u8),                // Calldata: arg2.
+stark_felt!(0_u8)                 // deploy_from_zero.
+],
+calldata![
+stark_felt!(1_u8),                // Calldata: arg1.
+stark_felt!(1_u8)                 // Calldata: arg2.
+],
+None;
+"With constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
-        ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8),                // Calldata length.
-        stark_felt!(3_u8),                // Calldata: arg1.
-        stark_felt!(3_u8),                // Calldata: arg2.
-        stark_felt!(0_u8)                 // deploy_from_zero.
-    ],
-    calldata![
-        stark_felt!(3_u8),                // Calldata: arg1.
-        stark_felt!(3_u8)                 // Calldata: arg2.
-    ],
-    Some(FAILED_TO_EXECUTE_CALL);
-    "With constructor: Negative flow: deploy to the same address")
-]
+class_hash!(TEST_CLASS_HASH),
+calldata![
+stark_felt!(TEST_CLASS_HASH),     // Class hash.
+ContractAddressSalt::default().0, // Contract_address_salt.
+stark_felt!(2_u8),                // Calldata length.
+stark_felt!(3_u8),                // Calldata: arg1.
+stark_felt!(3_u8),                // Calldata: arg2.
+stark_felt!(0_u8)                 // deploy_from_zero.
+],
+calldata![
+stark_felt!(3_u8),                // Calldata: arg1.
+stark_felt!(3_u8)                 // Calldata: arg2.
+],
+Some("is unavailable for deployment.");
+"With constructor: Negative flow: deploy to the same address")]
 fn test_deploy(
     class_hash: ClassHash,
     calldata: Calldata,
     constructor_calldata: Calldata,
     expected_error: Option<&str>,
 ) {
-    let mut state = create_deploy_test_state();
+    let mut state = create_deploy_test_state_vm();
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
@@ -808,13 +789,8 @@ fn test_deploy(
     };
 
     if let Some(expected_error) = expected_error {
-        let execution_result = entry_point_call.execute_directly(&mut state);
-        let call_info = execution_result.unwrap().execution;
-        let retdata = Retdata(vec![stark_felt!(expected_error)]);
-        assert_eq!(
-            call_info,
-            CallExecution { gas_consumed: 34650, failed: true, retdata, ..Default::default() }
-        );
+        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        assert!(error.contains(expected_error));
         return;
     }
 
@@ -826,31 +802,25 @@ fn test_deploy(
         contract_address!(TEST_CONTRACT_ADDRESS),
     )
     .unwrap();
-
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
-
     assert_eq!(deploy_call.call.storage_address, contract_address);
-
     let mut retdata = retdata![];
     let gas_consumed = if constructor_calldata.0.is_empty() {
         0
     } else {
         retdata.0.push(constructor_calldata.0[0]);
-        34650
+        16640
     };
-
     assert_eq!(
         deploy_call.execution,
         CallExecution { retdata, gas_consumed, ..CallExecution::default() }
     );
-
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
 }
 
 #[test]
-#[ignore]
 fn test_out_of_gas() {
-    let mut state = create_test_state();
+    let mut state = create_test_state_vm();
 
     let key = stark_felt!(1234_u16);
     let value = stark_felt!(18_u8);
