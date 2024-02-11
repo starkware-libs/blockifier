@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::SystemTime;
 
 use thiserror::Error;
 
@@ -32,12 +33,15 @@ pub enum BouncerError {
 pub type BouncerResult<T> = Result<T, BouncerError>;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct Bouncer {
     max_block_weights: HashMap<String, u64>,
     accumulated_block_weights: HashMap<String, u64>,
     max_tx_lifespan: u64,
     minimum_tx_creation_time: Option<u64>,
-    // TODO creation_time: u64,
+    batch_creation_time: u64,
+    batch_empty: bool,
+    batch_full: bool,
 }
 
 #[allow(dead_code)]
@@ -48,8 +52,11 @@ impl Bouncer {
             accumulated_block_weights: HashMap::new(),
             max_tx_lifespan,
             minimum_tx_creation_time: None,
-            // TODO creation_time:
-            // SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs(),
+            batch_creation_time: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)?
+                .as_secs(),
+            batch_empty: true,
+            batch_full: false,
         })
     }
 
@@ -70,6 +77,8 @@ impl Bouncer {
                 let accumulated_weight_entry =
                     self.accumulated_block_weights.entry(key.clone()).or_insert(0);
                 if *accumulated_weight_entry + weight > *max_weight {
+                    // TODO(Yael) - do we want to try and fit a smaller transaction into this batch?
+                    self.batch_full = true;
                     return Err(BouncerError::BatchFull {
                         parameter: key.to_string(),
                         weight: *weight,
@@ -87,6 +96,7 @@ impl Bouncer {
                 .entry(key.clone())
                 .and_modify(|accumulated_weight| *accumulated_weight += weight);
         }
+        self.batch_empty = false;
 
         // Update the oldest transaction timestamp
         if self.minimum_tx_creation_time.is_none()
@@ -96,5 +106,32 @@ impl Bouncer {
         }
 
         Ok(())
+    }
+
+    fn should_create_block(&self) -> bool {
+        if self.batch_empty {
+            return false;
+        }
+
+        if self.batch_full {
+            log::debug!("A new block should be created because the batch is full");
+            return true;
+        }
+
+        // Check if the oldest transaction in the batch is waiting for more than max_tx_lifespan
+        if let Some(minimum_tx_creation_time) = self.minimum_tx_creation_time {
+            if minimum_tx_creation_time + self.max_tx_lifespan < self.batch_creation_time {
+                log::debug!(
+                    "A new block should be created because more than max_tx_lifespan seconds have \
+                     passed since oldest transaction timestamp: oldest tx has been waiting for {} \
+                     seconds, the lifespan is {}.",
+                    self.batch_creation_time - minimum_tx_creation_time,
+                    self.max_tx_lifespan
+                );
+                return true;
+            }
+        }
+
+        false
     }
 }

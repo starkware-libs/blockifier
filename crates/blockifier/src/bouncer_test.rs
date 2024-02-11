@@ -64,3 +64,27 @@ fn test_bouncer_add() {
     assert_eq!(bouncer.accumulated_block_weights.get("b").unwrap(), &10);
     assert_eq!(bouncer.accumulated_block_weights.get("c").unwrap(), &15);
 }
+
+#[test]
+fn test_bouncer_should_create_block() {
+    let mut max_block_weights = HashMap::new();
+    max_block_weights.insert("a".to_string(), 10);
+    let mut bouncer = Bouncer::new(max_block_weights, 10).unwrap();
+    // Test the case where the batch is empty
+    assert!(!bouncer.should_create_block());
+    // Test the case where max_tx_lifetime has not passed since the oldest transaction timestamp
+    bouncer.batch_creation_time = 20;
+    bouncer.add(HashMap::new(), 11).unwrap();
+    assert!(!bouncer.should_create_block());
+    // Test the case where max_tx_lifetime has passed since the oldest transaction timestamp
+    bouncer.add(HashMap::new(), 2).unwrap();
+    assert!(bouncer.should_create_block());
+    // Test the case where the batch is full
+    let mut weights = HashMap::new();
+    weights.insert("a".to_string(), 10);
+    bouncer.add(weights, 11).unwrap();
+    let mut weights = HashMap::new();
+    weights.insert("a".to_string(), 1);
+    bouncer.add(weights, 11).unwrap_err();
+    assert!(bouncer.should_create_block());
+}
