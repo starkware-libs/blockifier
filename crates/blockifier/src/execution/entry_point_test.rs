@@ -622,37 +622,21 @@ fn test_stack_trace(
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-<<<<<<< HEAD
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
-||||||| b59fdc2c
-Unknown location (pc=0:708)
-Unknown location (pc=0:691)
-=======
-Unknown location (pc=0:718)
-Unknown location (pc=0:701)
->>>>>>> origin/main-v0.13.0-hotfix
 
 Error in the called contract ({}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-<<<<<<< HEAD
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
-||||||| b59fdc2c
-Unknown location (pc=0:708)
-Unknown location (pc=0:691)
-=======
-Unknown location (pc=0:718)
-Unknown location (pc=0:701)
->>>>>>> origin/main-v0.13.0-hotfix
 
 Error in the called contract ({}):
-Error at pc=0:1174:
+Error at pc=0:1184:
 An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:1178)
+Unknown location (pc=0:1188)
 ",
         *test_contract_address.0.key(),
         *test_contract_address_2.0.key(),
@@ -662,13 +646,13 @@ Unknown location (pc=0:1178)
     let pc_location = entry_point_offset.0 + 82;
     let expected_trace_cairo1 = format!(
         "Error in the called contract ({}):
-Error at pc=0:4942:
+Error at pc=0:4992:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({}):
-Error at pc=0:4942:
+Error at pc=0:4992:
 Got an exception while executing a hint: Execution failed. Failure reason: 0x6661696c ('fail').
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
@@ -695,8 +679,8 @@ Execution failed. Failure reason: 0x6661696c ('fail').
 }
 
 #[rstest]
-#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:37", (1071_u16, 1117_u16))]
-#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", (1174_u16, 1125_u16))]
+#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:37", (1081_u16, 1127_u16))]
+#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", (1184_u16, 1135_u16))]
 #[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", (0_u16, 0_u16))]
 #[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", (0_u16, 0_u16))]
 fn test_trace_callchain_ends_with_regular_call(
@@ -760,7 +744,7 @@ Unknown location (pc=0:{})
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             format!(
                 "Error in the called contract ({contract_address_felt}):
-Error at pc=0:7981:
+Error at pc=0:8010:
 Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
@@ -777,14 +761,14 @@ Execution failed. Failure reason: {expected_error}.
 }
 
 #[rstest]
-#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 0_u8, (37_u16, 1083_u16, 1071_u16, 1156_u16))]
-#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 1_u8, (49_u16, 1101_u16, 1071_u16, 1156_u16))]
-#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 0_u8, (37_u16, 1083_u16, 1174_u16, 1178_u16))]
-#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 1_u8, (49_u16, 1101_u16, 1174_u16, 1178_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 0_u8, (7981_u16, 0_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 1_u8, (8070_u16, 0_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (7981_u16, 0_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (8070_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 0_u8, (37_u16, 1093_u16, 1081_u16, 1166_u16))]
+#[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 1_u8, (49_u16, 1111_u16, 1081_u16, 1166_u16))]
+#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 0_u8, (37_u16, 1093_u16, 1184_u16, 1188_u16))]
+#[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 1_u8, (49_u16, 1111_u16, 1184_u16, 1188_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 0_u8, (8010_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 1_u8, (8099_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (8010_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (8099_u16, 0_u16, 0_u16, 0_u16))]
 fn test_trace_call_chain_with_syscalls(
     #[case] cairo_version: CairoVersion,
     #[case] last_func_name: &str,
@@ -862,7 +846,7 @@ Unknown location (pc=0:{})
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             format!(
                 "Error in the called contract ({address_felt}):
-Error at pc=0:7981:
+Error at pc=0:8010:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
