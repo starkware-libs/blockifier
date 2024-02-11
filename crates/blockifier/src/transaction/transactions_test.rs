@@ -30,19 +30,14 @@ use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionCont
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
-<<<<<<< HEAD
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-||||||| b59fdc2c
-use crate::execution::execution_utils::felt_to_stark_felt;
-=======
-use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::{
     SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
 };
->>>>>>> origin/main-v0.13.0-hotfix
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_calldata_gas_cost,
@@ -60,33 +55,12 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-<<<<<<< HEAD
-    create_calldata, test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
-    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_SEQUENCER_ADDRESS,
-||||||| b59fdc2c
-    check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
-    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS,
-    TEST_ERC20_CONTRACT_CLASS_HASH, TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
-=======
-    check_entry_point_execution_error_for_custom_hint, create_calldata, invoke_tx,
-    test_erc20_account_balance_key, test_erc20_sequencer_balance_key, DictStateReader,
-    InvokeTxArgs, NonceManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_PRICE,
+    create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
+    CairoVersion, NonceManager, SaltManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
     TEST_SEQUENCER_ADDRESS,
->>>>>>> origin/main-v0.13.0-hotfix
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -99,7 +73,8 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
-    l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
+    create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
+    GET_BLOCK_HASH, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -1704,7 +1679,6 @@ fn test_only_query_flag(#[case] only_query: bool) {
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     assert!(!tx_execution_info.is_reverted())
 }
-<<<<<<< HEAD
 
 fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
     L1HandlerTransaction {
@@ -1847,8 +1821,6 @@ fn test_execute_tx_with_invalid_transaction_version() {
             .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str())
     );
 }
-||||||| b59fdc2c
-=======
 
 #[test_case(
     vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS],
@@ -1944,4 +1916,3 @@ fn test_emit_event_exceeds_limit(
         }
     }
 }
->>>>>>> origin/main-v0.13.0-hotfix

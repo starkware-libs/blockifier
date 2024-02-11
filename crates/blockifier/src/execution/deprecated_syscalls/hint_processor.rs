@@ -56,26 +56,20 @@ pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
-<<<<<<< HEAD
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("{error}")]
     CallContractExecutionError {
         storage_address: ContractAddress,
         error: Box<DeprecatedSyscallExecutionError>,
     },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
     #[error("{error}")]
     LibraryCallExecutionError {
         class_hash: ClassHash,
         storage_address: ContractAddress,
         error: Box<DeprecatedSyscallExecutionError>,
     },
-||||||| b59fdc2c
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
-=======
-    EmitEventError(#[from] EmitEventError),
-    #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
->>>>>>> origin/main-v0.13.0-hotfix
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]

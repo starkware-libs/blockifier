@@ -66,23 +66,15 @@ mod TestContract {
     }
 
     #[external(v0)]
-<<<<<<< HEAD
-    fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
-        syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
-||||||| b59fdc2c
-    fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
-        starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
-=======
     fn test_emit_events(self: @ContractState, events_number: u64, keys: Array::<felt252>, data: Array::<felt252>) {
         let mut c = 0_u64;
         loop {
             if c == events_number {
                 break;
             }
-            starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+            syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
             c += 1;
         };
->>>>>>> origin/main-v0.13.0-hotfix
     }
 
     #[external(v0)]
