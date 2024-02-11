@@ -26,11 +26,11 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::abi::constants::{self};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::utils::const_max;
+use crate::versioned_constants::VersionedConstants;
 
 // TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
 //   `initial_test_state` modules for testing.
@@ -212,7 +212,7 @@ pub fn trivial_external_entry_point_with_address(
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: VersionedConstants::create_for_testing().gas_cost("initial_gas_cost"),
     }
 }
 
@@ -232,8 +232,11 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 macro_rules! check_inner_exc_for_custom_hint {
     ($inner_exc:expr, $expected_hint:expr) => {
         if let cairo_vm::vm::errors::vm_errors::VirtualMachineError::Hint(hint) = $inner_exc {
-            if let cairo_vm::vm::errors::hint_errors::HintError::CustomHint(custom_hint) = &hint.1 {
-                assert_eq!(custom_hint.as_ref(), $expected_hint)
+            if let cairo_vm::vm::errors::hint_errors::HintError::Internal(
+                cairo_vm::vm::errors::vm_errors::VirtualMachineError::Other(error),
+            ) = &hint.1
+            {
+                assert_eq!(error.to_string(), $expected_hint.to_string());
             } else {
                 panic!("Unexpected hint: {:?}", hint);
             }
@@ -260,10 +263,8 @@ macro_rules! check_entry_point_execution_error {
     ($error:expr, $expected_hint:expr $(,)?) => {
         if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
             source:
-                VirtualMachineExecutionError::CairoRunError(
-                    cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
-                        cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
-                    ),
+                cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
+                    cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
                 ),
             ..
         } = $error

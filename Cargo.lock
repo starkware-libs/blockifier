@@ -388,6 +388,7 @@ dependencies = [
 name = "blockifier"
 version = "0.5.0-dev.0"
 dependencies = [
+ "anyhow",
  "ark-ec",
  "ark-ff",
  "ark-secp256k1",
@@ -400,7 +401,6 @@ dependencies = [
  "cairo-lang-starknet",
  "cairo-lang-utils",
  "cairo-vm",
- "ctor",
  "derive_more",
  "indexmap 2.1.0",
  "itertools 0.10.5",
@@ -409,6 +409,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits 0.2.17",
+ "once_cell",
  "phf",
  "pretty_assertions",
  "rstest",
@@ -1222,16 +1223,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "ctor"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30d2b3721e861707777e3195b0158f950ae6dc4a27e4d02ff9f67e3eb3de199e"
-dependencies = [
- "quote",
- "syn 2.0.46",
 ]
 
 [[package]]
@@ -2110,6 +2101,7 @@ dependencies = [
  "pretty_assertions",
  "pyo3",
  "pyo3-log",
+ "serde",
  "serde_json",
  "starknet_api",
  "tempfile",

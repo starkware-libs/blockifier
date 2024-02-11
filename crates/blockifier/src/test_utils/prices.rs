@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cached::proc_macro::cached;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use starknet_api::core::ContractAddress;
@@ -6,7 +8,7 @@ use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, ExecutionResources,
@@ -73,8 +75,7 @@ fn fee_transfer_resources(
             state,
             &mut ExecutionResources::default(),
             &mut EntryPointExecutionContext::new(
-                block_context,
-                &account_invoke_tx(InvokeTxArgs::default()).get_account_tx_context(),
+                Arc::new(block_context.to_tx_context(&account_invoke_tx(InvokeTxArgs::default()))),
                 ExecutionMode::Execute,
                 false,
             )

@@ -52,6 +52,13 @@ impl ContractClass {
             ContractClass::V1(class) => class.estimate_casm_hash_computation_resources(),
         }
     }
+
+    pub fn bytecode_length(&self) -> usize {
+        match self {
+            ContractClass::V0(class) => class.bytecode_length(),
+            ContractClass::V1(class) => class.bytecode_length(),
+        }
+    }
 }
 
 // V0.

@@ -1,33 +1,29 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::vec::IntoIter;
 
-use blockifier::block_context::BlockContext;
-use blockifier::block_execution::pre_process_block;
+use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
 use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::state::cached_state::{
-    CachedState, GlobalContractCache, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, CommitmentStateDiff, StagedTransactionalState, StorageEntry, TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-use pyo3::prelude::*;
-use starknet_api::block::{BlockHash, BlockNumber};
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_block_executor::{into_block_context, PyGeneralConfig};
-use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction::py_tx;
-use crate::py_transaction_execution_info::{
-    PyBouncerInfo, PyTransactionExecutionInfo, PyVmExecutionResources,
-};
-use crate::py_utils::PyFelt;
+use crate::py_transaction_execution_info::BouncerInfo;
 
+pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
+
+// TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
 
@@ -45,19 +41,13 @@ pub struct TransactionExecutor<S: StateReader> {
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
-    pub fn new(
-        state_reader: S,
-        general_config: &PyGeneralConfig,
-        block_info: PyBlockInfo,
-        max_recursion_depth: usize,
-        global_contract_cache: GlobalContractCache,
-    ) -> NativeBlockifierResult<Self> {
+    pub fn new(state: CachedState<S>, block_context: BlockContext) -> NativeBlockifierResult<Self> {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
-            block_context: into_block_context(general_config, block_info, max_recursion_depth)?,
+            block_context,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
-            state: CachedState::new(state_reader, global_contract_cache),
+            state,
             staged_for_commit_state: None,
         };
         log::debug!("Initialized Transaction Executor.");
@@ -70,11 +60,9 @@ impl<S: StateReader> TransactionExecutor<S> {
     /// (used for counting purposes).
     pub fn execute(
         &mut self,
-        tx: &PyAny,
-        raw_contract_class: Option<&str>,
+        tx: Transaction,
         charge_fee: bool,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
-        let tx: Transaction = py_tx(tx, raw_contract_class)?;
+    ) -> NativeBlockifierResult<(TransactionExecutionInfo, BouncerInfo)> {
         let l1_handler_payload_size: usize =
             if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
                 l1_handler_tx.payload_size()
@@ -92,8 +80,11 @@ impl<S: StateReader> TransactionExecutor<S> {
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
+                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
+
+                // Count message to L1 resources.
                 let call_infos: IntoIter<&CallInfo> =
                     [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
                         .iter()
@@ -103,9 +94,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let MessageL1CostInfo { l2_to_l1_payload_lengths: _, message_segment_length } =
                     MessageL1CostInfo::calculate(call_infos, Some(l1_handler_payload_size))?;
 
-                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                let py_tx_execution_info = PyTransactionExecutionInfo::from(tx_execution_info);
-
+                // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
@@ -115,16 +104,23 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &self.visited_storage_entries,
                     &tx_visited_storage_entries,
                 )?;
-                let py_bouncer_info = PyBouncerInfo {
-                    message_segment_length,
-                    state_diff_size: 0,
-                    additional_os_resources: PyVmExecutionResources::from(additional_os_resources),
-                };
 
+                // Count blob resources.
+                let state_diff_size = 0;
+
+                // Finalize counting logic.
+                let actual_resources = &tx_execution_info.actual_resources;
+                let bouncer_info = BouncerInfo::calculate(
+                    actual_resources,
+                    additional_os_resources,
+                    message_segment_length,
+                    state_diff_size,
+                )?;
                 self.staged_for_commit_state = Some(
                     transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
                 );
-                Ok((py_tx_execution_info, py_bouncer_info))
+
+                Ok((tx_execution_info, bouncer_info))
             }
             Err(error) => {
                 transactional_state.abort();
@@ -139,26 +135,27 @@ impl<S: StateReader> TransactionExecutor<S> {
         mut remaining_gas: u64,
     ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
         let mut execution_resources = ExecutionResources::default();
-        let account_tx_context = account_tx.get_account_tx_context();
+        let tx_context = Arc::new(self.block_context.to_tx_context(account_tx));
+        let tx_info = &tx_context.tx_info;
 
         // TODO(Amos, 01/12/2023): Delete this once deprecated txs call
         // PyValidator.perform_validations().
         // For fee charging purposes, the nonce-increment cost is taken into consideration when
         // calculating the fees for validation.
         // Note: This assumes that the state is reset between calls to validate.
-        self.state.increment_nonce(account_tx_context.sender_address())?;
+        self.state.increment_nonce(tx_info.sender_address())?;
 
+        let limit_steps_by_resources = true;
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
-            &account_tx_context,
+            tx_context.clone(),
             &mut remaining_gas,
-            &self.block_context,
-            true,
+            limit_steps_by_resources,
         )?;
 
         let actual_cost = account_tx
-            .to_actual_cost_builder(&self.block_context)
+            .to_actual_cost_builder(tx_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?
             .build(&execution_resources)?;
@@ -168,7 +165,10 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
     /// visited PC values.
-    pub fn finalize(&mut self, is_pending_block: bool) -> (PyStateDiff, Vec<(PyFelt, Vec<usize>)>) {
+    pub fn finalize(
+        &mut self,
+        is_pending_block: bool,
+    ) -> (CommitmentStateDiff, Vec<(ClassHash, Vec<usize>)>) {
         // Do not cache classes that were declared during a pending block.
         // They will be redeclared, and should not be cached since the content of this block is
         // transient.
@@ -184,24 +184,11 @@ impl<S: StateReader> TransactionExecutor<S> {
             .map(|(class_hash, class_visited_pcs)| {
                 let mut class_visited_pcs_vec: Vec<_> = class_visited_pcs.iter().cloned().collect();
                 class_visited_pcs_vec.sort();
-                (PyFelt::from(*class_hash), class_visited_pcs_vec)
+                (*class_hash, class_visited_pcs_vec)
             })
             .collect();
 
-        (PyStateDiff::from(self.state.to_state_diff()), visited_pcs)
-    }
-
-    // Block pre-processing; see `block_execution::pre_process_block` documentation.
-    pub fn pre_process_block(
-        &mut self,
-        old_block_number_and_hash: Option<(u64, PyFelt)>,
-    ) -> NativeBlockifierResult<()> {
-        let old_block_number_and_hash = old_block_number_and_hash
-            .map(|(block_number, block_hash)| (BlockNumber(block_number), BlockHash(block_hash.0)));
-
-        pre_process_block(&mut self.state, old_block_number_and_hash)?;
-
-        Ok(())
+        (self.state.to_state_diff(), visited_pcs)
     }
 
     pub fn commit(&mut self) {
