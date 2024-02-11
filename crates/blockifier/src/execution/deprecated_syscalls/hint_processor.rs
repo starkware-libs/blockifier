@@ -45,6 +45,7 @@ use crate::execution::execution_utils::{
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
+use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -61,6 +62,8 @@ pub enum DeprecatedSyscallExecutionError {
         storage_address: ContractAddress,
         error: Box<DeprecatedSyscallExecutionError>,
     },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
     #[error("{error}")]
     LibraryCallExecutionError {
         class_hash: ClassHash,
