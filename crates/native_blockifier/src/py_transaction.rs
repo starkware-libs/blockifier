@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use blockifier::execution::contract_class::{ContractClassV0, ContractClassV1};
+use blockifier::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
@@ -153,7 +153,7 @@ impl PyClassInfo {
         py_class_info: PyClassInfo,
         tx: &starknet_api::transaction::DeclareTransaction,
     ) -> Result<ClassInfo, ProgramError> {
-        let contract_class = match tx {
+        let contract_class: ContractClass = match tx {
             starknet_api::transaction::DeclareTransaction::V0(_)
             | starknet_api::transaction::DeclareTransaction::V1(_) => {
                 ContractClassV0::try_from_json_string(&py_class_info.raw_contract_class)?.into()
@@ -163,10 +163,12 @@ impl PyClassInfo {
                 ContractClassV1::try_from_json_string(&py_class_info.raw_contract_class)?.into()
             }
         };
-        Ok(ClassInfo {
-            contract_class,
-            sierra_program_length: py_class_info.sierra_program_length,
-            abi_length: py_class_info.abi_length,
-        })
+        let class_info = ClassInfo::new(
+            &contract_class,
+            py_class_info.sierra_program_length,
+            py_class_info.abi_length,
+        )
+        .unwrap();
+        Ok(class_info)
     }
 }

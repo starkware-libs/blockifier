@@ -796,8 +796,7 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Declare.
     let contract_to_declare = FeatureContract::Empty(CairoVersion::Cairo0);
-    let class_info =
-        calculate_class_info_for_testing(CairoVersion::Cairo0, contract_to_declare.get_class());
+    let class_info = calculate_class_info_for_testing(contract_to_declare.get_class()).unwrap();
     let invalid_tx = declare_tx(
         declare_tx_args! {
             class_hash: contract_to_declare.get_class_hash(),
@@ -1086,8 +1085,7 @@ fn test_declare_tx(
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
     let class_hash = empty_contract.get_class_hash();
-    let class_info =
-        calculate_class_info_for_testing(account_cairo_version, empty_contract.get_class());
+    let class_info = calculate_class_info_for_testing(empty_contract.get_class()).unwrap();
     let sender_address = account.get_instance_address(0);
 
     let account_tx = declare_tx(
