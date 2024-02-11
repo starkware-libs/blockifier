@@ -106,14 +106,42 @@ pub trait ValidatableTransaction {
 #[derive(Clone, Debug)]
 // TODO(Ayelet,10/02/2024): Change to bytes.
 pub struct ClassInfo {
-    pub contract_class: ContractClass,
-    pub sierra_program_length: usize,
-    pub abi_length: usize,
+    contract_class: ContractClass,
+    sierra_program_length: usize,
+    abi_length: usize,
 }
 
 impl ClassInfo {
     pub fn bytecode_length(&self) -> usize {
         self.contract_class.bytecode_length()
+    }
+
+    pub fn sierra_program_length(&self) -> usize {
+        self.sierra_program_length
+    }
+
+    pub fn abi_length(&self) -> usize {
+        self.abi_length
+    }
+
+    pub fn new(
+        contract_class: &ContractClass,
+        sierra_program_length: usize,
+        abi_length: usize,
+    ) -> Result<Self, TransactionExecutionError> {
+        let (contract_class_version, condition) = match contract_class {
+            ContractClass::V0(_) => (0, sierra_program_length == 0),
+            ContractClass::V1(_) => (1, sierra_program_length > 0),
+        };
+
+        if condition {
+            Ok(Self { contract_class: contract_class.clone(), sierra_program_length, abi_length })
+        } else {
+            Err(TransactionExecutionError::ContractClassVersionSierraProgramLengthMismatch {
+                contract_class_version,
+                sierra_program_length,
+            })
+        }
     }
 }
 

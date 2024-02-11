@@ -56,6 +56,14 @@ pub enum TransactionExecutionError {
          version {cairo_version:?}."
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
+    #[error(
+        "Sierra program length must be > 0 for Cairo1, and == 0 for Cairo0. Got: \
+         {sierra_program_length:?} for contract class version {contract_class_version:?}"
+    )]
+    ContractClassVersionSierraProgramLengthMismatch {
+        contract_class_version: u64,
+        sierra_program_length: usize,
+    },
     #[error("Contract constructor execution has failed: {0}")]
     ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]

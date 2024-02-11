@@ -144,10 +144,10 @@ pub fn get_code_gas_cost(
 ) -> GasVector {
     if let Some(class_info) = class_info {
         let total_code_size = u128_from_usize(
-            (class_info.bytecode_length() + class_info.sierra_program_length)
+            (class_info.bytecode_length() + class_info.sierra_program_length())
                 // We assume each felt is a word.
                 * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length,
+                + class_info.abi_length(),
         )
         .expect("Failed to convert total code size from usize to u128.");
         let l1_milligas =
