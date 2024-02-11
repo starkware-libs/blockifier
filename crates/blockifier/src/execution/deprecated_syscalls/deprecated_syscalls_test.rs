@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -12,16 +13,22 @@ use starknet_api::core::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, TransactionHash, TransactionVersion,
+    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, TransactionHash,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
+use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::syscalls::hint_processor::EmitEventError;
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
+};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -466,4 +473,78 @@ fn test_tx_info(#[case] only_query: bool) {
         .unwrap();
 
     assert!(!result.execution.failed)
+}
+
+#[test]
+fn test_emit_event() {
+    // Positive flow.
+    let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
+    let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+    let n_emitted_events = vec![stark_felt!(1_u16)];
+    let call_info = emit_events(&n_emitted_events, &keys, &data).unwrap();
+    let event = EventContent {
+        keys: keys.clone().into_iter().map(EventKey).collect(),
+        data: EventData(data.clone()),
+    };
+    assert_eq!(
+        call_info.execution,
+        CallExecution {
+            events: vec![OrderedEvent { order: 0, event }],
+            gas_consumed: 0, // TODO why?
+            ..Default::default()
+        }
+    );
+
+    // Negative flow, the data length exceeds the limit.
+    let data_too_long = vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA + 1];
+    let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxDataLength {
+        data_length: SYSCALL_MAX_EVENT_DATA + 1,
+        max_data_length: SYSCALL_MAX_EVENT_DATA,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the keys length exceeds the limit.
+    let keys_too_long = vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS + 1];
+    let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxKeysLength {
+        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
+        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the number of events exceeds the limit.
+    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
+    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+}
+
+fn emit_events(
+    n_emitted_events: &[StarkFelt],
+    keys: &Vec<StarkFelt>,
+    data: &Vec<StarkFelt>,
+) -> Result<CallInfo, EntryPointExecutionError> {
+    let mut state = deprecated_create_test_state();
+    let calldata = Calldata(
+        concat(vec![
+            n_emitted_events.to_owned(),
+            vec![stark_felt!(keys.len() as u16)],
+            keys.clone(),
+            vec![stark_felt!(data.len() as u16)],
+            data.clone(),
+        ])
+        .into(),
+    );
+
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_emit_events"),
+        calldata,
+        ..trivial_external_entry_point()
+    };
+
+    entry_point_call.execute_directly(&mut state)
 }
