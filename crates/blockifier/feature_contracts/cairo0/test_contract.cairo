@@ -20,12 +20,8 @@ from starkware.starknet.common.syscalls import (
     get_sequencer_address,
     replace_class,
     get_tx_info,
-<<<<<<< HEAD
     get_tx_signature,
-||||||| b59fdc2c
-=======
     emit_event,
->>>>>>> origin/main-v0.13.0-hotfix
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -384,7 +380,6 @@ func test_get_tx_info{syscall_ptr: felt*, range_check_ptr}(
 
     return ();
 }
-<<<<<<< HEAD
 
 @external
 func test_tx_version{syscall_ptr: felt*}(expected_version: felt) {
@@ -490,8 +485,6 @@ func send_message{syscall_ptr: felt*}(to_address: felt) {
     send_message_to_l1(to_address=to_address, payload_size=2, payload=cast(&payload, felt*));
     return ();
 }
-||||||| b59fdc2c
-=======
 
 func emit_event_recurse{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     counter: felt, keys_len: felt, keys: felt*, data_len: felt, data: felt*
@@ -509,4 +502,3 @@ func test_emit_events{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 ) {
     return emit_event_recurse(events_count, keys_len, keys, data_len, data);
 }
->>>>>>> origin/main-v0.13.0-hotfix
