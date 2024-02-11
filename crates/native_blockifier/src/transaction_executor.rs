@@ -5,7 +5,6 @@ use std::vec::IntoIter;
 use blockifier::context::BlockContext;
 use blockifier::execution::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
-use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
@@ -18,7 +17,7 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
@@ -246,11 +245,11 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
-) -> NativeBlockifierResult<VmExecutionResources> {
+) -> NativeBlockifierResult<ExecutionResources> {
     let newly_executed_class_hashes: HashSet<&ClassHash> =
         tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
 
-    let mut casm_hash_computation_resources = VmExecutionResources::default();
+    let mut casm_hash_computation_resources = ExecutionResources::default();
 
     for class_hash in newly_executed_class_hashes {
         let class = state.get_compiled_contract_class(*class_hash)?;
@@ -268,7 +267,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
 pub fn get_particia_update_resources(
     block_visited_storage_entries: &HashSet<StorageEntry>,
     tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> NativeBlockifierResult<VmExecutionResources> {
+) -> NativeBlockifierResult<ExecutionResources> {
     let newly_visited_storage_entries: HashSet<&StorageEntry> =
         tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
     let n_newly_visited_leaves = newly_visited_storage_entries.len();
@@ -276,7 +275,7 @@ pub fn get_particia_update_resources(
     const TREE_HEIGHT_UPPER_BOUND: usize = 24;
     let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
 
-    let patricia_update_resources = VmExecutionResources {
+    let patricia_update_resources = ExecutionResources {
         // TODO(Yoni, 1/5/2024): re-estimate this.
         n_steps: 32 * n_updates,
         // For each Patricia update there are two hash calculations.
