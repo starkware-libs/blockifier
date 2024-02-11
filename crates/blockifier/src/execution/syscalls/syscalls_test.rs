@@ -118,10 +118,7 @@ fn test_emit_event() {
     // Positive flow.
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
-<<<<<<< HEAD
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
-||||||| b59fdc2c
-=======
     let n_emitted_events = vec![stark_felt!(1_u16)];
     let call_info = emit_events(&n_emitted_events, &keys, &data).unwrap();
     let event = EventContent {
@@ -156,7 +153,9 @@ fn test_emit_event() {
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the number of events exceeds the limit.
-    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
+    let n_emitted_events_too_big = vec![stark_felt!(
+        u16::try_from(SYSCALL_MAX_N_EMITTED_EVENTS + 1).expect("Failed to convert usize to u16.")
+    )];
     let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
         n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
@@ -167,30 +166,17 @@ fn test_emit_event() {
 
 fn emit_events(
     n_emitted_events: &[StarkFelt],
-    keys: &Vec<StarkFelt>,
-    data: &Vec<StarkFelt>,
+    keys: &[StarkFelt],
+    data: &[StarkFelt],
 ) -> Result<CallInfo, EntryPointExecutionError> {
     let mut state = create_test_state();
->>>>>>> origin/main-v0.13.0-hotfix
     let calldata = Calldata(
         concat(vec![
-<<<<<<< HEAD
-            vec![stark_felt!(u8::try_from(keys.len()).expect("Failed to convert usize to u8."))],
-||||||| b59fdc2c
-            vec![stark_felt!(keys.len() as u8)],
-=======
             n_emitted_events.to_owned(),
-            vec![stark_felt!(keys.len() as u16)],
->>>>>>> origin/main-v0.13.0-hotfix
-            keys.clone(),
-<<<<<<< HEAD
-            vec![stark_felt!(u8::try_from(data.len()).expect("Failed to convert usize to u8."))],
-||||||| b59fdc2c
-            vec![stark_felt!(data.len() as u8)],
-=======
-            vec![stark_felt!(data.len() as u16)],
->>>>>>> origin/main-v0.13.0-hotfix
-            data.clone(),
+            vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
+            keys.to_vec(),
+            vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
+            data.to_vec(),
         ])
         .into(),
     );
