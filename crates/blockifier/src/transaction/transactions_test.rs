@@ -35,8 +35,8 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_calldata_gas_cost,
-    get_da_gas_cost,
+    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
+    get_calldata_and_signature_gas_cost, get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -353,7 +353,8 @@ fn test_invoke_tx(
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
-    let calldata_length = &invoke_tx.calldata().0.len();
+    let calldata_length = invoke_tx.calldata().0.len();
+    let signature_length = invoke_tx.signature().0.len();
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -426,7 +427,8 @@ fn test_invoke_tx(
     };
 
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
-    let calldata_gas = get_calldata_gas_cost(*calldata_length, versioned_constants);
+    let calldata_and_signature_gas =
+        get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -440,7 +442,7 @@ fn test_invoke_tx(
             ),
             (
                 abi_constants::L1_GAS_USAGE.to_string(),
-                usize_from_u128(da_gas.l1_gas + calldata_gas.l1_gas).unwrap(),
+                usize_from_u128(da_gas.l1_gas + calldata_and_signature_gas.l1_gas).unwrap(),
             ),
             (HASH_BUILTIN_NAME.to_string(), 14 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
@@ -1488,6 +1490,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         test_contract.get_instance_address(0),
     ));
     let calldata_length = account_tx.calldata_length();
+    let signature_length = account_tx.signature_length();
     let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -1505,6 +1508,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
         state_changes_count,
         calldata_length,
+        signature_length,
         None,
         use_kzg_da,
     )
@@ -1540,6 +1544,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     });
 
     let calldata_length = account_tx.calldata_length();
+    let signature_length = account_tx.signature_length();
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.
     let n_storage_updates = 2;
@@ -1557,6 +1562,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
         state_changes_count,
         calldata_length,
+        signature_length,
         None,
         use_kzg_da,
     )

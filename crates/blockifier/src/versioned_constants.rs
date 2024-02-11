@@ -46,12 +46,13 @@ pub struct VersionedConstants {
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
     vm_resource_fee_cost: Arc<HashMap<String, f64>>,
-    pub milli_gas_per_calldata_byte: usize,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
     os_constants: Arc<OSConstants>,
+
+    pub l2_resource_gas_costs: L2ResourceGasCosts,
 }
 
 impl VersionedConstants {
@@ -137,6 +138,15 @@ impl TryFrom<&Path> for VersionedConstants {
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         Ok(serde_json::from_reader(std::fs::File::open(path)?)?)
     }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct L2ResourceGasCosts {
+    // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
+    // divide the value by 32 in the JSON file.
+    pub milligas_per_data_felt: u128,
+    pub event_key_factor: u128,
+    pub milligas_per_code_byte: u128,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

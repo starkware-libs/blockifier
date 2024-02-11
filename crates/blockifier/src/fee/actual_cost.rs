@@ -55,8 +55,6 @@ pub struct ActualCostBuilder<'a> {
     l1_payload_size: Option<usize>,
     calldata_length: usize,
     n_reverted_steps: usize,
-    // TODO(Avi,10/02/2024): use this field and remove the clippy tag.
-    #[allow(dead_code)]
     signature_length: usize,
     class_info: Option<ClassInfo>,
 }
@@ -163,6 +161,7 @@ impl<'a> ActualCostBuilder<'a> {
             non_optional_call_infos,
             state_changes_count,
             self.calldata_length,
+            self.signature_length,
             self.l1_payload_size,
             use_kzg_da,
         )?;
