@@ -7,6 +7,7 @@ use starknet_api::transaction::Fee;
 use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
+use crate::execution::contract_class::ClassInfo;
 use crate::fee::gas_usage::{calculate_tx_gas_usage_vector, get_da_gas_cost};
 use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::state_api::{StateReader, StateResult};
@@ -15,7 +16,6 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
-use crate::transaction::transactions::ClassInfo;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.

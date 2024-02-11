@@ -12,10 +12,9 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
 
-use super::transactions::ClassInfo;
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::contract_class::{ClassInfo, ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -252,10 +251,7 @@ pub fn create_account_tx_for_validate_test(
             // It does not matter which class is declared for this test.
             let declared_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
             let class_hash = declared_contract.get_class_hash();
-            let class_info = calculate_class_info_for_testing(
-                CairoVersion::Cairo0,
-                declared_contract.get_class(),
-            );
+            let class_info = calculate_class_info_for_testing(declared_contract.get_class());
             declare_tx(
                 declare_tx_args! {
                     class_hash,
@@ -324,13 +320,10 @@ pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMap
     .unwrap()
 }
 
-pub fn calculate_class_info_for_testing(
-    cairo_version: CairoVersion,
-    contract_class: ContractClass,
-) -> ClassInfo {
-    let sierra_program_length = match cairo_version {
-        CairoVersion::Cairo0 => 0,
-        CairoVersion::Cairo1 => 100,
+pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassInfo {
+    let sierra_program_length = match contract_class {
+        ContractClass::V0(_) => 0,
+        ContractClass::V1(_) => 100,
     };
-    ClassInfo { contract_class, sierra_program_length, abi_length: 100 }
+    ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
 }

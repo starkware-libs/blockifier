@@ -154,11 +154,11 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // Declare.
     for cairo_version in [CairoVersion::Cairo0, CairoVersion::Cairo1] {
         let empty_contract = FeatureContract::Empty(cairo_version).get_class();
-        let class_info = calculate_class_info_for_testing(cairo_version, empty_contract);
+        let class_info = calculate_class_info_for_testing(empty_contract);
         let code_milligas_cost = u128_from_usize(
-            (class_info.bytecode_length() + class_info.sierra_program_length)
+            (class_info.bytecode_length() + class_info.sierra_program_length())
                 * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length,
+                + class_info.abi_length(),
         )
         .unwrap()
             * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;

@@ -26,12 +26,15 @@ use starknet_api::deprecated_contract_class::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::errors::PreExecutionError;
+use crate::execution::errors::{ContractClassError, PreExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
 /// Represents a runnable Starknet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.
+
+pub type ContractClassResult<T> = Result<T, ContractClassError>;
+
 #[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
 pub enum ContractClass {
     V0(ContractClassV0),
@@ -392,4 +395,50 @@ fn convert_entry_points_v1(
             })
         })
         .collect()
+}
+
+#[derive(Clone, Debug)]
+// TODO(Ayelet,10/02/2024): Change to bytes.
+pub struct ClassInfo {
+    contract_class: ContractClass,
+    sierra_program_length: usize,
+    abi_length: usize,
+}
+
+impl ClassInfo {
+    pub fn bytecode_length(&self) -> usize {
+        self.contract_class.bytecode_length()
+    }
+
+    pub fn contract_class(&self) -> ContractClass {
+        self.contract_class.clone()
+    }
+
+    pub fn sierra_program_length(&self) -> usize {
+        self.sierra_program_length
+    }
+
+    pub fn abi_length(&self) -> usize {
+        self.abi_length
+    }
+
+    pub fn new(
+        contract_class: &ContractClass,
+        sierra_program_length: usize,
+        abi_length: usize,
+    ) -> ContractClassResult<Self> {
+        let (contract_class_version, condition) = match contract_class {
+            ContractClass::V0(_) => (0, sierra_program_length == 0),
+            ContractClass::V1(_) => (1, sierra_program_length > 0),
+        };
+
+        if condition {
+            Ok(Self { contract_class: contract_class.clone(), sierra_program_length, abi_length })
+        } else {
+            Err(ContractClassError::ContractClassVersionSierraProgramLengthMismatch {
+                contract_class_version,
+                sierra_program_length,
+            })
+        }
+    }
 }
