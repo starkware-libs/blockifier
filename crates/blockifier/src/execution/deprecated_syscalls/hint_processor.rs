@@ -45,6 +45,7 @@ use crate::execution::execution_utils::{
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
+use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -55,6 +56,7 @@ pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
+<<<<<<< HEAD
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("{error}")]
     CallContractExecutionError {
@@ -67,6 +69,13 @@ pub enum DeprecatedSyscallExecutionError {
         storage_address: ContractAddress,
         error: Box<DeprecatedSyscallExecutionError>,
     },
+||||||| b59fdc2c
+    InnerCallExecutionError(#[from] EntryPointExecutionError),
+=======
+    EmitEventError(#[from] EmitEventError),
+    #[error(transparent)]
+    InnerCallExecutionError(#[from] EntryPointExecutionError),
+>>>>>>> origin/main-v0.13.0-hotfix
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]

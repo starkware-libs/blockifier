@@ -34,7 +34,10 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+    EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+};
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
 };
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
@@ -112,36 +115,93 @@ fn test_call_contract() {
 
 #[test]
 fn test_emit_event() {
-    let mut state = create_test_state();
-
+    // Positive flow.
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
+<<<<<<< HEAD
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
+||||||| b59fdc2c
+=======
+    let n_emitted_events = vec![stark_felt!(1_u16)];
+    let call_info = emit_events(&n_emitted_events, &keys, &data).unwrap();
+    let event = EventContent {
+        keys: keys.clone().into_iter().map(EventKey).collect(),
+        data: EventData(data.clone()),
+    };
+    assert_eq!(
+        call_info.execution,
+        CallExecution {
+            events: vec![OrderedEvent { order: 0, event }],
+            gas_consumed: 82930,
+            ..Default::default()
+        }
+    );
+
+    // Negative flow, the data length exceeds the limit.
+    let data_too_long = vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA + 1];
+    let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxDataLength {
+        data_length: SYSCALL_MAX_EVENT_DATA + 1,
+        max_data_length: SYSCALL_MAX_EVENT_DATA,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the keys length exceeds the limit.
+    let keys_too_long = vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS + 1];
+    let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxKeysLength {
+        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
+        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the number of events exceeds the limit.
+    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
+    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+}
+
+fn emit_events(
+    n_emitted_events: &[StarkFelt],
+    keys: &Vec<StarkFelt>,
+    data: &Vec<StarkFelt>,
+) -> Result<CallInfo, EntryPointExecutionError> {
+    let mut state = create_test_state();
+>>>>>>> origin/main-v0.13.0-hotfix
     let calldata = Calldata(
         concat(vec![
+<<<<<<< HEAD
             vec![stark_felt!(u8::try_from(keys.len()).expect("Failed to convert usize to u8."))],
+||||||| b59fdc2c
+            vec![stark_felt!(keys.len() as u8)],
+=======
+            n_emitted_events.to_owned(),
+            vec![stark_felt!(keys.len() as u16)],
+>>>>>>> origin/main-v0.13.0-hotfix
             keys.clone(),
+<<<<<<< HEAD
             vec![stark_felt!(u8::try_from(data.len()).expect("Failed to convert usize to u8."))],
+||||||| b59fdc2c
+            vec![stark_felt!(data.len() as u8)],
+=======
+            vec![stark_felt!(data.len() as u16)],
+>>>>>>> origin/main-v0.13.0-hotfix
             data.clone(),
         ])
         .into(),
     );
+
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("test_emit_event"),
+        entry_point_selector: selector_from_name("test_emit_events"),
         calldata,
         ..trivial_external_entry_point()
     };
 
-    let event =
-        EventContent { keys: keys.into_iter().map(EventKey).collect(), data: EventData(data) };
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution {
-            events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: 52570,
-            ..Default::default()
-        }
-    );
+    entry_point_call.execute_directly(&mut state)
 }
 
 #[test]

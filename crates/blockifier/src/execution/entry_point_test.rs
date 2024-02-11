@@ -622,15 +622,31 @@ fn test_stack_trace(
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
+<<<<<<< HEAD
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
+||||||| b59fdc2c
+Unknown location (pc=0:708)
+Unknown location (pc=0:691)
+=======
+Unknown location (pc=0:718)
+Unknown location (pc=0:701)
+>>>>>>> origin/main-v0.13.0-hotfix
 
 Error in the called contract ({}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
+<<<<<<< HEAD
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
+||||||| b59fdc2c
+Unknown location (pc=0:708)
+Unknown location (pc=0:691)
+=======
+Unknown location (pc=0:718)
+Unknown location (pc=0:701)
+>>>>>>> origin/main-v0.13.0-hotfix
 
 Error in the called contract ({}):
 Error at pc=0:1174:

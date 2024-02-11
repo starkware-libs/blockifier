@@ -55,6 +55,8 @@ pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
     #[error("Cannot replace V1 class hash with V0 class hash: {class_hash}.")]
     ForbiddenClassReplacement { class_hash: ClassHash },
     #[error("Invalid address domain: {address_domain}.")]
@@ -92,6 +94,25 @@ pub enum SyscallExecutionError {
     VirtualMachineError(#[from] VirtualMachineError),
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<StarkFelt> },
+}
+
+#[derive(Debug, Error)]
+pub enum EmitEventError {
+    #[error(
+        "Exceeded the maximum keys length, keys length: {keys_length}, max keys length: \
+         {max_keys_length}."
+    )]
+    ExceedsMaxKeysLength { keys_length: usize, max_keys_length: usize },
+    #[error(
+        "Exceeded the maximum data length, data length: {data_length}, max data length: \
+         {max_data_length}."
+    )]
+    ExceedsMaxDataLength { data_length: usize, max_data_length: usize },
+    #[error(
+        "Exceeded the maximum number of events, number events: {n_emitted_events}, max number \
+         events: {max_n_emitted_events}."
+    )]
+    ExceedsMaxNumberOfEmittedEvents { n_emitted_events: usize, max_n_emitted_events: usize },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the

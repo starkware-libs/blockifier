@@ -18,6 +18,13 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
+<<<<<<< HEAD
+||||||| b59fdc2c
+use crate::abi::constants;
+=======
+use super::syscalls::exceeds_event_size_limit;
+use crate::abi::constants;
+>>>>>>> origin/main-v0.13.0-hotfix
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
@@ -368,6 +375,7 @@ pub fn emit_event(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
+    exceeds_event_size_limit(execution_context.n_emitted_events + 1, &request.content)?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
