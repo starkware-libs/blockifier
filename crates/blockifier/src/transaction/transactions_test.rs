@@ -41,7 +41,7 @@ use crate::execution::syscalls::{
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
-    get_calldata_and_signature_gas_cost, get_da_gas_cost,
+    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -1091,6 +1091,7 @@ fn test_declare_tx(
     #[values(false, true)] use_kzg_da: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let empty_contract = FeatureContract::Empty(empty_contract_version);
     let account = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let chain_info = &block_context.chain_info;
@@ -1141,6 +1142,8 @@ fn test_declare_tx(
     );
 
     let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
+    let code_gas: GasVector = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
+    let gas_usage = code_gas + da_gas.clone();
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1150,8 +1153,8 @@ fn test_declare_tx(
         da_gas: da_gas.clone(),
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), da_gas.l1_gas.try_into().unwrap()),
-            (abi_constants::BLOB_GAS_USAGE.to_string(), da_gas.l1_data_gas.try_into().unwrap()),
+            (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), gas_usage.l1_data_gas.try_into().unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1518,6 +1521,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         calldata_length,
         signature_length,
         None,
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -1571,6 +1575,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         state_changes_count,
         calldata_length,
         signature_length,
+        None,
         None,
         use_kzg_da,
     )
