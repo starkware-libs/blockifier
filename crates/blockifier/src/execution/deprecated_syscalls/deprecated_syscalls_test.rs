@@ -2,14 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
-<<<<<<< HEAD
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-||||||| b59fdc2c
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-=======
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use itertools::concat;
->>>>>>> origin/main-v0.13.0-hotfix
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -26,28 +20,16 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
-<<<<<<< HEAD
 use crate::context::ChainInfo;
-use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
-||||||| b59fdc2c
-use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
-=======
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
->>>>>>> origin/main-v0.13.0-hotfix
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
-<<<<<<< HEAD
-||||||| b59fdc2c
-use crate::retdata;
-=======
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::{
     SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
 };
-use crate::retdata;
->>>>>>> origin/main-v0.13.0-hotfix
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
@@ -556,7 +538,9 @@ fn test_emit_event() {
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the number of events exceeds the limit.
-    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
+    let n_emitted_events_too_big = vec![stark_felt!(
+        u16::try_from(SYSCALL_MAX_N_EMITTED_EVENTS + 1).expect("Failed to convert usize to u16.")
+    )];
     let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
         n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
@@ -574,9 +558,9 @@ fn emit_events(
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
-            vec![stark_felt!(keys.len() as u16)],
+            vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
             keys.clone(),
-            vec![stark_felt!(data.len() as u16)],
+            vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
             data.clone(),
         ])
         .into(),
