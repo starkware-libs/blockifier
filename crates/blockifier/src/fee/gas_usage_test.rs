@@ -4,6 +4,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::L2ToL1Payload;
 
+use crate::abi::constants;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
@@ -306,4 +307,48 @@ fn test_onchain_data_discount() {
     let cost_ratio = (actual_cost as f64) / (cost_without_discount as f64);
     assert!(cost_ratio <= 0.9);
     assert!(cost_ratio >= 0.88);
+}
+
+#[test]
+fn test_get_message_segment_length() {
+    // Given some L2-to-L1 payload lengths and an L1 handler payload size.
+    let l2_to_l1_payload_lengths = vec![10, 20, 30];
+    let l1_handler_payload_size = Some(50);
+
+    let result = get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
+
+    let expected_result = 3 * constants::L2_TO_L1_MSG_HEADER_SIZE
+        + 10
+        + 20
+        + 30
+        + constants::L1_TO_L2_MSG_HEADER_SIZE
+        + 50;
+    assert_eq!(result, expected_result);
+
+    // Given some L2-to-L1 payload lengths and no L1 handler payload size.
+    let l2_to_l1_payload_lengths = vec![10, 20, 30];
+    let l1_handler_payload_size = None;
+
+    let result = get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
+
+    let expected_result = 3 * constants::L2_TO_L1_MSG_HEADER_SIZE + 10 + 20 + 30;
+    assert_eq!(result, expected_result);
+
+    // Given no L2-to-L1 payload lengths and an L1 handler payload size.
+    let l2_to_l1_payload_lengths = vec![];
+    let l1_handler_payload_size = Some(50);
+
+    let result = get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
+
+    let expected_result = constants::L1_TO_L2_MSG_HEADER_SIZE + 50;
+    assert_eq!(result, expected_result);
+
+    // Given no L2-to-L1 payload lengths and no L1 handler payload size.
+    let l2_to_l1_payload_lengths = vec![];
+    let l1_handler_payload_size = None;
+
+    let result = get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
+
+    let expected_result = 0; // Default value of usize is 0.
+    assert_eq!(result, expected_result);
 }
