@@ -19,34 +19,6 @@ use crate::versioned_constants::VersionedConstants;
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-/// Returns the gas usage of a transaction, specifically:
-/// * L1 gas, used by Starknet's state update and the Verifier, e.g., a message from L2 to L1 is
-///   followed by a storage write operation on L1.
-/// * L1 data gas, for publishing data availability.
-/// * L2 resources cost, e.g., for storing transaction calldata.
-// TODO(barak, 18/03/2024): Move to ActualCostBuilder impl block.
-#[allow(clippy::too_many_arguments)]
-pub fn calculate_tx_gas_usage_vector<'a>(
-    versioned_constants: &VersionedConstants,
-    call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
-    state_changes_count: StateChangesCount,
-    calldata_length: usize,
-    signature_length: usize,
-    l1_handler_payload_size: Option<usize>,
-    class_info: Option<ClassInfo>,
-    use_kzg_da: bool,
-) -> TransactionExecutionResult<GasVector> {
-    Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
-        + get_da_gas_cost(state_changes_count, use_kzg_da)
-        + get_calldata_and_signature_gas_cost(
-            calldata_length,
-            signature_length,
-            versioned_constants,
-        )
-        + get_code_gas_cost(class_info, versioned_constants)
-        + get_tx_events_gas_cost(call_infos, versioned_constants))
-}
-
 pub fn get_tx_events_gas_cost<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     versioned_constants: &VersionedConstants,
