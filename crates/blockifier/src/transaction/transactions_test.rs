@@ -1749,8 +1749,8 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Build the expected resource mapping.
     let expected_gas = match use_kzg_da {
-        true => GasVector { l1_gas: 16025, l1_data_gas: 128 },
-        false => GasVector { l1_gas: 17677, l1_data_gas: 0 },
+        true => GasVector { l1_gas: 16023, l1_data_gas: 128 },
+        false => GasVector { l1_gas: 17675, l1_data_gas: 0 },
     };
     let expected_da_gas = match use_kzg_da {
         true => GasVector { l1_gas: 0, l1_data_gas: 128 },
@@ -1801,7 +1801,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1743000000000000)
+            if paid_fee == Fee(0) && actual_fee == Fee(1742800000000000)
     );
 }
 
