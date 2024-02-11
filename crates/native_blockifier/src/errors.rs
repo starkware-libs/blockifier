@@ -1,3 +1,4 @@
+use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
     ParseError, TransactionExecutionError, TransactionPreValidationError,
@@ -67,7 +68,8 @@ native_blockifier_errors!(
     (StateError, StateError, PyStateError),
     (StorageError, papyrus_storage::StorageError, PyStorageError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
-    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError)
+    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError),
+    (ContractClassError, ContractClassError, PyContractClassError)
 );
 
 #[derive(Debug, Error)]

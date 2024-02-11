@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
+use crate::execution::contract_class::ClassInfo;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
@@ -11,7 +12,6 @@ use crate::transaction::objects::{
     GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
     TransactionPreValidationResult,
 };
-use crate::transaction::transactions::ClassInfo;
 use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
 
@@ -116,10 +116,10 @@ pub fn get_code_gas_cost(
 ) -> GasVector {
     if let Some(class_info) = class_info {
         let total_code_size = u128_from_usize(
-            (class_info.bytecode_length() + class_info.sierra_program_length)
+            (class_info.bytecode_length() + class_info.sierra_program_length())
                 // We assume each felt is a word.
                 * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length,
+                + class_info.abi_length(),
         )
         .expect("Failed to convert total code size from usize to u128.");
         let l1_milligas =
