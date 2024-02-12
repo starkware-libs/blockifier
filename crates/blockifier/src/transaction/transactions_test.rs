@@ -1327,20 +1327,21 @@ fn test_only_query_flag(#[case] only_query: bool) {
     assert!(!tx_execution_info.is_reverted())
 }
 
+fn syscall_max_n_emitted_events_or_default() -> usize {
+    SYSCALL_MAX_N_EMITTED_EVENTS.unwrap_or(10)
+}
+
 #[test_case(
     vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS],
     vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA],
-    SYSCALL_MAX_N_EMITTED_EVENTS,
+    syscall_max_n_emitted_events_or_default(),
     None;
     "Positive flow")]
 #[test_case(
     vec![stark_felt!(1_u16)],
     vec![stark_felt!(2_u16)],
-    SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-    Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
-    });
+    syscall_max_n_emitted_events_or_default() + 1,
+    None;
     "exceeds max number of events")]
 #[test_case(
     vec![stark_felt!(3_u16); SYSCALL_MAX_EVENT_KEYS + 1],

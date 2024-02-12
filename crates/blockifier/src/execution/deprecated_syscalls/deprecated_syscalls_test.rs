@@ -514,13 +514,15 @@ fn test_emit_event() {
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the number of events exceeds the limit.
-    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
-    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+    if let Some(max_n_emitted_events) = SYSCALL_MAX_N_EMITTED_EVENTS {
+        let n_emitted_events_too_big = vec![stark_felt!((max_n_emitted_events + 1) as u16)];
+        let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
+        let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+            n_emitted_events: max_n_emitted_events + 1,
+            max_n_emitted_events,
+        };
+        assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+    }
 }
 
 fn emit_events(

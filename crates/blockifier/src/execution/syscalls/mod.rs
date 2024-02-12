@@ -42,9 +42,9 @@ pub type WriteResponseResult = SyscallResult<()>;
 
 type SyscallSelector = DeprecatedSyscallSelector;
 
-pub const SYSCALL_MAX_EVENT_KEYS: usize = 256;
-pub const SYSCALL_MAX_EVENT_DATA: usize = 256;
-pub const SYSCALL_MAX_N_EMITTED_EVENTS: usize = 128;
+pub const SYSCALL_MAX_EVENT_KEYS: usize = 40;
+pub const SYSCALL_MAX_EVENT_DATA: usize = 40;
+pub const SYSCALL_MAX_N_EMITTED_EVENTS: Option<usize> = None;
 
 pub trait SyscallRequest: Sized {
     fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>;
@@ -294,11 +294,13 @@ pub fn exceeds_event_size_limit(
     n_emitted_events: usize,
     event: &EventContent,
 ) -> Result<(), EmitEventError> {
-    if n_emitted_events > SYSCALL_MAX_N_EMITTED_EVENTS {
-        return Err(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-            n_emitted_events,
-            max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
-        });
+    if let Some(max_n_emitted_events) = SYSCALL_MAX_N_EMITTED_EVENTS {
+        if n_emitted_events > max_n_emitted_events {
+            return Err(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+                n_emitted_events,
+                max_n_emitted_events,
+            });
+        }
     }
     let key_length = event.keys.len();
     if key_length > SYSCALL_MAX_EVENT_KEYS {
