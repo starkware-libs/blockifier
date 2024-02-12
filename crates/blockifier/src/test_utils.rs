@@ -376,23 +376,3 @@ pub fn create_calldata(
 
     Calldata(calldata.into())
 }
-
-// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
-pub fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
-        test_contract_address,
-        "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-    }
-}
