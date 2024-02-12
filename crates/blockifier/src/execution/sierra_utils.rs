@@ -5,7 +5,7 @@ use std::rc::Rc;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet::contract_class::{ContractEntryPoint, ContractEntryPoints};
-use cairo_native::cache::{AotProgramCache, JitProgramCache, ProgramCache};
+use cairo_native::cache::{JitProgramCache, ProgramCache};
 use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
@@ -66,7 +66,8 @@ static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext>
 
 // StarkHash parameter is the class hash type
 // Two alternatives are provided here, one that uses Ahead Of Time compilation,
-// and one that uses Just In Time
+// and one that uses Just In Time. Only one is uncommented to avoid accidentally making
+// two caches
 // pub fn get_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
 //     Rc::new(RefCell::new(ProgramCache::Aot(AotProgramCache::new(
 //         NATIVE_CONTEXT.get_or_init(NativeContext::new),
