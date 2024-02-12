@@ -39,7 +39,7 @@ pub fn execute_entry_point_call(
         state,
         call.caller_address,
         call.storage_address,
-        call.entry_point_selector.0,
+        call.entry_point_selector,
         resources.clone(),
         context.clone(),
         Vec::new(),

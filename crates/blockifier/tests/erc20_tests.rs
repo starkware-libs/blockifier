@@ -1,5 +1,8 @@
 // run with:
 // cargo test --test erc20_tests --features testing
+use itertools::Itertools;
+use pretty_assertions::assert_str_eq;
+
 use blockifier::execution::sierra_utils::{
     contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
 };
@@ -10,8 +13,9 @@ use starknet_types_core::felt::Felt;
 pub const TOTAL_SUPPLY: u128 = 10_000_000_000_000_000_000_000u128;
 pub const BALANCE_TO_TRANSFER: u128 = 10u128;
 pub const BALANCE_AFTER_TRANSFER: u128 = TOTAL_SUPPLY - BALANCE_TO_TRANSFER;
-pub const U256_UNDERFLOW: &str = "0x753235365f737562204f766572666c6f77";
+pub const U256_SUB_OVERFLOW: &str = "0x753235365f737562204f766572666c6f77";
 pub const CALLER_IS_NOT_THE_OWNER: &str = "0x43616c6c6572206973206e6f7420746865206f776e6572";
+
 pub const NAME: &str = "Native";
 pub const SYMBOL: &str = "MTK";
 pub const DECIMALS: u128 = 18;
@@ -19,6 +23,31 @@ pub const DECIMALS: u128 = 18;
 #[test]
 fn should_deploy() {
     let (_contract_address, _state) = prepare_erc20_deploy_test_state();
+}
+
+#[cfg(test)]
+mod error_msg_tests {
+    use super::*;
+
+    fn parse_encoded_message(message: &str) -> String {
+        assert_eq!(message.len() % 2, 0);
+        let raw_hex = message.strip_prefix("0x").unwrap().to_owned();
+        let character_codes = (0..raw_hex.len())
+            .step_by(2)
+            .map(|idx| u8::from_str_radix(&raw_hex[idx..idx+2], 16).unwrap())
+            .collect_vec();
+        std::str::from_utf8(&character_codes).unwrap().to_owned()
+    }
+
+    #[test]
+    fn u256_sub_overflow() {
+        assert_str_eq!(parse_encoded_message(U256_SUB_OVERFLOW), "u256_sub Overflow")
+    }
+
+    #[test]
+    fn caller_is_not_the_owner() {
+        assert_str_eq!(parse_encoded_message(CALLER_IS_NOT_THE_OWNER), "Caller is not the owner")
+    }
 }
 
 #[cfg(test)]
@@ -113,7 +142,7 @@ mod transfer_tests {
                 "transfer",
                 vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
             ),
-            vec![Felt::from_hex(U256_UNDERFLOW).unwrap()]
+            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
         );
 
         assert_eq!(
@@ -417,7 +446,7 @@ mod transfer_from_tests {
                     StarkFelt::from(0u128)
                 ],
             ),
-            vec![Felt::from_hex(U256_UNDERFLOW).unwrap()]
+            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
         );
 
         assert_eq!(
@@ -472,7 +501,7 @@ mod transfer_from_tests {
                     StarkFelt::from(0u128)
                 ],
             ),
-            vec![Felt::from_hex(U256_UNDERFLOW).unwrap()]
+            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
         );
 
         assert_eq!(
@@ -703,7 +732,7 @@ pub mod burnable_tests {
                 "burn",
                 vec![StarkFelt::from(TOTAL_SUPPLY + 1), StarkFelt::from(0u128)]
             ),
-            vec![Felt::from_hex(U256_UNDERFLOW).unwrap()]
+            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
         );
 
         assert_eq!(

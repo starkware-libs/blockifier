@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #[starknet::contract]
-mod Native {
+mod OZ_ERC20 {
     use openzeppelin::token::erc20::ERC20Component;
     use openzeppelin::token::erc20::interface;
     use openzeppelin::security::pausable::PausableComponent;

@@ -25,15 +25,14 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
     Program as DeprecatedProgram,
 };
-use starknet_api::hash::StarkHash;
-use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::PreExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
-use crate::execution::sierra_utils::felt_to_starkfelt;
+
+use super::sierra_utils::contract_entrypoint_to_entrypoint_selector;
 
 /// Represents a runnable Starknet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
@@ -51,14 +50,7 @@ impl ContractClass {
         match self {
             ContractClass::V0(class) => class.constructor_selector(),
             ContractClass::V1(class) => class.constructor_selector(),
-            ContractClass::V1Sierra(class) => {
-                // todo : review it
-                class.entrypoints_by_type.constructor.first().map(|ep| {
-                    EntryPointSelector(StarkHash::from(felt_to_starkfelt(
-                        Felt::from_bytes_be_slice(ep.selector.to_bytes_be().as_slice()),
-                    )))
-                })
-            }
+            ContractClass::V1Sierra(class) => class.constructor_selector(),
         }
     }
 
@@ -351,6 +343,11 @@ impl Deref for SierraContractClassV1 {
 }
 
 impl SierraContractClassV1 {
+    fn constructor_selector(&self) -> Option<EntryPointSelector> {
+        let entrypoint = self.deref().entry_points_by_type.constructor.first()?;
+        Some(contract_entrypoint_to_entrypoint_selector(entrypoint))
+    }
+
     pub fn try_from_json_string(
         raw_contract_class: &str,
     ) -> Result<SierraContractClassV1, ProgramError> {
@@ -368,7 +365,7 @@ impl TryFrom<SierraContractClass> for SierraContractClassV1 {
     fn try_from(class: SierraContractClass) -> Result<Self, Self::Error> {
         Ok(Self(Arc::new(SierraContractClassV1Inner {
             sierra_program: class.extract_sierra_program().unwrap(),
-            entrypoints_by_type: class.entry_points_by_type,
+            entry_points_by_type: class.entry_points_by_type,
         })))
     }
 }
@@ -376,5 +373,5 @@ impl TryFrom<SierraContractClass> for SierraContractClassV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SierraContractClassV1Inner {
     pub sierra_program: SierraProgram,
-    pub entrypoints_by_type: SierraContractEntryPoints,
+    pub entry_points_by_type: SierraContractEntryPoints,
 }
