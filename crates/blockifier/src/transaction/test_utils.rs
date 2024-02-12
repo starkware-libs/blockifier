@@ -190,11 +190,11 @@ pub fn create_state_with_falliable_validation_account() -> CachedState<DictState
     )
 }
 
-pub struct FaultyAccountTxCreatorArgs {
+pub struct FaultyAccountTxCreatorArgs<'a> {
     pub tx_type: TransactionType,
     pub scenario: u64,
     // Should be None unless scenario is CALL_CONTRACT.
-    pub additional_data: Option<StarkFelt>,
+    pub additional_data: &'a Option<Vec<StarkFelt>>,
     // Should be use with tx_type Declare or InvokeFunction.
     pub sender_address: ContractAddress,
     // Should be used with tx_type DeployAccount.
@@ -206,12 +206,12 @@ pub struct FaultyAccountTxCreatorArgs {
     pub max_fee: Fee,
 }
 
-impl Default for FaultyAccountTxCreatorArgs {
+impl Default for FaultyAccountTxCreatorArgs<'_> {
     fn default() -> Self {
         Self {
             tx_type: TransactionType::InvokeFunction,
             scenario: VALID,
-            additional_data: None,
+            additional_data: &None,
             sender_address: ContractAddress::default(),
             class_hash: ClassHash::default(),
             contract_address_salt: ContractAddressSalt::default(),
@@ -226,7 +226,7 @@ impl Default for FaultyAccountTxCreatorArgs {
 /// and later call it.
 pub fn create_account_tx_for_validate_test(
     nonce_manager: &mut NonceManager,
-    faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs,
+    faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs<'_>,
 ) -> AccountTransaction {
     let FaultyAccountTxCreatorArgs {
         tx_type,
@@ -241,11 +241,11 @@ pub fn create_account_tx_for_validate_test(
 
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
-    let signature = TransactionSignature(vec![
-        StarkFelt::from(scenario),
-        // Assumes the default value of StarkFelt is 0.
-        additional_data.unwrap_or_default(),
-    ]);
+    let mut signature_vector = vec![StarkFelt::from(scenario)];
+    if let Some(additional_data) = additional_data {
+        signature_vector.extend(additional_data);
+    }
+    let signature = TransactionSignature(signature_vector);
 
     match tx_type {
         TransactionType::Declare => {
