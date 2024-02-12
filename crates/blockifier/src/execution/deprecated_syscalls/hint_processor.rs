@@ -14,7 +14,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -38,15 +38,14 @@ use crate::execution::deprecated_syscalls::{
     DeprecatedSyscallSelector, StorageReadResponse, StorageWriteResponse, SyscallRequest,
     SyscallResponse,
 };
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
+use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -63,6 +62,8 @@ pub enum DeprecatedSyscallExecutionError {
         storage_address: ContractAddress,
         error: Box<DeprecatedSyscallExecutionError>,
     },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
     #[error("{error}")]
     LibraryCallExecutionError {
         class_hash: ClassHash,
@@ -322,10 +323,8 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
-        let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
-        let entry_point_syscall_count = self.syscall_counter.entry(*selector).or_default();
-        *entry_point_syscall_count += 1;
     }
 
     fn allocate_tx_signature_segment(

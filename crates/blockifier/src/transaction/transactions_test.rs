@@ -4,7 +4,7 @@ use std::sync::Arc;
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
@@ -30,12 +30,18 @@ use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionCont
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
+use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::execution::syscalls::hint_processor::EmitEventError;
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
+};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector, get_da_gas_cost,
+    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
+    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -49,9 +55,11 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
-    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
+    CairoVersion, NonceManager, SaltManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
     TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
@@ -64,8 +72,9 @@ use crate::transaction::objects::{
     TransactionInfo,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, create_account_tx_for_validate_test, l1_resource_bounds,
-    FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, INVALID, VALID,
+    account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
+    create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
+    GET_BLOCK_HASH, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -90,7 +99,7 @@ fn versioned_constants_for_account_testing() -> VersionedConstants {
 struct ExpectedResultTestInvokeTx {
     range_check: usize,
     n_steps: usize,
-    vm_resources: VmExecutionResources,
+    resources: ExecutionResources,
     validate_gas_consumed: u64,
     execute_gas_consumed: u64,
     inner_call_initial_gas: u64,
@@ -134,7 +143,7 @@ fn expected_validate_call_info(
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 188_usize,
         (selector, _) => panic!("Selector {selector} is not a known validate selector."),
     };
-    let vm_resources = VmExecutionResources {
+    let resources = ExecutionResources {
         n_steps,
         n_memory_holes,
         builtin_instance_counter: HashMap::from([(
@@ -157,7 +166,7 @@ fn expected_validate_call_info(
             initial_gas: tx_initial_gas(),
         },
         // The account contract we use for testing has trivial `validate` functions.
-        vm_resources,
+        resources,
         execution: CallExecution { retdata, gas_consumed, ..Default::default() },
         ..Default::default()
     })
@@ -220,7 +229,7 @@ fn expected_fee_transfer_call_info(
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
-        vm_resources: Prices::FeeTransfer(account_address, *fee_type).into(),
+        resources: Prices::FeeTransfer(account_address, *fee_type).into(),
         // We read sender balance, write (which starts with read) sender balance, then the same for
         // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
         storage_read_values: vec![
@@ -284,6 +293,7 @@ fn validate_final_balances(
     }
 }
 
+// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
 fn default_invoke_tx_args(
     account_contract_address: ContractAddress,
     test_contract_address: ContractAddress,
@@ -308,7 +318,7 @@ fn default_invoke_tx_args(
     ExpectedResultTestInvokeTx{
         range_check: 102,
         n_steps: 4421,
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps:  822,
             n_memory_holes:  0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
@@ -322,7 +332,7 @@ fn default_invoke_tx_args(
     ExpectedResultTestInvokeTx{
         range_check: 115,
         n_steps: 4876,
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps: 1108,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
@@ -339,6 +349,7 @@ fn test_invoke_tx(
     #[values(false, true)] use_kzg_da: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -351,7 +362,8 @@ fn test_invoke_tx(
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
-    let calldata_length = &invoke_tx.calldata().0.len();
+    let calldata_length = invoke_tx.calldata().0.len();
+    let signature_length = invoke_tx.signature().0.len();
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -396,15 +408,11 @@ fn test_invoke_tx(
             gas_consumed: expected_arguments.execute_gas_consumed,
             ..Default::default()
         },
-        vm_resources: expected_arguments.vm_resources,
+        resources: expected_arguments.resources,
         inner_calls: vec![CallInfo {
             call: expected_return_result_call,
             execution: CallExecution::from_retdata(expected_return_result_retdata),
-            vm_resources: VmExecutionResources {
-                n_steps: 23,
-                n_memory_holes: 0,
-                ..Default::default()
-            },
+            resources: ExecutionResources { n_steps: 23, n_memory_holes: 0, ..Default::default() },
             ..Default::default()
         }],
         ..Default::default()
@@ -426,19 +434,25 @@ fn test_invoke_tx(
         n_modified_contracts: 1,
         ..StateChangesCount::default()
     };
-    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        get_da_gas_cost(state_changes_count, use_kzg_da);
+
+    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
+    let calldata_and_signature_gas =
+        get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas,
         actual_resources: ResourcesMapping(HashMap::from([
             (
                 abi_constants::BLOB_GAS_USAGE.to_string(),
-                usize_from_u128(expected_blob_gas_usage).unwrap(),
+                usize_from_u128(da_gas.l1_data_gas).unwrap(),
             ),
-            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
+            (
+                abi_constants::L1_GAS_USAGE.to_string(),
+                usize_from_u128(da_gas.l1_gas + calldata_and_signature_gas.l1_gas).unwrap(),
+            ),
             (HASH_BUILTIN_NAME.to_string(), 14 + calldata_length),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
@@ -793,13 +807,15 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Declare.
     let contract_to_declare = FeatureContract::Empty(CairoVersion::Cairo0);
+    let class_info =
+        calculate_class_info_for_testing(CairoVersion::Cairo0, contract_to_declare.get_class());
     let invalid_tx = declare_tx(
         declare_tx_args! {
             class_hash: contract_to_declare.get_class_hash(),
             sender_address: account_contract_address,
             max_fee: invalid_max_fee,
         },
-        contract_to_declare.get_class(),
+        class_info,
     );
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 }
@@ -1076,12 +1092,14 @@ fn test_declare_tx(
     #[values(false, true)] use_kzg_da: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let empty_contract = FeatureContract::Empty(empty_contract_version);
     let account = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
     let class_hash = empty_contract.get_class_hash();
-    let contract_class = empty_contract.get_class();
+    let class_info =
+        calculate_class_info_for_testing(account_cairo_version, empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
 
     let account_tx = declare_tx(
@@ -1092,7 +1110,7 @@ fn test_declare_tx(
             resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
             class_hash,
         },
-        contract_class.clone(),
+        class_info.clone(),
     );
 
     // Check state before transaction application.
@@ -1124,21 +1142,20 @@ fn test_declare_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
-    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        declare_expected_gas_vector(tx_version, use_kzg_da);
+    let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
+    let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
+    let gas_usage = code_gas + da_gas;
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage.try_into().unwrap()),
-            (
-                abi_constants::BLOB_GAS_USAGE.to_string(),
-                expected_blob_gas_usage.try_into().unwrap(),
-            ),
+            (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
+            (abi_constants::BLOB_GAS_USAGE.to_string(), gas_usage.l1_data_gas.try_into().unwrap()),
             (HASH_BUILTIN_NAME.to_string(), 16),
             (
                 RANGE_CHECK_BUILTIN_NAME.to_string(),
@@ -1173,12 +1190,12 @@ fn test_declare_tx(
 
     // Verify class declaration.
     let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
-    assert_eq!(contract_class_from_state, contract_class);
+    assert_eq!(contract_class_from_state, class_info.contract_class);
 }
 
 #[rstest]
-#[case(83, 3809, CairoVersion::Cairo0)]
-#[case(85, 3865, CairoVersion::Cairo1)]
+#[case(83, 3805, CairoVersion::Cairo0)]
+#[case(85, 3861, CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
     #[case] expected_range_check_builtin: usize,
     #[case] expected_n_steps_resource: usize,
@@ -1264,20 +1281,20 @@ fn test_deploy_account_tx(
         n_class_hash_updates: 1,
         ..StateChangesCount::default()
     };
-    let GasVector { l1_gas: expected_gas_usage, blob_gas: expected_blob_gas_usage } =
-        get_da_gas_cost(state_changes_count, use_kzg_da);
+    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
 
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
+        da_gas,
         revert_error: None,
         actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas_usage).unwrap()),
+            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
             (
                 abi_constants::BLOB_GAS_USAGE.to_string(),
-                usize_from_u128(expected_blob_gas_usage).unwrap(),
+                usize_from_u128(da_gas.l1_data_gas).unwrap(),
             ),
             (HASH_BUILTIN_NAME.to_string(), 23),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
@@ -1473,6 +1490,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
@@ -1483,6 +1501,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         account_contract_address,
         test_contract.get_instance_address(0),
     ));
+    let calldata_length = account_tx.calldata_length();
+    let signature_length = account_tx.signature_length();
     let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -1495,10 +1515,18 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let gas_vector =
-        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
-            .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
+    let gas_vector = calculate_tx_gas_usage_vector(
+        versioned_constants,
+        std::iter::empty(),
+        state_changes_count,
+        calldata_length,
+        signature_length,
+        None,
+        None,
+        use_kzg_da,
+    )
+    .unwrap();
+    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
         l1_gas_usage
@@ -1528,6 +1556,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         nonce: Nonce(stark_felt!(1_u8)),
     });
 
+    let calldata_length = account_tx.calldata_length();
+    let signature_length = account_tx.signature_length();
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.
     let n_storage_updates = 2;
@@ -1540,10 +1570,18 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         n_compiled_class_hash_updates: 0,
     };
 
-    let gas_vector =
-        calculate_tx_gas_usage_vector(std::iter::empty(), state_changes_count, None, use_kzg_da)
-            .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, blob_gas: l1_blob_gas_usage } = gas_vector;
+    let gas_vector = calculate_tx_gas_usage_vector(
+        versioned_constants,
+        std::iter::empty(),
+        state_changes_count,
+        calldata_length,
+        signature_length,
+        None,
+        None,
+        use_kzg_da,
+    )
+    .unwrap();
+    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(
         u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
         l1_gas_usage
@@ -1700,7 +1738,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             gas_consumed: 19650,
             ..Default::default()
         },
-        vm_resources: VmExecutionResources {
+        resources: ExecutionResources {
             n_steps: 232,
             n_memory_holes: 1,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 6)]),
@@ -1710,17 +1748,24 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     };
 
     // Build the expected resource mapping.
-    let (expected_gas_usage, expected_blob_gas_usage) = match use_kzg_da {
-        true => (16023, 128),
-        false => (17675, 0),
+    let expected_gas = match use_kzg_da {
+        true => GasVector { l1_gas: 16023, l1_data_gas: 128 },
+        false => GasVector { l1_gas: 17675, l1_data_gas: 0 },
+    };
+    let expected_da_gas = match use_kzg_da {
+        true => GasVector { l1_gas: 0, l1_data_gas: 128 },
+        false => GasVector { l1_gas: 1652, l1_data_gas: 0 },
     };
 
     let expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1405),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
-        (abi_constants::L1_GAS_USAGE.to_string(), expected_gas_usage),
-        (abi_constants::BLOB_GAS_USAGE.to_string(), expected_blob_gas_usage),
+        (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas.l1_gas).unwrap()),
+        (
+            abi_constants::BLOB_GAS_USAGE.to_string(),
+            usize_from_u128(expected_gas.l1_data_gas).unwrap(),
+        ),
     ]));
 
     // Build the expected execution info.
@@ -1729,6 +1774,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         execute_call_info: Some(expected_call_info),
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
+        da_gas: expected_da_gas,
         actual_resources: expected_resource_mapping,
         revert_error: None,
     };
@@ -1786,4 +1832,108 @@ fn test_execute_tx_with_invalid_transaction_version() {
             .unwrap()
             .contains(format!("ASSERT_EQ instruction failed: {} != 1.", invalid_version).as_str())
     );
+}
+
+#[test_case(
+    vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS],
+    vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA],
+    SYSCALL_MAX_N_EMITTED_EVENTS,
+    None;
+    "Positive flow")]
+#[test_case(
+    vec![stark_felt!(1_u16)],
+    vec![stark_felt!(2_u16)],
+    SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+    Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    });
+    "exceeds max number of events")]
+#[test_case(
+    vec![stark_felt!(3_u16); SYSCALL_MAX_EVENT_KEYS + 1],
+    vec![stark_felt!(4_u16)],
+    1,
+    Some(EmitEventError::ExceedsMaxKeysLength{
+        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
+        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+    });
+    "exceeds max number of keys")]
+#[test_case(
+    vec![stark_felt!(5_u16)],
+    vec![stark_felt!(6_u16); SYSCALL_MAX_EVENT_DATA + 1],
+    1,
+    Some(EmitEventError::ExceedsMaxDataLength{
+        data_length: SYSCALL_MAX_EVENT_DATA + 1,
+        max_data_length: SYSCALL_MAX_EVENT_DATA,
+    });
+    "exceeds data length")]
+fn test_emit_event_exceeds_limit(
+    event_keys: Vec<StarkFelt>,
+    event_data: Vec<StarkFelt>,
+    n_emitted_events: usize,
+    expected_error: Option<EmitEventError>,
+) {
+    for cairo_version in [0, 1] {
+        let contract_class: ContractClass = match cairo_version {
+            0 => ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
+            1 => ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
+            _ => panic!("Invalid cairo version"),
+        };
+        let state = &mut create_account_tx_test_state(
+            ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
+            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
+            TEST_ACCOUNT_CONTRACT_ADDRESS,
+            test_erc20_account_balance_key(),
+            BALANCE,
+            contract_class,
+        );
+        let block_context = &BlockContext::create_for_account_testing();
+        let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
+        let entry_point_selector = selector_from_name("test_emit_events");
+        let calldata = [
+            vec![stark_felt!(
+                u16::try_from(n_emitted_events).expect("Failed to convert usize to u16.")
+            )]
+            .to_owned(),
+            vec![stark_felt!(
+                u16::try_from(event_keys.len()).expect("Failed to convert usize to u16.")
+            )],
+            event_keys.clone(),
+            vec![stark_felt!(
+                u16::try_from(event_data.len()).expect("Failed to convert usize to u16.")
+            )],
+            event_data.clone(),
+        ]
+        .concat();
+        let execute_calldata = Calldata(
+            [
+                vec![stark_felt!(TEST_CONTRACT_ADDRESS)],
+                vec![entry_point_selector.0],
+                vec![stark_felt!(
+                    u16::try_from(calldata.len()).expect("Failed to convert usize to u16.")
+                )],
+                calldata.clone(),
+            ]
+            .concat()
+            .into(),
+        );
+
+        let account_tx = account_invoke_tx(invoke_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address,
+            calldata: execute_calldata,
+            version: TransactionVersion::ONE,
+            nonce: Nonce(stark_felt!(0_u8)),
+        });
+        let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+        match &expected_error {
+            Some(expected_error) => {
+                let error_string = execution_info.revert_error.unwrap();
+                assert!(error_string.contains(&format!("{}", expected_error)));
+            }
+            None => {
+                assert!(!execution_info.is_reverted());
+            }
+        }
+    }
 }

@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
+use super::transactions::ClassInfo;
 use crate::context::BlockContext;
-use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
+use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
@@ -30,7 +31,7 @@ impl Transaction {
     pub fn from_api(
         tx: StarknetApiTransaction,
         tx_hash: TransactionHash,
-        contract_class: Option<ContractClass>,
+        class_info: Option<ClassInfo>,
         paid_fee_on_l1: Option<Fee>,
         deployed_contract_address: Option<ContractAddress>,
         only_query: bool,
@@ -45,11 +46,13 @@ impl Transaction {
                 }))
             }
             StarknetApiTransaction::Declare(declare) => {
-                let contract_class =
-                    contract_class.expect("Declare should be created with a ContractClass");
+                let non_optional_class_info =
+                    class_info.expect("Declare should be created with a ClassInfo.");
                 let declare_tx = match only_query {
-                    true => DeclareTransaction::new_for_query(declare, tx_hash, contract_class),
-                    false => DeclareTransaction::new(declare, tx_hash, contract_class),
+                    true => {
+                        DeclareTransaction::new_for_query(declare, tx_hash, non_optional_class_info)
+                    }
+                    false => DeclareTransaction::new(declare, tx_hash, non_optional_class_info),
                 };
                 Ok(Self::AccountTransaction(AccountTransaction::Declare(declare_tx?)))
             }
@@ -113,7 +116,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
-        let ActualCost { actual_fee, actual_resources } =
+        let ActualCost { actual_fee, da_gas, actual_resources } =
             ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
                 .with_execute_call_info(&execute_call_info)
                 .try_add_state_changes(state)?
@@ -131,6 +134,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             execute_call_info,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
+            da_gas,
             actual_resources,
             revert_error: None,
         })

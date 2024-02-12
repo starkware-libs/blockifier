@@ -4,7 +4,7 @@ use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
@@ -34,7 +34,10 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+    EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+};
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
 };
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
@@ -42,7 +45,8 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     create_calldata, trivial_external_entry_point, CairoVersion, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
     TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
@@ -112,36 +116,79 @@ fn test_call_contract() {
 
 #[test]
 fn test_emit_event() {
-    let mut state = create_test_state();
-
+    // Positive flow.
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
+    let n_emitted_events = vec![stark_felt!(1_u16)];
+    let call_info = emit_events(&n_emitted_events, &keys, &data).unwrap();
+    let event = EventContent {
+        keys: keys.clone().into_iter().map(EventKey).collect(),
+        data: EventData(data.clone()),
+    };
+    assert_eq!(
+        call_info.execution,
+        CallExecution {
+            events: vec![OrderedEvent { order: 0, event }],
+            gas_consumed: 82930,
+            ..Default::default()
+        }
+    );
+
+    // Negative flow, the data length exceeds the limit.
+    let data_too_long = vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA + 1];
+    let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxDataLength {
+        data_length: SYSCALL_MAX_EVENT_DATA + 1,
+        max_data_length: SYSCALL_MAX_EVENT_DATA,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the keys length exceeds the limit.
+    let keys_too_long = vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS + 1];
+    let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxKeysLength {
+        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
+        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the number of events exceeds the limit.
+    let n_emitted_events_too_big = vec![stark_felt!(
+        u16::try_from(SYSCALL_MAX_N_EMITTED_EVENTS + 1).expect("Failed to convert usize to u16.")
+    )];
+    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+}
+
+fn emit_events(
+    n_emitted_events: &[StarkFelt],
+    keys: &[StarkFelt],
+    data: &[StarkFelt],
+) -> Result<CallInfo, EntryPointExecutionError> {
+    let mut state = create_test_state();
     let calldata = Calldata(
         concat(vec![
-            vec![stark_felt!(u8::try_from(keys.len()).expect("Failed to convert usize to u8."))],
-            keys.clone(),
-            vec![stark_felt!(u8::try_from(data.len()).expect("Failed to convert usize to u8."))],
-            data.clone(),
+            n_emitted_events.to_owned(),
+            vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
+            keys.to_vec(),
+            vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
+            data.to_vec(),
         ])
         .into(),
     );
+
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("test_emit_event"),
+        entry_point_selector: selector_from_name("test_emit_events"),
         calldata,
         ..trivial_external_entry_point()
     };
 
-    let event =
-        EventContent { keys: keys.into_iter().map(EventKey).collect(), data: EventData(data) };
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution {
-            events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: 52570,
-            ..Default::default()
-        }
-    );
+    entry_point_call.execute_directly(&mut state)
 }
 
 #[test]
@@ -223,56 +270,48 @@ fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
 
 #[test_case(
     ExecutionMode::Validate,
-    contract_address!(StarkFelt::ZERO),
     TransactionVersion::ONE,
     false,
     false;
     "Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::ONE,
     false,
     false;
     "Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
     ExecutionMode::Validate,
-    contract_address!(StarkFelt::ZERO),
     TransactionVersion::THREE,
     false,
     false;
     "Validate execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::THREE,
     false,
     false;
     "Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::ONE,
     true,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::THREE,
     true,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::THREE,
     false,
     true;
     "Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 fn test_get_execution_info(
     execution_mode: ExecutionMode,
-    sequencer_address: ContractAddress,
     mut version: TransactionVersion,
     is_legacy: bool,
     only_query: bool,
@@ -284,11 +323,20 @@ fn test_get_execution_info(
         BALANCE,
         &[(legacy_contract, 1), (test_contract, 1)],
     );
-    let expected_block_info = [
-        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        *sequencer_address.0.key(),
-    ];
+    let expected_block_info = match execution_mode {
+        ExecutionMode::Validate => [
+            // Rounded block number.
+            stark_felt!(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+            // Rounded timestamp.
+            stark_felt!(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+            StarkFelt::ZERO,
+        ],
+        ExecutionMode::Execute => [
+            stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
+            stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+            StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap(),
+        ],
+    };
 
     let (test_contract_address, expected_unsupported_fields) = if is_legacy {
         verify_compiler_version(legacy_contract, "2.1.0");
@@ -541,7 +589,7 @@ fn test_nested_library_call() {
         initial_gas: 9999625070,
         ..nested_storage_entry_point
     };
-    let storage_entry_point_vm_resources = VmExecutionResources {
+    let storage_entry_point_resources = ExecutionResources {
         n_steps: 319,
         n_memory_holes: 1,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
@@ -553,12 +601,12 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources.clone(),
+        resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let library_call_vm_resources = VmExecutionResources {
+    let library_call_resources = ExecutionResources {
         n_steps: 1338,
         n_memory_holes: 2,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 35)]),
@@ -570,7 +618,7 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
             ..CallExecution::default()
         },
-        vm_resources: library_call_vm_resources,
+        resources: library_call_resources,
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
@@ -581,13 +629,13 @@ fn test_nested_library_call() {
             gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
             ..CallExecution::default()
         },
-        vm_resources: storage_entry_point_vm_resources,
+        resources: storage_entry_point_resources,
         storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
         ..Default::default()
     };
 
-    let main_call_vm_resources = VmExecutionResources {
+    let main_call_resources = ExecutionResources {
         n_steps: 3370,
         n_memory_holes: 4,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 87)]),
@@ -599,7 +647,7 @@ fn test_nested_library_call() {
             gas_consumed: 316180,
             ..CallExecution::default()
         },
-        vm_resources: main_call_vm_resources,
+        resources: main_call_resources,
         inner_calls: vec![library_call_info, storage_call_info],
         ..Default::default()
     };

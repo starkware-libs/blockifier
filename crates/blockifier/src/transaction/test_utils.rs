@@ -12,6 +12,7 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
 
+use super::transactions::ClassInfo;
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
@@ -251,7 +252,10 @@ pub fn create_account_tx_for_validate_test(
             // It does not matter which class is declared for this test.
             let declared_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
             let class_hash = declared_contract.get_class_hash();
-            let contract_class = declared_contract.get_class();
+            let class_info = calculate_class_info_for_testing(
+                CairoVersion::Cairo0,
+                declared_contract.get_class(),
+            );
             declare_tx(
                 declare_tx_args! {
                     class_hash,
@@ -260,7 +264,7 @@ pub fn create_account_tx_for_validate_test(
                     nonce: nonce_manager.next(sender_address),
                     max_fee,
                 },
-                contract_class,
+                class_info,
             )
         }
         TransactionType::DeployAccount => {
@@ -318,4 +322,15 @@ pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMap
         (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
     ])
     .unwrap()
+}
+
+pub fn calculate_class_info_for_testing(
+    cairo_version: CairoVersion,
+    contract_class: ContractClass,
+) -> ClassInfo {
+    let sierra_program_length = match cairo_version {
+        CairoVersion::Cairo0 => 0,
+        CairoVersion::Cairo1 => 100,
+    };
+    ClassInfo { contract_class, sierra_program_length, abi_length: 100 }
 }

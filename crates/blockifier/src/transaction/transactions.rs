@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
@@ -12,7 +13,7 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext, ExecutionResources,
+    CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, TransactionalState};
@@ -101,18 +102,17 @@ pub trait ValidatableTransaction {
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
+
 #[derive(Clone, Debug)]
-// TODO(Avi,10/02/2024): use this struct's fields and remove the clippy tag.
 // TODO(Ayelet,10/02/2024): Change to bytes.
-#[allow(dead_code)]
 pub struct ClassInfo {
-    contract_class: ContractClass,
-    sierra_length: usize,
-    abi_length: usize,
+    pub contract_class: ContractClass,
+    pub sierra_program_length: usize,
+    pub abi_length: usize,
 }
 
 impl ClassInfo {
-    fn _bytecode_length(&self) -> usize {
+    pub fn bytecode_length(&self) -> usize {
         self.contract_class.bytecode_length()
     }
 }
@@ -121,37 +121,37 @@ impl ClassInfo {
 pub struct DeclareTransaction {
     pub tx: starknet_api::transaction::DeclareTransaction,
     pub tx_hash: TransactionHash,
-    pub contract_class: ContractClass,
     // Indicates the presence of the only_query bit in the version.
     only_query: bool,
+    pub class_info: ClassInfo,
 }
 
 impl DeclareTransaction {
     fn create(
         declare_tx: starknet_api::transaction::DeclareTransaction,
         tx_hash: TransactionHash,
-        contract_class: ContractClass,
+        class_info: ClassInfo,
         only_query: bool,
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
-        let contract_class = verify_contract_class_version(contract_class, declare_version)?;
-        Ok(Self { tx: declare_tx, tx_hash, contract_class, only_query })
+        verify_contract_class_version(&class_info.contract_class, declare_version)?;
+        Ok(Self { tx: declare_tx, tx_hash, class_info, only_query })
     }
 
     pub fn new(
         declare_tx: starknet_api::transaction::DeclareTransaction,
         tx_hash: TransactionHash,
-        contract_class: ContractClass,
+        class_info: ClassInfo,
     ) -> TransactionExecutionResult<Self> {
-        Self::create(declare_tx, tx_hash, contract_class, false)
+        Self::create(declare_tx, tx_hash, class_info, false)
     }
 
     pub fn new_for_query(
         declare_tx: starknet_api::transaction::DeclareTransaction,
         tx_hash: TransactionHash,
-        contract_class: ContractClass,
+        class_info: ClassInfo,
     ) -> TransactionExecutionResult<Self> {
-        Self::create(declare_tx, tx_hash, contract_class, true)
+        Self::create(declare_tx, tx_hash, class_info, true)
     }
 
     implement_inner_tx_getter_calls!((class_hash, ClassHash), (signature, TransactionSignature));
@@ -165,7 +165,7 @@ impl DeclareTransaction {
     }
 
     pub fn contract_class(&self) -> ContractClass {
-        self.contract_class.clone()
+        self.class_info.contract_class.clone()
     }
 
     pub fn only_query(&self) -> bool {
@@ -187,7 +187,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
             // No class commitment, so no need to check if the class is already declared.
             starknet_api::transaction::DeclareTransaction::V0(_)
             | starknet_api::transaction::DeclareTransaction::V1(_) => {
-                state.set_contract_class(class_hash, self.contract_class.clone())?;
+                state.set_contract_class(class_hash, self.contract_class())?;
                 Ok(None)
             }
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
@@ -201,7 +201,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
                 match state.get_compiled_contract_class(class_hash) {
                     Err(StateError::UndeclaredClassHash(_)) => {
                         // Class is undeclared; declare it.
-                        state.set_contract_class(class_hash, self.contract_class.clone())?;
+                        state.set_contract_class(class_hash, self.contract_class())?;
                         state.set_compiled_class_hash(class_hash, *compiled_class_hash)?;
                         Ok(None)
                     }

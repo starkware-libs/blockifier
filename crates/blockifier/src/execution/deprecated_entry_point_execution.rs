@@ -1,8 +1,6 @@
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -14,7 +12,7 @@ use crate::execution::call_info::{CallExecution, CallInfo};
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
 use crate::execution::errors::{PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
@@ -55,7 +53,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
+    let previous_resources = syscall_handler.resources.clone();
 
     // Execute.
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
@@ -65,7 +63,7 @@ pub fn execute_entry_point_call(
         runner,
         syscall_handler,
         call,
-        previous_vm_resources,
+        previous_resources,
         implicit_args,
         n_total_args,
     )?)
@@ -214,7 +212,7 @@ pub fn finalize_execution(
     runner: CairoRunner,
     syscall_handler: DeprecatedSyscallHintProcessor<'_>,
     call: CallEntryPoint,
-    previous_vm_resources: VmExecutionResources,
+    previous_resources: ExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -239,14 +237,13 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    // TODO(Ori, 14/2/2024): Rename `vm_resources`.
-    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    *syscall_handler.resources += &vm_resources_without_inner_calls;
     let versioned_constants = syscall_handler.context.versioned_constants();
     // Take into account the syscall resources of the current call.
-    syscall_handler.resources.vm_resources += &versioned_constants
+    *syscall_handler.resources += &versioned_constants
         .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
-    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    let full_call_resources = &*syscall_handler.resources - &previous_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {
@@ -256,7 +253,7 @@ pub fn finalize_execution(
             failed: false,
             gas_consumed: 0,
         },
-        vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        resources: full_call_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
