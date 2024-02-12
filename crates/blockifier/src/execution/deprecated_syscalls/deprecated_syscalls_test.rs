@@ -27,9 +27,19 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::hint_processor::EmitEventError;
+<<<<<<< HEAD
 use crate::execution::syscalls::{
     SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
 };
+||||||| d1b5bb4f
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
+};
+use crate::retdata;
+=======
+use crate::execution::syscalls::{SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS};
+use crate::retdata;
+>>>>>>> origin/main-v0.13.0-hotfix
 use crate::state::state_api::StateReader;
 use crate::test_utils::cached_state::{
     deprecated_create_deploy_test_state, deprecated_create_test_state,
@@ -544,6 +554,7 @@ fn test_emit_event() {
         max_keys_length: SYSCALL_MAX_EVENT_KEYS,
     };
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+<<<<<<< HEAD
 
     // Negative flow, the number of events exceeds the limit.
     let n_emitted_events_too_big = vec![stark_felt!(
@@ -555,6 +566,18 @@ fn test_emit_event() {
         max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
     };
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+||||||| d1b5bb4f
+
+    // Negative flow, the number of events exceeds the limit.
+    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
+    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+=======
+>>>>>>> origin/main-v0.13.0-hotfix
 }
 
 fn emit_events(
@@ -566,10 +589,22 @@ fn emit_events(
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
+<<<<<<< HEAD
             vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
             keys.to_vec(),
             vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
             data.to_vec(),
+||||||| d1b5bb4f
+            vec![stark_felt!(keys.len() as u16)],
+            keys.clone(),
+            vec![stark_felt!(data.len() as u16)],
+            data.clone(),
+=======
+            vec![stark_felt!(keys.len() as u16)],
+            keys.to_owned(),
+            vec![stark_felt!(data.len() as u16)],
+            data.to_owned(),
+>>>>>>> origin/main-v0.13.0-hotfix
         ])
         .into(),
     );
