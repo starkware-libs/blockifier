@@ -1143,7 +1143,7 @@ fn test_declare_tx(
     );
 
     let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
-    let code_gas: GasVector = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
+    let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
     let gas_usage = code_gas + da_gas;
 
     let expected_execution_info = TransactionExecutionInfo {
