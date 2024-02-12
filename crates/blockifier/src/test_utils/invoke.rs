@@ -1,4 +1,3 @@
-use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
@@ -6,9 +5,11 @@ use starknet_api::transaction::{
     InvokeTransactionV3, PaymasterData, ResourceBoundsMapping, Tip, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::test_utils::default_testing_resource_bounds;
+use crate::invoke_tx_args;
+use crate::test_utils::{create_calldata, default_testing_resource_bounds, StarkFelt, MAX_FEE};
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::transactions::InvokeTransaction;
 
@@ -28,7 +29,26 @@ pub struct InvokeTxArgs {
     pub nonce: Nonce,
     pub only_query: bool,
 }
+impl InvokeTxArgs {
+    pub fn from_account_and_test_addresses(
+        account_contract_address: ContractAddress,
+        test_contract_address: ContractAddress,
+    ) -> Self {
+        let execute_calldata = create_calldata(
+            test_contract_address,
+            "return_result",
+            &[stark_felt!(2_u8)], // Calldata: num.
+        );
 
+        invoke_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            signature: TransactionSignature::default(),
+            nonce: Nonce::default(),
+            sender_address: account_contract_address,
+            calldata: execute_calldata,
+        }
+    }
+}
 impl Default for InvokeTxArgs {
     fn default() -> Self {
         InvokeTxArgs {

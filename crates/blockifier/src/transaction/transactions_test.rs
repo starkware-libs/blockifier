@@ -40,8 +40,8 @@ use crate::execution::syscalls::{
 };
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
-    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
+    estimate_minimal_gas_vector, get_calldata_and_signature_gas_cost, get_code_gas_cost,
+    get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -78,7 +78,7 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
-use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::utils::usize_from_u128;
 use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
@@ -293,26 +293,6 @@ fn validate_final_balances(
     }
 }
 
-// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
-fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
-        test_contract_address,
-        "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-    }
-}
-
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
@@ -356,8 +336,10 @@ fn test_invoke_tx(
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let account_contract_address = account_contract.get_instance_address(0);
-    let invoke_tx =
-        invoke_tx(default_invoke_tx_args(account_contract_address, test_contract_address));
+    let invoke_tx = invoke_tx(InvokeTxArgs::from_account_and_test_addresses(
+        account_contract_address,
+        test_contract_address,
+    ));
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -770,8 +752,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
         &[(account_contract, 1), (test_contract, 1)],
     );
     let account_contract_address = account_contract.get_instance_address(0);
-    let default_args =
-        default_invoke_tx_args(account_contract_address, test_contract.get_instance_address(0));
+    let default_args = InvokeTxArgs::from_account_and_test_addresses(
+        account_contract_address,
+        test_contract.get_instance_address(0),
+    );
 
     let invalid_max_fee = Fee(BALANCE + 1);
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
@@ -832,7 +816,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let valid_invoke_tx_args = default_invoke_tx_args(
+    let valid_invoke_tx_args = InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     );
@@ -920,7 +904,7 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let invoke_tx_args = default_invoke_tx_args(
+    let invoke_tx_args = InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     );
@@ -951,7 +935,7 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let valid_invoke_tx_args = default_invoke_tx_args(
+    let valid_invoke_tx_args = InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     );
@@ -1482,116 +1466,6 @@ fn test_validate_accounts_tx(
     }
 }
 
-// Test that we exclude the fee token contract modification and adds the account’s balance change
-// in the state changes.
-// TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
-#[rstest]
-fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
-    let account_cairo_version = CairoVersion::Cairo0;
-    let test_contract_cairo_version = CairoVersion::Cairo0;
-    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
-    let versioned_constants = &block_context.versioned_constants;
-    let chain_info = &block_context.chain_info;
-    let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
-    let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
-    let account_contract_address = account_contract.get_instance_address(0);
-    let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
-
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
-        account_contract_address,
-        test_contract.get_instance_address(0),
-    ));
-    let calldata_length = account_tx.calldata_length();
-    let signature_length = account_tx.signature_length();
-    let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());
-    let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-
-    let n_storage_updates = 1; // For the account balance update.
-    let n_modified_contracts = 1;
-    let state_changes_count = StateChangesCount {
-        n_storage_updates,
-        n_class_hash_updates: 0,
-        n_modified_contracts,
-        n_compiled_class_hash_updates: 0,
-    };
-
-    let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
-        std::iter::empty(),
-        state_changes_count,
-        calldata_length,
-        signature_length,
-        None,
-        None,
-        use_kzg_da,
-    )
-    .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
-        l1_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
-        l1_blob_gas_usage
-    );
-
-    // A tx that changes the account and some other balance in execute.
-    let some_other_account_address = account_contract.get_instance_address(17);
-    let execute_calldata = create_calldata(
-        fee_token_address,
-        constants::TRANSFER_ENTRY_POINT_NAME,
-        &[
-            *some_other_account_address.0.key(), // Calldata: recipient.
-            stark_felt!(2_u8),                   // Calldata: lsb amount.
-            stark_felt!(0_u8),                   // Calldata: msb amount.
-        ],
-    );
-
-    let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-        version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(1_u8)),
-    });
-
-    let calldata_length = account_tx.calldata_length();
-    let signature_length = account_tx.signature_length();
-    let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-    // For the balance update of the sender and the recipient.
-    let n_storage_updates = 2;
-    // Only the account contract modification (nonce update) excluding the fee token contract.
-    let n_modified_contracts = 1;
-    let state_changes_count = StateChangesCount {
-        n_storage_updates,
-        n_class_hash_updates: 0,
-        n_modified_contracts,
-        n_compiled_class_hash_updates: 0,
-    };
-
-    let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
-        std::iter::empty(),
-        state_changes_count,
-        calldata_length,
-        signature_length,
-        None,
-        None,
-        use_kzg_da,
-    )
-    .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
-        l1_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
-        l1_blob_gas_usage
-    );
-}
-
 #[rstest]
 fn test_valid_flag(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
@@ -1606,7 +1480,7 @@ fn test_valid_flag(
         &[(account_contract, 1), (test_contract, 1)],
     );
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
+    let account_tx = account_invoke_tx(InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     ));
