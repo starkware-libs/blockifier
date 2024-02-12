@@ -1,12 +1,11 @@
 // run with:
 // cargo test --test erc20_tests --features testing
-use itertools::Itertools;
-use pretty_assertions::assert_str_eq;
-
 use blockifier::execution::sierra_utils::{
     contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
 };
 use blockifier::test_utils::*;
+use itertools::Itertools;
+use pretty_assertions::assert_str_eq;
 use starknet_api::hash::StarkFelt;
 use starknet_types_core::felt::Felt;
 
@@ -34,7 +33,7 @@ mod error_msg_tests {
         let raw_hex = message.strip_prefix("0x").unwrap().to_owned();
         let character_codes = (0..raw_hex.len())
             .step_by(2)
-            .map(|idx| u8::from_str_radix(&raw_hex[idx..idx+2], 16).unwrap())
+            .map(|idx| u8::from_str_radix(&raw_hex[idx..idx + 2], 16).unwrap())
             .collect_vec();
         std::str::from_utf8(&character_codes).unwrap().to_owned()
     }
@@ -784,8 +783,18 @@ pub mod ownable_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_transfer_ownership_emits_event() {
-        todo!("Implement this test after resolving the problem with events")
+        let current_owner = Signers::Alice;
+        let new_owner = Signers::Bob;
+
+        let mut context = TestContext::new().with_caller(current_owner.into());
+
+        assert_eq!(context.call_entry_point("transfer_ownership", vec![new_owner.into()]), vec![]);
+
+        let event = context.get_event(0).unwrap();
+
+        let event = (event.data[0], event.data[1]);
+
+        assert_eq!(event, (current_owner.into(), new_owner.into()));
     }
 }
