@@ -5,7 +5,7 @@ use std::rc::Rc;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet::contract_class::{ContractEntryPoint, ContractEntryPoints};
-use cairo_native::cache::{AotProgramCache, ProgramCache};
+use cairo_native::cache::{AotProgramCache, JitProgramCache, ProgramCache};
 use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
@@ -65,9 +65,16 @@ static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext>
     std::sync::OnceLock::new();
 
 // StarkHash parameter is the class hash type
+// Two alternatives are provided here, one that uses Ahead Of Time compilation,
+// and one that uses Just In Time
+// pub fn get_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
+//     Rc::new(RefCell::new(ProgramCache::Aot(AotProgramCache::new(
+//         NATIVE_CONTEXT.get_or_init(NativeContext::new),
+//     ))))
+// }
 pub fn get_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
-    Rc::new(RefCell::new(ProgramCache::Aot(AotProgramCache::new(
-        NATIVE_CONTEXT.get_or_init(NativeContext::new),
+    Rc::new(RefCell::new(ProgramCache::Jit(JitProgramCache::new(
+        NATIVE_CONTEXT.get_or_init(NativeContext::new)
     ))))
 }
 
@@ -89,10 +96,16 @@ pub fn get_native_executor<'context>(
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
                 Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
+                None => cache.compile_and_insert(class_hash, program, OptLevel::Default)
             })
         }
-        ProgramCache::Jit(_) => todo!("Sierra util: get native executor - jit"),
+        ProgramCache::Jit(cache) => {
+            let cached_executor = cache.get(&class_hash);
+            NativeExecutor::Jit(match cached_executor {
+                Some(executor) => executor,
+                None => cache.compile_and_insert(class_hash, program, OptLevel::Default)
+            })
+        },
     }
 }
 
@@ -187,7 +200,21 @@ pub fn run_native_executor(
                     error_msg: Some("error".to_string()),
                 })
         }
-        NativeExecutor::Jit(_) => todo!("Jit"),
+        NativeExecutor::Jit(executor) => {
+            executor
+                .invoke_contract_dynamic(
+                    sierra_entry_function_id,
+                    &starkfelts_to_felts(&call.calldata.0),
+                    Some(call.initial_gas as u128), // TODO track gas reduction?
+                    Some(syscall_handler),
+                )
+                .unwrap_or(ContractExecutionResult {
+                    remaining_gas: 0,
+                    failure_flag: false,
+                    return_values: vec![],
+                    error_msg: Some("error".to_string()),
+                })
+        },
     }
 }
 
