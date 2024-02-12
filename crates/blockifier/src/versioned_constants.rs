@@ -38,6 +38,8 @@ pub struct VersionedConstants {
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
+    pub l2_resource_gas_costs: L2ResourceGasCosts,
+    pub event_size_limit: EventSizeLimit,
 
     // Resources.
     os_resources: Arc<OsResources>,
@@ -51,8 +53,6 @@ pub struct VersionedConstants {
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
     os_constants: Arc<OSConstants>,
-
-    pub l2_resource_gas_costs: L2ResourceGasCosts,
 }
 
 impl VersionedConstants {
@@ -147,6 +147,13 @@ pub struct L2ResourceGasCosts {
     pub milligas_per_data_felt: u128,
     pub event_key_factor: u128,
     pub milligas_per_code_byte: u128,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct EventSizeLimit {
+    pub max_data_length: usize,
+    pub max_keys_length: usize,
+    pub max_n_emitted_events: usize,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

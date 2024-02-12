@@ -35,9 +35,6 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
-use crate::execution::syscalls::{
-    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
-};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
@@ -1834,37 +1831,52 @@ fn test_execute_tx_with_invalid_transaction_version() {
     );
 }
 
+fn max_n_emitted_events() -> usize {
+    let versioned_constants = VersionedConstants::create_for_testing();
+    versioned_constants.event_size_limit.max_n_emitted_events
+}
+
+fn max_event_keys() -> usize {
+    let versioned_constants = VersionedConstants::create_for_testing();
+    versioned_constants.event_size_limit.max_keys_length
+}
+
+fn max_event_data() -> usize {
+    let versioned_constants = VersionedConstants::create_for_testing();
+    versioned_constants.event_size_limit.max_data_length
+}
+
 #[test_case(
-    vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS],
-    vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA],
-    SYSCALL_MAX_N_EMITTED_EVENTS,
+    vec![stark_felt!(1_u16); max_event_keys()],
+    vec![stark_felt!(2_u16); max_event_data()],
+    max_n_emitted_events(),
     None;
     "Positive flow")]
 #[test_case(
     vec![stark_felt!(1_u16)],
     vec![stark_felt!(2_u16)],
-    SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+    max_n_emitted_events() + 1,
     Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+        n_emitted_events: max_n_emitted_events() + 1,
+        max_n_emitted_events: max_n_emitted_events(),
     });
     "exceeds max number of events")]
 #[test_case(
-    vec![stark_felt!(3_u16); SYSCALL_MAX_EVENT_KEYS + 1],
+    vec![stark_felt!(3_u16); max_event_keys() + 1],
     vec![stark_felt!(4_u16)],
     1,
     Some(EmitEventError::ExceedsMaxKeysLength{
-        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
-        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+        keys_length: max_event_keys() + 1,
+        max_keys_length: max_event_keys(),
     });
     "exceeds max number of keys")]
 #[test_case(
     vec![stark_felt!(5_u16)],
-    vec![stark_felt!(6_u16); SYSCALL_MAX_EVENT_DATA + 1],
+    vec![stark_felt!(6_u16); max_event_data() + 1],
     1,
     Some(EmitEventError::ExceedsMaxDataLength{
-        data_length: SYSCALL_MAX_EVENT_DATA + 1,
-        max_data_length: SYSCALL_MAX_EVENT_DATA,
+        data_length: max_event_data() + 1,
+        max_data_length: max_event_data(),
     });
     "exceeds data length")]
 fn test_emit_event_exceeds_limit(
