@@ -37,9 +37,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
     EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
-use crate::execution::syscalls::{
-    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
-};
+use crate::execution::syscalls::{SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS};
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -151,30 +149,21 @@ fn test_emit_event() {
         max_keys_length: SYSCALL_MAX_EVENT_KEYS,
     };
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
-
-    // Negative flow, the number of events exceeds the limit.
-    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
-    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 }
 
 fn emit_events(
     n_emitted_events: &[StarkFelt],
-    keys: &Vec<StarkFelt>,
-    data: &Vec<StarkFelt>,
+    keys: &[StarkFelt],
+    data: &[StarkFelt],
 ) -> Result<CallInfo, EntryPointExecutionError> {
     let mut state = create_test_state();
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
             vec![stark_felt!(keys.len() as u16)],
-            keys.clone(),
+            keys.to_owned(),
             vec![stark_felt!(data.len() as u16)],
-            data.clone(),
+            data.to_owned(),
         ])
         .into(),
     );
