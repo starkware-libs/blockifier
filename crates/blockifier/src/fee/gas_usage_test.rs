@@ -122,7 +122,7 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
     );
 }
 
-/// This test goes over six cases. In each case, we calculate the gas usage given the parameters.
+/// This test goes over seven cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.
 /// The seven cases are:
 ///     1. An empty transaction.

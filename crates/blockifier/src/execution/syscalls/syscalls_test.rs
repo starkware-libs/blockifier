@@ -270,56 +270,48 @@ fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
 
 #[test_case(
     ExecutionMode::Validate,
-    contract_address!(StarkFelt::ZERO),
     TransactionVersion::ONE,
     false,
     false;
     "Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::ONE,
     false,
     false;
     "Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
     ExecutionMode::Validate,
-    contract_address!(StarkFelt::ZERO),
     TransactionVersion::THREE,
     false,
     false;
     "Validate execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::THREE,
     false,
     false;
     "Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::ONE,
     true,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::THREE,
     true,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
     ExecutionMode::Execute,
-    contract_address!(StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap()),
     TransactionVersion::THREE,
     false,
     true;
     "Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 fn test_get_execution_info(
     execution_mode: ExecutionMode,
-    sequencer_address: ContractAddress,
     mut version: TransactionVersion,
     is_legacy: bool,
     only_query: bool,
@@ -342,7 +334,7 @@ fn test_get_execution_info(
         ExecutionMode::Execute => [
             stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
             stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-            *sequencer_address.0.key(),
+            StarkFelt::try_from(TEST_SEQUENCER_ADDRESS).unwrap(),
         ],
     };
 
