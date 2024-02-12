@@ -36,9 +36,6 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
     EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
-use crate::execution::syscalls::{
-    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
-};
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::{create_deploy_test_state, create_test_state};
 use crate::test_utils::contracts::FeatureContract;
@@ -53,6 +50,7 @@ use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
     CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, TransactionInfo,
 };
+use crate::versioned_constants::VersionedConstants;
 use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
@@ -116,6 +114,7 @@ fn test_call_contract() {
 
 #[test]
 fn test_emit_event() {
+    let versioned_constants = VersionedConstants::create_for_testing();
     // Positive flow.
     let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
     let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
@@ -136,31 +135,34 @@ fn test_emit_event() {
     );
 
     // Negative flow, the data length exceeds the limit.
-    let data_too_long = vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA + 1];
+    let max_event_data_length = versioned_constants.event_size_limit.max_data_length;
+    let data_too_long = vec![stark_felt!(2_u16); max_event_data_length + 1];
     let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxDataLength {
-        data_length: SYSCALL_MAX_EVENT_DATA + 1,
-        max_data_length: SYSCALL_MAX_EVENT_DATA,
+        data_length: max_event_data_length + 1,
+        max_data_length: max_event_data_length,
     };
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the keys length exceeds the limit.
-    let keys_too_long = vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS + 1];
+    let max_event_keys_length = versioned_constants.event_size_limit.max_keys_length;
+    let keys_too_long = vec![stark_felt!(1_u16); max_event_keys_length + 1];
     let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxKeysLength {
-        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
-        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+        keys_length: max_event_keys_length + 1,
+        max_keys_length: max_event_keys_length,
     };
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the number of events exceeds the limit.
+    let max_n_emitted_events = versioned_constants.event_size_limit.max_n_emitted_events;
     let n_emitted_events_too_big = vec![stark_felt!(
-        u16::try_from(SYSCALL_MAX_N_EMITTED_EVENTS + 1).expect("Failed to convert usize to u16.")
+        u16::try_from(max_n_emitted_events + 1).expect("Failed to convert usize to u16.")
     )];
     let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+        n_emitted_events: max_n_emitted_events + 1,
+        max_n_emitted_events,
     };
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 }
