@@ -1388,6 +1388,7 @@ fn test_validate_accounts_tx(
         FaultyAccountTxCreatorArgs {
             scenario: INVALID,
             contract_address_salt: salt_manager.next_salt(),
+            additional_data: None,
             ..default_args
         },
     );
@@ -1403,8 +1404,9 @@ fn test_validate_accounts_tx(
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: CALL_CONTRACT,
-            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
-                                                           * address of faulty_account. */
+            additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
+                                                                 * the address of
+                                                                 * faulty_account. */
             contract_address_salt: salt_manager.next_salt(),
             ..default_args
         },
@@ -1424,6 +1426,7 @@ fn test_validate_accounts_tx(
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_HASH,
                 contract_address_salt: salt_manager.next_salt(),
+                additional_data: None,
                 ..default_args
             },
         );
@@ -1444,6 +1447,7 @@ fn test_validate_accounts_tx(
         FaultyAccountTxCreatorArgs {
             scenario: VALID,
             contract_address_salt: salt_manager.next_salt(),
+            additional_data: None,
             ..default_args
         },
     );
@@ -1455,7 +1459,7 @@ fn test_validate_accounts_tx(
             nonce_manager,
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
-                additional_data: Some(*sender_address.0.key()),
+                additional_data: Some(vec![*sender_address.0.key()]),
                 ..default_args
             },
         );
