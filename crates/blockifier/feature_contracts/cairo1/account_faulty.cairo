@@ -11,7 +11,7 @@ mod Account {
     use option::{Option, OptionTrait};
 
     use starknet::{ContractAddress, call_contract_syscall, contract_address_try_from_felt252,
-        get_tx_info, info::SyscallResultTrait, send_message_to_l1_syscall,
+        get_execution_info, get_tx_info, info::SyscallResultTrait, send_message_to_l1_syscall,
         syscalls::get_block_hash_syscall, TxInfo};
 
     // Validate Scenarios.
@@ -24,6 +24,8 @@ mod Account {
     const CALL_CONTRACT: felt252 = 2;
     // Use get_block_hash syscall.
     const GET_BLOCK_HASH: felt252 = 3;
+    // Use get_execution_info syscall.
+    const GET_EXECUTION_INFO: felt252 = 4;
 
     // get_selector_from_name('foo').
     const FOO_ENTRY_POINT_SELECTOR: felt252 = (
@@ -121,9 +123,23 @@ mod Account {
                 .unwrap_syscall();
             return starknet::VALIDATED;
         }
-        assert (scenario == GET_BLOCK_HASH, 'Unknown scenario');
-        let block_number: u64 = 0;
-        get_block_hash_syscall(block_number).unwrap_syscall();
+        if (scenario == GET_BLOCK_HASH){
+            let block_number: u64 = 0;
+            get_block_hash_syscall(block_number).unwrap_syscall();
+            return starknet::VALIDATED;
+        }
+
+        assert (scenario == GET_EXECUTION_INFO, 'Unknown scenario');
+
+        let block_number: felt252 = *signature[1_u32];
+        let block_timestamp: felt252 = *signature[2_u32];
+        let sequencer_address: felt252 = *signature[3_u32];
+
+        let execution_info = starknet::get_execution_info().unbox();
+        let block_info = execution_info.block_info.unbox();
+        assert(block_info.block_number.into() == block_number, 'BLOCK_NUMBER_MISMATCH');
+        assert(block_info.block_timestamp.into() == block_timestamp, 'BLOCK_TIMESTAMP_MISMATCH');
+        assert(block_info.sequencer_address.into() == sequencer_address, 'SEQUENCER_MISMATCH');
 
         starknet::VALIDATED
     }
