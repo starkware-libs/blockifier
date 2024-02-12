@@ -35,7 +35,9 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
-use crate::execution::syscalls::{SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS};
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
+};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_calldata_and_signature_gas_cost, get_code_gas_cost,
@@ -1706,9 +1708,18 @@ fn test_execute_tx_with_invalid_transaction_version() {
 #[test_case(
     vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS],
     vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA],
-    10,
+    SYSCALL_MAX_N_EMITTED_EVENTS,
     None;
     "Positive flow")]
+#[test_case(
+    vec![stark_felt!(1_u16)],
+    vec![stark_felt!(2_u16)],
+    SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+    Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    });
+    "exceeds max number of events")]
 #[test_case(
     vec![stark_felt!(3_u16); SYSCALL_MAX_EVENT_KEYS + 1],
     vec![stark_felt!(4_u16)],
