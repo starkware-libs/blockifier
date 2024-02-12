@@ -1,13 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::abi::constants;
+use blockifier::execution::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
-use blockifier::transaction::objects::{
-    ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
-};
-use cairo_vm::serde::deserialize_program::BuiltinName;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::deprecated_contract_class::EntryPointType;
 
@@ -71,7 +68,7 @@ pub struct PyCallInfo {
     #[pyo3(get)]
     pub retdata: Vec<PyFelt>,
     #[pyo3(get)]
-    pub execution_resources: PyVmExecutionResources,
+    pub execution_resources: PyExecutionResources,
     #[pyo3(get)]
     pub events: Vec<PyOrderedEvent>,
     #[pyo3(get)]
@@ -141,7 +138,7 @@ impl From<CallInfo> for PyCallInfo {
             gas_consumed: execution.gas_consumed,
             failure_flag: execution.failed,
             retdata: to_py_vec(execution.retdata.0, PyFelt),
-            execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
+            execution_resources: PyExecutionResources::from(call_info.resources),
             events: to_py_vec(execution.events, PyOrderedEvent::from),
             l2_to_l1_messages: to_py_vec(execution.l2_to_l1_messages, PyOrderedL2ToL1Message::from),
             internal_calls: to_py_vec(call_info.inner_calls, PyCallInfo::from),
@@ -201,7 +198,7 @@ impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
 
 #[pyclass]
 #[derive(Clone, Default)]
-pub struct PyVmExecutionResources {
+pub struct PyExecutionResources {
     #[pyo3(get)]
     pub n_steps: usize,
     #[pyo3(get)]
@@ -210,83 +207,13 @@ pub struct PyVmExecutionResources {
     pub n_memory_holes: usize,
 }
 
-impl From<VmExecutionResources> for PyVmExecutionResources {
-    fn from(vm_resources: VmExecutionResources) -> Self {
+impl From<ExecutionResources> for PyExecutionResources {
+    fn from(resources: ExecutionResources) -> Self {
         Self {
-            n_steps: vm_resources.n_steps,
-            builtin_instance_counter: vm_resources.builtin_instance_counter,
-            n_memory_holes: vm_resources.n_memory_holes,
+            n_steps: resources.n_steps,
+            builtin_instance_counter: resources.builtin_instance_counter,
+            n_memory_holes: resources.n_memory_holes,
         }
-    }
-}
-
-#[derive(Clone, Default)]
-// TODO(Barak, 24/01/2024): Move to blockifier crate.
-// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
-pub struct BouncerInfo {
-    pub state_diff_size: usize, // The number of felts needed to store the state diff.
-    pub l1_gas_amount: usize,
-    pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
-    pub execution_resources: VmExecutionResources,
-}
-
-impl BouncerInfo {
-    pub fn calculate(
-        tx_actual_resources: &ResourcesMapping,
-        tx_additional_os_resources: VmExecutionResources,
-        message_segment_length: usize,
-        state_diff_size: usize,
-    ) -> TransactionExecutionResult<Self> {
-        let l1_gas_amount = *tx_actual_resources
-            .0
-            .get("l1_gas_usage")
-            .expect("Invalid Transaction Execution Info. Field l1_gas_usage was not found.");
-
-        // TODO(Ayelet, 04/02/2024): Consider defining a constant list.
-        let builtin_ordered_list = [
-            BuiltinName::output,
-            BuiltinName::pedersen,
-            BuiltinName::range_check,
-            BuiltinName::ecdsa,
-            BuiltinName::bitwise,
-            BuiltinName::ec_op,
-            BuiltinName::keccak,
-            BuiltinName::poseidon,
-        ];
-        let builtin_instance_counter: HashMap<String, usize> = builtin_ordered_list
-            .iter()
-            .map(|name| {
-                (
-                    name.name().to_string(),
-                    tx_actual_resources.0.get(name.name()).copied().unwrap_or_default(),
-                )
-            })
-            .collect();
-        let tx_actual_resources = VmExecutionResources {
-            n_steps: tx_actual_resources
-                .0
-                .get(constants::N_STEPS_RESOURCE)
-                .copied()
-                .unwrap_or_default(),
-            n_memory_holes: tx_actual_resources
-                .0
-                .get("n_memory_holes")
-                .copied()
-                .unwrap_or_default(),
-            builtin_instance_counter,
-        };
-
-        let mut merged_resources = &tx_additional_os_resources + &tx_actual_resources;
-        // Memory holes are counted as steps.
-        merged_resources.n_steps += merged_resources.n_memory_holes;
-        merged_resources.n_memory_holes = 0;
-
-        Ok(Self {
-            state_diff_size,
-            l1_gas_amount,
-            message_segment_length,
-            execution_resources: merged_resources,
-        })
     }
 }
 
@@ -300,7 +227,7 @@ pub struct PyBouncerInfo {
     #[pyo3(get)]
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     #[pyo3(get)]
-    pub execution_resources: PyVmExecutionResources,
+    pub execution_resources: PyExecutionResources,
 }
 
 impl From<BouncerInfo> for PyBouncerInfo {
@@ -309,7 +236,7 @@ impl From<BouncerInfo> for PyBouncerInfo {
             state_diff_size: bouncer_info.state_diff_size,
             l1_gas_amount: bouncer_info.l1_gas_amount,
             message_segment_length: bouncer_info.message_segment_length,
-            execution_resources: PyVmExecutionResources::from(bouncer_info.execution_resources),
+            execution_resources: PyExecutionResources::from(bouncer_info.execution_resources),
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -11,9 +12,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
@@ -487,7 +486,7 @@ impl AccountTransaction {
                             post_execution_error.to_string(),
                             ActualCost {
                                 actual_fee: post_execution_report.recommended_fee(),
-                                actual_resources: revert_cost.actual_resources,
+                                ..revert_cost
                             },
                         ))
                     }
@@ -512,7 +511,7 @@ impl AccountTransaction {
                     execution_context.error_trace(),
                     ActualCost {
                         actual_fee: post_execution_report.recommended_fee(),
-                        actual_resources: revert_cost.actual_resources,
+                        ..revert_cost
                     },
                 ))
             }
@@ -552,12 +551,16 @@ impl AccountTransaction {
         &self,
         tx_context: Arc<TransactionContext>,
     ) -> ActualCostBuilder<'_> {
-        ActualCostBuilder::new(
+        let mut actual_cost_builder = ActualCostBuilder::new(
             tx_context,
             self.tx_type(),
             self.calldata_length(),
             self.signature_length(),
-        )
+        );
+        if let Self::Declare(tx) = self {
+            actual_cost_builder = actual_cost_builder.with_class_info(tx.class_info.clone());
+        }
+        actual_cost_builder
     }
 }
 
@@ -582,7 +585,12 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate_call_info,
             execute_call_info,
             revert_error,
-            final_cost: ActualCost { actual_fee: final_fee, actual_resources: final_resources },
+            final_cost:
+                ActualCost {
+                    actual_fee: final_fee,
+                    da_gas: final_da_gas,
+                    actual_resources: final_resources,
+                },
         } = self.run_or_revert(
             state,
             &mut remaining_gas,
@@ -598,6 +606,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             execute_call_info,
             fee_transfer_call_info,
             actual_fee: final_fee,
+            da_gas: final_da_gas,
             actual_resources: final_resources,
             revert_error,
         };

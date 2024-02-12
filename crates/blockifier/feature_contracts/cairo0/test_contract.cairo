@@ -21,6 +21,7 @@ from starkware.starknet.common.syscalls import (
     replace_class,
     get_tx_info,
     get_tx_signature,
+    emit_event,
 )
 from starkware.starknet.core.os.contract_address.contract_address import get_contract_address
 
@@ -483,4 +484,21 @@ func send_message{syscall_ptr: felt*}(to_address: felt) {
     let (__fp__, _) = get_fp_and_pc();
     send_message_to_l1(to_address=to_address, payload_size=2, payload=cast(&payload, felt*));
     return ();
+}
+
+func emit_event_recurse{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    counter: felt, keys_len: felt, keys: felt*, data_len: felt, data: felt*
+) {
+    if (counter == 0) {
+        return ();
+    }
+    emit_event(keys_len, keys, data_len, data);
+    return emit_event_recurse(counter - 1, keys_len, keys, data_len, data);
+}
+
+@external
+func test_emit_events{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    events_count: felt, keys_len: felt, keys: felt*, data_len: felt, data: felt*
+) {
+    return emit_event_recurse(events_count, keys_len, keys, data_len, data);
 }

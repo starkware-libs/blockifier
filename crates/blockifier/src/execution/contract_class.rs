@@ -5,8 +5,8 @@ use std::sync::Arc;
 use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
-use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
-use cairo_lang_starknet::NestedIntList;
+use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet_classes::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -14,7 +14,7 @@ use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
 use starknet_api::core::EntryPointSelector;
@@ -46,7 +46,7 @@ impl ContractClass {
         }
     }
 
-    pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+    pub fn estimate_casm_hash_computation_resources(&self) -> ExecutionResources {
         match self {
             ContractClass::V0(class) => class.estimate_casm_hash_computation_resources(),
             ContractClass::V1(class) => class.estimate_casm_hash_computation_resources(),
@@ -89,7 +89,7 @@ impl ContractClassV0 {
         self.program.data_len()
     }
 
-    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+    fn estimate_casm_hash_computation_resources(&self) -> ExecutionResources {
         let hashed_data_size = (constants::CAIRO0_ENTRY_POINT_STRUCT_SIZE * self.n_entry_points())
             + self.n_builtins()
             + self.bytecode_length()
@@ -97,7 +97,7 @@ impl ContractClassV0 {
         // The hashed data size is approximately the number of hashes (invoked in hash chains).
         let n_steps = constants::N_STEPS_PER_PEDERSEN * hashed_data_size;
 
-        VmExecutionResources {
+        ExecutionResources {
             n_steps,
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(
@@ -180,7 +180,7 @@ impl ContractClassV1 {
     /// Returns the estimated VM resources required for computing Casm hash.
     /// This is an empiric measurement of several bytecode lengths, which constitutes as the
     /// dominant factor in it.
-    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+    fn estimate_casm_hash_computation_resources(&self) -> ExecutionResources {
         estimate_casm_hash_computation_resources(&self.bytecode_segment_lengths)
     }
 
@@ -209,13 +209,13 @@ impl ContractClassV1 {
 /// class entry points.
 pub fn estimate_casm_hash_computation_resources(
     bytecode_segment_lengths: &NestedIntList,
-) -> VmExecutionResources {
+) -> ExecutionResources {
     // The constants in this function were computed by running the Casm code on a few values
     // of `bytecode_segment_lengths`.
     match bytecode_segment_lengths {
         NestedIntList::Leaf(length) => {
             // The entire contract is a single segment (old Sierra contracts).
-            &VmExecutionResources {
+            &ExecutionResources {
                 n_steps: 474,
                 n_memory_holes: 0,
                 builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 10)]),
@@ -223,12 +223,12 @@ pub fn estimate_casm_hash_computation_resources(
         }
         NestedIntList::Node(segments) => {
             // The contract code is segmented by its functions.
-            let mut execution_resources = VmExecutionResources {
+            let mut execution_resources = ExecutionResources {
                 n_steps: 491,
                 n_memory_holes: 0,
                 builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 11)]),
             };
-            let base_segment_cost = VmExecutionResources {
+            let base_segment_cost = ExecutionResources {
                 n_steps: 24,
                 n_memory_holes: 1,
                 builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 1)]),
@@ -248,8 +248,8 @@ pub fn estimate_casm_hash_computation_resources(
 }
 
 /// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.
-fn poseidon_hash_many_cost(data_length: usize) -> VmExecutionResources {
-    VmExecutionResources {
+fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
+    ExecutionResources {
         n_steps: (data_length / 10) * 55
             + ((data_length % 10) / 2) * 18
             + (data_length % 2) * 3

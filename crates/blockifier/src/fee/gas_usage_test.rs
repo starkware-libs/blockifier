@@ -1,18 +1,81 @@
 use pretty_assertions::assert_eq;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
-use starknet_api::transaction::L2ToL1Payload;
+use starknet_api::transaction::{EventContent, EventData, EventKey, L2ToL1Payload};
 
-use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
+use crate::execution::call_info::{
+    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message,
+};
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
-    get_log_message_to_l1_emissions_cost, get_message_segment_length,
+    get_log_message_to_l1_emissions_cost, get_message_segment_length, get_tx_events_gas_cost,
 };
 use crate::state::cached_state::StateChangesCount;
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::CairoVersion;
 use crate::transaction::objects::GasVector;
+use crate::transaction::test_utils::calculate_class_info_for_testing;
 use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
+
+#[fixture]
+fn versioned_constants() -> &'static VersionedConstants {
+    VersionedConstants::latest_constants()
+}
+
+#[rstest]
+fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
+    let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
+    let (event_key_factor, data_word_cost) =
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+
+    let call_info_1 = &CallInfo::default();
+    let call_info_2 = &CallInfo::default();
+    let call_info_3 = &CallInfo::default();
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
+
+    let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
+        order: 0,
+        event: EventContent {
+            keys: vec![EventKey(StarkFelt::ZERO); keys_size],
+            data: EventData(vec![StarkFelt::ZERO; data_size]),
+        },
+    };
+    let call_info_1 = &CallInfo {
+        execution: CallExecution {
+            events: vec![create_event(1, 2), create_event(1, 2)],
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let call_info_2 = &CallInfo {
+        execution: CallExecution {
+            events: vec![create_event(1, 0), create_event(0, 1)],
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let call_info_3 = &CallInfo {
+        execution: CallExecution { events: vec![create_event(0, 1)], ..Default::default() },
+        inner_calls: vec![CallInfo {
+            execution: CallExecution { events: vec![create_event(1, 0)], ..Default::default() },
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let expected = GasVector {
+        // 4 keys and 6 data words overall.
+        l1_gas: (event_key_factor * data_word_cost * 4_u128 + data_word_cost * 6_u128) / 1000,
+        l1_data_gas: 0_u128,
+    };
+    let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
+    assert_eq!(expected, gas_vector);
+    assert_ne!(GasVector::default(), gas_vector)
+}
 
 #[rstest]
 #[case::storage_write(StateChangesCount {
@@ -54,33 +117,66 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 
     let computed_gas_vector = get_da_gas_cost(state_changes_count, true);
     assert_eq!(
-        GasVector { l1_gas: 0, blob_gas: u128_from_usize(manual_blob_gas_usage).unwrap() },
+        GasVector { l1_gas: 0, l1_data_gas: u128_from_usize(manual_blob_gas_usage).unwrap() },
         computed_gas_vector
     );
 }
 
-/// This test goes over six cases. In each case, we calculate the gas usage given the parameters.
+/// This test goes over seven cases. In each case, we calculate the gas usage given the parameters.
 /// We then perform the same calculation manually, each time using only the relevant parameters.
-/// The six cases are:
+/// The seven cases are:
 ///     1. An empty transaction.
-///     2. A DeployAccount transaction.
-///     3. An L1 handler.
-///     4. A transaction with L2-to-L1 messages.
-///     5. A transaction that modifies the storage.
-///     6. A combination of cases 3. 4. and 5.
+///     2. A Declare transaction.
+///     3. A DeployAccount transaction.
+///     4. An L1 handler.
+///     5. A transaction with L2-to-L1 messages.
+///     6. A transaction that modifies the storage.
+///     7. A combination of cases 4. 5. and 6.
 // TODO(Aner, 29/01/24) Refactor with assert on GasVector objects.
 // TODO(Aner, 29/01/24) Refactor to replace match with if when formatting is nicer
 #[rstest]
 fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // An empty transaction (a theoretical case for sanity check).
+    let versioned_constants = VersionedConstants::default();
     let empty_tx_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
+        0,
+        0,
+        None,
         None,
         use_kzg_da,
     )
     .unwrap();
-    assert_eq!(empty_tx_gas_usage_vector, GasVector { l1_gas: 0, blob_gas: 0 });
+    assert_eq!(empty_tx_gas_usage_vector, GasVector { l1_gas: 0, l1_data_gas: 0 });
+
+    // Declare.
+    for cairo_version in [CairoVersion::Cairo0, CairoVersion::Cairo1] {
+        let empty_contract = FeatureContract::Empty(cairo_version).get_class();
+        let class_info = calculate_class_info_for_testing(cairo_version, empty_contract);
+        let code_milligas_cost = u128_from_usize(
+            (class_info.bytecode_length() + class_info.sierra_program_length)
+                * eth_gas_constants::WORD_WIDTH
+                + class_info.abi_length,
+        )
+        .unwrap()
+            * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;
+        let manual_gas_vector =
+            GasVector { l1_gas: code_milligas_cost / 1000, ..Default::default() };
+        let declare_gas_usage_vector = calculate_tx_gas_usage_vector(
+            &versioned_constants,
+            std::iter::empty(),
+            StateChangesCount::default(),
+            0,
+            0,
+            None,
+            Some(class_info),
+            use_kzg_da,
+        )
+        .unwrap();
+        assert_eq!(manual_gas_vector, declare_gas_usage_vector);
+    }
 
     // DeployAccount.
 
@@ -92,13 +188,22 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     };
 
     // Manual calculation.
-    let manual_starknet_gas_usage = 0;
+    let calldata_length = 0;
+    let signature_length = 2;
+    let calldata_and_signature_milligas_cost = u128_from_usize(calldata_length + signature_length)
+        .unwrap()
+        * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
+    let manual_starknet_gas_usage = calldata_and_signature_milligas_cost / 1000;
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
         + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
 
     let deploy_account_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         deploy_account_state_changes_count,
+        calldata_length,
+        signature_length,
+        None,
         None,
         use_kzg_da,
     )
@@ -109,26 +214,34 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     let l1_handler_payload_size = 4;
     let l1_handler_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
+        l1_handler_payload_size,
+        signature_length,
         Some(l1_handler_payload_size),
+        None,
         use_kzg_da,
     )
     .unwrap();
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
+    let calldata_and_signature_milligas_cost =
+        u128_from_usize(l1_handler_payload_size + signature_length).unwrap()
+            * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + eth_gas_constants::GAS_PER_COUNTER_DECREASE
         + usize_from_u128(
             get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size)).l1_gas,
         )
-        .unwrap();
+        .unwrap()
+        + usize_from_u128(calldata_and_signature_milligas_cost / 1000).unwrap();
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
     let manual_gas_computation = GasVector {
         l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
-        blob_gas: 0,
+        l1_data_gas: 0,
     };
 
     assert_eq!(l1_handler_gas_usage_vector, manual_gas_computation);
@@ -171,8 +284,12 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts: 1,
     };
     let l2_to_l1_messages_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
+        0,
+        0,
+        None,
         None,
         use_kzg_da,
     )
@@ -190,10 +307,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + usize_from_u128(get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_gas)
             .unwrap();
     let manual_sharp_blob_gas_usage =
-        get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).blob_gas;
+        get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_data_gas;
     let manual_gas_computation = GasVector {
         l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
-        blob_gas: manual_sharp_blob_gas_usage,
+        l1_data_gas: manual_sharp_blob_gas_usage,
     };
 
     assert_eq!(l2_to_l1_messages_gas_usage_vector, manual_gas_computation);
@@ -209,8 +326,12 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         n_modified_contracts,
     };
     let storage_writings_gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         std::iter::empty(),
         storage_writes_state_changes_count,
+        0,
+        0,
+        None,
         None,
         use_kzg_da,
     )
@@ -230,9 +351,13 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
             + l2_to_l1_state_changes_count.n_modified_contracts,
     };
     let gas_usage_vector = calculate_tx_gas_usage_vector(
+        &versioned_constants,
         call_infos_iter,
         combined_state_changes_count,
+        l1_handler_payload_size,
+        signature_length,
         Some(l1_handler_payload_size),
+        None,
         use_kzg_da,
     )
     .unwrap();
@@ -253,7 +378,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         // the combined calculation got it once.
         + u128_from_usize(fee_balance_discount).unwrap(),
         // Expected blob gas usage is from data availability only.
-        blob_gas: get_da_gas_cost(combined_state_changes_count, use_kzg_da).blob_gas,
+        l1_data_gas: get_da_gas_cost(combined_state_changes_count, use_kzg_da).l1_data_gas,
     };
 
     assert_eq!(expected_gas_vector, gas_usage_vector);

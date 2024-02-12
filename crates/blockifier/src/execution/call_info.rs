@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, EthAddress};
 use starknet_api::hash::StarkFelt;
@@ -78,10 +78,10 @@ pub struct CallExecution {
     pub gas_consumed: u64,
 }
 
-// This struct is used to implement `serde` functionality in a remote `VmExecutionResources` Struct.
+// This struct is used to implement `serde` functionality in a remote `ExecutionResources` Struct.
 #[derive(Debug, Default, Deserialize, derive_more::From, Eq, PartialEq, Serialize)]
-#[serde(remote = "VmExecutionResources")]
-struct VmExecutionResourcesDef {
+#[serde(remote = "ExecutionResources")]
+struct ExecutionResourcesDef {
     n_steps: usize,
     n_memory_holes: usize,
     builtin_instance_counter: HashMap<String, usize>,
@@ -92,8 +92,8 @@ struct VmExecutionResourcesDef {
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
-    #[serde(with = "VmExecutionResourcesDef")]
-    pub vm_resources: VmExecutionResources,
+    #[serde(with = "ExecutionResourcesDef")]
+    pub resources: ExecutionResources,
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.

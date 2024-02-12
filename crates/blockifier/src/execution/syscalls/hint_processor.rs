@@ -13,7 +13,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::Zero;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
@@ -27,9 +27,7 @@ use thiserror::Error;
 use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
@@ -57,6 +55,8 @@ pub type SyscallCounter = HashMap<SyscallSelector, usize>;
 pub enum SyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
     #[error("Cannot replace V1 class hash with V0 class hash: {class_hash}.")]
     ForbiddenClassReplacement { class_hash: ClassHash },
     #[error("Invalid address domain: {address_domain}.")]
@@ -94,6 +94,25 @@ pub enum SyscallExecutionError {
     VirtualMachineError(#[from] VirtualMachineError),
     #[error("Syscall error.")]
     SyscallError { error_data: Vec<StarkFelt> },
+}
+
+#[derive(Debug, Error)]
+pub enum EmitEventError {
+    #[error(
+        "Exceeded the maximum keys length, keys length: {keys_length}, max keys length: \
+         {max_keys_length}."
+    )]
+    ExceedsMaxKeysLength { keys_length: usize, max_keys_length: usize },
+    #[error(
+        "Exceeded the maximum data length, data length: {data_length}, max data length: \
+         {max_data_length}."
+    )]
+    ExceedsMaxDataLength { data_length: usize, max_data_length: usize },
+    #[error(
+        "Exceeded the maximum number of events, number events: {n_emitted_events}, max number \
+         events: {max_n_emitted_events}."
+    )]
+    ExceedsMaxNumberOfEmittedEvents { n_emitted_events: usize, max_n_emitted_events: usize },
 }
 
 // Needed for custom hint implementations (in our case, syscall hints) which must comply with the
@@ -140,6 +159,12 @@ pub const INVALID_ARGUMENT: &str =
 pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c315f474153";
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
+
+// TODO(Tzahi, 1/4/2024): Move to an appropriate constants file.
+// Flooring factor for block number in validate mode.
+pub const VALIDATE_BLOCK_NUMBER_ROUNDING: u64 = 100;
+// Flooring factor for timestamp in validate mode.
+pub const VALIDATE_TIMESTAMP_ROUNDING: u64 = 3600;
 
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -447,10 +472,8 @@ impl<'a> SyscallHintProcessor<'a> {
     }
 
     pub fn increment_syscall_count_by(&mut self, selector: &SyscallSelector, n: usize) {
-        let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.syscall_counter.entry(*selector).or_default();
         *syscall_count += n;
-        let entry_point_syscall_count = self.syscall_counter.entry(*selector).or_default();
-        *entry_point_syscall_count += n;
     }
 
     fn increment_syscall_count(&mut self, selector: &SyscallSelector) {
@@ -482,18 +505,27 @@ impl<'a> SyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> SyscallResult<Relocatable> {
         let block_info = &self.context.tx_context.block_context.block_info;
-        let block_timestamp = StarkFelt::from(block_info.block_timestamp.0);
-        let block_number = StarkFelt::from(block_info.block_number.0);
+        let block_timestamp = block_info.block_timestamp.0;
+        let block_number = block_info.block_number.0;
         let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
+            // Round down to the nearest multiple of VALIDATE_BLOCK_NUMBER_ROUNDING.
+            let rounded_block_number =
+                (block_number / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING;
+            // Round down to the nearest multiple of VALIDATE_TIMESTAMP_ROUNDING.
+            let rounded_timestamp =
+                (block_timestamp / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING;
+
             vec![
-                // TODO(Yoni, 1/5/2024): set the number to be zero for `validate`.
-                block_number,
-                // TODO(Yoni, 1/5/2024): set the timestamp to be zero for `validate`.
-                block_timestamp,
+                StarkFelt::from(rounded_block_number),
+                StarkFelt::from(rounded_timestamp),
                 StarkFelt::ZERO,
             ]
         } else {
-            vec![block_number, block_timestamp, *block_info.sequencer_address.0.key()]
+            vec![
+                StarkFelt::from(block_number),
+                StarkFelt::from(block_timestamp),
+                *block_info.sequencer_address.0.key(),
+            ]
         };
         let (block_info_segment_start_ptr, _) = self.allocate_data_segment(vm, &block_data)?;
 

@@ -22,9 +22,9 @@ ark-secp256k1.workspace = true
 ark-secp256r1.workspace = true
 cached.workspace = true
 cairo-felt.workspace = true
-cairo-lang-casm.workspace = true
+cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 cairo-lang-runner.workspace = true
-cairo-lang-starknet.workspace = true
+cairo-lang-starknet-classes.workspace = true
 cairo-lang-utils.workspace = true
 cairo-vm.workspace = true
 derive_more.workspace = true

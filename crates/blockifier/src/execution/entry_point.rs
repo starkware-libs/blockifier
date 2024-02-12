@@ -2,9 +2,7 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::sync::Arc;
 
-use cairo_vm::vm::runners::cairo_runner::{
-    ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -16,7 +14,6 @@ use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
@@ -130,12 +127,6 @@ pub struct ConstructorContext {
     pub code_address: Option<ContractAddress>,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ExecutionResources {
-    pub vm_resources: VmExecutionResources,
-    pub syscall_counter: SyscallCounter,
 }
 
 #[derive(Debug)]
@@ -298,7 +289,7 @@ impl EntryPointExecutionContext {
     ) -> usize {
         let validate_steps = validate_call_info
             .as_ref()
-            .map(|call_info| call_info.vm_resources.n_steps)
+            .map(|call_info| call_info.resources.n_steps)
             .unwrap_or_default();
 
         let overhead_steps =

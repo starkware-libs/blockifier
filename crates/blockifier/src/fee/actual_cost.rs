@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
-use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_usage_vector;
+use crate::fee::gas_usage::{calculate_tx_gas_usage_vector, get_da_gas_cost};
 use crate::state::cached_state::{CachedState, StateChanges};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
@@ -19,8 +19,10 @@ use crate::transaction::transactions::ClassInfo;
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
+#[derive(Default)]
 pub struct ActualCost {
     pub actual_fee: Fee,
+    pub da_gas: GasVector,
     pub actual_resources: ResourcesMapping,
 }
 
@@ -53,8 +55,6 @@ pub struct ActualCostBuilder<'a> {
     l1_payload_size: Option<usize>,
     calldata_length: usize,
     n_reverted_steps: usize,
-    // TODO(Avi,10/02/2024): use this field and remove the clippy tag.
-    #[allow(dead_code)]
     signature_length: usize,
     class_info: Option<ClassInfo>,
 }
@@ -134,11 +134,16 @@ impl<'a> ActualCostBuilder<'a> {
 
     // Private methods.
 
+    fn use_kzg_da(&self) -> bool {
+        self.tx_context.block_context.block_info.use_kzg_da
+    }
+
     // Construct the actual cost object using all fields that were set in the builder.
     fn calculate_actual_fee_and_resources(
         self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<ActualCost> {
+        let use_kzg_da = self.use_kzg_da();
         let state_changes_count = self.state_changes.count_for_fee_charge(
             self.sender_address,
             self.tx_context
@@ -146,15 +151,20 @@ impl<'a> ActualCostBuilder<'a> {
                 .chain_info
                 .fee_token_address(&self.tx_context.tx_info.fee_type()),
         );
+        let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
         let gas_usage_vector = calculate_tx_gas_usage_vector(
+            &self.tx_context.block_context.versioned_constants,
             non_optional_call_infos,
             state_changes_count,
+            self.calldata_length,
+            self.signature_length,
             self.l1_payload_size,
-            self.tx_context.block_context.block_info.use_kzg_da,
+            self.class_info,
+            use_kzg_da,
         )?;
 
         let mut actual_resources = calculate_tx_resources(
@@ -179,6 +189,6 @@ impl<'a> ActualCostBuilder<'a> {
             Fee(0)
         };
 
-        Ok(ActualCost { actual_fee, actual_resources })
+        Ok(ActualCost { actual_fee, da_gas, actual_resources })
     }
 }

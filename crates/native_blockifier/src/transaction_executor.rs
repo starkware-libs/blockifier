@@ -3,11 +3,13 @@ use std::sync::Arc;
 use std::vec::IntoIter;
 
 use blockifier::context::BlockContext;
+use blockifier::execution::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, MessageL1CostInfo};
-use blockifier::execution::entry_point::ExecutionResources;
 use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::gas_usage::get_onchain_data_segment_length;
 use blockifier::state::cached_state::{
-    CachedState, CommitmentStateDiff, StagedTransactionalState, StorageEntry, TransactionalState,
+    CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
+    TransactionalState,
 };
 use blockifier::state::state_api::{State, StateReader};
 use blockifier::transaction::account_transaction::AccountTransaction;
@@ -15,11 +17,10 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_transaction_execution_info::BouncerInfo;
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 
@@ -30,6 +31,8 @@ pub struct TransactionExecutor<S: StateReader> {
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
+    // This member should be consistent with the state's modified keys.
+    state_changes_keys: StateChangesKeys,
 
     // State-related fields.
     pub state: CachedState<S>,
@@ -47,6 +50,9 @@ impl<S: StateReader> TransactionExecutor<S> {
             block_context,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
+            // Note: the state might not be empty even at this point; it is the creator's
+            // responsibility to tune the bouncer according to pre and post block process.
+            state_changes_keys: StateChangesKeys::default(),
             state,
             staged_for_commit_state: None,
         };
@@ -63,11 +69,11 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: Transaction,
         charge_fee: bool,
     ) -> NativeBlockifierResult<(TransactionExecutionInfo, BouncerInfo)> {
-        let l1_handler_payload_size: usize =
+        let l1_handler_payload_size: Option<usize> =
             if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
-                l1_handler_tx.payload_size()
+                Some(l1_handler_tx.payload_size())
             } else {
-                0
+                None
             };
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
@@ -79,6 +85,9 @@ impl<S: StateReader> TransactionExecutor<S> {
             .map_err(NativeBlockifierError::from);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                // Prepare bouncer info; the countings here should be linear in the transactional
+                // state changes and execution info rather than the cumulative state attributes.
+
                 // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
@@ -92,7 +101,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                         .collect::<Vec<&CallInfo>>()
                         .into_iter();
                 let MessageL1CostInfo { l2_to_l1_payload_lengths: _, message_segment_length } =
-                    MessageL1CostInfo::calculate(call_infos, Some(l1_handler_payload_size))?;
+                    MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
 
                 // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
@@ -105,8 +114,16 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_visited_storage_entries,
                 )?;
 
-                // Count blob resources.
-                let state_diff_size = 0;
+                // Count residual state diff size (w.r.t. the OS output encoding).
+                let tx_state_changes_keys =
+                    transactional_state.get_actual_state_changes()?.into_keys();
+                let tx_unique_state_changes_keys =
+                    tx_state_changes_keys.difference(&self.state_changes_keys);
+                // Note: block-constant felts are not counted here. so the bouncer needs to
+                // tune the size limit accordingly. E.g., the felt that encodes the number of
+                // modified contracts in a block.
+                let state_diff_size =
+                    get_onchain_data_segment_length(tx_unique_state_changes_keys.count());
 
                 // Finalize counting logic.
                 let actual_resources = &tx_execution_info.actual_resources;
@@ -116,9 +133,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                     message_segment_length,
                     state_diff_size,
                 )?;
-                self.staged_for_commit_state = Some(
-                    transactional_state.stage(tx_executed_class_hashes, tx_visited_storage_entries),
-                );
+                self.staged_for_commit_state = Some(transactional_state.stage(
+                    tx_executed_class_hashes,
+                    tx_visited_storage_entries,
+                    tx_unique_state_changes_keys,
+                ));
 
                 Ok((tx_execution_info, bouncer_info))
             }
@@ -208,6 +227,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         self.visited_storage_entries
             .extend(&finalized_transactional_state.tx_visited_storage_entries);
 
+        // Note: cancelling writes (0 -> 1 -> 0) will not be removed,
+        // but it's fine since fee was charged for them.
+        self.state_changes_keys.extend(&finalized_transactional_state.tx_unique_state_changes_keys);
+
         self.staged_for_commit_state = None
     }
 
@@ -222,11 +245,11 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state: &mut TransactionalState<'_, S>,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
-) -> NativeBlockifierResult<VmExecutionResources> {
+) -> NativeBlockifierResult<ExecutionResources> {
     let newly_executed_class_hashes: HashSet<&ClassHash> =
         tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
 
-    let mut casm_hash_computation_resources = VmExecutionResources::default();
+    let mut casm_hash_computation_resources = ExecutionResources::default();
 
     for class_hash in newly_executed_class_hashes {
         let class = state.get_compiled_contract_class(*class_hash)?;
@@ -244,7 +267,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
 pub fn get_particia_update_resources(
     block_visited_storage_entries: &HashSet<StorageEntry>,
     tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> NativeBlockifierResult<VmExecutionResources> {
+) -> NativeBlockifierResult<ExecutionResources> {
     let newly_visited_storage_entries: HashSet<&StorageEntry> =
         tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
     let n_newly_visited_leaves = newly_visited_storage_entries.len();
@@ -252,7 +275,7 @@ pub fn get_particia_update_resources(
     const TREE_HEIGHT_UPPER_BOUND: usize = 24;
     let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
 
-    let patricia_update_resources = VmExecutionResources {
+    let patricia_update_resources = ExecutionResources {
         // TODO(Yoni, 1/5/2024): re-estimate this.
         n_steps: 32 * n_updates,
         // For each Patricia update there are two hash calculations.

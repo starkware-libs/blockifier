@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
-use super::objects::GasVector;
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::ExecutionResources;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::usize_from_u128;
 use crate::versioned_constants::VersionedConstants;
@@ -26,10 +25,10 @@ pub fn calculate_tx_resources(
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
-    let l1_blob_gas_usage = usize_from_u128(gas_vector.blob_gas)
+    let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let total_vm_usage = &execution_resources.vm_resources
+    let total_vm_usage = execution_resources
         + &versioned_constants.get_additional_os_tx_resources(tx_type, calldata_length)?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
@@ -56,29 +55,27 @@ pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
 }
 
 pub fn verify_contract_class_version(
-    contract_class: ContractClass,
+    contract_class: &ContractClass,
     declare_version: TransactionVersion,
-) -> Result<ContractClass, TransactionExecutionError> {
+) -> Result<(), TransactionExecutionError> {
     match contract_class {
         ContractClass::V0(_) => {
             if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 0,
-                })
+                return Ok(());
             }
+            Err(TransactionExecutionError::ContractClassVersionMismatch {
+                declare_version,
+                cairo_version: 0,
+            })
         }
         ContractClass::V1(_) => {
             if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 1,
-                })
+                return Ok(());
             }
+            Err(TransactionExecutionError::ContractClassVersionMismatch {
+                declare_version,
+                cairo_version: 1,
+            })
         }
     }
 }
