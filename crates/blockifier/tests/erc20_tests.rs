@@ -156,7 +156,6 @@ mod transfer_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_transfer_emits_event() {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
@@ -307,7 +306,6 @@ mod allowance_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_approve_emits_event() {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
@@ -515,7 +513,6 @@ mod transfer_from_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_transfer_from_emits_event() {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
@@ -682,9 +679,36 @@ pub mod mintable_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_mint_emits_event() {
-        todo!("Implement this test after resolving the problem with events")
+        let address_to_mint_to = Signers::Bob;
+        let owner = Signers::Alice;
+
+        let mut context = TestContext::new().with_caller(owner.into());
+
+        assert_eq!(
+            context.call_entry_point(
+                "mint",
+                vec![
+                    address_to_mint_to.into(),
+                    StarkFelt::from(BALANCE_TO_TRANSFER),
+                    StarkFelt::from(0u128),
+                ],
+            ),
+            vec![]
+        );
+
+        let event = context.get_event(0).unwrap();
+
+        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+
+        assert_eq!(
+            event,
+            (
+                Felt::from_hex("0x0").unwrap(),
+                address_to_mint_to.into(),
+                Felt::from(BALANCE_TO_TRANSFER)
+            )
+        );
     }
 }
 
@@ -741,9 +765,31 @@ pub mod burnable_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_burn_emits_event() {
-        todo!("Implement this test after resolving the problem with events")
+        let address_to_burn_from = Signers::Alice;
+
+        let mut context = TestContext::new().with_caller(address_to_burn_from.into());
+
+        assert_eq!(
+            context.call_entry_point(
+                "burn",
+                vec![StarkFelt::from(BALANCE_TO_TRANSFER), StarkFelt::from(0u128)],
+            ),
+            vec![]
+        );
+
+        let event = context.get_event(0).unwrap();
+
+        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+
+        assert_eq!(
+            event,
+            (
+                address_to_burn_from.into(),
+                Felt::from_hex("0x0").unwrap(),
+                Felt::from(BALANCE_TO_TRANSFER)
+            )
+        );
     }
 }
 
@@ -796,5 +842,70 @@ pub mod ownable_tests {
         let event = (event.data[0], event.data[1]);
 
         assert_eq!(event, (current_owner.into(), new_owner.into()));
+    }
+}
+
+#[cfg(test)]
+mod pausable_tests {
+    use super::*;
+
+    #[test]
+    fn test_pause_unpause() {
+        let owner = Signers::Alice;
+
+        let mut context = TestContext::new().with_caller(owner.into());
+
+        assert_eq!(context.call_entry_point("is_paused", vec![]), vec![Felt::from(false)]);
+
+        assert_eq!(context.call_entry_point("pause", vec![]), vec![]);
+
+        assert_eq!(context.call_entry_point("is_paused", vec![]), vec![Felt::from(true)]);
+
+        assert_eq!(context.call_entry_point("unpause", vec![]), vec![]);
+    }
+
+    #[test]
+    fn test_pause_unpause_emits_event() {
+        let owner = Signers::Alice;
+
+        let mut context = TestContext::new().with_caller(owner.into());
+
+        assert_eq!(context.call_entry_point("pause", vec![]), vec![]);
+
+        let event = context.get_event(0).unwrap();
+
+        let event = event.data[0];
+
+        assert_eq!(event, owner.into());
+
+        assert_eq!(context.call_entry_point("unpause", vec![]), vec![]);
+
+        let event = context.get_event(1).unwrap();
+
+        let event = event.data[0];
+
+        assert_eq!(event, owner.into());
+    }
+}
+
+#[cfg(test)]
+mod upgradable_tests {
+    use super::*;
+
+    #[test]
+    fn test_upgrade_emits_event() {
+        let owner = Signers::Alice;
+
+        let code_hash = Felt::from_hex(TEST_EMPTY_CONTRACT_CLASS_HASH).unwrap();
+
+        let mut context = TestContext::new().with_caller(owner.into());
+
+        assert_eq!(context.call_entry_point("upgrade", vec![felt_to_starkfelt(code_hash)]), vec![]);
+
+        let event = context.get_event(0).unwrap();
+
+        let event = event.data[0];
+
+        assert_eq!(event, code_hash);
     }
 }
