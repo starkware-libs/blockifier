@@ -4,6 +4,7 @@ use std::sync::Arc;
 use blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
+use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::State;
@@ -26,7 +27,8 @@ use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
-use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
+
+pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
@@ -100,7 +102,7 @@ impl PyBlockExecutor {
             &self.versioned_constants,
         )?;
 
-        let tx_executor = TransactionExecutor::new(state, block_context)?;
+        let tx_executor = TransactionExecutor::new(state, block_context);
         self.tx_executor = Some(tx_executor);
 
         Ok(())

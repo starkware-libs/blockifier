@@ -1,3 +1,4 @@
+use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
@@ -20,7 +21,6 @@ use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
-use crate::transaction_executor::TransactionExecutor;
 
 /// Manages transaction validation for pre-execution flows.
 #[pyclass]
@@ -52,7 +52,7 @@ impl PyValidator {
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
         let block_context =
             BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
-        let tx_executor = TransactionExecutor::new(state, block_context)?;
+        let tx_executor = TransactionExecutor::new(state, block_context);
 
         let validator = Self {
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
@@ -131,7 +131,7 @@ impl PyValidator {
             VersionedConstants::latest_constants(),
         );
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
-        let tx_executor = TransactionExecutor::new(state, block_context)?;
+        let tx_executor = TransactionExecutor::new(state, block_context);
 
         Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
     }
