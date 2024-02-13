@@ -45,12 +45,22 @@ fn test_default_values() {
             "execute_syscalls":{},
             "execute_txs_inner": {
                 "Declare": {
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 16,
-                        "range_check_builtin": 63
+                    "deprecated_resources":{
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 16,
+                            "range_check_builtin": 63
+                        },
+                        "n_memory_holes": 0,
+                        "n_steps": 2839
                     },
-                    "n_memory_holes": 0,
-                    "n_steps": 2839
+                    "resources": {
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 16,
+                            "range_check_builtin": 63
+                        },
+                        "n_memory_holes": 0,
+                        "n_steps": 2839
+                    }
                 }
             },
             "compute_os_kzg_commitment_info": {

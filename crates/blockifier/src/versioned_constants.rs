@@ -202,7 +202,7 @@ pub struct OsResources {
     // i.e., resources that don't count during the execution itself.
     // For each transaction the OS uses a constant amount of VM resources, and an
     // additional variable amount that depends on the calldata length.
-    execute_txs_inner: HashMap<TransactionType, ResourcesParams>,
+    execute_txs_inner: HashMap<TransactionType, TxExecutionResources>,
 
     // Resources needed for the OS to compute the KZG commitment info, as a factor of the data
     // segment length. Does not include poseidon_hash_many cost.
@@ -247,7 +247,10 @@ impl OsResources {
             .execute_txs_inner
             .values()
             .flat_map(|resources_vector| {
-                [&resources_vector.constant, &resources_vector.calldata_factor]
+                [
+                    &resources_vector.deprecated_resources.constant,
+                    &resources_vector.deprecated_resources.calldata_factor,
+                ]
             })
             .chain(self.execute_syscalls.values())
             .chain(std::iter::once(&self.compute_os_kzg_commitment_info));
@@ -302,9 +305,11 @@ impl OsResources {
     }
 
     fn resources_params_for_tx_type(&self, tx_type: &TransactionType) -> &ResourcesParams {
-        self.execute_txs_inner
+        &(self
+            .execute_txs_inner
             .get(tx_type)
             .unwrap_or_else(|| panic!("should contain transaction type '{tx_type:?}'."))
+            .deprecated_resources)
     }
 
     fn resources_for_tx_type(
@@ -573,4 +578,10 @@ impl Default for ValidateRoundingConsts {
     fn default() -> Self {
         Self { validate_block_number_rounding: 1, validate_timestamp_rounding: 1 }
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct TxExecutionResources {
+    pub resources: ResourcesParams,
+    pub deprecated_resources: ResourcesParams,
 }
