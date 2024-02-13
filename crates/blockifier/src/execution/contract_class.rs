@@ -248,7 +248,7 @@ pub fn estimate_casm_hash_computation_resources(
 }
 
 /// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.
-fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
+pub fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
     ExecutionResources {
         n_steps: (data_length / 10) * 55
             + ((data_length % 10) / 2) * 18

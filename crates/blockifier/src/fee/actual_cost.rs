@@ -173,6 +173,8 @@ impl<'a> ActualCostBuilder<'a> {
             gas_usage_vector,
             self.tx_type,
             self.calldata_length,
+            state_changes_count,
+            use_kzg_da,
         )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.

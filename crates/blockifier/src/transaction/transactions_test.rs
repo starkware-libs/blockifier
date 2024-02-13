@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use cairo_felt::Felt252;
-use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
+use cairo_vm::vm::runners::builtin_runner::{
+    HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
+};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
@@ -293,6 +295,12 @@ fn validate_final_balances(
     }
 }
 
+fn add_resources(resources: &mut ResourcesMapping, additional_resources: Vec<(String, usize)>) {
+    additional_resources.into_iter().for_each(|(key, value)| {
+        resources.0.entry(key.to_string()).and_modify(|v| *v += value).or_insert(value);
+    });
+}
+
 // TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
 fn default_invoke_tx_args(
     account_contract_address: ContractAddress,
@@ -438,7 +446,7 @@ fn test_invoke_tx(
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let calldata_and_signature_gas =
         get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
-    let expected_execution_info = TransactionExecutionInfo {
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -459,6 +467,15 @@ fn test_invoke_tx(
         ])),
         revert_error: None,
     };
+
+    if use_kzg_da {
+        let kzg_da_resources = [
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 68),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 509),
+            (POSEIDON_BUILTIN_NAME.to_string(), 3),
+        ];
+        add_resources(&mut expected_execution_info.actual_resources, kzg_da_resources.to_vec());
+    }
 
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
@@ -1146,7 +1163,7 @@ fn test_declare_tx(
     let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
     let gas_usage = code_gas + da_gas;
 
-    let expected_execution_info = TransactionExecutionInfo {
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -1167,6 +1184,27 @@ fn test_declare_tx(
             ),
         ])),
     };
+
+    if use_kzg_da {
+        let kzg_da_resources = match tx_version {
+            TransactionVersion::ZERO => [
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 34),
+                (abi_constants::N_STEPS_RESOURCE.to_string(), 265),
+                (POSEIDON_BUILTIN_NAME.to_string(), 2),
+            ],
+            TransactionVersion::ONE => [
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 68),
+                (abi_constants::N_STEPS_RESOURCE.to_string(), 509),
+                (POSEIDON_BUILTIN_NAME.to_string(), 3),
+            ],
+            _ => [
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 102),
+                (abi_constants::N_STEPS_RESOURCE.to_string(), 753),
+                (POSEIDON_BUILTIN_NAME.to_string(), 4),
+            ],
+        };
+        add_resources(&mut expected_execution_info.actual_resources, kzg_da_resources.to_vec());
+    }
 
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
@@ -1283,7 +1321,7 @@ fn test_deploy_account_tx(
     };
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
 
-    let expected_execution_info = TransactionExecutionInfo {
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -1301,6 +1339,15 @@ fn test_deploy_account_tx(
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
         ])),
     };
+
+    if use_kzg_da {
+        let kzg_da_resources = [
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 85),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 625),
+            (POSEIDON_BUILTIN_NAME.to_string(), 3),
+        ];
+        add_resources(&mut expected_execution_info.actual_resources, kzg_da_resources.to_vec());
+    }
 
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
@@ -1757,7 +1804,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         false => GasVector { l1_gas: 1652, l1_data_gas: 0 },
     };
 
-    let expected_resource_mapping = ResourcesMapping(HashMap::from([
+    let mut expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1405),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
@@ -1767,6 +1814,15 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             usize_from_u128(expected_gas.l1_data_gas).unwrap(),
         ),
     ]));
+
+    if use_kzg_da {
+        let kzg_da_resources = [
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 68),
+            (abi_constants::N_STEPS_RESOURCE.to_string(), 509),
+            (POSEIDON_BUILTIN_NAME.to_string(), 3),
+        ];
+        add_resources(&mut expected_resource_mapping, kzg_da_resources.to_vec());
+    }
 
     // Build the expected execution info.
     let expected_execution_info = TransactionExecutionInfo {
@@ -1797,11 +1853,13 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let tx_no_fee = l1_handler_tx(&calldata, Fee(0));
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
+    let expected_actual_fee =
+        if use_kzg_da { Fee(1744900000000000) } else { Fee(1742800000000000) };
     assert_matches!(
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1742800000000000)
+            if paid_fee == Fee(0) && actual_fee == expected_actual_fee
     );
 }
 

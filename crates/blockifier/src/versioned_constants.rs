@@ -13,6 +13,7 @@ use serde_json::{Number, Value};
 use strum::IntoEnumIterator;
 use thiserror::Error;
 
+use crate::execution::contract_class::poseidon_hash_many_cost;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::errors::PostExecutionError;
@@ -100,12 +101,23 @@ impl VersionedConstants {
         self.os_resources.resources_for_tx_type(tx_type, calldata_length)
     }
 
+    pub fn os_kzg_da_resources(&self, data_segment_length: usize) -> ExecutionResources {
+        self.os_resources.os_kzg_da_resources(data_segment_length)
+    }
+
     pub fn get_additional_os_tx_resources(
         &self,
         tx_type: TransactionType,
         calldata_length: usize,
+        data_segment_length: usize,
+        use_kzg_da: bool,
     ) -> Result<ExecutionResources, TransactionExecutionError> {
-        self.os_resources.get_additional_os_tx_resources(tx_type, calldata_length)
+        self.os_resources.get_additional_os_tx_resources(
+            tx_type,
+            calldata_length,
+            data_segment_length,
+            use_kzg_da,
+        )
     }
 
     pub fn get_additional_os_syscall_resources(
@@ -164,6 +176,10 @@ pub struct OsResources {
     // For each transaction the OS uses a constant amount of VM resources, and an
     // additional variable amount that depends on the calldata length.
     execute_txs_inner: HashMap<TransactionType, ResourcesParams>,
+
+    // Resources needed for the OS to compute the KZG commitment info, as a factor of the data
+    // segment length.
+    compute_os_kzg_commitment_info: ExecutionResources,
 }
 
 impl OsResources {
@@ -175,8 +191,16 @@ impl OsResources {
         &self,
         tx_type: TransactionType,
         calldata_length: usize,
+        data_segment_length: usize,
+        use_kzg_da: bool,
     ) -> Result<ExecutionResources, TransactionExecutionError> {
-        Ok(self.resources_for_tx_type(&tx_type, calldata_length))
+        let mut os_additional_vm_resources = self.resources_for_tx_type(&tx_type, calldata_length);
+
+        if use_kzg_da {
+            os_additional_vm_resources += &self.os_kzg_da_resources(data_segment_length);
+        }
+
+        Ok(os_additional_vm_resources)
     }
 
     /// Calculates the additional resources needed for the OS to run the given syscalls;
@@ -210,6 +234,11 @@ impl OsResources {
     ) -> ExecutionResources {
         let resources_vector = self.resources_params_for_tx_type(tx_type);
         &resources_vector.constant + &(&(resources_vector.calldata_factor) * calldata_length)
+    }
+
+    fn os_kzg_da_resources(&self, data_segment_length: usize) -> ExecutionResources {
+        &(&self.compute_os_kzg_commitment_info * data_segment_length)
+            + &poseidon_hash_many_cost(data_segment_length)
     }
 }
 
@@ -258,7 +287,8 @@ impl<'de> Deserialize<'de> for OsResources {
             .flat_map(|resources_vector| {
                 [&resources_vector.constant, &resources_vector.calldata_factor]
             })
-            .chain(os_resources.execute_syscalls.values());
+            .chain(os_resources.execute_syscalls.values())
+            .chain(std::iter::once(&os_resources.compute_os_kzg_commitment_info));
         let builtin_names =
             execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
         for builtin_name in builtin_names {
