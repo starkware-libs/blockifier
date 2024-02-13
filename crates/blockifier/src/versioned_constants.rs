@@ -423,55 +423,8 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
-        let mut gas_costs = IndexMap::new();
-
-        let gas_cost_whitelist: IndexSet<_> =
-            Self::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
-
-        let OsConstantsRawJson { raw_json_file_as_dict, validate_rounding_consts } = raw_json_data;
-        for (key, value) in raw_json_file_as_dict {
-            if !gas_cost_whitelist.contains(key.as_str()) {
-                // Ignore non-whitelist consts.
-                continue;
-            }
-
-            match value {
-                Value::Number(n) => {
-                    let value = n.as_u64().ok_or_else(|| OsConstantsSerdeError::OutOfRange {
-                        key: key.clone(),
-                        value: n,
-                    })?;
-                    gas_costs.insert(key, value);
-                }
-                Value::Object(obj) => {
-                    // Converts:
-                    // `k_1: {k_2: factor_1, k_3: factor_2}`
-                    // into:
-                    // k_1 = k_2 * factor_1 + k_3 * factor_2
-                    // Assumption: k_2 and k_3 appeared before k_1 in the JSON.
-                    let sum = obj.into_iter().try_fold(0, |acc, (inner_key, factor)| {
-                        let factor = factor.as_u64().ok_or_else(|| {
-                            OsConstantsSerdeError::OutOfRangeFactor {
-                                key: key.clone(),
-                                value: factor,
-                            }
-                        })?;
-                        let inner_key_value = *gas_costs.get(&inner_key).ok_or_else(|| {
-                            OsConstantsSerdeError::KeyNotFound { key: key.clone(), inner_key }
-                        })?;
-
-                        Ok(acc + inner_key_value * factor)
-                    })?;
-                    gas_costs.insert(key, sum);
-                }
-                Value::String(_) => {
-                    // String consts are all non-whitelisted, ignore them.
-                    continue;
-                }
-                _ => return Err(OsConstantsSerdeError::UnhandledValueType(value)),
-            }
-        }
-
+        let gas_costs = raw_json_data.get_gas_costs()?;
+        let validate_rounding_consts = raw_json_data.validate_rounding_consts;
         let os_constants = OSConstants { gas_costs, validate_rounding_consts };
 
         // Skip validation in testing: to test validation run validate manually.
@@ -490,6 +443,78 @@ struct OsConstantsRawJson {
     raw_json_file_as_dict: IndexMap<String, Value>,
     #[serde(default)]
     validate_rounding_consts: ValidateRoundingConsts,
+}
+
+impl OsConstantsRawJson {
+    fn get_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
+        let mut gas_costs = IndexMap::new();
+        let gas_cost_whitelist: IndexSet<_> =
+            OSConstants::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
+        for (key, value) in &self.raw_json_file_as_dict {
+            if !gas_cost_whitelist.contains(key.as_str()) {
+                // Ignore non-whitelist consts.
+                continue;
+            }
+
+            self.recursive_add_to_gas_costs(key, value, &mut gas_costs)?;
+        }
+        Ok(gas_costs)
+    }
+
+    fn recursive_add_to_gas_costs(
+        &self,
+        key: &String,
+        value: &Value,
+        gas_costs: &mut IndexMap<String, u64>,
+    ) -> Result<(), OsConstantsSerdeError> {
+        if gas_costs.contains_key(key) {
+            return Ok(());
+        }
+
+        match value {
+            Value::Number(n) => {
+                let value = n.as_u64().ok_or_else(|| OsConstantsSerdeError::OutOfRange {
+                    key: key.clone(),
+                    value: n.clone(),
+                })?;
+                gas_costs.insert(key.to_string(), value);
+            }
+            Value::Object(obj) => {
+                // Converts:
+                // `k_1: {k_2: factor_1, k_3: factor_2}`
+                // into:
+                // k_1 = k_2 * factor_1 + k_3 * factor_2
+                let mut value = 0;
+                for (inner_key, factor) in obj {
+                    let inner_value = &self.raw_json_file_as_dict.get(inner_key).ok_or_else(|| {
+                        OsConstantsSerdeError::KeyNotFound {
+                            key: key.clone(),
+                            inner_key: inner_key.clone(),
+                        }
+                    })?;
+                    self.recursive_add_to_gas_costs(
+                        inner_key,
+                        inner_value,
+                        gas_costs,
+                    )?;
+                    let inner_key_value = gas_costs.get(inner_key).ok_or_else(|| {
+                        OsConstantsSerdeError::KeyNotFound { key: key.clone(), inner_key: inner_key.to_string() }
+                    })?;
+                    let factor = factor.as_u64().ok_or_else(|| {
+                        OsConstantsSerdeError::OutOfRangeFactor { key: key.clone(), value: factor.clone() }
+                    })?;
+                    value += inner_key_value * factor;
+                }
+                gas_costs.insert(key.to_string(), value);
+            }
+            Value::String(_) => {
+                panic!("String values should have been previously filtered out in the whitelist check and should not be depended on")
+            }
+            _ => return Err(OsConstantsSerdeError::UnhandledValueType(value.clone())),
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Error)]
