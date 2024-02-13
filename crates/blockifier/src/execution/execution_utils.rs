@@ -10,6 +10,7 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
@@ -284,4 +285,19 @@ pub fn format_panic_data(felts: &[StarkFelt]) -> String {
         items.push(item.quote_if_string());
     }
     if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
+}
+
+/// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.
+pub fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
+    ExecutionResources {
+        n_steps: (data_length / 10) * 55
+            + ((data_length % 10) / 2) * 18
+            + (data_length % 2) * 3
+            + 21,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(
+            POSEIDON_BUILTIN_NAME.to_string(),
+            data_length / 2 + 1,
+        )]),
+    }
 }

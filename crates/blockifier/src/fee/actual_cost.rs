@@ -151,6 +151,7 @@ impl<'a> ActualCostBuilder<'a> {
                 .chain_info
                 .fee_token_address(&self.tx_context.tx_info.fee_type()),
         );
+        // TODO(Dafna, 1/6/2024): Compute the DA size and pass it instead of state_changes_count.
         let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
@@ -173,6 +174,8 @@ impl<'a> ActualCostBuilder<'a> {
             gas_usage_vector,
             self.tx_type,
             self.calldata_length,
+            state_changes_count,
+            use_kzg_da,
         )?;
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.

@@ -7,6 +7,8 @@ use starknet_api::transaction::TransactionVersion;
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
+use crate::fee::gas_usage::get_onchain_data_segment_length;
+use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
@@ -22,14 +24,22 @@ pub fn calculate_tx_resources(
     gas_vector: GasVector,
     tx_type: TransactionType,
     calldata_length: usize,
+    state_changes_count: StateChangesCount,
+    use_kzg_da: bool,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
+    let data_segment_length = get_onchain_data_segment_length(state_changes_count);
     let total_vm_usage = execution_resources
-        + &versioned_constants.get_additional_os_tx_resources(tx_type, calldata_length)?;
+        + &versioned_constants.get_additional_os_tx_resources(
+            tx_type,
+            calldata_length,
+            data_segment_length,
+            use_kzg_da,
+        )?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.

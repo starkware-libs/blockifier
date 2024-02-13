@@ -23,6 +23,7 @@ use starknet_api::deprecated_contract_class::{
     Program as DeprecatedProgram,
 };
 
+use super::execution_utils::poseidon_hash_many_cost;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
@@ -244,21 +245,6 @@ pub fn estimate_casm_hash_computation_resources(
             }
             execution_resources
         }
-    }
-}
-
-/// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.
-fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
-    ExecutionResources {
-        n_steps: (data_length / 10) * 55
-            + ((data_length % 10) / 2) * 18
-            + (data_length % 2) * 3
-            + 21,
-        n_memory_holes: 0,
-        builtin_instance_counter: HashMap::from([(
-            POSEIDON_BUILTIN_NAME.to_string(),
-            data_length / 2 + 1,
-        )]),
     }
 }
 
