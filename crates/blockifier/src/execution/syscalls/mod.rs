@@ -42,8 +42,8 @@ pub type WriteResponseResult = SyscallResult<()>;
 
 type SyscallSelector = DeprecatedSyscallSelector;
 
-pub const SYSCALL_MAX_EVENT_KEYS: usize = 40;
-pub const SYSCALL_MAX_EVENT_DATA: usize = 40;
+pub const SYSCALL_MAX_EVENT_KEYS: usize = 1_000_000_000;
+pub const SYSCALL_MAX_EVENT_DATA: usize = 1_000_000_000;
 pub const SYSCALL_MAX_N_EMITTED_EVENTS: usize = 1_000_000_000;
 
 pub trait SyscallRequest: Sized {

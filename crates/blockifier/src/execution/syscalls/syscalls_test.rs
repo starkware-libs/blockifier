@@ -35,9 +35,8 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
-    EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
-use crate::execution::syscalls::{SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS};
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::{
@@ -131,24 +130,6 @@ fn test_emit_event() {
             ..Default::default()
         }
     );
-
-    // Negative flow, the data length exceeds the limit.
-    let data_too_long = vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA + 1];
-    let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxDataLength {
-        data_length: SYSCALL_MAX_EVENT_DATA + 1,
-        max_data_length: SYSCALL_MAX_EVENT_DATA,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
-
-    // Negative flow, the keys length exceeds the limit.
-    let keys_too_long = vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS + 1];
-    let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxKeysLength {
-        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
-        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 }
 
 fn emit_events(
