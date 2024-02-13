@@ -167,6 +167,14 @@ impl CallInfo {
             },
         )
     }
+
+    /// Returns the sum of events in CallInfo and its inner_calls
+    pub fn get_sum_of_events(&self) -> usize {
+        let events_in_current_call = self.execution.events.len();
+        let events_in_inner_calls: usize =
+            self.inner_calls.iter().map(|inner_call| inner_call.get_sum_of_events()).sum();
+        events_in_current_call + events_in_inner_calls
+    }
 }
 
 pub struct CallInfoIter<'a> {
