@@ -52,13 +52,12 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::invoke::invoke_tx;
+use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, default_invoke_tx_args, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
-    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
+    CairoVersion, NonceManager, SaltManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
     TEST_SEQUENCER_ADDRESS,
@@ -337,8 +336,10 @@ fn test_invoke_tx(
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let account_contract_address = account_contract.get_instance_address(0);
-    let invoke_tx =
-        invoke_tx(default_invoke_tx_args(account_contract_address, test_contract_address));
+    let invoke_tx = invoke_tx(InvokeTxArgs::from_account_and_test_addresses(
+        account_contract_address,
+        test_contract_address,
+    ));
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -751,8 +752,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
         &[(account_contract, 1), (test_contract, 1)],
     );
     let account_contract_address = account_contract.get_instance_address(0);
-    let default_args =
-        default_invoke_tx_args(account_contract_address, test_contract.get_instance_address(0));
+    let default_args = InvokeTxArgs::from_account_and_test_addresses(
+        account_contract_address,
+        test_contract.get_instance_address(0),
+    );
 
     let invalid_max_fee = Fee(BALANCE + 1);
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
@@ -813,7 +816,7 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let valid_invoke_tx_args = default_invoke_tx_args(
+    let valid_invoke_tx_args = InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     );
@@ -901,7 +904,7 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let invoke_tx_args = default_invoke_tx_args(
+    let invoke_tx_args = InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     );
@@ -932,7 +935,7 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let valid_invoke_tx_args = default_invoke_tx_args(
+    let valid_invoke_tx_args = InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     );
@@ -1477,7 +1480,7 @@ fn test_valid_flag(
         &[(account_contract, 1), (test_contract, 1)],
     );
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
+    let account_tx = account_invoke_tx(InvokeTxArgs::from_account_and_test_addresses(
         account_contract.get_instance_address(0),
         test_contract.get_instance_address(0),
     ));
