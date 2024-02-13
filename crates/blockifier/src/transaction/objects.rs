@@ -216,6 +216,9 @@ impl TransactionExecutionInfo {
             self.non_optional_call_infos().map(|call_info| call_info.get_visited_storage_entries()),
         )
     }
+    pub fn get_call_infos_events_size(&self) -> usize {
+        self.non_optional_call_infos().map(|call_info| call_info.execution.events.len()).sum()
+    }
 
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
