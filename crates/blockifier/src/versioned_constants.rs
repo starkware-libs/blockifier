@@ -417,6 +417,59 @@ impl OSConstants {
 
         Ok(())
     }
+
+    fn add_to_gas_costs(
+        key: String,
+        value: Value,
+        raw_data: &IndexMap<String, Value>,
+        mut gas_costs: IndexMap<String, u64>,
+    ) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
+        if gas_costs.contains_key(&key) {
+            return Ok(gas_costs);
+        }
+
+        match value {
+            Value::Number(n) => {
+                let value = n.as_u64().ok_or_else(|| OsConstantsSerdeError::OutOfRange {
+                    key: key.clone(),
+                    value: n.clone(),
+                })?;
+                gas_costs.insert(key, value);
+            }
+            Value::Object(obj) => {
+                let mut value = 0;
+                for (inner_key, factor) in obj {
+                    let inner_value = raw_data.get(&inner_key).ok_or_else(|| {
+                        OsConstantsSerdeError::KeyNotFound {
+                            key: key.clone(),
+                            inner_key: inner_key.clone(),
+                        }
+                    })?;
+                    let gas_costs = Self::add_to_gas_costs(
+                        inner_key.clone(),
+                        inner_value.clone(),
+                        raw_data,
+                        gas_costs.clone(),
+                    )?;
+                    let inner_key_value = *gas_costs.get(&inner_key).ok_or_else(|| {
+                        OsConstantsSerdeError::KeyNotFound { key: key.clone(), inner_key }
+                    })?;
+                    let factor = factor.as_u64().ok_or_else(|| {
+                        OsConstantsSerdeError::OutOfRangeFactor { key: key.clone(), value: factor }
+                    })?;
+                    value += inner_key_value * factor;
+                }
+                gas_costs.insert(key, value);
+            }
+            Value::String(_) => {
+                // String consts are all non-whitelisted, ignore them.
+                return Ok(gas_costs);
+            }
+            _ => return Err(OsConstantsSerdeError::UnhandledValueType(value.clone())),
+        }
+
+        Ok(gas_costs)
+    }
 }
 
 impl TryFrom<OsConstantsRawJson> for OSConstants {
@@ -429,47 +482,14 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
             Self::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
 
         let OsConstantsRawJson { raw_json_file_as_dict, validate_rounding_consts } = raw_json_data;
-        for (key, value) in raw_json_file_as_dict {
+        for (key, value) in raw_json_file_as_dict.clone() {
             if !gas_cost_whitelist.contains(key.as_str()) {
                 // Ignore non-whitelist consts.
                 continue;
             }
 
-            match value {
-                Value::Number(n) => {
-                    let value = n.as_u64().ok_or_else(|| OsConstantsSerdeError::OutOfRange {
-                        key: key.clone(),
-                        value: n,
-                    })?;
-                    gas_costs.insert(key, value);
-                }
-                Value::Object(obj) => {
-                    // Converts:
-                    // `k_1: {k_2: factor_1, k_3: factor_2}`
-                    // into:
-                    // k_1 = k_2 * factor_1 + k_3 * factor_2
-                    // Assumption: k_2 and k_3 appeared before k_1 in the JSON.
-                    let sum = obj.into_iter().try_fold(0, |acc, (inner_key, factor)| {
-                        let factor = factor.as_u64().ok_or_else(|| {
-                            OsConstantsSerdeError::OutOfRangeFactor {
-                                key: key.clone(),
-                                value: factor,
-                            }
-                        })?;
-                        let inner_key_value = *gas_costs.get(&inner_key).ok_or_else(|| {
-                            OsConstantsSerdeError::KeyNotFound { key: key.clone(), inner_key }
-                        })?;
-
-                        Ok(acc + inner_key_value * factor)
-                    })?;
-                    gas_costs.insert(key, sum);
-                }
-                Value::String(_) => {
-                    // String consts are all non-whitelisted, ignore them.
-                    continue;
-                }
-                _ => return Err(OsConstantsSerdeError::UnhandledValueType(value)),
-            }
+            gas_costs =
+                OSConstants::add_to_gas_costs(key, value, &raw_json_file_as_dict, gas_costs)?;
         }
 
         let os_constants = OSConstants { gas_costs, validate_rounding_consts };
