@@ -75,7 +75,7 @@ use crate::transaction::objects::{
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
     create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
-    GET_BLOCK_HASH, GET_EXECUTION_INFO, INVALID, VALID,
+    GET_BLOCK_HASH, GET_EXECUTION_INFO, GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -1451,6 +1451,23 @@ fn test_validate_accounts_tx(
         check_transaction_execution_error_for_custom_hint!(
             &error,
             "Unauthorized syscall get_block_hash in execution mode Validate.",
+            validate_constructor,
+        );
+    }
+    if let CairoVersion::Cairo0 = cairo_version {
+        // Trying to use the syscall get_sequencer_address (forbidden).
+        let account_tx = create_account_tx_for_validate_test(
+            &mut NonceManager::default(),
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_SEQUENCER_ADDRESS,
+                contract_address_salt: salt_manager.next_salt(),
+                ..default_args
+            },
+        );
+        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+        check_transaction_execution_error_for_custom_hint!(
+            &error,
+            "Unauthorized syscall get_sequencer_address in execution mode Validate.",
             validate_constructor,
         );
     }
