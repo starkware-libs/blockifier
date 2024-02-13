@@ -442,6 +442,13 @@
                     "n_steps": 13
                 }
             }
+        },
+        "compute_os_kzg_commitment_info": {
+            "builtin_instance_counter": {
+                "range_check_builtin": 17
+            },
+            "n_memory_holes": 0,
+            "n_steps": 113
         }
     },
     "validate_max_n_steps": 1000000,
