@@ -12,7 +12,6 @@ pub struct BouncerInfo {
     pub l1_gas_amount: usize,
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     pub execution_resources: VmExecutionResources,
-    // TODO(Ayelet, 12/02/2024): Fill this field.
     pub n_events: usize,
 }
 
@@ -22,6 +21,7 @@ impl BouncerInfo {
         tx_additional_os_resources: VmExecutionResources,
         message_segment_length: usize,
         state_diff_size: usize,
+        n_events: usize,
     ) -> TransactionExecutionResult<Self> {
         let l1_gas_amount = *tx_actual_resources
             .0
@@ -66,9 +66,6 @@ impl BouncerInfo {
         // Memory holes are counted as steps.
         merged_resources.n_steps += merged_resources.n_memory_holes;
         merged_resources.n_memory_holes = 0;
-
-        // TODO(Ayelet, 12/02/2024): Fill this field.
-        let n_events = 0;
 
         Ok(Self {
             state_diff_size,

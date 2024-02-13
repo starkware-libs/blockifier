@@ -92,6 +92,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
+                let n_events = tx_execution_info.get_tx_number_of_events();
 
                 // Count message to L1 resources.
                 let call_infos: IntoIter<&CallInfo> =
@@ -132,6 +133,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     additional_os_resources,
                     message_segment_length,
                     state_diff_size,
+                    n_events,
                 )?;
                 self.staged_for_commit_state = Some(transactional_state.stage(
                     tx_executed_class_hashes,
