@@ -217,6 +217,11 @@ impl TransactionExecutionInfo {
         )
     }
 
+    /// Returns the number of events of this transaction's call infos.
+    pub fn get_tx_number_of_events(&self) -> usize {
+        self.non_optional_call_infos().map(|call_info| call_info.get_sum_of_events()).sum()
+    }
+
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
     }
