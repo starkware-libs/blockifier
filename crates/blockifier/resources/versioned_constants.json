@@ -196,7 +196,7 @@
                 "n_memory_holes": 0
             },
             "Deploy": {
-                "n_steps": 1012,
+                "n_steps": 1010,
                 "builtin_instance_counter": {
                     "pedersen_builtin": 7,
                     "range_check_builtin": 19
@@ -389,69 +389,141 @@
         },
         "execute_txs_inner": {
             "Declare": {
-                "constant": {
-                    "n_steps": 2839,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 16,
-                        "range_check_builtin": 63
+                "deprecated_resources": {
+                    "constant": {
+                        "n_steps": 2839,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 16,
+                            "range_check_builtin": 63
+                        },
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 0,
+                        "builtin_instance_counter": {},
+                        "n_memory_holes": 0
+                    }
                 },
-                "calldata_factor": {
-                    "n_steps": 0,
-                    "builtin_instance_counter": {},
-                    "n_memory_holes": 0
+                "resources": {
+                    "constant": {
+                        "n_steps": 2957,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 4,
+                            "range_check_builtin": 68,
+                            "poseidon_builtin": 10
+                        },
+                        "n_memory_holes": 0
+                    },
+                    "calldata_factor": {
+                        "n_steps": 0,
+                        "builtin_instance_counter": {},
+                        "n_memory_holes": 0
+                    }
                 }
             },
             "DeployAccount": {
-                "constant": {
-                    "n_steps": 3792,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 23,
-                        "range_check_builtin": 83
+                "deprecated_resources": {
+                    "constant": {
+                        "n_steps": 3792,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 23,
+                            "range_check_builtin": 83
+                        },
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 21,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 2
+                        },
+                        "n_memory_holes": 0
+                    }
                 },
-                "calldata_factor": {
-                    "n_steps": 21,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 2
+                "resources": {
+                    "constant": {
+                        "n_steps": 3930,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 11,
+                            "range_check_builtin": 88,
+                            "poseidon_builtin": 10
+                        },
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 21,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 2
+                        },
+                        "n_memory_holes": 0
+                    }
                 }
             },
             "InvokeFunction": {
-                "constant": {
-                    "n_steps": 3546,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 14,
-                        "range_check_builtin": 80
+                "deprecated_resources": {
+                    "constant": {
+                        "n_steps": 3546,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 14,
+                            "range_check_builtin": 80
+                        },
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 8,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 1
+                        },
+                        "n_memory_holes": 0
+                    }
                 },
-                "calldata_factor": {
-                    "n_steps": 8,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 1
+                "resources": {
+                    "constant": {
+                        "n_steps": 3699,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 4,
+                            "range_check_builtin": 85,
+                            "poseidon_builtin": 11
+                        },
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 8,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 1
+                        },
+                        "n_memory_holes": 0
+                    }
                 }
             },
             "L1Handler": {
-                "constant": {
-                    "n_steps": 1146,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 11,
-                        "range_check_builtin": 17
+                "deprecated_resources": {
+                    "constant": {
+                        "n_steps": 1146,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 11,
+                            "range_check_builtin": 17
+                        },
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 13,
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 1
+                        },
+                        "n_memory_holes": 0
+                    }
                 },
-                "calldata_factor": {
-                    "n_steps": 13,
-                    "builtin_instance_counter": {
-                        "pedersen_builtin": 1
+                "resources": {
+                    "constant": {
+                        "n_steps": 0,
+                        "builtin_instance_counter": {},
+                        "n_memory_holes": 0
                     },
-                    "n_memory_holes": 0
+                    "calldata_factor": {
+                        "n_steps": 0,
+                        "builtin_instance_counter": {},
+                        "n_memory_holes": 0
+                    }
                 }
             }
         },
