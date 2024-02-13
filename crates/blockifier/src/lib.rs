@@ -1,5 +1,6 @@
 pub mod abi;
 pub mod block;
+pub mod blockifier;
 pub mod context;
 pub mod execution;
 pub mod fee;
