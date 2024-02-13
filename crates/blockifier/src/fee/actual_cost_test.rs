@@ -16,7 +16,8 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{create_calldata, default_invoke_tx_args, CairoVersion, BALANCE, MAX_FEE};
+use crate::test_utils::invoke::InvokeTxArgs;
+use crate::test_utils::{create_calldata, CairoVersion, BALANCE, MAX_FEE};
 use crate::transaction::constants;
 use crate::transaction::objects::{GasVector, HasRelatedFeeType};
 use crate::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing};
@@ -306,7 +307,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_contract_address = account_contract.get_instance_address(0);
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
+    let account_tx = account_invoke_tx(InvokeTxArgs::from_account_and_test_addresses(
         account_contract_address,
         test_contract.get_instance_address(0),
     ));

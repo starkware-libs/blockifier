@@ -1,6 +1,7 @@
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1,
     InvokeTransactionV3, PaymasterData, ResourceBoundsMapping, Tip, TransactionHash,
@@ -8,7 +9,7 @@ use starknet_api::transaction::{
 };
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::test_utils::default_testing_resource_bounds;
+use crate::test_utils::{create_calldata, default_testing_resource_bounds, stark_felt, MAX_FEE};
 use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
 use crate::transaction::transactions::InvokeTransaction;
 
@@ -46,6 +47,26 @@ impl Default for InvokeTxArgs {
             account_deployment_data: AccountDeploymentData::default(),
             nonce: Nonce::default(),
             only_query: false,
+        }
+    }
+}
+
+impl InvokeTxArgs {
+    pub fn from_account_and_test_addresses(
+        account_contract_address: ContractAddress,
+        test_contract_address: ContractAddress,
+    ) -> InvokeTxArgs {
+        let execute_calldata = create_calldata(
+            test_contract_address,
+            "return_result",
+            &[stark_felt!(2_u8)], // Calldata: num.
+        );
+
+        InvokeTxArgs {
+            max_fee: Fee(MAX_FEE),
+            sender_address: account_contract_address,
+            calldata: execute_calldata,
+            ..Default::default()
         }
     }
 }
