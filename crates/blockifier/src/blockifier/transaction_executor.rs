@@ -7,8 +7,8 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 use thiserror::Error;
 
+use crate::blockifier::bouncer::BouncerInfo;
 use crate::context::BlockContext;
-use crate::execution::bouncer::BouncerInfo;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
