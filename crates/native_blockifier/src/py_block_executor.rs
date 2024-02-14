@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use blockifier::block::{
+use blockifier::blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
@@ -383,7 +383,8 @@ pub fn into_block_context_args(
     Ok((block_info, chain_info))
 }
 
-// Executes block pre-processing; see `block_execution::pre_process_block` documentation.
+// Executes block pre-processing; see `blockifier::blockifier::block::pre_process_block`
+// documentation.
 fn pre_process_block(
     state: &mut dyn State,
     old_block_number_and_hash: Option<(u64, PyFelt)>,

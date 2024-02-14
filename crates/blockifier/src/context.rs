@@ -1,10 +1,10 @@
 use starknet_api::core::{ChainId, ContractAddress};
 
-use crate::block::BlockInfo;
+use crate::blockifier::block::BlockInfo;
 use crate::transaction::objects::{FeeType, TransactionInfo, TransactionInfoCreator};
 use crate::versioned_constants::VersionedConstants;
 
-/// Create via [`crate::block::pre_process_block`] to ensure correctness.
+/// Create via [`crate::blockifier::block::pre_process_block`] to ensure correctness.
 #[derive(Clone, Debug)]
 pub struct TransactionContext {
     pub block_context: BlockContext,

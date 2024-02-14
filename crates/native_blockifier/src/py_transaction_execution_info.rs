@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use blockifier::execution::bouncer::BouncerInfo;
+use blockifier::blockifier::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
 use blockifier::transaction::objects::TransactionExecutionInfo;
