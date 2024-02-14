@@ -27,7 +27,8 @@ fn global_contract_cache_update() {
     let class_hash = class_hash!(TEST_CLASS_HASH);
     let contract_class = get_test_contract_class();
     block_executor
-        .tx_executor()
+        .blockifier()
+        .tx_executor
         .state
         .set_contract_class(class_hash, contract_class.clone())
         .unwrap();
@@ -42,7 +43,12 @@ fn global_contract_cache_update() {
     block_executor
         .setup_block_execution(PyBlockInfo::default(), sentinel_block_number_and_hash)
         .unwrap();
-    block_executor.tx_executor().state.set_contract_class(class_hash, contract_class).unwrap();
+    block_executor
+        .blockifier()
+        .tx_executor
+        .state
+        .set_contract_class(class_hash, contract_class)
+        .unwrap();
     let is_pending_block = false;
     block_executor.finalize(is_pending_block);
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 1);
