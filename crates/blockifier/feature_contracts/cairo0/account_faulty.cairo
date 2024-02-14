@@ -5,7 +5,12 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import TxInfo, call_contract, get_tx_info
+from starkware.starknet.common.syscalls import (
+    TxInfo,
+    call_contract,
+    get_sequencer_address,
+    get_tx_info
+)
 from starkware.starknet.common.messages import send_message_to_l1
 
 // Validate Scenarios.
@@ -16,6 +21,8 @@ const VALID = 0;
 const INVALID = 1;
 // Make a contract call.
 const CALL_CONTRACT = 2;
+// Use get_sequencer_address syscall.
+const GET_SEQUENCER_ADDRESS = 7;
 
 // get_selector_from_name('foo').
 const FOO_ENTRY_POINT_SELECTOR = (
@@ -84,16 +91,20 @@ func faulty_validate{syscall_ptr: felt*}() {
         assert 0 = 1;
         return ();
     }
+    if (scenario == CALL_CONTRACT) {
+        let contract_address = tx_info.signature[1];
+        let (calldata: felt*) = alloc();
+        call_contract(
+            contract_address=contract_address,
+            function_selector=FOO_ENTRY_POINT_SELECTOR,
+            calldata_size=0,
+            calldata=calldata,
+        );
+        return ();
+    }
 
-    assert scenario = CALL_CONTRACT;
-    let contract_address = tx_info.signature[1];
-    let (calldata: felt*) = alloc();
-    call_contract(
-        contract_address=contract_address,
-        function_selector=FOO_ENTRY_POINT_SELECTOR,
-        calldata_size=0,
-        calldata=calldata,
-    );
+    assert scenario = GET_SEQUENCER_ADDRESS;
+    let sequencer_address = get_sequencer_address();
     return ();
 }
 

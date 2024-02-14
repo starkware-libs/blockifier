@@ -29,6 +29,7 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
 use crate::transaction::transaction_utils::update_remaining_gas;
+use crate::versioned_constants::VersionedConstants;
 
 pub mod hint_processor;
 mod secp;
@@ -41,10 +42,6 @@ pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
 
 type SyscallSelector = DeprecatedSyscallSelector;
-
-pub const SYSCALL_MAX_EVENT_KEYS: usize = 40;
-pub const SYSCALL_MAX_EVENT_DATA: usize = 40;
-pub const SYSCALL_MAX_N_EMITTED_EVENTS: usize = 1000;
 
 pub trait SyscallRequest: Sized {
     fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>;
@@ -292,28 +289,26 @@ impl SyscallRequest for EmitEventRequest {
 type EmitEventResponse = EmptyResponse;
 
 pub fn exceeds_event_size_limit(
+    versioned_constants: &VersionedConstants,
     n_emitted_events: usize,
     event: &EventContent,
 ) -> Result<(), EmitEventError> {
-    if n_emitted_events > SYSCALL_MAX_N_EMITTED_EVENTS {
+    let max_n_emitted_events = versioned_constants.event_size_limit.max_n_emitted_events;
+    if n_emitted_events > max_n_emitted_events {
         return Err(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
             n_emitted_events,
-            max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+            max_n_emitted_events,
         });
     }
-    let key_length = event.keys.len();
-    if key_length > SYSCALL_MAX_EVENT_KEYS {
-        return Err(EmitEventError::ExceedsMaxKeysLength {
-            keys_length: key_length,
-            max_keys_length: SYSCALL_MAX_EVENT_KEYS,
-        });
+    let max_keys_length = versioned_constants.event_size_limit.max_keys_length;
+    let keys_length = event.keys.len();
+    if keys_length > versioned_constants.event_size_limit.max_keys_length {
+        return Err(EmitEventError::ExceedsMaxKeysLength { keys_length, max_keys_length });
     }
+    let max_data_length = versioned_constants.event_size_limit.max_data_length;
     let data_length = event.data.0.len();
-    if data_length > SYSCALL_MAX_EVENT_DATA {
-        return Err(EmitEventError::ExceedsMaxDataLength {
-            data_length,
-            max_data_length: SYSCALL_MAX_EVENT_DATA,
-        });
+    if data_length > max_data_length {
+        return Err(EmitEventError::ExceedsMaxDataLength { data_length, max_data_length });
     }
 
     Ok(())
@@ -326,7 +321,11 @@ pub fn emit_event(
     _remaining_gas: &mut u64,
 ) -> SyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
-    exceeds_event_size_limit(execution_context.n_emitted_events + 1, &request.content)?;
+    exceeds_event_size_limit(
+        &execution_context.tx_context.block_context.versioned_constants,
+        execution_context.n_emitted_events + 1,
+        &request.content,
+    )?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);

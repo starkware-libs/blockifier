@@ -1,14 +1,19 @@
 {
+    "event_size_limit": {
+        "max_data_length": 40,
+        "max_keys_length": 40,
+        "max_n_emitted_events": 1000
+    },
     "gateway": {
         "max_calldata_length": 4000,
         "max_contract_bytecode_size": 61440
     },
+    "invoke_tx_max_n_steps": 4000000,
     "l2_resource_gas_costs": {
         "milligas_per_data_felt": 128,
         "event_key_factor": 2,
         "milligas_per_code_byte": 875
     },
-    "invoke_tx_max_n_steps": 4000000,
     "max_recursion_depth": 50,
     "os_constants": {
         "nop_entry_point_offset": -1,
@@ -444,7 +449,9 @@
             }
         }
     },
+    "validate_block_number_rounding": 100,
     "validate_max_n_steps": 1000000,
+    "validate_timestamp_rounding": 3600,
     "vm_resource_fee_cost": {
         "bitwise_builtin": 0.16,
         "ec_op_builtin": 2.56,
