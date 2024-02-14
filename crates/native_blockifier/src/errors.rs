@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 use blockifier::blockifier::transaction_executor::TransactionExecutorError;
-||||||| 06ceabe9
-=======
 use blockifier::execution::errors::ContractClassError;
->>>>>>> origin/main-v0.13.1
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
     ParseError, TransactionExecutionError, TransactionPreValidationError,
