@@ -262,8 +262,7 @@ fn test_max_fee_limit_validate(
     let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
     let block_info = &block_context.block_info;
-    let class_info =
-        calculate_class_info_for_testing(CairoVersion::Cairo0, grindy_validate_account.get_class());
+    let class_info = calculate_class_info_for_testing(grindy_validate_account.get_class());
 
     // Declare the grindy-validation account.
     let account_tx = declare_tx(
@@ -563,7 +562,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     };
     state.set_contract_class(class_hash, contract_class.clone()).unwrap();
     state.set_compiled_class_hash(class_hash, declare_tx.compiled_class_hash).unwrap();
-    let class_info = calculate_class_info_for_testing(CairoVersion::Cairo1, contract_class);
+    let class_info = calculate_class_info_for_testing(contract_class);
     let declare_account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {

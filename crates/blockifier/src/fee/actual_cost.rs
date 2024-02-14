@@ -7,6 +7,7 @@ use starknet_api::transaction::Fee;
 use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
+use crate::execution::contract_class::ClassInfo;
 use crate::fee::gas_usage::{
     get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost, get_messages_gas_cost,
     get_tx_events_gas_cost,
@@ -18,7 +19,6 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
-use crate::transaction::transactions::ClassInfo;
 use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
