@@ -163,11 +163,17 @@ impl PyClassInfo {
                 ContractClassV1::try_from_json_string(&py_class_info.raw_contract_class)?.into()
             }
         };
-        let class_info = ClassInfo::new(
-            &contract_class,
-            py_class_info.sierra_program_length,
-            py_class_info.abi_length,
-        )?;
-        Ok(class_info)
+        match tx {
+            starknet_api::transaction::DeclareTransaction::V0(_)
+            | starknet_api::transaction::DeclareTransaction::V1(_) => {
+                Ok(ClassInfo::V0(contract_class))
+            }
+            starknet_api::transaction::DeclareTransaction::V2(_)
+            | starknet_api::transaction::DeclareTransaction::V3(_) => Ok(ClassInfo::V1(
+                contract_class,
+                py_class_info.sierra_program_length,
+                py_class_info.abi_length,
+            )),
+        }
     }
 }

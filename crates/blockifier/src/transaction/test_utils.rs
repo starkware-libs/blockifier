@@ -321,9 +321,8 @@ pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMap
 }
 
 pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassInfo {
-    let sierra_program_length = match contract_class {
-        ContractClass::V0(_) => 0,
-        ContractClass::V1(_) => 100,
-    };
-    ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
+    match contract_class {
+        ContractClass::V0(_) => ClassInfo::V0(contract_class),
+        ContractClass::V1(_) => ClassInfo::V1(contract_class, 100, 100),
+    }
 }
