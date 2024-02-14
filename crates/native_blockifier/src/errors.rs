@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 use blockifier::blockifier::transaction_executor::TransactionExecutorError;
+||||||| 06ceabe9
+=======
+use blockifier::execution::errors::ContractClassError;
+>>>>>>> origin/main-v0.13.1
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
     ParseError, TransactionExecutionError, TransactionPreValidationError,
@@ -60,6 +65,7 @@ macro_rules! native_blockifier_errors {
 }
 
 native_blockifier_errors!(
+    (ContractClassError, ContractClassError, PyContractClassError),
     (NativeBlockifierInputError, NativeBlockifierInputError, PyNativeBlockifierInputError),
     (ProgramError, ProgramError, PyProgramError),
     (Pyo3Error, PyErr, PyPyo3Error),

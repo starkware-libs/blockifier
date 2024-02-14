@@ -7,6 +7,7 @@ use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILT
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
+use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
@@ -35,13 +36,10 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
-use crate::execution::syscalls::{
-    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
-};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
-    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
+    estimate_minimal_gas_vector, get_calldata_and_signature_gas_cost, get_code_gas_cost,
+    get_da_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -52,12 +50,14 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
+use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, test_erc20_account_balance_key, test_erc20_sequencer_balance_key,
-    CairoVersion, NonceManager, SaltManager, ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, default_invoke_tx_args, test_erc20_account_balance_key,
+    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
+    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
     TEST_SEQUENCER_ADDRESS,
@@ -74,11 +74,11 @@ use crate::transaction::objects::{
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
     create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
-    GET_BLOCK_HASH, INVALID, VALID,
+    GET_BLOCK_HASH, GET_EXECUTION_INFO, GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
-use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::utils::usize_from_u128;
 use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
@@ -86,14 +86,17 @@ use crate::{
     deploy_account_tx_args, invoke_tx_args, retdata,
 };
 
+static VERSIONED_CONSTANTS: Lazy<VersionedConstants> =
+    Lazy::new(VersionedConstants::create_for_testing);
+
 #[fixture]
 fn tx_initial_gas() -> u64 {
-    VersionedConstants::create_for_testing().tx_initial_gas()
+    VERSIONED_CONSTANTS.tx_initial_gas()
 }
 
 #[fixture]
 fn versioned_constants_for_account_testing() -> VersionedConstants {
-    VersionedConstants::create_for_account_testing()
+    VERSIONED_CONSTANTS.clone()
 }
 
 struct ExpectedResultTestInvokeTx {
@@ -290,26 +293,6 @@ fn validate_final_balances(
             state.get_storage_at(fee_address, test_erc20_sequencer_balance_key()).unwrap(),
             stark_felt!(expected_sequencer_balance)
         );
-    }
-}
-
-// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
-fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
-        test_contract_address,
-        "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
     }
 }
 
@@ -807,8 +790,7 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 
     // Declare.
     let contract_to_declare = FeatureContract::Empty(CairoVersion::Cairo0);
-    let class_info =
-        calculate_class_info_for_testing(CairoVersion::Cairo0, contract_to_declare.get_class());
+    let class_info = calculate_class_info_for_testing(contract_to_declare.get_class());
     let invalid_tx = declare_tx(
         declare_tx_args! {
             class_hash: contract_to_declare.get_class_hash(),
@@ -1098,8 +1080,7 @@ fn test_declare_tx(
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
     let class_hash = empty_contract.get_class_hash();
-    let class_info =
-        calculate_class_info_for_testing(account_cairo_version, empty_contract.get_class());
+    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
 
     let account_tx = declare_tx(
@@ -1190,7 +1171,7 @@ fn test_declare_tx(
 
     // Verify class declaration.
     let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
-    assert_eq!(contract_class_from_state, class_info.contract_class);
+    assert_eq!(contract_class_from_state, class_info.contract_class());
 }
 
 #[rstest]
@@ -1407,6 +1388,7 @@ fn test_validate_accounts_tx(
         FaultyAccountTxCreatorArgs {
             scenario: INVALID,
             contract_address_salt: salt_manager.next_salt(),
+            additional_data: None,
             ..default_args
         },
     );
@@ -1422,8 +1404,9 @@ fn test_validate_accounts_tx(
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: CALL_CONTRACT,
-            additional_data: Some(stark_felt!("0x1991")), /* Some address different than the
-                                                           * address of faulty_account. */
+            additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
+                                                                 * the address of
+                                                                 * faulty_account. */
             contract_address_salt: salt_manager.next_salt(),
             ..default_args
         },
@@ -1437,12 +1420,12 @@ fn test_validate_accounts_tx(
 
     if let CairoVersion::Cairo1 = cairo_version {
         // Trying to use the syscall get_block_hash (forbidden).
-        // TODO(Arni, 12/12/2023): Test this scenario with the constructor.
         let account_tx = create_account_tx_for_validate_test(
             &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_HASH,
                 contract_address_salt: salt_manager.next_salt(),
+                additional_data: None,
                 ..default_args
             },
         );
@@ -1450,6 +1433,23 @@ fn test_validate_accounts_tx(
         check_transaction_execution_error_for_custom_hint!(
             &error,
             "Unauthorized syscall get_block_hash in execution mode Validate.",
+            validate_constructor,
+        );
+    }
+    if let CairoVersion::Cairo0 = cairo_version {
+        // Trying to use the syscall get_sequencer_address (forbidden).
+        let account_tx = create_account_tx_for_validate_test(
+            &mut NonceManager::default(),
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_SEQUENCER_ADDRESS,
+                contract_address_salt: salt_manager.next_salt(),
+                ..default_args
+            },
+        );
+        let error = account_tx.execute(state, block_context, true, true).unwrap_err();
+        check_transaction_execution_error_for_custom_hint!(
+            &error,
+            "Unauthorized syscall get_sequencer_address in execution mode Validate.",
             validate_constructor,
         );
     }
@@ -1463,6 +1463,7 @@ fn test_validate_accounts_tx(
         FaultyAccountTxCreatorArgs {
             scenario: VALID,
             contract_address_salt: salt_manager.next_salt(),
+            additional_data: None,
             ..default_args
         },
     );
@@ -1474,122 +1475,34 @@ fn test_validate_accounts_tx(
             nonce_manager,
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
-                additional_data: Some(*sender_address.0.key()),
+                additional_data: Some(vec![*sender_address.0.key()]),
                 ..default_args
             },
         );
         account_tx.execute(state, block_context, true, true).unwrap();
     }
-}
 
-// Test that we exclude the fee token contract modification and adds the account’s balance change
-// in the state changes.
-// TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
-#[rstest]
-fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
-    let account_cairo_version = CairoVersion::Cairo0;
-    let test_contract_cairo_version = CairoVersion::Cairo0;
-    let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
-    let versioned_constants = &block_context.versioned_constants;
-    let chain_info = &block_context.chain_info;
-    let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
-    let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
-    let account_contract_address = account_contract.get_instance_address(0);
-    let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    // TODO(Aner, 14/4/24): Cover positive flows of Cairo 0 syscalls: get_block_number and
+    // get_block_timestamp.
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
-        account_contract_address,
-        test_contract.get_instance_address(0),
-    ));
-    let calldata_length = account_tx.calldata_length();
-    let signature_length = account_tx.signature_length();
-    let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());
-    let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-
-    let n_storage_updates = 1; // For the account balance update.
-    let n_modified_contracts = 1;
-    let state_changes_count = StateChangesCount {
-        n_storage_updates,
-        n_class_hash_updates: 0,
-        n_modified_contracts,
-        n_compiled_class_hash_updates: 0,
-    };
-
-    let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
-        std::iter::empty(),
-        state_changes_count,
-        calldata_length,
-        signature_length,
-        None,
-        None,
-        use_kzg_da,
-    )
-    .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
-        l1_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
-        l1_blob_gas_usage
-    );
-
-    // A tx that changes the account and some other balance in execute.
-    let some_other_account_address = account_contract.get_instance_address(17);
-    let execute_calldata = create_calldata(
-        fee_token_address,
-        constants::TRANSFER_ENTRY_POINT_NAME,
-        &[
-            *some_other_account_address.0.key(), // Calldata: recipient.
-            stark_felt!(2_u8),                   // Calldata: lsb amount.
-            stark_felt!(0_u8),                   // Calldata: msb amount.
-        ],
-    );
-
-    let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-        version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(1_u8)),
-    });
-
-    let calldata_length = account_tx.calldata_length();
-    let signature_length = account_tx.signature_length();
-    let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-    // For the balance update of the sender and the recipient.
-    let n_storage_updates = 2;
-    // Only the account contract modification (nonce update) excluding the fee token contract.
-    let n_modified_contracts = 1;
-    let state_changes_count = StateChangesCount {
-        n_storage_updates,
-        n_class_hash_updates: 0,
-        n_modified_contracts,
-        n_compiled_class_hash_updates: 0,
-    };
-
-    let gas_vector = calculate_tx_gas_usage_vector(
-        versioned_constants,
-        std::iter::empty(),
-        state_changes_count,
-        calldata_length,
-        signature_length,
-        None,
-        None,
-        use_kzg_da,
-    )
-    .unwrap();
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
-        l1_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
-        l1_blob_gas_usage
-    );
+    if let CairoVersion::Cairo1 = cairo_version {
+        let account_tx = create_account_tx_for_validate_test(
+            // Calling the syscall get_execution_info and get block_info which was modified for
+            // validate.
+            nonce_manager,
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_EXECUTION_INFO,
+                contract_address_salt: salt_manager.next_salt(),
+                additional_data: Some(vec![
+                    StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+                    StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+                    StarkFelt::from(0_u64), // Sequencer address for validate.
+                ]),
+                ..default_args
+            },
+        );
+        account_tx.execute(state, block_context, true, true).unwrap();
+    }
 }
 
 #[rstest]
@@ -1834,37 +1747,49 @@ fn test_execute_tx_with_invalid_transaction_version() {
     );
 }
 
+fn max_n_emitted_events() -> usize {
+    VERSIONED_CONSTANTS.event_size_limit.max_n_emitted_events
+}
+
+fn max_event_keys() -> usize {
+    VERSIONED_CONSTANTS.event_size_limit.max_keys_length
+}
+
+fn max_event_data() -> usize {
+    VERSIONED_CONSTANTS.event_size_limit.max_data_length
+}
+
 #[test_case(
-    vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS],
-    vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA],
-    SYSCALL_MAX_N_EMITTED_EVENTS,
+    vec![stark_felt!(1_u16); max_event_keys()],
+    vec![stark_felt!(2_u16); max_event_data()],
+    max_n_emitted_events(),
     None;
     "Positive flow")]
 #[test_case(
     vec![stark_felt!(1_u16)],
     vec![stark_felt!(2_u16)],
-    SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+    max_n_emitted_events() + 1,
     Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
-        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+        n_emitted_events: max_n_emitted_events() + 1,
+        max_n_emitted_events: max_n_emitted_events(),
     });
     "exceeds max number of events")]
 #[test_case(
-    vec![stark_felt!(3_u16); SYSCALL_MAX_EVENT_KEYS + 1],
+    vec![stark_felt!(3_u16); max_event_keys() + 1],
     vec![stark_felt!(4_u16)],
     1,
     Some(EmitEventError::ExceedsMaxKeysLength{
-        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
-        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+        keys_length: max_event_keys() + 1,
+        max_keys_length: max_event_keys(),
     });
     "exceeds max number of keys")]
 #[test_case(
     vec![stark_felt!(5_u16)],
-    vec![stark_felt!(6_u16); SYSCALL_MAX_EVENT_DATA + 1],
+    vec![stark_felt!(6_u16); max_event_data() + 1],
     1,
     Some(EmitEventError::ExceedsMaxDataLength{
-        data_length: SYSCALL_MAX_EVENT_DATA + 1,
-        max_data_length: SYSCALL_MAX_EVENT_DATA,
+        data_length: max_event_data() + 1,
+        max_data_length: max_event_data(),
     });
     "exceeds data length")]
 fn test_emit_event_exceeds_limit(

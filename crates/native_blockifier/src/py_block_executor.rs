@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use blockifier::blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
@@ -275,7 +274,6 @@ impl PyBlockExecutor {
 #[derive(Default)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
-    pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
 }
@@ -283,18 +281,10 @@ pub struct PyGeneralConfig {
 impl FromPyObject<'_> for PyGeneralConfig {
     fn extract(general_config: &PyAny) -> PyResult<Self> {
         let starknet_os_config: PyOsConfig = py_attr(general_config, "starknet_os_config")?;
-        let cairo_resource_fee_weights: HashMap<String, f64> =
-            py_attr(general_config, "cairo_resource_fee_weights")?;
-        let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
         let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
         let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
 
-        Ok(Self {
-            starknet_os_config,
-            cairo_resource_fee_weights,
-            invoke_tx_max_n_steps,
-            validate_max_n_steps,
-        })
+        Ok(Self { starknet_os_config, invoke_tx_max_n_steps, validate_max_n_steps })
     }
 }
 
