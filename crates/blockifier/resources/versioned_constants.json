@@ -449,7 +449,9 @@
             }
         }
     },
+    "validate_block_number_rounding": 100,
     "validate_max_n_steps": 1000000,
+    "validate_timestamp_rounding": 3600,
     "vm_resource_fee_cost": {
         "bitwise_builtin": 0.16,
         "ec_op_builtin": 2.56,
