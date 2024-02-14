@@ -74,7 +74,8 @@ use crate::transaction::objects::{
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
     create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
-    GET_BLOCK_HASH, GET_EXECUTION_INFO, GET_SEQUENCER_ADDRESS, INVALID, VALID,
+    GET_BLOCK_HASH, GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO,
+    GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -1467,7 +1468,7 @@ fn test_validate_accounts_tx(
             ..default_args
         },
     );
-    account_tx.execute(state, block_context, true, true).unwrap();
+    assert!(account_tx.execute(state, block_context, true, true).err().is_none());
 
     if tx_type != TransactionType::DeployAccount {
         // Calling self (allowed).
@@ -1479,11 +1480,33 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        account_tx.execute(state, block_context, true, true).unwrap();
+        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
     }
 
-    // TODO(Aner, 14/4/24): Cover positive flows of Cairo 0 syscalls: get_block_number and
-    // get_block_timestamp.
+    if let CairoVersion::Cairo0 = cairo_version {
+        // Trying to use the syscall get_block_number (allowed).
+        let account_tx = create_account_tx_for_validate_test(
+            nonce_manager,
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_BLOCK_NUMBER,
+                contract_address_salt: salt_manager.next_salt(),
+                additional_data: Some(vec![*sender_address.0.key()]),
+                ..default_args
+            },
+        );
+        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+        // Trying to use the syscall get_block_timestamp (allowed).
+        let account_tx = create_account_tx_for_validate_test(
+            nonce_manager,
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_BLOCK_TIMESTAMP,
+                contract_address_salt: salt_manager.next_salt(),
+                additional_data: Some(vec![*sender_address.0.key()]),
+                ..default_args
+            },
+        );
+        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+    }
 
     if let CairoVersion::Cairo1 = cairo_version {
         let account_tx = create_account_tx_for_validate_test(
@@ -1501,7 +1524,7 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        account_tx.execute(state, block_context, true, true).unwrap();
+        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
     }
 }
 

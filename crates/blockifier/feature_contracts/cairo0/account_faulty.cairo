@@ -8,6 +8,8 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import (
     TxInfo,
     call_contract,
+    get_block_number,
+    get_block_timestamp,
     get_sequencer_address,
     get_tx_info
 )
@@ -21,6 +23,10 @@ const VALID = 0;
 const INVALID = 1;
 // Make a contract call.
 const CALL_CONTRACT = 2;
+// Use get_block_number syscall.
+const GET_BLOCK_NUMBER = 5;
+// Use get_block_timestamp syscall.
+const GET_BLOCK_TIMESTAMP = 6;
 // Use get_sequencer_address syscall.
 const GET_SEQUENCER_ADDRESS = 7;
 
@@ -100,6 +106,14 @@ func faulty_validate{syscall_ptr: felt*}() {
             calldata_size=0,
             calldata=calldata,
         );
+        return ();
+    }
+    if (scenario == GET_BLOCK_NUMBER) {
+        let block_number = get_block_number();
+        return ();
+    }
+    if (scenario == GET_BLOCK_TIMESTAMP) {
+        let block_timestamp = get_block_timestamp();
         return ();
     }
 
