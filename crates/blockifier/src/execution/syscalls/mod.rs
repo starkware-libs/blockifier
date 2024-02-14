@@ -323,7 +323,7 @@ pub fn emit_event(
 ) -> SyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
     exceeds_event_size_limit(
-        &execution_context.tx_context.block_context.versioned_constants,
+        execution_context.versioned_constants(),
         execution_context.n_emitted_events + 1,
         &request.content,
     )?;
