@@ -21,8 +21,7 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, Resource, ResourceBounds, ResourceBoundsMapping,
-    TransactionSignature,
+    Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
 };
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
@@ -30,8 +29,6 @@ use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
-use crate::invoke_tx_args;
-use crate::test_utils::invoke::InvokeTxArgs;
 use crate::utils::const_max;
 use crate::versioned_constants::VersionedConstants;
 
@@ -377,22 +374,11 @@ pub fn create_calldata(
     Calldata(calldata.into())
 }
 
-// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
-pub fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
+/// Calldata for a trivial entry point in the test contract.
+pub fn create_trivial_calldata(test_contract_address: ContractAddress) -> Calldata {
+    create_calldata(
         test_contract_address,
         "return_result",
         &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-    }
+    )
 }

@@ -16,7 +16,7 @@ use crate::invoke_tx_args;
 use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{create_calldata, default_invoke_tx_args, CairoVersion, BALANCE, MAX_FEE};
+use crate::test_utils::{create_calldata, create_trivial_calldata, CairoVersion, BALANCE, MAX_FEE};
 use crate::transaction::constants;
 use crate::transaction::objects::{GasVector, HasRelatedFeeType};
 use crate::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing};
@@ -306,10 +306,11 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_contract_address = account_contract.get_instance_address(0);
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
-        account_contract_address,
-        test_contract.get_instance_address(0),
-    ));
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_contract_address,
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        max_fee: Fee(MAX_FEE),
+    });
     let calldata_length = account_tx.calldata_length();
     let signature_length = account_tx.signature_length();
     let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());

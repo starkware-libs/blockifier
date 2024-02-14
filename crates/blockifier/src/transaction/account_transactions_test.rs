@@ -36,8 +36,8 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
+    DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -94,11 +94,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
             max_fee: Fee(0),
             resource_bounds: l1_resource_bounds(0, DEFAULT_STRK_L1_GAS_PRICE),
             sender_address: account_address,
-            calldata: create_calldata(
-                contract_address,
-                "return_result",
-                &[stark_felt!(2_u8)]  // Calldata: num.
-            ),
+            calldata: create_trivial_calldata(contract_address),
             version,
             nonce: nonce_manager.next(account_address),
         },
@@ -127,11 +123,7 @@ fn test_account_flow_test(
         invoke_tx_args! {
             max_fee,
             sender_address: account_address,
-            calldata: create_calldata(
-                contract_address,
-                "return_result",
-                &[stark_felt!(2_u8)]  // Calldata: num.
-            ),
+            calldata: create_trivial_calldata(contract_address),
             version: tx_version,
             nonce: nonce_manager.next(account_address),
             only_query,
@@ -320,11 +312,7 @@ fn test_max_fee_limit_validate(
     // slightly above them.
     let tx_args = invoke_tx_args! {
         sender_address: grindy_account_address,
-        calldata: create_calldata(
-            contract_address,
-            "return_result",
-            &[stark_felt!(2_u8)], // Calldata: num.
-        ),
+        calldata: create_trivial_calldata(contract_address),
         version,
         nonce: nonce_manager.next(grindy_account_address)
     };
