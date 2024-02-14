@@ -7,12 +7,13 @@ use crate::abi::constants;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
 #[derive(Clone, Default)]
-// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
     pub l1_gas_amount: usize,
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     pub execution_resources: VmExecutionResources,
+    // TODO(Ayelet, 12/02/2024): Fill this field.
+    pub n_events: usize,
 }
 
 impl BouncerInfo {
@@ -66,11 +67,15 @@ impl BouncerInfo {
         merged_resources.n_steps += merged_resources.n_memory_holes;
         merged_resources.n_memory_holes = 0;
 
+        // TODO(Ayelet, 12/02/2024): Fill this field.
+        let n_events = 0;
+
         Ok(Self {
             state_diff_size,
             l1_gas_amount,
             message_segment_length,
             execution_resources: merged_resources,
+            n_events,
         })
     }
 }

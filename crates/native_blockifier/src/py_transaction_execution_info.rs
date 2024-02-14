@@ -227,6 +227,8 @@ pub struct PyBouncerInfo {
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     #[pyo3(get)]
     pub execution_resources: PyExecutionResources,
+    #[pyo3(get)]
+    pub n_events: usize,
 }
 
 impl From<BouncerInfo> for PyBouncerInfo {
@@ -236,6 +238,7 @@ impl From<BouncerInfo> for PyBouncerInfo {
             l1_gas_amount: bouncer_info.l1_gas_amount,
             message_segment_length: bouncer_info.message_segment_length,
             execution_resources: PyExecutionResources::from(bouncer_info.execution_resources),
+            n_events: bouncer_info.n_events,
         }
     }
 }
