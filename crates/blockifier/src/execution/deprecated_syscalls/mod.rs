@@ -403,7 +403,7 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
-    let block_number = syscall_handler.get_block_info().block_number;
+    let block_number = syscall_handler.block_info().block_number;
     let block_number = match syscall_handler.execution_mode() {
         ExecutionMode::Validate => BlockNumber(
             (block_number.0 / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING,
@@ -434,7 +434,7 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
-    let block_timestamp = syscall_handler.get_block_info().block_timestamp;
+    let block_timestamp = syscall_handler.block_info().block_timestamp;
     let block_timestamp = match syscall_handler.execution_mode() {
         ExecutionMode::Validate => BlockTimestamp(
             (block_timestamp.0 / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING,
@@ -492,7 +492,7 @@ pub fn get_sequencer_address(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetSequencerAddressResponse> {
     syscall_handler.verify_not_in_validate_mode("get_sequencer_address")?;
-    Ok(GetSequencerAddressResponse { address: syscall_handler.get_block_info().sequencer_address })
+    Ok(GetSequencerAddressResponse { address: syscall_handler.block_info().sequencer_address })
 }
 
 // GetTxInfo syscall.
