@@ -56,7 +56,8 @@ use crate::test_utils::{
     create_calldata, default_invoke_tx_args, test_erc20_account_balance_key,
     test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_TIMESTAMP, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
     TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
     TEST_SEQUENCER_ADDRESS,
@@ -73,7 +74,7 @@ use crate::transaction::objects::{
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
     create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
-    GET_BLOCK_HASH, INVALID, VALID,
+    GET_BLOCK_HASH, GET_EXECUTION_INFO, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -1419,7 +1420,6 @@ fn test_validate_accounts_tx(
 
     if let CairoVersion::Cairo1 = cairo_version {
         // Trying to use the syscall get_block_hash (forbidden).
-        // TODO(Arni, 12/12/2023): Test this scenario with the constructor.
         let account_tx = create_account_tx_for_validate_test(
             &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
@@ -1459,6 +1459,25 @@ fn test_validate_accounts_tx(
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
                 additional_data: Some(vec![*sender_address.0.key()]),
+                ..default_args
+            },
+        );
+        account_tx.execute(state, block_context, true, true).unwrap();
+    }
+
+    if let CairoVersion::Cairo1 = cairo_version {
+        let account_tx = create_account_tx_for_validate_test(
+            // Calling the syscall get_execution_info and get block_info which was modified for
+            // validate.
+            nonce_manager,
+            FaultyAccountTxCreatorArgs {
+                scenario: GET_EXECUTION_INFO,
+                contract_address_salt: salt_manager.next_salt(),
+                additional_data: Some(vec![
+                    StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+                    StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+                    StarkFelt::from(0_u64), // Sequencer address for validate.
+                ]),
                 ..default_args
             },
         );
