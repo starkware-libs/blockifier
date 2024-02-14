@@ -61,6 +61,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
                 Ok(value)
             }
             Err(error) => {
+                print!("Transaction execution failed with: {error}");
                 log::debug!("Transaction execution failed with: {error}");
                 transactional_state.abort();
                 Err(error)
