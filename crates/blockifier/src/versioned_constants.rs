@@ -38,6 +38,11 @@ pub struct VersionedConstants {
     pub event_size_limit: EventSizeLimit,
     pub invoke_tx_max_n_steps: u32,
     pub l2_resource_gas_costs: L2ResourceGasCosts,
+    // Flooring factor for block number in validate mode.
+    pub validate_block_number_rounding: u64,
+    pub validate_max_n_steps: u32,
+    // Flooring factor for timestamp in validate mode.
+    pub validate_timestamp_rounding: u64,
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
 

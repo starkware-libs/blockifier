@@ -160,12 +160,6 @@ pub const L1_GAS: &str = "0x0000000000000000000000000000000000000000000000000000
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
 
-// TODO(Tzahi, 1/4/2024): Move to an appropriate constants file.
-// Flooring factor for block number in validate mode.
-pub const VALIDATE_BLOCK_NUMBER_ROUNDING: u64 = 100;
-// Flooring factor for timestamp in validate mode.
-pub const VALIDATE_TIMESTAMP_ROUNDING: u64 = 3600;
-
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
 pub struct SyscallHintProcessor<'a> {
@@ -507,13 +501,14 @@ impl<'a> SyscallHintProcessor<'a> {
         let block_info = &self.context.tx_context.block_context.block_info;
         let block_timestamp = block_info.block_timestamp.0;
         let block_number = block_info.block_number.0;
+        let versioned_constants = self.context.versioned_constants();
         let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
-            // Round down to the nearest multiple of VALIDATE_BLOCK_NUMBER_ROUNDING.
+            // Round down to the nearest multiple of validate_block_number_rounding.
             let rounded_block_number =
-                (block_number / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING;
-            // Round down to the nearest multiple of VALIDATE_TIMESTAMP_ROUNDING.
+                (block_number / versioned_constants.validate_block_number_rounding) * versioned_constants.validate_block_number_rounding;
+            // Round down to the nearest multiple of validate_timestamp_rounding.
             let rounded_timestamp =
-                (block_timestamp / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING;
+                (block_timestamp / versioned_constants.validate_timestamp_rounding) * versioned_constants.validate_timestamp_rounding;
 
             vec![
                 StarkFelt::from(rounded_block_number),
