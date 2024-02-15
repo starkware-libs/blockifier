@@ -29,6 +29,7 @@ pub type ContractClassMapping = HashMap<ClassHash, ContractClass>;
 pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
+    // Using interior mutability to update caches during `State`'s immutable getters.
     cache: RefCell<StateCache>,
     class_hash_to_class: RefCell<ContractClassMapping>,
     // Invariant: managed by CachedState.
@@ -215,18 +216,19 @@ impl<S: StateReader> StateReader for CachedState<S> {
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let class_hash_to_class = &mut *self.class_hash_to_class.borrow_mut();
 
-        if let std::collections::hash_map::Entry::Vacant(e) = class_hash_to_class.entry(class_hash)
+        if let std::collections::hash_map::Entry::Vacant(vacant_entry) =
+            class_hash_to_class.entry(class_hash)
         {
             let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
 
             match contract_class {
                 Some(contract_class_from_global_cache) => {
-                    e.insert(contract_class_from_global_cache);
+                    vacant_entry.insert(contract_class_from_global_cache);
                 }
                 None => {
                     let contract_class_from_db =
                         self.state.get_compiled_contract_class(class_hash)?;
-                    e.insert(contract_class_from_db);
+                    vacant_entry.insert(contract_class_from_db);
                 }
             }
         }
