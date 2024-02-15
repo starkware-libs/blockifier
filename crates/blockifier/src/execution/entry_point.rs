@@ -67,7 +67,7 @@ impl CallEntryPoint {
         let tx_context = &context.tx_context;
         let mut decrement_when_dropped = RecursionDepthGuard::new(
             context.current_recursion_depth.clone(),
-            tx_context.block_context.versioned_constants.max_recursion_depth,
+            context.versioned_constants().max_recursion_depth,
         );
         decrement_when_dropped.try_increment_and_check_depth()?;
 

@@ -373,3 +373,12 @@ pub fn create_calldata(
 
     Calldata(calldata.into())
 }
+
+/// Calldata for a trivial entry point in the test contract.
+pub fn create_trivial_calldata(test_contract_address: ContractAddress) -> Calldata {
+    create_calldata(
+        test_contract_address,
+        "return_result",
+        &[stark_felt!(2_u8)], // Calldata: num.
+    )
+}

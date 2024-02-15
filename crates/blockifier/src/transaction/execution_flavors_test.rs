@@ -18,8 +18,8 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -165,7 +165,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         sender_address: account_address,
-        calldata: create_calldata(test_contract_address, "return_result", &[stark_felt!(2_u8)]),
+        calldata: create_trivial_calldata(test_contract_address),
         version,
         only_query,
     };

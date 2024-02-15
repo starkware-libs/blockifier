@@ -7,12 +7,12 @@ use crate::abi::constants;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
 #[derive(Clone, Default)]
-// TODO(Ayelet, 24/01/2024): Consider remove message_segment_length, state_diff_size.
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
     pub l1_gas_amount: usize,
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     pub execution_resources: VmExecutionResources,
+    pub n_events: usize,
 }
 
 impl BouncerInfo {
@@ -21,6 +21,7 @@ impl BouncerInfo {
         tx_additional_os_resources: VmExecutionResources,
         message_segment_length: usize,
         state_diff_size: usize,
+        n_events: usize,
     ) -> TransactionExecutionResult<Self> {
         let l1_gas_amount = *tx_actual_resources
             .0
@@ -71,6 +72,7 @@ impl BouncerInfo {
             l1_gas_amount,
             message_segment_length,
             execution_resources: merged_resources,
+            n_events,
         })
     }
 }

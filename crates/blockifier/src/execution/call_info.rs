@@ -167,6 +167,11 @@ impl CallInfo {
             },
         )
     }
+
+    /// Returns the sum of events in CallInfo and its inner_calls
+    pub fn get_number_of_events(&self) -> usize {
+        self.into_iter().map(|call_info| call_info.execution.events.len()).sum()
+    }
 }
 
 pub struct CallInfoIter<'a> {
