@@ -222,7 +222,7 @@ pub struct PyBouncerInfo {
     #[pyo3(get)]
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
     #[pyo3(get)]
-    pub l1_gas_amount: usize,
+    pub gas_weight: usize,
     #[pyo3(get)]
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     #[pyo3(get)]
@@ -235,7 +235,7 @@ impl From<BouncerInfo> for PyBouncerInfo {
     fn from(bouncer_info: BouncerInfo) -> Self {
         Self {
             state_diff_size: bouncer_info.state_diff_size,
-            l1_gas_amount: bouncer_info.l1_gas_amount,
+            gas_weight: bouncer_info.gas_weight,
             message_segment_length: bouncer_info.message_segment_length,
             execution_resources: PyExecutionResources::from(bouncer_info.execution_resources),
             n_events: bouncer_info.n_events,
