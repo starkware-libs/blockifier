@@ -582,6 +582,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         self,
         tx_executed_class_hashes: HashSet<ClassHash>,
         tx_visited_storage_entries: HashSet<StorageEntry>,
+        tx_n_events: usize,
         tx_unique_state_changes_keys: StateChangesKeys,
     ) -> StagedTransactionalState {
         let TransactionalState {
@@ -597,6 +598,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             global_class_hash_to_class,
             tx_executed_class_hashes,
             tx_visited_storage_entries,
+            tx_n_events,
             tx_unique_state_changes_keys,
             visited_pcs,
         }
@@ -629,6 +631,7 @@ pub struct StagedTransactionalState {
     // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
     pub tx_visited_storage_entries: HashSet<StorageEntry>,
+    pub tx_n_events: usize,
     pub tx_unique_state_changes_keys: StateChangesKeys,
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }

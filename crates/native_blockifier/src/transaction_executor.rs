@@ -31,6 +31,7 @@ pub struct TransactionExecutor<S: StateReader> {
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
+    n_events: usize,
     // This member should be consistent with the state's modified keys.
     state_changes_keys: StateChangesKeys,
 
@@ -50,6 +51,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             block_context,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
+            n_events: 0,
             // Note: the state might not be empty even at this point; it is the creator's
             // responsibility to tune the bouncer according to pre and post block process.
             state_changes_keys: StateChangesKeys::default(),
@@ -92,6 +94,8 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
                 tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
+                // TODO(Ayelet, 15/02/2024): Calculate.
+                let tx_n_events = 0;
 
                 // Count message to L1 resources.
                 let call_infos: IntoIter<&CallInfo> =
@@ -136,6 +140,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 self.staged_for_commit_state = Some(transactional_state.stage(
                     tx_executed_class_hashes,
                     tx_visited_storage_entries,
+                    tx_n_events,
                     tx_unique_state_changes_keys,
                 ));
 
@@ -226,6 +231,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
         self.visited_storage_entries
             .extend(&finalized_transactional_state.tx_visited_storage_entries);
+        self.n_events += &finalized_transactional_state.tx_n_events;
 
         // Note: cancelling writes (0 -> 1 -> 0) will not be removed,
         // but it's fine since fee was charged for them.
