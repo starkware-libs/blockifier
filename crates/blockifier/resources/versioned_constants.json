@@ -453,14 +453,41 @@
     "validate_max_n_steps": 1000000,
     "validate_timestamp_rounding": 3600,
     "vm_resource_fee_cost": {
-        "bitwise_builtin": 0.16,
-        "ec_op_builtin": 2.56,
-        "ecdsa_builtin": 5.12,
-        "keccak_builtin": 5.12,
-        "n_steps": 0.0025,
-        "output_builtin": 0,
-        "pedersen_builtin": 0.08,
-        "poseidon_builtin": 0.08,
-        "range_check_builtin": 0.04
+        "bitwise_builtin": {
+            "numer": 4,
+            "denom": 25
+        },
+        "ec_op_builtin": {
+            "numer": 64,
+            "denom": 25
+        },
+        "ecdsa_builtin": {
+            "numer": 128,
+            "denom": 25
+        },
+        "keccak_builtin": {
+            "numer": 128,
+            "denom": 25
+        },
+        "n_steps": {
+            "numer": 1,
+            "denom": 400
+        },
+        "output_builtin": {
+            "numer": 0,
+            "denom": 1
+        },
+        "pedersen_builtin": {
+            "numer": 2,
+            "denom": 25
+        },
+        "poseidon_builtin": {
+            "numer": 2,
+            "denom": 25
+        },
+        "range_check_builtin": {
+            "numer": 1,
+            "denom": 25
+        }
     }
 }

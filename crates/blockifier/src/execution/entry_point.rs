@@ -244,7 +244,9 @@ impl EntryPointExecutionContext {
 
         // Use saturating upper bound to avoid overflow. This is safe because the upper bound is
         // bounded above by the block's limit, which is a usize.
-        let upper_bound_u128 = (tx_gas_upper_bound as f64 / gas_per_step).floor() as u128;
+
+        let upper_bound_u128 =
+            (tx_gas_upper_bound as u128 * gas_per_step.denom()) / gas_per_step.numer();
         let tx_upper_bound = usize_from_u128(upper_bound_u128).unwrap_or_else(|_| {
             log::warn!(
                 "Failed to convert u128 to usize: {upper_bound_u128}. Upper bound from tx is \

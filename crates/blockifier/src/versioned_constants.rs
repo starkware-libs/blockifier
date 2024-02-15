@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
-use std::io;
 use std::path::Path;
 use std::sync::Arc;
+use std::{io, u128};
 
 use cairo_vm::vm::runners::builtin_runner;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use indexmap::{IndexMap, IndexSet};
+use num_rational::Ratio;
 use once_cell::sync::Lazy;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -56,7 +57,7 @@ pub struct VersionedConstants {
     // Fee related.
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
-    vm_resource_fee_cost: Arc<HashMap<String, f64>>,
+    vm_resource_fee_cost: Arc<HashMap<String, Ratio<u128>>>,
 }
 
 impl VersionedConstants {
@@ -72,7 +73,7 @@ impl VersionedConstants {
         os_consts.gas_costs["initial_gas_cost"] - os_consts.gas_costs["transaction_gas_cost"]
     }
 
-    pub fn vm_resource_fee_cost(&self) -> &HashMap<String, f64> {
+    pub fn vm_resource_fee_cost(&self) -> &HashMap<String, Ratio<u128>> {
         &self.vm_resource_fee_cost
     }
 
@@ -122,14 +123,35 @@ impl VersionedConstants {
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
-            (crate::abi::constants::N_STEPS_RESOURCE.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::SIGNATURE_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::BITWISE_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME.to_string(), 1_f64),
-            (cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(), 1_f64),
+            (crate::abi::constants::N_STEPS_RESOURCE.to_string(), Ratio::from_integer(1_u128)),
+            (
+                cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::SIGNATURE_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::BITWISE_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(),
+                Ratio::from_integer(1_u128),
+            ),
         ]));
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }
