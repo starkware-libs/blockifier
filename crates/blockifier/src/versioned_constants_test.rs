@@ -35,6 +35,29 @@ fn test_successful_parsing() {
 }
 
 #[test]
+fn test_default_values() {
+    let json_data = r#"
+    {
+        "invoke_tx_max_n_steps": 2,
+        "validate_max_n_steps": 1,
+        "os_constants": {},
+        "os_resources": {
+            "execute_syscalls":{},
+            "execute_txs_inner": {}
+        },
+        "vm_resource_fee_cost": {},
+        "max_recursion_depth": 2
+    }"#;
+    let versioned_constants: VersionedConstants = serde_json::from_str(json_data).unwrap();
+
+    assert_eq!(versioned_constants.get_validate_block_number_rounding(), 1);
+    assert_eq!(versioned_constants.get_validate_timestamp_rounding(), 1);
+
+    assert_eq!(versioned_constants.event_size_limit, EventSizeLimit::max());
+    assert_eq!(versioned_constants.l2_resource_gas_costs, L2ResourceGasCosts::default());
+}
+
+#[test]
 fn test_string_inside_composed_field() {
     let json_data = r#"
     {
