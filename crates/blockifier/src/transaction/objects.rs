@@ -22,6 +22,10 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 
+#[cfg(test)]
+#[path = "objects_test.rs"]
+pub mod objects_test;
+
 pub type TransactionExecutionResult<T> = Result<T, TransactionExecutionError>;
 pub type TransactionFeeResult<T> = Result<T, TransactionFeeError>;
 pub type TransactionPreValidationResult<T> = Result<T, TransactionPreValidationError>;
@@ -215,6 +219,11 @@ impl TransactionExecutionInfo {
         concat(
             self.non_optional_call_infos().map(|call_info| call_info.get_visited_storage_entries()),
         )
+    }
+
+    /// Returns the number of events emitted in this transaction execution.
+    pub fn get_number_of_events(&self) -> usize {
+        self.non_optional_call_infos().map(|call_info| call_info.get_number_of_events()).sum()
     }
 
     pub fn is_reverted(&self) -> bool {
