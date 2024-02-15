@@ -36,8 +36,8 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
+    DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -94,11 +94,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
             max_fee: Fee(0),
             resource_bounds: l1_resource_bounds(0, DEFAULT_STRK_L1_GAS_PRICE),
             sender_address: account_address,
-            calldata: create_calldata(
-                contract_address,
-                "return_result",
-                &[stark_felt!(2_u8)]  // Calldata: num.
-            ),
+            calldata: create_trivial_calldata(contract_address),
             version,
             nonce: nonce_manager.next(account_address),
         },
@@ -127,11 +123,7 @@ fn test_account_flow_test(
         invoke_tx_args! {
             max_fee,
             sender_address: account_address,
-            calldata: create_calldata(
-                contract_address,
-                "return_result",
-                &[stark_felt!(2_u8)]  // Calldata: num.
-            ),
+            calldata: create_trivial_calldata(contract_address),
             version: tx_version,
             nonce: nonce_manager.next(account_address),
             only_query,
@@ -262,8 +254,7 @@ fn test_max_fee_limit_validate(
     let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
     let block_info = &block_context.block_info;
-    let class_info =
-        calculate_class_info_for_testing(CairoVersion::Cairo0, grindy_validate_account.get_class());
+    let class_info = calculate_class_info_for_testing(grindy_validate_account.get_class());
 
     // Declare the grindy-validation account.
     let account_tx = declare_tx(
@@ -320,11 +311,7 @@ fn test_max_fee_limit_validate(
     // slightly above them.
     let tx_args = invoke_tx_args! {
         sender_address: grindy_account_address,
-        calldata: create_calldata(
-            contract_address,
-            "return_result",
-            &[stark_felt!(2_u8)], // Calldata: num.
-        ),
+        calldata: create_trivial_calldata(contract_address),
         version,
         nonce: nonce_manager.next(grindy_account_address)
     };
@@ -563,7 +550,7 @@ fn test_fail_declare(block_context: BlockContext, max_fee: Fee) {
     };
     state.set_contract_class(class_hash, contract_class.clone()).unwrap();
     state.set_compiled_class_hash(class_hash, declare_tx.compiled_class_hash).unwrap();
-    let class_info = calculate_class_info_for_testing(CairoVersion::Cairo1, contract_class);
+    let class_info = calculate_class_info_for_testing(contract_class);
     let declare_account_tx = AccountTransaction::Declare(
         DeclareTransaction::new(
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {

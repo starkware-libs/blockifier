@@ -11,7 +11,7 @@ use starknet_api::transaction::{
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
@@ -103,20 +103,6 @@ pub trait ValidatableTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
-#[derive(Clone, Debug)]
-// TODO(Ayelet,10/02/2024): Change to bytes.
-pub struct ClassInfo {
-    pub contract_class: ContractClass,
-    pub sierra_program_length: usize,
-    pub abi_length: usize,
-}
-
-impl ClassInfo {
-    pub fn bytecode_length(&self) -> usize {
-        self.contract_class.bytecode_length()
-    }
-}
-
 #[derive(Debug)]
 pub struct DeclareTransaction {
     pub tx: starknet_api::transaction::DeclareTransaction,
@@ -134,7 +120,7 @@ impl DeclareTransaction {
         only_query: bool,
     ) -> TransactionExecutionResult<Self> {
         let declare_version = declare_tx.version();
-        verify_contract_class_version(&class_info.contract_class, declare_version)?;
+        verify_contract_class_version(&class_info.contract_class(), declare_version)?;
         Ok(Self { tx: declare_tx, tx_hash, class_info, only_query })
     }
 
@@ -165,7 +151,7 @@ impl DeclareTransaction {
     }
 
     pub fn contract_class(&self) -> ContractClass {
-        self.class_info.contract_class.clone()
+        self.class_info.contract_class()
     }
 
     pub fn only_query(&self) -> bool {

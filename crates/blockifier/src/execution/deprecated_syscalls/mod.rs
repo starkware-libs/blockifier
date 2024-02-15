@@ -26,9 +26,6 @@ use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
     ReadOnlySegment,
 };
-use crate::execution::syscalls::hint_processor::{
-    VALIDATE_BLOCK_NUMBER_ROUNDING, VALIDATE_TIMESTAMP_ROUNDING,
-};
 
 #[cfg(test)]
 #[path = "deprecated_syscalls_test.rs"]
@@ -373,7 +370,11 @@ pub fn emit_event(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
-    exceeds_event_size_limit(execution_context.n_emitted_events + 1, &request.content)?;
+    exceeds_event_size_limit(
+        execution_context.versioned_constants(),
+        execution_context.n_emitted_events + 1,
+        &request.content,
+    )?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
@@ -403,10 +404,12 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
+    let versioned_constants = syscall_handler.context.versioned_constants();
     let block_number = syscall_handler.get_block_info().block_number;
     let block_number = match syscall_handler.execution_mode() {
         ExecutionMode::Validate => BlockNumber(
-            (block_number.0 / VALIDATE_BLOCK_NUMBER_ROUNDING) * VALIDATE_BLOCK_NUMBER_ROUNDING,
+            (block_number.0 / versioned_constants.validate_block_number_rounding)
+                * versioned_constants.validate_block_number_rounding,
         ),
         ExecutionMode::Execute => block_number,
     };
@@ -434,10 +437,12 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
+    let versioned_constants = syscall_handler.context.versioned_constants();
     let block_timestamp = syscall_handler.get_block_info().block_timestamp;
     let block_timestamp = match syscall_handler.execution_mode() {
         ExecutionMode::Validate => BlockTimestamp(
-            (block_timestamp.0 / VALIDATE_TIMESTAMP_ROUNDING) * VALIDATE_TIMESTAMP_ROUNDING,
+            (block_timestamp.0 / versioned_constants.validate_timestamp_rounding)
+                * versioned_constants.validate_timestamp_rounding,
         ),
         ExecutionMode::Execute => block_timestamp,
     };

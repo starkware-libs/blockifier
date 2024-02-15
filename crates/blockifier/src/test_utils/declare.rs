@@ -6,9 +6,10 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
+use crate::execution::contract_class::ClassInfo;
 use crate::test_utils::default_testing_resource_bounds;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::transactions::{ClassInfo, DeclareTransaction};
+use crate::transaction::transactions::DeclareTransaction;
 
 #[derive(Clone)]
 pub struct DeclareTxArgs {

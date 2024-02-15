@@ -5,7 +5,14 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import TxInfo, call_contract, get_tx_info
+from starkware.starknet.common.syscalls import (
+    TxInfo,
+    call_contract,
+    get_block_number,
+    get_block_timestamp,
+    get_sequencer_address,
+    get_tx_info
+)
 from starkware.starknet.common.messages import send_message_to_l1
 
 // Validate Scenarios.
@@ -16,6 +23,12 @@ const VALID = 0;
 const INVALID = 1;
 // Make a contract call.
 const CALL_CONTRACT = 2;
+// Use get_block_number syscall.
+const GET_BLOCK_NUMBER = 5;
+// Use get_block_timestamp syscall.
+const GET_BLOCK_TIMESTAMP = 6;
+// Use get_sequencer_address syscall.
+const GET_SEQUENCER_ADDRESS = 7;
 
 // get_selector_from_name('foo').
 const FOO_ENTRY_POINT_SELECTOR = (
@@ -84,16 +97,32 @@ func faulty_validate{syscall_ptr: felt*}() {
         assert 0 = 1;
         return ();
     }
+    if (scenario == CALL_CONTRACT) {
+        let contract_address = tx_info.signature[1];
+        let (calldata: felt*) = alloc();
+        call_contract(
+            contract_address=contract_address,
+            function_selector=FOO_ENTRY_POINT_SELECTOR,
+            calldata_size=0,
+            calldata=calldata,
+        );
+        return ();
+    }
+    if (scenario == GET_BLOCK_NUMBER) {
+        let expected_block_number = tx_info.signature[1];
+        let (block_number) = get_block_number();
+        assert block_number = expected_block_number;
+        return ();
+    }
+    if (scenario == GET_BLOCK_TIMESTAMP) {
+        let expected_block_timestamp = tx_info.signature[1];
+        let (block_timestamp) = get_block_timestamp();
+        assert block_timestamp = expected_block_timestamp;
+        return ();
+    }
 
-    assert scenario = CALL_CONTRACT;
-    let contract_address = tx_info.signature[1];
-    let (calldata: felt*) = alloc();
-    call_contract(
-        contract_address=contract_address,
-        function_selector=FOO_ENTRY_POINT_SELECTOR,
-        calldata_size=0,
-        calldata=calldata,
-    );
+    assert scenario = GET_SEQUENCER_ADDRESS;
+    let sequencer_address = get_sequencer_address();
     return ();
 }
 

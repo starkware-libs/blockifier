@@ -36,9 +36,20 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
     // Limits.
+    pub event_size_limit: EventSizeLimit,
     pub invoke_tx_max_n_steps: u32,
-    pub validate_max_n_steps: u32,
+    pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
+    // Flooring factor for block number in validate mode.
+    pub validate_block_number_rounding: u64,
+    pub validate_max_n_steps: u32,
+    // Flooring factor for timestamp in validate mode.
+    pub validate_timestamp_rounding: u64,
+
+    // Cairo OS constants.
+    // Note: if loaded from a json file, there are some assumptions made on its structure.
+    // See the struct's docstring for more details.
+    os_constants: Arc<OSConstants>,
 
     // Resources.
     os_resources: Arc<OsResources>,
@@ -47,13 +58,6 @@ pub struct VersionedConstants {
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
     vm_resource_fee_cost: Arc<HashMap<String, f64>>,
-
-    // Cairo OS constants.
-    // Note: if loaded from a json file, there are some assumptions made on its structure.
-    // See the struct's docstring for more details.
-    os_constants: Arc<OSConstants>,
-
-    pub l2_resource_gas_costs: L2ResourceGasCosts,
 }
 
 impl VersionedConstants {
@@ -159,6 +163,13 @@ pub struct L2ResourceGasCosts {
     pub milligas_per_data_felt: u128,
     pub event_key_factor: u128,
     pub milligas_per_code_byte: u128,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct EventSizeLimit {
+    pub max_data_length: usize,
+    pub max_keys_length: usize,
+    pub max_n_emitted_events: usize,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
