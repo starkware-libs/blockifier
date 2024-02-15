@@ -43,6 +43,8 @@ pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 pub const GET_BLOCK_HASH: u64 = 3;
 pub const GET_EXECUTION_INFO: u64 = 4;
+pub const GET_BLOCK_NUMBER: u64 = 5;
+pub const GET_BLOCK_TIMESTAMP: u64 = 6;
 pub const GET_SEQUENCER_ADDRESS: u64 = 7;
 
 macro_rules! impl_from_versioned_tx {
