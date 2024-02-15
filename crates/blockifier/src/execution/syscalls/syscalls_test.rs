@@ -135,7 +135,7 @@ fn test_emit_event() {
     );
 
     // Negative flow, the data length exceeds the limit.
-    let max_event_data_length = versioned_constants.event_size_limit.max_data_length;
+    let max_event_data_length = versioned_constants.tx_event_size_limit.max_data_length;
     let data_too_long = vec![stark_felt!(2_u16); max_event_data_length + 1];
     let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxDataLength {
@@ -145,7 +145,7 @@ fn test_emit_event() {
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the keys length exceeds the limit.
-    let max_event_keys_length = versioned_constants.event_size_limit.max_keys_length;
+    let max_event_keys_length = versioned_constants.tx_event_size_limit.max_keys_length;
     let keys_too_long = vec![stark_felt!(1_u16); max_event_keys_length + 1];
     let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxKeysLength {
@@ -155,7 +155,7 @@ fn test_emit_event() {
     assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 
     // Negative flow, the number of events exceeds the limit.
-    let max_n_emitted_events = versioned_constants.event_size_limit.max_n_emitted_events;
+    let max_n_emitted_events = versioned_constants.tx_event_size_limit.max_n_emitted_events;
     let n_emitted_events_too_big = vec![stark_felt!(
         u16::try_from(max_n_emitted_events + 1).expect("Failed to convert usize to u16.")
     )];
