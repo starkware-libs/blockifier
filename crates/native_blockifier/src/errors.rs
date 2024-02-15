@@ -1,3 +1,4 @@
+use blockifier::blockifier::block_executor::BlockifierError;
 use blockifier::blockifier::transaction_executor::TransactionExecutorError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
@@ -60,6 +61,7 @@ macro_rules! native_blockifier_errors {
 }
 
 native_blockifier_errors!(
+    (BlockifierError, BlockifierError, PyBlockifierError),
     (NativeBlockifierInputError, NativeBlockifierInputError, PyNativeBlockifierInputError),
     (ProgramError, ProgramError, PyProgramError),
     (Pyo3Error, PyErr, PyPyo3Error),
