@@ -53,7 +53,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, default_invoke_tx_args, test_erc20_account_balance_key,
+    create_calldata, create_trivial_calldata, test_erc20_account_balance_key,
     test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
@@ -340,8 +340,11 @@ fn test_invoke_tx(
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let account_contract_address = account_contract.get_instance_address(0);
-    let invoke_tx =
-        invoke_tx(default_invoke_tx_args(account_contract_address, test_contract_address));
+    let invoke_tx = invoke_tx(invoke_tx_args! {
+        sender_address: account_contract_address,
+        calldata: create_trivial_calldata(test_contract_address),
+        max_fee: Fee(MAX_FEE)
+    });
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
     // transaction.
@@ -754,8 +757,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
         &[(account_contract, 1), (test_contract, 1)],
     );
     let account_contract_address = account_contract.get_instance_address(0);
-    let default_args =
-        default_invoke_tx_args(account_contract_address, test_contract.get_instance_address(0));
+    let default_args = invoke_tx_args! {
+        sender_address: account_contract_address,
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)
+    )};
 
     let invalid_max_fee = Fee(BALANCE + 1);
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
@@ -815,10 +820,11 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let valid_invoke_tx_args = default_invoke_tx_args(
-        account_contract.get_instance_address(0),
-        test_contract.get_instance_address(0),
-    );
+    let valid_invoke_tx_args = invoke_tx_args! {
+        sender_address: account_contract.get_instance_address(0),
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        max_fee: Fee(MAX_FEE)
+    };
 
     // The minimal gas estimate does not depend on tx version.
     let tx = &account_invoke_tx(valid_invoke_tx_args.clone());
@@ -903,11 +909,11 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let invoke_tx_args = default_invoke_tx_args(
-        account_contract.get_instance_address(0),
-        test_contract.get_instance_address(0),
-    );
-
+    let invoke_tx_args = invoke_tx_args! {
+        sender_address: account_contract.get_instance_address(0),
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        max_fee: Fee(MAX_FEE)
+    };
     let tx = &account_invoke_tx(invoke_tx_args.clone());
     let minimal_l1_gas = estimate_minimal_gas_vector(block_context, tx).unwrap().l1_gas;
     let minimal_fee =
@@ -934,10 +940,11 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
         BALANCE,
         &[(account_contract, 1), (test_contract, 1)],
     );
-    let valid_invoke_tx_args = default_invoke_tx_args(
-        account_contract.get_instance_address(0),
-        test_contract.get_instance_address(0),
-    );
+    let valid_invoke_tx_args = invoke_tx_args! {
+        sender_address: account_contract.get_instance_address(0),
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        max_fee: Fee(MAX_FEE)
+    };
     let mut transactional_state = CachedState::create_transactional(state);
 
     // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
@@ -1544,10 +1551,11 @@ fn test_valid_flag(
         &[(account_contract, 1), (test_contract, 1)],
     );
 
-    let account_tx = account_invoke_tx(default_invoke_tx_args(
-        account_contract.get_instance_address(0),
-        test_contract.get_instance_address(0),
-    ));
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_contract.get_instance_address(0),
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        max_fee: Fee(MAX_FEE)
+    });
 
     let actual_execution_info = account_tx.execute(state, block_context, true, false).unwrap();
 
