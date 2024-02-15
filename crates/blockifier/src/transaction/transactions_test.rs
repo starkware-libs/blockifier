@@ -42,6 +42,7 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
     get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
+    get_onchain_data_segment_length,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -293,6 +294,28 @@ fn validate_final_balances(
     }
 }
 
+fn add_kzg_da_resources(
+    resources: &mut ResourcesMapping,
+    state_changes_count: StateChangesCount,
+    versioned_constants: &VersionedConstants,
+    use_kzg_da: bool,
+) {
+    if !use_kzg_da {
+        return;
+    }
+
+    let data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    let os_kzg_da_resources = versioned_constants.os_kzg_da_resources(data_segment_length);
+
+    let mut resources_to_add = os_kzg_da_resources.builtin_instance_counter;
+    resources_to_add
+        .insert(abi_constants::N_STEPS_RESOURCE.to_string(), os_kzg_da_resources.n_steps);
+
+    resources_to_add.into_iter().for_each(|(key, value)| {
+        resources.0.entry(key.to_string()).and_modify(|v| *v += value).or_insert(value);
+    });
+}
+
 // TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
 fn default_invoke_tx_args(
     account_contract_address: ContractAddress,
@@ -438,7 +461,7 @@ fn test_invoke_tx(
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let calldata_and_signature_gas =
         get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
-    let expected_execution_info = TransactionExecutionInfo {
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -459,6 +482,13 @@ fn test_invoke_tx(
         ])),
         revert_error: None,
     };
+
+    add_kzg_da_resources(
+        &mut expected_execution_info.actual_resources,
+        state_changes_count,
+        versioned_constants,
+        use_kzg_da,
+    );
 
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
@@ -1057,8 +1087,8 @@ fn declare_validate_callinfo(
 
 /// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
 /// a declare transaction.
-fn declare_expected_gas_vector(version: TransactionVersion, use_kzg_da: bool) -> GasVector {
-    let state_changes_count = match version {
+fn declare_expected_state_changes_count(version: TransactionVersion) -> StateChangesCount {
+    match version {
         TransactionVersion::ZERO => StateChangesCount {
             n_storage_updates: 1, // Sender balance.
             ..StateChangesCount::default()
@@ -1075,9 +1105,7 @@ fn declare_expected_gas_vector(version: TransactionVersion, use_kzg_da: bool) ->
             ..StateChangesCount::default()
         },
         version => panic!("Unsupported version {version:?}."),
-    };
-
-    get_da_gas_cost(state_changes_count, use_kzg_da)
+    }
 }
 
 #[rstest]
@@ -1142,11 +1170,12 @@ fn test_declare_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
-    let da_gas = declare_expected_gas_vector(tx_version, use_kzg_da);
+    let state_changes_count = declare_expected_state_changes_count(tx_version);
+    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
     let gas_usage = code_gas + da_gas;
 
-    let expected_execution_info = TransactionExecutionInfo {
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -1167,6 +1196,13 @@ fn test_declare_tx(
             ),
         ])),
     };
+
+    add_kzg_da_resources(
+        &mut expected_execution_info.actual_resources,
+        state_changes_count,
+        versioned_constants,
+        use_kzg_da,
+    );
 
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
@@ -1203,6 +1239,7 @@ fn test_deploy_account_tx(
     #[values(false, true)] use_kzg_da: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let chain_info = &block_context.chain_info;
     let mut nonce_manager = NonceManager::default();
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
@@ -1283,7 +1320,7 @@ fn test_deploy_account_tx(
     };
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
 
-    let expected_execution_info = TransactionExecutionInfo {
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -1301,6 +1338,13 @@ fn test_deploy_account_tx(
             (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
         ])),
     };
+
+    add_kzg_da_resources(
+        &mut expected_execution_info.actual_resources,
+        state_changes_count,
+        versioned_constants,
+        use_kzg_da,
+    );
 
     // Test execution info result.
     assert_eq!(actual_execution_info, expected_execution_info);
@@ -1710,6 +1754,7 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
 fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let state = &mut create_test_state();
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let versioned_constants = &block_context.versioned_constants;
     let from_address = StarkFelt::from_u128(0x123);
     let key = StarkFelt::from_u128(0x876);
     let value = StarkFelt::from_u128(0x44);
@@ -1757,7 +1802,13 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         false => GasVector { l1_gas: 1652, l1_data_gas: 0 },
     };
 
-    let expected_resource_mapping = ResourcesMapping(HashMap::from([
+    let state_changes_count = StateChangesCount {
+        n_storage_updates: 1,
+        n_modified_contracts: 1,
+        ..StateChangesCount::default()
+    };
+
+    let mut expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
         (abi_constants::N_STEPS_RESOURCE.to_string(), 1405),
         (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
@@ -1767,6 +1818,13 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             usize_from_u128(expected_gas.l1_data_gas).unwrap(),
         ),
     ]));
+
+    add_kzg_da_resources(
+        &mut expected_resource_mapping,
+        state_changes_count,
+        versioned_constants,
+        use_kzg_da,
+    );
 
     // Build the expected execution info.
     let expected_execution_info = TransactionExecutionInfo {
@@ -1797,11 +1855,13 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let tx_no_fee = l1_handler_tx(&calldata, Fee(0));
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
+    let expected_actual_fee =
+        if use_kzg_da { Fee(1744900000000000) } else { Fee(1742800000000000) };
     assert_matches!(
         error,
         TransactionExecutionError::TransactionFeeError(
             TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee, })
-            if paid_fee == Fee(0) && actual_fee == Fee(1742800000000000)
+            if paid_fee == Fee(0) && actual_fee == expected_actual_fee
     );
 }
 

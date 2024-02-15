@@ -296,8 +296,6 @@ pub fn estimate_minimal_gas_vector(
 ) -> TransactionPreValidationResult<GasVector> {
     // TODO(Dori, 1/8/2023): Give names to the constant VM step estimates and regression-test them.
     let BlockContext { block_info, versioned_constants, .. } = block_context;
-    let os_steps_for_type =
-        versioned_constants.os_resources_for_tx_type(&tx.tx_type(), tx.calldata_length()).n_steps;
     let state_changes_by_account_transaction = match tx {
         // We consider the following state changes: sender balance update (storage update) + nonce
         // increment (contract modification) (we exclude the sequencer balance update and the ERC20
@@ -324,6 +322,11 @@ pub fn estimate_minimal_gas_vector(
     };
     let GasVector { l1_gas: gas_cost, l1_data_gas: blob_gas_cost } =
         get_da_gas_cost(state_changes_by_account_transaction, block_info.use_kzg_da);
+
+    let data_segment_length = get_onchain_data_segment_length(state_changes_by_account_transaction);
+    let os_steps_for_type =
+        versioned_constants.os_resources_for_tx_type(&tx.tx_type(), tx.calldata_length()).n_steps
+            + versioned_constants.os_kzg_da_resources(data_segment_length).n_steps;
 
     let resources = ResourcesMapping(HashMap::from([
         (
