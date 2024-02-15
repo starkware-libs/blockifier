@@ -205,10 +205,20 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*value)
     }
 
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let mut cache = self.cache.borrow_mut();
+    fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        let value =
+            self.cache.get_storage_initial_value(contract_address, key).unwrap_or_else(|| {
+                panic!("Cannot retrieve '{contract_address:?}' and '{key:?}' from the cache.")
+            });
+        Ok(*value)
+    }
 
-        if cache.get_nonce_at(contract_address).is_none() {
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        if self.cache.get_nonce_at(contract_address).is_none() {
             let nonce = self.state.get_nonce_at(contract_address)?;
             cache.set_nonce_initial_value(contract_address, nonce);
         }
@@ -220,10 +230,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
         Ok(*nonce)
     }
 
-    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        let mut cache = self.cache.borrow_mut();
-
-        if cache.get_class_hash_at(contract_address).is_none() {
+    fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
             let class_hash = self.state.get_class_hash_at(contract_address)?;
             cache.set_class_hash_initial_value(contract_address, class_hash);
         }
@@ -233,13 +240,22 @@ impl<S: StateReader> StateReader for CachedState<S> {
             .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
         Ok(*class_hash)
     }
+    fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> StateResult<ClassHash> {
+        let class_hash = self
+            .cache
+            .get_class_hash_initial_value(contract_address)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{contract_address:?}' from the cache."));
+        Ok(*class_hash)
+    }
 
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        let class_hash_to_class = &mut *self.class_hash_to_class.borrow_mut();
-
-        if let std::collections::hash_map::Entry::Vacant(vacant_entry) =
-            class_hash_to_class.entry(class_hash)
-        {
+    #[allow(clippy::map_entry)]
+    // Clippy solution don't work because it required two mutable ref to self
+    // Could probably be solved with interior mutability
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        if !self.class_hash_to_class.contains_key(&class_hash) {
             let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
 
             match contract_class {
@@ -272,6 +288,17 @@ impl<S: StateReader> StateReader for CachedState<S> {
 
         let compiled_class_hash = cache
             .get_compiled_class_hash(class_hash)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
+        Ok(*compiled_class_hash)
+    }
+
+    fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<CompiledClassHash> {
+        let compiled_class_hash = self
+            .cache
+            .get_compiled_class_hash_initial_value(class_hash)
             .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
         Ok(*compiled_class_hash)
     }
@@ -406,10 +433,22 @@ impl StateCache {
             .or_else(|| self.storage_initial_values.get(&contract_storage_key))
     }
 
+    fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> Option<&StarkFelt> {
+        self.storage_initial_values.get(&(contract_address, key))
+    }
+
     fn get_nonce_at(&self, contract_address: ContractAddress) -> Option<&Nonce> {
         self.nonce_writes
             .get(&contract_address)
             .or_else(|| self.nonce_initial_values.get(&contract_address))
+    }
+
+    pub fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> Option<&Nonce> {
+        self.nonce_initial_values.get(&contract_address)
     }
 
     pub fn set_storage_initial_value(
@@ -446,6 +485,13 @@ impl StateCache {
             .or_else(|| self.class_hash_initial_values.get(&contract_address))
     }
 
+    fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> Option<&ClassHash> {
+        self.class_hash_initial_values.get(&contract_address)
+    }
+
     fn set_class_hash_initial_value(
         &mut self,
         contract_address: ContractAddress,
@@ -462,6 +508,13 @@ impl StateCache {
         self.compiled_class_hash_writes
             .get(&class_hash)
             .or_else(|| self.compiled_class_hash_initial_values.get(&class_hash))
+    }
+
+    fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> Option<&CompiledClassHash> {
+        self.compiled_class_hash_initial_values.get(&class_hash)
     }
 
     fn set_compiled_class_hash_initial_value(
@@ -520,20 +573,46 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
         self.0.get_storage_at(contract_address, key)
     }
 
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    fn get_storage_initial_value(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<StarkFelt> {
+        self.0.get_storage_initial_value(contract_address, key)
+    }
+
+    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
         self.0.get_nonce_at(contract_address)
     }
 
-    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    fn get_nonce_initial_value(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.0.get_nonce_initial_value(contract_address)
+    }
+
+    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         self.0.get_class_hash_at(contract_address)
     }
 
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_class_hash_initial_value(
+        &self,
+        contract_address: ContractAddress,
+    ) -> StateResult<ClassHash> {
+        self.0.get_class_hash_initial_value(contract_address)
+    }
+
+    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass> {
         self.0.get_compiled_contract_class(class_hash)
     }
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         self.0.get_compiled_class_hash(class_hash)
+    }
+
+    fn get_compiled_class_hash_initial_value(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<CompiledClassHash> {
+        self.0.get_compiled_class_hash_initial_value(class_hash)
     }
 }
 
