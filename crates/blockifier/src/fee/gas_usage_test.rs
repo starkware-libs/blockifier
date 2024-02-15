@@ -108,7 +108,7 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 
     let computed_gas_vector = get_da_gas_cost(state_changes_count, true);
     assert_eq!(
-        GasVector { l1_gas: 0, l1_data_gas: u128_from_usize(manual_blob_gas_usage).unwrap() },
+        GasVector { l1_gas: 0, l1_data_gas: u128_from_usize(manual_blob_gas_usage) },
         computed_gas_vector
     );
 }

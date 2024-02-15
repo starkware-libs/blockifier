@@ -113,8 +113,6 @@ pub enum ParseError {
 
 #[derive(Debug, Error)]
 pub enum NumericConversionError {
-    #[error("Conversion of {0} to usize unsuccessful.")]
-    UsizeToU128Error(usize),
     #[error("Conversion of {0} to u128 unsuccessful.")]
     U128ToUsizeError(u128),
 }
