@@ -27,24 +27,24 @@ pub trait StateReader {
     /// its address).
     /// Default: 0 for an uninitialized contract address.
     fn get_storage_at(
-        &mut self,
+        &self,
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt>;
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce>;
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce>;
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash>;
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash>;
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(&mut self, class_hash: ClassHash) -> StateResult<ContractClass>;
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass>;
 
     /// Returns the compiled class hash of the given class hash.
-    fn get_compiled_class_hash(&mut self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
 
     /// Returns the storage value representing the balance (in fee token) at the given address.
     // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, change the
