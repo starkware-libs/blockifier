@@ -38,17 +38,8 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-<<<<<<< HEAD
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
-    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
-    get_onchain_data_segment_length,
-||||||| 06ceabe9
-    calculate_tx_gas_usage_vector, estimate_minimal_gas_vector,
-    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost,
-=======
     estimate_minimal_gas_vector, get_calldata_and_signature_gas_cost, get_code_gas_cost,
-    get_da_gas_cost,
->>>>>>> origin/main-v0.13.1
+    get_da_gas_cost, get_onchain_data_segment_length,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -306,7 +297,6 @@ fn validate_final_balances(
     }
 }
 
-<<<<<<< HEAD
 fn add_kzg_da_resources(
     resources: &mut ResourcesMapping,
     state_changes_count: StateChangesCount,
@@ -329,49 +319,6 @@ fn add_kzg_da_resources(
     });
 }
 
-// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
-fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
-        test_contract_address,
-        "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-    }
-}
-
-||||||| 06ceabe9
-// TODO(Gilad, 30/03/2024): Make this an associated function of InvokeTxArgs.
-fn default_invoke_tx_args(
-    account_contract_address: ContractAddress,
-    test_contract_address: ContractAddress,
-) -> InvokeTxArgs {
-    let execute_calldata = create_calldata(
-        test_contract_address,
-        "return_result",
-        &[stark_felt!(2_u8)], // Calldata: num.
-    );
-
-    invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        signature: TransactionSignature::default(),
-        nonce: Nonce::default(),
-        sender_address: account_contract_address,
-        calldata: execute_calldata,
-    }
-}
-
-=======
->>>>>>> origin/main-v0.13.1
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
